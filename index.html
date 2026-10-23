@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>보컬노트 폰 실험</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<meta name="theme-color" content="#2b4c7e">
+<style>
+  :root { --bg:#ffffff; --fg:#1b1f24; --muted:#5b6470; --card:#f4f6f9; --line:#d5dbe3; --accent:#2b4c7e; --ok:#1f7a3a; --bad:#b42318; --warn-bg:#fff6dd; --warn-line:#e8cf86; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg:#121417; --fg:#e8ebef; --muted:#a3acb8; --card:#1c2026; --line:#323843; --accent:#8fb0e6; --ok:#5fcf80; --bad:#ff7b6b; --warn-bg:#2d2816; --warn-line:#6b5a22; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font: 18px/1.6 system-ui, "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; }
+  main { max-width: 720px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 1.5rem; margin: 8px 0 4px; }
+  h2 { font-size: 1.2rem; margin: 0 0 8px; }
+  .card { background: var(--card); border:1px solid var(--line); border-radius: 14px; padding: 16px; margin: 14px 0; }
+  .muted { color: var(--muted); font-size: .92rem; }
+  .warn { background: var(--warn-bg); border:1px solid var(--warn-line); border-radius: 10px; padding: 10px 12px; }
+  button { font: inherit; width: 100%; min-height: 52px; margin: 6px 0; border-radius: 12px; border: 0; background: var(--accent); color: #fff; font-weight: 600; }
+  button.secondary { background: transparent; color: var(--accent); border: 2px solid var(--accent); }
+  button:disabled { opacity: .45; }
+  label.check { display:flex; gap:10px; align-items:flex-start; margin: 8px 0; }
+  label.check input { width: 24px; height: 24px; margin-top: 3px; flex: none; }
+  textarea { width: 100%; min-height: 90px; font: inherit; font-size: .9rem; border-radius: 10px; border:1px solid var(--line); background: var(--bg); color: var(--fg); padding: 8px; }
+  audio { width: 100%; margin: 8px 0; }
+  ol { padding-left: 1.3em; margin: 6px 0; }
+  .kv { display:grid; grid-template-columns: max-content 1fr; gap: 2px 12px; font-size: .95rem; word-break: break-all; }
+  .ok { color: var(--ok); font-weight: 600; } .bad { color: var(--bad); font-weight: 600; }
+  #log li { font-size: .92rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>작품 보컬노트 · 폰 실험</h1>
+  <p class="muted">안드로이드 앱 없이 ① 녹음 파일을 공유 메뉴로 받을 수 있는지, ② 클립과 문구를 카톡으로 보낼 수 있는지 확인하는 시험 페이지입니다. 파일은 이 폰 안에만 저장되고 어디에도 업로드되지 않습니다.</p>
+
+  <section class="card">
+    <h2>순서</h2>
+    <ol>
+      <li><b>크롬</b>으로 이 페이지를 열고, 오른쪽 위 ⋮ → <b>“앱 설치” 또는 “홈 화면에 추가”</b>.</li>
+      <li>삼성 <b>음성 녹음</b> 앱에서 1분짜리 녹음 → 공유 → <b>“보컬노트실험”</b> 선택.</li>
+      <li>가능하면 예전 <b>60~90분 레슨 녹음</b>도 한 번 공유해 보기(수강생 동의가 없는 녹음은 이 폰 밖으로 보내지 마세요).</li>
+      <li>아래 카톡 시험 ①~④를 <b>카톡 ‘나와의 채팅’</b>으로 보내 보기.</li>
+      <li>관찰 체크 → <b>결과 복사</b> → Claude 대화창에 붙여넣기.</li>
+    </ol>
+    <p id="installState" class="muted"></p>
+  </section>
+
+  <section class="card">
+    <h2>1. 공유로 받은 녹음 파일</h2>
+    <div id="received" class="muted">아직 받은 파일이 없습니다. 녹음 앱에서 공유해 주세요.</div>
+    <button class="secondary" id="clearBtn" type="button">받은 파일 지우기</button>
+  </section>
+
+  <section class="card">
+    <h2>2. 카톡으로 보내기 시험</h2>
+    <p class="muted">공유 창이 뜨면 카카오톡 → ‘나와의 채팅’을 고르세요. 아래 시험 문구가 같이 가는지 보는 것이 핵심입니다.</p>
+    <audio controls preload="none" src="sample.mp3"></audio>
+    <button id="t1" type="button">① 샘플 클립 + 문구 함께</button>
+    <button id="t2" type="button">② 샘플 클립만</button>
+    <button id="t3" type="button">③ 문구만</button>
+    <button id="t4" type="button" disabled>④ 받은 녹음 파일 그대로</button>
+    <ul id="log"></ul>
+  </section>
+
+  <section class="card">
+    <h2>3. 눈으로 확인한 것</h2>
+    <label class="check"><input type="checkbox" data-obs="share_menu_listed"> 녹음 앱 공유 목록에 ‘보컬노트실험’이 보였다</label>
+    <label class="check"><input type="checkbox" data-obs="received_ok"> 공유한 녹음이 위 1번에 나타나고 재생됐다</label>
+    <label class="check"><input type="checkbox" data-obs="long_ok"> 60~90분 녹음도 받아졌고 길이가 맞았다</label>
+    <label class="check"><input type="checkbox" data-obs="kakao_file_arrived"> 카톡에 클립 파일이 도착했다</label>
+    <label class="check"><input type="checkbox" data-obs="kakao_text_with_file"> ①에서 문구도 파일과 같이 도착했다</label>
+    <label class="check"><input type="checkbox" data-obs="kakao_plays"> 카톡에서 클립을 눌러 바로 재생할 수 있었다</label>
+    <label class="check"><input type="checkbox" data-obs="kakao_long_ok"> ④ 긴 녹음도 카톡으로 보내졌다</label>
+    <textarea id="notes" placeholder="기타 메모 (예: 공유 목록에 이름이 두 번 보임, 파일 이름이 이상함 등)"></textarea>
+  </section>
+
+  <section class="card">
+    <h2>4. 결과 보내기</h2>
+    <button id="copyBtn" type="button">결과 복사</button>
+    <textarea id="report" readonly></textarea>
+    <p class="muted">‘결과 복사’가 안 되면 위 상자 안의 글을 길게 눌러 전체 선택 후 복사하세요.</p>
+  </section>
+
+  <p class="warn">이 페이지는 실험용입니다. 실제 서비스가 아니며, 결과(체크·메모)는 이 폰 화면에만 있습니다.</p>
+</main>
+
+<script>
+(() => {
+  const SHARE_TEXT = '오늘 고음 연결이 정말 좋아졌어요! 이 부분 한 번 더 들어보세요 :) — 작품 보컬노트 시험';
+  const state = { env: {}, canShare: {}, received: null, receivedDurationSec: null, shares: [] };
+  const $ = (id) => document.getElementById(id);
+  let receivedFile = null;
+
+  function fmtBytes(n) { if (n == null) return '-'; const u = ['B','KB','MB','GB']; let i = 0; while (n >= 1024 && i < 3) { n /= 1024; i++; } return n.toFixed(i ? 1 : 0) + ' ' + u[i]; }
+  function fmtSec(s) { if (!isFinite(s)) return '-'; s = Math.round(s); const h = Math.floor(s/3600), m = Math.floor(s%3600/60), x = s%60; return (h ? h + ':' + String(m).padStart(2,'0') : m) + ':' + String(x).padStart(2,'0'); }
+
+  function env() {
+    state.env = {
+      userAgent: navigator.userAgent,
+      standalone: matchMedia('(display-mode: standalone)').matches,
+      secureContext: window.isSecureContext,
+      hasShare: typeof navigator.share === 'function',
+      hasCanShare: typeof navigator.canShare === 'function',
+      hasServiceWorker: 'serviceWorker' in navigator,
+      url: location.href.split('?')[0],
+    };
+    $('installState').textContent = state.env.standalone
+      ? '✔ 설치된 앱으로 실행 중입니다.'
+      : '아직 브라우저 탭으로 열려 있습니다. 공유 목록에 나타나려면 설치가 필요합니다.';
+  }
+
+  async function fileFrom(path, name, type) {
+    const blob = await (await fetch(path)).blob();
+    return new File([blob], name, { type });
+  }
+
+  async function testCanShare() {
+    if (!state.env.hasCanShare) return;
+    const cases = [
+      ['sample.mp3', 'clip.mp3', 'audio/mpeg'],
+      ['sample.m4a', 'clip.m4a', 'audio/x-m4a'],
+      ['sample.m4a', 'clip.m4a', 'audio/mp4'],
+      ['sample.m4a', 'clip.m4a', ''],
+    ];
+    for (const [p, n, t] of cases) {
+      try { state.canShare[`${n} (${t || '형식 없음'})`] = navigator.canShare({ files: [await fileFrom(p, n, t)] }); }
+      catch (e) { state.canShare[`${n} (${t || '형식 없음'})`] = 'error:' + e.name; }
+    }
+    try { state.canShare['text only'] = navigator.canShare({ text: SHARE_TEXT }); } catch (e) { state.canShare['text only'] = 'error:' + e.name; }
+  }
+
+  async function loadReceived() {
+    const box = $('received');
+    let meta, shared;
+    try {
+      shared = await caches.open('p0a-shared-files');
+      const r = await shared.match(new Request('./shared/meta.json'));
+      if (!r) return;
+      meta = await r.json();
+    } catch { return; }
+    state.received = meta;
+    if (meta.error) { box.innerHTML = '<span class="bad">받는 중 오류:</span> ' + meta.error; return; }
+    if (!meta.files || !meta.files.length) {
+      box.innerHTML = '<span class="bad">공유는 들어왔지만 파일이 없습니다.</span> 받은 항목: ' + (meta.fieldNames || []).join(', ');
+      return;
+    }
+    const f = meta.files[0];
+    box.innerHTML = `<div class="kv">
+      <b>파일 이름</b><span>${escapeHtml(f.name)}</span>
+      <b>형식(MIME)</b><span>${escapeHtml(f.type || '(없음)')}</span>
+      <b>크기</b><span>${fmtBytes(f.size)}</span>
+      <b>길이</b><span id="dur">확인 중…</span>
+      <b>받은 시각</b><span>${new Date(meta.receivedAt).toLocaleString('ko-KR')}</span>
+      <b>처리 시간</b><span>${meta.processingMs} ms</span>
+      <b>함께 온 글</b><span>${escapeHtml([meta.title, meta.text, meta.url].filter(Boolean).join(' / ') || '(없음)')}</span>
+    </div><audio id="recvAudio" controls></audio>${meta.files.length > 1 ? `<p class="muted">파일 ${meta.files.length}개 중 첫 번째만 표시</p>` : ''}`;
+    try {
+      const hit = await shared.match(new Request('./shared/0'));
+      if (!hit) throw new Error('저장된 파일 없음');
+      const blob = await hit.blob();
+      let type = f.type;
+      if (/\.m4a$/i.test(f.name) && (!type || type === 'audio/mp4')) type = 'audio/x-m4a';
+      receivedFile = new File([blob], f.name || 'recording.m4a', { type: type || 'application/octet-stream' });
+      const a = $('recvAudio');
+      a.src = URL.createObjectURL(blob);
+      a.addEventListener('loadedmetadata', () => { state.receivedDurationSec = a.duration; $('dur').textContent = fmtSec(a.duration); render(); }, { once: true });
+      a.addEventListener('error', () => { $('dur').innerHTML = '<span class="bad">이 브라우저에서 재생 불가</span>'; }, { once: true });
+      $('t4').disabled = false;
+      if (state.env.hasCanShare) state.canShare['received file'] = navigator.canShare({ files: [receivedFile] });
+    } catch (e) { $('dur').textContent = '불러오기 실패: ' + e.message; }
+  }
+
+  function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+
+  async function doShare(id, label, dataFn) {
+    const entry = { test: id, label, at: new Date().toISOString() };
+    try {
+      if (!state.env.hasShare) throw Object.assign(new Error('navigator.share 없음'), { name: 'NotSupported' });
+      const data = await dataFn();
+      if (data.files && state.env.hasCanShare && !navigator.canShare(data)) {
+        throw Object.assign(new Error('canShare=false'), { name: 'CannotShareType' });
+      }
+      await navigator.share(data);
+      entry.result = 'resolved';
+    } catch (e) {
+      entry.result = e.name === 'AbortError' ? 'cancelled' : 'error';
+      entry.error = `${e.name}: ${e.message}`;
+    }
+    state.shares.push(entry);
+    const li = document.createElement('li');
+    li.innerHTML = `${escapeHtml(label)} → <span class="${entry.result === 'resolved' ? 'ok' : 'bad'}">${escapeHtml(entry.result)}</span>${entry.error ? ' (' + escapeHtml(entry.error) + ')' : ''}`;
+    $('log').appendChild(li);
+    render();
+  }
+
+  function render() {
+    const obs = {};
+    document.querySelectorAll('[data-obs]').forEach((el) => { obs[el.dataset.obs] = el.checked; });
+    const report = {
+      kind: 'jakpum-p0a-report', version: 1, createdAt: new Date().toISOString(),
+      env: state.env, canShare: state.canShare,
+      received: state.received, receivedDurationSec: state.receivedDurationSec,
+      shares: state.shares, observations: obs, notes: $('notes').value,
+    };
+    $('report').value = JSON.stringify(report, null, 1);
+  }
+
+  $('t1').onclick = () => doShare('t1', '① 클립+문구', async () => ({ files: [await fileFrom('sample.mp3', '작품_시험클립.mp3', 'audio/mpeg')], text: SHARE_TEXT, title: '작품 보컬노트' }));
+  $('t2').onclick = () => doShare('t2', '② 클립만', async () => ({ files: [await fileFrom('sample.mp3', '작품_시험클립.mp3', 'audio/mpeg')] }));
+  $('t3').onclick = () => doShare('t3', '③ 문구만', async () => ({ text: SHARE_TEXT }));
+  $('t4').onclick = () => doShare('t4', '④ 받은 녹음 그대로', async () => ({ files: [receivedFile] }));
+  $('clearBtn').onclick = async () => { await caches.delete('p0a-shared-files'); location.replace('./'); };
+  $('copyBtn').onclick = async () => {
+    render();
+    try { await navigator.clipboard.writeText($('report').value); $('copyBtn').textContent = '복사됨 ✔'; }
+    catch { $('report').select(); $('copyBtn').textContent = '자동 복사 실패 — 상자에서 직접 복사'; }
+  };
+  document.querySelectorAll('[data-obs]').forEach((el) => el.addEventListener('change', render));
+  $('notes').addEventListener('input', render);
+
+  (async () => {
+    env();
+    if ('serviceWorker' in navigator) {
+      try { await navigator.serviceWorker.register('sw.js'); state.env.swRegistered = true; }
+      catch (e) { state.env.swRegistered = 'error: ' + e.message; }
+    }
+    await testCanShare();
+    await loadReceived();
+    render();
+    window.__p0aReady = true;
+  })();
+})();
+</script>
+</body>
+</html>
