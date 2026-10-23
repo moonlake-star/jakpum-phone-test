@@ -1,6 +1,6 @@
 // 작품 보컬노트 폰 실험 — 서비스 워커
 // 역할: (1) 다른 앱(삼성 녹음 앱 등)이 공유한 파일을 받아 저장 (2) 페이지 오프라인 캐시
-const SHELL_CACHE = 'p0a-shell-v1';
+const SHELL_CACHE = 'p0a-shell-v2';
 const SHARED_CACHE = 'p0a-shared-files';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png',
   './sample.mp3', './sample.m4a'];

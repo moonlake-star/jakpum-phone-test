@@ -51,7 +51,7 @@
   </section>
 
   <section class="card">
-    <h2>1. 공유로 받은 녹음 파일</h2>
+    <h2>1. 공유로 받은 녹음 파일 · 텍스트</h2>
     <div id="received" class="muted">아직 받은 파일이 없습니다. 녹음 앱에서 공유해 주세요.</div>
     <button class="secondary" id="clearBtn" type="button">받은 파일 지우기</button>
   </section>
@@ -149,18 +149,35 @@
       box.innerHTML = '<span class="bad">공유는 들어왔지만 파일이 없습니다.</span> 받은 항목: ' + (meta.fieldNames || []).join(', ');
       return;
     }
-    const f = meta.files[0];
-    box.innerHTML = `<div class="kv">
-      <b>파일 이름</b><span>${escapeHtml(f.name)}</span>
-      <b>형식(MIME)</b><span>${escapeHtml(f.type || '(없음)')}</span>
-      <b>크기</b><span>${fmtBytes(f.size)}</span>
-      <b>길이</b><span id="dur">확인 중…</span>
+    const isText = (x) => /^text\//.test(x.type || '') || /\.(txt|srt|vtt|json)$/i.test(x.name || '');
+    const audioIdx = meta.files.findIndex((x) => !isText(x));
+    const rows = meta.files.map((x) => `<b>파일 ${x.index + 1}</b><span>${escapeHtml(x.name)} · ${escapeHtml(x.type || '(형식 없음)')} · ${fmtBytes(x.size)}</span>`).join('');
+    box.innerHTML = `<div class="kv">${rows}
+      <b>길이</b><span id="dur">${audioIdx >= 0 ? '확인 중…' : '(음성 파일 없음)'}</span>
       <b>받은 시각</b><span>${new Date(meta.receivedAt).toLocaleString('ko-KR')}</span>
-      <b>처리 시간</b><span>${meta.processingMs} ms</span>
       <b>함께 온 글</b><span>${escapeHtml([meta.title, meta.text, meta.url].filter(Boolean).join(' / ') || '(없음)')}</span>
-    </div><audio id="recvAudio" controls></audio>${meta.files.length > 1 ? `<p class="muted">파일 ${meta.files.length}개 중 첫 번째만 표시</p>` : ''}`;
+    </div>${audioIdx >= 0 ? '<audio id="recvAudio" controls></audio>' : ''}<div id="textBox"></div>`;
+    // 텍스트(삼성 녹음 앱 음성인식 결과 등) 분석: 시간 표시·화자 표시가 있는지
+    state.receivedTexts = [];
+    for (const x of meta.files.filter(isText)) {
+      try {
+        const hit = await shared.match(new Request(`./shared/${x.index}`));
+        const text = await hit.text();
+        const lines = text.split(/\r?\n/);
+        const timeRe = /\b\d{1,2}:\d{2}(?::\d{2})?\b/;
+        const info = {
+          name: x.name, chars: text.length, lines: lines.length,
+          linesWithTime: lines.filter((l) => timeRe.test(l)).length,
+          sampleLines: lines.filter((l) => l.trim()).slice(0, 12).map((l) => l.slice(0, 160)),
+        };
+        state.receivedTexts.push(info);
+        $('textBox').insertAdjacentHTML('beforeend', `<p><b>텍스트: ${escapeHtml(x.name)}</b> — ${info.chars.toLocaleString()}자, ${info.lines}줄, 시간 표시가 있는 줄 ${info.linesWithTime}개</p><textarea readonly>${escapeHtml(text.slice(0, 3000))}</textarea>`);
+      } catch (e) { $('textBox').insertAdjacentHTML('beforeend', `<p class="bad">텍스트 읽기 실패: ${escapeHtml(e.message)}</p>`); }
+    }
+    if (audioIdx < 0) { render(); return; }
+    const f = meta.files[audioIdx];
     try {
-      const hit = await shared.match(new Request('./shared/0'));
+      const hit = await shared.match(new Request(`./shared/${audioIdx}`));
       if (!hit) throw new Error('저장된 파일 없음');
       const blob = await hit.blob();
       let type = f.type;
@@ -202,9 +219,9 @@
     const obs = {};
     document.querySelectorAll('[data-obs]').forEach((el) => { obs[el.dataset.obs] = el.checked; });
     const report = {
-      kind: 'jakpum-p0a-report', version: 1, createdAt: new Date().toISOString(),
+      kind: 'jakpum-p0a-report', version: 2, createdAt: new Date().toISOString(),
       env: state.env, canShare: state.canShare,
-      received: state.received, receivedDurationSec: state.receivedDurationSec,
+      received: state.received, receivedDurationSec: state.receivedDurationSec, receivedTexts: state.receivedTexts,
       shares: state.shares, observations: obs, notes: $('notes').value,
     };
     $('report').value = JSON.stringify(report, null, 1);
