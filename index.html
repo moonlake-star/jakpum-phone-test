@@ -162,16 +162,19 @@
     for (const x of meta.files.filter(isText)) {
       try {
         const hit = await shared.match(new Request(`./shared/${x.index}`));
-        const text = await hit.text();
-        const lines = text.split(/\r?\n/);
-        const timeRe = /\b\d{1,2}:\d{2}(?::\d{2})?\b/;
-        const info = {
-          name: x.name, chars: text.length, lines: lines.length,
-          linesWithTime: lines.filter((l) => timeRe.test(l)).length,
-          sampleLines: lines.filter((l) => l.trim()).slice(0, 12).map((l) => l.slice(0, 160)),
-        };
+        const buf = new Uint8Array(await hit.arrayBuffer());
+        let enc = 'utf-8';
+        if (buf[0] === 0xFF && buf[1] === 0xFE) enc = 'utf-16le';
+        else if (buf[0] === 0xFE && buf[1] === 0xFF) enc = 'utf-16be';
+        else if (buf.length > 3 && buf[1] === 0 && buf[3] === 0) enc = 'utf-16le';
+        const text = new TextDecoder(enc).decode(buf).replace(/^﻿/, '');
+        const info = analyzeTranscript(text);
+        info.name = x.name; info.encoding = enc;
         state.receivedTexts.push(info);
-        $('textBox').insertAdjacentHTML('beforeend', `<p><b>텍스트: ${escapeHtml(x.name)}</b> — ${info.chars.toLocaleString()}자, ${info.lines}줄, 시간 표시가 있는 줄 ${info.linesWithTime}개</p><textarea readonly>${escapeHtml(text.slice(0, 3000))}</textarea>`);
+        $('textBox').insertAdjacentHTML('beforeend',
+          `<p><b>텍스트: ${escapeHtml(x.name)}</b><br>문자 방식 ${enc} · 구간 ${info.segments}개 · 시간 형식 ${escapeHtml(info.timeFormat)} · 화자 표시 ${info.speakerLabels ? info.speakerLabels + '종류' : '없음'} · 마지막 시간 ${escapeHtml(info.lastTime || '-')}</p>
+           <p class="muted">아래 미리보기는 이 화면에만 보이고, '결과 복사'에는 내용이 들어가지 않습니다.</p>
+           <textarea readonly>${escapeHtml(text.slice(0, 1500))}</textarea>`);
       } catch (e) { $('textBox').insertAdjacentHTML('beforeend', `<p class="bad">텍스트 읽기 실패: ${escapeHtml(e.message)}</p>`); }
     }
     if (audioIdx < 0) { render(); return; }
@@ -190,6 +193,40 @@
       $('t4').disabled = false;
       if (state.env.hasCanShare) state.canShare['received file'] = navigator.canShare({ files: [receivedFile] });
     } catch (e) { $('dur').textContent = '불러오기 실패: ' + e.message; }
+  }
+
+
+  // 삼성 녹음 앱 전사 텍스트의 '구조'만 분석 (내용은 보고서에 넣지 않음)
+  function analyzeTranscript(text) {
+    const lines = text.split(/\r?\n/);
+    const timeOnly = /^\s*((\d{1,2}:)?\d{1,2}:\d{2})\s*$/;
+    const labelTime = /^\s*(.{1,30}?)\s+((\d{1,2}:)?\d{1,2}:\d{2})\s*$/;
+    const pattern = [];
+    const speakers = new Set();
+    const times = [];
+    let segments = 0, textChars = 0;
+    for (const raw of lines) {
+      const l = raw.trim();
+      let m;
+      if (!l) { pattern.push('BLANK'); continue; }
+      if ((m = l.match(timeOnly))) { segments++; times.push(m[1]); pattern.push('TIME'); continue; }
+      if ((m = l.match(labelTime))) { segments++; times.push(m[2]); speakers.add(m[1]); pattern.push('LABEL+TIME'); continue; }
+      textChars += l.length; pattern.push(`TEXT(${l.length})`);
+    }
+    const toSec = (t) => t.split(':').map(Number).reduce((a, b) => a * 60 + b, 0);
+    const secs = times.map(toSec);
+    const gaps = secs.slice(1).map((v, i) => v - secs[i]).filter((g) => g >= 0);
+    return {
+      chars: text.length, lines: lines.length, segments, textChars,
+      timeFormat: times.length ? (times[0].split(':').length === 3 ? 'H:MM:SS' : 'MM:SS') : '(없음)',
+      firstTime: times[0] || null, lastTime: times[times.length - 1] || null,
+      lastTimeSec: secs.length ? secs[secs.length - 1] : null,
+      avgGapSec: gaps.length ? +(gaps.reduce((a, b) => a + b, 0) / gaps.length).toFixed(1) : null,
+      monotonic: secs.every((v, i) => i === 0 || v >= secs[i - 1]),
+      speakerLabels: speakers.size,
+      speakerLabelLengths: [...speakers].map((x) => x.length),
+      linePattern: pattern.slice(0, 15),
+    };
   }
 
   function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
@@ -219,9 +256,9 @@
     const obs = {};
     document.querySelectorAll('[data-obs]').forEach((el) => { obs[el.dataset.obs] = el.checked; });
     const report = {
-      kind: 'jakpum-p0a-report', version: 2, createdAt: new Date().toISOString(),
+      kind: 'jakpum-p0a-report', version: 3, createdAt: new Date().toISOString(),
       env: state.env, canShare: state.canShare,
-      received: state.received, receivedDurationSec: state.receivedDurationSec, receivedTexts: state.receivedTexts,
+      received: state.received && { ...state.received, text: undefined, textLength: (state.received.text || '').length, title: undefined }, receivedDurationSec: state.receivedDurationSec, receivedTexts: state.receivedTexts,
       shares: state.shares, observations: obs, notes: $('notes').value,
     };
     $('report').value = JSON.stringify(report, null, 1);
