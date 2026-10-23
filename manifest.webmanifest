@@ -39,6 +39,7 @@
         {
           "name": "audio",
           "accept": [
+            "*/*",
             "audio/*",
             "text/*",
             ".m4a",
