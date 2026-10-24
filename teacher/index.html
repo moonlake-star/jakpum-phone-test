@@ -487,7 +487,7 @@ async function openMkJob(j) {
       <button class="full" id="mkFinal">이 비율로 완성본 다시 만들기</button>
       <div class="row">${MK_PRESETS.map(p => `<button class="small ghost" data-preset="${p}">${p}로 다시 만들기</button>`).join("")}</div></div>
       <div class="card"><h3 style="margin-top:0">완성본</h3><button class="small ghost" id="mkMix">▶ 완성본 듣기</button><audio id="mkMixAu" controls class="hidden" style="width:100%"></audio>
-      <div class="row" style="margin-top:6px"><button class="small" id="mkShare">완성본 보내기(mp3)</button>
+      <div class="row" style="margin-top:6px"><button class="small" id="mkShare">완성본 보내기(mp3)</button><span class="chip ${r.sent_at ? "ok" : ""}" id="mkSentT">${r.sent_at ? "보냄 " + new Date(r.sent_at).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "아직 안 보냄"}</span>
       <a href="https://drive.google.com/drive/folders/${esc(j.folder.id)}" target="_blank" rel="noopener">드라이브에서 wav 받기</a></div></div>`;
   }
   $("vMkJob").innerHTML = body;
@@ -520,6 +520,9 @@ async function openMkJob(j) {
       const files = [new File([await readBlob(by("mix.mp3").id)], `${j.st.name}_${r.title}_메이크업.mp3`, { type: "audio/mpeg" })];
       if (!navigator.canShare?.({ files })) return toast("이 브라우저는 파일 공유를 지원하지 않아요");
       await navigator.share({ files });
+      r.sent_at = new Date().toISOString();  // 보낸 기록(완성본 자체는 이미 수강생 폴더에 있음)
+      await writeJSON(j.folder.id, MKREQ, r, j.reqId); toast("보낸 기록 저장됨");
+      $("mkSentT").textContent = "보냄 " + new Date(r.sent_at).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
     } catch (e) { if (e.name !== "AbortError") toast(e.message); }
   };
 }
