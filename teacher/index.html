@@ -247,7 +247,7 @@ async function list(folder) {
   return out;
 }
 const readJSON = async (id) => (await api(`${DRIVE}/files/${id}?alt=media`)).json();
-const readBlob = async (id) => (await api(`${DRIVE}/files/${id}?alt=media`)).blob();
+const readBlob = async (id, fresh) => (await api(`${DRIVE}/files/${id}?alt=media${fresh ? "&_=" + Date.now() : ""}`, fresh ? { cache: "no-store" } : {})).blob();
 async function writeJSON(folder, name, obj, existingId) {
   const body = new Blob([JSON.stringify(obj, null, 1)], { type: "application/json" });
   if (existingId) { await api(`${UPLOAD}/files/${existingId}?uploadType=media`, { method: "PATCH", body }); return existingId; }
@@ -646,100 +646,143 @@ async function makeupFromLesson(cid, back) {
   } catch (e) { stopProg(); toast(e.message); }
 }
 // 미리듣기: 보컬(원음)·보컬(울림)·MR 세 갈래를 동시에 재생하며 비율만 바로 조절
-let mkCtx = null, mkBufs = null, mkSrcs = [], mkGains = null, mkStart = 0, mkOffset = 0, mkJob = null;
-function mkStop() { mkSrcs.forEach(x => { try { x.stop(); } catch {} }); mkSrcs = []; }
-let mkTick = null;
-const mkDur = () => mkBufs ? Math.max(...mkBufs.map(b => b.duration)) : 0;
-function mkPosPaint() {
-  if (!$("mkPos")) return clearInterval(mkTick);
-  const t = mkSrcs.length ? Math.min(mkCtx.currentTime - mkStart, mkDur()) : mkOffset;
-  $("mkPos").textContent = `${fmt(t)} / ${fmt(mkDur())}`;
-  if (!$("mkSeek").matches(":active")) $("mkSeek").value = mkDur() ? Math.round(t / mkDur() * 1000) : 0;
-  if (mkSrcs.length && t >= mkDur() - 0.05) { mkStop(); mkOffset = 0; $("mkPlayBtn").textContent = "▶ 다시 듣기"; }
+// ── 메이크업 미리듣기 엔진: 여러 갈래를 같은 시각에 함께 재생하고 '크기'만 바꿔 즉시 전환/조절 ──
+// 갈래: 애프터 보컬(음정 단계별 p0~p3) · 울림(센드 1.0) · MR · 비포 보컬 · 비포 MR
+const REV_UNIT = 0.00144;   // 리버브 1% = 센드 0.00144  → 15% = 표준(0.0216)
+const PITCH_NAMES = ["끔", "약", "중", "강"];
+let mkCtx = null, mkT0 = 0, mkOffset = 0, mkPlaying = false, mkTracks = {}, mkTick = null, mkBefore = false, mkJob = null, mkDurS = 0;
+function mkStop() { for (const t of Object.values(mkTracks)) { try { t.src?.stop(); } catch {} t.src = null; } mkPlaying = false; }
+const mkNow = () => mkPlaying ? Math.min(mkCtx.currentTime - mkT0, mkDurS) : mkOffset;
+function mkStartTrack(t, at) {
+  const s = mkCtx.createBufferSource(); s.buffer = t.buf; s.connect(t.gain); s.start(0, Math.min(at, t.buf.duration)); t.src = s;
 }
-function mkPlay(at = 0) {
-  mkStop(); mkCtx ??= new AudioContext();
-  mkGains ??= ["v", "w", "m", "b"].map(() => { const g = mkCtx.createGain(); g.connect(mkCtx.destination); return g; });
-  mkApply();
-  mkSrcs = mkBufs.map((b, i) => { const s = mkCtx.createBufferSource(); s.buffer = b; s.connect(mkGains[i]); s.start(0, at); return s; });
-  mkStart = mkCtx.currentTime - at; mkOffset = at;
+function mkPlay(at) {
+  mkStop(); mkOffset = at; mkT0 = mkCtx.currentTime - at; mkPlaying = true;
+  for (const t of Object.values(mkTracks)) if (t.buf) mkStartTrack(t, at);
+  mkApply(); paintTransport();
 }
-let mkBefore = false;  // 비포/애프터 토글: 네 갈래를 같이 재생하고 크기만 바꿔 '즉시' 전환(위치 그대로)
+async function mkLoad(name, fileId) {
+  if (mkTracks[name]?.buf || mkTracks[name]?.loading) return mkTracks[name]?.loading;
+  mkCtx ??= new AudioContext();
+  const g = mkCtx.createGain(); g.gain.value = 0; g.connect(mkCtx.destination);
+  const t = mkTracks[name] = { gain: g, buf: null, src: null };
+  t.loading = (async () => { t.buf = await mkCtx.decodeAudioData(await (await readBlob(fileId, true)).arrayBuffer());
+    mkDurS = Math.max(mkDurS, t.buf.duration); if (mkPlaying) mkStartTrack(t, mkNow()); mkApply(); })();
+  return t.loading;
+}
 function mkApply() {
-  const v = +$("mkVol").value, w = +$("mkRev").value / 100, m = +$("mkMr").value;
-  if (mkGains) {
-    const t = mkCtx.currentTime, set = (g, x) => { g.gain.cancelScheduledValues(t); g.gain.setTargetAtTime(x, t, 0.012); };
-    const a = mkBefore ? 0 : 1;
-    set(mkGains[0], a * 10 ** (v / 20)); set(mkGains[1], a * 10 ** (v / 20) * w); set(mkGains[2], a * 10 ** (m / 20));
-    if (mkGains[3]) set(mkGains[3], mkBefore ? 1 : 0);
-  }
-  $("mkVolT").textContent = (v > 0 ? "+" : "") + v + " dB"; $("mkRevT").textContent = Math.round(w * 100) + "%"; $("mkMrT").textContent = (m > 0 ? "+" : "") + m + " dB";
+  if (!$("mkVol")) return;
+  const v = +$("mkVol").value, r = +$("mkRev").value, m = +$("mkMr").value, lv = +($("mkPitch")?.value || 0);
+  $("mkVolT").textContent = (v > 0 ? "+" : "") + v + " dB"; $("mkRevT").textContent = r + "%" + (r === 15 ? " (표준)" : "");
+  $("mkMrT").textContent = (m > 0 ? "+" : "") + m + " dB"; if ($("mkPitchT")) $("mkPitchT").textContent = PITCH_NAMES[lv];
+  if (!mkCtx) return;
+  const set = (name, x) => { const t = mkTracks[name]; if (!t) return; t.gain.gain.cancelScheduledValues(mkCtx.currentTime); t.gain.gain.setTargetAtTime(x, mkCtx.currentTime, 0.012); };
+  const V = 10 ** (v / 20), M = 10 ** (m / 20), W = r * REV_UNIT;
+  const hasP = !!mkTracks.p0, hasB = !!mkTracks.bv;
+  for (let k = 0; k < 4; k++) set("p" + k, !mkBefore && hasP && k === lv ? V : 0);
+  set("dry", !mkBefore && !hasP ? V : 0);
+  set("wet", V * W);
+  set("mr", mkBefore && hasB ? 0 : (mkBefore && mkTracks.before ? 0 : M));
+  set("bv", mkBefore ? V : 0); set("bm", mkBefore ? M : 0);
+  set("before", mkBefore && !hasB ? 1 : 0);
+  if (mkBefore && !hasB && mkTracks.before) set("wet", 0);
 }
+function paintTransport() {
+  if (!$("mkPP")) return;
+  $("mkPP").textContent = mkPlaying ? "❚❚" : "▶";
+  const t = mkNow(); $("mkPos").textContent = `${fmt(t)} / ${fmt(mkDurS)}`;
+  if (!$("mkSeek").matches(":active")) $("mkSeek").value = mkDurS ? Math.round(t / mkDurS * 1000) : 0;
+  if (mkPlaying && t >= mkDurS - 0.05) { mkStop(); mkOffset = 0; paintTransport(); }
+}
+function mkSeekTo(t) { t = Math.max(0, Math.min(t, mkDurS - 0.05)); if (mkPlaying) mkPlay(t); else { mkOffset = t; paintTransport(); } }
+
 async function openMkJob(j, backTo) {
   goBack = backTo || (() => openStudent(j.sid, "mk"));
   if (!["done", "error"].includes(j.req.status)) return showProgress(j);
-  stopProg(); mkJob = j; show("vMkJob"); mkBufs = null;
+  stopProg(); mkStop(); mkTracks = {}; mkDurS = 0; mkOffset = 0; mkBefore = false; mkJob = j; show("vMkJob");
   if (!j.files?.length) j.files = await list(j.folder.id);
   const r = j.req, by = (n) => j.files.find(f => f.name === n);
-  const meas = r.result?.measure || {};
+  const meas = r.result?.measure || {}, pi = r.result?.pitch || {};
+  const hasP = !!by("vocal_dry_p0.mp3"), hasB = !!by("before_vocal.mp3") || !!by("before.mp3");
+  const revNow = Math.round((r.result?.wet_gain ?? 0.0216) / REV_UNIT);
   let body = `<div class="card"><h2 style="margin:0">${esc(j.st.name)} · ${esc(r.title || "")}</h2>
-    <p class="muted">${r.status === "done" ? `완성 ${r.render_count || 1}번째 · 길이 ${fmt(meas.duration_sec || 0)} · 최종 ${meas.mix_lufs_out ?? "?"} LUFS` :
-      r.status === "error" ? `실패: ${esc(r.error || "")}` : "아직 만드는 중이에요. 다음 자동 실행 때 완성됩니다."}</p></div>`;
-  if (r.status === "done" && by("vocal_dry.mp3")) {
-    body += `<div class="card"><h3 style="margin-top:0">바로 듣고 비율 조절</h3>
-      <div class="row"><button class="small" id="mkPlayBtn">▶ 미리듣기</button> <span class="muted" id="mkT">불러오기 전</span></div>
-      ${by("before.mp3") ? `<div class="tabs" style="margin:10px 0 4px"><button class="small" id="mkAfter">애프터 (메이크업)</button><button class="small" id="mkBeforeBtn">비포 (원본)</button></div>
-        <p class="muted" style="margin:0">재생 중에 눌러도 같은 위치에서 바로 바뀌어요. 두 소리는 같은 크기로 맞춰 두었어요.</p>`
-        : `<p class="muted">비포/애프터 비교는 ‘이 비율로 완성본 다시 만들기’를 한 번 하면 생겨요.</p>`}
-      <div class="row" style="margin-top:6px;flex-wrap:nowrap"><span class="muted" id="mkPos" style="min-width:5.5em">0:00 / -:--</span>
-        <input type="range" id="mkSeek" min="0" max="1000" value="0" style="flex:1" disabled></div>
+    <p class="muted">${r.status === "done" ? `완성 ${r.render_count || 1}번째 · 길이 ${fmt(meas.duration_sec || 0)} · 최종 ${meas.mix_lufs_out ?? "?"} LUFS${pi.key ? ` · 키 ${esc(pi.key.name)}${pi.key_auto ? "(자동 인식)" : ""}` : ""}` :
+      `실패: ${esc(r.error || "")}`}</p></div>`;
+  if (r.status === "done" && (by("vocal_dry.mp3") || hasP)) {
+    body += `<div class="card"><h3 style="margin-top:0">바로 듣고 조절</h3>
+      ${hasB ? `<button class="full" id="mkAB">애프터 (메이크업) 듣는 중 · 눌러서 비포로</button>` : `<p class="muted">비포/애프터 비교는 ‘이 설정으로 완성본 다시 만들기’를 한 번 하면 생겨요.</p>`}
+      <div class="row" style="margin-top:8px;flex-wrap:nowrap"><span class="muted" id="mkPos" style="min-width:6em">0:00 / -:--</span>
+        <input type="range" id="mkSeek" min="0" max="1000" value="0" style="flex:1"></div>
+      <div class="row" style="justify-content:center;gap:6px;margin:6px 0;flex-wrap:nowrap">
+        <button class="small ghost" id="mkFirst" title="맨 앞">⏮</button><button class="small ghost" id="mkBack5" title="5초 뒤로">⏪ 5</button>
+        <button class="small" id="mkPP" style="min-width:4em">▶</button>
+        <button class="small ghost" id="mkFwd5" title="5초 앞으로">5 ⏩</button><button class="small ghost" id="mkLast" title="맨 뒤">⏭</button></div>
+      <p class="muted" id="mkT" style="margin:0 0 6px;text-align:center">▶를 누르면 불러와서 재생해요</p>
       <div style="margin-top:8px">보컬 크기 <b id="mkVolT"></b><input type="range" id="mkVol" min="-6" max="6" step="0.5" value="0" style="width:100%"></div>
-      <div>리버브(울림) <b id="mkRevT"></b><input type="range" id="mkRev" min="0" max="250" step="5" value="100" style="width:100%"></div>
+      <div>리버브(울림) <b id="mkRevT"></b><input type="range" id="mkRev" min="0" max="50" step="1" value="${revNow}" style="width:100%"></div>
       <div>MR 크기 <b id="mkMrT"></b><input type="range" id="mkMr" min="-6" max="6" step="0.5" value="0" style="width:100%"></div>
-      <p class="muted">위 세 가지는 바로 들으며 바꿀 수 있어요. 마음에 들면 아래 버튼으로 완성본에 반영하세요.</p>
-      <button class="full" id="mkFinal">이 비율로 완성본 다시 만들기</button>
-      </div>
+      ${hasP ? `<div>음정 보정 <b id="mkPitchT"></b> <span class="muted">${pi.key ? `(${esc(pi.key.name)} 스케일)` : ""}</span>
+        <input type="range" id="mkPitch" min="0" max="3" step="1" value="${+(r.pitch_level || 0)}" style="width:100%">
+        <div class="row muted" style="justify-content:space-between;font-size:.8rem"><span>끔</span><span>약</span><span>중</span><span>강</span></div>
+        <div class="row" style="margin-top:4px"><label class="muted">키</label><select id="mkKey" style="flex:1">${["C","C#","D","Eb","E","F","F#","G","Ab","A","Bb","B"].flatMap((nm, t) => [["major", "장조"], ["minor", "단조"]].map(([mo, kn]) =>
+          `<option value="${t}:${mo}" ${pi.key && pi.key.tonic === t && pi.key.mode === mo ? "selected" : ""}>${nm} ${kn}</option>`)).join("")}</select></div>
+        <p class="muted" style="margin:2px 0 0">키를 바꾸면 ‘완성본 다시 만들기’ 때 그 키로 다시 보정해요(자동 인식 후보: ${esc((pi.key_candidates || []).join(", "))}).</p></div>`
+        : `<p class="muted">음정 보정은 ‘이 설정으로 완성본 다시 만들기’를 한 번 하면 생겨요.</p>`}
+      <p class="muted">위 조절은 모두 바로 들으며 바꿀 수 있어요(비포에도 보컬·MR·울림 크기가 같이 적용). 마음에 들면 아래 버튼으로 완성본에 반영하세요.</p>
+      <button class="full" id="mkFinal">이 설정으로 완성본 다시 만들기</button></div>
       <div class="card"><h3 style="margin-top:0">완성본</h3><button class="small ghost" id="mkMix">▶ 완성본 듣기</button><audio id="mkMixAu" controls class="hidden" style="width:100%"></audio>
       <div class="row" style="margin-top:6px"><button class="small" id="mkShare">완성본 보내기(mp3)</button><span class="chip ${r.sent_at ? "ok" : ""}" id="mkSentT">${r.sent_at ? "보냄 " + new Date(r.sent_at).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "아직 안 보냄"}</span>
       <a href="https://drive.google.com/drive/folders/${esc(j.folder.id)}" target="_blank" rel="noopener">드라이브에서 wav 받기</a></div></div>`;
   }
   $("vMkJob").innerHTML = body;
-  if (r.status !== "done") return;
+  if (r.status !== "done" || !$("mkVol")) return;
   ["mkVol", "mkRev", "mkMr"].forEach(id => $(id).oninput = mkApply);
-  const paintAB = () => { if (!$("mkAfter")) return; $("mkAfter").classList.toggle("on", !mkBefore); $("mkBeforeBtn").classList.toggle("on", mkBefore); };
-  mkBefore = false; paintAB(); mkApply();
-  if ($("mkAfter")) { $("mkAfter").onclick = () => { mkBefore = false; paintAB(); mkApply(); }; $("mkBeforeBtn").onclick = () => { mkBefore = true; paintAB(); mkApply(); }; }
-  $("mkSeek").onchange = (e) => { if (!mkBufs) return; const t = e.target.value / 1000 * mkDur(); mkOffset = t;
-    if (mkSrcs.length) mkPlay(t); mkPosPaint(); };
-  $("mkPlayBtn").onclick = async () => {
-    if (mkSrcs.length) { mkOffset = mkCtx.currentTime - mkStart; mkStop(); $("mkPlayBtn").textContent = "▶ 이어 듣기"; return; }
+  mkApply();
+  const ensure = async (names) => Promise.all(names.filter(([, f]) => by(f)).map(([n, f]) => mkLoad(n, by(f).id)));
+  const lvNow = () => +($("mkPitch")?.value || 0);
+  const base = () => hasP ? [["p" + lvNow(), `vocal_dry_p${lvNow()}.mp3`], ["wet", "vocal_wet.mp3"], ["mr", "mr.mp3"]] : [["dry", "vocal_dry.mp3"], ["wet", "vocal_wet.mp3"], ["mr", "mr.mp3"]];
+  const beforeSet = () => by("before_vocal.mp3") ? [["bv", "before_vocal.mp3"], ["bm", "before_mr.mp3"]] : [["before", "before.mp3"]];
+  $("mkPP").onclick = async () => {
+    if (mkPlaying) { mkOffset = mkNow(); mkStop(); return paintTransport(); }
     try {
-      if (!mkBufs) { $("mkT").textContent = "불러오는 중…"; mkCtx ??= new AudioContext();
-        mkBufs = await Promise.all(["vocal_dry.mp3", "vocal_wet.mp3", "mr.mp3", ...(by("before.mp3") ? ["before.mp3"] : [])].map(async n => mkCtx.decodeAudioData(await (await readBlob(by(n).id)).arrayBuffer()))); }
-      mkPlay(mkOffset); $("mkPlayBtn").textContent = "❚❚ 멈춤"; $("mkT").textContent = "재생 중";
-      $("mkSeek").disabled = false; clearInterval(mkTick); mkTick = setInterval(mkPosPaint, 250);
-    } catch (e) { toast(e.message); }
+      $("mkT").textContent = "불러오는 중…"; await ensure(base()); if (mkBefore) await ensure(beforeSet());
+      mkPlay(mkOffset); $("mkT").textContent = mkBefore ? "비포(원본) 재생 중" : "애프터(메이크업) 재생 중";
+      clearInterval(mkTick); mkTick = setInterval(() => { if (!$("mkPos")) return clearInterval(mkTick); paintTransport(); }, 250);
+      ensure([...beforeSet(), ...(hasP ? [0, 1, 2, 3].map(k => ["p" + k, `vocal_dry_p${k}.mp3`]) : [])]);  // 나머지는 뒤에서 미리
+    } catch (e) { toast(e.message); $("mkT").textContent = ""; }
   };
-  const rerender = async (preset, keepRatio) => {
-    const q = { ...r, status: "queued" };
-    q.preset = "표준";
-    if (keepRatio) {
-      const v = +$("mkVol").value, w = +$("mkRev").value / 100, m = +$("mkMr").value, prev = r.result?.settings || {};
-      q.settings = { ...(q.settings || {}), vocal_over_mr_lu: (prev.vocal_over_mr_lu ?? 2) + v - m };
-      q.wet_gain = (r.result?.wet_gain ?? 0.2) * w;
+  $("mkSeek").onchange = (e) => mkSeekTo(e.target.value / 1000 * mkDurS);
+  $("mkFirst").onclick = () => mkSeekTo(0); $("mkLast").onclick = () => mkSeekTo(mkDurS - 3);
+  $("mkBack5").onclick = () => mkSeekTo(mkNow() - 5); $("mkFwd5").onclick = () => mkSeekTo(mkNow() + 5);
+  if ($("mkAB")) $("mkAB").onclick = async () => {
+    mkBefore = !mkBefore;
+    $("mkAB").textContent = mkBefore ? "비포 (원본) 듣는 중 · 눌러서 애프터로" : "애프터 (메이크업) 듣는 중 · 눌러서 비포로";
+    $("mkAB").classList.toggle("ghost", mkBefore);
+    if (mkPlaying) $("mkT").textContent = mkBefore ? "비포(원본) 재생 중" : "애프터(메이크업) 재생 중";
+    if (mkBefore) await ensure(beforeSet()); mkApply();
+  };
+  if ($("mkPitch")) $("mkPitch").oninput = async () => { mkApply(); await ensure([["p" + lvNow(), `vocal_dry_p${lvNow()}.mp3`]]); mkApply(); };
+  $("mkFinal").onclick = async () => {
+    const v = +$("mkVol").value, rv = +$("mkRev").value, m = +$("mkMr").value, prev = r.result?.settings || {};
+    const q = { ...r, status: "queued", preset: "표준" };
+    q.settings = { ...(q.settings || {}), vocal_over_mr_lu: (prev.vocal_over_mr_lu ?? 2) + v - m };
+    q.wet_gain = rv * REV_UNIT;
+    if ($("mkPitch")) {
+      q.pitch_level = lvNow();
+      const [t, mo] = $("mkKey").value.split(":"), auto = pi.key && +t === pi.key.tonic && mo === pi.key.mode;
+      q.pitch_key = auto && pi.key_auto ? null : { tonic: +t, mode: mo, name: $("mkKey").selectedOptions[0].textContent };
     }
-    q.requested_at = new Date().toISOString();
-    j.req = q; showProgress(j, "요청 저장 중…");
+    q.requested_at = new Date().toISOString(); delete q.progress;
+    mkStop(); j.req = q; showProgress(j, "요청 저장 중…");
     try { await writeJSON(j.folder.id, MKREQ, q, j.reqId); showProgress(j, "서버 호출 중…"); kick(); } catch (e) { stopProg(); toast(e.message); }
   };
-  $("mkFinal").onclick = () => rerender(null, true);
-  $("mkMix").onclick = async () => { const au = $("mkMixAu"); try { mkStop(); au.src = URL.createObjectURL(await readBlob(by("mix.mp3").id)); au.classList.remove("hidden"); $("mkMix").classList.add("hidden"); au.play(); } catch (e) { toast(e.message); } };
+  $("mkMix").onclick = async () => { const au = $("mkMixAu"); try { if (mkPlaying) { mkOffset = mkNow(); mkStop(); paintTransport(); } au.src = URL.createObjectURL(await readBlob(by("mix.mp3").id, true)); au.classList.remove("hidden"); $("mkMix").classList.add("hidden"); au.play(); } catch (e) { toast(e.message); } };
   $("mkShare").onclick = async () => {
     try {
-      const files = [new File([await readBlob(by("mix.mp3").id)], `${j.st.name}_${r.title}_메이크업.mp3`, { type: "audio/mpeg" })];
+      const files = [new File([await readBlob(by("mix.mp3").id, true)], `${j.st.name}_${r.title}_메이크업.mp3`, { type: "audio/mpeg" })];
       if (!navigator.canShare?.({ files })) return toast("이 브라우저는 파일 공유를 지원하지 않아요");
       await navigator.share({ files });
-      r.sent_at = new Date().toISOString();  // 보낸 기록(완성본 자체는 이미 수강생 폴더에 있음)
+      r.sent_at = new Date().toISOString();
       await writeJSON(j.folder.id, MKREQ, r, j.reqId); toast("보낸 기록 저장됨");
       $("mkSentT").textContent = "보냄 " + new Date(r.sent_at).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
     } catch (e) { if (e.name !== "AbortError") toast(e.message); }
