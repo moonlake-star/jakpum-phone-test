@@ -81,6 +81,7 @@
       <h2 style="margin-top:0">과제 녹음 받기</h2>
       <p class="muted">카톡에서 공유한 파일을 수강생 폴더(04_과제제출)에 저장합니다.</p>
       <div id="shFiles"></div>
+      <div class="muted" style="margin-top:6px">파일 이름 형식: <b>날짜_수강생_곡명_내용</b> — 예) 2026-10-24_김미영_그리움만쌓이네_후렴끝음<br>날짜·수강생은 자동으로 붙어요. 곡명_내용만 적어 주세요.</div>
       <div class="row" style="margin:8px 0"><label>수강생</label><select id="shStu" style="flex:1"></select></div>
       <div class="row" style="margin:8px 0"><label>받은 날</label><input type="date" id="shDate"></div>
       <input id="shMemo" placeholder="메모(선택) 예: 후렴 끝음 연습" style="width:100%">
@@ -315,13 +316,25 @@ async function openShared() {
   const meta = metaR ? await metaR.json() : { files: [] };
   sharedFiles = [];
   for (const f of meta.files) { const r = await c.match(`./shared/${f.i}`); if (r) sharedFiles.push(new File([await r.blob()], f.name || `과제_${f.i}`, { type: f.type })); }
-  $("shFiles").innerHTML = sharedFiles.length ? sharedFiles.map((f, i) => `<div style="margin:6px 0"><b>${esc(f.name)}</b> <span class="muted">${(f.size / 1048576).toFixed(1)}MB</span>
-      <audio controls src="${URL.createObjectURL(f)}" style="width:100%"></audio></div>`).join("") : `<p class="muted">받은 파일이 없어요. 카톡에서 파일을 길게 눌러 ‘공유 → 보컬노트’로 보내 주세요.</p>`;
+  $("shFiles").innerHTML = sharedFiles.length ? sharedFiles.map((f, i) => `<div style="margin:8px 0;padding-top:6px;border-top:1px solid var(--line)">
+      <div class="muted">받은 파일: ${esc(f.name)} · ${(f.size / 1048576).toFixed(1)}MB</div>
+      <audio controls src="${URL.createObjectURL(f)}" style="width:100%"></audio>
+      <input class="shTitle" data-i="${i}" placeholder="곡명_내용 (예: 그리움만쌓이네_후렴끝음)" style="width:100%">
+      <div class="muted shPrev" data-i="${i}"></div></div>`).join("") : `<p class="muted">받은 파일이 없어요. 카톡에서 파일을 길게 눌러 ‘공유 → 보컬노트’로 보내 주세요.</p>`;
   const last = LS.get("vn_last_sub_stu");
   $("shStu").innerHTML = Object.entries(cfg.students).filter(([, st]) => st.status !== "test" || true)
     .map(([sid, st]) => `<option value="${esc(sid)}" ${sid === last ? "selected" : ""}>${esc(st.name)}${st.status === "test" ? " (연습용)" : ""}</option>`).join("");
   $("shDate").value = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
   $("shMemo").value = meta.text && !/^https?:/.test(meta.text) ? meta.text.slice(0, 80) : "";
+  const upd = () => sharedFiles.forEach((f, i) => { const el = document.querySelector(`.shPrev[data-i="${i}"]`); if (el) el.textContent = "저장 이름: " + subName(i); });
+  document.querySelectorAll(".shTitle").forEach(x => x.oninput = upd); $("shStu").onchange = upd; $("shDate").onchange = upd; upd();
+}
+const cleanPart = (t) => t.trim().replace(/[\\/:*?"<>|]+/g, "").replace(/\s+/g, "") || "과제";
+function subName(i) {
+  const f = sharedFiles[i], ext = (f.name.match(/\.[a-z0-9]+$/i) || [".m4a"])[0].toLowerCase();
+  const title = cleanPart(document.querySelector(`.shTitle[data-i="${i}"]`)?.value || "");
+  const same = sharedFiles.slice(0, i).filter((_, j) => cleanPart(document.querySelector(`.shTitle[data-i="${j}"]`)?.value || "") === title).length;
+  return `${$("shDate").value}_${cleanPart(cfg.students[$("shStu").value].name)}_${title}${same ? "_" + (same + 1) : ""}${ext}`;
 }
 async function saveShared() {
   if (!sharedFiles.length) return toast("저장할 파일이 없어요");
@@ -330,9 +343,8 @@ async function saveShared() {
   $("btnShSave").disabled = true; $("btnShSave").textContent = "올리는 중…";
   try {
     const folder = await subsFolder(sid), subs = await loadSubs(cfg.students[sid]);
-    for (const f of sharedFiles) {
-      const ext = (f.name.match(/\.[a-z0-9]+$/i) || [".m4a"])[0];
-      const name = `${day}_${String(new Date().getHours()).padStart(2, "0")}${String(new Date().getMinutes()).padStart(2, "0")}_과제${ext}`;
+    for (const [i, f] of sharedFiles.entries()) {
+      const name = subName(i);
       const id = await uploadFile(folder, name, f);
       subs.recs.push({ id, name, original_name: f.name, received_on: day, saved_at: new Date().toISOString(), memo, reply: "", replied_at: null });
     }
@@ -346,15 +358,19 @@ async function saveShared() {
 let subsCur = null;
 async function openSubs(sid) {
   show("vSubs"); const st = cfg.students[sid];
-  $("subsHead").innerHTML = `<h2 style="margin:0">${esc(st.name)} · 과제 제출</h2><p class="muted">제출 다음 날까지 짧게라도 답장해 주는 게 목표예요. 답장을 보낸 뒤 ‘답장 보냄’을 눌러 주세요.</p>`;
+  $("subsHead").innerHTML = `<h2 style="margin:0">${esc(st.name)} · 과제 제출</h2><p class="muted">제출 다음 날까지 짧게라도 답장해 주는 게 목표예요. 보낸 답장은 여기 그대로 남아 수강생 기록이 됩니다.</p>`;
   const subs = await loadSubs(st); subsCur = { sid, st, ...subs };
   const recs = [...subs.recs].sort((a, b) => (b.saved_at || "").localeCompare(a.saved_at || ""));
   $("subsList").innerHTML = recs.map(r => `<div class="card" data-id="${esc(r.id)}">
       <div class="row"><b>${esc(r.received_on)}</b>${r.memo ? `<span class="muted">${esc(r.memo)}</span>` : ""}
         <span class="chip ${r.replied_at ? "ok" : "todo"}" style="margin-left:auto">${r.replied_at ? "답장 ✓" : "답장 전"}</span></div>
+      <div class="muted" style="font-size:.82rem;word-break:break-all">${esc(r.name || "")}</div>
       <button class="small ghost" data-play="${esc(r.id)}">▶ 듣기</button><audio controls class="hidden" style="width:100%"></audio>
-      <textarea class="reply" style="min-height:90px;margin-top:6px">${esc(r.reply || `${st.name}님, 녹음 잘 들었어요! `)}</textarea>
-      <div class="row"><button class="small" data-copy>답장 복사</button><button class="small ghost" data-mark>${r.replied_at ? "답장 보냄 취소" : "답장 보냄"}</button></div>
+      <div class="muted" style="margin-top:6px">${r.replied_at ? `보낸 답장 · ${new Date(r.replied_at).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}` : "답장 (여기 쓰고 ‘복사하고 보냄 표시’ → 카톡에 붙여넣기)"}</div>
+      <textarea class="reply" style="min-height:90px">${esc(r.reply || `${st.name}님, 녹음 잘 들었어요! `)}</textarea>
+      <div class="row">${r.replied_at
+        ? `<button class="small ghost" data-save>고친 내용 저장</button><button class="small ghost" data-undo>보냄 취소</button>`
+        : `<button class="small" data-send>복사하고 보냄 표시</button><button class="small ghost" data-mark>카톡에 직접 썼어요(붙여넣고 표시)</button>`}</div>
     </div>`).join("") || `<p class="muted">아직 제출된 과제가 없어요.</p>`;
   $("subsList").querySelectorAll("[data-play]").forEach(b => b.onclick = async () => {
     const au = b.nextElementSibling; b.textContent = "불러오는 중…";
@@ -363,11 +379,16 @@ async function openSubs(sid) {
   $("subsList").querySelectorAll(".card").forEach(card => {
     const rec = subsCur.recs.find(x => x.id === card.dataset.id);
     card.querySelector(".reply").oninput = (e) => { rec.reply = e.target.value; };
-    card.querySelector("[data-copy]").onclick = async () => { try { await navigator.clipboard.writeText(rec.reply || card.querySelector(".reply").value); toast("복사했어요. 카톡에 붙여넣기 하세요."); } catch { toast("길게 눌러 복사해 주세요"); } };
-    card.querySelector("[data-mark]").onclick = async () => {
-      rec.reply = card.querySelector(".reply").value; rec.replied_at = rec.replied_at ? null : new Date().toISOString();
-      try { await writeJSON(subsCur.folder, SUBS, subsCur.recs, subsCur.recId); toast("저장됨"); openSubs(sid); } catch (e) { toast(e.message); }
-    };
+    const persist = async (msg) => { rec.reply = card.querySelector(".reply").value.trim();
+      try { await writeJSON(subsCur.folder, SUBS, subsCur.recs, subsCur.recId); toast(msg); openSubs(sid); } catch (e) { toast(e.message); } };
+    card.querySelector("[data-send]")?.addEventListener("click", async () => {
+      const t = card.querySelector(".reply").value.trim();
+      try { await navigator.clipboard.writeText(t); } catch { return toast("복사가 안 됐어요. 길게 눌러 복사한 뒤 ‘카톡에 직접 썼어요’를 눌러 주세요"); }
+      rec.replied_at = new Date().toISOString(); await persist("복사했어요. 카톡에 붙여넣기 하세요 (답장 기록됨)");
+    });
+    card.querySelector("[data-mark]")?.addEventListener("click", async () => { rec.replied_at = new Date().toISOString(); await persist("답장 기록됨"); });
+    card.querySelector("[data-save]")?.addEventListener("click", () => persist("저장됨"));
+    card.querySelector("[data-undo]")?.addEventListener("click", async () => { rec.replied_at = null; await persist("보냄 취소됨"); });
   });
 }
 
