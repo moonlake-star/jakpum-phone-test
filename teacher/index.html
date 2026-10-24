@@ -76,6 +76,21 @@
 
   <section id="vList" class="hidden"></section>
 
+  <section id="vShared" class="hidden">
+    <div class="card">
+      <h2 style="margin-top:0">과제 녹음 받기</h2>
+      <p class="muted">카톡에서 공유한 파일을 수강생 폴더(04_과제제출)에 저장합니다.</p>
+      <div id="shFiles"></div>
+      <div class="row" style="margin:8px 0"><label>수강생</label><select id="shStu" style="flex:1"></select></div>
+      <div class="row" style="margin:8px 0"><label>받은 날</label><input type="date" id="shDate"></div>
+      <input id="shMemo" placeholder="메모(선택) 예: 후렴 끝음 연습" style="width:100%">
+      <button class="full" id="btnShSave" style="margin-top:10px">저장</button>
+      <button class="full ghost" id="btnShCancel">취소</button>
+    </div>
+  </section>
+
+  <section id="vSubs" class="hidden"><div class="card" id="subsHead"></div><div id="subsList"></div></section>
+
   <section id="vLesson" class="hidden">
     <div class="card" id="lsHead"></div>
 
@@ -159,7 +174,7 @@ const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&l
 const fmt = (sec) => { sec = Math.max(0, Math.round(sec)); const m = Math.floor(sec/60), s = sec%60; return `${m}:${String(s).padStart(2,"0")}`; };
 const parseT = (t) => { const p = String(t).trim().split(":").map(Number); if (p.some(isNaN)) return null; return p.length === 2 ? p[0]*60+p[1] : p.length === 3 ? p[0]*3600+p[1]*60+p[2] : null; };
 function toast(msg) { const t = $("toast"); t.textContent = msg; t.style.display = "block"; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = "none", 2500); }
-function show(view) { for (const v of ["vLogin","vList","vLesson"]) $(v).classList.toggle("hidden", v !== view); $("btnBack").classList.toggle("hidden", view !== "vLesson"); window.scrollTo(0,0); }
+function show(view) { for (const v of ["vLogin","vList","vLesson","vShared","vSubs"]) $(v).classList.toggle("hidden", v !== view); $("btnBack").classList.toggle("hidden", !["vLesson","vSubs"].includes(view)); window.scrollTo(0,0); }
 
 // ── 구글 로그인 · 드라이브 ───────────────────────────────
 // 로그인 유지: 구글이 주는 출입증(1시간짜리)을 이 폰에만 보관해, 새로고침·앱 다시 열기에도 다시 묻지 않는다.
@@ -191,7 +206,7 @@ async function start() {
       const a = await (await api(`${DRIVE}/about?fields=user(emailAddress)`)).json();
       LS.set("vn_hint", a.user.emailAddress);
     }
-    await renderList();
+    if (new URLSearchParams(location.search).has("shared")) await openShared(); else await renderList();
   } catch (e) { $("loginMsg").textContent = e.message; show("vLogin"); }
 }
 async function login() {
@@ -229,7 +244,7 @@ async function loadConfig() {
   const r = await (await api(`${DRIVE}/files?q=${q("name='_시스템' and mimeType='application/vnd.google-apps.folder' and trashed=false")}&fields=files(id)`)).json();
   for (const f of r.files || []) {
     const c = (await list(f.id)).find(x => x.name === "config.json");
-    if (c) { cfg = await readJSON(c.id); return; }
+    if (c) { cfg = await readJSON(c.id); Object.defineProperty(cfg, "_configId", { value: c.id, enumerable: false }); return; }
   }
   throw new Error("_시스템/config.json을 찾지 못했습니다");
 }
@@ -247,19 +262,113 @@ async function renderList() {
       const rv = rf ? await readJSON(rf.id).catch(() => ({})) : {};
       return { l, files, done: !!rf, fb: !!rv.sent?.feedback, ck: !!rv.sent?.check };
     }));
+    const subs = await loadSubs(st).catch(() => ({ recs: [] }));
+    const pendingN = subs.recs.filter(r => !r.replied_at).length;
+    const subRow = subs.recs.length ? `<div class="lesson subs" data-s="${esc(sid)}"><span>🎙 과제 제출 ${subs.recs.length}개</span><span class="chip ${pendingN ? "todo" : "ok"}">${pendingN ? `답장 전 ${pendingN}` : "답장 ✓"}</span></div>` : "";
     const pay = (st.payments || []).slice(-1)[0];
     const payTxt = pay ? `최근 결제 ${esc(pay.date)} · ${esc(pay.sessions)}회 묶음` : "결제 기록 없음";
     const demo = st.status === "test" ? ` <span class="chip">연습용</span>` : "";
     blocks.push(`<div class="card"><h3 style="margin:0 0 2px">${esc(st.name)}${demo} <span class="muted">${esc(sid)}</span></h3>` +
       `<div class="muted">${payTxt} · <a href="https://drive.google.com/drive/folders/${esc(st.folder)}" target="_blank" rel="noopener">드라이브 폴더</a></div>` +
       (rows.length ? rows.map((r, i) => `<div class="lesson" data-s="${esc(sid)}" data-i="${i}"><span>${esc(r.l.name)}</span><span class="row" style="gap:4px"><span class="chip ${r.fb ? "ok" : "todo"}">${r.fb ? "피드백 ✓" : "피드백 전"}</span>${cfg.practice_check ? `<span class="chip ${r.ck ? "ok" : ""}">${r.ck ? "점검 ✓" : "점검 –"}</span>` : ""}</span></div>`).join("")
-        : `<p class="muted">아직 레슨 녹음이 없어요. 녹음이 정리되면 여기에 날짜별로 생기고, 누르면 검수 화면이 열립니다.</p>`) + `</div>`);
+        : `<p class="muted">아직 레슨 녹음이 없어요. 녹음이 정리되면 여기에 날짜별로 생기고, 누르면 검수 화면이 열립니다.</p>`) + subRow + `</div>`);
     st._rows = rows;
   }
   $("vList").innerHTML = (blocks.join("") || `<p class="muted">수강생 없음</p>`) +
     `<p class="muted">목록을 새로 보려면 <a href="#" id="reload">새로고침</a></p>`;
   $("reload").onclick = (e) => { e.preventDefault(); renderList(); };
-  $("vList").querySelectorAll(".lesson").forEach(el => el.onclick = () => openLesson(el.dataset.s, +el.dataset.i));
+  $("vList").querySelectorAll(".lesson:not(.subs)").forEach(el => el.onclick = () => openLesson(el.dataset.s, +el.dataset.i));
+  $("vList").querySelectorAll(".lesson.subs").forEach(el => el.onclick = () => openSubs(el.dataset.s));
+}
+
+// ── 과제 제출 (카톡 → 공유 → 보컬노트) ─────────────────────
+const SUBS = "과제기록.json";
+async function subsFolder(sid) {
+  const st = cfg.students[sid];
+  if (st.sub?.["04_과제제출"]) return st.sub["04_과제제출"];
+  const id = (await (await api(`${DRIVE}/files?fields=id`, { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: "04_과제제출", mimeType: "application/vnd.google-apps.folder", parents: [st.folder] }) })).json()).id;
+  (st.sub ??= {})["04_과제제출"] = id;
+  const clean = JSON.parse(JSON.stringify(cfg, (k, v) => k.startsWith("_") ? undefined : v));
+  await writeJSON(null, "config.json", clean, cfg._configId);
+  return id;
+}
+async function loadSubs(st) {
+  const fid = st.sub?.["04_과제제출"]; if (!fid) return { recs: [], files: [] };
+  const files = await list(fid), rf = files.find(f => f.name === SUBS);
+  return { recs: rf ? await readJSON(rf.id) : [], files, recId: rf?.id, folder: fid };
+}
+async function uploadFile(folder, name, blob) {
+  const meta = JSON.stringify({ name, parents: [folder] });
+  const init = await api(`${UPLOAD}/files?uploadType=resumable&fields=id`, { method: "POST",
+    headers: { "Content-Type": "application/json; charset=UTF-8", "X-Upload-Content-Type": blob.type || "application/octet-stream" }, body: meta });
+  const loc = init.headers.get("Location");
+  const r = await fetch(loc, { method: "PUT", body: blob });
+  if (!r.ok) throw new Error("업로드 실패 " + r.status);
+  return (await r.json()).id;
+}
+let sharedFiles = [];
+async function openShared() {
+  show("vShared");
+  const c = await caches.open("vn-shared-files");
+  const metaR = await c.match("./shared/meta.json");
+  const meta = metaR ? await metaR.json() : { files: [] };
+  sharedFiles = [];
+  for (const f of meta.files) { const r = await c.match(`./shared/${f.i}`); if (r) sharedFiles.push(new File([await r.blob()], f.name || `과제_${f.i}`, { type: f.type })); }
+  $("shFiles").innerHTML = sharedFiles.length ? sharedFiles.map((f, i) => `<div style="margin:6px 0"><b>${esc(f.name)}</b> <span class="muted">${(f.size / 1048576).toFixed(1)}MB</span>
+      <audio controls src="${URL.createObjectURL(f)}" style="width:100%"></audio></div>`).join("") : `<p class="muted">받은 파일이 없어요. 카톡에서 파일을 길게 눌러 ‘공유 → 보컬노트’로 보내 주세요.</p>`;
+  const last = LS.get("vn_last_sub_stu");
+  $("shStu").innerHTML = Object.entries(cfg.students).filter(([, st]) => st.status !== "test" || true)
+    .map(([sid, st]) => `<option value="${esc(sid)}" ${sid === last ? "selected" : ""}>${esc(st.name)}${st.status === "test" ? " (연습용)" : ""}</option>`).join("");
+  $("shDate").value = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+  $("shMemo").value = meta.text && !/^https?:/.test(meta.text) ? meta.text.slice(0, 80) : "";
+}
+async function saveShared() {
+  if (!sharedFiles.length) return toast("저장할 파일이 없어요");
+  const sid = $("shStu").value, day = $("shDate").value, memo = $("shMemo").value.trim();
+  LS.set("vn_last_sub_stu", sid);
+  $("btnShSave").disabled = true; $("btnShSave").textContent = "올리는 중…";
+  try {
+    const folder = await subsFolder(sid), subs = await loadSubs(cfg.students[sid]);
+    for (const f of sharedFiles) {
+      const ext = (f.name.match(/\.[a-z0-9]+$/i) || [".m4a"])[0];
+      const name = `${day}_${String(new Date().getHours()).padStart(2, "0")}${String(new Date().getMinutes()).padStart(2, "0")}_과제${ext}`;
+      const id = await uploadFile(folder, name, f);
+      subs.recs.push({ id, name, original_name: f.name, received_on: day, saved_at: new Date().toISOString(), memo, reply: "", replied_at: null });
+    }
+    await writeJSON(folder, SUBS, subs.recs, subs.recId);
+    const c = await caches.open("vn-shared-files"); for (const k of await c.keys()) await c.delete(k);
+    history.replaceState(null, "", "./");
+    toast("저장했어요"); await openSubs(sid);
+  } catch (e) { toast(e.message); }
+  $("btnShSave").disabled = false; $("btnShSave").textContent = "저장";
+}
+let subsCur = null;
+async function openSubs(sid) {
+  show("vSubs"); const st = cfg.students[sid];
+  $("subsHead").innerHTML = `<h2 style="margin:0">${esc(st.name)} · 과제 제출</h2><p class="muted">제출 다음 날까지 짧게라도 답장해 주는 게 목표예요. 답장을 보낸 뒤 ‘답장 보냄’을 눌러 주세요.</p>`;
+  const subs = await loadSubs(st); subsCur = { sid, st, ...subs };
+  const recs = [...subs.recs].sort((a, b) => (b.saved_at || "").localeCompare(a.saved_at || ""));
+  $("subsList").innerHTML = recs.map(r => `<div class="card" data-id="${esc(r.id)}">
+      <div class="row"><b>${esc(r.received_on)}</b>${r.memo ? `<span class="muted">${esc(r.memo)}</span>` : ""}
+        <span class="chip ${r.replied_at ? "ok" : "todo"}" style="margin-left:auto">${r.replied_at ? "답장 ✓" : "답장 전"}</span></div>
+      <button class="small ghost" data-play="${esc(r.id)}">▶ 듣기</button><audio controls class="hidden" style="width:100%"></audio>
+      <textarea class="reply" style="min-height:90px;margin-top:6px">${esc(r.reply || `${st.name}님, 녹음 잘 들었어요! `)}</textarea>
+      <div class="row"><button class="small" data-copy>답장 복사</button><button class="small ghost" data-mark>${r.replied_at ? "답장 보냄 취소" : "답장 보냄"}</button></div>
+    </div>`).join("") || `<p class="muted">아직 제출된 과제가 없어요.</p>`;
+  $("subsList").querySelectorAll("[data-play]").forEach(b => b.onclick = async () => {
+    const au = b.nextElementSibling; b.textContent = "불러오는 중…";
+    try { au.src = URL.createObjectURL(await readBlob(b.dataset.play)); au.classList.remove("hidden"); b.classList.add("hidden"); au.play(); } catch (e) { b.textContent = "▶ 듣기"; toast(e.message); }
+  });
+  $("subsList").querySelectorAll(".card").forEach(card => {
+    const rec = subsCur.recs.find(x => x.id === card.dataset.id);
+    card.querySelector(".reply").oninput = (e) => { rec.reply = e.target.value; };
+    card.querySelector("[data-copy]").onclick = async () => { try { await navigator.clipboard.writeText(rec.reply || card.querySelector(".reply").value); toast("복사했어요. 카톡에 붙여넣기 하세요."); } catch { toast("길게 눌러 복사해 주세요"); } };
+    card.querySelector("[data-mark]").onclick = async () => {
+      rec.reply = card.querySelector(".reply").value; rec.replied_at = rec.replied_at ? null : new Date().toISOString();
+      try { await writeJSON(subsCur.folder, SUBS, subsCur.recs, subsCur.recId); toast("저장됨"); openSubs(sid); } catch (e) { toast(e.message); }
+    };
+  });
 }
 
 // ── 레슨 검수 ───────────────────────────────────────────
@@ -485,6 +594,9 @@ async function shareClips(fileList) {
 
 // ── 버튼 ────────────────────────────────────────────────
 $("btnLogin").onclick = login;
+$("btnShSave").onclick = saveShared;
+$("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 $("miniBtn").onclick = () => full.paused ? full.play() : full.pause();
 $("miniSeek").onchange = (e) => { playAt(e.target.value / 1000 * lessonEnd()).catch(x => toast(x.message)); };
 // 저장된 출입증이 있으면 로그인 화면 없이 바로 목록

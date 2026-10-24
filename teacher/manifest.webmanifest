@@ -1,15 +1,52 @@
 {
-  "name": "작품 보컬노트 선생님",
-  "short_name": "보컬노트",
-  "id": "./",
-  "start_url": "./",
-  "scope": "./",
-  "display": "standalone",
-  "lang": "ko",
-  "background_color": "#ffffff",
-  "theme_color": "#2b4c7e",
-  "icons": [
-    {"src": "../icon-192.png", "sizes": "192x192", "type": "image/png"},
-    {"src": "../icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"}
-  ]
+ "name": "작품 보컬노트 선생님",
+ "short_name": "보컬노트",
+ "id": "./",
+ "start_url": "./",
+ "scope": "./",
+ "display": "standalone",
+ "lang": "ko",
+ "background_color": "#ffffff",
+ "theme_color": "#2b4c7e",
+ "icons": [
+  {
+   "src": "../icon-192.png",
+   "sizes": "192x192",
+   "type": "image/png"
+  },
+  {
+   "src": "../icon-512.png",
+   "sizes": "512x512",
+   "type": "image/png",
+   "purpose": "any"
+  }
+ ],
+ "share_target": {
+  "action": "./share",
+  "method": "POST",
+  "enctype": "multipart/form-data",
+  "params": {
+   "title": "title",
+   "text": "text",
+   "files": [
+    {
+     "name": "media",
+     "accept": [
+      "audio/*",
+      "video/*",
+      "*/*",
+      ".m4a",
+      ".mp3",
+      ".aac",
+      ".amr",
+      ".3gp",
+      ".ogg",
+      ".opus",
+      ".wav",
+      ".mp4"
+     ]
+    }
+   ]
+  }
+ }
 }
