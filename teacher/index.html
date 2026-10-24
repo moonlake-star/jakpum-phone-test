@@ -474,7 +474,9 @@ async function submitMakeup() {
 // 레슨 녹음의 노래 후보 구간 → AI 분리 → 메이크업 (원본 레슨 녹음에서 바로 자름: 클립보다 음질 좋음)
 async function makeupFromLesson(cid) {
   const c = allCands().find(x => x.id === cid), audio = cur.files.find(f => /\.(m4a|mp3|wav|aac|3gp|ogg)$/i.test(f.name) && f.name !== "듣기용.mp3");
-  if (!c || !audio) return toast("원본 레슨 녹음을 찾지 못했어요");
+  // 원본 레슨 녹음이 없으면(예: 옮겨지기 전·예시) 그 구간의 노래 후보 클립으로 대신
+  const clip = cur.clips.find(f => f.name.startsWith(cid));
+  if (!c || (!audio && !clip)) return toast("이 구간의 녹음을 찾지 못했어요");
   if (c.end - c.start > 240) return toast("4분 이하 구간만 돼요. 구간 직접 추가로 줄여 주세요");
   const note = cur.review.notes?.[cid] || "";
   if (!confirm(`${fmt(c.start)}~${fmt(c.end)} 구간을 AI로 보컬·MR 분리 후 메이크업할까요?`)) return;
@@ -482,7 +484,9 @@ async function makeupFromLesson(cid) {
     const f7 = await mkFolder(cur.sid), title = `${cur.folder.name.slice(0, 10)}_레슨${cid}`;
     const jf = await newFolder(`${title}_메이크업`, f7);
     await writeJSON(jf, MKREQ, { status: "queued", mode: "single", title, student_id: cur.sid, student_name: cur.st.name, preset: "표준", settings: {},
-      source_id: audio.id, source_name: audio.name, start: c.start, end: c.end, lesson_folder: cur.folder.id, note, requested_at: new Date().toISOString() });
+      ...(audio ? { source_id: audio.id, source_name: audio.name, start: c.start, end: c.end }
+                : { source_id: clip.id, source_name: clip.name, start: null, end: null, source_is_clip: true }),
+      lesson_folder: cur.folder.id, note, requested_at: new Date().toISOString() });
     toast("요청했어요. 다음 자동 실행 때 만들어지고 메일로 알려 드려요");
   } catch (e) { toast(e.message); }
 }
