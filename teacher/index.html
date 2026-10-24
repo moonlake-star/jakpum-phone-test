@@ -47,6 +47,11 @@
   .mini { position:sticky; bottom:0; display:flex; gap:8px; align-items:center; background:var(--card); padding:8px 0 2px; border-top:1px solid var(--line); }
   .mini input[type=range] { flex:1; }
   .sentrow { margin-top:8px; }
+  /* 수강생 칸: 이름 머리(밝은 남회색 + 왼쪽 강조선) / 레슨 목록(카드 바탕) 구분 */
+  .stuCard { padding:0; overflow:hidden; }
+  .stuHead { background:#2f3a4a; border-left:4px solid var(--accent); padding:10px 14px; }
+  .stuHead h3 { margin:0 0 2px; } .stuHead .muted { color:#c3cbd6; }
+  .stuBody { padding:2px 14px 8px; }
   input[type=file] { width:100%; max-width:100%; font-size:.9rem; }
   .cand { border-top:1px solid var(--line); padding:10px 0; }
   .cand:first-child { border-top:0; }
@@ -280,10 +285,10 @@ function paintList(data, stale) {
     const pay = (st.payments || []).slice(-1)[0];
     const payTxt = pay ? `최근 결제 ${esc(pay.date)} · ${esc(pay.sessions)}회 묶음` : "결제 기록 없음";
     const demo = st.status === "test" ? ` <span class="chip">연습용</span>` : "";
-    return `<div class="card"><h3 style="margin:0 0 2px">${esc(st.name)}${demo} <span class="muted">${esc(sid)}</span></h3>` +
-      `<div class="muted">${payTxt} · <a href="https://drive.google.com/drive/folders/${esc(st.folder)}" target="_blank" rel="noopener">드라이브 폴더</a></div>` +
+    return `<div class="card stuCard"><div class="stuHead"><h3>${esc(st.name)}${demo} <span class="muted">${esc(sid)}</span></h3>` +
+      `<div class="muted">${payTxt} · <a href="https://drive.google.com/drive/folders/${esc(st.folder)}" target="_blank" rel="noopener">드라이브 폴더</a></div></div><div class="stuBody">` +
       (rows.length ? rows.map((r, i) => `<div class="lesson" data-s="${esc(sid)}" data-i="${i}"><span>${esc(r.l.name)}</span><span class="row" style="gap:4px"><span class="chip ${r.fb ? "ok" : "todo"}">${r.fb ? "피드백 ✓" : "피드백 전"}</span>${cfg.practice_check ? `<span class="chip ${r.ck ? "ok" : ""}">${r.ck ? "점검 ✓" : "점검 –"}</span>` : ""}</span></div>`).join("")
-        : `<p class="muted">아직 레슨 녹음이 없어요. 녹음이 정리되면 여기에 날짜별로 생기고, 누르면 검수 화면이 열립니다.</p>`) + subRow + `</div>`;
+        : `<p class="muted">아직 레슨 녹음이 없어요. 녹음이 정리되면 여기에 날짜별로 생기고, 누르면 검수 화면이 열립니다.</p>`) + subRow + `</div></div>`;
   });
   $("vList").innerHTML = `<button class="full ghost" id="btnMk">🎚 보컬 자동 메이크업</button>` + (blocks.join("") || `<p class="muted">수강생 없음</p>`) +
     `<p class="muted">${stale ? "최신 내용 확인 중…" : "최신 상태"} · <a href="#" id="reload">새로고침</a></p>`;
