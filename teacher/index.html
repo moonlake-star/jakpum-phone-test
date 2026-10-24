@@ -245,45 +245,64 @@ async function writeJSON(folder, name, obj, existingId) {
   return (await (await api(`${UPLOAD}/files?uploadType=multipart&fields=id`, { method: "POST", body: form })).json()).id;
 }
 async function loadConfig() {
+  // 빠르게: 지난번 찾은 config.json ID로 바로 읽기(1번 호출). 실패하면 다시 찾기
+  const cid = LS.get("vn_cfg_id");
+  if (cid) { try { cfg = await readJSON(cid); Object.defineProperty(cfg, "_configId", { value: cid, enumerable: false }); return; } catch {} }
   const r = await (await api(`${DRIVE}/files?q=${q("name='_시스템' and mimeType='application/vnd.google-apps.folder' and trashed=false")}&fields=files(id)`)).json();
   for (const f of r.files || []) {
     const c = (await list(f.id)).find(x => x.name === "config.json");
-    if (c) { cfg = await readJSON(c.id); Object.defineProperty(cfg, "_configId", { value: c.id, enumerable: false }); return; }
+    if (c) { cfg = await readJSON(c.id); Object.defineProperty(cfg, "_configId", { value: c.id, enumerable: false }); LS.set("vn_cfg_id", c.id); return; }
   }
   throw new Error("_시스템/config.json을 찾지 못했습니다");
 }
 
 // ── 레슨 목록 ────────────────────────────────────────────
-async function renderList() {
-  show("vList"); $("vList").innerHTML = `<p class="muted">불러오는 중…</p>`;
-  const blocks = [];
-  for (const [sid, st] of Object.entries(cfg.students)) {
-    const root = st.sub?.["02_레슨"]; if (!root) continue;
-    const lessons = (await list(root)).filter(f => f.mimeType.endsWith("folder")).sort((a, b) => b.name.localeCompare(a.name));
+// 목록: ① 이 폰에 저장해 둔 지난 목록을 바로 그리고 ② 드라이브에서 새로 받아(학생·레슨 모두 동시에) 다시 그림
+async function listData() {
+  return Promise.all(Object.entries(cfg.students).map(async ([sid, st]) => {
+    const root = st.sub?.["02_레슨"];
+    const [lessons, subs] = await Promise.all([
+      root ? list(root).then(fs => fs.filter(f => f.mimeType.endsWith("folder")).sort((a, b) => b.name.localeCompare(a.name))) : [],
+      loadSubs(st).catch(() => ({ recs: [] }))]);
     const rows = await Promise.all(lessons.map(async (l) => {
       const files = await list(l.id);
       const rf = files.find(f => f.name === REVIEW);
       const rv = rf ? await readJSON(rf.id).catch(() => ({})) : {};
       return { l, files, done: !!rf, fb: !!rv.sent?.feedback, ck: !!rv.sent?.check };
     }));
-    const subs = await loadSubs(st).catch(() => ({ recs: [] }));
-    const pendingN = subs.recs.filter(r => !r.replied_at).length;
-    const subRow = subs.recs.length ? `<div class="lesson subs" data-s="${esc(sid)}"><span>🎙 과제 제출 ${subs.recs.length}개</span><span class="chip ${pendingN ? "todo" : "ok"}">${pendingN ? `답장 전 ${pendingN}` : "답장 ✓"}</span></div>` : "";
+    return { sid, rows, subsN: subs.recs.length, pendingN: subs.recs.filter(r => !r.replied_at).length, hasRoot: !!root };
+  }));
+}
+function paintList(data, stale) {
+  const blocks = data.filter(d => d.hasRoot).map(({ sid, rows, subsN, pendingN }) => {
+    const st = cfg.students[sid]; if (!st) return ""; st._rows = rows;
+    const subRow = subsN ? `<div class="lesson subs" data-s="${esc(sid)}"><span>🎙 과제 제출 ${subsN}개</span><span class="chip ${pendingN ? "todo" : "ok"}">${pendingN ? `답장 전 ${pendingN}` : "답장 ✓"}</span></div>` : "";
     const pay = (st.payments || []).slice(-1)[0];
     const payTxt = pay ? `최근 결제 ${esc(pay.date)} · ${esc(pay.sessions)}회 묶음` : "결제 기록 없음";
     const demo = st.status === "test" ? ` <span class="chip">연습용</span>` : "";
-    blocks.push(`<div class="card"><h3 style="margin:0 0 2px">${esc(st.name)}${demo} <span class="muted">${esc(sid)}</span></h3>` +
+    return `<div class="card"><h3 style="margin:0 0 2px">${esc(st.name)}${demo} <span class="muted">${esc(sid)}</span></h3>` +
       `<div class="muted">${payTxt} · <a href="https://drive.google.com/drive/folders/${esc(st.folder)}" target="_blank" rel="noopener">드라이브 폴더</a></div>` +
       (rows.length ? rows.map((r, i) => `<div class="lesson" data-s="${esc(sid)}" data-i="${i}"><span>${esc(r.l.name)}</span><span class="row" style="gap:4px"><span class="chip ${r.fb ? "ok" : "todo"}">${r.fb ? "피드백 ✓" : "피드백 전"}</span>${cfg.practice_check ? `<span class="chip ${r.ck ? "ok" : ""}">${r.ck ? "점검 ✓" : "점검 –"}</span>` : ""}</span></div>`).join("")
-        : `<p class="muted">아직 레슨 녹음이 없어요. 녹음이 정리되면 여기에 날짜별로 생기고, 누르면 검수 화면이 열립니다.</p>`) + subRow + `</div>`);
-    st._rows = rows;
-  }
+        : `<p class="muted">아직 레슨 녹음이 없어요. 녹음이 정리되면 여기에 날짜별로 생기고, 누르면 검수 화면이 열립니다.</p>`) + subRow + `</div>`;
+  });
   $("vList").innerHTML = `<button class="full ghost" id="btnMk">🎚 보컬 자동 메이크업</button>` + (blocks.join("") || `<p class="muted">수강생 없음</p>`) +
-    `<p class="muted">목록을 새로 보려면 <a href="#" id="reload">새로고침</a></p>`;
+    `<p class="muted">${stale ? "최신 내용 확인 중…" : "최신 상태"} · <a href="#" id="reload">새로고침</a></p>`;
   $("reload").onclick = (e) => { e.preventDefault(); renderList(); };
   $("btnMk").onclick = () => openMakeup();
   $("vList").querySelectorAll(".lesson:not(.subs)").forEach(el => el.onclick = () => openLesson(el.dataset.s, +el.dataset.i));
   $("vList").querySelectorAll(".lesson.subs").forEach(el => el.onclick = () => openSubs(el.dataset.s));
+}
+let listGen = 0;
+async function renderList() {
+  show("vList");
+  const my = ++listGen, cached = LS.get("vn_list");
+  if (cached) paintList(cached, true); else $("vList").innerHTML = `<p class="muted">불러오는 중…</p>`;
+  try {
+    const data = await listData();
+    if (my !== listGen || $("vList").classList.contains("hidden")) { LS.set("vn_list", data); return; }
+    LS.set("vn_list", data); paintList(data, false);
+    prefetchLessons(data);
+  } catch (e) { if (!cached) $("vList").innerHTML = `<p class="muted">불러오기 실패: ${esc(e.message)}</p>`; }
 }
 
 // ── 과제 제출 (카톡 → 공유 → 보컬노트) ─────────────────────
@@ -564,23 +583,34 @@ async function openMkJob(j) {
 }
 
 // ── 레슨 검수 ───────────────────────────────────────────
+// 레슨 자료(변하지 않는 것들)는 한 번 받으면 기억. 목록이 뜨면 최근 레슨 몇 개를 미리 받아 둔다.
+const lessonCache = new Map();
+function lessonData(folderId, files) {
+  if (lessonCache.has(folderId)) return lessonCache.get(folderId);
+  const by = (n) => files.find(f => f.name === n), j = (n, dflt) => by(n) ? readJSON(by(n).id).catch(() => dflt) : Promise.resolve(dflt);
+  const dir = (n) => { const f = files.find(x => x.name === n); return f ? list(f.id) : Promise.resolve([]); };
+  const p = Promise.all([j("처리요약.json", {}), j("전사_원본.json", []), j("candidates.json", []), dir("노래후보_클립"),
+                         j("화자샘플.json", []), dir("화자샘플"), j("AI초안.json", null)])
+    .then(([summary, segs, cands, clips, samples, sampleFiles, ai]) => ({ summary, segs, cands, clips, samples, sampleFiles, ai }));
+  p.catch(() => lessonCache.delete(folderId));
+  lessonCache.set(folderId, p);
+  return p;
+}
+function prefetchLessons(data) {
+  const recent = data.flatMap(d => d.rows.slice(0, 2)).slice(0, 6);
+  recent.forEach(r => lessonData(r.l.id, r.files));
+}
 async function openLesson(sid, i) {
   const st = cfg.students[sid], { l, files } = st._rows[i];
   show("vLesson"); $("lsHead").innerHTML = `<p class="muted">불러오는 중…</p>`;
   full.pause(); $("mini").classList.add("hidden"); nowIdx = -1; nextChunk = null; listenFile = null;
   const by = (n) => files.find(f => f.name === n);
-  const summary = by("처리요약.json") ? await readJSON(by("처리요약.json").id) : {};
-  const segs = by("전사_원본.json") ? await readJSON(by("전사_원본.json").id) : [];
-  const cands = by("candidates.json") ? await readJSON(by("candidates.json").id) : [];
-  const clipDir = files.find(f => f.name === "노래후보_클립");
-  const clips = clipDir ? await list(clipDir.id) : [];
-  const sampleDir = files.find(f => f.name === "화자샘플");
-  const samples = by("화자샘플.json") ? await readJSON(by("화자샘플.json").id) : [];
-  const sampleFiles = sampleDir ? await list(sampleDir.id) : [];
+  const d = await lessonData(l.id, files);
+  const { summary, segs, cands, clips, samples, sampleFiles } = d;
   const reviewF = by(REVIEW);
   const review = reviewF ? await readJSON(reviewF.id) : { speakers: {}, decisions: {}, manual: [], feedback: "" };
+  const ai = d.ai;
   // AI 초안: 아직 선생님이 손대지 않은 칸만 채운다(검수 저장한 내용이 있으면 그대로)
-  const ai = by("AI초안.json") ? await readJSON(by("AI초안.json").id).catch(() => null) : null;
   if (ai) {
     review.speakers = review.speakers || {};
     if (!Object.keys(review.speakers).length)
