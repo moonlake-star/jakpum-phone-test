@@ -64,7 +64,7 @@
 
     <div class="card">
       <h3 style="margin-top:0">1. 누가 누구인지</h3>
-      <p class="muted">AI가 목소리별로 A·B·C…로 나눴습니다. 처음 한 번만 정해 주시면 전사본과 피드백에 이름으로 나옵니다. 노래 부분은 보통 따로 한 화자로 묶입니다.</p>
+      <p class="muted">AI가 목소리별로 A·B·C…로 나눴습니다. ▶ 시각 버튼을 누르면 그 화자 목소리를 몇 초 들어 볼 수 있어요. 정해 주시면 전사본과 피드백에 이름으로 나옵니다. 노래 부분은 보통 따로 한 화자로 묶입니다.</p>
       <div id="spk"></div>
     </div>
 
@@ -230,9 +230,12 @@ async function openLesson(sid, i) {
   const cands = by("candidates.json") ? await readJSON(by("candidates.json").id) : [];
   const clipDir = files.find(f => f.name === "노래후보_클립");
   const clips = clipDir ? await list(clipDir.id) : [];
+  const sampleDir = files.find(f => f.name === "화자샘플");
+  const samples = by("화자샘플.json") ? await readJSON(by("화자샘플.json").id) : [];
+  const sampleFiles = sampleDir ? await list(sampleDir.id) : [];
   const reviewF = by(REVIEW);
   const review = reviewF ? await readJSON(reviewF.id) : { speakers: {}, decisions: {}, manual: [], feedback: "" };
-  cur = { sid, st, folder: l, summary, segs, cands, clips, review, reviewId: reviewF?.id, clipUrls: {} };
+  cur = { sid, st, folder: l, summary, segs, cands, clips, samples, sampleFiles, review, reviewId: reviewF?.id, clipUrls: {} };
 
   const ls = summary.lesson || {};
   $("lsHead").innerHTML = `<h2 style="margin:0">${esc(st.name)} · ${esc(l.name)}</h2>
@@ -246,6 +249,18 @@ async function openLesson(sid, i) {
   $("fb").value = review.feedback || draftFeedback();
 }
 
+const player = new Audio(); let playingBtn = null;
+player.onended = () => { if (playingBtn) playingBtn.textContent = playingBtn.dataset.label; playingBtn = null; };
+async function playShared(btn, fileId) {
+  if (playingBtn === btn) { player.pause(); player.onended(); return; }
+  if (playingBtn) player.onended();
+  btn.dataset.label ??= btn.textContent; btn.textContent = "불러오는 중…";
+  try {
+    cur.clipUrls[fileId] ??= URL.createObjectURL(await readBlob(fileId));
+    player.src = cur.clipUrls[fileId]; await player.play();
+    playingBtn = btn; btn.textContent = "■ 정지";
+  } catch (e) { btn.textContent = btn.dataset.label; toast(e.message); }
+}
 function speakerName(code) {
   const v = cur.review.speakers[code];
   return v === "teacher" ? "선생님" : v === "student" ? cur.st.name : v === "singing" ? "노래" : v === "music" ? "음원" : `화자${code}`;
@@ -254,15 +269,20 @@ function renderSpeakers() {
   const talk = cur.summary.speakers_talk_sec || {};
   const codes = Object.keys(talk).length ? Object.keys(talk) : [...new Set(cur.segs.map(s => s.speaker))];
   $("spk").innerHTML = codes.map(c => {
-    const sample = cur.segs.find(s => s.speaker === c && s.text.length > 8)?.text || "";
+    const mine = (cur.samples || []).filter(x => x.speaker === c);
+    const sample = mine[0]?.text || cur.segs.find(s => s.speaker === c && s.text.length > 8)?.text || "";
+    const btns = mine.map(x => { const f = cur.sampleFiles.find(y => y.name === x.file);
+      return f ? `<button class="small ghost" data-sample="${f.id}" title="${esc(x.text)}">▶ ${fmt(x.start)}</button>` : ""; }).join(" ");
     const v = cur.review.speakers[c] || "";
     return `<div class="row" style="padding:6px 0;border-top:1px solid var(--line)">
       <b style="min-width:4em">화자${esc(c)}</b><span class="muted">${talk[c] ? fmt(talk[c]) + " 말함" : ""}</span>
       <select data-c="${esc(c)}">${[["","?"],["teacher","선생님"],["student","학생"],["singing","노래(학생)"],["music","음원·기타"]]
         .map(([k, n]) => `<option value="${k}" ${k === v ? "selected" : ""}>${n}</option>`).join("")}</select>
-      <div class="muted" style="flex-basis:100%">“${esc(sample.slice(0, 70))}”</div></div>`;
+      <div class="muted" style="flex-basis:100%">“${esc(sample.slice(0, 70))}”</div>
+      ${btns ? `<div class="row" style="flex-basis:100%">${btns}</div>` : ""}</div>`;
   }).join("");
   $("spk").querySelectorAll("select").forEach(s => s.onchange = () => { cur.review.speakers[s.dataset.c] = s.value; renderSegs(); });
+  $("spk").querySelectorAll("[data-sample]").forEach(b => b.onclick = () => playShared(b, b.dataset.sample));
 }
 function renderSegs() {
   $("segs").innerHTML = cur.segs.map(s => `<div class="seg"><span class="t">${fmt(s.start)}</span><b>${esc(speakerName(s.speaker))}</b> ${esc(s.text)}</div>`).join("") || `<p class="muted">전사본 없음</p>`;
