@@ -47,6 +47,7 @@
   .mini { position:sticky; bottom:0; display:flex; gap:8px; align-items:center; background:var(--card); padding:8px 0 2px; border-top:1px solid var(--line); }
   .mini input[type=range] { flex:1; }
   .sentrow { margin-top:8px; }
+  input[type=file] { width:100%; max-width:100%; font-size:.9rem; }
   .cand { border-top:1px solid var(--line); padding:10px 0; }
   .cand:first-child { border-top:0; }
   audio { width:100%; margin:6px 0; }
@@ -87,6 +88,9 @@
       <button class="full ghost" id="btnShCancel">취소</button>
     </div>
   </section>
+
+  <section id="vMk" class="hidden"></section>
+  <section id="vMkJob" class="hidden"></section>
 
   <section id="vSubs" class="hidden"><div class="card" id="subsHead"></div><div id="subsList"></div></section>
 
@@ -174,7 +178,7 @@ const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&l
 const fmt = (sec) => { sec = Math.max(0, Math.round(sec)); const m = Math.floor(sec/60), s = sec%60; return `${m}:${String(s).padStart(2,"0")}`; };
 const parseT = (t) => { const p = String(t).trim().split(":").map(Number); if (p.some(isNaN)) return null; return p.length === 2 ? p[0]*60+p[1] : p.length === 3 ? p[0]*3600+p[1]*60+p[2] : null; };
 function toast(msg) { const t = $("toast"); t.textContent = msg; t.style.display = "block"; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = "none", 2500); }
-function show(view) { for (const v of ["vLogin","vList","vLesson","vShared","vSubs"]) $(v).classList.toggle("hidden", v !== view); $("btnBack").classList.toggle("hidden", !["vLesson","vSubs"].includes(view)); window.scrollTo(0,0); }
+function show(view) { for (const v of ["vLogin","vList","vLesson","vShared","vSubs","vMk","vMkJob"]) $(v).classList.toggle("hidden", v !== view); $("btnBack").classList.toggle("hidden", !["vLesson","vSubs","vMk","vMkJob"].includes(view)); if (view !== "vMkJob") mkStop?.(); window.scrollTo(0,0); }
 
 // ── 구글 로그인 · 드라이브 ───────────────────────────────
 // 로그인 유지: 구글이 주는 출입증(1시간짜리)을 이 폰에만 보관해, 새로고침·앱 다시 열기에도 다시 묻지 않는다.
@@ -274,9 +278,10 @@ async function renderList() {
         : `<p class="muted">아직 레슨 녹음이 없어요. 녹음이 정리되면 여기에 날짜별로 생기고, 누르면 검수 화면이 열립니다.</p>`) + subRow + `</div>`);
     st._rows = rows;
   }
-  $("vList").innerHTML = (blocks.join("") || `<p class="muted">수강생 없음</p>`) +
+  $("vList").innerHTML = `<button class="full ghost" id="btnMk">🎚 보컬 자동 메이크업</button>` + (blocks.join("") || `<p class="muted">수강생 없음</p>`) +
     `<p class="muted">목록을 새로 보려면 <a href="#" id="reload">새로고침</a></p>`;
   $("reload").onclick = (e) => { e.preventDefault(); renderList(); };
+  $("btnMk").onclick = () => openMakeup();
   $("vList").querySelectorAll(".lesson:not(.subs)").forEach(el => el.onclick = () => openLesson(el.dataset.s, +el.dataset.i));
   $("vList").querySelectorAll(".lesson.subs").forEach(el => el.onclick = () => openSubs(el.dataset.s));
 }
@@ -389,6 +394,134 @@ async function openSubs(sid) {
     card.querySelector("[data-save]")?.addEventListener("click", () => persist("저장됨"));
     card.querySelector("[data-undo]")?.addEventListener("click", async () => { rec.replied_at = null; await persist("보냄 취소됨"); });
   });
+}
+
+// ── 보컬 자동 메이크업 ────────────────────────────────────
+const MKREQ = "메이크업요청.json", MK_PRESETS = ["담백", "표준", "풍성"];
+async function mkFolder(sid) {
+  const st = cfg.students[sid];
+  if (st.sub?.["07_커버제작"]) return st.sub["07_커버제작"];
+  const id = (await (await api(`${DRIVE}/files?fields=id`, { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: "07_커버제작", mimeType: "application/vnd.google-apps.folder", parents: [st.folder] }) })).json()).id;
+  (st.sub ??= {})["07_커버제작"] = id;
+  await writeJSON(null, "config.json", JSON.parse(JSON.stringify(cfg, (k, v) => k.startsWith("_") ? undefined : v)), cfg._configId);
+  return id;
+}
+async function newFolder(name, parent) {
+  return (await (await api(`${DRIVE}/files?fields=id`, { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, mimeType: "application/vnd.google-apps.folder", parents: [parent] }) })).json()).id;
+}
+async function openMakeup() {
+  show("vMk"); $("vMk").innerHTML = `<p class="muted">불러오는 중…</p>`;
+  const jobs = [];
+  for (const [sid, st] of Object.entries(cfg.students)) {
+    const f7 = st.sub?.["07_커버제작"]; if (!f7) continue;
+    for (const f of (await list(f7)).filter(x => x.mimeType.endsWith("folder"))) {
+      const files = await list(f.id), rq = files.find(x => x.name === MKREQ);
+      if (rq) jobs.push({ sid, st, folder: f, files, reqId: rq.id, req: await readJSON(rq.id).catch(() => ({})) });
+    }
+  }
+  jobs.sort((a, b) => (b.req.requested_at || "").localeCompare(a.req.requested_at || ""));
+  const stTxt = { queued: "대기 중", working: "만드는 중", done: "완료", error: "실패" };
+  $("vMk").innerHTML = `<div class="card"><h2 style="margin-top:0">🎚 보컬 자동 메이크업</h2>
+      <p class="muted">DAW에서 내보낸 <b>보컬 wav</b>와 <b>MR wav</b>를 올리면 볼륨 정리·EQ·디에서·컴프·리버브·간이 믹스를 자동으로 해 드려요. 다음 자동 실행 때(밤엔 15분 안) 완성되고 메일로 알려 드립니다.</p>
+      <div class="row" style="margin:6px 0"><label>수강생</label><select id="mkStu" style="flex:1">${Object.entries(cfg.students).map(([sid, st]) => `<option value="${esc(sid)}">${esc(st.name)}${st.status === "test" ? " (연습용)" : ""}</option>`).join("")}</select></div>
+      <input id="mkTitle" placeholder="곡명 (예: 그리움만쌓이네)" style="width:100%;margin:4px 0">
+      <div class="muted" style="margin-top:6px">보컬 wav</div><input type="file" id="mkV" accept="audio/*,.wav,.aif,.aiff,.flac,.mp3">
+      <div class="muted" style="margin-top:6px">MR wav</div><input type="file" id="mkM" accept="audio/*,.wav,.aif,.aiff,.flac,.mp3">
+      <div class="row" style="margin:8px 0"><label>시작 프리셋</label>${MK_PRESETS.map(p => `<label><input type="radio" name="mkP" value="${p}" ${p === "표준" ? "checked" : ""}> ${p}</label>`).join(" ")}</div>
+      <button class="full" id="btnMkGo">올리고 메이크업 요청</button><p class="muted" id="mkMsg"></p></div>` +
+    (jobs.length ? `<div class="card"><h3 style="margin-top:0">작업 목록</h3>` + jobs.map((j, i) => `<div class="lesson mkrow" data-i="${i}"><span>${esc(j.st.name)} · ${esc(j.req.title || j.folder.name)}</span>
+      <span class="chip ${j.req.status === "done" ? "ok" : j.req.status === "error" ? "todo" : ""}">${stTxt[j.req.status] || j.req.status}</span></div>`).join("") + `</div>` : "");
+  $("btnMkGo").onclick = submitMakeup;
+  $("vMk").querySelectorAll(".mkrow").forEach(el => el.onclick = () => openMkJob(jobs[+el.dataset.i]));
+}
+async function submitMakeup() {
+  const sid = $("mkStu").value, title = cleanPart($("mkTitle").value || "") , v = $("mkV").files[0], m = $("mkM").files[0];
+  if (!v || !m) return toast("보컬과 MR 파일을 둘 다 골라 주세요");
+  if (title === "과제") return toast("곡명을 적어 주세요");
+  const preset = document.querySelector('input[name="mkP"]:checked').value, day = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+  const b = $("btnMkGo"); b.disabled = true;
+  try {
+    const f7 = await mkFolder(sid), jf = await newFolder(`${day}_${title}_메이크업`, f7), orig = await newFolder("원본", jf);
+    $("mkMsg").textContent = "보컬 올리는 중…"; const ext = (f) => (f.name.match(/\.[a-z0-9]+$/i) || [".wav"])[0];
+    const vName = `${title}_보컬${ext(v)}`, mName = `${title}_MR${ext(m)}`;
+    const vid = await uploadFile(orig, vName, v); $("mkMsg").textContent = "MR 올리는 중…";
+    const mid = await uploadFile(orig, mName, m);
+    await writeJSON(jf, MKREQ, { status: "queued", title, student_id: sid, student_name: cfg.students[sid].name, preset, settings: {},
+      vocal_id: vid, vocal_name: vName, mr_id: mid, mr_name: mName, requested_at: new Date().toISOString() });
+    toast("요청했어요. 완성되면 메일로 알려 드려요"); openMakeup();
+  } catch (e) { toast(e.message); $("mkMsg").textContent = ""; }
+  b.disabled = false;
+}
+// 미리듣기: 보컬(원음)·보컬(울림)·MR 세 갈래를 동시에 재생하며 비율만 바로 조절
+let mkCtx = null, mkBufs = null, mkSrcs = [], mkGains = null, mkStart = 0, mkOffset = 0, mkJob = null;
+function mkStop() { mkSrcs.forEach(x => { try { x.stop(); } catch {} }); mkSrcs = []; }
+function mkPlay(at = 0) {
+  mkStop(); mkCtx ??= new AudioContext();
+  mkGains ??= ["v", "w", "m"].map(() => { const g = mkCtx.createGain(); g.connect(mkCtx.destination); return g; });
+  mkApply();
+  mkSrcs = mkBufs.map((b, i) => { const s = mkCtx.createBufferSource(); s.buffer = b; s.connect(mkGains[i]); s.start(0, at); return s; });
+  mkStart = mkCtx.currentTime - at; mkOffset = at;
+}
+function mkApply() {
+  if (!mkGains) return;
+  const v = +$("mkVol").value, w = +$("mkRev").value / 100, m = +$("mkMr").value;
+  mkGains[0].gain.value = 10 ** (v / 20); mkGains[1].gain.value = 10 ** (v / 20) * w; mkGains[2].gain.value = 10 ** (m / 20);
+  $("mkVolT").textContent = (v > 0 ? "+" : "") + v + " dB"; $("mkRevT").textContent = Math.round(w * 100) + "%"; $("mkMrT").textContent = (m > 0 ? "+" : "") + m + " dB";
+}
+async function openMkJob(j) {
+  mkJob = j; show("vMkJob"); mkBufs = null;
+  const r = j.req, by = (n) => j.files.find(f => f.name === n);
+  const meas = r.result?.measure || {};
+  let body = `<div class="card"><h2 style="margin:0">${esc(j.st.name)} · ${esc(r.title || "")}</h2>
+    <p class="muted">${r.status === "done" ? `완성 ${r.render_count || 1}번째 · 프리셋 ${esc(r.result?.settings?.preset || r.preset)} · 길이 ${fmt(meas.duration_sec || 0)} · 최종 ${meas.mix_lufs_out ?? "?"} LUFS` :
+      r.status === "error" ? `실패: ${esc(r.error || "")}` : "아직 만드는 중이에요. 다음 자동 실행 때 완성됩니다."}</p></div>`;
+  if (r.status === "done" && by("vocal_dry.mp3")) {
+    body += `<div class="card"><h3 style="margin-top:0">바로 듣고 비율 조절</h3>
+      <button class="small" id="mkPlayBtn">▶ 미리듣기</button> <span class="muted" id="mkT">불러오기 전</span>
+      <div style="margin-top:8px">보컬 크기 <b id="mkVolT"></b><input type="range" id="mkVol" min="-6" max="6" step="0.5" value="0" style="width:100%"></div>
+      <div>리버브(울림) <b id="mkRevT"></b><input type="range" id="mkRev" min="0" max="250" step="5" value="100" style="width:100%"></div>
+      <div>MR 크기 <b id="mkMrT"></b><input type="range" id="mkMr" min="-6" max="6" step="0.5" value="0" style="width:100%"></div>
+      <p class="muted">위 세 가지는 바로 들으며 바꿀 수 있어요. 컴프·밝기 등은 프리셋을 바꿔 다시 만들어야 해요.</p>
+      <button class="full" id="mkFinal">이 비율로 완성본 다시 만들기</button>
+      <div class="row">${MK_PRESETS.map(p => `<button class="small ghost" data-preset="${p}">${p}로 다시 만들기</button>`).join("")}</div></div>
+      <div class="card"><h3 style="margin-top:0">완성본</h3><button class="small ghost" id="mkMix">▶ 완성본 듣기</button><audio id="mkMixAu" controls class="hidden" style="width:100%"></audio>
+      <div class="row" style="margin-top:6px"><button class="small" id="mkShare">완성본 보내기(mp3)</button>
+      <a href="https://drive.google.com/drive/folders/${esc(j.folder.id)}" target="_blank" rel="noopener">드라이브에서 wav 받기</a></div></div>`;
+  }
+  $("vMkJob").innerHTML = body;
+  if (r.status !== "done") return;
+  ["mkVol", "mkRev", "mkMr"].forEach(id => $(id).oninput = mkApply); mkApply();
+  $("mkPlayBtn").onclick = async () => {
+    if (mkSrcs.length) { mkOffset = mkCtx.currentTime - mkStart; mkStop(); $("mkPlayBtn").textContent = "▶ 이어 듣기"; return; }
+    try {
+      if (!mkBufs) { $("mkT").textContent = "불러오는 중…"; mkCtx ??= new AudioContext();
+        mkBufs = await Promise.all(["vocal_dry.mp3", "vocal_wet.mp3", "mr.mp3"].map(async n => mkCtx.decodeAudioData(await (await readBlob(by(n).id)).arrayBuffer()))); }
+      mkPlay(mkOffset); $("mkPlayBtn").textContent = "❚❚ 멈춤"; $("mkT").textContent = "재생 중";
+    } catch (e) { toast(e.message); }
+  };
+  const rerender = async (preset, keepRatio) => {
+    const q = { ...r, status: "queued" };
+    if (preset) { q.preset = preset; q.settings = {}; q.wet_gain = null; }
+    if (keepRatio) {
+      const v = +$("mkVol").value, w = +$("mkRev").value / 100, m = +$("mkMr").value, prev = r.result?.settings || {};
+      q.settings = { ...(q.settings || {}), vocal_over_mr_lu: (prev.vocal_over_mr_lu ?? 2) + v - m };
+      q.wet_gain = (r.result?.wet_gain ?? 0.2) * w;
+    }
+    q.requested_at = new Date().toISOString();
+    try { await writeJSON(j.folder.id, MKREQ, q, j.reqId); toast("다시 만들기 요청했어요. 완성되면 메일로 알려 드려요"); openMakeup(); } catch (e) { toast(e.message); }
+  };
+  $("mkFinal").onclick = () => rerender(null, true);
+  $("vMkJob").querySelectorAll("[data-preset]").forEach(b => b.onclick = () => rerender(b.dataset.preset, false));
+  $("mkMix").onclick = async () => { const au = $("mkMixAu"); try { mkStop(); au.src = URL.createObjectURL(await readBlob(by("mix.mp3").id)); au.classList.remove("hidden"); $("mkMix").classList.add("hidden"); au.play(); } catch (e) { toast(e.message); } };
+  $("mkShare").onclick = async () => {
+    try {
+      const files = [new File([await readBlob(by("mix.mp3").id)], `${j.st.name}_${r.title}_메이크업.mp3`, { type: "audio/mpeg" })];
+      if (!navigator.canShare?.({ files })) return toast("이 브라우저는 파일 공유를 지원하지 않아요");
+      await navigator.share({ files });
+    } catch (e) { if (e.name !== "AbortError") toast(e.message); }
+  };
 }
 
 // ── 레슨 검수 ───────────────────────────────────────────
