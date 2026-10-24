@@ -415,6 +415,16 @@ async function openSubs(sid) {
   });
 }
 
+// ── 바로 처리: 요청하자마자 서버 작업 시작 (구글 Apps Script 중계, config.kick_url) ──
+async function kick() {
+  if (!cfg?.kick_url) return false;
+  try {
+    const r = await fetch(cfg.kick_url, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ token }) });
+    const j = await r.json().catch(() => ({})); return !!j.ok;
+  } catch { return false; }
+}
+const startedMsg = (ok) => ok ? "바로 처리를 시작했어요 (보통 1~3분)" : "요청했어요. 1분 안에 처리가 시작돼요";
+
 // ── 보컬 자동 메이크업 ────────────────────────────────────
 const MKREQ = "메이크업요청.json", MK_PRESETS = ["담백", "표준", "풍성"];
 async function mkFolder(sid) {
@@ -441,9 +451,9 @@ async function openMakeup() {
     }
   }
   jobs.sort((a, b) => (b.req.requested_at || "").localeCompare(a.req.requested_at || ""));
-  const stTxt = { queued: "대기 중", working: "만드는 중", done: "완료", error: "실패" };
+  const stTxt = { queued: "대기 중 ⏳", working: "만드는 중 ⚙️", done: "완료", error: "실패" };
   $("vMk").innerHTML = `<div class="card"><h2 style="margin-top:0">🎚 보컬 자동 메이크업</h2>
-      <p class="muted">DAW에서 내보낸 <b>보컬 wav</b>와 <b>MR wav</b>를 올리면 볼륨 정리·EQ·디에서·컴프·리버브·간이 믹스를 자동으로 해 드려요. 다음 자동 실행 때(밤엔 15분 안) 완성되고 메일로 알려 드립니다.</p>
+      <p class="muted">DAW에서 내보낸 <b>보컬 wav</b>와 <b>MR wav</b>를 올리면 볼륨 정리·EQ·디에서·컴프·리버브·간이 믹스를 자동으로 해 드려요. 요청하면 바로 처리가 시작돼 보통 1~3분이면 완성돼요(이 화면이 저절로 새로 고침돼요).</p>
       <div class="row" style="margin:6px 0"><label>수강생</label><select id="mkStu" style="flex:1">${Object.entries(cfg.students).map(([sid, st]) => `<option value="${esc(sid)}">${esc(st.name)}${st.status === "test" ? " (연습용)" : ""}</option>`).join("")}</select></div>
       <input id="mkTitle" placeholder="곡명 (예: 그리움만쌓이네)" style="width:100%;margin:4px 0">
       <div class="row" style="margin:6px 0"><label><input type="radio" name="mkMode" value="two" checked> 보컬+MR 두 파일</label>
@@ -457,6 +467,10 @@ async function openMakeup() {
     (jobs.length ? `<div class="card"><h3 style="margin-top:0">작업 목록</h3>` + jobs.map((j, i) => `<div class="lesson mkrow" data-i="${i}"><span>${esc(j.st.name)} · ${esc(j.req.title || j.folder.name)}</span>
       <span class="chip ${j.req.status === "done" ? "ok" : j.req.status === "error" ? "todo" : ""}">${stTxt[j.req.status] || j.req.status}</span></div>`).join("") + `</div>` : "");
   $("btnMkGo").onclick = submitMakeup;
+  // 진행 중인 작업이 있으면 20초마다 저절로 새로 고침(완성되면 바로 보이게)
+  clearTimeout(window._mkPoll);
+  if (jobs.some(j => ["queued", "working"].includes(j.req.status)))
+    window._mkPoll = setTimeout(() => { if (!$("vMk").classList.contains("hidden") && !document.activeElement?.closest?.("#vMk input")) openMakeup(); }, 20000);
   document.querySelectorAll('input[name="mkMode"]').forEach(r => r.onchange = () => {
     const one = document.querySelector('input[name="mkMode"]:checked').value === "single";
     $("mkTwo").classList.toggle("hidden", one); $("mkOne").classList.toggle("hidden", !one); });
@@ -478,7 +492,7 @@ async function submitMakeup() {
       const sidF = await uploadFile(orig, sName, one);
       await writeJSON(jf, MKREQ, { status: "queued", mode: "single", title, student_id: sid, student_name: cfg.students[sid].name, preset, settings: {},
         source_id: sidF, source_name: sName, start: null, end: null, requested_at: new Date().toISOString() });
-      toast("요청했어요. AI 분리까지 하느라 몇 분 더 걸려요"); b.disabled = false; return openMakeup();
+      toast(startedMsg(await kick()) + " · AI 분리 포함이라 2~4분"); b.disabled = false; return openMakeup();
     }
     $("mkMsg").textContent = "보컬 올리는 중…";
     const vName = `${title}_보컬${ext(v)}`, mName = `${title}_MR${ext(m)}`;
@@ -486,7 +500,7 @@ async function submitMakeup() {
     const mid = await uploadFile(orig, mName, m);
     await writeJSON(jf, MKREQ, { status: "queued", title, student_id: sid, student_name: cfg.students[sid].name, preset, settings: {},
       vocal_id: vid, vocal_name: vName, mr_id: mid, mr_name: mName, requested_at: new Date().toISOString() });
-    toast("요청했어요. 완성되면 메일로 알려 드려요"); openMakeup();
+    toast(startedMsg(await kick())); openMakeup();
   } catch (e) { toast(e.message); $("mkMsg").textContent = ""; }
   b.disabled = false;
 }
@@ -506,7 +520,7 @@ async function makeupFromLesson(cid) {
       ...(audio ? { source_id: audio.id, source_name: audio.name, start: c.start, end: c.end }
                 : { source_id: clip.id, source_name: clip.name, start: null, end: null, source_is_clip: true }),
       lesson_folder: cur.folder.id, note, requested_at: new Date().toISOString() });
-    toast("요청했어요. 다음 자동 실행 때 만들어지고 메일로 알려 드려요");
+    toast(startedMsg(await kick()) + " · 메이크업 목록에서 확인");
   } catch (e) { toast(e.message); }
 }
 // 미리듣기: 보컬(원음)·보컬(울림)·MR 세 갈래를 동시에 재생하며 비율만 바로 조절
@@ -565,7 +579,7 @@ async function openMkJob(j) {
       q.wet_gain = (r.result?.wet_gain ?? 0.2) * w;
     }
     q.requested_at = new Date().toISOString();
-    try { await writeJSON(j.folder.id, MKREQ, q, j.reqId); toast("다시 만들기 요청했어요. 완성되면 메일로 알려 드려요"); openMakeup(); } catch (e) { toast(e.message); }
+    try { await writeJSON(j.folder.id, MKREQ, q, j.reqId); toast(startedMsg(await kick())); openMakeup(); } catch (e) { toast(e.message); }
   };
   $("mkFinal").onclick = () => rerender(null, true);
   $("vMkJob").querySelectorAll("[data-preset]").forEach(b => b.onclick = () => rerender(b.dataset.preset, false));
@@ -874,7 +888,9 @@ async function saveReview(quiet = false) {
   cur.review.reviewed_at = new Date().toISOString();
   try {
     cur.reviewId = await writeJSON(cur.folder.id, REVIEW, cur.review, cur.reviewId);
-    if (!quiet) $("saveMsg").textContent = "저장했어요. " + (cur.review.manual.some(m => !cur.clips.find(f => f.name.startsWith(m.id))) ? "직접 추가한 구간은 다음 자동 실행 때 클립으로 만들어집니다." : "");
+    const needClip = cur.review.manual.some(m => !cur.clips.find(f => f.name.startsWith(m.id)));
+    if (needClip) kick();
+    if (!quiet) $("saveMsg").textContent = "저장했어요. " + (needClip ? "직접 추가한 구간은 1~3분 안에 클립으로 만들어집니다." : "");
     toast(quiet ? "보냄 표시 저장됨" : "저장됨");
   } catch (e) { toast(e.message); }
 }
