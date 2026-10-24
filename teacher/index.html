@@ -41,6 +41,9 @@
   .seg-list { max-height:50vh; overflow:auto; }
   #toast { position:fixed; left:50%; bottom:16px; transform:translateX(-50%); background:var(--fg); color:var(--bg); padding:8px 14px; border-radius:10px; display:none; max-width:90vw; }
   .hidden { display:none; }
+  body { -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; -webkit-tap-highlight-color:transparent; }
+  textarea, input, .seg-list { -webkit-user-select:text; user-select:text; -webkit-touch-callout:default; }
+  .lesson:active { background:var(--chip); }
 </style>
 </head>
 <body>
@@ -119,19 +122,47 @@ function toast(msg) { const t = $("toast"); t.textContent = msg; t.style.display
 function show(view) { for (const v of ["vLogin","vList","vLesson"]) $(v).classList.toggle("hidden", v !== view); $("btnBack").classList.toggle("hidden", view !== "vLesson"); window.scrollTo(0,0); }
 
 // ── 구글 로그인 · 드라이브 ───────────────────────────────
-function login() {
-  if (CLIENT_ID.startsWith("__")) { $("loginMsg").textContent = "아직 웹 로그인 설정 전입니다(클라이언트 ID 필요)."; return; }
-  if (!window.google?.accounts) { $("loginMsg").textContent = "구글 로그인 준비 중… 잠시 후 다시 눌러 주세요."; return; }
-  tokenClient ??= google.accounts.oauth2.initTokenClient({ client_id: CLIENT_ID, scope: SCOPE, callback: async (r) => {
-    if (r.error) { $("loginMsg").textContent = "로그인 실패: " + r.error; return; }
-    token = r.access_token; setTimeout(() => token = null, (r.expires_in - 60) * 1000);
-    try { await loadConfig(); await renderList(); } catch (e) { $("loginMsg").textContent = "불러오기 실패: " + e.message; show("vLogin"); }
-  }});
-  tokenClient.requestAccessToken({ prompt: "" });
+// 로그인 유지: 구글이 주는 출입증(1시간짜리)을 이 폰에만 보관해, 새로고침·앱 다시 열기에도 다시 묻지 않는다.
+// 1시간이 지나면 계정 선택 없이 조용히 새 출입증을 받는다(구글 창이 잠깐 떴다 닫힐 수 있음).
+const LS = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
+             set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
+let pending = null;
+function getToken(interactive) {
+  if (CLIENT_ID.startsWith("__")) return Promise.reject(new Error("아직 웹 로그인 설정 전입니다"));
+  if (!window.google?.accounts) return Promise.reject(new Error("구글 로그인 준비 중… 잠시 후 다시 눌러 주세요"));
+  if (pending) return pending;
+  pending = new Promise((resolve, reject) => {
+    tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: CLIENT_ID, scope: SCOPE, hint: LS.get("vn_hint") || undefined,
+      callback: (r) => { pending = null;
+        if (r.error) return reject(new Error("로그인 실패: " + r.error));
+        token = r.access_token; LS.set("vn_tok", { t: token, exp: Date.now() + (r.expires_in - 120) * 1000 }); resolve(token); },
+      error_callback: (e) => { pending = null; reject(new Error(e.type === "popup_closed" ? "로그인 창이 닫혔어요" : "로그인 창을 열지 못했어요(다시 눌러 주세요)")); },
+    });
+    tokenClient.requestAccessToken({ prompt: interactive && !LS.get("vn_hint") ? "select_account" : "" });
+  });
+  return pending;
 }
-async function api(url, opt = {}) {
-  if (!token) throw new Error("로그인이 만료됐습니다. 다시 로그인해 주세요.");
+function savedToken() { const v = LS.get("vn_tok"); return v && v.exp > Date.now() ? v.t : null; }
+async function start() {
+  try {
+    await loadConfig();
+    if (!LS.get("vn_hint")) {
+      const a = await (await api(`${DRIVE}/about?fields=user(emailAddress)`)).json();
+      LS.set("vn_hint", a.user.emailAddress);
+    }
+    await renderList();
+  } catch (e) { $("loginMsg").textContent = e.message; show("vLogin"); }
+}
+async function login() {
+  $("loginMsg").textContent = "";
+  try { await getToken(true); await start(); } catch (e) { $("loginMsg").textContent = e.message; }
+}
+async function api(url, opt = {}, retried = false) {
+  token = savedToken() || token;
+  if (!savedToken()) token = await getToken(false);
   const r = await fetch(url, { ...opt, headers: { Authorization: `Bearer ${token}`, ...(opt.headers || {}) } });
+  if (r.status === 401 && !retried) { LS.set("vn_tok", null); return api(url, opt, true); }
   if (!r.ok) throw new Error(`드라이브 ${r.status}: ${(await r.text()).slice(0, 200)}`);
   return r;
 }
@@ -280,6 +311,8 @@ function draftFeedback() {
 
 // ── 버튼 ────────────────────────────────────────────────
 $("btnLogin").onclick = login;
+// 저장된 출입증이 있으면 로그인 화면 없이 바로 목록
+if (savedToken()) { token = savedToken(); start(); }
 $("btnBack").onclick = () => renderList();
 $("btnAdd").onclick = () => {
   const s = parseT($("addS").value), e = parseT($("addE").value);
