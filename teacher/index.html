@@ -548,6 +548,8 @@ function paintMakeupTab(sid) {
         <div class="muted" style="margin-top:6px">MR wav</div><input type="file" id="mkM" accept="audio/*,.wav,.aif,.aiff,.flac,.mp3"></div>
       <div id="mkOne"><div class="muted" style="margin-top:6px">노래가 섞인 녹음 한 파일 (3분 이하 권장)</div><input type="file" id="mkS" accept="audio/*,video/*,.wav,.m4a,.mp3,.mp4">
         <p class="muted">폰 녹음은 방 울림·잡음 때문에 분리 결과가 깨끗하지 않을 수 있어요(데모 수준). 레슨 중 구간은 검수 화면의 ‘🎚 메이크업’ 버튼이 더 편해요.</p></div>
+      <div class="muted" style="margin-top:8px">멜로디 MIDI (있으면, 선택) <span style="font-size:.8rem">— 같은 DAW 프로젝트에서 0초부터 내보낸 보컬 멜로디</span></div>
+      <input type="file" id="mkMidi" accept=".mid,.midi,audio/midi,audio/x-midi">
       <div class="muted" style="margin-top:8px">곡의 키 (음정 보정 기준)</div>
       <select id="mkKeyUp" style="width:100%;margin:2px 0 4px">${keyOptions(null, true)}</select>
       <p class="muted" style="margin:0 0 8px">아시면 꼭 골라 주세요. 자동 인식이 틀리면 다시 만들 때까지 기다려야 해요(특히 폰 녹음).</p>
@@ -572,11 +574,13 @@ async function submitMakeup() {
   try {
     const f7 = await mkFolder(sid), jf = await newFolder(`${day}_${title}_메이크업`, f7), orig = await newFolder("원본", jf);
     const ext = (f) => (f.name.match(/\.[a-z0-9]+$/i) || [".wav"])[0];
+    const midi = $("mkMidi").files[0], mel = {};
+    if (midi) { const mName = `${title}_멜로디${ext(midi)}`; $("mkMsg").textContent = "MIDI 올리는 중…"; mel.melody_id = await uploadFile(orig, mName, midi); mel.melody_name = mName; }
     if (single) {
       $("mkMsg").textContent = "녹음 올리는 중…"; const sName = `${title}_원본녹음${ext(one)}`;
       const sidF = await uploadFile(orig, sName, one);
       const req = { status: "queued", mode: "single", title, student_id: sid, student_name: cfg.students[sid].name, preset, settings: {},
-        source_id: sidF, source_name: sName, start: null, end: null, pitch_level: 2, pitch_key: keyOf($("mkKeyUp").value), requested_at: new Date().toISOString() };
+        source_id: sidF, source_name: sName, start: null, end: null, pitch_level: 2, pitch_key: keyOf($("mkKeyUp").value), ...mel, requested_at: new Date().toISOString() };
       const job = { sid, st: cfg.students[sid], req, folder: { id: jf }, files: [], reqId: await writeJSON(jf, MKREQ, req) };
       b.disabled = false; showProgress(job, "서버 호출 중…"); kick(); return;
     }
@@ -585,7 +589,7 @@ async function submitMakeup() {
     const vid = await uploadFile(orig, vName, v); $("mkMsg").textContent = "MR 올리는 중…";
     const mid = await uploadFile(orig, mName, m);
     const req = { status: "queued", title, student_id: sid, student_name: cfg.students[sid].name, preset, settings: {},
-      vocal_id: vid, vocal_name: vName, mr_id: mid, mr_name: mName, pitch_level: 2, pitch_key: keyOf($("mkKeyUp").value), requested_at: new Date().toISOString() };
+      vocal_id: vid, vocal_name: vName, mr_id: mid, mr_name: mName, pitch_level: 2, pitch_key: keyOf($("mkKeyUp").value), ...mel, requested_at: new Date().toISOString() };
     const job = { sid, st: cfg.students[sid], req, folder: { id: jf }, files: [], reqId: await writeJSON(jf, MKREQ, req) };
     b.disabled = false; showProgress(job, "서버 호출 중…"); kick(); return;
   } catch (e) { toast(e.message); $("mkMsg").textContent = ""; }
@@ -661,7 +665,7 @@ async function makeupFromLesson(cid, back) {
 // 갈래: 애프터 보컬(음정 단계별 p0~p3) · 울림(센드 1.0) · MR · 비포 보컬 · 비포 MR
 const REV_UNIT = 0.00144;   // 리버브 1% = 센드 0.00144  → 15% = 표준(0.0216)
 const PITCH_NAMES = ["끔", "약", "중", "강"];
-let mkCtx = null, mkT0 = 0, mkOffset = 0, mkPlaying = false, mkTracks = {}, mkTick = null, mkBefore = false, mkRaw = false, mkJob = null, mkDurS = 0;
+let mkCtx = null, mkT0 = 0, mkOffset = 0, mkPlaying = false, mkTracks = {}, mkTick = null, mkBefore = false, mkRaw = false, mkJob = null, mkDurS = 0, mkBound = "center", mkHasW = false;
 function mkStop() { for (const t of Object.values(mkTracks)) { try { t.src?.stop(); } catch {} t.src = null; } mkPlaying = false; }
 const mkNow = () => mkPlaying ? Math.min(mkCtx.currentTime - mkT0, mkDurS) : mkOffset;
 function mkStartTrack(t, at) {
@@ -694,7 +698,13 @@ function mkApply() {
   // 처리본: 공통 다이내믹 + 고른 음정 단계(끔=보정 없음) + 그 보컬로 만든 리버브
   // 생 원본(체크): 처리 전 보컬·MR. 보컬·MR 크기만 적용, 음정·리버브 없음
   const pv = lv, perW = !!mkTracks.w0;
-  for (let k = 0; k < 4; k++) { set("p" + k, !raw && hasP && k === pv ? V : 0); set("w" + k, !raw && perW && k === pv ? V * W : 0); }
+  // 목표음 기준: 기본(p·w 트랙) / 음역 가중(q·x 트랙 = vocal_*_pw). 음정 '끔'은 둘 다 같은 p0
+  const useQ = !raw && mkHasW && mkBound === "weighted" && pv > 0 && mkTracks["q" + pv]?.buf;
+  for (let k = 0; k < 4; k++) {
+    const on = !raw && hasP && k === pv;
+    set("p" + k, on && !useQ ? V : 0); set("w" + k, on && perW && !useQ ? V * W : 0);
+    set("q" + k, on && useQ ? V : 0); set("x" + k, on && useQ ? V * W : 0);
+  }
   set("dry", !raw && !hasP ? V : 0);
   set("wet", raw || perW ? 0 : V * W);
   set("mr", raw ? 0 : M);
@@ -717,6 +727,21 @@ async function openMkJob(j, backTo) {
   if (!j.files?.length) j.files = await list(j.folder.id);
   const r = j.req, by = (n) => j.files.find(f => f.name === n);
   const meas = r.result?.measure || {}, pi = r.result?.pitch || {};
+  mkHasW = pi.boundary_same === false && !!by("vocal_dry_pw2.mp3");
+  mkBound = mkHasW ? (pi.boundary_used || "center") : "center";
+  const cmpI = pi.compare || {}, prof = pi.profile || {};
+  const boundBox = !pi.boundary_used ? "" : `<div id="mkBoundBox" style="margin-top:8px">
+      <div class="muted">목표음 기준 <span style="font-size:.8rem">(어느 음으로 맞출지 고르는 기준 · 세기는 같음)</span></div>
+      ${mkHasW ? `<div class="row" style="gap:6px;margin:4px 0;flex-wrap:nowrap">
+          <button class="small ${mkBound === "weighted" ? "" : "ghost"}" id="mkBW" style="flex:1">음역 가중</button>
+          <button class="small ${mkBound === "center" ? "" : "ghost"}" id="mkBC" style="flex:1">기본 (가장 가까운 음)</button></div>
+        <p class="muted" style="margin:0">두 방식이 다른 곳 ${cmpI.count || 0}군데 (보정하는 소리의 ${((cmpI.ratio || 0) * 100).toFixed(1)}%). 눌러서 그 앞부터 듣기:</p>
+        <div class="row" style="gap:4px;flex-wrap:wrap;margin:4px 0">${(cmpI.spans || []).slice(0, 30).map((x, i) =>
+          `<button class="small ghost mkSpan" data-t="${x.t}" title="부른 음: 기본 목표보다 ${x.sung_cents}센트">${fmt(x.t)} · ${esc(x.center)}→${esc(x.weighted)}</button>`).join("")}</div>`
+        : `<p class="muted" style="margin:2px 0">이 곡은 두 방식의 목표음이 같아요(경계 근처로 부른 음이 없음).</p>`}
+      ${pi.guard ? `<p class="muted" style="color:#ffb74d;margin:2px 0">⚠️ 음역 가중이 목표음을 ${((cmpI.ratio || 0) * 100).toFixed(1)}% 바꿔서(기준 10% 초과) 완성본은 기본 방식으로 만들었어요.</p>` : ""}
+      <p class="muted" style="margin:2px 0;font-size:.8rem">${prof.personal ? `개인 성향 반영(곡 ${prof.songs}개): 높은 음역 경계 ${(prof.alpha_high * 100).toFixed(0)}% · 낮은 음역 ${(prof.alpha_low * 100).toFixed(0)}% 이동`
+        : `기본 가중(약하게, 간격의 ${((prof.alpha_high ?? 0.06) * 100).toFixed(0)}%) · 이 수강생 곡이 3곡 이상 쌓이면 실제 플랫·샵 경향으로 맞춰져요(지금 ${prof.songs || 0}곡)`}${pi.melody_notes ? ` · MIDI 멜로디 사용(${pi.melody_notes}음)` : ""}</p></div>`;
   const hasP = !!by("vocal_dry_p0.mp3"), hasB = !!by("before_vocal.mp3") || !!by("before.mp3");
   const revNow = Math.round((r.result?.wet_gain ?? 0.0216) / REV_UNIT);
   let body = `<div class="card"><h2 style="margin:0">${esc(j.st.name)} · ${esc(r.title || "")}</h2>
@@ -737,7 +762,7 @@ async function openMkJob(j, backTo) {
         <input type="range" id="mkPitch" min="0" max="3" step="1" value="${r.pitch_level != null ? +r.pitch_level : 2}" style="width:100%">
         <div class="row muted" style="justify-content:space-between;font-size:.8rem"><span>끔</span><span>약</span><span>중</span><span>강</span></div>
         <div class="row" style="margin-top:4px"><label class="muted">키</label><select id="mkKey" style="flex:1">${keyOptions(pi.key, false)}</select></div>
-        <p class="muted" style="margin:2px 0 0">키를 바꾸면 ‘완성본 다시 만들기’ 때 그 키로 다시 보정해요(자동 인식 후보: ${esc((pi.key_candidates || []).join(", "))}).</p></div>`
+        <p class="muted" style="margin:2px 0 0">키를 바꾸면 ‘완성본 다시 만들기’ 때 그 키로 다시 보정해요(자동 인식 후보: ${esc((pi.key_candidates || []).join(", "))}).</p>${boundBox}</div>`
         : `<p class="muted">음정 보정은 ‘이 설정으로 완성본 다시 만들기’를 한 번 하면 생겨요.</p>`}
       <div style="margin-top:8px">보컬 크기 <b id="mkVolT"></b><input type="range" id="mkVol" min="-6" max="6" step="0.5" value="0" style="width:100%"></div>
       <div>MR 크기 <b id="mkMrT"></b><input type="range" id="mkMr" min="-6" max="6" step="0.5" value="0" style="width:100%"></div>
@@ -755,7 +780,8 @@ async function openMkJob(j, backTo) {
   const ensure = async (names) => Promise.all(names.filter(([, f]) => by(f)).map(([n, f]) => mkLoad(n, by(f).id)));
   const lvNow = () => +($("mkPitch")?.value || 0);
   const perW = !!by("vocal_wet_p0.mp3");
-  const stage = (k) => [["p" + k, `vocal_dry_p${k}.mp3`], ...(perW ? [["w" + k, `vocal_wet_p${k}.mp3`]] : [])];
+  const stage = (k) => [["p" + k, `vocal_dry_p${k}.mp3`], ...(perW ? [["w" + k, `vocal_wet_p${k}.mp3`]] : []),
+    ...(mkHasW && k > 0 ? [["q" + k, `vocal_dry_pw${k}.mp3`], ["x" + k, `vocal_wet_pw${k}.mp3`]] : [])];
   const base = () => hasP ? [...stage(lvNow()), ...stage(0), ...(perW ? [] : [["wet", "vocal_wet.mp3"]]), ["mr", "mr.mp3"]] : [["dry", "vocal_dry.mp3"], ["wet", "vocal_wet.mp3"], ["mr", "mr.mp3"]];
   const beforeSet = () => by("before_vocal.mp3") ? [["bv", "before_vocal.mp3"], ["bm", "before_mr.mp3"]] : [["before", "before.mp3"]];
   $("mkPP").onclick = async () => {
@@ -770,11 +796,19 @@ async function openMkJob(j, backTo) {
   $("mkSeek").onchange = (e) => mkSeekTo(e.target.value / 1000 * mkDurS);
   $("mkFirst").onclick = () => mkSeekTo(0); $("mkLast").onclick = () => mkSeekTo(mkDurS - 3);
   $("mkBack5").onclick = () => mkSeekTo(mkNow() - 5); $("mkFwd5").onclick = () => mkSeekTo(mkNow() + 5);
-  const playLabel = () => { if (mkPlaying) $("mkT").textContent = mkRaw ? "생 원본 재생 중" : `메이크업 재생 중 · 음정 보정 ${PITCH_NAMES[lvNow()]}`; };
+  const playLabel = () => { if (mkPlaying) $("mkT").textContent = mkRaw ? "생 원본 재생 중" : `메이크업 재생 중 · 음정 보정 ${PITCH_NAMES[lvNow()]}${mkHasW && lvNow() ? (mkBound === "weighted" ? " · 음역 가중" : " · 기본 기준") : ""}`; };
   const abLabel = () => {  // 생 원본이면 음정·리버브는 흐리게(적용 안 됨)
-    document.querySelectorAll("#vMkJob .mkFx").forEach(d => { d.style.opacity = mkRaw ? .4 : 1; d.querySelectorAll("input,select").forEach(i => i.disabled = mkRaw); });
+    document.querySelectorAll("#vMkJob .mkFx").forEach(d => { d.style.opacity = mkRaw ? .4 : 1; d.querySelectorAll("input,select,button").forEach(i => i.disabled = mkRaw); });
+    const bb = $("mkBoundBox"); if (bb && !mkRaw) { const off = lvNow() === 0; bb.style.opacity = off ? .4 : 1; bb.querySelectorAll("button").forEach(i => i.disabled = off); }
+    if ($("mkBW")) { $("mkBW").classList.toggle("ghost", mkBound !== "weighted"); $("mkBC").classList.toggle("ghost", mkBound !== "center"); }
     playLabel();
   };
+  const setBound = async (b) => { mkBound = b; abLabel(); mkApply(); await ensure(stage(lvNow())); mkApply(); };
+  if ($("mkBW")) { $("mkBW").onclick = () => setBound("weighted"); $("mkBC").onclick = () => setBound("center"); }
+  document.querySelectorAll("#vMkJob .mkSpan").forEach(el => el.onclick = async () => {
+    const t = Math.max(0, +el.dataset.t - 1.5);
+    if (!mkPlaying) { mkOffset = t; $("mkPP").click(); } else mkSeekTo(t);
+  });
   abLabel();
   if ($("mkRawSw")) $("mkRawSw").onchange = async (e) => {
     mkRaw = e.target.checked; abLabel(); mkApply();
@@ -792,7 +826,7 @@ async function openMkJob(j, backTo) {
     q.settings = { ...(q.settings || {}), vocal_over_mr_lu: (prev.vocal_over_mr_lu ?? 2) + v - m };
     q.wet_gain = rv * REV_UNIT;
     if ($("mkPitch")) {
-      q.pitch_level = lvNow();
+      q.pitch_level = lvNow(); if (pi.boundary_used) q.pitch_boundary = mkHasW ? mkBound : (r.pitch_boundary || null);
       const [t, mo] = $("mkKey").value.split(":"), auto = pi.key && +t === pi.key.tonic && mo === pi.key.mode;
       q.pitch_key = auto && pi.key_auto ? null : keyOf($("mkKey").value);
     }
