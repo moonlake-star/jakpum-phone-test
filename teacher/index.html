@@ -272,7 +272,8 @@ async function loadConfig() {
 // 목록: ① 이 폰에 저장해 둔 지난 목록을 바로 그리고 ② 드라이브에서 새로 받아(학생·레슨 모두 동시에) 다시 그림
 async function loadMkJobs(sid) {
   const st = cfg.students[sid], f7 = st.sub?.["07_커버제작"]; if (!f7) return [];
-  const folders = (await list(f7)).filter(x => x.mimeType.endsWith("folder"));
+  const all = await list(f7), folders = all.filter(x => x.mimeType.endsWith("folder"));
+  const hb = all.find(x => x.name === "음정성향.json"); if (hb && hb.modifiedTime !== st._habitAt) { st._habitId = hb.id; st._habitAt = hb.modifiedTime; st._habit = null; }
   const jobs = await Promise.all(folders.map(async (f) => {
     const files = await list(f.id), rq = files.find(x => x.name === MKREQ);
     return rq ? { sid, st, folder: f, files, reqId: rq.id, req: await readJSON(rq.id).catch(() => ({})) } : null;
@@ -538,7 +539,7 @@ function paintMakeupTab(sid) {
   const stTxt = { queued: "대기 중 ⏳", working: "만드는 중 ⚙️", done: "완료", error: "실패" };
   $("stuTab").innerHTML = (jobs.length ? `<div class="card"><h3 style="margin-top:0">작업</h3>` + jobs.map((j, i) => `<div class="lesson mkrow" data-i="${i}"><span>${esc(j.req.title || j.folder.name)}${j.req.lesson_folder ? ` <span class="muted">(레슨 구간)</span>` : ""}</span>
       <span class="chip ${j.req.status === "done" ? "ok" : j.req.status === "error" ? "todo" : ""}">${["queued", "working"].includes(j.req.status) ? (j.req.progress?.pct ?? 0) + "% " : ""}${stTxt[j.req.status] || j.req.status}${j.req.sent_at ? " · 보냄" : ""}</span></div>`).join("") + `</div>` : "") +
-    `<div class="card"><h3 style="margin-top:0">🎚 새 보컬 메이크업</h3>
+    `<div id="mkHabit"></div><div class="card"><h3 style="margin-top:0">🎚 새 보컬 메이크업</h3>
       <p class="muted">DAW에서 내보낸 <b>보컬 wav</b>와 <b>MR wav</b>, 또는 노래가 섞인 녹음 한 파일을 올리면 볼륨·EQ·디에서·컴프·리버브·간이 믹스를 자동으로 해 드려요. 보통 1~3분.</p>
       <input type="hidden" id="mkStu" value="${esc(sid)}">
       <input id="mkTitle" placeholder="곡명 (예: 그리움만쌓이네)" style="width:100%;margin:4px 0">
@@ -555,6 +556,7 @@ function paintMakeupTab(sid) {
       <p class="muted" style="margin:0 0 8px">아시면 꼭 골라 주세요. 자동 인식이 틀리면 다시 만들 때까지 기다려야 해요(특히 폰 녹음).</p>
       <button class="full" id="btnMkGo">올리고 메이크업 요청</button><p class="muted" id="mkMsg"></p></div>`;
   $("btnMkGo").onclick = submitMakeup;
+  paintHabit(sid);
   document.querySelectorAll('input[name="mkMode"]').forEach(r => r.onchange = () => {
     const one = document.querySelector('input[name="mkMode"]:checked').value === "single";
     $("mkTwo").classList.toggle("hidden", one); $("mkOne").classList.toggle("hidden", !one); });
@@ -562,6 +564,18 @@ function paintMakeupTab(sid) {
   clearTimeout(window._mkPoll);
   if (jobs.some(j => ["queued", "working"].includes(j.req.status)))
     window._mkPoll = setTimeout(() => { if (stuCur?.sid === sid && stuCur.tab === "mk" && !$("vStu").classList.contains("hidden") && !document.activeElement?.closest?.("#stuTab")) openStudent(sid, "mk"); }, 15000);
+}
+// 음정 습관 카드: 메이크업한 곡들에서 서버가 찾은 습관(음정성향.json). 레슨 피드백 참고용 + 보정에 반영되는 값
+async function paintHabit(sid) {
+  const st = cfg.students[sid]; if (!st._habitId) return;
+  try {
+    st._habit ??= await readJSON(st._habitId);
+    const p = st._habit.profile_now || {}, songs = st._habit.songs || [];
+    if (!$("mkHabit") || stuCur?.sid !== sid || !p.summary) return;
+    $("mkHabit").innerHTML = `<div class="card"><h3 style="margin-top:0">🎯 음정 습관 <span class="muted" style="font-size:.85rem;font-weight:400">메이크업한 ${songs.length}곡 기준</span></h3>
+      ${p.summary.map(x => `<div style="margin:3px 0">· ${esc(x)}</div>`).join("")}
+      <p class="muted" style="margin:6px 0 0;font-size:.8rem">곡이 쌓일수록 정확해져요(한 곡은 참고만). 폰 녹음(AI 분리) 곡은 절반만 반영. 비브라토·음 시작·긴 음 끝은 보정하지 않고 알려 주기만 해요.</p></div>`;
+  } catch {}
 }
 async function submitMakeup() {
   const sid = $("mkStu").value, title = cleanPart($("mkTitle").value || "") , v = $("mkV").files[0], m = $("mkM").files[0];
@@ -733,15 +747,15 @@ async function openMkJob(j, backTo) {
   const boundBox = !pi.boundary_used ? "" : `<div id="mkBoundBox" style="margin-top:8px">
       <div class="muted">목표음 기준 <span style="font-size:.8rem">(어느 음으로 맞출지 고르는 기준 · 세기는 같음)</span></div>
       ${mkHasW ? `<div class="row" style="gap:6px;margin:4px 0;flex-wrap:nowrap">
-          <button class="small ${mkBound === "weighted" ? "" : "ghost"}" id="mkBW" style="flex:1">음역 가중</button>
+          <button class="small ${mkBound === "weighted" ? "" : "ghost"}" id="mkBW" style="flex:1">습관 반영</button>
           <button class="small ${mkBound === "center" ? "" : "ghost"}" id="mkBC" style="flex:1">기본 (가장 가까운 음)</button></div>
         <p class="muted" style="margin:0">두 방식이 다른 곳 ${cmpI.count || 0}군데 (보정하는 소리의 ${((cmpI.ratio || 0) * 100).toFixed(1)}%). 눌러서 그 앞부터 듣기:</p>
         <div class="row" style="gap:4px;flex-wrap:wrap;margin:4px 0">${(cmpI.spans || []).slice(0, 30).map((x, i) =>
           `<button class="small ghost mkSpan" data-t="${x.t}" title="부른 음: 기본 목표보다 ${x.sung_cents}센트">${fmt(x.t)} · ${esc(x.center)}→${esc(x.weighted)}</button>`).join("")}</div>`
         : `<p class="muted" style="margin:2px 0">이 곡은 두 방식의 목표음이 같아요(경계 근처로 부른 음이 없음).</p>`}
-      ${pi.guard ? `<p class="muted" style="color:#ffb74d;margin:2px 0">⚠️ 음역 가중이 목표음을 ${((cmpI.ratio || 0) * 100).toFixed(1)}% 바꿔서(기준 10% 초과) 완성본은 기본 방식으로 만들었어요.</p>` : ""}
-      <p class="muted" style="margin:2px 0;font-size:.8rem">${prof.personal ? `개인 성향 반영(곡 ${prof.songs}개): 높은 음역 경계 ${(prof.alpha_high * 100).toFixed(0)}% · 낮은 음역 ${(prof.alpha_low * 100).toFixed(0)}% 이동`
-        : `기본 가중(약하게, 간격의 ${((prof.alpha_high ?? 0.06) * 100).toFixed(0)}%) · 이 수강생 곡이 3곡 이상 쌓이면 실제 플랫·샵 경향으로 맞춰져요(지금 ${prof.songs || 0}곡)`}${pi.melody_notes ? ` · MIDI 멜로디 사용(${pi.melody_notes}음)` : ""}</p></div>`;
+      ${pi.guard ? `<p class="muted" style="color:#ffb74d;margin:2px 0">⚠️ 습관 반영이 목표음을 ${((cmpI.ratio || 0) * 100).toFixed(1)}% 바꿔서(기준 10% 초과) 완성본은 기본 방식으로 만들었어요.</p>` : ""}
+      <p class="muted" style="margin:2px 0;font-size:.8rem">${prof.exp_reg ? `경계 이동: 낮은 곳 ${(+prof.exp_reg.low).toFixed(0)} · 중간 ${(+prof.exp_reg.mid).toFixed(0)} · 높은 곳 ${(+prof.exp_reg.high).toFixed(0)}센트 · 이 수강생 다른 곡 ${prof.songs || 0}개에서 학습(실측 반영 ${Math.round((prof.trust || 0) * 100)}%, 나머지는 약한 기본값)`
+        : `기본 가중(약하게)`}${pi.melody_notes ? ` · MIDI 멜로디 사용(${pi.melody_notes}음)` : ""}</p></div>`;
   const hasP = !!by("vocal_dry_p0.mp3"), hasB = !!by("before_vocal.mp3") || !!by("before.mp3");
   const revNow = Math.round((r.result?.wet_gain ?? 0.0216) / REV_UNIT);
   let body = `<div class="card"><h2 style="margin:0">${esc(j.st.name)} · ${esc(r.title || "")}</h2>
@@ -796,7 +810,7 @@ async function openMkJob(j, backTo) {
   $("mkSeek").onchange = (e) => mkSeekTo(e.target.value / 1000 * mkDurS);
   $("mkFirst").onclick = () => mkSeekTo(0); $("mkLast").onclick = () => mkSeekTo(mkDurS - 3);
   $("mkBack5").onclick = () => mkSeekTo(mkNow() - 5); $("mkFwd5").onclick = () => mkSeekTo(mkNow() + 5);
-  const playLabel = () => { if (mkPlaying) $("mkT").textContent = mkRaw ? "생 원본 재생 중" : `메이크업 재생 중 · 음정 보정 ${PITCH_NAMES[lvNow()]}${mkHasW && lvNow() ? (mkBound === "weighted" ? " · 음역 가중" : " · 기본 기준") : ""}`; };
+  const playLabel = () => { if (mkPlaying) $("mkT").textContent = mkRaw ? "생 원본 재생 중" : `메이크업 재생 중 · 음정 보정 ${PITCH_NAMES[lvNow()]}${mkHasW && lvNow() ? (mkBound === "weighted" ? " · 습관 반영" : " · 기본 기준") : ""}`; };
   const abLabel = () => {  // 생 원본이면 음정·리버브는 흐리게(적용 안 됨)
     document.querySelectorAll("#vMkJob .mkFx").forEach(d => { d.style.opacity = mkRaw ? .4 : 1; d.querySelectorAll("input,select,button").forEach(i => i.disabled = mkRaw); });
     const bb = $("mkBoundBox"); if (bb && !mkRaw) { const off = lvNow() === 0; bb.style.opacity = off ? .4 : 1; bb.querySelectorAll("button").forEach(i => i.disabled = off); }
