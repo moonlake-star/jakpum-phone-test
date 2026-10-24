@@ -649,7 +649,7 @@ async function makeupFromLesson(cid, back) {
 // ── 메이크업 미리듣기 엔진: 여러 갈래를 같은 시각에 함께 재생하고 '크기'만 바꿔 즉시 전환/조절 ──
 // 갈래: 애프터 보컬(음정 단계별 p0~p3) · 울림(센드 1.0) · MR · 비포 보컬 · 비포 MR
 const REV_UNIT = 0.00144;   // 리버브 1% = 센드 0.00144  → 15% = 표준(0.0216)
-const PITCH_NAMES = ["끔", "약", "중", "강"];
+const PITCH_NAMES = ["없음", "약", "중", "강"];
 let mkCtx = null, mkT0 = 0, mkOffset = 0, mkPlaying = false, mkTracks = {}, mkTick = null, mkBefore = false, mkRaw = false, mkJob = null, mkDurS = 0;
 function mkStop() { for (const t of Object.values(mkTracks)) { try { t.src?.stop(); } catch {} t.src = null; } mkPlaying = false; }
 const mkNow = () => mkPlaying ? Math.min(mkCtx.currentTime - mkT0, mkDurS) : mkOffset;
@@ -681,10 +681,10 @@ function mkApply() {
   const hasP = !!mkTracks.p0, raw = mkBefore && mkRaw && (mkTracks.bv || mkTracks.before);
   // 연습 비교(기본): 비포 = 같은 처리 + 음정 끔(p0) / 애프터 = 같은 처리 + 고른 음정 단계
   // 생 원본 비교(선택): 비포 = 처리 전 보컬·MR(울림 없음)
-  const pv = mkBefore ? 0 : lv;
-  for (let k = 0; k < 4; k++) set("p" + k, !raw && hasP && k === pv ? V : 0);
+  const pv = mkBefore ? 0 : lv, perW = !!mkTracks.w0;  // 리버브도 단계별(보정된 보컬로 만든 울림)
+  for (let k = 0; k < 4; k++) { set("p" + k, !raw && hasP && k === pv ? V : 0); set("w" + k, !raw && perW && k === pv ? V * W : 0); }
   set("dry", !raw && !hasP ? V : 0);
-  set("wet", raw ? 0 : V * W);
+  set("wet", raw || perW ? 0 : V * W);
   set("mr", raw ? 0 : M);
   set("bv", raw && mkTracks.bv ? V : 0); set("bm", raw && mkTracks.bv ? M : 0);
   set("before", raw && !mkTracks.bv ? 1 : 0);
@@ -727,8 +727,8 @@ async function openMkJob(j, backTo) {
       <div>리버브(울림) <b id="mkRevT"></b><input type="range" id="mkRev" min="0" max="50" step="1" value="${revNow}" style="width:100%"></div>
       <div>MR 크기 <b id="mkMrT"></b><input type="range" id="mkMr" min="-6" max="6" step="0.5" value="0" style="width:100%"></div>
       ${hasP ? `<div>음정 보정 <b id="mkPitchT"></b> <span class="muted">${pi.key ? `(${esc(pi.key.name)} 스케일)` : ""}</span>
-        <input type="range" id="mkPitch" min="0" max="3" step="1" value="${r.pitch_level != null ? +r.pitch_level : 2}" style="width:100%">
-        <div class="row muted" style="justify-content:space-between;font-size:.8rem"><span>끔</span><span>약</span><span>중</span><span>강</span></div>
+        <input type="range" id="mkPitch" min="1" max="3" step="1" value="${r.pitch_level ? +r.pitch_level : 2}" style="width:100%">
+        <div class="row muted" style="justify-content:space-between;font-size:.8rem"><span>약</span><span>중</span><span>강</span></div>
         <div class="row" style="margin-top:4px"><label class="muted">키</label><select id="mkKey" style="flex:1">${["C","C#","D","Eb","E","F","F#","G","Ab","A","Bb","B"].flatMap((nm, t) => [["major", "장조"], ["minor", "단조"]].map(([mo, kn]) =>
           `<option value="${t}:${mo}" ${pi.key && pi.key.tonic === t && pi.key.mode === mo ? "selected" : ""}>${nm} ${kn}</option>`)).join("")}</select></div>
         <p class="muted" style="margin:2px 0 0">키를 바꾸면 ‘완성본 다시 만들기’ 때 그 키로 다시 보정해요(자동 인식 후보: ${esc((pi.key_candidates || []).join(", "))}).</p></div>`
@@ -745,7 +745,9 @@ async function openMkJob(j, backTo) {
   mkApply();
   const ensure = async (names) => Promise.all(names.filter(([, f]) => by(f)).map(([n, f]) => mkLoad(n, by(f).id)));
   const lvNow = () => +($("mkPitch")?.value || 0);
-  const base = () => hasP ? [["p" + lvNow(), `vocal_dry_p${lvNow()}.mp3`], ["p0", "vocal_dry_p0.mp3"], ["wet", "vocal_wet.mp3"], ["mr", "mr.mp3"]] : [["dry", "vocal_dry.mp3"], ["wet", "vocal_wet.mp3"], ["mr", "mr.mp3"]];
+  const perW = !!by("vocal_wet_p0.mp3");
+  const stage = (k) => [["p" + k, `vocal_dry_p${k}.mp3`], ...(perW ? [["w" + k, `vocal_wet_p${k}.mp3`]] : [])];
+  const base = () => hasP ? [...stage(lvNow()), ...stage(0), ...(perW ? [] : [["wet", "vocal_wet.mp3"]]), ["mr", "mr.mp3"]] : [["dry", "vocal_dry.mp3"], ["wet", "vocal_wet.mp3"], ["mr", "mr.mp3"]];
   const beforeSet = () => by("before_vocal.mp3") ? [["bv", "before_vocal.mp3"], ["bm", "before_mr.mp3"]] : [["before", "before.mp3"]];
   $("mkPP").onclick = async () => {
     if (mkPlaying) { mkOffset = mkNow(); mkStop(); return paintTransport(); }
@@ -753,7 +755,7 @@ async function openMkJob(j, backTo) {
       $("mkT").textContent = "불러오는 중…"; await ensure(base()); if (mkBefore && mkRaw) await ensure(beforeSet());
       mkPlay(mkOffset); $("mkT").textContent = mkBefore ? "비포(원본) 재생 중" : "애프터(메이크업) 재생 중";
       clearInterval(mkTick); mkTick = setInterval(() => { if (!$("mkPos")) return clearInterval(mkTick); paintTransport(); }, 250);
-      ensure(hasP ? [0, 1, 2, 3].map(k => ["p" + k, `vocal_dry_p${k}.mp3`]) : []);  // 나머지 음정 단계는 뒤에서 미리
+      ensure(hasP ? [1, 2, 3].flatMap(stage) : []);  // 나머지 음정 단계는 뒤에서 미리
     } catch (e) { toast(e.message); $("mkT").textContent = ""; }
   };
   $("mkSeek").onchange = (e) => mkSeekTo(e.target.value / 1000 * mkDurS);
@@ -768,7 +770,7 @@ async function openMkJob(j, backTo) {
     if ($("mkPitch")) { $("mkPitch").disabled = mkBefore; $("mkPitch").closest("div").style.opacity = mkBefore ? .45 : 1; }
     if ($("mkPitchT")) $("mkPitchT").textContent = mkBefore ? "비포에는 적용 안 됨" : lvName;
     if ($("mkABhint")) $("mkABhint").textContent = mkRaw ? "비포 = 처리 전 생 원본(같은 크기로 맞춤), 애프터 = 전체 메이크업 → 제작 전후 비교."
-      : (lvNow() === 0 && !mkBefore ? "음정 보정이 ‘끔’이라 비포와 같아요. 슬라이더로 약·중·강을 고르세요." : "비포·애프터 모두 같은 믹스 처리이고 음정 보정만 달라요 → 음정을 맞추면 이렇게 들린다는 비교.");
+      : "비포·애프터 모두 같은 믹스 처리이고, 애프터만 음정 보정(그 뒤에 리버브) → 음정을 맞추면 이렇게 들린다는 비교.";
     if (mkPlaying) $("mkT").textContent = mkBefore ? "비포 재생 중" : "애프터 재생 중";
   };
   abLabel();
@@ -777,7 +779,11 @@ async function openMkJob(j, backTo) {
     mkRaw = e.target.checked; abLabel();
     if (mkRaw && !mkTracks.bv?.buf && !mkTracks.before?.buf) { $("mkT").textContent = "생 원본 불러오는 중…"; await ensure(beforeSet()); $("mkT").textContent = mkPlaying ? (mkBefore ? "비포 재생 중" : "애프터 재생 중") : ""; }
     mkApply(); };
-  if ($("mkPitch")) $("mkPitch").oninput = async () => { abLabel(); mkApply(); await ensure([["p" + lvNow(), `vocal_dry_p${lvNow()}.mp3`]]); mkApply(); };
+  if ($("mkPitch")) $("mkPitch").oninput = async () => { abLabel(); mkApply(); await ensure(stage(lvNow())); mkApply(); };
+  // 슬라이더가 기본값에 닿으면 짧고 약한 진동(안드로이드). 기본값: 보컬 0dB · 리버브 15% · MR 0dB · 음정 '중'
+  const DEF = { mkVol: 0, mkRev: 15, mkMr: 0, mkPitch: 2 };
+  for (const [id, d] of Object.entries(DEF)) { const el = $(id); if (!el) continue; let prev = +el.value;
+    el.addEventListener("input", () => { const now = +el.value; if (now === d && prev !== d) { try { navigator.vibrate?.(12); } catch {} } prev = now; }); }
   $("mkFinal").onclick = async () => {
     const v = +$("mkVol").value, rv = +$("mkRev").value, m = +$("mkMr").value, prev = r.result?.settings || {};
     const q = { ...r, status: "queued", preset: "표준" };
