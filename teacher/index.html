@@ -76,7 +76,7 @@
 </head>
 <body>
 <main>
-  <header><h1>작품 보컬노트</h1><button id="btnBack" class="ghost small hidden">← 뒤로</button></header>
+  <header><button id="btnBack" class="ghost small hidden">← 뒤로</button><h1>작품 보컬노트</h1></header>
 
   <section id="vLogin" class="card">
     <h2 style="margin-top:0">선생님 전용</h2>
@@ -509,7 +509,7 @@ async function kick() {
 }
 const startedMsg = (ok) => ok ? "바로 처리를 시작했어요 (보통 1~3분)" : "요청했어요. 1분 안에 처리가 시작돼요";
 
-// ── 보컬 자동 메이크업 ────────────────────────────────────
+// ── 보컬 메이크업 ────────────────────────────────────
 const MKREQ = "메이크업요청.json", MK_PRESETS = ["담백", "표준", "풍성"];
 async function mkFolder(sid) {
   const st = cfg.students[sid];
@@ -530,17 +530,16 @@ function paintMakeupTab(sid) {
   const stTxt = { queued: "대기 중 ⏳", working: "만드는 중 ⚙️", done: "완료", error: "실패" };
   $("stuTab").innerHTML = (jobs.length ? `<div class="card"><h3 style="margin-top:0">작업</h3>` + jobs.map((j, i) => `<div class="lesson mkrow" data-i="${i}"><span>${esc(j.req.title || j.folder.name)}${j.req.lesson_folder ? ` <span class="muted">(레슨 구간)</span>` : ""}</span>
       <span class="chip ${j.req.status === "done" ? "ok" : j.req.status === "error" ? "todo" : ""}">${["queued", "working"].includes(j.req.status) ? (j.req.progress?.pct ?? 0) + "% " : ""}${stTxt[j.req.status] || j.req.status}${j.req.sent_at ? " · 보냄" : ""}</span></div>`).join("") + `</div>` : "") +
-    `<div class="card"><h3 style="margin-top:0">🎚 새 보컬 자동 메이크업</h3>
+    `<div class="card"><h3 style="margin-top:0">🎚 새 보컬 메이크업</h3>
       <p class="muted">DAW에서 내보낸 <b>보컬 wav</b>와 <b>MR wav</b>, 또는 노래가 섞인 녹음 한 파일을 올리면 볼륨·EQ·디에서·컴프·리버브·간이 믹스를 자동으로 해 드려요. 보통 1~3분.</p>
       <input type="hidden" id="mkStu" value="${esc(sid)}">
       <input id="mkTitle" placeholder="곡명 (예: 그리움만쌓이네)" style="width:100%;margin:4px 0">
-      <div class="row" style="margin:6px 0"><label><input type="radio" name="mkMode" value="two" checked> 보컬+MR 두 파일</label>
-        <label><input type="radio" name="mkMode" value="single"> 한 파일(AI가 보컬·MR 분리)</label></div>
-      <div id="mkTwo"><div class="muted" style="margin-top:6px">보컬 wav</div><input type="file" id="mkV" accept="audio/*,.wav,.aif,.aiff,.flac,.mp3">
+      <div class="row" style="margin:6px 0"><label><input type="radio" name="mkMode" value="single" checked> 한 파일(AI가 보컬·MR 분리)</label>
+        <label><input type="radio" name="mkMode" value="two"> 보컬+MR 두 파일</label></div>
+      <div id="mkTwo" class="hidden"><div class="muted" style="margin-top:6px">보컬 wav</div><input type="file" id="mkV" accept="audio/*,.wav,.aif,.aiff,.flac,.mp3">
         <div class="muted" style="margin-top:6px">MR wav</div><input type="file" id="mkM" accept="audio/*,.wav,.aif,.aiff,.flac,.mp3"></div>
-      <div id="mkOne" class="hidden"><div class="muted" style="margin-top:6px">노래가 섞인 녹음 한 파일 (3분 이하 권장)</div><input type="file" id="mkS" accept="audio/*,video/*,.wav,.m4a,.mp3,.mp4">
+      <div id="mkOne"><div class="muted" style="margin-top:6px">노래가 섞인 녹음 한 파일 (3분 이하 권장)</div><input type="file" id="mkS" accept="audio/*,video/*,.wav,.m4a,.mp3,.mp4">
         <p class="muted">폰 녹음은 방 울림·잡음 때문에 분리 결과가 깨끗하지 않을 수 있어요(데모 수준). 레슨 중 구간은 검수 화면의 ‘🎚 메이크업’ 버튼이 더 편해요.</p></div>
-      <div class="row" style="margin:8px 0"><label>시작 프리셋</label>${MK_PRESETS.map(p => `<label><input type="radio" name="mkP" value="${p}" ${p === "표준" ? "checked" : ""}> ${p}</label>`).join(" ")}</div>
       <button class="full" id="btnMkGo">올리고 메이크업 요청</button><p class="muted" id="mkMsg"></p></div>`;
   $("btnMkGo").onclick = submitMakeup;
   document.querySelectorAll('input[name="mkMode"]').forEach(r => r.onchange = () => {
@@ -557,7 +556,7 @@ async function submitMakeup() {
   if (single && !one) return toast("녹음 파일을 골라 주세요");
   if (!single && (!v || !m)) return toast("보컬과 MR 파일을 둘 다 골라 주세요");
   if (title === "과제") return toast("곡명을 적어 주세요");
-  const preset = document.querySelector('input[name="mkP"]:checked').value, day = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+  const preset = "표준", day = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
   const b = $("btnMkGo"); b.disabled = true;
   try {
     const f7 = await mkFolder(sid), jf = await newFolder(`${day}_${title}_메이크업`, f7), orig = await newFolder("원본", jf);
@@ -679,7 +678,7 @@ async function openMkJob(j, backTo) {
   const r = j.req, by = (n) => j.files.find(f => f.name === n);
   const meas = r.result?.measure || {};
   let body = `<div class="card"><h2 style="margin:0">${esc(j.st.name)} · ${esc(r.title || "")}</h2>
-    <p class="muted">${r.status === "done" ? `완성 ${r.render_count || 1}번째 · 프리셋 ${esc(r.result?.settings?.preset || r.preset)} · 길이 ${fmt(meas.duration_sec || 0)} · 최종 ${meas.mix_lufs_out ?? "?"} LUFS` :
+    <p class="muted">${r.status === "done" ? `완성 ${r.render_count || 1}번째 · 길이 ${fmt(meas.duration_sec || 0)} · 최종 ${meas.mix_lufs_out ?? "?"} LUFS` :
       r.status === "error" ? `실패: ${esc(r.error || "")}` : "아직 만드는 중이에요. 다음 자동 실행 때 완성됩니다."}</p></div>`;
   if (r.status === "done" && by("vocal_dry.mp3")) {
     body += `<div class="card"><h3 style="margin-top:0">바로 듣고 비율 조절</h3>
@@ -689,9 +688,9 @@ async function openMkJob(j, backTo) {
       <div style="margin-top:8px">보컬 크기 <b id="mkVolT"></b><input type="range" id="mkVol" min="-6" max="6" step="0.5" value="0" style="width:100%"></div>
       <div>리버브(울림) <b id="mkRevT"></b><input type="range" id="mkRev" min="0" max="250" step="5" value="100" style="width:100%"></div>
       <div>MR 크기 <b id="mkMrT"></b><input type="range" id="mkMr" min="-6" max="6" step="0.5" value="0" style="width:100%"></div>
-      <p class="muted">위 세 가지는 바로 들으며 바꿀 수 있어요. 컴프·밝기 등은 프리셋을 바꿔 다시 만들어야 해요.</p>
+      <p class="muted">위 세 가지는 바로 들으며 바꿀 수 있어요. 마음에 들면 아래 버튼으로 완성본에 반영하세요.</p>
       <button class="full" id="mkFinal">이 비율로 완성본 다시 만들기</button>
-      <div class="row">${MK_PRESETS.map(p => `<button class="small ghost" data-preset="${p}">${p}로 다시 만들기</button>`).join("")}</div></div>
+      </div>
       <div class="card"><h3 style="margin-top:0">완성본</h3><button class="small ghost" id="mkMix">▶ 완성본 듣기</button><audio id="mkMixAu" controls class="hidden" style="width:100%"></audio>
       <div class="row" style="margin-top:6px"><button class="small" id="mkShare">완성본 보내기(mp3)</button><span class="chip ${r.sent_at ? "ok" : ""}" id="mkSentT">${r.sent_at ? "보냄 " + new Date(r.sent_at).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "아직 안 보냄"}</span>
       <a href="https://drive.google.com/drive/folders/${esc(j.folder.id)}" target="_blank" rel="noopener">드라이브에서 wav 받기</a></div></div>`;
@@ -712,7 +711,7 @@ async function openMkJob(j, backTo) {
   };
   const rerender = async (preset, keepRatio) => {
     const q = { ...r, status: "queued" };
-    if (preset) { q.preset = preset; q.settings = {}; q.wet_gain = null; }
+    q.preset = "표준";
     if (keepRatio) {
       const v = +$("mkVol").value, w = +$("mkRev").value / 100, m = +$("mkMr").value, prev = r.result?.settings || {};
       q.settings = { ...(q.settings || {}), vocal_over_mr_lu: (prev.vocal_over_mr_lu ?? 2) + v - m };
@@ -723,7 +722,6 @@ async function openMkJob(j, backTo) {
     try { await writeJSON(j.folder.id, MKREQ, q, j.reqId); showProgress(j, "서버 호출 중…"); kick(); } catch (e) { stopProg(); toast(e.message); }
   };
   $("mkFinal").onclick = () => rerender(null, true);
-  $("vMkJob").querySelectorAll("[data-preset]").forEach(b => b.onclick = () => rerender(b.dataset.preset, false));
   $("mkMix").onclick = async () => { const au = $("mkMixAu"); try { mkStop(); au.src = URL.createObjectURL(await readBlob(by("mix.mp3").id)); au.classList.remove("hidden"); $("mkMix").classList.add("hidden"); au.play(); } catch (e) { toast(e.message); } };
   $("mkShare").onclick = async () => {
     try {
