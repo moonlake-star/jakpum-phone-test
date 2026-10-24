@@ -129,6 +129,8 @@
       </details>
     </div>
 
+    <div class="card hidden" id="anaCard"></div>
+
     <div class="card">
       <h3 style="margin-top:0">3. 카톡 피드백 문구</h3>
       <div id="aiNote" class="hidden" style="background:var(--chip);border-radius:10px;padding:8px 10px;margin:6px 0"></div>
@@ -381,12 +383,36 @@ async function openStudent(sid, tab) {
     if (stuCur?.sid === sid && stuCur.tab === tab && !$("vStu").classList.contains("hidden") && tab !== "subs" && !document.activeElement?.closest?.("#stuTab")) {
       if (tab === "lesson") paintLessonsTab(sid); else if (tab === "mk") paintMakeupTab(sid); } }).catch(() => {});
 }
+// 수강생 폴더 맨 위의 기록 파일(수강생기록.json·음정성향.json): 필요할 때만 읽고 수정 시각으로 캐시
+async function rootFile(st, name) {
+  if (!st.folder) return null;
+  st._root ??= {};
+  const f = (await list(st.folder)).find(x => x.name === name);
+  if (!f) return null;
+  const c = st._root[name];
+  if (c && c.at === f.modifiedTime) return c.data;
+  const data = await readJSON(f.id); st._root[name] = { at: f.modifiedTime, data }; return data;
+}
+async function paintBriefing(sid) {
+  const st = cfg.students[sid];
+  try {
+    const rec = await rootFile(st, "수강생기록.json");
+    if (!rec?.briefing || !$("stuBrief") || stuCur?.sid !== sid) return;
+    const songs = Object.entries(rec.songs || {}).slice(-5);
+    $("stuBrief").innerHTML = `<div class="card"><h3 style="margin-top:0">📋 다음 레슨 브리핑 <span class="muted" style="font-size:.85rem;font-weight:400">지난 레슨에서 AI가 정리 · 오늘 레슨 날 아침 메일로도</span></h3>
+      <div style="white-space:pre-wrap;line-height:1.55">${esc(rec.briefing)}</div>
+      ${songs.length ? `<details style="margin-top:6px"><summary><b>선곡·키 메모</b></summary>${songs.map(([t, v]) => `<div style="margin:3px 0">🎵 ${esc(t)}${v.artist ? " · " + esc(v.artist) : ""}${v.key_notes?.length ? ` <span class="muted">🔑 ${esc(v.key_notes.at(-1))}</span>` : ""}</div>`).join("")}</details>` : ""}
+      ${rec.profile?.goal?.length || rec.profile?.taste?.length ? `<details style="margin-top:6px"><summary><b>수강생이 말한 목표·취향·고민</b></summary>${["goal", "taste", "worry"].flatMap(k => (rec.profile[k] || []).slice(-4).map(x =>
+        `<div style="margin:3px 0"><span class="chip">${{ goal: "목표", taste: "취향", worry: "고민" }[k]}</span> “${esc(x.quote)}” <span class="muted">${esc(x.date)}</span></div>`)).join("")}</details>` : ""}</div>`;
+  } catch {}
+}
 function paintLessonsTab(sid) {
   const st = cfg.students[sid], rows = st._rows || [];
-  $("stuTab").innerHTML = `<div class="card">` + (rows.length ? rows.map((r, i) => `<div class="lesson" data-i="${i}"><span>${esc(r.l.name)}</span><span class="row" style="gap:4px"><span class="chip ${r.fb ? "ok" : "todo"}">${r.fb ? "피드백 ✓" : "피드백 전"}</span>${cfg.practice_check ? `<span class="chip ${r.ck ? "ok" : ""}">${r.ck ? "점검 ✓" : "점검 –"}</span>` : ""}</span></div>`).join("")
+  $("stuTab").innerHTML = `<div id="stuBrief"></div><div class="card">` + (rows.length ? rows.map((r, i) => `<div class="lesson" data-i="${i}"><span>${esc(r.l.name)}</span><span class="row" style="gap:4px"><span class="chip ${r.fb ? "ok" : "todo"}">${r.fb ? "피드백 ✓" : "피드백 전"}</span>${cfg.practice_check ? `<span class="chip ${r.ck ? "ok" : ""}">${r.ck ? "점검 ✓" : "점검 –"}</span>` : ""}</span></div>`).join("")
     : `<p class="muted">아직 레슨 녹음이 없어요. 녹음이 정리되면 여기에 날짜별로 생기고, 누르면 검수 화면이 열립니다.</p>`) + `</div>`;
   $("stuTab").querySelectorAll(".lesson").forEach(el => el.onclick = () => openLesson(sid, +el.dataset.i, () => openStudent(sid, "lesson")));
   prefetchLessons([{ rows }]);
+  paintBriefing(sid);
 }
 
 // ── 과제 제출 (카톡 → 공유 → 보컬노트) ─────────────────────
@@ -567,14 +593,14 @@ function paintMakeupTab(sid) {
 }
 // 음정 습관 카드: 메이크업한 곡들에서 서버가 찾은 습관(음정성향.json). 레슨 피드백 참고용 + 보정에 반영되는 값
 async function paintHabit(sid) {
-  const st = cfg.students[sid]; if (!st._habitId) return;
+  const st = cfg.students[sid];
   try {
-    st._habit ??= await readJSON(st._habitId);
+    st._habit = await rootFile(st, "음정성향.json"); if (!st._habit) return;
     const p = st._habit.profile_now || {}, songs = st._habit.songs || [];
     if (!$("mkHabit") || stuCur?.sid !== sid || !p.summary) return;
-    $("mkHabit").innerHTML = `<div class="card"><h3 style="margin-top:0">🎯 음정 습관 <span class="muted" style="font-size:.85rem;font-weight:400">메이크업한 ${songs.length}곡 기준</span></h3>
+    $("mkHabit").innerHTML = `<div class="card"><h3 style="margin-top:0">🎯 음정 습관 <span class="muted" style="font-size:.85rem;font-weight:400">메이크업·레슨 노래 ${songs.length}개 기준</span></h3>
       ${p.summary.map(x => `<div style="margin:3px 0">· ${esc(x)}</div>`).join("")}
-      <p class="muted" style="margin:6px 0 0;font-size:.8rem">곡이 쌓일수록 정확해져요(한 곡은 참고만). 폰 녹음(AI 분리) 곡은 절반만 반영. 비브라토·음 시작·긴 음 끝은 보정하지 않고 알려 주기만 해요.</p></div>`;
+      <p class="muted" style="margin:6px 0 0;font-size:.8rem">‘관찰’은 기계 측정(추정 포함)이라 참고용이에요. 음정 보정 학습에는 MIDI·선생님이 확인한 곡·선생님이 고른 음만 써요(자료가 적으면 기본 보정).</p></div>`;
   } catch {}
 }
 async function submitMakeup() {
@@ -743,7 +769,7 @@ async function openMkJob(j, backTo) {
   const meas = r.result?.measure || {}, pi = r.result?.pitch || {};
   mkHasW = false; mkBound = "center";   // A/B 버튼 없앰: 서버가 습관 반영 방식 하나로 만든다
   const mdl = pi.model || {};
-  const boundBox = !pi.boundary_used ? "" : `<p class="muted" style="margin:6px 0 0;font-size:.8rem">🎯 애매한 음은 이 보컬의 습관으로 판단해 골라요 — 자료 음 ${mdl.n || 0}개(지난 곡 ${pi.songs_used || 0}개 + 이 곡), 신뢰 ${Math.round((mdl.trust || 0) * 100)}%${pi.guard ? " · ⚠️ 습관 반영이 너무 많이 바꿔서 이번엔 기본 방식으로 만들었어요" : ""}${pi.melody_notes ? ` · MIDI 멜로디 사용(${pi.melody_notes}음)` : ""}</p>`;
+  const boundBox = !pi.boundary_used ? "" : `<p class="muted" style="margin:6px 0 0;font-size:.8rem">🎯 ${mdl.n ? `애매한 음은 이 수강생의 확인된 습관으로 판단 — 학습 모형 v${pi.model_v || "?"}, 확인된 음 ${mdl.n}개(신뢰 ${Math.round((mdl.trust || 0) * 100)}%)` : "아직 확인된 습관 자료가 없어 기본 보정(키·스케일·멜로디)이에요 — 아래 ‘음정 판단 확인’이 쌓이면 이 수강생에 맞춰져요"}${pi.guard ? " · ⚠️ 습관 반영이 너무 많이 바꿔서 이번엔 기본 방식으로 만들었어요" : ""}${pi.melody_notes ? ` · MIDI 멜로디 사용(${pi.melody_notes}음)` : ""}</p>`;
   const hasP = !!by("vocal_dry_p0.mp3"), hasB = !!by("before_vocal.mp3") || !!by("before.mp3");
   const revNow = Math.round((r.result?.wet_gain ?? 0.0216) / REV_UNIT);
   let body = `<div class="card"><h2 style="margin:0">${esc(j.st.name)} · ${esc(r.title || "")}</h2>
@@ -769,6 +795,13 @@ async function openMkJob(j, backTo) {
       <div style="margin-top:8px">보컬 크기 <b id="mkVolT"></b><input type="range" id="mkVol" min="-6" max="6" step="0.5" value="0" style="width:100%"></div>
       <div>MR 크기 <b id="mkMrT"></b><input type="range" id="mkMr" min="-6" max="6" step="0.5" value="0" style="width:100%"></div>
       <div class="mkFx">리버브(울림) <b id="mkRevT"></b><input type="range" id="mkRev" min="0" max="50" step="1" value="${revNow}" style="width:100%"></div>
+      ${pi.tendency ? `<details id="mkReview" style="margin-top:8px"><summary><b>음정 판단 확인</b> <span class="muted">선택 · 이 수강생 음정 보정 학습에 쓰여요</span></summary>
+        <p class="muted" style="margin:4px 0">기계가 어느 음을 노렸는지 확신 못 한 곳이에요. 들어 보고 맞는 음을 눌러 주세요(모르면 건너뛰기).</p>
+        ${(pi.tendency.uncertain || []).map(u => `<div class="row" style="gap:4px;margin:3px 0;flex-wrap:nowrap"><button class="small ghost mkU" data-t="${u.t0}">▶ ${fmt(u.t0)}</button>
+          <button class="small ${(r.pitch_review?.decisions || {})[u.id] === "lower" ? "" : "ghost"} mkD" data-id="${u.id}" data-v="lower">${esc(u.L_name)}</button>
+          <button class="small ${(r.pitch_review?.decisions || {})[u.id] === "upper" ? "" : "ghost"} mkD" data-id="${u.id}" data-v="upper">${esc(u.U_name)}</button>
+          <button class="small ghost mkD" data-id="${u.id}" data-v="skip">모름</button></div>`).join("") || `<p class="muted">애매한 곳 없음</p>`}
+        <div class="row" style="margin-top:6px"><button class="small" id="mkPitchOk">✓ 보정 결과가 맞게 들림 · 저장</button><span class="muted" id="mkPitchOkT"></span></div></details>` : ""}
       <p class="muted">모두 재생 중에 바로 바뀌어요. 음정 ‘끔’ = 같은 처리에서 음정만 안 맞춘 소리(연습 비교용). 마음에 들면 아래 버튼으로 완성본에 반영하세요.</p>
       <button class="full" id="mkFinal">이 설정으로 완성본 다시 만들기</button></div>
       <div class="card"><h3 style="margin-top:0">완성본</h3><button class="small ghost" id="mkMix">▶ 완성본 듣기</button><audio id="mkMixAu" controls class="hidden" style="width:100%"></audio>
@@ -814,6 +847,11 @@ async function openMkJob(j, backTo) {
   const DEF = { mkVol: 0, mkRev: 15, mkMr: 0, mkPitch: 2 };
   for (const [id, d] of Object.entries(DEF)) { const el = $(id); if (!el) continue; let prev = +el.value;
     el.addEventListener("input", () => { const now = +el.value; if (now === d && prev !== d) { try { navigator.vibrate?.(12); } catch {} } prev = now; }); }
+  const dec = { ...(r.pitch_review?.decisions || {}) };
+  document.querySelectorAll("#vMkJob .mkU").forEach(b => b.onclick = () => { const t = Math.max(0, +b.dataset.t - 1); if (!mkPlaying) { mkOffset = t; $("mkPP").click(); } else mkSeekTo(t); });
+  document.querySelectorAll("#vMkJob .mkD").forEach(b => b.onclick = () => { dec[b.dataset.id] = b.dataset.v;
+    document.querySelectorAll(`#vMkJob .mkD[data-id="${b.dataset.id}"]`).forEach(x => x.classList.toggle("ghost", x !== b)); });
+  if ($("mkPitchOk")) $("mkPitchOk").onclick = () => { r.pitch_review = { decisions: dec }; sendPitchReview(j.sid, j.folder.id, j.folder.id, { approved: true, decisions: dec }, $("mkPitchOkT")); };
   $("mkFinal").onclick = async () => {
     const v = +$("mkVol").value, rv = +$("mkRev").value, m = +$("mkMr").value, prev = r.result?.settings || {};
     const q = { ...r, status: "queued", preset: "표준" };
@@ -849,8 +887,8 @@ function lessonData(folderId, files) {
   const by = (n) => files.find(f => f.name === n), j = (n, dflt) => by(n) ? readJSON(by(n).id).catch(() => dflt) : Promise.resolve(dflt);
   const dir = (n) => { const f = files.find(x => x.name === n); return f ? list(f.id) : Promise.resolve([]); };
   const p = Promise.all([j("처리요약.json", {}), j("전사_원본.json", []), j("candidates.json", []), dir("노래후보_클립"),
-                         j("화자샘플.json", []), dir("화자샘플"), j("AI초안.json", null)])
-    .then(([summary, segs, cands, clips, samples, sampleFiles, ai]) => ({ summary, segs, cands, clips, samples, sampleFiles, ai }));
+                         j("화자샘플.json", []), dir("화자샘플"), j("AI초안.json", null), j("음정분석.json", null), j("레슨분석.json", null)])
+    .then(([summary, segs, cands, clips, samples, sampleFiles, ai, pitch, ana]) => ({ summary, segs, cands, clips, samples, sampleFiles, ai, pitch, ana }));
   p.catch(() => lessonCache.delete(folderId));
   lessonCache.set(folderId, p);
   return p;
@@ -894,13 +932,66 @@ async function openLesson(sid, i, backTo) {
     </div>`;
   renderSpeakers(); renderCands(); renderSegs();
   renderPoints();
+  review.pairSend ??= (ai?.audio || []);
+  renderAnalysis(d.pitch, d.ana, ai);
   $("fb").value = review.feedback || draftFeedback();
   $("aiNote").classList.toggle("hidden", !ai);
-  if (ai) $("aiNote").innerHTML = `<b>🤖 AI 초안</b> <span class="muted">— 화자 지정·좋았던 부분·포인트·문구를 AI가 채웠어요. 꼭 듣고 고친 뒤 보내 주세요.</span>` +
+  if (ai) $("aiNote").innerHTML = `<b>🤖 AI 초안${ai.first_lesson ? " · 첫 레슨" : ""}</b> <span class="muted">— AI가 채운 초안이에요. 근거 ▶를 눌러 확인하고 고친 뒤 보내 주세요(AI 추측은 위 ‘AI 가설’에만 있고 문구엔 넣지 않게 했어요).</span>` +
+    (ai.evidence?.length ? `<div class="row" style="gap:4px;flex-wrap:wrap;margin-top:4px">${ai.evidence.filter(e => e.t != null).slice(0, 8).map(e =>
+      `<button class="small ghost evd" data-t="${+e.t}" title="${esc(e.text || "")}">▶ ${fmt(+e.t)} ${esc((e.text || "").slice(0, 14))}</button>`).join("")}</div>` : "") +
     (ai.notes ? `<div class="muted" style="margin-top:4px">선생님께: ${esc(ai.notes)}</div>` : "");
+  document.querySelectorAll("#aiNote .evd").forEach(b => b.onclick = () => playAt(Math.max(0, +b.dataset.t - 1)).catch(e => toast(e.message)));
   $("ck").value = review.check_text || draftCheck();
   $("ckCard").classList.toggle("hidden", !cfg.practice_check);
   renderSent();
+}
+
+// ── 레슨 분석(선생님 전용): 수강생이 한 말 / 녹음에서 확인된 가창 / 선생님 판단 / AI 가설 / 지도→변화 / 선곡·키 / 챙길 것 ──
+function renderAnalysis(pitch, ana, ai) {
+  const card = $("anaCard"); cur.pairs = ana?.pairs || ai?.pairs || [];
+  if (!pitch && !ana) { card.classList.add("hidden"); return; }
+  card.classList.remove("hidden");
+  const T = (t) => t == null ? "" : `<button class="small ghost tplay" data-t="${+t}">▶ ${fmt(+t)}</button>`;
+  const sec = (title, items, f, open) => items?.length ? `<details ${open ? "open" : ""} style="margin:6px 0"><summary><b>${title}</b> <span class="muted">${items.length}</span></summary>${items.map(f).join("")}</details>` : "";
+  const kind = { goal: "목표", taste: "취향", worry: "고민", background: "배경", feeling: "마음", request: "요청" };
+  const chg = { improved: ["좋아짐", "ok"], partly: ["조금 좋아짐", "ok"], not_yet: ["아직", "todo"], unknown: ["확인 필요", ""] };
+  const a = ana || {};
+  const obs = pitch?.observations || [];
+  const tone = { good: "👍", improve: "🎯", info: "ℹ️" };
+  card.innerHTML = `<h3 style="margin-top:0">🔎 ${a.first_lesson ? "첫 레슨 정밀 진단" : "레슨 분석"} <span class="muted" style="font-size:.85rem;font-weight:400">선생님만 보는 화면 · AI가 정리, 확인 필요</span></h3>
+    ${a.next_goal ? `<div style="margin:4px 0"><b>다음 레슨 목표</b> · ${esc(a.next_goal)}${a.mission ? `<br><span class="muted">미션: ${esc(a.mission)}</span>` : ""}</div>` : ""}
+    ${sec("지도 → 변화", a.coaching, (k) => { const p = cur.pairs.find(x => x.id === k.id); const c = chg[k.change] || chg.unknown;
+      return `<div class="lesson" style="display:block"><div><b>${esc(k.issue || "")}</b> <span class="chip ${c[1]}">${c[0]}</span></div>
+        <div class="muted">지도: ${esc(k.instruction || "")} ${T(k.instruction_t)}</div>
+        ${k.change_basis ? `<div class="muted">근거: ${esc(k.change_basis)}</div>` : ""}
+        ${p ? `<div class="row" style="margin-top:4px"><button class="small pairplay" data-f="${p.file_id || ""}">▶ 지도 전→후 듣기(보정 없음)</button>
+          <label class="muted"><input type="checkbox" class="pairsend" data-id="${p.id}" ${(cur.review.pairSend || []).includes(p.id) ? "checked" : ""}> 카톡에 같이 보내기</label></div>
+          ${p.change || p.measure?.summary ? `<div class="muted">측정: ${esc(p.change || p.measure.summary)}</div>` : ""}` : (k.before || k.after ? `<div class="muted">전 ${T(k.before?.t0)} 후 ${T(k.after?.t0)}</div>` : "")}</div>`; }, true)}
+    ${sec("수강생이 한 말", a.student_said, (x) => `<div style="margin:4px 0">${T(x.t)} <span class="chip">${kind[x.kind] || x.kind}</span> “${esc(x.quote || "")}” <span class="muted">${esc(x.meaning || "")}</span></div>`, true)}
+    ${sec("선생님 판단(레슨 중 하신 말)", a.teacher_judgments, (x) => `<div style="margin:4px 0">${T(x.t)} ${esc(x.text)}</div>`)}
+    ${sec("녹음에서 확인된 가창(측정)", obs, (o) => `<div style="margin:4px 0">${tone[o.tone] || ""} ${esc(o.text)} ${(o.evidence || []).map(e => T(e.t) + (e.lyric ? `<span class="muted">‘${esc(e.lyric)}’</span>` : "")).join(" ")}</div>`, true)}
+    ${sec("녹음에서 들린 특징(전사 기반)", a.observed_singing, (x) => `<div style="margin:4px 0">${T(x.t)} ${esc(x.text)} <span class="muted">${esc(x.basis || "")}</span></div>`)}
+    ${sec("AI 가설 — 사실 아님, 확인하세요", a.ai_hypotheses, (x) => `<div style="margin:4px 0" class="muted">💭 ${esc(x.text)}<br>근거: ${esc(x.basis || "")} · 확인: ${esc(x.check || "")}</div>`)}
+    ${sec("선곡·키", [...(a.songs || []).map(x => ({ ...x, _t: "song" })), ...(a.key_notes || []).map(x => ({ ...x, _t: "key" })), ...(a.song_ideas || []).map(x => ({ ...x, _t: "idea" }))], (x) =>
+      x._t === "song" ? `<div style="margin:4px 0">${T(x.t)} 🎵 ${esc(x.title)}${x.artist ? " · " + esc(x.artist) : ""} <span class="muted">${esc(x.context || "")}</span></div>`
+      : x._t === "key" ? `<div style="margin:4px 0">${T(x.t)} 🔑 ${esc(x.song || "")}: ${esc(x.note || "")}</div>`
+      : `<div style="margin:4px 0" class="muted">💡 AI 선곡 아이디어: ${esc(x.title)}${x.artist ? " · " + esc(x.artist) : ""} — ${esc(x.why || "")}</div>`)}
+    ${sec("성장(지난번보다)", a.progress, (x) => `<div style="margin:4px 0">📈 ${esc(x.text)} <span class="muted">${esc(x.basis || "")}</span></div>`)}
+    ${sec("챙길 것(문구엔 넣지 않음)", a.care, (x) => `<div style="margin:4px 0">${T(x.t)} 🤝 ${esc(x.text)}</div>`)}
+    ${pitch?.observations?.length ? `<div class="row" style="margin-top:6px"><button class="small ghost" id="btnPitchOk">✓ 음정 측정이 맞게 들림 (이 수강생 음정 학습에 사용)</button><span class="muted" id="pitchOkT"></span></div>` : ""}
+    ${pitch?.error ? `<p class="muted">음정 분석 실패: ${esc(pitch.error)}</p>` : ""}`;
+  card.querySelectorAll(".tplay").forEach(b => b.onclick = () => playAt(Math.max(0, +b.dataset.t - 1)).catch(e => toast(e.message)));
+  card.querySelectorAll(".pairplay").forEach(b => b.onclick = () => b.dataset.f ? playShared(b, b.dataset.f) : toast("비교 음성이 아직 없어요"));
+  card.querySelectorAll(".pairsend").forEach(c => c.onchange = () => { const L = new Set(cur.review.pairSend || []); c.checked ? L.add(c.dataset.id) : L.delete(c.dataset.id); cur.review.pairSend = [...L]; });
+  if ($("btnPitchOk")) $("btnPitchOk").onclick = () => sendPitchReview(cur.sid, cur.folder.id, cur.folder.id, { approved: true }, $("pitchOkT"));
+}
+// 선생님 확인 → 서버가 다음 실행 때 학습에 반영(대기 파일). 같은 곳에 이미 대기 파일이 있으면 덮어씀
+async function sendPitchReview(sid, folderId, songId, body, label) {
+  try {
+    const fs = await list(folderId), old = fs.find(f => f.name === "음정검수_대기.json");
+    await writeJSON(folderId, "음정검수_대기.json", { sid, song_id: songId, ...body, at: new Date().toISOString() }, old?.id);
+    if (label) label.textContent = " 저장했어요 · 다음 자동 실행 때 반영"; kick?.();
+  } catch (e) { toast(e.message); }
 }
 
 const player = new Audio(); let playingBtn = null;
@@ -1131,6 +1222,7 @@ $("btnCopy").onclick = async () => { try { await navigator.clipboard.writeText($
 $("btnShare").onclick = async () => {
   const sent = allCands().filter(c => cur.review.decisions[c.id] === "send");
   const ids = sent.map(c => cur.clips.find(f => f.name.startsWith(c.id))).filter(Boolean);
+  for (const p of (cur.pairs || []).filter(p => (cur.review.pairSend || []).includes(p.id) && p.file_id)) ids.push({ id: p.file_id, name: `지도전후_비교_${p.id}.mp3` });
   if (!ids.length) return toast("‘보냄’으로 고른 클립이 없어요");
   try { if (await shareClips(ids)) await markSent("feedback"); } catch (e) { toast(e.message); }
 };
