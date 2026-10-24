@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>작품 보컬노트 · 선생님</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="../icon-192.png">
+<meta name="theme-color" content="#2b4c7e">
+<script src="https://accounts.google.com/gsi/client" async></script>
+<style>
+  :root { --bg:#fff; --fg:#1b1f24; --muted:#5b6470; --card:#f4f6f9; --line:#d5dbe3; --accent:#2b4c7e; --ok:#1f7a3a; --bad:#b42318; --chip:#e7edf6; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg:#121417; --fg:#e8ebef; --muted:#a3acb8; --card:#1c2026; --line:#323843; --accent:#8fb0e6; --ok:#5fcf80; --bad:#ff7b6b; --chip:#26303d; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:17px/1.6 system-ui,"Malgun Gothic","Apple SD Gothic Neo",sans-serif; }
+  main { max-width:760px; margin:0 auto; padding:12px 16px 80px; }
+  header { display:flex; align-items:center; gap:8px; }
+  header h1 { font-size:1.25rem; margin:8px 0; flex:1; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin:12px 0; }
+  .muted { color:var(--muted); font-size:.9rem; }
+  button { font:inherit; min-height:46px; padding:0 14px; border-radius:12px; border:0; background:var(--accent); color:#fff; font-weight:600; cursor:pointer; }
+  button.ghost { background:transparent; color:var(--accent); border:2px solid var(--accent); }
+  button.small { min-height:36px; padding:0 10px; font-size:.9rem; }
+  button.full { width:100%; margin:6px 0; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .lesson { display:flex; justify-content:space-between; gap:8px; align-items:center; padding:10px 0; border-top:1px solid var(--line); cursor:pointer; }
+  .lesson:first-of-type { border-top:0; }
+  .chip { display:inline-block; padding:1px 8px; border-radius:999px; background:var(--chip); font-size:.82rem; }
+  .chip.ok { color:var(--ok); } .chip.todo { color:var(--bad); }
+  .seg { padding:4px 0; border-top:1px dashed var(--line); font-size:.95rem; }
+  .seg b { font-weight:600; }
+  .seg .t { color:var(--muted); font-size:.82rem; margin-right:6px; }
+  .cand { border-top:1px solid var(--line); padding:10px 0; }
+  .cand:first-child { border-top:0; }
+  audio { width:100%; margin:6px 0; }
+  select, input, textarea { font:inherit; border-radius:10px; border:1px solid var(--line); background:var(--bg); color:var(--fg); padding:6px 8px; }
+  textarea { width:100%; min-height:160px; }
+  input.time { width:5.5em; }
+  .seg-list { max-height:50vh; overflow:auto; }
+  #toast { position:fixed; left:50%; bottom:16px; transform:translateX(-50%); background:var(--fg); color:var(--bg); padding:8px 14px; border-radius:10px; display:none; max-width:90vw; }
+  .hidden { display:none; }
+</style>
+</head>
+<body>
+<main>
+  <header><h1>작품 보컬노트</h1><button id="btnBack" class="ghost small hidden">← 목록</button></header>
+
+  <section id="vLogin" class="card">
+    <h2 style="margin-top:0">선생님 전용</h2>
+    <p class="muted">구글 계정(드라이브의 작품보컬노트 폴더)으로 로그인합니다. 자료는 선생님 드라이브에만 있고 이 페이지에는 저장되지 않습니다.</p>
+    <button id="btnLogin" class="full">구글로 로그인</button>
+    <p id="loginMsg" class="muted"></p>
+  </section>
+
+  <section id="vList" class="hidden"></section>
+
+  <section id="vLesson" class="hidden">
+    <div class="card" id="lsHead"></div>
+
+    <div class="card">
+      <h3 style="margin-top:0">1. 누가 누구인지</h3>
+      <p class="muted">AI가 목소리별로 A·B·C…로 나눴습니다. 처음 한 번만 정해 주시면 전사본과 피드백에 이름으로 나옵니다. 노래 부분은 보통 따로 한 화자로 묶입니다.</p>
+      <div id="spk"></div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0">2. 노래 후보 구간</h3>
+      <p class="muted">칭찬·다시 해 보기 말 앞뒤에서 찾은 구간입니다. 들어 보고 보낼 것만 ‘보냄’으로.</p>
+      <div id="cands"></div>
+      <details style="margin-top:8px"><summary>구간 직접 추가</summary>
+        <div class="row" style="margin-top:6px">
+          <input class="time" id="addS" placeholder="12:30"> ~ <input class="time" id="addE" placeholder="13:10">
+          <input id="addNote" placeholder="메모(선택)" style="flex:1;min-width:8em">
+          <button class="small" id="btnAdd">추가</button>
+        </div>
+        <p class="muted">직접 추가한 구간은 다음 자동 실행 때 클립으로 잘라 이 폴더에 넣습니다.</p>
+      </details>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0">3. 카톡 피드백 문구</h3>
+      <p class="muted">초안입니다. 고친 뒤 ‘문구 복사’ → 카톡에 붙여넣기 → 그다음 ‘클립 보내기’로 파일을 보냅니다(카톡은 문구와 파일을 한 번에 받지 못함).</p>
+      <textarea id="fb"></textarea>
+      <div class="row">
+        <button class="small" id="btnCopy">문구 복사</button>
+        <button class="small ghost" id="btnShare">클립 보내기</button>
+        <button class="small ghost" id="btnRegen">초안 다시 만들기</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0">4. 전사본</h3>
+      <div id="segs" class="seg-list"></div>
+    </div>
+
+    <button id="btnSave" class="full">검수 저장</button>
+    <p class="muted" id="saveMsg"></p>
+  </section>
+</main>
+<div id="toast"></div>
+
+<script>
+// ── 설정 ────────────────────────────────────────────────
+// 구글 클라우드의 '웹 애플리케이션' OAuth 클라이언트 ID (비밀값 아님)
+const CLIENT_ID = "__WEB_CLIENT_ID__";
+const SCOPE = "https://www.googleapis.com/auth/drive";
+const DRIVE = "https://www.googleapis.com/drive/v3";
+const UPLOAD = "https://www.googleapis.com/upload/drive/v3";
+const REVIEW = "검수.json";
+
+let token = null, tokenClient = null, cfg = null, cur = null;
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fmt = (sec) => { sec = Math.max(0, Math.round(sec)); const m = Math.floor(sec/60), s = sec%60; return `${m}:${String(s).padStart(2,"0")}`; };
+const parseT = (t) => { const p = String(t).trim().split(":").map(Number); if (p.some(isNaN)) return null; return p.length === 2 ? p[0]*60+p[1] : p.length === 3 ? p[0]*3600+p[1]*60+p[2] : null; };
+function toast(msg) { const t = $("toast"); t.textContent = msg; t.style.display = "block"; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = "none", 2500); }
+function show(view) { for (const v of ["vLogin","vList","vLesson"]) $(v).classList.toggle("hidden", v !== view); $("btnBack").classList.toggle("hidden", view !== "vLesson"); window.scrollTo(0,0); }
+
+// ── 구글 로그인 · 드라이브 ───────────────────────────────
+function login() {
+  if (CLIENT_ID.startsWith("__")) { $("loginMsg").textContent = "아직 웹 로그인 설정 전입니다(클라이언트 ID 필요)."; return; }
+  if (!window.google?.accounts) { $("loginMsg").textContent = "구글 로그인 준비 중… 잠시 후 다시 눌러 주세요."; return; }
+  tokenClient ??= google.accounts.oauth2.initTokenClient({ client_id: CLIENT_ID, scope: SCOPE, callback: async (r) => {
+    if (r.error) { $("loginMsg").textContent = "로그인 실패: " + r.error; return; }
+    token = r.access_token; setTimeout(() => token = null, (r.expires_in - 60) * 1000);
+    try { await loadConfig(); await renderList(); } catch (e) { $("loginMsg").textContent = "불러오기 실패: " + e.message; show("vLogin"); }
+  }});
+  tokenClient.requestAccessToken({ prompt: "" });
+}
+async function api(url, opt = {}) {
+  if (!token) throw new Error("로그인이 만료됐습니다. 다시 로그인해 주세요.");
+  const r = await fetch(url, { ...opt, headers: { Authorization: `Bearer ${token}`, ...(opt.headers || {}) } });
+  if (!r.ok) throw new Error(`드라이브 ${r.status}: ${(await r.text()).slice(0, 200)}`);
+  return r;
+}
+const q = (s) => encodeURIComponent(s);
+async function list(folder) {
+  let out = [], page = "";
+  do {
+    const r = await (await api(`${DRIVE}/files?q=${q(`'${folder}' in parents and trashed=false`)}&pageSize=200&fields=nextPageToken,files(id,name,mimeType,modifiedTime,size)${page ? "&pageToken=" + page : ""}`)).json();
+    out = out.concat(r.files || []); page = r.nextPageToken || "";
+  } while (page);
+  return out;
+}
+const readJSON = async (id) => (await api(`${DRIVE}/files/${id}?alt=media`)).json();
+const readBlob = async (id) => (await api(`${DRIVE}/files/${id}?alt=media`)).blob();
+async function writeJSON(folder, name, obj, existingId) {
+  const body = new Blob([JSON.stringify(obj, null, 1)], { type: "application/json" });
+  if (existingId) { await api(`${UPLOAD}/files/${existingId}?uploadType=media`, { method: "PATCH", body }); return existingId; }
+  const form = new FormData();
+  form.append("metadata", new Blob([JSON.stringify({ name, parents: [folder] })], { type: "application/json" }));
+  form.append("file", body);
+  return (await (await api(`${UPLOAD}/files?uploadType=multipart&fields=id`, { method: "POST", body: form })).json()).id;
+}
+async function loadConfig() {
+  const r = await (await api(`${DRIVE}/files?q=${q("name='_시스템' and mimeType='application/vnd.google-apps.folder' and trashed=false")}&fields=files(id)`)).json();
+  for (const f of r.files || []) {
+    const c = (await list(f.id)).find(x => x.name === "config.json");
+    if (c) { cfg = await readJSON(c.id); return; }
+  }
+  throw new Error("_시스템/config.json을 찾지 못했습니다");
+}
+
+// ── 레슨 목록 ────────────────────────────────────────────
+async function renderList() {
+  show("vList"); $("vList").innerHTML = `<p class="muted">불러오는 중…</p>`;
+  const blocks = [];
+  for (const [sid, st] of Object.entries(cfg.students)) {
+    const root = st.sub?.["02_레슨"]; if (!root) continue;
+    const lessons = (await list(root)).filter(f => f.mimeType.endsWith("folder")).sort((a, b) => b.name.localeCompare(a.name));
+    const rows = await Promise.all(lessons.map(async (l) => {
+      const files = await list(l.id);
+      return { l, files, done: files.some(f => f.name === REVIEW) };
+    }));
+    blocks.push(`<div class="card"><h3 style="margin:0 0 4px">${esc(st.name)} <span class="muted">${esc(sid)}</span></h3>` +
+      (rows.length ? rows.map((r, i) => `<div class="lesson" data-s="${esc(sid)}" data-i="${i}"><span>${esc(r.l.name)}</span><span class="chip ${r.done ? "ok" : "todo"}">${r.done ? "검수 완료" : "검수 전"}</span></div>`).join("")
+        : `<p class="muted">아직 레슨 녹음 없음</p>`) + `</div>`);
+    st._rows = rows;
+  }
+  $("vList").innerHTML = blocks.join("") || `<p class="muted">수강생 없음</p>`;
+  $("vList").querySelectorAll(".lesson").forEach(el => el.onclick = () => openLesson(el.dataset.s, +el.dataset.i));
+}
+
+// ── 레슨 검수 ───────────────────────────────────────────
+async function openLesson(sid, i) {
+  const st = cfg.students[sid], { l, files } = st._rows[i];
+  show("vLesson"); $("lsHead").innerHTML = `<p class="muted">불러오는 중…</p>`;
+  const by = (n) => files.find(f => f.name === n);
+  const summary = by("처리요약.json") ? await readJSON(by("처리요약.json").id) : {};
+  const segs = by("전사_원본.json") ? await readJSON(by("전사_원본.json").id) : [];
+  const cands = by("candidates.json") ? await readJSON(by("candidates.json").id) : [];
+  const clipDir = files.find(f => f.name === "노래후보_클립");
+  const clips = clipDir ? await list(clipDir.id) : [];
+  const reviewF = by(REVIEW);
+  const review = reviewF ? await readJSON(reviewF.id) : { speakers: {}, decisions: {}, manual: [], feedback: "" };
+  cur = { sid, st, folder: l, summary, segs, cands, clips, review, reviewId: reviewF?.id, clipUrls: {} };
+
+  const ls = summary.lesson || {};
+  $("lsHead").innerHTML = `<h2 style="margin:0">${esc(st.name)} · ${esc(l.name)}</h2>
+    <div class="row muted" style="margin-top:4px">
+      <span class="chip">${ls.session_number ? ls.session_number + "회차" : "회차 확인 필요"}</span>
+      ${ls.package ? `<span class="chip">결제 ${esc(ls.package)}</span>` : ""}
+      ${ls.payment_note ? `<span class="chip todo">${esc(ls.payment_note)}</span>` : ""}
+      <span>${summary.duration_sec ? fmt(summary.duration_sec) : ""}</span>
+    </div>`;
+  renderSpeakers(); renderCands(); renderSegs();
+  $("fb").value = review.feedback || draftFeedback();
+}
+
+function speakerName(code) {
+  const v = cur.review.speakers[code];
+  return v === "teacher" ? "선생님" : v === "student" ? cur.st.name : v === "singing" ? "노래" : v === "music" ? "음원" : `화자${code}`;
+}
+function renderSpeakers() {
+  const talk = cur.summary.speakers_talk_sec || {};
+  const codes = Object.keys(talk).length ? Object.keys(talk) : [...new Set(cur.segs.map(s => s.speaker))];
+  $("spk").innerHTML = codes.map(c => {
+    const sample = cur.segs.find(s => s.speaker === c && s.text.length > 8)?.text || "";
+    const v = cur.review.speakers[c] || "";
+    return `<div class="row" style="padding:6px 0;border-top:1px solid var(--line)">
+      <b style="min-width:4em">화자${esc(c)}</b><span class="muted">${talk[c] ? fmt(talk[c]) + " 말함" : ""}</span>
+      <select data-c="${esc(c)}">${[["","?"],["teacher","선생님"],["student","학생"],["singing","노래(학생)"],["music","음원·기타"]]
+        .map(([k, n]) => `<option value="${k}" ${k === v ? "selected" : ""}>${n}</option>`).join("")}</select>
+      <div class="muted" style="flex-basis:100%">“${esc(sample.slice(0, 70))}”</div></div>`;
+  }).join("");
+  $("spk").querySelectorAll("select").forEach(s => s.onchange = () => { cur.review.speakers[s.dataset.c] = s.value; renderSegs(); });
+}
+function renderSegs() {
+  $("segs").innerHTML = cur.segs.map(s => `<div class="seg"><span class="t">${fmt(s.start)}</span><b>${esc(speakerName(s.speaker))}</b> ${esc(s.text)}</div>`).join("") || `<p class="muted">전사본 없음</p>`;
+}
+function allCands() {
+  return [...cur.cands.map(c => ({ ...c, kind: "auto" })), ...cur.review.manual.map((m, i) => ({ ...m, id: m.id || `M${i + 1}`, kind: "manual" }))];
+}
+function renderCands() {
+  const list = allCands();
+  $("cands").innerHTML = list.map(c => {
+    const d = cur.review.decisions[c.id] || "";
+    const clip = cur.clips.find(f => f.name.startsWith(c.id));
+    return `<div class="cand"><div class="row"><b>${esc(c.id)}</b><span>${fmt(c.start)} ~ ${fmt(c.end)}</span>
+        ${c.kind === "manual" ? `<span class="chip">직접 추가${clip ? "" : " · 다음 실행 때 클립 생성"}</span>` : ""}
+        ${c.reason || c.note ? `<span class="muted">${esc(c.reason || c.note)}</span>` : ""}</div>
+      ${clip ? `<div><button class="small ghost" data-play="${clip.id}">▶ 듣기</button><audio id="au_${esc(c.id)}" controls class="hidden"></audio></div>` : ""}
+      <div class="row">
+        <label><input type="radio" name="d_${esc(c.id)}" value="send" ${d === "send" ? "checked" : ""}> 보냄</label>
+        <label><input type="radio" name="d_${esc(c.id)}" value="keep" ${d === "keep" ? "checked" : ""}> 기록만</label>
+        <label><input type="radio" name="d_${esc(c.id)}" value="drop" ${d === "drop" ? "checked" : ""}> 버림</label>
+      </div></div>`;
+  }).join("") || `<p class="muted">후보 없음 — 아래에서 직접 추가할 수 있습니다.</p>`;
+  $("cands").querySelectorAll("input[type=radio]").forEach(r => r.onchange = () => { cur.review.decisions[r.name.slice(2)] = r.value; });
+  $("cands").querySelectorAll("[data-play]").forEach(b => b.onclick = async () => {
+    const au = b.parentElement.querySelector("audio");
+    try {
+      b.textContent = "불러오는 중…";
+      cur.clipUrls[b.dataset.play] ??= URL.createObjectURL(await readBlob(b.dataset.play));
+      au.src = cur.clipUrls[b.dataset.play]; au.classList.remove("hidden"); b.classList.add("hidden"); au.play();
+    } catch (e) { b.textContent = "▶ 듣기"; toast(e.message); }
+  });
+}
+function draftFeedback() {
+  const ls = cur.summary.lesson || {}, name = cur.st.name;
+  const sent = allCands().filter(c => cur.review.decisions[c.id] === "send");
+  const lines = [`${name}님, 오늘${ls.session_number ? " " + ls.session_number + "회차" : ""} 레슨 수고 많으셨어요!`, ""];
+  if (sent.length) {
+    lines.push("오늘 특히 좋았던 부분 보내드려요.");
+    sent.forEach(c => lines.push(`· ${fmt(c.start)} 부근${c.note ? " — " + c.note : ""}`));
+    lines.push("");
+  }
+  lines.push("다음 시간까지 연습할 것:", "· ", "");
+  if (ls.payment_note && /다음 결제/.test(ls.payment_note)) lines.push("(이번이 결제하신 회차의 마지막 레슨이었어요. 다음 회차 안내드릴게요.)");
+  return lines.join("\n").trim();
+}
+
+// ── 버튼 ────────────────────────────────────────────────
+$("btnLogin").onclick = login;
+$("btnBack").onclick = () => renderList();
+$("btnAdd").onclick = () => {
+  const s = parseT($("addS").value), e = parseT($("addE").value);
+  if (s == null || e == null || e <= s) return toast("시간을 12:30 ~ 13:10 처럼 넣어 주세요");
+  cur.review.manual.push({ id: `M${cur.review.manual.length + 1}`, start: s, end: e, note: $("addNote").value.trim() });
+  $("addS").value = $("addE").value = $("addNote").value = ""; renderCands();
+};
+$("btnRegen").onclick = () => { $("fb").value = draftFeedback(); };
+$("btnCopy").onclick = async () => { try { await navigator.clipboard.writeText($("fb").value); toast("복사했어요. 카톡에 붙여넣기 하세요."); } catch { $("fb").select(); toast("길게 눌러 복사해 주세요"); } };
+$("btnShare").onclick = async () => {
+  const sent = allCands().filter(c => cur.review.decisions[c.id] === "send");
+  const ids = sent.map(c => cur.clips.find(f => f.name.startsWith(c.id))).filter(Boolean);
+  if (!ids.length) return toast("‘보냄’으로 고른 클립이 없어요");
+  try {
+    const files = [];
+    for (const f of ids) files.push(new File([await readBlob(f.id)], `${cur.st.name}_${cur.folder.name}_${f.name}`, { type: "audio/mpeg" }));
+    if (!navigator.canShare?.({ files })) return toast("이 브라우저는 파일 공유를 지원하지 않아요");
+    await navigator.share({ files });
+  } catch (e) { if (e.name !== "AbortError") toast(e.message); }
+};
+$("btnSave").onclick = async () => {
+  cur.review.feedback = $("fb").value;
+  cur.review.reviewed_at = new Date().toISOString();
+  try {
+    cur.reviewId = await writeJSON(cur.folder.id, REVIEW, cur.review, cur.reviewId);
+    $("saveMsg").textContent = "저장했어요. " + (cur.review.manual.some(m => !cur.clips.find(f => f.name.startsWith(m.id))) ? "직접 추가한 구간은 다음 자동 실행 때 클립으로 만들어집니다." : "");
+    toast("저장됨");
+  } catch (e) { toast(e.message); }
+};
+</script>
+</body>
+</html>
