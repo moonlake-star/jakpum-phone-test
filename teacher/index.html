@@ -6,13 +6,14 @@
 <title>작품 보컬노트 · 선생님</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="../icon-192.png">
-<meta name="theme-color" content="#2b4c7e">
+<meta name="theme-color" content="#17191d">
 <script src="https://accounts.google.com/gsi/client" async></script>
 <style>
-  :root { --bg:#fff; --fg:#1b1f24; --muted:#5b6470; --card:#f4f6f9; --line:#d5dbe3; --accent:#2b4c7e; --ok:#1f7a3a; --bad:#b42318; --chip:#e7edf6; }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) { --bg:#121417; --fg:#e8ebef; --muted:#a3acb8; --card:#1c2026; --line:#323843; --accent:#8fb0e6; --ok:#5fcf80; --bad:#ff7b6b; --chip:#26303d; }
-  }
+  /* 기본 테마: 진회색(폰 설정과 상관없이 항상) */
+  :root { color-scheme:dark; --bg:#17191d; --fg:#eceff3; --muted:#a9b1bc; --card:#22262c; --line:#363c45; --accent:#9cc3ff; --on-accent:#10141a;
+          --ok:#6fd98e; --bad:#ff8a7a; --chip:#2e343d; --link:#ffd27a; }
+  a { color:var(--link); text-decoration:underline; text-underline-offset:3px; font-weight:600; }
+  a:visited { color:var(--link); }
   * { box-sizing:border-box; }
   body { margin:0; background:var(--bg); color:var(--fg); font:17px/1.6 system-ui,"Malgun Gothic","Apple SD Gothic Neo",sans-serif; }
   main { max-width:760px; margin:0 auto; padding:12px 16px 80px; }
@@ -20,7 +21,7 @@
   header h1 { font-size:1.25rem; margin:8px 0; flex:1; }
   .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin:12px 0; }
   .muted { color:var(--muted); font-size:.9rem; }
-  button { font:inherit; min-height:46px; padding:0 14px; border-radius:12px; border:0; background:var(--accent); color:#fff; font-weight:600; cursor:pointer; }
+  button { font:inherit; min-height:46px; padding:0 14px; border-radius:12px; border:0; background:var(--accent); color:var(--on-accent); font-weight:700; cursor:pointer; }
   button.ghost { background:transparent; color:var(--accent); border:2px solid var(--accent); }
   button.small { min-height:36px; padding:0 10px; font-size:.9rem; }
   button.full { width:100%; margin:6px 0; }
@@ -30,11 +31,8 @@
   .chip { display:inline-block; padding:1px 8px; border-radius:999px; background:var(--chip); font-size:.82rem; }
   .chip.ok { color:var(--ok); } .chip.todo { color:var(--bad); }
   /* 전사본: 통화녹음 텍스트 보기처럼 말풍선. 역할별 색 */
-  :root { --t-bg:#e6efff; --t-fg:#1d4ed8; --s-bg:#fff1e0; --s-fg:#b45309; --g-bg:#f3e8ff; --g-fg:#7e22ce; --m-bg:#eef0f3; --m-fg:#4b5563;
-          --x1-bg:#e0f5f1; --x1-fg:#0f766e; --x2-bg:#fde7ef; --x2-fg:#be185d; --x3-bg:#eaf5e0; --x3-fg:#4d7c0f; --now:#facc15; }
-  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
-    --t-bg:#1b2a47; --t-fg:#8fb4ff; --s-bg:#3a2a16; --s-fg:#fbbf6a; --g-bg:#2e1f43; --g-fg:#d6a8ff; --m-bg:#262b33; --m-fg:#b3bac5;
-    --x1-bg:#13332f; --x1-fg:#5eead4; --x2-bg:#3a1a28; --x2-fg:#f9a8d4; --x3-bg:#22331a; --x3-fg:#a3e06b; --now:#eab308; } }
+  :root { --t-bg:#1f3050; --t-fg:#a9c7ff; --s-bg:#3d2c17; --s-fg:#ffc677; --g-bg:#31224a; --g-fg:#dcb3ff; --m-bg:#2a2f37; --m-fg:#c0c7d1;
+          --x1-bg:#163834; --x1-fg:#6ff0da; --x2-bg:#3d1c2b; --x2-fg:#ffb0d8; --x3-bg:#25371c; --x3-fg:#b4ea7c; --now:#ffd27a; }
   .seg { display:flex; margin:6px 0; }
   .seg.right { justify-content:flex-end; }
   .bub { max-width:86%; padding:8px 12px; border-radius:14px; background:var(--bb); cursor:pointer; border:2px solid transparent; }
