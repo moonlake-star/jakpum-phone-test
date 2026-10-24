@@ -174,12 +174,18 @@ async function renderList() {
       const files = await list(l.id);
       return { l, files, done: files.some(f => f.name === REVIEW) };
     }));
-    blocks.push(`<div class="card"><h3 style="margin:0 0 4px">${esc(st.name)} <span class="muted">${esc(sid)}</span></h3>` +
+    const pay = (st.payments || []).slice(-1)[0];
+    const payTxt = pay ? `최근 결제 ${esc(pay.date)} · ${esc(pay.sessions)}회 묶음` : "결제 기록 없음";
+    const demo = st.status === "test" ? ` <span class="chip">연습용</span>` : "";
+    blocks.push(`<div class="card"><h3 style="margin:0 0 2px">${esc(st.name)}${demo} <span class="muted">${esc(sid)}</span></h3>` +
+      `<div class="muted">${payTxt} · <a href="https://drive.google.com/drive/folders/${esc(st.folder)}" target="_blank" rel="noopener">드라이브 폴더</a></div>` +
       (rows.length ? rows.map((r, i) => `<div class="lesson" data-s="${esc(sid)}" data-i="${i}"><span>${esc(r.l.name)}</span><span class="chip ${r.done ? "ok" : "todo"}">${r.done ? "검수 완료" : "검수 전"}</span></div>`).join("")
-        : `<p class="muted">아직 레슨 녹음 없음</p>`) + `</div>`);
+        : `<p class="muted">아직 레슨 녹음이 없어요. 녹음이 정리되면 여기에 날짜별로 생기고, 누르면 검수 화면이 열립니다.</p>`) + `</div>`);
     st._rows = rows;
   }
-  $("vList").innerHTML = blocks.join("") || `<p class="muted">수강생 없음</p>`;
+  $("vList").innerHTML = (blocks.join("") || `<p class="muted">수강생 없음</p>`) +
+    `<p class="muted">목록을 새로 보려면 <a href="#" id="reload">새로고침</a></p>`;
+  $("reload").onclick = (e) => { e.preventDefault(); renderList(); };
   $("vList").querySelectorAll(".lesson").forEach(el => el.onclick = () => openLesson(el.dataset.s, +el.dataset.i));
 }
 
