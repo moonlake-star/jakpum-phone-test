@@ -649,7 +649,7 @@ async function makeupFromLesson(cid, back) {
 // ── 메이크업 미리듣기 엔진: 여러 갈래를 같은 시각에 함께 재생하고 '크기'만 바꿔 즉시 전환/조절 ──
 // 갈래: 애프터 보컬(음정 단계별 p0~p3) · 울림(센드 1.0) · MR · 비포 보컬 · 비포 MR
 const REV_UNIT = 0.00144;   // 리버브 1% = 센드 0.00144  → 15% = 표준(0.0216)
-const PITCH_NAMES = ["없음", "약", "중", "강"];
+const PITCH_NAMES = ["끔", "약", "중", "강"];
 let mkCtx = null, mkT0 = 0, mkOffset = 0, mkPlaying = false, mkTracks = {}, mkTick = null, mkBefore = false, mkRaw = false, mkJob = null, mkDurS = 0;
 function mkStop() { for (const t of Object.values(mkTracks)) { try { t.src?.stop(); } catch {} t.src = null; } mkPlaying = false; }
 const mkNow = () => mkPlaying ? Math.min(mkCtx.currentTime - mkT0, mkDurS) : mkOffset;
@@ -674,14 +674,15 @@ function mkApply() {
   if (!$("mkVol")) return;
   const v = +$("mkVol").value, r = +$("mkRev").value, m = +$("mkMr").value, lv = +($("mkPitch")?.value || 0);
   $("mkVolT").textContent = (v > 0 ? "+" : "") + v + " dB"; $("mkRevT").textContent = r + "%" + (r === 15 ? " (표준)" : "");
-  $("mkMrT").textContent = (m > 0 ? "+" : "") + m + " dB"; if ($("mkPitchT")) $("mkPitchT").textContent = mkBefore ? "비포에는 적용 안 됨" : PITCH_NAMES[lv];
+  $("mkMrT").textContent = (m > 0 ? "+" : "") + m + " dB"; if ($("mkPitchT")) $("mkPitchT").textContent = PITCH_NAMES[lv];
+  if (mkRaw) { $("mkRevT").textContent = "생 원본엔 없음"; if ($("mkPitchT")) $("mkPitchT").textContent = "생 원본엔 없음"; }
   if (!mkCtx) return;
   const set = (name, x) => { const t = mkTracks[name]; if (!t) return; t.gain.gain.cancelScheduledValues(mkCtx.currentTime); t.gain.gain.setTargetAtTime(x, mkCtx.currentTime, 0.012); };
   const V = 10 ** (v / 20), M = 10 ** (m / 20), W = r * REV_UNIT;
-  const hasP = !!mkTracks.p0, raw = mkBefore && mkRaw && (mkTracks.bv || mkTracks.before);
-  // 연습 비교(기본): 비포 = 같은 처리 + 음정 끔(p0) / 애프터 = 같은 처리 + 고른 음정 단계
-  // 생 원본 비교(선택): 비포 = 처리 전 보컬·MR(울림 없음)
-  const pv = mkBefore ? 0 : lv, perW = !!mkTracks.w0;  // 리버브도 단계별(보정된 보컬로 만든 울림)
+  const hasP = !!mkTracks.p0, raw = mkRaw && (mkTracks.bv || mkTracks.before);
+  // 처리본: 공통 다이내믹 + 고른 음정 단계(끔=보정 없음) + 그 보컬로 만든 리버브
+  // 생 원본(체크): 처리 전 보컬·MR. 보컬·MR 크기만 적용, 음정·리버브 없음
+  const pv = lv, perW = !!mkTracks.w0;
   for (let k = 0; k < 4; k++) { set("p" + k, !raw && hasP && k === pv ? V : 0); set("w" + k, !raw && perW && k === pv ? V * W : 0); }
   set("dry", !raw && !hasP ? V : 0);
   set("wet", raw || perW ? 0 : V * W);
@@ -712,10 +713,6 @@ async function openMkJob(j, backTo) {
       `실패: ${esc(r.error || "")}`}</p></div>`;
   if (r.status === "done" && (by("vocal_dry.mp3") || hasP)) {
     body += `<div class="card"><h3 style="margin-top:0">바로 듣고 조절</h3>
-      ${hasP ? `<button class="full" id="mkAB">애프터 (음정 보정) 듣는 중 · 눌러서 비포로</button>
-        <p class="muted" id="mkABhint" style="margin:4px 0 0">비포·애프터 모두 같은 믹스 처리이고 음정 보정만 달라요 → 음정을 맞추면 이렇게 들린다는 비교.</p>
-        ${hasB ? `<label class="muted" style="display:flex;gap:6px;align-items:center;margin-top:4px"><input type="checkbox" id="mkRawSw"> 비포를 ‘생 원본(처리 전)’으로 — 제작 전후 비교용</label>` : ""}`
-        : `<p class="muted">비포/애프터 비교는 ‘이 설정으로 완성본 다시 만들기’를 한 번 하면 생겨요.</p>`}
       <div class="row" style="margin-top:8px;flex-wrap:nowrap"><span class="muted" id="mkPos" style="min-width:6em">0:00 / -:--</span>
         <input type="range" id="mkSeek" min="0" max="1000" value="0" style="flex:1"></div>
       <div class="row" style="justify-content:center;gap:6px;margin:6px 0;flex-wrap:nowrap">
@@ -723,17 +720,19 @@ async function openMkJob(j, backTo) {
         <button class="small" id="mkPP" style="min-width:4em">▶</button>
         <button class="small ghost" id="mkFwd5" title="5초 앞으로">5 ⏩</button><button class="small ghost" id="mkLast" title="맨 뒤">⏭</button></div>
       <p class="muted" id="mkT" style="margin:0 0 6px;text-align:center">▶를 누르면 불러와서 재생해요</p>
-      <div style="margin-top:8px">보컬 크기 <b id="mkVolT"></b><input type="range" id="mkVol" min="-6" max="6" step="0.5" value="0" style="width:100%"></div>
-      <div>리버브(울림) <b id="mkRevT"></b><input type="range" id="mkRev" min="0" max="50" step="1" value="${revNow}" style="width:100%"></div>
-      <div>MR 크기 <b id="mkMrT"></b><input type="range" id="mkMr" min="-6" max="6" step="0.5" value="0" style="width:100%"></div>
-      ${hasP ? `<div>음정 보정 <b id="mkPitchT"></b> <span class="muted">${pi.key ? `(${esc(pi.key.name)} 스케일)` : ""}</span>
-        <input type="range" id="mkPitch" min="1" max="3" step="1" value="${r.pitch_level ? +r.pitch_level : 2}" style="width:100%">
-        <div class="row muted" style="justify-content:space-between;font-size:.8rem"><span>약</span><span>중</span><span>강</span></div>
+      ${hasB ? `<label style="display:flex;gap:8px;align-items:center;margin:8px 0 2px"><input type="checkbox" id="mkRawSw" style="width:1.2em;height:1.2em"> 생 원본 (처리 전)</label>
+        <p class="muted" id="mkRawHint" style="margin:0 0 6px">켜면 아무 처리 안 한 소리(같은 크기로 맞춤). 보컬·MR 크기만 적용돼요.</p>` : ""}
+      ${hasP ? `<div class="mkFx" style="margin-top:6px">음정 보정 <b id="mkPitchT"></b> <span class="muted">${pi.key ? `(${esc(pi.key.name)} 스케일)` : ""}</span>
+        <input type="range" id="mkPitch" min="0" max="3" step="1" value="${r.pitch_level != null ? +r.pitch_level : 2}" style="width:100%">
+        <div class="row muted" style="justify-content:space-between;font-size:.8rem"><span>끔</span><span>약</span><span>중</span><span>강</span></div>
         <div class="row" style="margin-top:4px"><label class="muted">키</label><select id="mkKey" style="flex:1">${["C","C#","D","Eb","E","F","F#","G","Ab","A","Bb","B"].flatMap((nm, t) => [["major", "장조"], ["minor", "단조"]].map(([mo, kn]) =>
           `<option value="${t}:${mo}" ${pi.key && pi.key.tonic === t && pi.key.mode === mo ? "selected" : ""}>${nm} ${kn}</option>`)).join("")}</select></div>
         <p class="muted" style="margin:2px 0 0">키를 바꾸면 ‘완성본 다시 만들기’ 때 그 키로 다시 보정해요(자동 인식 후보: ${esc((pi.key_candidates || []).join(", "))}).</p></div>`
         : `<p class="muted">음정 보정은 ‘이 설정으로 완성본 다시 만들기’를 한 번 하면 생겨요.</p>`}
-      <p class="muted">위 조절은 모두 바로 들으며 바꿀 수 있어요(비포에도 보컬·MR·울림 크기가 같이 적용). 마음에 들면 아래 버튼으로 완성본에 반영하세요.</p>
+      <div style="margin-top:8px">보컬 크기 <b id="mkVolT"></b><input type="range" id="mkVol" min="-6" max="6" step="0.5" value="0" style="width:100%"></div>
+      <div>MR 크기 <b id="mkMrT"></b><input type="range" id="mkMr" min="-6" max="6" step="0.5" value="0" style="width:100%"></div>
+      <div class="mkFx">리버브(울림) <b id="mkRevT"></b><input type="range" id="mkRev" min="0" max="50" step="1" value="${revNow}" style="width:100%"></div>
+      <p class="muted">모두 재생 중에 바로 바뀌어요. 음정 ‘끔’ = 같은 처리에서 음정만 안 맞춘 소리(연습 비교용). 마음에 들면 아래 버튼으로 완성본에 반영하세요.</p>
       <button class="full" id="mkFinal">이 설정으로 완성본 다시 만들기</button></div>
       <div class="card"><h3 style="margin-top:0">완성본</h3><button class="small ghost" id="mkMix">▶ 완성본 듣기</button><audio id="mkMixAu" controls class="hidden" style="width:100%"></audio>
       <div class="row" style="margin-top:6px"><button class="small" id="mkShare">완성본 보내기(mp3)</button><span class="chip ${r.sent_at ? "ok" : ""}" id="mkSentT">${r.sent_at ? "보냄 " + new Date(r.sent_at).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "아직 안 보냄"}</span>
@@ -752,8 +751,8 @@ async function openMkJob(j, backTo) {
   $("mkPP").onclick = async () => {
     if (mkPlaying) { mkOffset = mkNow(); mkStop(); return paintTransport(); }
     try {
-      $("mkT").textContent = "불러오는 중…"; await ensure(base()); if (mkBefore && mkRaw) await ensure(beforeSet());
-      mkPlay(mkOffset); $("mkT").textContent = mkBefore ? "비포(원본) 재생 중" : "애프터(메이크업) 재생 중";
+      $("mkT").textContent = "불러오는 중…"; await ensure(base()); if (mkRaw) await ensure(beforeSet());
+      mkPlay(mkOffset); playLabel();
       clearInterval(mkTick); mkTick = setInterval(() => { if (!$("mkPos")) return clearInterval(mkTick); paintTransport(); }, 250);
       ensure(hasP ? [1, 2, 3].flatMap(stage) : []);  // 나머지 음정 단계는 뒤에서 미리
     } catch (e) { toast(e.message); $("mkT").textContent = ""; }
@@ -761,23 +760,16 @@ async function openMkJob(j, backTo) {
   $("mkSeek").onchange = (e) => mkSeekTo(e.target.value / 1000 * mkDurS);
   $("mkFirst").onclick = () => mkSeekTo(0); $("mkLast").onclick = () => mkSeekTo(mkDurS - 3);
   $("mkBack5").onclick = () => mkSeekTo(mkNow() - 5); $("mkFwd5").onclick = () => mkSeekTo(mkNow() + 5);
-  const abLabel = () => {
-    if (!$("mkAB")) return;
-    const lvName = PITCH_NAMES[lvNow()];
-    $("mkAB").textContent = mkBefore ? (mkRaw ? "비포 (생 원본) 듣는 중 · 눌러서 애프터로" : "비포 (음정 보정 없음) 듣는 중 · 눌러서 애프터로")
-                                     : `애프터 (음정 보정 ${lvName}) 듣는 중 · 눌러서 비포로`;
-    $("mkAB").classList.toggle("ghost", mkBefore);
-    if ($("mkPitch")) { $("mkPitch").disabled = mkBefore; $("mkPitch").closest("div").style.opacity = mkBefore ? .45 : 1; }
-    if ($("mkPitchT")) $("mkPitchT").textContent = mkBefore ? "비포에는 적용 안 됨" : lvName;
-    if ($("mkABhint")) $("mkABhint").textContent = mkRaw ? "비포 = 처리 전 생 원본(같은 크기로 맞춤), 애프터 = 전체 메이크업 → 제작 전후 비교."
-      : "비포·애프터 모두 같은 믹스 처리이고, 애프터만 음정 보정(그 뒤에 리버브) → 음정을 맞추면 이렇게 들린다는 비교.";
-    if (mkPlaying) $("mkT").textContent = mkBefore ? "비포 재생 중" : "애프터 재생 중";
+  const playLabel = () => { if (mkPlaying) $("mkT").textContent = mkRaw ? "생 원본 재생 중" : `메이크업 재생 중 · 음정 보정 ${PITCH_NAMES[lvNow()]}`; };
+  const abLabel = () => {  // 생 원본이면 음정·리버브는 흐리게(적용 안 됨)
+    document.querySelectorAll("#vMkJob .mkFx").forEach(d => { d.style.opacity = mkRaw ? .4 : 1; d.querySelectorAll("input,select").forEach(i => i.disabled = mkRaw); });
+    playLabel();
   };
   abLabel();
-  if ($("mkAB")) $("mkAB").onclick = async () => { mkBefore = !mkBefore; abLabel(); if (mkBefore && mkRaw) await ensure(beforeSet()); mkApply(); };
   if ($("mkRawSw")) $("mkRawSw").onchange = async (e) => {
-    mkRaw = e.target.checked; abLabel();
-    if (mkRaw && !mkTracks.bv?.buf && !mkTracks.before?.buf) { $("mkT").textContent = "생 원본 불러오는 중…"; await ensure(beforeSet()); $("mkT").textContent = mkPlaying ? (mkBefore ? "비포 재생 중" : "애프터 재생 중") : ""; }
+    mkRaw = e.target.checked; abLabel(); mkApply();
+    if (mkRaw && !mkTracks.bv?.buf && !mkTracks.before?.buf) { $("mkT").textContent = "생 원본 불러오는 중…"; await ensure(beforeSet()); playLabel(); }
+    if (mkRaw && !by("before_vocal.mp3")) $("mkRawHint").textContent = "이 작업의 생 원본은 한 덩어리라 보컬·MR 크기도 적용되지 않아요.";
     mkApply(); };
   if ($("mkPitch")) $("mkPitch").oninput = async () => { abLabel(); mkApply(); await ensure(stage(lvNow())); mkApply(); };
   // 슬라이더가 기본값에 닿으면 짧고 약한 진동(안드로이드). 기본값: 보컬 0dB · 리버브 15% · MR 0dB · 음정 '중'
