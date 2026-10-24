@@ -112,12 +112,12 @@
 
     <div class="card">
       <h3 style="margin-top:0">4. 전사본</h3>
-      <p class="muted" id="segHint">말풍선을 누르면 그 부분부터 재생됩니다. 처음 누를 때 듣기용 녹음(1시간에 약 18MB)을 한 번 받아요 — 와이파이에서 권장.</p>
+      <p class="muted" id="segHint">말풍선을 누르면 그 부분부터 바로 재생됩니다(누른 곳 앞뒤 2분씩만 받아서 데이터를 거의 안 씀). 다시 누르면 멈춤.</p>
       <div id="segs" class="seg-list"></div>
       <div class="mini hidden" id="mini">
         <button class="small" id="miniBtn">❚❚</button>
         <span id="miniT" class="muted">0:00</span>
-        <input type="range" id="miniSeek" min="0" max="100" step="1" value="0">
+        <input type="range" id="miniSeek" min="0" max="1000" step="1" value="0">
       </div>
     </div>
 
@@ -247,7 +247,7 @@ async function renderList() {
 async function openLesson(sid, i) {
   const st = cfg.students[sid], { l, files } = st._rows[i];
   show("vLesson"); $("lsHead").innerHTML = `<p class="muted">불러오는 중…</p>`;
-  full.pause(); $("mini").classList.add("hidden"); nowIdx = -1;
+  full.pause(); $("mini").classList.add("hidden"); nowIdx = -1; nextChunk = null; listenFile = null;
   const by = (n) => files.find(f => f.name === n);
   const summary = by("처리요약.json") ? await readJSON(by("처리요약.json").id) : {};
   const segs = by("전사_원본.json") ? await readJSON(by("전사_원본.json").id) : [];
@@ -324,38 +324,39 @@ function renderSegs() {
   }).join("") || `<p class="muted">전사본 없음</p>`;
   $("segs").querySelectorAll(".bub").forEach(b => b.onclick = () => playFrom(+b.dataset.i));
 }
-// ── 전사본 재생: 듣기용 저용량 녹음을 처음 한 번만 받아 폰에 보관(다시 열면 안 받음) ──
-const full = new Audio(); let fullFor = null, nowIdx = -1;
-async function loadFull() {
-  if (fullFor === cur.folder.id) return true;
-  const f = cur.files.find(x => x.name === "듣기용.mp3");
-  if (!f) { toast("이 레슨은 듣기용 녹음이 아직 없어요"); return false; }
-  const key = `https://vocalnote.local/audio/${f.id}`;
-  let blob = null;
-  try { const c = await caches.open("vn-audio"); const hit = await c.match(key); if (hit) blob = await hit.blob(); } catch {}
-  if (!blob) {
-    $("segHint").textContent = "듣기용 녹음 받는 중…";
-    const r = await api(`${DRIVE}/files/${f.id}?alt=media`);
-    const total = +f.size || 0, reader = r.body.getReader(), parts = []; let got = 0;
-    for (;;) { const { done, value } = await reader.read(); if (done) break; parts.push(value); got += value.length;
-      if (total) $("segHint").textContent = `듣기용 녹음 받는 중… ${Math.round(got / total * 100)}%`; }
-    blob = new Blob(parts, { type: "audio/mpeg" });
-    try { const c = await caches.open("vn-audio"); await c.put(key, new Response(blob)); } catch {}
-  }
-  full.src = URL.createObjectURL(blob); fullFor = cur.folder.id;
-  $("segHint").textContent = "말풍선을 누르면 그 부분부터 재생됩니다. 다시 누르면 멈춤.";
-  $("mini").classList.remove("hidden");
-  return true;
+// ── 전사본 재생: 누른 곳부터 '필요한 부분만' 받아 바로 재생(전체를 받지 않음) ──
+// 듣기용.mp3는 고정 비트레이트(40kbps = 초당 5,000바이트)라 시각 → 파일 위치를 바로 계산할 수 있다.
+// 2분 조각씩 받아 재생하고, 끝나기 20초 전에 다음 조각을 미리 받아 이어 붙인다.
+const BPS = 5000, CHUNK = 120;
+const full = new Audio(); let nowIdx = -1, chunkStart = 0, nextChunk = null, listenFile = null;
+const lessonEnd = () => cur.summary.duration_sec || (cur.segs.at(-1)?.end ?? 0);
+async function fetchChunk(t0) {
+  const a = Math.floor(t0 * BPS), b = Math.floor((t0 + CHUNK) * BPS) - 1;
+  const r = await api(`${DRIVE}/files/${listenFile.id}?alt=media`, { headers: { Range: `bytes=${a}-${b}` } });
+  return { t0, url: URL.createObjectURL(await r.blob()) };
 }
-async function playFrom(i) {
+async function playAt(t, keepGoing = true) {
+  listenFile ??= cur.files.find(x => x.name === "듣기용.mp3");
+  if (!listenFile) { toast("이 레슨은 듣기용 녹음이 아직 없어요"); return; }
   if (player && !player.paused) player.pause();
-  if (!(await loadFull().catch(e => (toast(e.message), false)))) return;
-  if (i === nowIdx && !full.paused) { full.pause(); return; }
-  full.currentTime = cur.segs[i].start; await full.play();
+  toast("불러오는 중…");
+  const c = (nextChunk && Math.abs(nextChunk.t0 - t) < 0.5) ? nextChunk : await fetchChunk(Math.max(0, t));
+  nextChunk = null; chunkStart = c.t0; full.src = c.url;
+  $("mini").classList.remove("hidden");
+  if (keepGoing) await full.play();
 }
+function playFrom(i) {
+  if (i === nowIdx && !full.paused) { full.pause(); return; }
+  playAt(Math.max(0, cur.segs[i].start - 0.3)).catch(e => toast(e.message));
+}
+full.onended = () => { const t = chunkStart + CHUNK; if (t < lessonEnd()) playAt(t).catch(e => toast(e.message)); };
 full.ontimeupdate = () => {
-  const t = full.currentTime; $("miniT").textContent = fmt(t);
-  if (full.duration) $("miniSeek").value = Math.round(t / full.duration * 100);
+  const t = chunkStart + full.currentTime; $("miniT").textContent = fmt(t);
+  if (lessonEnd()) $("miniSeek").value = Math.round(t / lessonEnd() * 1000);
+  if (!nextChunk && full.currentTime > CHUNK - 20 && chunkStart + CHUNK < lessonEnd()) {
+    nextChunk = { t0: chunkStart + CHUNK, loading: true };
+    fetchChunk(chunkStart + CHUNK).then(c => nextChunk = c).catch(() => nextChunk = null);
+  }
   let i = -1; for (let k = 0; k < cur.segs.length; k++) { if (cur.segs[k].start <= t) i = k; else break; }
   if (i !== nowIdx) {
     $("segs").querySelector(".bub.now")?.classList.remove("now");
@@ -429,7 +430,7 @@ function draftFeedback() {
 // ── 버튼 ────────────────────────────────────────────────
 $("btnLogin").onclick = login;
 $("miniBtn").onclick = () => full.paused ? full.play() : full.pause();
-$("miniSeek").oninput = (e) => { if (full.duration) full.currentTime = e.target.value / 100 * full.duration; };
+$("miniSeek").onchange = (e) => { playAt(e.target.value / 1000 * lessonEnd()).catch(x => toast(x.message)); };
 // 저장된 출입증이 있으면 로그인 화면 없이 바로 목록
 if (savedToken()) { token = savedToken(); start(); }
 $("btnBack").onclick = () => renderList();
