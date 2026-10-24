@@ -86,7 +86,7 @@
 
     <div class="card">
       <h3 style="margin-top:0">2. 노래 후보 구간</h3>
-      <p class="muted">칭찬·다시 해 보기 말 앞뒤에서 찾은 구간입니다. 들어 보고 보낼 것만 ‘보냄’으로.</p>
+      <p class="muted">칭찬·다시 해 보기 말 앞뒤에서 찾은 구간입니다. 들어 보고 보낼 것만 ‘보냄’으로(최대 3개), 좋았던 점을 한 줄 적으면 문구에 들어갑니다.</p>
       <div id="cands"></div>
       <details style="margin-top:8px"><summary>구간 직접 추가</summary>
         <div class="row" style="margin-top:6px">
@@ -101,6 +101,7 @@
     <div class="card">
       <h3 style="margin-top:0">3. 카톡 피드백 문구</h3>
       <p class="muted">초안입니다. 고친 뒤 ‘문구 복사’ → 카톡에 붙여넣기 → 그다음 ‘클립 보내기’로 파일을 보냅니다(카톡은 문구와 파일을 한 번에 받지 못함).</p>
+      <div id="points"></div>
       <textarea id="fb"></textarea>
       <div class="row">
         <button class="small" id="btnCopy">문구 복사</button>
@@ -269,6 +270,7 @@ async function openLesson(sid, i) {
       <span>${summary.duration_sec ? fmt(summary.duration_sec) : ""}</span>
     </div>`;
   renderSpeakers(); renderCands(); renderSegs();
+  renderPoints();
   $("fb").value = review.feedback || draftFeedback();
 }
 
@@ -379,9 +381,20 @@ function renderCands() {
         <label><input type="radio" name="d_${esc(c.id)}" value="send" ${d === "send" ? "checked" : ""}> 보냄</label>
         <label><input type="radio" name="d_${esc(c.id)}" value="keep" ${d === "keep" ? "checked" : ""}> 기록만</label>
         <label><input type="radio" name="d_${esc(c.id)}" value="drop" ${d === "drop" ? "checked" : ""}> 버림</label>
-      </div></div>`;
+      </div>
+      <input class="cnote ${d === "send" ? "" : "hidden"}" data-c="${esc(c.id)}" placeholder="좋았던 점 한 줄 (예: 고음 끝까지 호흡 유지)" value="${esc(cur.review.notes?.[c.id] ?? c.note ?? "")}" style="width:100%;margin-top:4px">
+      </div>`;
   }).join("") || `<p class="muted">후보 없음 — 아래에서 직접 추가할 수 있습니다.</p>`;
-  $("cands").querySelectorAll("input[type=radio]").forEach(r => r.onchange = () => { cur.review.decisions[r.name.slice(2)] = r.value; });
+  $("cands").querySelectorAll("input[type=radio]").forEach(r => r.onchange = () => {
+    const id = r.name.slice(2);
+    if (r.value === "send" && allCands().filter(c => c.id !== id && cur.review.decisions[c.id] === "send").length >= MAX_GOOD) {
+      toast(`좋았던 부분은 최대 ${MAX_GOOD}개까지예요`); r.checked = false;
+      const prev = cur.review.decisions[id]; if (prev) r.closest(".cand").querySelector(`input[value="${prev}"]`).checked = true; return;
+    }
+    cur.review.decisions[id] = r.value;
+    r.closest(".cand").querySelector(".cnote").classList.toggle("hidden", r.value !== "send");
+  });
+  $("cands").querySelectorAll(".cnote").forEach(i => i.oninput = () => { (cur.review.notes ??= {})[i.dataset.c] = i.value.trim(); });
   $("cands").querySelectorAll("[data-play]").forEach(b => b.onclick = async () => {
     const au = b.parentElement.querySelector("audio");
     try {
@@ -391,17 +404,25 @@ function renderCands() {
     } catch (e) { b.textContent = "▶ 듣기"; toast(e.message); }
   });
 }
+const MAX_GOOD = 3, MAX_POINT = 3;
+function renderPoints() {
+  const p = (cur.review.points ??= []);
+  $("points").innerHTML = `<div class="muted" style="margin:2px 0">오늘 중요한 포인트 (1~3개)</div>` +
+    [0, 1, 2].map(i => `<input class="pt" data-i="${i}" value="${esc(p[i] || "")}" placeholder="${["예: 입 닫고 '음' 소리로 복압 느끼기", "예: 후렴 첫음 꺾기 줄이기", "(선택)"][i]}" style="width:100%;margin:3px 0">`).join("");
+  $("points").querySelectorAll(".pt").forEach(x => x.oninput = () => { cur.review.points[+x.dataset.i] = x.value.trim(); });
+}
 function draftFeedback() {
-  const ls = cur.summary.lesson || {}, name = cur.st.name;
-  const sent = allCands().filter(c => cur.review.decisions[c.id] === "send");
-  const lines = [`${name}님, 오늘${ls.session_number ? " " + ls.session_number + "회차" : ""} 레슨 수고 많으셨어요!`, ""];
+  const name = cur.st.name;
+  const sent = allCands().filter(c => cur.review.decisions[c.id] === "send").slice(0, MAX_GOOD);
+  const pts = (cur.review.points || []).filter(Boolean).slice(0, MAX_POINT);
+  const lines = [`${name}님, 오늘 레슨 수고 많으셨어요!`, ""];
   if (sent.length) {
     lines.push("오늘 특히 좋았던 부분 보내드려요.");
-    sent.forEach(c => lines.push(`· ${fmt(c.start)} 부근${c.note ? " — " + c.note : ""}`));
+    sent.forEach(c => { const n = cur.review.notes?.[c.id] ?? c.note; lines.push(`· ${fmt(c.start)}${n ? " " + n : " 부근"}`); });
     lines.push("");
   }
-  lines.push("다음 시간까지 연습할 것:", "· ", "");
-  if (ls.payment_note && /다음 결제/.test(ls.payment_note)) lines.push("(이번이 결제하신 회차의 마지막 레슨이었어요. 다음 회차 안내드릴게요.)");
+  lines.push("오늘 중요한 포인트");
+  (pts.length ? pts : [""]).forEach(t => lines.push(`· ${t}`));
   return lines.join("\n").trim();
 }
 
