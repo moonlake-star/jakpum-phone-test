@@ -30,6 +30,16 @@
   .lesson:first-of-type { border-top:0; }
   .chip { display:inline-block; padding:1px 8px; border-radius:999px; background:var(--chip); font-size:.82rem; }
   .chip.ok { color:var(--ok); } .chip.todo { color:var(--bad); }
+  .bigbox { background:#1d2b40; border:2px solid var(--accent); border-radius:14px; padding:14px 16px; margin:10px 0; font-size:1.05rem; }
+  .bigbox .ttl { font-size:1.15rem; font-weight:800; margin-bottom:6px; }
+  .steps { margin:8px 0 2px; } .step { display:flex; gap:10px; align-items:center; margin:7px 0; line-height:1.35; }
+  .step .dot { flex:none; width:22px; height:22px; border-radius:50%; display:grid; place-items:center; font-size:.8rem; font-weight:800; background:var(--chip); color:var(--muted); }
+  .step.done { color:var(--ok); } .step.done .dot { background:var(--ok); color:#10141a; }
+  .step.now { color:var(--fg); font-weight:800; } .step.now .dot { background:var(--accent); color:#10141a; animation:pulse 1.2s ease-in-out infinite; }
+  .step.todo { color:var(--muted); } .step small { font-weight:400; color:var(--muted); }
+  @keyframes pulse { 50% { transform:scale(1.18); box-shadow:0 0 0 4px #9cc3ff33; } }
+  .note-ok { background:#1e3326; border-left:4px solid var(--ok); border-radius:10px; padding:10px 12px; margin-top:10px; }
+  .note-bad { background:#3a2220; border-left:4px solid var(--bad); border-radius:10px; padding:10px 12px; margin-top:10px; }
   /* 전사본: 통화녹음 텍스트 보기처럼 말풍선. 역할별 색 */
   :root { --t-bg:#1f3050; --t-fg:#a9c7ff; --s-bg:#3d2c17; --s-fg:#ffc677; --g-bg:#31224a; --g-fg:#dcb3ff; --m-bg:#2a2f37; --m-fg:#c0c7d1;
           --x1-bg:#163834; --x1-fg:#6ff0da; --x2-bg:#3d1c2b; --x2-fg:#ffb0d8; --x3-bg:#25371c; --x3-fg:#b4ea7c; --now:#ffd27a; }
@@ -432,15 +442,32 @@ async function loadSubs(st) {
   const files = await list(fid), rf = files.find(f => f.name === SUBS);
   return { recs: rf ? await readJSON(rf.id) : [], files, recId: rf?.id, folder: fid };
 }
-async function uploadFile(folder, name, blob) {
+async function uploadFile(folder, name, blob, onProg) {
   const meta = JSON.stringify({ name, parents: [folder] });
   const init = await api(`${UPLOAD}/files?uploadType=resumable&fields=id`, { method: "POST",
     headers: { "Content-Type": "application/json; charset=UTF-8", "X-Upload-Content-Type": blob.type || "application/octet-stream" }, body: meta });
   const loc = init.headers.get("Location");
-  const r = await fetch(loc, { method: "PUT", body: blob });
-  if (!r.ok) throw new Error("업로드 실패 " + r.status);
-  return (await r.json()).id;
+  if (!onProg) {
+    const r = await fetch(loc, { method: "PUT", body: blob });
+    if (!r.ok) throw new Error("업로드 실패 " + r.status);
+    return (await r.json()).id;
+  }
+  return new Promise((ok, bad) => {   // 진행률을 보여 주려고 XHR
+    const x = new XMLHttpRequest(); x.open("PUT", loc);
+    x.upload.onprogress = (e) => e.lengthComputable && onProg(e.loaded / e.total);
+    x.onload = () => x.status < 300 ? ok(JSON.parse(x.responseText).id) : bad(new Error("업로드 실패 " + x.status));
+    x.onerror = () => bad(new Error("업로드 중 연결이 끊겼어요. 와이파이를 확인하고 다시 눌러 주세요"));
+    x.send(blob);
+  });
 }
+// 올리기 단계 안내(크게): steps = [[이름, 상태 done|now|todo, 보조 글]]
+function paintUpSteps(title, steps, tip) {
+  $("mkMsg").innerHTML = `<div class="bigbox"><div class="ttl">⏳ ${esc(title)}</div><div class="steps">${steps.map(([n, st, sub], i) =>
+    `<div class="step ${st}"><span class="dot">${st === "done" ? "✓" : i + 1}</span><span>${esc(n)}${sub ? ` <small>${esc(sub)}</small>` : ""}</span></div>`).join("")}</div>
+    ${tip ? `<div class="muted" style="font-size:.92rem">${esc(tip)}</div>` : ""}</div>`;
+  $("mkMsg").scrollIntoView({ behavior: "smooth", block: "center" });
+}
+const mb = (f) => (f.size / 1048576).toFixed(1) + "MB";
 let sharedFiles = [];
 async function openShared() {
   show("vShared");
@@ -610,30 +637,39 @@ async function submitMakeup() {
   if (!single && (!v || !m)) return toast("보컬과 MR 파일을 둘 다 골라 주세요");
   if (title === "과제") return toast("곡명을 적어 주세요");
   const preset = "표준", day = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
-  const b = $("btnMkGo"); b.disabled = true;
+  const b = $("btnMkGo"); b.disabled = true; b.textContent = "올리는 중… 화면을 닫지 마세요";
+  const midi = $("mkMidi").files[0], mel = {};
+  const files = single ? [["녹음", one]] : [["보컬", v], ["MR", m]];
+  if (midi) files.push(["MIDI", midi]);
+  const st = files.map(([n, f]) => [`${n} 올리기`, "todo", mb(f)]).concat([["요청 저장", "todo"], ["서버에 시작 알리기", "todo"]]);
+  const tip = "파일을 올리는 동안만 이 화면을 켜 두세요. 다 올라가면 진행 화면으로 바뀌고, 그다음엔 닫아도 서버가 계속 만들어요.";
+  const paint = () => paintUpSteps("파일 올리는 중", st, tip);
   try {
+    st[0][1] = "now"; paint();
     const f7 = await mkFolder(sid), jf = await newFolder(`${day}_${title}_메이크업`, f7), orig = await newFolder("원본", jf);
     const ext = (f) => (f.name.match(/\.[a-z0-9]+$/i) || [".wav"])[0];
-    const midi = $("mkMidi").files[0], mel = {};
-    if (midi) { const mName = `${title}_멜로디${ext(midi)}`; $("mkMsg").textContent = "MIDI 올리는 중…"; mel.melody_id = await uploadFile(orig, mName, midi); mel.melody_name = mName; }
-    if (single) {
-      $("mkMsg").textContent = "녹음 올리는 중…"; const sName = `${title}_원본녹음${ext(one)}`;
-      const sidF = await uploadFile(orig, sName, one);
-      const req = { status: "queued", mode: "single", title, student_id: sid, student_name: cfg.students[sid].name, preset, settings: {},
-        source_id: sidF, source_name: sName, start: null, end: null, pitch_level: 2, pitch_key: keyOf($("mkKeyUp").value), ...mel, requested_at: new Date().toISOString() };
-      const job = { sid, st: cfg.students[sid], req, folder: { id: jf }, files: [], reqId: await writeJSON(jf, MKREQ, req) };
-      b.disabled = false; showProgress(job, "서버 호출 중…"); kick(); return;
+    const ids = [];
+    for (let i = 0; i < files.length; i++) {
+      const [n, f] = files[i]; st[i][1] = "now"; paint();
+      const nm = n === "녹음" ? `${title}_원본녹음${ext(f)}` : n === "MIDI" ? `${title}_멜로디${ext(f)}` : `${title}_${n}${ext(f)}`;
+      ids.push([n, await uploadFile(orig, nm, f, (q) => { st[i][2] = `${mb(f)} · ${Math.round(q * 100)}%`; paint(); }), nm]);
+      st[i][1] = "done"; st[i][2] = mb(f) + " 완료"; paint();
     }
-    $("mkMsg").textContent = "보컬 올리는 중…";
-    const vName = `${title}_보컬${ext(v)}`, mName = `${title}_MR${ext(m)}`;
-    const vid = await uploadFile(orig, vName, v); $("mkMsg").textContent = "MR 올리는 중…";
-    const mid = await uploadFile(orig, mName, m);
-    const req = { status: "queued", title, student_id: sid, student_name: cfg.students[sid].name, preset, settings: {},
-      vocal_id: vid, vocal_name: vName, mr_id: mid, mr_name: mName, pitch_level: 2, pitch_key: keyOf($("mkKeyUp").value), ...mel, requested_at: new Date().toISOString() };
+    const got = Object.fromEntries(ids.map(([n, id, nm]) => [n, { id, nm }]));
+    if (got.MIDI) { mel.melody_id = got.MIDI.id; mel.melody_name = got.MIDI.nm; }
+    const k = files.length; st[k][1] = "now"; paint();
+    const base = { status: "queued", title, student_id: sid, student_name: cfg.students[sid].name, preset, settings: {}, pitch_level: 2,
+      pitch_key: keyOf($("mkKeyUp").value), ...mel, requested_at: new Date().toISOString() };
+    const req = single ? { ...base, mode: "single", source_id: got["녹음"].id, source_name: got["녹음"].nm, start: null, end: null }
+                       : { ...base, vocal_id: got["보컬"].id, vocal_name: got["보컬"].nm, mr_id: got["MR"].id, mr_name: got["MR"].nm };
     const job = { sid, st: cfg.students[sid], req, folder: { id: jf }, files: [], reqId: await writeJSON(jf, MKREQ, req) };
-    b.disabled = false; showProgress(job, "서버 호출 중…"); kick(); return;
-  } catch (e) { toast(e.message); $("mkMsg").textContent = ""; }
-  b.disabled = false;
+    st[k][1] = "done"; st[k + 1][1] = "now"; paint();
+    b.disabled = false; b.textContent = "올리고 메이크업 요청";
+    showProgress(job, "서버 호출 중…"); kick(); return;
+  } catch (e) {
+    $("mkMsg").innerHTML = `<div class="note-bad"><b>올리지 못했어요</b><br>${esc(e.message)}<br><span class="muted">파일은 그대로 있어요. 다시 ‘올리고 메이크업 요청’을 눌러 주세요.</span></div>`;
+  }
+  b.disabled = false; b.textContent = "올리고 메이크업 요청";
 }
 // ── 진행 막대: 서버가 기록하는 단계·퍼센트 + 예상 시간으로 부드럽게 ──
 const STAGE_CAP = [[0, 5], [6, 11], [12, 19], [20, 75], [76, 79], [80, 91], [92, 99], [100, 100]];
@@ -651,12 +687,23 @@ function paintProg(r, clientStage) {
   const stage = r.status === "error" ? "실패: " + (r.error || "") : clientStage || r.progress?.stage || "GitHub 서버가 일을 시작하길 기다리는 중";
   const left = est - el;
   const leftTxt = r.status === "done" ? "완료!" : r.status === "error" ? "" : left > 5 ? `약 ${left >= 60 ? Math.floor(left / 60) + "분 " : ""}${Math.round(left % 60)}초 남음` : "거의 다 됐어요 (예상보다 조금 걸리는 중)";
+  // 단계 목록(서버 퍼센트 기준). 두 파일이거나 이미 분리한 곡은 'AI 분리' 단계 없음
+  const sep = r.mode === "single" && !r.render_count;
+  const steps = [["파일 올리기", 0], ["서버 시작", 1], ...(sep ? [["AI가 보컬·MR 나누기", 20]] : []), ["소리·음정 다듬기", sep ? 80 : 30], ["완성본 저장", 92], ["완료", 100]];
+  const nowI = r.status === "done" ? steps.length - 1 : Math.max(1, steps.reduce((k, [, p], i) => (shown >= p ? i : k), 1));
+  const err = r.status === "error";
   $("vMkJob").innerHTML = `<div class="card"><h2 style="margin:0">${esc(r.student_name || "")} · ${esc(r.title || "")}</h2>
-    <div style="margin:14px 0 6px;height:14px;border-radius:7px;background:var(--chip);overflow:hidden">
-      <div style="height:100%;width:${shown}%;background:${r.status === "error" ? "var(--bad)" : "var(--accent)"};transition:width .8s"></div></div>
-    <div class="row"><b>${shown}%</b><span>${esc(stage)}</span></div>
-    <p class="muted">${fmt(el)} 지남 · ${leftTxt}</p>
-    <p class="muted">${r.status === "error" ? "처리가 실패했어요. 목록에서 다시 만들기를 누르거나, 이 오류 문구를 Claude에게 알려 주세요." : "이 화면을 닫아도 서버에서 계속 만들어요. 끝나면 메일로 알려 드리고, 이 화면에 있으면 저절로 결과가 열려요."}</p></div>`;
+    <div class="bigbox" style="${err ? "border-color:var(--bad)" : ""}">
+      <div class="row" style="justify-content:space-between;align-items:baseline"><span class="ttl">${err ? "⚠️ 만들지 못했어요" : r.status === "done" ? "✅ 완성!" : "🎶 보컬 메이크업 만드는 중"}</span>
+        <b style="font-size:1.6rem;color:${err ? "var(--bad)" : "var(--accent)"}">${shown}%</b></div>
+      <div style="margin:8px 0 4px;height:16px;border-radius:8px;background:var(--chip);overflow:hidden">
+        <div style="height:100%;width:${shown}%;background:${err ? "var(--bad)" : "var(--accent)"};transition:width .8s"></div></div>
+      <div class="steps">${steps.map(([n], i) => { const c = err && i === nowI ? "now" : i < nowI || r.status === "done" ? "done" : i === nowI ? "now" : "todo";
+        return `<div class="step ${c}"><span class="dot">${c === "done" ? "✓" : i + 1}</span><span>${esc(n)}${i === nowI && !err && r.status !== "done" ? ` <small>${esc(stage)}</small>` : ""}</span></div>`; }).join("")}</div>
+      <div style="margin-top:6px">${err ? "" : `⏱ ${fmt(el)} 지남 · <b>${leftTxt}</b>`}</div>
+    </div>
+    ${err ? `<div class="note-bad"><b>실패 이유</b><br>${esc(r.error || "")}<br><span class="muted">목록에서 이 작업을 열어 다시 만들기를 누르거나, 이 문구를 Claude에게 알려 주세요.</span></div>`
+          : `<div class="note-ok"><b>이 화면은 닫아도 돼요.</b><br>서버에서 계속 만들고, 끝나면 메일로 알려 드려요. 이 화면에 있으면 다 됐을 때 결과가 저절로 열려요.</div>`}</div>`;
 }
 async function showProgress(job, clientStage) {
   stopProg(); show("vMkJob"); paintProg(job.req, clientStage);
