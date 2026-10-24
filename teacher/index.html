@@ -427,24 +427,41 @@ async function openMakeup() {
       <p class="muted">DAW에서 내보낸 <b>보컬 wav</b>와 <b>MR wav</b>를 올리면 볼륨 정리·EQ·디에서·컴프·리버브·간이 믹스를 자동으로 해 드려요. 다음 자동 실행 때(밤엔 15분 안) 완성되고 메일로 알려 드립니다.</p>
       <div class="row" style="margin:6px 0"><label>수강생</label><select id="mkStu" style="flex:1">${Object.entries(cfg.students).map(([sid, st]) => `<option value="${esc(sid)}">${esc(st.name)}${st.status === "test" ? " (연습용)" : ""}</option>`).join("")}</select></div>
       <input id="mkTitle" placeholder="곡명 (예: 그리움만쌓이네)" style="width:100%;margin:4px 0">
-      <div class="muted" style="margin-top:6px">보컬 wav</div><input type="file" id="mkV" accept="audio/*,.wav,.aif,.aiff,.flac,.mp3">
-      <div class="muted" style="margin-top:6px">MR wav</div><input type="file" id="mkM" accept="audio/*,.wav,.aif,.aiff,.flac,.mp3">
+      <div class="row" style="margin:6px 0"><label><input type="radio" name="mkMode" value="two" checked> 보컬+MR 두 파일</label>
+        <label><input type="radio" name="mkMode" value="single"> 한 파일(AI가 보컬·MR 분리)</label></div>
+      <div id="mkTwo"><div class="muted" style="margin-top:6px">보컬 wav</div><input type="file" id="mkV" accept="audio/*,.wav,.aif,.aiff,.flac,.mp3">
+        <div class="muted" style="margin-top:6px">MR wav</div><input type="file" id="mkM" accept="audio/*,.wav,.aif,.aiff,.flac,.mp3"></div>
+      <div id="mkOne" class="hidden"><div class="muted" style="margin-top:6px">노래가 섞인 녹음 한 파일 (3분 이하 권장)</div><input type="file" id="mkS" accept="audio/*,video/*,.wav,.m4a,.mp3,.mp4">
+        <p class="muted">폰 녹음은 방 울림·잡음 때문에 분리 결과가 깨끗하지 않을 수 있어요(데모 수준). 레슨 중 구간은 검수 화면의 ‘🎚 메이크업’ 버튼이 더 편해요.</p></div>
       <div class="row" style="margin:8px 0"><label>시작 프리셋</label>${MK_PRESETS.map(p => `<label><input type="radio" name="mkP" value="${p}" ${p === "표준" ? "checked" : ""}> ${p}</label>`).join(" ")}</div>
       <button class="full" id="btnMkGo">올리고 메이크업 요청</button><p class="muted" id="mkMsg"></p></div>` +
     (jobs.length ? `<div class="card"><h3 style="margin-top:0">작업 목록</h3>` + jobs.map((j, i) => `<div class="lesson mkrow" data-i="${i}"><span>${esc(j.st.name)} · ${esc(j.req.title || j.folder.name)}</span>
       <span class="chip ${j.req.status === "done" ? "ok" : j.req.status === "error" ? "todo" : ""}">${stTxt[j.req.status] || j.req.status}</span></div>`).join("") + `</div>` : "");
   $("btnMkGo").onclick = submitMakeup;
+  document.querySelectorAll('input[name="mkMode"]').forEach(r => r.onchange = () => {
+    const one = document.querySelector('input[name="mkMode"]:checked').value === "single";
+    $("mkTwo").classList.toggle("hidden", one); $("mkOne").classList.toggle("hidden", !one); });
   $("vMk").querySelectorAll(".mkrow").forEach(el => el.onclick = () => openMkJob(jobs[+el.dataset.i]));
 }
 async function submitMakeup() {
   const sid = $("mkStu").value, title = cleanPart($("mkTitle").value || "") , v = $("mkV").files[0], m = $("mkM").files[0];
-  if (!v || !m) return toast("보컬과 MR 파일을 둘 다 골라 주세요");
+  const single = document.querySelector('input[name="mkMode"]:checked').value === "single", one = $("mkS").files[0];
+  if (single && !one) return toast("녹음 파일을 골라 주세요");
+  if (!single && (!v || !m)) return toast("보컬과 MR 파일을 둘 다 골라 주세요");
   if (title === "과제") return toast("곡명을 적어 주세요");
   const preset = document.querySelector('input[name="mkP"]:checked').value, day = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
   const b = $("btnMkGo"); b.disabled = true;
   try {
     const f7 = await mkFolder(sid), jf = await newFolder(`${day}_${title}_메이크업`, f7), orig = await newFolder("원본", jf);
-    $("mkMsg").textContent = "보컬 올리는 중…"; const ext = (f) => (f.name.match(/\.[a-z0-9]+$/i) || [".wav"])[0];
+    const ext = (f) => (f.name.match(/\.[a-z0-9]+$/i) || [".wav"])[0];
+    if (single) {
+      $("mkMsg").textContent = "녹음 올리는 중…"; const sName = `${title}_원본녹음${ext(one)}`;
+      const sidF = await uploadFile(orig, sName, one);
+      await writeJSON(jf, MKREQ, { status: "queued", mode: "single", title, student_id: sid, student_name: cfg.students[sid].name, preset, settings: {},
+        source_id: sidF, source_name: sName, start: null, end: null, requested_at: new Date().toISOString() });
+      toast("요청했어요. AI 분리까지 하느라 몇 분 더 걸려요"); b.disabled = false; return openMakeup();
+    }
+    $("mkMsg").textContent = "보컬 올리는 중…";
     const vName = `${title}_보컬${ext(v)}`, mName = `${title}_MR${ext(m)}`;
     const vid = await uploadFile(orig, vName, v); $("mkMsg").textContent = "MR 올리는 중…";
     const mid = await uploadFile(orig, mName, m);
@@ -453,6 +470,21 @@ async function submitMakeup() {
     toast("요청했어요. 완성되면 메일로 알려 드려요"); openMakeup();
   } catch (e) { toast(e.message); $("mkMsg").textContent = ""; }
   b.disabled = false;
+}
+// 레슨 녹음의 노래 후보 구간 → AI 분리 → 메이크업 (원본 레슨 녹음에서 바로 자름: 클립보다 음질 좋음)
+async function makeupFromLesson(cid) {
+  const c = allCands().find(x => x.id === cid), audio = cur.files.find(f => /\.(m4a|mp3|wav|aac|3gp|ogg)$/i.test(f.name) && f.name !== "듣기용.mp3");
+  if (!c || !audio) return toast("원본 레슨 녹음을 찾지 못했어요");
+  if (c.end - c.start > 240) return toast("4분 이하 구간만 돼요. 구간 직접 추가로 줄여 주세요");
+  const note = cur.review.notes?.[cid] || "";
+  if (!confirm(`${fmt(c.start)}~${fmt(c.end)} 구간을 AI로 보컬·MR 분리 후 메이크업할까요?`)) return;
+  try {
+    const f7 = await mkFolder(cur.sid), title = `${cur.folder.name.slice(0, 10)}_레슨${cid}`;
+    const jf = await newFolder(`${title}_메이크업`, f7);
+    await writeJSON(jf, MKREQ, { status: "queued", mode: "single", title, student_id: cur.sid, student_name: cur.st.name, preset: "표준", settings: {},
+      source_id: audio.id, source_name: audio.name, start: c.start, end: c.end, lesson_folder: cur.folder.id, note, requested_at: new Date().toISOString() });
+    toast("요청했어요. 다음 자동 실행 때 만들어지고 메일로 알려 드려요");
+  } catch (e) { toast(e.message); }
 }
 // 미리듣기: 보컬(원음)·보컬(울림)·MR 세 갈래를 동시에 재생하며 비율만 바로 조절
 let mkCtx = null, mkBufs = null, mkSrcs = [], mkGains = null, mkStart = 0, mkOffset = 0, mkJob = null;
@@ -687,6 +719,7 @@ function renderCands() {
         <label><input type="radio" name="d_${esc(c.id)}" value="send" ${d === "send" ? "checked" : ""}> 보냄</label>
         <label><input type="radio" name="d_${esc(c.id)}" value="keep" ${d === "keep" ? "checked" : ""}> 기록만</label>
         <label><input type="radio" name="d_${esc(c.id)}" value="drop" ${d === "drop" ? "checked" : ""}> 버림</label>
+        <button class="small ghost" data-mk="${esc(c.id)}" style="margin-left:auto">🎚 메이크업</button>
       </div>
       <input class="cnote ${d === "send" ? "" : "hidden"}" data-c="${esc(c.id)}" placeholder="좋았던 점 한 줄 (예: 고음 끝까지 호흡 유지)" value="${esc(cur.review.notes?.[c.id] ?? c.note ?? "")}" style="width:100%;margin-top:4px">
       </div>`;
@@ -700,6 +733,7 @@ function renderCands() {
     cur.review.decisions[id] = r.value;
     r.closest(".cand").querySelector(".cnote").classList.toggle("hidden", r.value !== "send");
   });
+  $("cands").querySelectorAll("[data-mk]").forEach(b => b.onclick = () => makeupFromLesson(b.dataset.mk));
   $("cands").querySelectorAll(".cnote").forEach(i => i.oninput = () => { (cur.review.notes ??= {})[i.dataset.c] = i.value.trim(); });
   $("cands").querySelectorAll("[data-play]").forEach(b => b.onclick = async () => {
     const au = b.parentElement.querySelector("audio");
