@@ -659,15 +659,20 @@ function mkPosPaint() {
 }
 function mkPlay(at = 0) {
   mkStop(); mkCtx ??= new AudioContext();
-  mkGains ??= ["v", "w", "m"].map(() => { const g = mkCtx.createGain(); g.connect(mkCtx.destination); return g; });
+  mkGains ??= ["v", "w", "m", "b"].map(() => { const g = mkCtx.createGain(); g.connect(mkCtx.destination); return g; });
   mkApply();
   mkSrcs = mkBufs.map((b, i) => { const s = mkCtx.createBufferSource(); s.buffer = b; s.connect(mkGains[i]); s.start(0, at); return s; });
   mkStart = mkCtx.currentTime - at; mkOffset = at;
 }
+let mkBefore = false;  // 비포/애프터 토글: 네 갈래를 같이 재생하고 크기만 바꿔 '즉시' 전환(위치 그대로)
 function mkApply() {
-  if (!mkGains) return;
   const v = +$("mkVol").value, w = +$("mkRev").value / 100, m = +$("mkMr").value;
-  mkGains[0].gain.value = 10 ** (v / 20); mkGains[1].gain.value = 10 ** (v / 20) * w; mkGains[2].gain.value = 10 ** (m / 20);
+  if (mkGains) {
+    const t = mkCtx.currentTime, set = (g, x) => { g.gain.cancelScheduledValues(t); g.gain.setTargetAtTime(x, t, 0.012); };
+    const a = mkBefore ? 0 : 1;
+    set(mkGains[0], a * 10 ** (v / 20)); set(mkGains[1], a * 10 ** (v / 20) * w); set(mkGains[2], a * 10 ** (m / 20));
+    if (mkGains[3]) set(mkGains[3], mkBefore ? 1 : 0);
+  }
   $("mkVolT").textContent = (v > 0 ? "+" : "") + v + " dB"; $("mkRevT").textContent = Math.round(w * 100) + "%"; $("mkMrT").textContent = (m > 0 ? "+" : "") + m + " dB";
 }
 async function openMkJob(j, backTo) {
@@ -683,6 +688,9 @@ async function openMkJob(j, backTo) {
   if (r.status === "done" && by("vocal_dry.mp3")) {
     body += `<div class="card"><h3 style="margin-top:0">바로 듣고 비율 조절</h3>
       <div class="row"><button class="small" id="mkPlayBtn">▶ 미리듣기</button> <span class="muted" id="mkT">불러오기 전</span></div>
+      ${by("before.mp3") ? `<div class="tabs" style="margin:10px 0 4px"><button class="small" id="mkAfter">애프터 (메이크업)</button><button class="small" id="mkBeforeBtn">비포 (원본)</button></div>
+        <p class="muted" style="margin:0">재생 중에 눌러도 같은 위치에서 바로 바뀌어요. 두 소리는 같은 크기로 맞춰 두었어요.</p>`
+        : `<p class="muted">비포/애프터 비교는 ‘이 비율로 완성본 다시 만들기’를 한 번 하면 생겨요.</p>`}
       <div class="row" style="margin-top:6px;flex-wrap:nowrap"><span class="muted" id="mkPos" style="min-width:5.5em">0:00 / -:--</span>
         <input type="range" id="mkSeek" min="0" max="1000" value="0" style="flex:1" disabled></div>
       <div style="margin-top:8px">보컬 크기 <b id="mkVolT"></b><input type="range" id="mkVol" min="-6" max="6" step="0.5" value="0" style="width:100%"></div>
@@ -697,14 +705,17 @@ async function openMkJob(j, backTo) {
   }
   $("vMkJob").innerHTML = body;
   if (r.status !== "done") return;
-  ["mkVol", "mkRev", "mkMr"].forEach(id => $(id).oninput = mkApply); mkApply();
+  ["mkVol", "mkRev", "mkMr"].forEach(id => $(id).oninput = mkApply);
+  const paintAB = () => { if (!$("mkAfter")) return; $("mkAfter").classList.toggle("on", !mkBefore); $("mkBeforeBtn").classList.toggle("on", mkBefore); };
+  mkBefore = false; paintAB(); mkApply();
+  if ($("mkAfter")) { $("mkAfter").onclick = () => { mkBefore = false; paintAB(); mkApply(); }; $("mkBeforeBtn").onclick = () => { mkBefore = true; paintAB(); mkApply(); }; }
   $("mkSeek").onchange = (e) => { if (!mkBufs) return; const t = e.target.value / 1000 * mkDur(); mkOffset = t;
     if (mkSrcs.length) mkPlay(t); mkPosPaint(); };
   $("mkPlayBtn").onclick = async () => {
     if (mkSrcs.length) { mkOffset = mkCtx.currentTime - mkStart; mkStop(); $("mkPlayBtn").textContent = "▶ 이어 듣기"; return; }
     try {
       if (!mkBufs) { $("mkT").textContent = "불러오는 중…"; mkCtx ??= new AudioContext();
-        mkBufs = await Promise.all(["vocal_dry.mp3", "vocal_wet.mp3", "mr.mp3"].map(async n => mkCtx.decodeAudioData(await (await readBlob(by(n).id)).arrayBuffer()))); }
+        mkBufs = await Promise.all(["vocal_dry.mp3", "vocal_wet.mp3", "mr.mp3", ...(by("before.mp3") ? ["before.mp3"] : [])].map(async n => mkCtx.decodeAudioData(await (await readBlob(by(n).id)).arrayBuffer()))); }
       mkPlay(mkOffset); $("mkPlayBtn").textContent = "❚❚ 멈춤"; $("mkT").textContent = "재생 중";
       $("mkSeek").disabled = false; clearInterval(mkTick); mkTick = setInterval(mkPosPaint, 250);
     } catch (e) { toast(e.message); }
