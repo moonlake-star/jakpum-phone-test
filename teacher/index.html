@@ -759,7 +759,10 @@ async function openMkJob(j, backTo) {
     $("mkAB").textContent = mkBefore ? "비포 (원본) 듣는 중 · 눌러서 애프터로" : "애프터 (메이크업) 듣는 중 · 눌러서 비포로";
     $("mkAB").classList.toggle("ghost", mkBefore);
     if (mkPlaying) $("mkT").textContent = mkBefore ? "비포(원본) 재생 중" : "애프터(메이크업) 재생 중";
+    if ($("mkPitch")) { $("mkPitch").disabled = mkBefore; $("mkPitch").closest("div").style.opacity = mkBefore ? .45 : 1;
+      $("mkPitchT").textContent = mkBefore ? "비포에는 적용 안 됨" : PITCH_NAMES[lvNow()]; }
     if (mkBefore) await ensure(beforeSet()); mkApply();
+    if (mkBefore && $("mkPitchT")) $("mkPitchT").textContent = "비포에는 적용 안 됨";
   };
   if ($("mkPitch")) $("mkPitch").oninput = async () => { mkApply(); await ensure([["p" + lvNow(), `vocal_dry_p${lvNow()}.mp3`]]); mkApply(); };
   $("mkFinal").onclick = async () => {
