@@ -178,7 +178,7 @@ const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&l
 const fmt = (sec) => { sec = Math.max(0, Math.round(sec)); const m = Math.floor(sec/60), s = sec%60; return `${m}:${String(s).padStart(2,"0")}`; };
 const parseT = (t) => { const p = String(t).trim().split(":").map(Number); if (p.some(isNaN)) return null; return p.length === 2 ? p[0]*60+p[1] : p.length === 3 ? p[0]*3600+p[1]*60+p[2] : null; };
 function toast(msg) { const t = $("toast"); t.textContent = msg; t.style.display = "block"; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = "none", 2500); }
-function show(view) { for (const v of ["vLogin","vList","vLesson","vShared","vSubs","vMk","vMkJob"]) $(v).classList.toggle("hidden", v !== view); $("btnBack").classList.toggle("hidden", !["vLesson","vSubs","vMk","vMkJob"].includes(view)); if (view !== "vMkJob") mkStop?.(); window.scrollTo(0,0); }
+function show(view) { for (const v of ["vLogin","vList","vLesson","vShared","vSubs","vMk","vMkJob"]) $(v).classList.toggle("hidden", v !== view); $("btnBack").classList.toggle("hidden", !["vLesson","vSubs","vMk","vMkJob"].includes(view)); if (view !== "vMkJob") { mkStop?.(); stopProg?.(); } window.scrollTo(0,0); }
 
 // ── 구글 로그인 · 드라이브 ───────────────────────────────
 // 로그인 유지: 구글이 주는 출입증(1시간짜리)을 이 폰에만 보관해, 새로고침·앱 다시 열기에도 다시 묻지 않는다.
@@ -465,7 +465,7 @@ async function openMakeup() {
       <div class="row" style="margin:8px 0"><label>시작 프리셋</label>${MK_PRESETS.map(p => `<label><input type="radio" name="mkP" value="${p}" ${p === "표준" ? "checked" : ""}> ${p}</label>`).join(" ")}</div>
       <button class="full" id="btnMkGo">올리고 메이크업 요청</button><p class="muted" id="mkMsg"></p></div>` +
     (jobs.length ? `<div class="card"><h3 style="margin-top:0">작업 목록</h3>` + jobs.map((j, i) => `<div class="lesson mkrow" data-i="${i}"><span>${esc(j.st.name)} · ${esc(j.req.title || j.folder.name)}</span>
-      <span class="chip ${j.req.status === "done" ? "ok" : j.req.status === "error" ? "todo" : ""}">${stTxt[j.req.status] || j.req.status}</span></div>`).join("") + `</div>` : "");
+      <span class="chip ${j.req.status === "done" ? "ok" : j.req.status === "error" ? "todo" : ""}">${["queued", "working"].includes(j.req.status) ? (j.req.progress?.pct ?? 0) + "% " : ""}${stTxt[j.req.status] || j.req.status}</span></div>`).join("") + `</div>` : "");
   $("btnMkGo").onclick = submitMakeup;
   // 진행 중인 작업이 있으면 20초마다 저절로 새로 고침(완성되면 바로 보이게)
   clearTimeout(window._mkPoll);
@@ -490,20 +490,61 @@ async function submitMakeup() {
     if (single) {
       $("mkMsg").textContent = "녹음 올리는 중…"; const sName = `${title}_원본녹음${ext(one)}`;
       const sidF = await uploadFile(orig, sName, one);
-      await writeJSON(jf, MKREQ, { status: "queued", mode: "single", title, student_id: sid, student_name: cfg.students[sid].name, preset, settings: {},
-        source_id: sidF, source_name: sName, start: null, end: null, requested_at: new Date().toISOString() });
-      toast(startedMsg(await kick()) + " · AI 분리 포함이라 2~4분"); b.disabled = false; return openMakeup();
+      const req = { status: "queued", mode: "single", title, student_id: sid, student_name: cfg.students[sid].name, preset, settings: {},
+        source_id: sidF, source_name: sName, start: null, end: null, requested_at: new Date().toISOString() };
+      const job = { sid, st: cfg.students[sid], req, folder: { id: jf }, files: [], reqId: await writeJSON(jf, MKREQ, req) };
+      b.disabled = false; showProgress(job, "서버 호출 중…"); kick(); return;
     }
     $("mkMsg").textContent = "보컬 올리는 중…";
     const vName = `${title}_보컬${ext(v)}`, mName = `${title}_MR${ext(m)}`;
     const vid = await uploadFile(orig, vName, v); $("mkMsg").textContent = "MR 올리는 중…";
     const mid = await uploadFile(orig, mName, m);
-    await writeJSON(jf, MKREQ, { status: "queued", title, student_id: sid, student_name: cfg.students[sid].name, preset, settings: {},
-      vocal_id: vid, vocal_name: vName, mr_id: mid, mr_name: mName, requested_at: new Date().toISOString() });
-    toast(startedMsg(await kick())); openMakeup();
+    const req = { status: "queued", title, student_id: sid, student_name: cfg.students[sid].name, preset, settings: {},
+      vocal_id: vid, vocal_name: vName, mr_id: mid, mr_name: mName, requested_at: new Date().toISOString() };
+    const job = { sid, st: cfg.students[sid], req, folder: { id: jf }, files: [], reqId: await writeJSON(jf, MKREQ, req) };
+    b.disabled = false; showProgress(job, "서버 호출 중…"); kick(); return;
   } catch (e) { toast(e.message); $("mkMsg").textContent = ""; }
   b.disabled = false;
 }
+// ── 진행 막대: 서버가 기록하는 단계·퍼센트 + 예상 시간으로 부드럽게 ──
+const STAGE_CAP = [[0, 5], [6, 11], [12, 19], [20, 75], [76, 79], [80, 91], [92, 99], [100, 100]];
+function mkEstimate(r) {
+  const dur = (r.end != null && r.start != null) ? (r.end - r.start) : 90;
+  if (r.mode === "single" && !r.render_count) return 30 + 75 + dur * 1.1 + 25;  // 서버 준비·분리 도구 설치·분리·보정
+  return r.mode === "single" ? 85 : 95;
+}
+let progTimer = null;
+function stopProg() { clearInterval(progTimer); progTimer = null; }
+function paintProg(r, clientStage) {
+  const t0 = Date.parse(r.requested_at || new Date().toISOString()), el = (Date.now() - t0) / 1000, est = mkEstimate(r);
+  const sp = r.progress?.pct ?? 0, cap = (STAGE_CAP.find(([a, b]) => sp >= a && sp <= b) || [0, 5])[1];
+  const shown = r.status === "done" ? 100 : Math.max(sp, Math.min(Math.round(el / est * 100), cap));
+  const stage = r.status === "error" ? "실패: " + (r.error || "") : clientStage || r.progress?.stage || "GitHub 서버가 일을 시작하길 기다리는 중";
+  const left = est - el;
+  const leftTxt = r.status === "done" ? "완료!" : r.status === "error" ? "" : left > 5 ? `약 ${left >= 60 ? Math.floor(left / 60) + "분 " : ""}${Math.round(left % 60)}초 남음` : "거의 다 됐어요 (예상보다 조금 걸리는 중)";
+  $("vMkJob").innerHTML = `<div class="card"><h2 style="margin:0">${esc(r.student_name || "")} · ${esc(r.title || "")}</h2>
+    <div style="margin:14px 0 6px;height:14px;border-radius:7px;background:var(--chip);overflow:hidden">
+      <div style="height:100%;width:${shown}%;background:${r.status === "error" ? "var(--bad)" : "var(--accent)"};transition:width .8s"></div></div>
+    <div class="row"><b>${shown}%</b><span>${esc(stage)}</span></div>
+    <p class="muted">${fmt(el)} 지남 · ${leftTxt}</p>
+    <p class="muted">${r.status === "error" ? "처리가 실패했어요. 목록에서 다시 만들기를 누르거나, 이 오류 문구를 Claude에게 알려 주세요." : "이 화면을 닫아도 서버에서 계속 만들어요. 끝나면 메일로 알려 드리고, 이 화면에 있으면 저절로 결과가 열려요."}</p></div>`;
+}
+async function showProgress(job, clientStage) {
+  stopProg(); show("vMkJob"); paintProg(job.req, clientStage);
+  if (!job.reqId) return;  // 아직 요청 저장 전
+  let busy = false;
+  progTimer = setInterval(async () => {
+    if ($("vMkJob").classList.contains("hidden")) return stopProg();
+    paintProg(job.req);
+    if (busy) return; busy = true;
+    try {
+      job.req = await readJSON(job.reqId);
+      if (job.req.status === "done") { stopProg(); job.files = await list(job.folder.id); return openMkJob(job); }
+      if (job.req.status === "error") { stopProg(); paintProg(job.req); }
+    } catch {} finally { busy = false; }
+  }, 4000);
+}
+
 // 레슨 녹음의 노래 후보 구간 → AI 분리 → 메이크업 (원본 레슨 녹음에서 바로 자름: 클립보다 음질 좋음)
 async function makeupFromLesson(cid) {
   const c = allCands().find(x => x.id === cid), audio = cur.files.find(f => /\.(m4a|mp3|wav|aac|3gp|ogg)$/i.test(f.name) && f.name !== "듣기용.mp3");
@@ -513,15 +554,20 @@ async function makeupFromLesson(cid) {
   if (c.end - c.start > 240) return toast("4분 이하 구간만 돼요. 구간 직접 추가로 줄여 주세요");
   const note = cur.review.notes?.[cid] || "";
   if (!confirm(`${fmt(c.start)}~${fmt(c.end)} 구간을 AI로 보컬·MR 분리 후 메이크업할까요?`)) return;
+  const title = `${cur.folder.name.slice(0, 10)}_레슨${cid}`;
+  const req = { status: "queued", mode: "single", title, student_id: cur.sid, student_name: cur.st.name, preset: "표준", settings: {},
+    ...(audio ? { source_id: audio.id, source_name: audio.name, start: c.start, end: c.end }
+              : { source_id: clip.id, source_name: clip.name, start: null, end: null, source_is_clip: true }),
+    lesson_folder: cur.folder.id, note, requested_at: new Date().toISOString() };
+  const job = { sid: cur.sid, st: cur.st, req, files: [] };
+  showProgress(job, "요청 저장 중…");   // 누르자마자 진행 화면
   try {
-    const f7 = await mkFolder(cur.sid), title = `${cur.folder.name.slice(0, 10)}_레슨${cid}`;
-    const jf = await newFolder(`${title}_메이크업`, f7);
-    await writeJSON(jf, MKREQ, { status: "queued", mode: "single", title, student_id: cur.sid, student_name: cur.st.name, preset: "표준", settings: {},
-      ...(audio ? { source_id: audio.id, source_name: audio.name, start: c.start, end: c.end }
-                : { source_id: clip.id, source_name: clip.name, start: null, end: null, source_is_clip: true }),
-      lesson_folder: cur.folder.id, note, requested_at: new Date().toISOString() });
-    toast(startedMsg(await kick()) + " · 메이크업 목록에서 확인");
-  } catch (e) { toast(e.message); }
+    const f7 = await mkFolder(cur.sid), jf = await newFolder(`${title}_메이크업`, f7);
+    job.folder = { id: jf, name: `${title}_메이크업` };
+    job.reqId = await writeJSON(jf, MKREQ, req);
+    showProgress(job, "서버 호출 중…");
+    kick().then(ok => { if (!job.req.progress) paintProg(job.req, ok ? "GitHub 서버 시작 기다리는 중 (보통 20초 안)" : "1분 안에 서버가 시작돼요"); });
+  } catch (e) { stopProg(); toast(e.message); }
 }
 // 미리듣기: 보컬(원음)·보컬(울림)·MR 세 갈래를 동시에 재생하며 비율만 바로 조절
 let mkCtx = null, mkBufs = null, mkSrcs = [], mkGains = null, mkStart = 0, mkOffset = 0, mkJob = null;
@@ -540,7 +586,8 @@ function mkApply() {
   $("mkVolT").textContent = (v > 0 ? "+" : "") + v + " dB"; $("mkRevT").textContent = Math.round(w * 100) + "%"; $("mkMrT").textContent = (m > 0 ? "+" : "") + m + " dB";
 }
 async function openMkJob(j) {
-  mkJob = j; show("vMkJob"); mkBufs = null;
+  if (!["done", "error"].includes(j.req.status)) return showProgress(j);
+  stopProg(); mkJob = j; show("vMkJob"); mkBufs = null;
   const r = j.req, by = (n) => j.files.find(f => f.name === n);
   const meas = r.result?.measure || {};
   let body = `<div class="card"><h2 style="margin:0">${esc(j.st.name)} · ${esc(r.title || "")}</h2>
@@ -579,7 +626,8 @@ async function openMkJob(j) {
       q.wet_gain = (r.result?.wet_gain ?? 0.2) * w;
     }
     q.requested_at = new Date().toISOString();
-    try { await writeJSON(j.folder.id, MKREQ, q, j.reqId); toast(startedMsg(await kick())); openMakeup(); } catch (e) { toast(e.message); }
+    j.req = q; showProgress(j, "요청 저장 중…");
+    try { await writeJSON(j.folder.id, MKREQ, q, j.reqId); showProgress(j, "서버 호출 중…"); kick(); } catch (e) { stopProg(); toast(e.message); }
   };
   $("mkFinal").onclick = () => rerender(null, true);
   $("vMkJob").querySelectorAll("[data-preset]").forEach(b => b.onclick = () => rerender(b.dataset.preset, false));
