@@ -649,6 +649,15 @@ async function makeupFromLesson(cid, back) {
 // 미리듣기: 보컬(원음)·보컬(울림)·MR 세 갈래를 동시에 재생하며 비율만 바로 조절
 let mkCtx = null, mkBufs = null, mkSrcs = [], mkGains = null, mkStart = 0, mkOffset = 0, mkJob = null;
 function mkStop() { mkSrcs.forEach(x => { try { x.stop(); } catch {} }); mkSrcs = []; }
+let mkTick = null;
+const mkDur = () => mkBufs ? Math.max(...mkBufs.map(b => b.duration)) : 0;
+function mkPosPaint() {
+  if (!$("mkPos")) return clearInterval(mkTick);
+  const t = mkSrcs.length ? Math.min(mkCtx.currentTime - mkStart, mkDur()) : mkOffset;
+  $("mkPos").textContent = `${fmt(t)} / ${fmt(mkDur())}`;
+  if (!$("mkSeek").matches(":active")) $("mkSeek").value = mkDur() ? Math.round(t / mkDur() * 1000) : 0;
+  if (mkSrcs.length && t >= mkDur() - 0.05) { mkStop(); mkOffset = 0; $("mkPlayBtn").textContent = "▶ 다시 듣기"; }
+}
 function mkPlay(at = 0) {
   mkStop(); mkCtx ??= new AudioContext();
   mkGains ??= ["v", "w", "m"].map(() => { const g = mkCtx.createGain(); g.connect(mkCtx.destination); return g; });
@@ -674,7 +683,9 @@ async function openMkJob(j, backTo) {
       r.status === "error" ? `실패: ${esc(r.error || "")}` : "아직 만드는 중이에요. 다음 자동 실행 때 완성됩니다."}</p></div>`;
   if (r.status === "done" && by("vocal_dry.mp3")) {
     body += `<div class="card"><h3 style="margin-top:0">바로 듣고 비율 조절</h3>
-      <button class="small" id="mkPlayBtn">▶ 미리듣기</button> <span class="muted" id="mkT">불러오기 전</span>
+      <div class="row"><button class="small" id="mkPlayBtn">▶ 미리듣기</button> <span class="muted" id="mkT">불러오기 전</span></div>
+      <div class="row" style="margin-top:6px;flex-wrap:nowrap"><span class="muted" id="mkPos" style="min-width:5.5em">0:00 / -:--</span>
+        <input type="range" id="mkSeek" min="0" max="1000" value="0" style="flex:1" disabled></div>
       <div style="margin-top:8px">보컬 크기 <b id="mkVolT"></b><input type="range" id="mkVol" min="-6" max="6" step="0.5" value="0" style="width:100%"></div>
       <div>리버브(울림) <b id="mkRevT"></b><input type="range" id="mkRev" min="0" max="250" step="5" value="100" style="width:100%"></div>
       <div>MR 크기 <b id="mkMrT"></b><input type="range" id="mkMr" min="-6" max="6" step="0.5" value="0" style="width:100%"></div>
@@ -688,12 +699,15 @@ async function openMkJob(j, backTo) {
   $("vMkJob").innerHTML = body;
   if (r.status !== "done") return;
   ["mkVol", "mkRev", "mkMr"].forEach(id => $(id).oninput = mkApply); mkApply();
+  $("mkSeek").onchange = (e) => { if (!mkBufs) return; const t = e.target.value / 1000 * mkDur(); mkOffset = t;
+    if (mkSrcs.length) mkPlay(t); mkPosPaint(); };
   $("mkPlayBtn").onclick = async () => {
     if (mkSrcs.length) { mkOffset = mkCtx.currentTime - mkStart; mkStop(); $("mkPlayBtn").textContent = "▶ 이어 듣기"; return; }
     try {
       if (!mkBufs) { $("mkT").textContent = "불러오는 중…"; mkCtx ??= new AudioContext();
         mkBufs = await Promise.all(["vocal_dry.mp3", "vocal_wet.mp3", "mr.mp3"].map(async n => mkCtx.decodeAudioData(await (await readBlob(by(n).id)).arrayBuffer()))); }
       mkPlay(mkOffset); $("mkPlayBtn").textContent = "❚❚ 멈춤"; $("mkT").textContent = "재생 중";
+      $("mkSeek").disabled = false; clearInterval(mkTick); mkTick = setInterval(mkPosPaint, 250);
     } catch (e) { toast(e.message); }
   };
   const rerender = async (preset, keepRatio) => {
