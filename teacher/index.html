@@ -741,21 +741,9 @@ async function openMkJob(j, backTo) {
   if (!j.files?.length) j.files = await list(j.folder.id);
   const r = j.req, by = (n) => j.files.find(f => f.name === n);
   const meas = r.result?.measure || {}, pi = r.result?.pitch || {};
-  mkHasW = pi.boundary_same === false && !!by("vocal_dry_pw2.mp3");
-  mkBound = mkHasW ? (pi.boundary_used || "center") : "center";
-  const cmpI = pi.compare || {}, prof = pi.profile || {};
-  const boundBox = !pi.boundary_used ? "" : `<div id="mkBoundBox" style="margin-top:8px">
-      <div class="muted">목표음 기준 <span style="font-size:.8rem">(어느 음으로 맞출지 고르는 기준 · 세기는 같음)</span></div>
-      ${mkHasW ? `<div class="row" style="gap:6px;margin:4px 0;flex-wrap:nowrap">
-          <button class="small ${mkBound === "weighted" ? "" : "ghost"}" id="mkBW" style="flex:1">습관 반영</button>
-          <button class="small ${mkBound === "center" ? "" : "ghost"}" id="mkBC" style="flex:1">기본 (가장 가까운 음)</button></div>
-        <p class="muted" style="margin:0">두 방식이 다른 곳 ${cmpI.count || 0}군데 (보정하는 소리의 ${((cmpI.ratio || 0) * 100).toFixed(1)}%). 눌러서 그 앞부터 듣기:</p>
-        <div class="row" style="gap:4px;flex-wrap:wrap;margin:4px 0">${(cmpI.spans || []).slice(0, 30).map((x, i) =>
-          `<button class="small ghost mkSpan" data-t="${x.t}" title="부른 음: 기본 목표보다 ${x.sung_cents}센트">${fmt(x.t)} · ${esc(x.center)}→${esc(x.weighted)}</button>`).join("")}</div>`
-        : `<p class="muted" style="margin:2px 0">이 곡은 두 방식의 목표음이 같아요(경계 근처로 부른 음이 없음).</p>`}
-      ${pi.guard ? `<p class="muted" style="color:#ffb74d;margin:2px 0">⚠️ 습관 반영이 목표음을 ${((cmpI.ratio || 0) * 100).toFixed(1)}% 바꿔서(기준 10% 초과) 완성본은 기본 방식으로 만들었어요.</p>` : ""}
-      <p class="muted" style="margin:2px 0;font-size:.8rem">${prof.exp_reg ? `경계 이동: 낮은 곳 ${(+prof.exp_reg.low).toFixed(0)} · 중간 ${(+prof.exp_reg.mid).toFixed(0)} · 높은 곳 ${(+prof.exp_reg.high).toFixed(0)}센트 · 이 수강생 다른 곡 ${prof.songs || 0}개에서 학습(실측 반영 ${Math.round((prof.trust || 0) * 100)}%, 나머지는 약한 기본값)`
-        : `기본 가중(약하게)`}${pi.melody_notes ? ` · MIDI 멜로디 사용(${pi.melody_notes}음)` : ""}</p></div>`;
+  mkHasW = false; mkBound = "center";   // A/B 버튼 없앰: 서버가 습관 반영 방식 하나로 만든다
+  const mdl = pi.model || {};
+  const boundBox = !pi.boundary_used ? "" : `<p class="muted" style="margin:6px 0 0;font-size:.8rem">🎯 애매한 음은 이 보컬의 습관으로 판단해 골라요 — 자료 음 ${mdl.n || 0}개(지난 곡 ${pi.songs_used || 0}개 + 이 곡), 신뢰 ${Math.round((mdl.trust || 0) * 100)}%${pi.guard ? " · ⚠️ 습관 반영이 너무 많이 바꿔서 이번엔 기본 방식으로 만들었어요" : ""}${pi.melody_notes ? ` · MIDI 멜로디 사용(${pi.melody_notes}음)` : ""}</p>`;
   const hasP = !!by("vocal_dry_p0.mp3"), hasB = !!by("before_vocal.mp3") || !!by("before.mp3");
   const revNow = Math.round((r.result?.wet_gain ?? 0.0216) / REV_UNIT);
   let body = `<div class="card"><h2 style="margin:0">${esc(j.st.name)} · ${esc(r.title || "")}</h2>
@@ -810,19 +798,11 @@ async function openMkJob(j, backTo) {
   $("mkSeek").onchange = (e) => mkSeekTo(e.target.value / 1000 * mkDurS);
   $("mkFirst").onclick = () => mkSeekTo(0); $("mkLast").onclick = () => mkSeekTo(mkDurS - 3);
   $("mkBack5").onclick = () => mkSeekTo(mkNow() - 5); $("mkFwd5").onclick = () => mkSeekTo(mkNow() + 5);
-  const playLabel = () => { if (mkPlaying) $("mkT").textContent = mkRaw ? "생 원본 재생 중" : `메이크업 재생 중 · 음정 보정 ${PITCH_NAMES[lvNow()]}${mkHasW && lvNow() ? (mkBound === "weighted" ? " · 습관 반영" : " · 기본 기준") : ""}`; };
+  const playLabel = () => { if (mkPlaying) $("mkT").textContent = mkRaw ? "생 원본 재생 중" : `메이크업 재생 중 · 음정 보정 ${PITCH_NAMES[lvNow()]}`; };
   const abLabel = () => {  // 생 원본이면 음정·리버브는 흐리게(적용 안 됨)
     document.querySelectorAll("#vMkJob .mkFx").forEach(d => { d.style.opacity = mkRaw ? .4 : 1; d.querySelectorAll("input,select,button").forEach(i => i.disabled = mkRaw); });
-    const bb = $("mkBoundBox"); if (bb && !mkRaw) { const off = lvNow() === 0; bb.style.opacity = off ? .4 : 1; bb.querySelectorAll("button").forEach(i => i.disabled = off); }
-    if ($("mkBW")) { $("mkBW").classList.toggle("ghost", mkBound !== "weighted"); $("mkBC").classList.toggle("ghost", mkBound !== "center"); }
     playLabel();
   };
-  const setBound = async (b) => { mkBound = b; abLabel(); mkApply(); await ensure(stage(lvNow())); mkApply(); };
-  if ($("mkBW")) { $("mkBW").onclick = () => setBound("weighted"); $("mkBC").onclick = () => setBound("center"); }
-  document.querySelectorAll("#vMkJob .mkSpan").forEach(el => el.onclick = async () => {
-    const t = Math.max(0, +el.dataset.t - 1.5);
-    if (!mkPlaying) { mkOffset = t; $("mkPP").click(); } else mkSeekTo(t);
-  });
   abLabel();
   if ($("mkRawSw")) $("mkRawSw").onchange = async (e) => {
     mkRaw = e.target.checked; abLabel(); mkApply();
@@ -840,7 +820,7 @@ async function openMkJob(j, backTo) {
     q.settings = { ...(q.settings || {}), vocal_over_mr_lu: (prev.vocal_over_mr_lu ?? 2) + v - m };
     q.wet_gain = rv * REV_UNIT;
     if ($("mkPitch")) {
-      q.pitch_level = lvNow(); if (pi.boundary_used) q.pitch_boundary = mkHasW ? mkBound : (r.pitch_boundary || null);
+      q.pitch_level = lvNow(); delete q.pitch_boundary;
       const [t, mo] = $("mkKey").value.split(":"), auto = pi.key && +t === pi.key.tonic && mo === pi.key.mode;
       q.pitch_key = auto && pi.key_auto ? null : keyOf($("mkKey").value);
     }
