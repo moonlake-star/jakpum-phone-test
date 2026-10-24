@@ -29,9 +29,25 @@
   .lesson:first-of-type { border-top:0; }
   .chip { display:inline-block; padding:1px 8px; border-radius:999px; background:var(--chip); font-size:.82rem; }
   .chip.ok { color:var(--ok); } .chip.todo { color:var(--bad); }
-  .seg { padding:4px 0; border-top:1px dashed var(--line); font-size:.95rem; }
-  .seg b { font-weight:600; }
-  .seg .t { color:var(--muted); font-size:.82rem; margin-right:6px; }
+  /* 전사본: 통화녹음 텍스트 보기처럼 말풍선. 역할별 색 */
+  :root { --t-bg:#e6efff; --t-fg:#1d4ed8; --s-bg:#fff1e0; --s-fg:#b45309; --g-bg:#f3e8ff; --g-fg:#7e22ce; --m-bg:#eef0f3; --m-fg:#4b5563;
+          --x1-bg:#e0f5f1; --x1-fg:#0f766e; --x2-bg:#fde7ef; --x2-fg:#be185d; --x3-bg:#eaf5e0; --x3-fg:#4d7c0f; --now:#facc15; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+    --t-bg:#1b2a47; --t-fg:#8fb4ff; --s-bg:#3a2a16; --s-fg:#fbbf6a; --g-bg:#2e1f43; --g-fg:#d6a8ff; --m-bg:#262b33; --m-fg:#b3bac5;
+    --x1-bg:#13332f; --x1-fg:#5eead4; --x2-bg:#3a1a28; --x2-fg:#f9a8d4; --x3-bg:#22331a; --x3-fg:#a3e06b; --now:#eab308; } }
+  .seg { display:flex; margin:6px 0; }
+  .seg.right { justify-content:flex-end; }
+  .bub { max-width:86%; padding:8px 12px; border-radius:14px; background:var(--bb); cursor:pointer; border:2px solid transparent; }
+  .seg.left .bub { border-top-left-radius:4px; } .seg.right .bub { border-top-right-radius:4px; }
+  .bub .who { font-weight:700; color:var(--bf); font-size:.9rem; }
+  .bub .t { color:var(--muted); font-size:.78rem; margin-left:6px; }
+  .bub .tx { display:block; font-size:.97rem; }
+  .bub.now { border-color:var(--now); }
+  .r-teacher { --bb:var(--t-bg); --bf:var(--t-fg); } .r-student { --bb:var(--s-bg); --bf:var(--s-fg); }
+  .r-singing { --bb:var(--g-bg); --bf:var(--g-fg); } .r-music { --bb:var(--m-bg); --bf:var(--m-fg); }
+  .r-x0 { --bb:var(--x1-bg); --bf:var(--x1-fg); } .r-x1 { --bb:var(--x2-bg); --bf:var(--x2-fg); } .r-x2 { --bb:var(--x3-bg); --bf:var(--x3-fg); } .r-x3 { --bb:var(--m-bg); --bf:var(--m-fg); }
+  .mini { position:sticky; bottom:0; display:flex; gap:8px; align-items:center; background:var(--card); padding:8px 0 2px; border-top:1px solid var(--line); }
+  .mini input[type=range] { flex:1; }
   .cand { border-top:1px solid var(--line); padding:10px 0; }
   .cand:first-child { border-top:0; }
   audio { width:100%; margin:6px 0; }
@@ -42,7 +58,7 @@
   #toast { position:fixed; left:50%; bottom:16px; transform:translateX(-50%); background:var(--fg); color:var(--bg); padding:8px 14px; border-radius:10px; display:none; max-width:90vw; }
   .hidden { display:none; }
   body { -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; -webkit-tap-highlight-color:transparent; }
-  textarea, input, .seg-list { -webkit-user-select:text; user-select:text; -webkit-touch-callout:default; }
+  textarea, input { -webkit-user-select:text; user-select:text; -webkit-touch-callout:default; }
   .lesson:active { background:var(--chip); }
 </style>
 </head>
@@ -95,7 +111,13 @@
 
     <div class="card">
       <h3 style="margin-top:0">4. 전사본</h3>
+      <p class="muted" id="segHint">말풍선을 누르면 그 부분부터 재생됩니다. 처음 누를 때 듣기용 녹음(1시간에 약 18MB)을 한 번 받아요 — 와이파이에서 권장.</p>
       <div id="segs" class="seg-list"></div>
+      <div class="mini hidden" id="mini">
+        <button class="small" id="miniBtn">❚❚</button>
+        <span id="miniT" class="muted">0:00</span>
+        <input type="range" id="miniSeek" min="0" max="100" step="1" value="0">
+      </div>
     </div>
 
     <button id="btnSave" class="full">검수 저장</button>
@@ -224,6 +246,7 @@ async function renderList() {
 async function openLesson(sid, i) {
   const st = cfg.students[sid], { l, files } = st._rows[i];
   show("vLesson"); $("lsHead").innerHTML = `<p class="muted">불러오는 중…</p>`;
+  full.pause(); $("mini").classList.add("hidden"); nowIdx = -1;
   const by = (n) => files.find(f => f.name === n);
   const summary = by("처리요약.json") ? await readJSON(by("처리요약.json").id) : {};
   const segs = by("전사_원본.json") ? await readJSON(by("전사_원본.json").id) : [];
@@ -235,7 +258,7 @@ async function openLesson(sid, i) {
   const sampleFiles = sampleDir ? await list(sampleDir.id) : [];
   const reviewF = by(REVIEW);
   const review = reviewF ? await readJSON(reviewF.id) : { speakers: {}, decisions: {}, manual: [], feedback: "" };
-  cur = { sid, st, folder: l, summary, segs, cands, clips, samples, sampleFiles, review, reviewId: reviewF?.id, clipUrls: {} };
+  cur = { sid, st, folder: l, files, summary, segs, cands, clips, samples, sampleFiles, review, reviewId: reviewF?.id, clipUrls: {} };
 
   const ls = summary.lesson || {};
   $("lsHead").innerHTML = `<h2 style="margin:0">${esc(st.name)} · ${esc(l.name)}</h2>
@@ -284,9 +307,62 @@ function renderSpeakers() {
   $("spk").querySelectorAll("select").forEach(s => s.onchange = () => { cur.review.speakers[s.dataset.c] = s.value; renderSegs(); });
   $("spk").querySelectorAll("[data-sample]").forEach(b => b.onclick = () => playShared(b, b.dataset.sample));
 }
-function renderSegs() {
-  $("segs").innerHTML = cur.segs.map(s => `<div class="seg"><span class="t">${fmt(s.start)}</span><b>${esc(speakerName(s.speaker))}</b> ${esc(s.text)}</div>`).join("") || `<p class="muted">전사본 없음</p>`;
+function roleOf(code) { return cur.review.speakers[code] || ""; }
+function roleClass(code) {
+  const r = roleOf(code); if (r) return "r-" + r;
+  const codes = [...new Set(cur.segs.map(s => s.speaker))].sort(); return "r-x" + (codes.indexOf(code) % 4);
 }
+function renderSegs() {
+  $("segs").innerHTML = cur.segs.map((s, i) => {
+    const side = !roleOf(s.speaker) || roleOf(s.speaker) === "teacher" ? "left" : "right";
+    const tag = roleOf(s.speaker) === "singing" ? "♪ " : "";
+    return `<div class="seg ${side}"><div class="bub ${roleClass(s.speaker)}" data-i="${i}">
+      <span class="who">${tag}${esc(speakerName(s.speaker))}</span><span class="t">${fmt(s.start)}</span>
+      <span class="tx">${esc(s.text)}</span></div></div>`;
+  }).join("") || `<p class="muted">전사본 없음</p>`;
+  $("segs").querySelectorAll(".bub").forEach(b => b.onclick = () => playFrom(+b.dataset.i));
+}
+// ── 전사본 재생: 듣기용 저용량 녹음을 처음 한 번만 받아 폰에 보관(다시 열면 안 받음) ──
+const full = new Audio(); let fullFor = null, nowIdx = -1;
+async function loadFull() {
+  if (fullFor === cur.folder.id) return true;
+  const f = cur.files.find(x => x.name === "듣기용.mp3");
+  if (!f) { toast("이 레슨은 듣기용 녹음이 아직 없어요"); return false; }
+  const key = `https://vocalnote.local/audio/${f.id}`;
+  let blob = null;
+  try { const c = await caches.open("vn-audio"); const hit = await c.match(key); if (hit) blob = await hit.blob(); } catch {}
+  if (!blob) {
+    $("segHint").textContent = "듣기용 녹음 받는 중…";
+    const r = await api(`${DRIVE}/files/${f.id}?alt=media`);
+    const total = +f.size || 0, reader = r.body.getReader(), parts = []; let got = 0;
+    for (;;) { const { done, value } = await reader.read(); if (done) break; parts.push(value); got += value.length;
+      if (total) $("segHint").textContent = `듣기용 녹음 받는 중… ${Math.round(got / total * 100)}%`; }
+    blob = new Blob(parts, { type: "audio/mpeg" });
+    try { const c = await caches.open("vn-audio"); await c.put(key, new Response(blob)); } catch {}
+  }
+  full.src = URL.createObjectURL(blob); fullFor = cur.folder.id;
+  $("segHint").textContent = "말풍선을 누르면 그 부분부터 재생됩니다. 다시 누르면 멈춤.";
+  $("mini").classList.remove("hidden");
+  return true;
+}
+async function playFrom(i) {
+  if (player && !player.paused) player.pause();
+  if (!(await loadFull().catch(e => (toast(e.message), false)))) return;
+  if (i === nowIdx && !full.paused) { full.pause(); return; }
+  full.currentTime = cur.segs[i].start; await full.play();
+}
+full.ontimeupdate = () => {
+  const t = full.currentTime; $("miniT").textContent = fmt(t);
+  if (full.duration) $("miniSeek").value = Math.round(t / full.duration * 100);
+  let i = -1; for (let k = 0; k < cur.segs.length; k++) { if (cur.segs[k].start <= t) i = k; else break; }
+  if (i !== nowIdx) {
+    $("segs").querySelector(".bub.now")?.classList.remove("now");
+    const el = $("segs").querySelector(`.bub[data-i="${i}"]`);
+    if (el) { el.classList.add("now"); if (!full.paused) el.scrollIntoView({ block: "nearest", behavior: "smooth" }); }
+    nowIdx = i;
+  }
+};
+full.onplay = () => $("miniBtn").textContent = "❚❚"; full.onpause = () => $("miniBtn").textContent = "▶";
 function allCands() {
   return [...cur.cands.map(c => ({ ...c, kind: "auto" })), ...cur.review.manual.map((m, i) => ({ ...m, id: m.id || `M${i + 1}`, kind: "manual" }))];
 }
@@ -331,6 +407,8 @@ function draftFeedback() {
 
 // ── 버튼 ────────────────────────────────────────────────
 $("btnLogin").onclick = login;
+$("miniBtn").onclick = () => full.paused ? full.play() : full.pause();
+$("miniSeek").oninput = (e) => { if (full.duration) full.currentTime = e.target.value / 100 * full.duration; };
 // 저장된 출입증이 있으면 로그인 화면 없이 바로 목록
 if (savedToken()) { token = savedToken(); start(); }
 $("btnBack").onclick = () => renderList();
