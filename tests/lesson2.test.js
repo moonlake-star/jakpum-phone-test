@@ -32,7 +32,7 @@ cur.spkSaved = false; assert.strictEqual(m.speakerIssues({}).length, 1);
 cur.spkSaved = true; cur.review.speakers.B = ""; assert(m.speakerIssues({}).length >= 1);
 cur.review.speakers.B = "student"; cur.spkSaved = false;
 assert(m.speakerIssues({ speaker_roles: { A: "teacher", B: "unknown" } }).some((x) => x.includes("확신")));
-cur.spkSaved = true; cur.summary.speakers_talk_sec.C = 5; cur.review.speakers.C = "";
+cur.spkSaved = true; cur.summary.speakers_talk_sec.C = 200; cur.review.speakers.C = "";
 assert(m.speakerIssues({}).some((x) => x.includes("3명")));
 cur.review.speakers.C = "singing"; assert.deepStrictEqual(m.speakerIssues({}), []);   // 노래·음원은 사람 수에서 제외
 
@@ -55,4 +55,12 @@ assert(src.includes('id="anaWrap"'));
 const inDetails = (id) => { const i = html.indexOf(`id="${id}"`); assert(i > 0, id); return html.lastIndexOf("<details", i) > html.lastIndexOf("</details>", i); };
 assert(!inDetails("fb") && !inDetails("cands") && !inDetails("btnSave") && !inDetails("todayCard"));
 assert(inDetails("segs") && inDetails("spk") && inDetails("ck"));
+// 6) 목소리 자동 확인(high): 선생님 확인 없이 경고 없음, 요약에 🎙 표시. 짧게 말한 기타 화자는 경고 안 함
+cur = base(); cur.spkSaved = false; cur.voice = { confidence: "high", roles: { A: "teacher", B: "student" } };
+cur.summary.speakers_talk_sec.C = 8; e = env(); m = e.mk(cur);
+assert.deepStrictEqual(m.speakerIssues({ speaker_roles: { A: "teacher", B: "student", C: "unknown" } }), []);
+e.els.spkCard = { style: {}, classList: { toggle() {} } }; e.els.spkSum = { innerHTML: "" }; cur.aiSpkIssues = [];
+m.paintSpkState(false); assert(e.els.spkSum.innerHTML.includes("목소리로 자동 확인"));
+cur.summary.speakers_talk_sec.C = 300; cur.review.speakers.C = "";            // 길게 말한 제3자가 있으면 여전히 확인 요청
+assert(m.speakerIssues({}).length >= 1);
 console.log("lesson2 ok");
