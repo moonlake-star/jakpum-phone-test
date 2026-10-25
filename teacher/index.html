@@ -82,6 +82,14 @@
   input[type=file] { width:100%; max-width:100%; font-size:.9rem; }
   .cand { border-top:1px solid var(--line); padding:10px 0; }
   .cand:first-child { border-top:0; }
+  /* 보내기/기록만/빼기: 한 줄 3칸 버튼(라디오), 칸마다 손가락 크기 40px 이상 */
+  .seg { display:flex; margin-top:6px; border:2px solid var(--accent); border-radius:10px; overflow:hidden; }
+  .seg label { flex:1 1 0; min-height:40px; display:flex; align-items:center; justify-content:center; white-space:nowrap;
+    font-weight:600; color:var(--accent); cursor:pointer; position:relative; user-select:none; }
+  .seg label + label { border-left:2px solid var(--accent); }
+  .seg input { position:absolute; opacity:0; inset:0; margin:0; cursor:pointer; }
+  .seg label.on { background:var(--accent); color:var(--on-accent); }
+  .seg label:focus-within { outline:3px solid var(--accent); outline-offset:-5px; }
   audio { width:100%; margin:6px 0; }
   select, input, textarea { font:inherit; border-radius:10px; border:1px solid var(--line); background:var(--bg); color:var(--fg); padding:6px 8px; }
   textarea { width:100%; min-height:160px; }
@@ -138,10 +146,10 @@
 
     <div class="card">
       <div class="row" style="justify-content:space-between"><h3 style="margin:0">2. 추천 노래 클립</h3><span class="chip" id="sendCount">보내기 0/5</span></div>
-      <p class="muted">칭찬·다시 해 보기 말 앞뒤에서 찾은 노래 구간이에요.
-        <b>수강생에게 보내기</b> = 카톡 문구의 ‘좋았던 부분’에 들어가고 ‘클립 보내기’ 때 같이 보내져요(최대 5개, 6번째를 고르면 가장 먼저 고른 것이 ‘기록만 저장’으로 바뀌어요).
-        <b>기록만 저장</b> = 수강생에겐 안 가고 이 레슨 기록에만 남아요. <b>빼기</b> = 쓰지 않아요.
-        고르기만 해서는 아무것도 발송되지 않아요 — 실제 전송은 아래 ‘클립 보내기’를 눌러 카톡에서 직접.</p>
+      <p class="muted" style="margin:6px 0">칭찬·다시 해 보기 말 앞뒤 노래 구간. 고르기만 해서는 발송되지 않아요.</p>
+      <details class="muted" style="margin:0 0 6px"><summary>버튼 뜻</summary>
+        <b>보내기</b> = 카톡 문구 ‘좋았던 부분’에 들어가고 ‘클립 보내기’ 때 같이 보내져요(최대 5개, 6번째를 고르면 가장 먼저 고른 것이 ‘기록만’으로).
+        <b>기록만</b> = 수강생에겐 안 가고 레슨 기록에만. <b>빼기</b> = 쓰지 않음. 실제 전송은 아래 ‘클립 보내기’ → 카톡에서 직접.</details>
       <div class="row" style="margin:4px 0"><button class="small ghost" id="btnPlayAll">▶ 보낼 클립 이어 듣기</button></div>
       <div id="cands"></div>
       <details style="margin-top:8px"><summary>구간 직접 추가</summary>
@@ -337,8 +345,8 @@ function paintList(data, stale) {
     const pend = (d.subs || []).filter(x => !x.replied_at).length;
     if (pend) todo.push({ k: "subs", sid: d.sid, t: `🎙 ${st.name} · 과제 답장`, c: `${pend}개` });
     (d.jobs || []).forEach(j => {
-      if (["queued", "working"].includes(j.req.status)) todo.push({ k: "job", sid: d.sid, reqId: j.reqId, t: `🎤✨ ${st.name} · ${j.req.title}`, c: `${j.req.progress?.pct ?? 0}% 만드는 중` });
-      else if (j.req.status === "done" && !j.req.sent_at && daysAgo(j.req.done_at) <= 7) todo.push({ k: "job", sid: d.sid, reqId: j.reqId, t: `🎤✨ ${st.name} · ${j.req.title}`, c: "완성 · 들어보기" });
+      if (["queued", "working"].includes(j.req.status)) todo.push({ k: "job", sid: d.sid, reqId: j.reqId, t: `🪄 ${st.name} · ${j.req.title}`, c: `${j.req.progress?.pct ?? 0}% 만드는 중` });
+      else if (j.req.status === "done" && !j.req.sent_at && daysAgo(j.req.done_at) <= 7) todo.push({ k: "job", sid: d.sid, reqId: j.reqId, t: `🪄 ${st.name} · ${j.req.title}`, c: "완성 · 들어보기" });
     });
   }
   const todoHtml = `<div class="card"><h3 style="margin:0 0 4px">오늘 할 일</h3>` + (todo.length ? todo.map((x, n) =>
@@ -392,7 +400,7 @@ async function openStudent(sid, tab) {
   tab = tab || (isTeacher(st) ? "mk" : (stuCur?.sid === sid ? stuCur.tab : "lesson"));
   stuCur = { sid, tab }; goBack = () => renderList(); show("vStu");
   const pay = (st.payments || []).slice(-1)[0];
-  const tabs = isTeacher(st) ? [["mk", "🎤✨ 메이크업·커버"]] : [["lesson", "📋 레슨"], ["subs", "📝 과제"], ["mk", "🎤✨ 메이크업·커버"]];
+  const tabs = isTeacher(st) ? [["mk", "🪄 메이크업·커버"]] : [["lesson", "📋 레슨"], ["subs", "📝 과제"], ["mk", "🪄 메이크업·커버"]];
   $("vStu").innerHTML = `<div class="card stuCard"><div class="stuHead"><h3>${esc(st.name)} <span class="muted">${esc(sid)}</span></h3>
       <div class="muted">${isTeacher(st) ? "선생님 본인 곡·작업" : pay ? `최근 결제 ${esc(pay.date)} · ${esc(pay.sessions)}회 묶음` : "결제 기록 없음"} · <a href="https://drive.google.com/drive/folders/${esc(st.folder)}" target="_blank" rel="noopener">드라이브 폴더</a></div></div></div>
     <div class="tabs">${tabs.map(([k, n]) => `<button class="small ${k === tab ? "on" : ""}" data-tab="${k}">${n}</button>`).join("")}</div>
@@ -626,7 +634,7 @@ function paintMakeupTab(sid) {
   const stTxt = { queued: "대기 중 ⏳", working: "만드는 중 ⚙️", done: "완료", error: "실패" };
   $("stuTab").innerHTML = (jobs.length ? `<div class="card jobs"><h3 style="margin-top:0">🎵 커버·메이크업한 곡 <span class="muted" style="font-size:.85rem;font-weight:400">${jobs.length}곡</span></h3>` + jobs.map((j, i) => `<div class="lesson mkrow" data-i="${i}"><span>${esc(j.req.title || j.folder.name)}${j.req.lesson_folder ? ` <span class="muted">(레슨 구간)</span>` : ""}</span>
       <span class="chip ${j.req.status === "done" ? "ok" : j.req.status === "error" ? "todo" : ""}">${["queued", "working"].includes(j.req.status) ? (j.req.progress?.pct ?? 0) + "% " : ""}${stTxt[j.req.status] || j.req.status}${j.req.sent_at ? " · 보냄" : ""}</span></div>`).join("") + `</div>` : "") +
-    `<div id="mkHabit"></div><div class="card"><h3 style="margin-top:0">🎤✨ 새 보컬 메이크업</h3>
+    `<div id="mkHabit"></div><div class="card"><h3 style="margin-top:0">🪄 새 보컬 메이크업</h3>
       <p class="muted">DAW에서 내보낸 <b>보컬 wav</b>와 <b>MR wav</b>, 또는 노래가 섞인 녹음 한 파일을 올리면 볼륨·EQ·디에서·컴프·리버브·간이 믹스를 자동으로 해 드려요. 보통 1~3분.</p>
       <input type="hidden" id="mkStu" value="${esc(sid)}">
       <input id="mkTitle" placeholder="곡명 (파일을 고르면 파일 이름에서 자동으로 채워져요)" style="width:100%;margin:4px 0">
@@ -636,7 +644,7 @@ function paintMakeupTab(sid) {
       <div id="mkTwo" class="hidden"><div class="muted" style="margin-top:6px">보컬 wav</div><input type="file" id="mkV" accept="audio/*,.wav,.aif,.aiff,.flac,.mp3">
         <div class="muted" style="margin-top:6px">MR wav</div><input type="file" id="mkM" accept="audio/*,.wav,.aif,.aiff,.flac,.mp3"></div>
       <div id="mkOne"><div class="muted" style="margin-top:6px">노래가 섞인 녹음 한 파일 (3분 이하 권장)</div><input type="file" id="mkS" accept="audio/*,video/*,.wav,.m4a,.mp3,.mp4">
-        <p class="muted">폰 녹음은 방 울림·잡음 때문에 분리 결과가 깨끗하지 않을 수 있어요(데모 수준). 레슨 중 구간은 검수 화면의 ‘🎤✨ 메이크업’ 버튼이 더 편해요.</p></div>
+        <p class="muted">폰 녹음은 방 울림·잡음 때문에 분리 결과가 깨끗하지 않을 수 있어요(데모 수준). 레슨 중 구간은 검수 화면의 ‘🪄 메이크업’ 버튼이 더 편해요.</p></div>
       <div class="muted" style="margin-top:8px">멜로디 MIDI (있으면, 선택) <span style="font-size:.8rem">— 같은 DAW 프로젝트에서 0초부터 내보낸 보컬 멜로디</span></div>
       <input type="file" id="mkMidi" accept=".mid,.midi,audio/midi,audio/x-midi">
       <div class="muted" style="margin-top:8px">곡의 키 (음정 보정 기준)</div>
@@ -1261,7 +1269,7 @@ function lessonJob(cid) {
 }
 function mkButton(cid) {
   const j = lessonJob(cid);
-  if (!j) return `<button class="small ghost" data-mk="${esc(cid)}" style="margin-left:auto">🎤✨ 메이크업</button>`;
+  if (!j) return `<button class="small ghost" data-mk="${esc(cid)}" style="margin-left:auto">🪄 메이크업</button>`;
   const s = j.req.status;
   const lab = s === "done" ? "▶ 메이크업 듣기" : s === "error" ? "❌ 메이크업 실패" : `⚙️ 메이크업 ${j.req.progress?.pct ?? 0}%`;
   return `<button class="small ${s === "done" ? "" : "ghost"}" data-mk="${esc(cid)}" style="margin-left:auto">${lab}</button>`;
@@ -1274,20 +1282,19 @@ function renderCands() {
     return `<div class="cand"><div class="row"><b>${esc(c.id)}</b><span>${fmt(c.start)} ~ ${fmt(c.end)}</span>
         ${c.kind === "manual" ? `<span class="chip">직접 추가${clip ? "" : " · 다음 실행 때 클립 생성"}</span>` : ""}
         ${c.reason || c.note ? `<span class="muted">${esc(c.reason || c.note)}</span>` : ""}</div>
-      ${clip ? `<div><button class="small ghost" data-play="${clip.id}">▶ 듣기</button></div>` : ""}
-      <div class="row">
-        <label><input type="radio" name="d_${esc(c.id)}" value="send" ${d === "send" ? "checked" : ""}> 수강생에게 보내기</label>
-        <label><input type="radio" name="d_${esc(c.id)}" value="keep" ${d === "keep" ? "checked" : ""}> 기록만 저장</label>
-        <label><input type="radio" name="d_${esc(c.id)}" value="drop" ${d === "drop" ? "checked" : ""}> 빼기</label>
-        ${mkButton(c.id)}
+      <div class="row" style="margin-top:4px">${clip ? `<button class="small ghost" data-play="${clip.id}">▶ 듣기</button>` : ""}${mkButton(c.id)}</div>
+      <div class="seg" role="radiogroup" aria-label="${esc(c.id)} 처리">
+        ${[["send", "보내기"], ["keep", "기록만"], ["drop", "빼기"]].map(([v, t]) =>
+          `<label class="${d === v ? "on" : ""}"><input type="radio" name="d_${esc(c.id)}" value="${v}" ${d === v ? "checked" : ""}>${t}</label>`).join("")}
       </div>
       <input class="cnote ${d === "send" ? "" : "hidden"}" data-c="${esc(c.id)}" placeholder="좋았던 점 한 줄 (예: 고음 끝까지 호흡 유지)" value="${esc(cur.review.notes?.[c.id] ?? c.note ?? "")}" style="width:100%;margin-top:4px">
       </div>`;
   }).join("") || `<p class="muted">후보 없음 — 아래에서 직접 추가할 수 있습니다.</p>`;
   $("cands").querySelectorAll("input[type=radio]").forEach(r => r.onchange = () => {
     const bumped = setDecision(cur.review, r.name.slice(2), r.value, allCands().map(c => c.id));
-    if (bumped) { toast(`보내기는 최대 ${MAX_GOOD}개 — 가장 먼저 고른 ${bumped}은 ‘기록만 저장’으로 바꿨어요`); renderCands(); return; }
+    if (bumped) { toast(`보내기는 최대 ${MAX_GOOD}개 — 가장 먼저 고른 ${bumped}은 ‘기록만’으로 바꿨어요`); renderCands(); return; }
     r.closest(".cand").querySelector(".cnote").classList.toggle("hidden", r.value !== "send");
+    r.closest(".seg").querySelectorAll("label").forEach(l => l.classList.toggle("on", l.contains(r)));
     paintSendCount();
   });
   paintSendCount();
@@ -1380,7 +1387,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-25-2350";
+const BUILD = "2026-10-26-0730";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
@@ -1445,7 +1452,7 @@ $("btnPlayAll").onclick = async () => {
   const b = $("btnPlayAll");
   if (queueStop) { queueStop(); return; }
   const files = sendList().map(c => cur.clips.find(f => f.name.startsWith(c.id))).filter(Boolean);
-  if (!files.length) return toast("‘수강생에게 보내기’로 고른 클립이 없어요");
+  if (!files.length) return toast("‘보내기’로 고른 클립이 없어요");
   let i = 0, stopped = false;
   const endBase = player.onended;
   queueStop = () => { stopped = true; player.pause(); player.onended = endBase; b.textContent = "▶ 보낼 클립 이어 듣기"; queueStop = null; };
