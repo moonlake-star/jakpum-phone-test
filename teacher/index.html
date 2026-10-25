@@ -33,6 +33,10 @@
   .card.jobs { background:#1e2a35; border-color:#2f4a5e; border-left:4px solid #6fc3d9; }
   .card.habit { background:#262236; border-color:#41395c; border-left:4px solid #b9a2ff; }
   .card.habit h3, .card.habit h4 { color:#d9ccff; }
+  .coach { background:#1f1b2e; border:1px solid #41395c; border-radius:12px; padding:10px 12px; margin:8px 0; }
+  .coach .k { display:inline-block; font-size:.78rem; font-weight:800; padding:1px 8px; border-radius:999px; margin-right:6px; }
+  .k.focus { background:#4a2f2a; color:#ffb4a6; } .k.strength { background:#24402c; color:#8fe3a6; } .k.style { background:#3b3524; color:#ffd27a; } .k.check { background:#2e343d; color:#9cc3ff; }
+  .coach ol { margin:6px 0 0; padding-left:1.3em; } .coach li { margin:3px 0; }
   .gr-tbl { width:100%; border-collapse:collapse; font-size:.92rem; } .gr-tbl td, .gr-tbl th { padding:5px 4px; border-bottom:1px solid #3a3450; text-align:left; }
   .gr-tbl th { color:var(--muted); font-weight:600; } .up { color:var(--ok); font-weight:700; } .down { color:var(--bad); font-weight:700; }
   .bar { height:8px; border-radius:4px; background:#3a3450; overflow:hidden; } .bar > i { display:block; height:100%; background:#b9a2ff; }
@@ -717,6 +721,11 @@ async function paintHabit(sid) {
     }
     $("mkHabit").innerHTML = `<div class="card habit"><h3 style="margin-top:0">🎯 음정 습관·성장 기록 <span class="muted" style="font-size:.85rem;font-weight:400">메이크업·레슨 노래 ${songs.length}개</span></h3>
       ${p.summary.map(x => `<div style="margin:3px 0">· ${esc(x)}</div>`).join("")}
+      ${(p.coaching || []).length ? `<h4 style="margin:14px 0 4px">🧑‍🏫 코칭 참고 <span class="muted" style="font-size:.8rem;font-weight:400">측정된 습관 → 자주 쓰는 지도법에서 고른 제안 · 원인은 가능성일 뿐, 판단은 선생님</span></h4>` +
+        p.coaching.map((t, i) => `<div class="coach"><div><span class="k ${t.kind}">${{ focus: "집중", strength: "강점", style: "스타일", check: "확인" }[t.kind] || ""}</span><b>${esc(t.title)}</b></div>
+          <div class="muted" style="margin-top:3px">${esc(t.why)}</div>
+          ${t.possible ? `<div class="muted" style="margin-top:3px">원인 후보: ${esc(t.possible)}</div>` : ""}
+          ${i < 2 ? `<ol>${t.how.map(h => `<li>${esc(h)}</li>`).join("")}</ol>` : `<details><summary class="muted">지도 아이디어 ${t.how.length}개</summary><ol>${t.how.map(h => `<li>${esc(h)}</li>`).join("")}</ol></details>`}</div>`).join("") : ""}
       ${growth}
       <p class="muted" style="margin:8px 0 0;font-size:.8rem">곡을 메이크업하거나 레슨 노래가 분석될 때마다 자동으로 쌓여요. 기계 측정이라 참고용이고, 수강생에게 보여 줄 땐 숫자보다 전·후 음성으로.</p></div>`;
     $("mkHabit").querySelectorAll(".hbOpen").forEach(b => b.onclick = () => { const j = st._jobs.find(y => y.folder.id === b.dataset.id); if (j) openMkJob(j, () => openStudent(sid, "mk")); });
@@ -1344,6 +1353,21 @@ $("btnLogin").onclick = login;
 $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
+// 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
+const BUILD = "2026-10-25-1015";
+async function checkBuild() {
+  try {
+    const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
+    const b = (t.match(/const BUILD = "([^"]+)"/) || [])[1];
+    if (b && b !== BUILD && !document.getElementById("newVer")) {
+      const d = document.createElement("div"); d.id = "newVer";
+      d.style.cssText = "position:fixed;left:12px;right:12px;bottom:14px;z-index:99;background:#ffd27a;color:#10141a;font-weight:800;border-radius:12px;padding:12px 14px;text-align:center;box-shadow:0 4px 18px #0008";
+      d.textContent = "✨ 새 버전이 있어요 — 눌러서 새로고침"; d.onclick = () => location.replace(location.pathname + "?v=" + Date.now());
+      document.body.appendChild(d);
+    }
+  } catch {}
+}
+checkBuild(); document.addEventListener("visibilitychange", () => { if (!document.hidden) checkBuild(); });
 $("miniBtn").onclick = () => full.paused ? full.play() : full.pause();
 $("miniSeek").onchange = (e) => { playAt(e.target.value / 1000 * lessonEnd()).catch(x => toast(x.message)); };
 // 저장된 출입증이 있으면 로그인 화면 없이 바로 목록
