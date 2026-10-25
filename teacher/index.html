@@ -83,12 +83,13 @@
   .cand { border-top:1px solid var(--line); padding:10px 0; }
   .cand:first-child { border-top:0; }
   /* 보내기/기록만/빼기: 한 줄 3칸 버튼(라디오), 칸마다 손가락 크기 40px 이상 */
-  .seg { display:flex; margin-top:6px; border:2px solid var(--accent); border-radius:10px; overflow:hidden; }
+  .segcap { font-size:.78rem; color:var(--muted); margin:8px 0 3px; }
+  .seg { display:flex; gap:8px; }
   .seg label { flex:1 1 0; min-height:40px; display:flex; align-items:center; justify-content:center; white-space:nowrap;
-    font-weight:600; color:var(--accent); cursor:pointer; position:relative; user-select:none; }
-  .seg label + label { border-left:2px solid var(--accent); }
+    font-weight:600; color:var(--accent); cursor:pointer; position:relative; user-select:none;
+    border:2px solid var(--line); border-radius:999px; }
   .seg input { position:absolute; opacity:0; inset:0; margin:0; cursor:pointer; }
-  .seg label.on { background:var(--accent); color:var(--on-accent); }
+  .seg label.on { background:var(--accent); color:var(--on-accent); border-color:var(--accent); }
   .seg label:focus-within { outline:3px solid var(--accent); outline-offset:-5px; }
   audio { width:100%; margin:6px 0; }
   select, input, textarea { font:inherit; border-radius:10px; border:1px solid var(--line); background:var(--bg); color:var(--fg); padding:6px 8px; }
@@ -153,7 +154,7 @@
 
     <div class="card" style="order:4">
       <div class="row" style="justify-content:space-between"><h3 style="margin:0">1. 추천 노래 클립</h3><span class="chip" id="sendCount">보내기 0/5</span></div>
-      <p class="muted" style="margin:6px 0">칭찬·다시 해 보기 말 앞뒤 노래 구간. 고르기만 해서는 발송되지 않아요.</p>
+      <p class="muted" style="margin:6px 0"><b>오늘 레슨 피드백에 보낼 거리 모음</b> — 칭찬·다시 해 보기 말 앞뒤 노래 구간이에요. 고르기만 해서는 발송되지 않아요.</p>
       <details class="muted" style="margin:0 0 6px"><summary>버튼 뜻</summary>
         <b>보내기</b> = 카톡 문구 ‘좋았던 부분’에 들어가고 ‘클립 보내기’ 때 같이 보내져요(최대 5개, 6번째를 고르면 가장 먼저 고른 것이 ‘기록만’으로).
         <b>기록만</b> = 수강생에겐 안 가고 레슨 기록에만. <b>빼기</b> = 쓰지 않음. 실제 전송은 아래 ‘클립 보내기’ → 카톡에서 직접.</details>
@@ -1345,6 +1346,7 @@ function renderCands() {
         ${c.kind === "manual" ? `<span class="chip">직접 추가${clip ? "" : " · 다음 실행 때 클립 생성"}</span>` : ""}
         ${c.reason || c.note ? `<span class="muted">${esc(c.reason || c.note)}</span>` : ""}</div>
       <div class="row" style="margin-top:4px">${clip ? `<button class="small ghost" data-play="${clip.id}">▶ 듣기</button>` : ""}${mkButton(c.id)}</div>
+      <div class="segcap">이 클립을 오늘 피드백에</div>
       <div class="seg" role="radiogroup" aria-label="${esc(c.id)} 처리">
         ${[["send", "보내기"], ["keep", "기록만"], ["drop", "빼기"]].map(([v, t]) =>
           `<label class="${d === v ? "on" : ""}"><input type="radio" name="d_${esc(c.id)}" value="${v}" ${d === v ? "checked" : ""}>${t}</label>`).join("")}
@@ -1449,7 +1451,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-26-0900";
+const BUILD = "2026-10-26-0910";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
