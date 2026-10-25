@@ -1056,8 +1056,9 @@ function lessonData(folderId, files) {
   const by = (n) => files.find(f => f.name === n), j = (n, dflt) => by(n) ? readJSON(by(n).id).catch(() => dflt) : Promise.resolve(dflt);
   const dir = (n) => { const f = files.find(x => x.name === n); return f ? list(f.id) : Promise.resolve([]); };
   const p = Promise.all([j("처리요약.json", {}), j("전사_원본.json", []), j("candidates.json", []), dir("노래후보_클립"),
-                         j("화자샘플.json", []), dir("화자샘플"), j("AI초안.json", null), j("음정분석.json", null), j("레슨분석.json", null)])
-    .then(([summary, segs, cands, clips, samples, sampleFiles, ai, pitch, ana]) => ({ summary, segs, cands, clips, samples, sampleFiles, ai, pitch, ana }));
+                         j("화자샘플.json", []), dir("화자샘플"), j("AI초안.json", null), j("음정분석.json", null), j("레슨분석.json", null),
+                         j("화자자동.json", null)])
+    .then(([summary, segs, cands, clips, samples, sampleFiles, ai, pitch, ana, voice]) => ({ summary, segs, cands, clips, samples, sampleFiles, ai, pitch, ana, voice }));
   p.catch(() => lessonCache.delete(folderId));
   lessonCache.set(folderId, p);
   return p;
@@ -1079,11 +1080,15 @@ async function openLesson(sid, i, backTo) {
   const ai = d.ai;
   const spkSaved = Object.keys(review.speakers || {}).length > 0;            // 선생님이 저장한 화자 지정이 있었나(AI 채움 전)
   const teacherPts = (review.points || []).some(Boolean);                     // 선생님이 직접 고른 '오늘 포인트'가 있었나
+  // 선생님 목소리로 확실히 정해진 화자(서버 화자자동.json, confidence high)는 확인 없이 먼저 채움
+  const voice = d.voice?.confidence === "high" ? d.voice : null;
+  if (voice && !spkSaved) { review.speakers = review.speakers || {}; Object.assign(review.speakers, voice.roles); }
   // AI 초안: 아직 선생님이 손대지 않은 칸만 채운다(검수 저장한 내용이 있으면 그대로)
   if (ai) {
     review.speakers = review.speakers || {};
-    if (!Object.keys(review.speakers).length)
+    if (!spkSaved)
       for (const [k, v] of Object.entries(ai.speaker_roles || {})) if (v && v !== "unknown") review.speakers[k] = v;
+    if (voice && !spkSaved) Object.assign(review.speakers, voice.roles);   // 선생님·수강생은 목소리 판정이 AI 추측보다 우선
     review.decisions = review.decisions || {}; review.notes = review.notes || {};
     if (!Object.keys(review.decisions).length)
       for (const g of ai.good || []) { review.decisions[g.candidate_id] = "send"; if (g.note) review.notes[g.candidate_id] = g.note; }
@@ -1091,7 +1096,7 @@ async function openLesson(sid, i, backTo) {
     if (!(review.practice || []).some(Boolean)) review.practice = (ai.practice || []).slice(0, 2);
     if (!review.feedback && ai.feedback_text) review.feedback = ai.feedback_text;
   }
-  cur = { sid, st, folder: l, files, summary, segs, cands, clips, samples, sampleFiles, review, reviewId: reviewF?.id, clipUrls: {}, ai, rowIndex: i, back: goBack, spkSaved, teacherPts, ana: d.ana };
+  cur = { sid, st, folder: l, files, summary, segs, cands, clips, samples, sampleFiles, review, reviewId: reviewF?.id, clipUrls: {}, ai, rowIndex: i, back: goBack, spkSaved, teacherPts, ana: d.ana, voice };
 
   const ls = summary.lesson || {};
   $("lsHead").innerHTML = `<h2 style="margin:0">${esc(st.name)} · ${esc(l.name)}</h2>
@@ -1147,10 +1152,14 @@ function renderToday() {
 function speakerIssues(ai) {
   const codes = Object.keys(cur.summary.speakers_talk_sec || {}); const all = codes.length ? codes : [...new Set(cur.segs.map(s => s.speaker))];
   const out = [];
-  if (all.some(c => !cur.review.speakers[c])) out.push("정하지 않은 화자가 있어요");
-  else if (!cur.spkSaved) out.push("AI가 정한 화자를 아직 확인하지 않았어요");
-  if (!cur.spkSaved && Object.values(ai?.speaker_roles || {}).includes("unknown")) out.push("AI가 화자를 확신하지 못했어요");
-  const voices = all.filter(c => ["teacher", "student"].includes(cur.review.speakers[c]) || !cur.review.speakers[c]);
+  const auto = !cur.spkSaved && cur.voice;   // 목소리로 확실히 정해짐 → 선생님·수강생 확인은 생략
+  const rest = auto ? all.filter(c => !cur.voice.roles[c]) : all;
+  if (rest.some(c => !cur.review.speakers[c]) && !(auto && rest.every(c => (cur.summary.speakers_talk_sec?.[c] ?? 99) < 30)))
+    out.push("정하지 않은 화자가 있어요");
+  else if (!cur.spkSaved && !auto) out.push("AI가 정한 화자를 아직 확인하지 않았어요");
+  if (!cur.spkSaved && !auto && Object.values(ai?.speaker_roles || {}).includes("unknown")) out.push("AI가 화자를 확신하지 못했어요");
+  const talk = (c) => cur.summary.speakers_talk_sec?.[c] ?? 99;   // 몇 초만 잡힌 조각(맞장구·잡음)은 사람 수에서 뺌
+  const voices = all.filter(c => (["teacher", "student"].includes(cur.review.speakers[c]) || !cur.review.speakers[c]) && talk(c) >= 30);
   if (all.length >= 3 && voices.length >= 3) out.push("말한 사람이 3명 이상으로 잡혔어요");
   return out;
 }
@@ -1165,7 +1174,7 @@ function paintSpkState(live) {   // live=선생님이 조작 중: 카드 위치�
   if (!live) { c.style.order = iss.length ? 3 : 9; c.classList.toggle("warnbox", iss.length > 0); }
   const nm = (r) => Object.entries(cur.review.speakers).filter(([, v]) => v === r).map(([k]) => k).join("·");
   $("spkSum").innerHTML = iss.length ? `<span class="chip todo">⚠ 화자 확인 필요</span> <span class="muted">${esc(iss.join(" · "))}</span>`
-    : `<span class="muted">선생님=${esc(nm("teacher") || "?")}, ${esc(cur.st.name)}=${esc(nm("student") || "?")} ✓ 눌러서 바꾸기</span>`;
+    : `<span class="muted">${!cur.spkSaved && cur.voice ? "🎙 목소리로 자동 확인 · " : ""}선생님=${esc(nm("teacher") || "?")}, ${esc(cur.st.name)}=${esc(nm("student") || "?")} ✓ 눌러서 바꾸기</span>`;
 }
 
 // ── 레슨 분석(선생님 전용): 수강생이 한 말 / 녹음에서 확인된 가창 / 선생님 판단 / AI 가설 / 지도→변화 / 선곡·키 / 챙길 것 ──
@@ -1451,7 +1460,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-26-0910";
+const BUILD = "2026-10-26-0940";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
