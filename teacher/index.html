@@ -128,6 +128,7 @@
 
   <section id="vLesson" class="hidden">
     <div class="card" id="lsHead"></div>
+    <div class="card hidden" id="anaCard"></div>
 
     <div class="card">
       <h3 style="margin-top:0">1. 누가 누구인지</h3>
@@ -136,8 +137,12 @@
     </div>
 
     <div class="card">
-      <h3 style="margin-top:0">2. 노래 후보 구간</h3>
-      <p class="muted">칭찬·다시 해 보기 말 앞뒤에서 찾은 구간입니다. 들어 보고 보낼 것만 ‘보냄’으로(최대 3개), 좋았던 점을 한 줄 적으면 문구에 들어갑니다.</p>
+      <div class="row" style="justify-content:space-between"><h3 style="margin:0">2. 추천 노래 클립</h3><span class="chip" id="sendCount">보내기 0/5</span></div>
+      <p class="muted">칭찬·다시 해 보기 말 앞뒤에서 찾은 노래 구간이에요.
+        <b>수강생에게 보내기</b> = 카톡 문구의 ‘좋았던 부분’에 들어가고 ‘클립 보내기’ 때 같이 보내져요(최대 5개, 6번째를 고르면 가장 먼저 고른 것이 ‘기록만 저장’으로 바뀌어요).
+        <b>기록만 저장</b> = 수강생에겐 안 가고 이 레슨 기록에만 남아요. <b>빼기</b> = 쓰지 않아요.
+        고르기만 해서는 아무것도 발송되지 않아요 — 실제 전송은 아래 ‘클립 보내기’를 눌러 카톡에서 직접.</p>
+      <div class="row" style="margin:4px 0"><button class="small ghost" id="btnPlayAll">▶ 보낼 클립 이어 듣기</button></div>
       <div id="cands"></div>
       <details style="margin-top:8px"><summary>구간 직접 추가</summary>
         <div class="row" style="margin-top:6px">
@@ -149,14 +154,13 @@
       </details>
     </div>
 
-    <div class="card hidden" id="anaCard"></div>
-
     <div class="card">
       <h3 style="margin-top:0">3. 카톡 피드백 문구</h3>
       <div id="aiNote" class="hidden" style="background:var(--chip);border-radius:10px;padding:8px 10px;margin:6px 0"></div>
       <p class="muted">초안입니다. 고친 뒤 ‘문구 복사’ → 카톡에 붙여넣기 → 그다음 ‘클립 보내기’로 파일을 보냅니다(카톡은 문구와 파일을 한 번에 받지 못함).</p>
       <div id="points"></div>
       <textarea id="fb"></textarea>
+      <div class="row" style="margin:2px 0 6px"><button class="small ghost" id="btnFbRegen">고른 클립으로 문구 새로 쓰기</button><span class="muted" style="font-size:.8rem">AI를 다시 부르지 않아요(비용 없음)</span></div>
       <div class="row">
         <button class="small" id="btnCopy">문구 복사</button>
         <button class="small ghost" id="btnShare">클립 보내기</button>
@@ -181,9 +185,9 @@
     </div>
 
     <div class="card">
-      <h3 style="margin-top:0">4. 전사본</h3>
+      <details id="segWrap"><summary><b>4. 전체 전사본</b> <span class="muted">필요할 때만 펼쳐 보세요</span></summary>
       <p class="muted" id="segHint">말풍선을 누르면 그 부분부터 바로 재생됩니다(누른 곳 앞뒤 2분씩만 받아서 데이터를 거의 안 씀). 다시 누르면 멈춤.</p>
-      <div id="segs" class="seg-list"></div>
+      <div id="segs" class="seg-list"></div></details>
       <div class="mini hidden" id="mini">
         <button class="small" id="miniBtn">❚❚</button>
         <span id="miniT" class="muted">0:00</span>
@@ -860,7 +864,7 @@ function mkStartTrack(t, at) {
   const s = mkCtx.createBufferSource(); s.buffer = t.buf; s.connect(t.gain); s.start(0, Math.min(at, t.buf.duration)); t.src = s;
 }
 function mkPlay(at) {
-  mkStop(); mkOffset = at; mkT0 = mkCtx.currentTime - at; mkPlaying = true;
+  pauseOthers("mk"); mkStop(); mkOffset = at; mkT0 = mkCtx.currentTime - at; mkPlaying = true;
   for (const t of Object.values(mkTracks)) if (t.buf) mkStartTrack(t, at);
   mkApply(); paintTransport();
 }
@@ -1143,8 +1147,16 @@ async function sendPitchReview(sid, folderId, songId, body, label) {
 }
 
 const player = new Audio(); let playingBtn = null;
+// 한 번에 하나만 재생: 새로 재생하면 나머지는 일시정지(위치는 그대로). 메이크업 미리듣기도 멈춤
+function pauseOthers(me) {
+  for (const a of [player, full, ...document.querySelectorAll("audio")]) if (a !== me && a && !a.paused) a.pause();
+  if (me !== "mk" && typeof mkPlaying !== "undefined" && mkPlaying) { try { mkOffset = mkNow(); mkStop(); paintTransport(); } catch {} }
+  if (me !== player && playingBtn) { playingBtn.textContent = playingBtn.dataset.label; playingBtn = null; }
+}
+document.addEventListener("play", (e) => pauseOthers(e.target), true);
 player.onended = () => { if (playingBtn) playingBtn.textContent = playingBtn.dataset.label; playingBtn = null; };
 async function playShared(btn, fileId) {
+  if (typeof queueStop === "function" && queueStop) queueStop();
   if (playingBtn === btn) { player.pause(); player.onended(); return; }
   if (playingBtn) player.onended();
   btn.dataset.label ??= btn.textContent; btn.textContent = "불러오는 중…";
@@ -1205,7 +1217,8 @@ async function fetchChunk(t0) {
   const r = await api(`${DRIVE}/files/${listenFile.id}?alt=media`, { headers: { Range: `bytes=${a}-${b}` } });
   return { t0, url: URL.createObjectURL(await r.blob()) };
 }
-async function playAt(t, keepGoing = true) {
+async function playAt(t, keepGoing = true, follow = false) {
+  followTranscript = follow;
   listenFile ??= cur.files.find(x => x.name === "듣기용.mp3");
   if (!listenFile) { toast("이 레슨은 듣기용 녹음이 아직 없어요"); return; }
   if (player && !player.paused) player.pause();
@@ -1216,8 +1229,9 @@ async function playAt(t, keepGoing = true) {
   if (keepGoing) await full.play();
 }
 function playFrom(i) {
+  followTranscript = true;
   if (i === nowIdx && !full.paused) { full.pause(); return; }
-  playAt(Math.max(0, cur.segs[i].start - 0.3)).catch(e => toast(e.message));
+  playAt(Math.max(0, cur.segs[i].start - 0.3), true, true).catch(e => toast(e.message));
 }
 full.onended = () => { const t = chunkStart + CHUNK; if (t < lessonEnd()) playAt(t).catch(e => toast(e.message)); };
 full.ontimeupdate = () => {
@@ -1231,11 +1245,13 @@ full.ontimeupdate = () => {
   if (i !== nowIdx) {
     $("segs").querySelector(".bub.now")?.classList.remove("now");
     const el = $("segs").querySelector(`.bub[data-i="${i}"]`);
-    if (el) { el.classList.add("now"); if (!full.paused) el.scrollIntoView({ block: "nearest", behavior: "smooth" }); }
+    if (el) { el.classList.add("now"); if (!full.paused && followTranscript && $("segWrap")?.open) el.scrollIntoView({ block: "nearest", behavior: "smooth" }); }
     nowIdx = i;
   }
 };
-full.onplay = () => $("miniBtn").textContent = "❚❚"; full.onpause = () => $("miniBtn").textContent = "▶";
+full.onplay = () => { pauseOthers(full); $("miniBtn").textContent = "❚❚"; }; full.onpause = () => $("miniBtn").textContent = "▶";
+player.addEventListener("play", () => pauseOthers(player));
+let followTranscript = false;   // 전사 말풍선을 눌러 재생할 때만 화면이 따라감(분석 카드 ▶에서는 스크롤 안 함)
 function allCands() {
   return [...cur.cands.map(c => ({ ...c, kind: "auto" })), ...cur.review.manual.map((m, i) => ({ ...m, id: m.id || `M${i + 1}`, kind: "manual" }))];
 }
@@ -1258,41 +1274,51 @@ function renderCands() {
     return `<div class="cand"><div class="row"><b>${esc(c.id)}</b><span>${fmt(c.start)} ~ ${fmt(c.end)}</span>
         ${c.kind === "manual" ? `<span class="chip">직접 추가${clip ? "" : " · 다음 실행 때 클립 생성"}</span>` : ""}
         ${c.reason || c.note ? `<span class="muted">${esc(c.reason || c.note)}</span>` : ""}</div>
-      ${clip ? `<div><button class="small ghost" data-play="${clip.id}">▶ 듣기</button><audio id="au_${esc(c.id)}" controls class="hidden"></audio></div>` : ""}
+      ${clip ? `<div><button class="small ghost" data-play="${clip.id}">▶ 듣기</button></div>` : ""}
       <div class="row">
-        <label><input type="radio" name="d_${esc(c.id)}" value="send" ${d === "send" ? "checked" : ""}> 보냄</label>
-        <label><input type="radio" name="d_${esc(c.id)}" value="keep" ${d === "keep" ? "checked" : ""}> 기록만</label>
-        <label><input type="radio" name="d_${esc(c.id)}" value="drop" ${d === "drop" ? "checked" : ""}> 버림</label>
+        <label><input type="radio" name="d_${esc(c.id)}" value="send" ${d === "send" ? "checked" : ""}> 수강생에게 보내기</label>
+        <label><input type="radio" name="d_${esc(c.id)}" value="keep" ${d === "keep" ? "checked" : ""}> 기록만 저장</label>
+        <label><input type="radio" name="d_${esc(c.id)}" value="drop" ${d === "drop" ? "checked" : ""}> 빼기</label>
         ${mkButton(c.id)}
       </div>
       <input class="cnote ${d === "send" ? "" : "hidden"}" data-c="${esc(c.id)}" placeholder="좋았던 점 한 줄 (예: 고음 끝까지 호흡 유지)" value="${esc(cur.review.notes?.[c.id] ?? c.note ?? "")}" style="width:100%;margin-top:4px">
       </div>`;
   }).join("") || `<p class="muted">후보 없음 — 아래에서 직접 추가할 수 있습니다.</p>`;
   $("cands").querySelectorAll("input[type=radio]").forEach(r => r.onchange = () => {
-    const id = r.name.slice(2);
-    if (r.value === "send" && allCands().filter(c => c.id !== id && cur.review.decisions[c.id] === "send").length >= MAX_GOOD) {
-      toast(`좋았던 부분은 최대 ${MAX_GOOD}개까지예요`); r.checked = false;
-      const prev = cur.review.decisions[id]; if (prev) r.closest(".cand").querySelector(`input[value="${prev}"]`).checked = true; return;
-    }
-    cur.review.decisions[id] = r.value;
+    const bumped = setDecision(cur.review, r.name.slice(2), r.value, allCands().map(c => c.id));
+    if (bumped) { toast(`보내기는 최대 ${MAX_GOOD}개 — 가장 먼저 고른 ${bumped}은 ‘기록만 저장’으로 바꿨어요`); renderCands(); return; }
     r.closest(".cand").querySelector(".cnote").classList.toggle("hidden", r.value !== "send");
+    paintSendCount();
   });
+  paintSendCount();
   $("cands").querySelectorAll("[data-mk]").forEach(b => b.onclick = () => {
     const j = lessonJob(b.dataset.mk), back = () => openLesson(cur.sid, cur.rowIndex, cur.back);
     if (j) return openMkJob(j, back);   // 이미 요청한 구간: 진행 화면 또는 바로 듣기
     makeupFromLesson(b.dataset.mk, back);
   });
   $("cands").querySelectorAll(".cnote").forEach(i => i.oninput = () => { (cur.review.notes ??= {})[i.dataset.c] = i.value.trim(); });
-  $("cands").querySelectorAll("[data-play]").forEach(b => b.onclick = async () => {
-    const au = b.parentElement.querySelector("audio");
-    try {
-      b.textContent = "불러오는 중…";
-      cur.clipUrls[b.dataset.play] ??= URL.createObjectURL(await readBlob(b.dataset.play));
-      au.src = cur.clipUrls[b.dataset.play]; au.classList.remove("hidden"); b.classList.add("hidden"); au.play();
-    } catch (e) { b.textContent = "▶ 듣기"; toast(e.message); }
-  });
+  $("cands").querySelectorAll("[data-play]").forEach(b => b.onclick = () => playShared(b, b.dataset.play));
 }
-const MAX_GOOD = 3, MAX_POINT = 3;
+const MAX_GOOD = 5, MAX_POINT = 3;   // 보내기 최대 5개(2026-10-25 사용자 확정, 넘으면 먼저 고른 것부터 '기록만 저장')
+// 보내기 순서(sendOrder): 선생님이 '보내기'를 고른 순서. 6번째를 고르면 가장 오래된 것을 keep으로(FIFO). 내용은 지우지 않음
+function setDecision(rv, id, val, ids) {
+  rv.decisions ??= {};
+  rv.sendOrder = (rv.sendOrder || ids.filter(x => rv.decisions[x] === "send")).filter(x => x !== id && rv.decisions[x] === "send");
+  rv.decisions[id] = val;
+  let bumped = null;
+  if (val === "send") {
+    rv.sendOrder.push(id);
+    while (rv.sendOrder.length > MAX_GOOD) { bumped = rv.sendOrder.shift(); rv.decisions[bumped] = "keep"; }
+  }
+  return bumped;
+}
+function sendList() {   // 보내기 고른 순서대로
+  const ids = allCands().map(c => c.id), rv = cur.review;
+  const order = (rv.sendOrder || []).filter(x => rv.decisions[x] === "send");
+  const rest = ids.filter(x => rv.decisions[x] === "send" && !order.includes(x));
+  return [...order, ...rest].map(x => allCands().find(c => c.id === x)).filter(Boolean).slice(0, MAX_GOOD);
+}
+function paintSendCount() { if ($("sendCount")) $("sendCount").textContent = `보내기 ${sendList().length}/${MAX_GOOD}`; }
 function renderPoints() {
   const p = (cur.review.points ??= []);
   $("points").innerHTML = `<div class="muted" style="margin:2px 0">오늘 중요한 포인트 (1~3개)</div>` +
@@ -1305,7 +1331,7 @@ function renderPoints() {
 }
 function draftFeedback() {
   const name = cur.st.name;
-  const sent = allCands().filter(c => cur.review.decisions[c.id] === "send").slice(0, MAX_GOOD);
+  const sent = sendList();
   const pts = (cur.review.points || []).filter(Boolean).slice(0, MAX_POINT);
   const lines = [`${name}님, 오늘 레슨 수고 많으셨어요!`, ""];
   if (sent.length) {
@@ -1354,7 +1380,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-25-1015";
+const BUILD = "2026-10-25-2350";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
@@ -1383,7 +1409,7 @@ $("btnAdd").onclick = () => {
 $("btnRegen").onclick = () => { $("fb").value = draftFeedback(); };
 $("btnCopy").onclick = async () => { try { await navigator.clipboard.writeText($("fb").value); toast("복사했어요. 카톡에 붙여넣기 하세요."); } catch { $("fb").select(); toast("길게 눌러 복사해 주세요"); } };
 $("btnShare").onclick = async () => {
-  const sent = allCands().filter(c => cur.review.decisions[c.id] === "send");
+  const sent = sendList();
   const ids = sent.map(c => cur.clips.find(f => f.name.startsWith(c.id))).filter(Boolean);
   for (const p of (cur.pairs || []).filter(p => (cur.review.pairSend || []).includes(p.id) && p.file_id)) ids.push({ id: p.file_id, name: `지도전후_비교_${p.id}.mp3` });
   if (!ids.length) return toast("‘보냄’으로 고른 클립이 없어요");
@@ -1412,6 +1438,25 @@ async function saveReview(quiet = false) {
   } catch (e) { toast(e.message); }
 }
 $("btnSave").onclick = () => saveReview();
+$("btnFbRegen").onclick = () => { if ($("fb").value.trim() && !confirm("지금 문구를 고른 클립·포인트 기준으로 새로 쓸까요? (고친 내용은 사라져요)")) return; $("fb").value = draftFeedback(); };
+// 보낼 클립 이어 듣기: 한 플레이어로 차례대로(동시 재생 없음). 다시 누르면 멈춤
+let queueStop = null;
+$("btnPlayAll").onclick = async () => {
+  const b = $("btnPlayAll");
+  if (queueStop) { queueStop(); return; }
+  const files = sendList().map(c => cur.clips.find(f => f.name.startsWith(c.id))).filter(Boolean);
+  if (!files.length) return toast("‘수강생에게 보내기’로 고른 클립이 없어요");
+  let i = 0, stopped = false;
+  const endBase = player.onended;
+  queueStop = () => { stopped = true; player.pause(); player.onended = endBase; b.textContent = "▶ 보낼 클립 이어 듣기"; queueStop = null; };
+  const next = async () => {
+    if (stopped || i >= files.length) return queueStop?.();
+    b.textContent = `■ 이어 듣는 중 ${i + 1}/${files.length}`;
+    try { cur.clipUrls[files[i].id] ??= URL.createObjectURL(await readBlob(files[i].id)); } catch (e) { toast(e.message); return queueStop?.(); }
+    player.src = cur.clipUrls[files[i].id]; i++; player.onended = next; pauseOthers(player); player.play();
+  };
+  next();
+};
 </script>
 </body>
 </html>
