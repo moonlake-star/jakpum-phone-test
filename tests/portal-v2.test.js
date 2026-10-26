@@ -14,7 +14,7 @@ function env(cfg, cur) {
     return { json: async () => ({ ok: true }) }; };
   const api = async (url, opt) => { log.push(["drive", opt?.method || "GET", url]); return { json: async () => ({ id: "P" }) }; };
   const f = new Function("cfg", "cur", "fetch", "api", "DRIVE", "savedToken", "getToken", "writeJSON", "saveReview", "buildNote",
-    `let token = "T"; const NOTE = "수강생노트.json"; ${body}; return { portal, loadAccounts, closeWithdrawn, publishNote };`);
+    `let token = "T"; const NOTE = "수강생노트.json"; const PORTAL_URL_DEFAULT = ""; const portalUrl = () => cfg.portal_url || PORTAL_URL_DEFAULT; ${body}; return { portal, loadAccounts, closeWithdrawn, publishNote };`);
   const writeJSON = async (folder, name) => { log.push(["write", name]); return "NEWID"; };
   return { log, m: f(cfg, cur, fetch, api, "DRIVE", () => "T", async () => "T", writeJSON, async () => log.push(["review"]), () => cur._note) };
 }
