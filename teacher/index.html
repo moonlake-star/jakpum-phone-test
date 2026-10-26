@@ -552,10 +552,13 @@ const NOTE = "수강생노트.json";
 // '작품 수강생노트 DB' 시트만 쓴다. 이 앱은 시트를 직접 고치지 않고 스크립트에 선생님 토큰으로 요청(t_…)한다
 // → 시트 API를 따로 켤 필요 없음. 승인·게시의 정본은 시트, 레슨 폴더의 수강생노트.json은 선생님 앱용 사본.
 const studentPage = () => cfg.student_page_url || new URL("../student/", location.href).href;
+// 수강생 노트 연결(Apps Script 웹 앱) 주소 — 비밀값 아님. config.json의 portal_url이 있으면 그걸 우선
+const PORTAL_URL_DEFAULT = "https://script.google.com/macros/s/AKfycbyxHvxn4VkX83JrcGK1bQqJivhUPktWNyJn_HRpSyIyQ-lVoXh0MNaps2PUmY_obwJTBQ/exec";
+const portalUrl = () => cfg.portal_url || PORTAL_URL_DEFAULT;
 async function portal(action, extra = {}) {
-  if (!cfg.portal_url) throw new Error("수강생 노트 연결 주소(portal_url)가 아직 설정되지 않았어요");
+  if (!portalUrl()) throw new Error("수강생 노트 연결 주소(portal_url)가 아직 설정되지 않았어요");
   token = savedToken() || token; if (!savedToken()) token = await getToken(false);
-  const r = await fetch(cfg.portal_url, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" },
+  const r = await fetch(portalUrl(), { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" },
     body: JSON.stringify({ action, access_token: token, ...extra }) });
   const j = await r.json();
   if (!j.ok) throw new Error("수강생 노트 연결: " + (j.error || "실패"));
@@ -572,7 +575,7 @@ async function closeWithdrawn(rows) {
     await portal("t_account", { email: a.email, sid: a.sid, state: "closed", name: a.name || "" });
 }
 async function paintJoinRequests() {
-  const el = $("joinReq"); if (!el || !cfg.portal_url) return;
+  const el = $("joinReq"); if (!el || !portalUrl()) return;
   try {
     const { acc, rows, requests } = await loadAccounts();
     closeWithdrawn(rows).catch(() => {});
@@ -1819,7 +1822,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-26-2010";
+const BUILD = "2026-10-26-2045";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
