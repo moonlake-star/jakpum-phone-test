@@ -3,15 +3,18 @@ const fs = require("fs"), assert = require("assert");
 const src = fs.readFileSync(__dirname + "/../teacher/index.html", "utf8");
 const grab = (re) => src.match(re)[0];
 const code = [grab(/const FOLD_KEY[^\n]*\n/), grab(/function foldGet[^\n]*\n/), grab(/function foldSet[^\n]*\n/),
-  grab(/function initFold[\s\S]*?\n}\n/), grab(/function renderToday[\s\S]*?\n}\n/), grab(/function speakerIssues[\s\S]*?\n}\n/),
+  grab(/function initFold[\s\S]*?\n}\n/), grab(/function bestOptions[^\n]*\n/), grab(/function bestPicked[^\n]*\n/),
+  grab(/function renderBest[\s\S]*?\n}\n/), grab(/function wireBest[\s\S]*?\n}\n/), grab(/function renderToday[\s\S]*?\n}\n/), grab(/function speakerIssues[\s\S]*?\n}\n/),
   grab(/function paintSpkState[\s\S]*?\n}\n/)].join("\n");
 function env() {
   const store = {}, els = {};
   const el = (id) => (els[id] ??= { id, innerHTML: "", style: {}, dataset: {}, classList: { toggle() {} } });
   const LS = { get: (k) => store[k] ?? null, set: (k, v) => { store[k] = v; } };
   const esc = (x) => String(x).replace(/[&<>]/g, "");
-  const f = new Function("$", "LS", "esc", "cur", code + "; return {renderToday, speakerIssues, paintSpkState, initFold, foldSet, foldGet};");
-  return { els, store, mk: (cur) => f(el, LS, esc, cur) };
+  const fmt = (t) => String(Math.round(t)), playShared = () => {}, document = { querySelectorAll: () => [] };
+  const f = new Function("$", "LS", "esc", "cur", "fmt", "playShared", "document",
+    code + "; return {renderToday, speakerIssues, paintSpkState, initFold, foldSet, foldGet, bestPicked};");
+  return { els, store, mk: (cur) => f(el, LS, esc, cur, fmt, playShared, document) };
 }
 const base = () => ({ st: { name: "홍길동" }, segs: [{ speaker: "A" }, { speaker: "B" }], summary: { speakers_talk_sec: { A: 60, B: 50 } },
   review: { speakers: { A: "teacher", B: "student" }, points: ["AI포인트"], practice: ["하루 5분", "", "x"] }, spkSaved: true, teacherPts: false, ana: { next_goal: "후렴 첫음" }, ai: {} });
@@ -63,4 +66,14 @@ e.els.spkCard = { style: {}, classList: { toggle() {} } }; e.els.spkSum = { inne
 m.paintSpkState(false); assert(e.els.spkSum.innerHTML.includes("목소리로 자동 확인"));
 cur.summary.speakers_talk_sec.C = 300; cur.review.speakers.C = "";            // 길게 말한 제3자가 있으면 여전히 확인 요청
 assert(m.speakerIssues({}).length >= 1);
+// 7) 전달 패키지: 베스트 있음 → 듣기·후보·함께 보내기 / 없음 → 이유만(가짜 파일 없음) / 준비 전 안내
+cur = base(); cur.best = { status: "ok", best: { file_id: "b1", kind_ko: "연속 테이크(약 1절)", len: 28, praise: { t: 968, text: "오, 잘했어요" } },
+  alternatives: [{ file_id: "b2", kind_ko: "짧은 연속 테이크", len: 14, praise: { t: 805 } }] };
+e = env(); m = e.mk(cur); m.renderToday(); h = e.els.todayCard.innerHTML;
+assert(h.includes("오늘의 레슨 전달 패키지") && h.includes("오늘의 베스트 테이크 편집") && h.includes("후보 2") && h.includes("오늘의 베스트 가창"));
+assert(!h.includes("AI 베스트") && cur.review.sendBest === true && m.bestPicked().file_id === "b1");
+cur.review.bestPick = 1; assert(m.bestPicked().file_id === "b2");
+cur.best = { status: "none", why: "노래 구간 없음" }; m.renderToday(); h = e.els.todayCard.innerHTML;
+assert(h.includes("노래 구간 없음") && !h.includes("bestPlay") && m.bestPicked() === null);
+cur.best = null; m.renderToday(); assert(e.els.todayCard.innerHTML.includes("준비 중"));
 console.log("lesson2 ok");

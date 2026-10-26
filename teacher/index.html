@@ -84,6 +84,8 @@
   .cand:first-child { border-top:0; }
   /* 보내기/기록만/빼기: 한 줄 3칸 버튼(라디오), 칸마다 손가락 크기 40px 이상 */
   /* 클립 처리: 하나만 켜지는 3칸 토글(라디오). 켜진 칸 = 채운 배경 + ✓ + 굵은 테두리, 꺼진 칸 = 흐린 글자. 색만으로 구분하지 않음 */
+  .bestbox { border:2px solid var(--accent); border-radius:12px; padding:10px; background:var(--bg); }
+  .bestAlt.on { background:var(--accent); color:var(--on-accent); }
   .pickcap { font-size:.78rem; color:var(--muted); margin:8px 0 3px; }
   .pick { display:flex; gap:4px; padding:4px; border-radius:999px; background:var(--bg); border:1px solid var(--line); }
   .pick label { flex:1 1 0; min-height:40px; display:flex; align-items:center; justify-content:center; gap:4px; white-space:nowrap;
@@ -1059,8 +1061,8 @@ function lessonData(folderId, files) {
   const dir = (n) => { const f = files.find(x => x.name === n); return f ? list(f.id) : Promise.resolve([]); };
   const p = Promise.all([j("처리요약.json", {}), j("전사_원본.json", []), j("candidates.json", []), dir("노래후보_클립"),
                          j("화자샘플.json", []), dir("화자샘플"), j("AI초안.json", null), j("음정분석.json", null), j("레슨분석.json", null),
-                         j("화자자동.json", null)])
-    .then(([summary, segs, cands, clips, samples, sampleFiles, ai, pitch, ana, voice]) => ({ summary, segs, cands, clips, samples, sampleFiles, ai, pitch, ana, voice }));
+                         j("화자자동.json", null), j("오늘의베스트.json", null)])
+    .then(([summary, segs, cands, clips, samples, sampleFiles, ai, pitch, ana, voice, best]) => ({ summary, segs, cands, clips, samples, sampleFiles, ai, pitch, ana, voice, best }));
   p.catch(() => lessonCache.delete(folderId));
   lessonCache.set(folderId, p);
   return p;
@@ -1098,7 +1100,7 @@ async function openLesson(sid, i, backTo) {
     if (!(review.practice || []).some(Boolean)) review.practice = (ai.practice || []).slice(0, 2);
     if (!review.feedback && ai.feedback_text) review.feedback = ai.feedback_text;
   }
-  cur = { sid, st, folder: l, files, summary, segs, cands, clips, samples, sampleFiles, review, reviewId: reviewF?.id, clipUrls: {}, ai, rowIndex: i, back: goBack, spkSaved, teacherPts, ana: d.ana, voice };
+  cur = { sid, st, folder: l, files, summary, segs, cands, clips, samples, sampleFiles, review, reviewId: reviewF?.id, clipUrls: {}, ai, rowIndex: i, back: goBack, spkSaved, teacherPts, ana: d.ana, voice, best: d.best };
 
   const ls = summary.lesson || {};
   $("lsHead").innerHTML = `<h2 style="margin:0">${esc(st.name)} · ${esc(l.name)}</h2>
@@ -1141,6 +1143,27 @@ function initFold(el, forceOpen) {
   el._forced = !!forceOpen;
 }
 // 상단: 오늘 핵심 1줄(검수 전 next_goal=AI 초안, 선생님이 포인트를 고르면 그 1번) + 이번 주 연습. 새 문장은 만들지 않는다
+// 오늘의 레슨 전달 패키지(#24): 베스트 테이크(#23) + 오늘 핵심 + 이번 주 연습. 선생님이 듣고 고르고 직접 보냄
+function bestOptions() { const b = cur.best; return b?.status === "ok" ? [b.best, ...(b.alternatives || [])].filter(o => o.file_id) : []; }
+function bestPicked() { const o = bestOptions(); return o[Math.min(cur.review.bestPick || 0, o.length - 1)] || null; }
+function renderBest() {
+  const opts = bestOptions(), rv = cur.review;
+  if (!cur.best) return `<div class="muted">🎵 오늘의 베스트 테이크: 아직 준비 중이에요(다음 자동 처리 때 만들어져요)</div>`;
+  if (!opts.length) return `<div class="muted">🎵 오늘의 베스트 테이크: 이번 레슨에선 고를 만한 노래 구간이 없었어요 — ${esc(cur.best.why || "")}. 아래 추천 클립에서 골라 보내 주세요.</div>`;
+  rv.sendBest ??= true;
+  const o = bestPicked(), i = opts.indexOf(o);
+  return `<div class="bestbox"><div class="row" style="justify-content:space-between"><b>🎵 오늘의 베스트 테이크 편집</b><span class="chip">${esc(o.kind_ko || "")} · ${Math.round(o.len)}초</span></div>
+    <div class="muted" style="font-size:.85rem">수강생에겐 ‘오늘의 베스트 가창’으로 가요 · 선생님 칭찬 “${esc((o.praise?.text || "").slice(0, 16))}” (${fmt(o.praise?.t || 0)}) 바로 앞에 이어 부른 실제 테이크(편집·보정 없음)</div>
+    <div class="row" style="margin-top:6px"><button class="small" id="bestPlay">▶ 듣기</button>
+      ${opts.length > 1 ? opts.map((x, k) => `<button class="small ghost bestAlt ${k === i ? "on" : ""}" data-k="${k}">${k === i ? "✓ " : ""}후보 ${k + 1}</button>`).join("") : ""}</div>
+    <label style="display:flex;gap:8px;align-items:center;margin-top:8px;font-size:.92rem"><input type="checkbox" id="bestSend" style="width:22px;height:22px;flex:none" ${rv.sendBest ? "checked" : ""}><span>‘클립 보내기’ 때 맨 앞에 함께 보내기</span></label></div>`;
+}
+function wireBest() {
+  const o = bestPicked(); if (!o) return;
+  $("bestPlay").onclick = () => playShared($("bestPlay"), o.file_id);
+  document.querySelectorAll(".bestAlt").forEach(b => b.onclick = () => { cur.review.bestPick = +b.dataset.k; renderToday(); });
+  $("bestSend").onchange = (e) => { cur.review.sendBest = e.target.checked; };
+}
 function renderToday() {
   const rv = cur.review, goal = cur.ana?.next_goal || cur.ai?.next_goal;
   const mine = cur.teacherPts ? (rv.points || []).find(Boolean) : "";
@@ -1148,7 +1171,9 @@ function renderToday() {
   const head = mine ? `<div><b>오늘 핵심</b> · ${esc(mine)}</div>`
     : goal ? `<div><b>오늘 핵심</b> <span class="chip">AI 초안</span> <span class="muted">${esc(goal)}</span></div>`
     : `<div class="muted">AI 초안 없음 — 아래 ‘카톡 피드백 문구’에서 직접 작성하세요</div>`;
-  $("todayCard").innerHTML = head + (prs.length ? `<div style="margin-top:6px"><b>이번 주 연습</b>${prs.map(x => `<div>· ${esc(x)}</div>`).join("")}</div>` : "");
+  $("todayCard").innerHTML = `<h3 style="margin:0 0 6px">📦 오늘의 레슨 전달 패키지</h3>` + renderBest() + `<div style="margin-top:8px">${head}</div>` +
+    (prs.length ? `<div style="margin-top:6px"><b>이번 주 연습</b>${prs.map(x => `<div>· ${esc(x)}</div>`).join("")}</div>` : "");
+  wireBest();
 }
 // 화자 확인이 필요한 상태(미확인/AI 불확실/3명 이상)면 상단으로 올리고 자동 펼침 + 경고. 아니면 한 줄 요약으로 접음
 function speakerIssues(ai) {
@@ -1462,7 +1487,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-26-1040";
+const BUILD = "2026-10-26-1140";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
@@ -1494,6 +1519,8 @@ $("btnShare").onclick = async () => {
   const sent = sendList();
   const ids = sent.map(c => cur.clips.find(f => f.name.startsWith(c.id))).filter(Boolean);
   for (const p of (cur.pairs || []).filter(p => (cur.review.pairSend || []).includes(p.id) && p.file_id)) ids.push({ id: p.file_id, name: `지도전후_비교_${p.id}.mp3` });
+  const bp = bestPicked();
+  if (bp && cur.review.sendBest !== false) ids.unshift({ id: bp.file_id, name: "오늘의 베스트 가창.mp3" });
   if (!ids.length) return toast("‘보냄’으로 고른 클립이 없어요");
   try { if (await shareClips(ids)) await markSent("feedback"); } catch (e) { toast(e.message); }
 };
@@ -1508,7 +1535,12 @@ $("btnCkShare").onclick = async () => {
   try { if (await shareClips(ids)) await markSent("check"); } catch (e) { toast(e.message); }
 };
 async function saveReview(quiet = false) {
-  cur.review.feedback = $("fb").value;
+  const fbNow = $("fb").value, rv = cur.review;
+  // 수정 기록(#24): AI 원문과 선생님이 저장한 문구를 남겨 나중에 '자주 고치는 부분'을 제안(자동 적용 없음)
+  if (cur.ai?.feedback_text && !rv.ai_feedback) rv.ai_feedback = cur.ai.feedback_text;
+  if (fbNow && fbNow !== (rv.edits || []).slice(-1)[0]?.text && fbNow !== rv.ai_feedback)
+    rv.edits = [...(rv.edits || []), { at: new Date().toISOString(), text: fbNow }].slice(-10);
+  cur.review.feedback = fbNow;
   cur.review.check_text = $("ck").value;
   cur.review.reviewed_at = new Date().toISOString();
   try {
