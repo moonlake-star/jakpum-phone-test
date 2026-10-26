@@ -491,7 +491,7 @@ function paintGrowth4(rec, st) {
   $("g4Copy").onclick = async () => { try { await navigator.clipboard.writeText($("g4Text").value); toast("복사했어요. 카톡에 붙여넣기 하세요."); } catch { $("g4Text").select(); toast("길게 눌러 복사해 주세요"); } };
 }
 // ── 수강생 개인 노트(#44): 가입 승인 · 레슨 노트 게시 · 카톡 안내 멘트 ──
-const NOTE = "수강생노트.json", ACCOUNTS = "수강생계정.json";
+const NOTE = "수강생노트.json", ACCOUNTS = "수강생계정.json", REQUESTS = "수강생가입신청.json";   // 신청 = 서버만 씀, 승인 = 이 앱만 씀
 const studentPage = () => cfg.student_page_url || new URL("../student/", location.href).href;
 async function sysFolderId() {
   if (cfg._sysId) return cfg._sysId;
@@ -499,14 +499,16 @@ async function sysFolderId() {
   Object.defineProperty(cfg, "_sysId", { value: r.parents[0], enumerable: false, writable: true }); return cfg._sysId;
 }
 async function loadAccounts() {
-  const sys = await sysFolderId(), f = (await list(sys)).find(x => x.name === ACCOUNTS);
-  return { sys, id: f?.id, acc: f ? await readJSON(f.id) : { requests: [], approved: {}, rejected: {} } };
+  const sys = await sysFolderId(), files = await list(sys);
+  const f = files.find(x => x.name === ACCOUNTS), rq = files.find(x => x.name === REQUESTS);
+  const acc = f ? await readJSON(f.id) : { approved: {}, rejected: {} };
+  return { sys, id: f?.id, acc, requests: rq ? (await readJSON(rq.id)).requests || [] : [] };
 }
 async function paintJoinRequests() {
   const el = $("joinReq"); if (!el) return;
   try {
-    const { sys, id, acc } = await loadAccounts();
-    const wait = (acc.requests || []).filter(r => !acc.approved?.[r.email] && !acc.rejected?.[r.email]);
+    const { sys, acc, requests } = await loadAccounts();
+    const wait = requests.filter(r => !acc.approved?.[r.email] && !acc.rejected?.[r.email]);
     if (!wait.length) { el.innerHTML = ""; return; }
     const opts = Object.entries(cfg.students).filter(([, st]) => !isTeacher(st)).map(([k, st]) => `<option value="${esc(k)}">${esc(st.name)}</option>`).join("");
     el.innerHTML = `<div class="card"><h3 style="margin:0 0 4px">🙋 수강생 노트 가입 신청 ${wait.length}명</h3>
