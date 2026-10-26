@@ -38,10 +38,10 @@ const loaded = (c) => { Object.defineProperty(c, "_configId", { value: "CID", en
   {
     const d = makeDrive(base());
     const stale = loaded(JSON.parse(JSON.stringify(d.file)));
-    d.external((f) => { f.students.s2.status = "consent_withdrawn"; f.students.s3 = { name: "다", folder: "F3", sub: {} }; f.students.s1.paid_until = "2026-12-01"; f.new_setting = 1; });
+    d.external((f) => { f.students.s2.consent_withdrawn = "2026-10-26"; f.students.s3 = { name: "다", folder: "F3", sub: {} }; f.students.s1.paid_until = "2026-12-01"; f.new_setting = 1; });
     const app = mk(stale, d);
     assert.strictEqual(await app.saveSubFolder("s1", "04_과제제출", "NEW1"), "NEW1");
-    assert.strictEqual(d.file.students.s2.status, "consent_withdrawn");
+    assert.strictEqual(d.file.students.s2.consent_withdrawn, "2026-10-26");
     assert.ok(d.file.students.s3);
     assert.strictEqual(d.file.students.s1.paid_until, "2026-12-01");
     assert.strictEqual(d.file.new_setting, 1);
@@ -60,12 +60,13 @@ const loaded = (c) => { Object.defineProperty(c, "_configId", { value: "CID", en
     assert.deepStrictEqual(app.cfg.students.s1._rows, [1, 2]);
     assert.ok(!("_rows" in d.file.students.s1));
   }
-  // 3. 철회된 수강생에게는 쓰지 않음(fail-closed)
-  {
+  // 3. 철회된 수강생에게는 쓰지 않음(fail-closed) — 실제 운영 규격: consent_withdrawn 필드(날짜 문자열 또는 true)
+  for (const val of ["2026-10-26", true]) {
     const d = makeDrive(base()), c = loaded(JSON.parse(JSON.stringify(d.file)));
-    d.external((f) => { f.students.s1.status = "consent_withdrawn"; });
+    d.external((f) => { f.students.s1.consent_withdrawn = val; });       // status는 "active" 그대로
     await assert.rejects(mk(c, d).saveSubFolder("s1", "04_과제제출", "X"), /철회/);
     assert.strictEqual(d.writes, 0);
+    assert.ok(!d.file.students.s1.sub["04_과제제출"]);
   }
   // 4. 명단에서 사라진 수강생 → 쓰지 않음
   {
@@ -109,5 +110,25 @@ const loaded = (c) => { Object.defineProperty(c, "_configId", { value: "CID", en
     await app.saveSubFolder("s1", "04_과제제출", "N");     // 두 번째 시도에서 성공
     assert.strictEqual(d.file.students.s1.sub["04_과제제출"], "N");
   }
-  console.log("config-merge ok (8 scenarios)");
+  // 9. [잔여 위험 재현 — 해결 아님] 두 기기가 거의 동시에 저장: 둘 다 '쓰기 직전 버전 확인'을 통과한 뒤
+  //    A가 쓰고 확인까지 끝낸 다음 B가 자기가 읽었던 옛 내용으로 쓰면 A의 칸이 사라진다.
+  //    Drive v3 내용 쓰기에 조건부 쓰기(If-Match)가 없어 이 수 초짜리 창은 앱만으로는 막을 수 없음.
+  {
+    const d = makeDrive(base());
+    let bAtPatch, aDone; const pB = new Promise(r => bAtPatch = r), pA = new Promise(r => aDone = r);
+    const client = (who) => ({ api: async (url, opt = {}) => {
+      if (opt.method === "PATCH") { if (who === "A") await pB; else { bAtPatch(); await pA; } }
+      return d.api(url, opt);
+    } });
+    const A = client("A"), B = client("B");
+    const appA = mk(loaded(JSON.parse(JSON.stringify(d.file))), A), appB = mk(loaded(JSON.parse(JSON.stringify(d.file))), B);
+    const ra = appA.saveSubFolder("s1", "04_과제제출", "A1").then(v => { aDone(); return v; });
+    const rb = appB.saveSubFolder("s2", "04_과제제출", "B1");
+    assert.deepStrictEqual(await Promise.all([ra, rb]), ["A1", "B1"]);   // 두 기기 모두 '성공'으로 보임
+    assert.strictEqual(d.file.students.s2.sub["04_과제제출"], "B1");
+    assert.strictEqual(d.file.students.s1.sub["04_과제제출"], undefined,
+      "잔여 위험이 재현되지 않음 — 조건부 쓰기가 생겼다면 이 시험을 '보존됨'으로 바꿀 것");
+    // 영향: s1의 04_과제제출 폴더는 드라이브에 남고 config 칸만 비게 됨 → 다음에 열면 폴더를 새로 하나 더 만들 수 있음(자료 삭제는 없음)
+  }
+  console.log("config-merge ok (9 scenarios, 9번은 미해결 잔여 위험 재현)");
 })().catch((e) => { console.error(e); process.exit(1); });
