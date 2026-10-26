@@ -1601,7 +1601,10 @@ function msMock() {   // 화면 예시 전용(저장 안 함, 초안으로 넣�
 // 원본 과제 파일·검수.json·수강생기록은 쓰지 않는다. 쓰는 것은 요청 파일 하나뿐.
 //#mq-begin
 const MQ_ID = /^[A-Za-z0-9_\-]{1,100}$/, MQ_FOLDER = /^[A-Za-z0-9_\-]{10,100}$/, MQ_MAX = 4096, mqBusy = new Set();
-const mqReqName = (sid, fid) => `요청_${sid}_${fid}.json`, mqStatusName = (sid, fid) => `상태_${sid}_${fid}.json`;
+// 이름 계약(백엔드 mission_queue.request_name/status_name 과 동일): sid 에 '_' 없음 = 레거시 `요청_<sid>_<fid>.json`/`상태_...`(기존 파일 그대로),
+// 있음(신규 가입 STU_<시각>_<난수>) = V2 `요청2_<sid글자수>_<sid>_<fid>.json`/`상태2_...` — 길이로 sid/fid 경계가 유일해 (a_b,c)/(a,b_c) 충돌이 없다(ID 는 ASCII 만).
+const mqReqName = (sid, fid) => sid.includes("_") ? `요청2_${sid.length}_${sid}_${fid}.json` : `요청_${sid}_${fid}.json`;
+const mqStatusName = (sid, fid) => sid.includes("_") ? `상태2_${sid.length}_${sid}_${fid}.json` : `상태_${sid}_${fid}.json`;
 function mqGate(cfg, sid) {   // 기본 닫힘: 모든 조건이 맞아야 연다
   const m = cfg?.mission_ai, st = cfg?.students?.[sid];
   if (!m || m.enabled !== true) return { ok: false, why: "AI 분석 요청 기능이 꺼져 있어요" };
