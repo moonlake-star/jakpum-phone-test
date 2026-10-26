@@ -31,6 +31,20 @@ self.addEventListener('fetch', (e) => {
   }
 });
 
+// 새 공유가 오면 직전 공유분(./shared/N, ./shared/meta.json)을 ./shared/old-<시각>/ 아래로 복사해 둔다(삭제 없음).
+async function archivePrevious(shared) {
+  const metaReq = new Request('./shared/meta.json');
+  const m = await shared.match(metaReq);
+  if (!m) return;
+  const tag = `old-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+  const prev = await m.clone().json().catch(() => ({ files: [] }));
+  for (const f of prev.files || []) {
+    const r = await shared.match(new Request(`./shared/${f.index}`));
+    if (r) await shared.put(new Request(`./shared/${tag}/${f.index}`), r);
+  }
+  await shared.put(new Request(`./shared/${tag}/meta.json`), m);
+}
+
 async function handleShare(request) {
   const started = Date.now();
   const meta = { receivedAt: new Date().toISOString(), files: [], fieldNames: [], error: null };
@@ -42,7 +56,7 @@ async function handleShare(request) {
     meta.text = String(form.get('text') || '');
     meta.url = String(form.get('url') || '');
     const files = form.getAll('audio').filter((f) => f && typeof f === 'object' && 'size' in f);
-    for (const req of await shared.keys()) await shared.delete(req);
+    await archivePrevious(shared);   // 이전 공유분은 지우지 않고 보관 폴더로 옮김
     for (let i = 0; i < files.length; i++) {
       const f = files[i];
       await shared.put(new Request(`./shared/${i}`),
