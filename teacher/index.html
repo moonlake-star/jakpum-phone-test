@@ -1196,6 +1196,7 @@ async function tpLoad(D, folder, tid) {   // D = {list, readJSON, writeJSON}. �
   if (files.length > 1) return { state: "error", msg: "설정 파일이 둘 이상이에요. 드라이브에서 확인이 필요해요(저장 중단)" };
   if (!files.length) return { state: "ok", fileId: null, doc: tpParse(null, tid).doc, warns: [] };
   let raw; try { raw = await D.readJSON(files[0].id); } catch { return { state: "error", msg: "설정 파일을 읽지 못했거나 깨져 있어요(저장·덮어쓰기 중단)" }; }
+  if (!raw || typeof raw !== "object" || Array.isArray(raw) || (raw.teacher_id != null && raw.teacher_id !== tid)) return { state: "error", msg: "강사 ID가 다르거나 설정 문서 형식이 잘못됐어요(덮어쓰기 중단)" };
   const r = tpParse(raw, tid); return { state: "ok", fileId: files[0].id, doc: r.doc, warns: r.warns };
 }
 function tpPatch(prefs, draft) {   // 바뀐 키만
