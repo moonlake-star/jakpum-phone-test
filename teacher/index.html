@@ -731,8 +731,10 @@ function buildNote() {
   const clips = sendList().map(c => ({ c, f: cur.clips.find(x => x.name.startsWith(c.id)) })).filter(x => x.f)
     .map(({ c, f }) => ({ file_id: f.id, label: `${fmt(c.start)} 구간`, note: rv.notes?.[c.id] || c.note || "" }));
   const bestNote = (o) => o && { file_id: o.file_id, kind_ko: o.kind_ko, len: Math.round(o.len), edited: !!o.isComposite };
+  // practice(이번 주 미션)와 no_mission(‘미션 없음’ 의도적 선택)을 구분해 싣는다. 미설정(둘 다 없음)은 승인 단계에서 막힘
+  const noMission = rv.no_mission === true;
   return { lesson_id: cur.folder.id, date: cur.folder.name.slice(0, 10), title: cur.folder.name,
-    feedback: $("fb").value, points: (rv.points || []).filter(Boolean), practice: (rv.practice || []).filter(Boolean),
+    feedback: $("fb").value, points: (rv.points || []).filter(Boolean), practice: noMission ? [] : (rv.practice || []).filter(Boolean), no_mission: noMission,
     best: rv.sendBest !== false ? bestNote(bp) : null, extra_best: comp && comp !== bp ? [bestNote(comp)] : [],
     clips, highlight: clips[0]?.note || (rv.points || []).find(Boolean) || "", published_at: new Date().toISOString() };
 }
@@ -757,21 +759,208 @@ async function paintSeen() {   // 읽음 여부는 시트에서
   try { const { seen } = await loadAccounts(), at = seen[cur.note?.lesson_id], ch = $("seenChip");
     if (ch && at) { ch.className = "chip ok"; ch.textContent = "수강생 읽음 ✓"; } } catch {}
 }
+// ── 예약 공개(#70 B-2): 승인 → (다음날 18:00 KST 기본) 예약 / 시간 변경 / 취소 / 즉시 공개 ──
+// '공개'는 수강생 페이지에 노트가 보이는 것뿐이다. 카톡 발송은 선생님이 직접 하며(rv.kakao_sent_at) 서버 예약과 서로 독립이다.
+// 서버(수강생노트.gs의 t_schedule/t_unschedule, 백엔드 PR #73)가 없거나 구버전이면 예약 기능은 꺼진다(fail closed). 예약 버튼이 즉시 게시로 바뀌는 일은 없다.
+// <sched-pure>
+const SCHED_HHMM = "18:00", HHMM_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+const pad2 = (n) => String(n).padStart(2, "0");
+function addDaysYmd(ymd, n) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd || ""); if (!m) throw new Error("날짜 형식 오류: " + ymd);
+  const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
+  if (d.getUTCMonth() !== +m[2] - 1 || d.getUTCDate() !== +m[3]) throw new Error("없는 날짜: " + ymd);
+  d.setUTCDate(d.getUTCDate() + n);
+  return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}`;
+}
+// 공개 시각 문자열(한국 시간 +09:00 고정). 기기 시간대·기기 시계와 무관
+function kstIso(ymd, hhmm) {
+  if (!HHMM_RE.test(hhmm || "")) throw new Error("시간 형식 오류: " + hhmm);
+  return `${addDaysYmd(ymd, 0)}T${hhmm}:00+09:00`;
+}
+// 공개 시간 우선순위: 레슨별 직접 지정 > 수강생별 설정 > 강사 기본(기기 저장) > 18:00
+const resolveHHMM = (o = {}) => [o.lesson, o.student, o.teacher].find(x => HHMM_RE.test(x || "")) || SCHED_HHMM;
+// 기본 예약 = 레슨 다음날 지정 시간(KST)
+const defaultVisibleAfter = (lessonYmd, hhmm) => kstIso(addDaysYmd(lessonYmd, 1), hhmm || SCHED_HHMM);
+function pickToIso(pick, lessonYmd, defHHMM) {   // pick={date:'YYYY-MM-DD', time:'HH:MM'} (한국 시간으로 해석), 비어 있으면 기본값
+  return kstIso(pick?.date || addDaysYmd(lessonYmd, 1), pick?.time || defHHMM || SCHED_HHMM);
+}
+function fmtVisible(iso) {   // → {kst:'10/27(화) 18:00 KST', utc:'10/27 09:00 UTC'}
+  const t = Date.parse(iso); if (isNaN(t)) return { kst: String(iso || ""), utc: "" };
+  const wd = "일월화수목금토", p = (ms, tag, w) => { const d = new Date(ms);
+    return `${d.getUTCMonth() + 1}/${d.getUTCDate()}${w ? `(${wd[d.getUTCDay()]})` : ""} ${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())} ${tag}`; };
+  return { kst: p(t + 9 * 36e5, "KST", true), utc: p(t, "UTC", false) };
+}
+function fnv(s) { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; } return h.toString(16).padStart(8, "0"); }
+// 수강생에게 보이는 내용의 지문(published_at 제외). 승인 뒤 한 글자라도 바뀌면 달라져서 '재승인'이 필요해진다
+function contentSig(note) {
+  const n = note || {}, id = (x) => x ? x.file_id || null : null;
+  return fnv(JSON.stringify([n.lesson_id, n.feedback, n.points, n.practice, !!n.no_mission, id(n.best), (n.extra_best || []).map(id),
+    (n.clips || []).map(c => [c.file_id, c.label, c.note])]));
+}
+const missionState = (rv) => rv?.no_mission === true ? "none" : (rv?.practice || []).some(Boolean) ? "set" : "unset";
+// 피드백 문구 속 '이번 주 연습'과 미션 칸이 서로 같은지(학생에게 두 곳이 다르게 보이면 안 됨)
+function missionConsistent(note) {
+  const fb = String(note?.feedback || ""), pr = (note?.practice || []).filter(Boolean), has = fb.includes("이번 주 연습");
+  if (note?.no_mission) return !has;
+  return pr.every(t => fb.includes(t)) && (pr.length > 0 || !has);
+}
+// AI 미션 검증 결과(백엔드 #69 규격 가정: needs_teacher_check / violations / mission_warnings). 해당 칸이 없으면 경고 없음
+function aiMissionFlags(ai) {
+  const m = ai?.mission || {}, out = [];
+  if (ai?.needs_teacher_check === true || m.needs_teacher_check === true) out.push("AI가 이번 주 미션을 선생님이 직접 확인해야 한다고 표시했어요");
+  for (const v of [...(ai?.violations || []), ...(m.violations || []), ...(ai?.mission_warnings || []), ...(m.warnings || [])]) out.push(String(v.message || v.text || v));
+  return out;
+}
+const missionAckKey = (rv) => (rv?.practice || []).filter(Boolean).join("\n") + "|" + (rv?.no_mission === true);
+// 승인 전 확인 목록. level 'block'은 해결 전 예약·공개 불가
+function approvalBlockers(note, rv, ai) {
+  const out = [], ms = missionState(rv);
+  if (!String(note?.feedback || "").trim()) out.push({ level: "block", msg: "카톡 피드백 문구가 비어 있어요" });
+  if (ms === "unset") out.push({ level: "block", msg: "이번 주 미션이 ‘미설정’이에요. 연습을 적거나 ‘미션 없음’을 직접 선택해 주세요" });
+  if (!missionConsistent(note)) out.push({ level: "block", msg: "피드백 문구 속 ‘이번 주 연습’과 미션 칸이 서로 달라요. 같게 맞춰 주세요" });
+  if (rv?.mission_ack !== missionAckKey(rv)) for (const f of aiMissionFlags(ai)) out.push({ level: "block", ack: true, msg: f + " — 확인했다면 아래 확인 칸을 눌러 주세요" });
+  return out;
+}
+// 서버 t_state 응답이 예약 기능을 지원하는지(없으면 구버전 → 꺼짐)
+const schedCapable = (j) => !!j && typeof j.server_now === "string" && !isNaN(Date.parse(j.server_now)) && Array.isArray(j.notes);
+// 화면 상태. srv=서버가 알려 준 이 노트의 공개 상태, approvedSig=선생님이 승인한 시점의 내용 지문
+function schedStatus({ caps, srv, sigNow, approvedSig }) {
+  if (caps !== true) return caps === false ? "unsupported" : "unknown";
+  const same = !!approvedSig && approvedSig === sigNow;
+  if (!srv) return same ? "approved_unsaved" : "draft";
+  if (srv.state === "published") return same ? "published" : "published_stale";
+  if (srv.state === "scheduled") return same ? "scheduled" : "scheduled_stale";
+  return "held";
+}
+const SCHED_LABEL = { unsupported: "예약 기능 꺼짐(서버 업데이트 필요)", unknown: "서버 상태 확인 못함", draft: "초안 · 승인 전", approved_unsaved: "승인됨 · 서버에 아직 없음",
+  scheduled: "예약됨", scheduled_stale: "예약됨 · 이후 수정됨(예약본은 이전 내용)", published: "공개됨", published_stale: "공개됨 · 이후 수정됨(수강생은 이전 내용을 봄)", held: "보류(수강생에게 안 보임)" };
+// </sched-pure>
+// 녹음 링크: 예약 시점에는 서버가 노트·파일 ID를 숨기므로(공개 전 수강생에게 ID가 나가지 않음) 링크 공유는 예약 성공 뒤에 열고,
+// 예약 취소·보류 때는 다시 닫는다. (공개 시각에 선생님 앱이 꺼져 있어도 들을 수 있게 하려면 미리 열어 둬야 하는 제약 — 보고서 참고)
+async function revokeLink(fileId) {
+  const j = await (await api(`${DRIVE}/files/${fileId}/permissions?fields=permissions(id,type)`)).json();
+  for (const p of j.permissions || []) if (p.type === "anyone") await api(`${DRIVE}/files/${fileId}/permissions/${p.id}`, { method: "DELETE" });
+}
+async function refreshSched(me) {   // 서버의 실제 상태를 다시 조회(서버 시계 포함). 실패하면 caps=null(모름) — 예약됨 같은 표시를 하지 않는다
+  const s = (me.sched ??= { busy: false, pick: {} });
+  try {
+    const j = await portal("t_state");
+    s.caps = schedCapable(j); s.serverNow = j.server_now || null;
+    s.entry = s.caps ? (j.notes.find(n => n.sid === me.sid && n.lesson_id === me.folder.id) || null) : null; s.err = null;
+  } catch (e) { s.caps = null; s.entry = null; s.err = e.message; }
+  return s;
+}
+// 승인·예약·즉시 공개·취소 한 동작. 서버가 요청을 받았다고 확인한 뒤에만 성공으로 본다
+async function schedAct(kind, pick) {
+  const me = cur, rv = me.review, s = (me.sched ??= { busy: false, pick: {} });
+  if (me.st.consent_withdrawn) throw new Error("동의 철회된 수강생이라 아무것도 하지 않았어요");
+  await refreshSched(me);
+  if (s.caps !== true) throw new Error(s.caps === false ? "이 서버는 예약 기능을 지원하지 않아 아무것도 하지 않았어요(수강생 노트 서버 업데이트 필요)" : "서버 상태를 확인하지 못해 아무것도 하지 않았어요: " + (s.err || ""));
+  const key = { sid: me.sid, lesson_id: me.folder.id };
+  if (kind === "cancel") {
+    if (!s.entry) throw new Error("서버에 이 노트가 없어서 취소할 것이 없어요");
+    const r = await portal("t_unschedule", key);
+    if (r.state !== "held") throw new Error("서버 응답이 예상과 달라요 — 상태를 다시 확인했어요");
+    const fails = []; for (const id of noteFileIds(me.note || buildNote())) { try { await revokeLink(id); } catch { fails.push(id); } }
+    return fails.length ? `보류했어요. 다만 녹음 ${fails.length}개의 링크 공유는 못 닫았어요(드라이브에서 직접 확인)` : "보류했어요. 수강생에게 보이지 않아요";
+  }
+  const note = buildNote(), sig = contentSig(note), bl = approvalBlockers(note, rv, me.ai).filter(b => b.level === "block");
+  if (bl.length) throw new Error("승인 전 확인할 것이 남았어요: " + bl[0].msg);
+  if (pick?.okSig !== sig) throw new Error("승인 칸을 눌러야 해요(내용이 바뀌었다면 다시 확인 후 승인)");
+  let va = "";
+  if (kind === "schedule") {
+    if (s.entry?.state === "published") throw new Error("이미 수강생에게 공개된 노트예요. 숨기려면 먼저 ‘공개 숨기기’를 눌러 주세요");
+    va = pickToIso(pick, note.date, resolveHHMM({ teacher: LS.get("vn_pub_hhmm"), student: me.st.publish_hhmm }));
+    if (Date.parse(va) <= Date.parse(s.serverNow) + 60000) throw new Error("서버 시각 기준으로 이미 지났거나 1분 안이에요. 더 늦은 시각을 고르거나 ‘지금 공개’를 쓰세요");
+  } else if (kind !== "now") throw new Error("알 수 없는 동작");
+  const want = kind === "now" ? "published" : "scheduled", ids = noteFileIds(note);
+  const body = { ...key, approved: true, visible_after: va, note, date: note.date, published_at: note.published_at };
+  if (kind === "now") { for (const id of ids) await openLink(id); }
+  const r = await portal("t_schedule", body);
+  if (r.state !== want) throw new Error(`서버 응답(${r.state || "없음"})이 예상(${want})과 달라요 — 상태를 다시 확인했어요`);
+  if (kind === "schedule") {
+    try { for (const id of ids) await openLink(id); }
+    catch (e) { try { await portal("t_unschedule", key); } catch {} throw new Error("녹음 공유 권한을 열지 못해 예약을 취소(보류)했어요: " + e.message); }
+  }
+  rv.approved_sig = sig; rv.approved_at = note.published_at; rv.scheduled_for = va || null; me.note = note;
+  let warn = "";
+  try { const ex = me.files.find(f => f.name === NOTE), id = await writeJSON(me.folder.id, NOTE, note, ex?.id); if (!ex) me.files.push({ id, name: NOTE }); rv.published_at = kind === "now" ? note.published_at : rv.published_at; await saveReview(true); }
+  catch { warn = " (서버에는 반영됐지만 앱 안 사본 저장은 실패 — 새로고침하면 ‘이후 수정됨’으로 보일 수 있어요)"; }
+  return kind === "now" ? "지금 공개했어요" + warn : `${fmtVisible(va).kst}에 공개되도록 예약했어요` + warn;
+}
 function paintDeliver() {
   const el = $("deliverBox"); if (!el) return;
-  const n = cur.note;
-  el.innerHTML = !n ? `<button class="full" id="btnPublish">📮 수강생 노트에 게시하고 카톡 멘트 만들기</button>
-      <p class="muted" style="margin:4px 0">게시하면 수강생 개인 페이지(항상 같은 주소)에 오늘 레슨이 추가돼요. 카톡은 선생님이 직접 보내요.</p>`
-    : `<div class="row" style="justify-content:space-between"><b>📮 게시됨</b><span id="seenChip" class="chip">아직 안 읽음</span></div>
-      <textarea id="kakaoMsg" style="min-height:110px">${esc(cur.kakao || "")}</textarea>
-      <div class="row"><button class="small" id="btnKakaoCopy">멘트+링크 한 번에 복사</button><button class="small ghost" id="btnKakaoRe">다른 멘트로</button>
-        <button class="small ghost" id="btnRepublish">노트 다시 게시</button></div>
-      <p class="muted" style="margin:4px 0">복사 → 카톡 대화창에 붙여넣기 → 보낸 뒤 아래 ‘보냈어요’를 눌러 주세요(앱은 실제 발송 여부를 알 수 없어요).</p>`;
-  if (!n) { $("btnPublish").onclick = async () => { try { await publishNote(); cur.kakao = kakaoText(cur.st, cur.note, nextTpl(cur.sid)); paintDeliver(); toast("게시했어요"); } catch (e) { toast(e.message); } }; return; }
+  const me = cur, s = (me.sched ??= { busy: false, pick: {} });
+  if (s.caps === undefined) {
+    if (!s.loading) { s.loading = true; refreshSched(me).finally(() => { s.loading = false; if (cur === me) paintDeliver(); }); }
+    el.innerHTML = `<p class="muted">공개 상태 확인 중…</p>`; return;
+  }
+  const rv = me.review, note = buildNote(), sig = contentSig(note), st = schedStatus({ caps: s.caps, srv: s.entry, sigNow: sig, approvedSig: rv.approved_sig });
+  const chipCls = { published: "ok", scheduled: "ok" }[st] || (st === "draft" || st === "unknown" || st === "unsupported" ? "todo" : "");
+  const sentAt = rv.kakao_sent_at, dis = s.busy ? " disabled" : "";
+  const kakaoBlock = !me.note ? "" : `<div style="margin-top:10px;border-top:1px solid #8884;padding-top:8px"><b>💬 카톡 안내</b>
+      <span class="chip ${sentAt ? "ok" : "todo"}">${sentAt ? "카톡 보냄 " + esc(fmtVisible(sentAt).kst) : "카톡 아직 안 보냄"}</span> <span id="seenChip" class="chip">아직 안 읽음</span>
+      <textarea id="kakaoMsg" style="min-height:90px">${esc(me.kakao || "")}</textarea>
+      <div class="row"><button class="small" id="btnKakaoCopy">멘트+링크 복사</button><button class="small ghost" id="btnKakaoRe">다른 멘트로</button>
+        <button class="small ghost" id="btnKakaoMark">${sentAt ? "보냄 표시 취소" : "카톡 보냈어요 표시"}</button></div>
+      <p class="muted" style="margin:4px 0">${st === "published" || st === "published_stale" ? "공개된 노트라 링크가 열려요." : "⚠ 아직 수강생에게 공개되지 않았어요. 공개 전에 보내면 링크를 열어도 노트가 안 보여요."} 카톡은 선생님이 직접 보내고, 보낸 뒤 표시해 주세요(앱은 실제 발송 여부를 몰라요). 이 표시는 예약·공개와 별개예요.</p></div>`;
+  if (st === "unsupported" || st === "unknown") {
+    el.innerHTML = `<div class="row" style="justify-content:space-between"><b>📮 수강생 노트</b><span class="chip todo">${SCHED_LABEL[st]}</span></div>` +
+      (st === "unknown" ? `<p class="muted">${esc(s.err || "")}</p><button class="small" id="btnSchedRetry">다시 확인</button>`
+        : `<p class="muted" style="margin:4px 0">예약 공개는 수강생 노트 서버(Apps Script)를 새 버전으로 바꿔야 쓸 수 있어요. 그 전까지는 아래 버튼이 <b>지금 바로</b> 게시합니다(예약이 아니에요).</p>
+           <button class="full" id="btnPublish">📮 지금 바로 수강생 노트에 게시</button>`) + kakaoBlock;
+    if ($("btnSchedRetry")) $("btnSchedRetry").onclick = () => { s.caps = undefined; paintDeliver(); };
+    if ($("btnPublish")) $("btnPublish").onclick = async () => { if (s.busy) return; s.busy = true;
+      try { await publishNote(); me.kakao = kakaoText(me.st, me.note, nextTpl(me.sid)); toast("지금 게시했어요"); } catch (e) { toast(e.message); } finally { s.busy = false; if (cur === me) paintDeliver(); } };
+  } else {
+    const bl = approvalBlockers(note, rv, me.ai), blocked = bl.some(b => b.level === "block");
+    const hhmm = resolveHHMM({ teacher: LS.get("vn_pub_hhmm"), student: me.st.publish_hhmm }), defIso = defaultVisibleAfter(note.date, hhmm);
+    const pickIso = (() => { try { return pickToIso(s.pick, note.date, hhmm); } catch { return null; } })();
+    const shown = st === "scheduled" || st === "scheduled_stale" ? s.entry.visible_after : pickIso, fv = shown ? fmtVisible(shown) : null;
+    const preview = `<div style="margin-top:6px"><b>수강생에게 보이는 내용 미리보기</b>
+        <div style="white-space:pre-wrap;max-height:160px;overflow:auto;border:1px solid #8884;border-radius:8px;padding:6px;margin:4px 0">${esc(note.feedback)}</div>
+        <b>이번 주 미션</b> ${missionState(rv) === "none" ? `<span class="chip">미션 없음(선생님이 선택)</span>` : missionState(rv) === "unset" ? `<span class="chip todo">미설정</span>`
+          : note.practice.map(x => `<div>· ${esc(x)}</div>`).join("")}</div>`;
+    const warns = bl.map(b => `<div class="chip todo" style="display:block;margin:4px 0;white-space:normal">⚠ ${esc(b.msg)}</div>`).join("");
+    const ack = aiMissionFlags(me.ai).length ? `<label style="display:block;margin:4px 0"><input type="checkbox" id="chkAck" ${rv.mission_ack === missionAckKey(rv) ? "checked" : ""}> AI 미션 경고를 읽고 확인했어요</label>` : "";
+    const canSchedule = !blocked && s.pick.okSig === sig && !s.busy;
+    const approveBox = `<label style="display:block;margin:6px 0"><input type="checkbox" id="chkOk" ${s.pick.okSig === sig ? "checked" : ""}${dis}> 위 내용을 확인했고 수강생에게 공개해도 좋아요(승인)</label>`;
+    const timeBox = `<div class="row" style="gap:6px;align-items:center"><span>공개 시각(한국 시간)</span>
+        <input type="date" id="schDate" value="${esc(s.pick.date || defIso.slice(0, 10))}"${dis}><input type="time" id="schTime" value="${esc(s.pick.time || hhmm)}"${dis}></div>
+        <p class="muted" style="margin:2px 0">${fv ? `${esc(fv.kst)} = ${esc(fv.utc)} · ` : ""}기본은 레슨 다음날 ${esc(hhmm)}. 공개 = 수강생 페이지에 노트가 보이는 것이며 카톡은 자동으로 가지 않아요.</p>`;
+    const stNote = { draft: "승인하고 예약해야 수강생에게 나가요.", approved_unsaved: "승인했지만 서버에서 확인되지 않았어요. 다시 예약해 주세요.",
+      scheduled: `예약 시각: ${fv ? esc(fv.kst) : ""}`, scheduled_stale: "예약은 이전에 승인한 내용으로 나가요. 고친 내용을 쓰려면 아래에서 다시 승인하고 예약하세요.",
+      published: "수강생에게 공개 중이에요.", published_stale: "수강생이 보는 노트는 이전 내용이에요. ‘지금 다시 공개’로 고친 내용을 반영할 수 있어요.", held: "승인이 해제되어 수강생에게 안 보여요. 다시 승인하고 예약하세요." }[st];
+    el.innerHTML = `<div class="row" style="justify-content:space-between"><b>📮 수강생 노트 공개</b><span class="chip ${chipCls}">${SCHED_LABEL[st]}</span></div>
+      <p class="muted" style="margin:4px 0">${stNote}${s.err ? " · " + esc(s.err) : ""}</p>${preview}${warns}${ack}${approveBox}${timeBox}
+      <div class="row" style="margin-top:6px">
+        <button class="small" id="btnSched"${canSchedule ? "" : " disabled"}>${st === "scheduled" || st === "scheduled_stale" ? "시간 변경(다시 예약)" : "승인하고 예약"}</button>
+        <button class="small ghost" id="btnNow"${canSchedule ? "" : " disabled"}>${st === "published_stale" ? "지금 다시 공개" : "지금 공개"}</button>
+        ${s.entry && s.entry.state !== "held" ? `<button class="small ghost" id="btnCancel"${dis}>${s.entry.state === "published" ? "공개 숨기기" : "예약 취소"}</button>` : ""}</div>
+      <p class="muted" style="margin:4px 0">${s.busy ? "처리 중… 끝나면 서버 상태를 다시 읽어 표시해요." : "서버가 요청을 받았다고 확인한 뒤에만 ‘예약됨’으로 표시해요."}</p>` + kakaoBlock;
+    const chk = (id, f) => { const x = $(id); if (x) x.onchange = () => f(x); };
+    chk("chkOk", x => { s.pick.okSig = x.checked ? sig : null; paintDeliver(); });
+    chk("chkAck", x => { rv.mission_ack = x.checked ? missionAckKey(rv) : null; paintDeliver(); });
+    chk("schDate", x => { s.pick.date = x.value; s.pick.okSig = null; paintDeliver(); }); chk("schTime", x => { s.pick.time = x.value; s.pick.okSig = null; paintDeliver(); });
+    const go = (kind, ok) => { const b = $(kind === "schedule" ? "btnSched" : kind === "now" ? "btnNow" : "btnCancel"); if (!b) return;
+      b.onclick = async () => {
+        if (s.busy) return; if (ok && !confirm(ok)) return;
+        s.busy = true; paintDeliver();
+        try { const msg = await schedAct(kind, { ...s.pick }); me.kakao = kakaoText(me.st, me.note || note, nextTpl(me.sid)); toast(msg); s.msg = msg; }
+        catch (e) { s.err = e.message; toast(e.message); }
+        finally { await refreshSched(me); s.busy = false; if (cur === me) paintDeliver(); }
+      }; };
+    go("schedule"); go("now", "지금 바로 수강생에게 공개할까요? (예약이 아니라 즉시 공개예요)");
+    go("cancel", s.entry?.state === "published" ? "이미 공개된 노트를 수강생에게 숨기고 녹음 링크 공유도 닫을까요?" : "예약을 취소(보류)할까요?");
+  }
+  if (!me.note) return;
   paintSeen();
   $("btnKakaoCopy").onclick = async () => { try { await navigator.clipboard.writeText($("kakaoMsg").value); toast("복사했어요. 카톡에 붙여넣기 하세요."); } catch { $("kakaoMsg").select(); toast("길게 눌러 복사해 주세요"); } };
-  $("btnKakaoRe").onclick = () => { $("kakaoMsg").value = cur.kakao = kakaoText(cur.st, cur.note, nextTpl(cur.sid)); };
-  $("btnRepublish").onclick = async () => { try { await publishNote(); toast("노트를 고친 내용으로 다시 게시했어요"); paintDeliver(); } catch (e) { toast(e.message); } };
+  $("btnKakaoRe").onclick = () => { $("kakaoMsg").value = me.kakao = kakaoText(me.st, me.note, nextTpl(me.sid)); };
+  $("btnKakaoMark").onclick = async () => {   // 서버 예약과 독립. 단, 아직 공개 전이면 '보냈다'고 표시하지 못하게 막는다
+    if (!rv.kakao_sent_at && !(s.entry && s.entry.state === "published")) return toast("아직 수강생에게 공개되지 않았어요. 공개된 뒤에 표시해 주세요");
+    if (rv.kakao_sent_at) delete rv.kakao_sent_at; else rv.kakao_sent_at = new Date().toISOString();
+    paintDeliver(); try { await saveReview(true); } catch (e) { toast(e.message); } };
 }
 function paintLessonsTab(sid) {
   const st = cfg.students[sid], rows = st._rows || [];
@@ -2039,6 +2228,8 @@ function renderPoints() {
   const pr = (cur.review.practice ??= []);
   $("points").innerHTML += `<div class="muted" style="margin:8px 0 2px">이번 주 연습 (최대 2개)</div>` +
     [0, 1].map(i => `<input class="pr" data-i="${i}" value="${esc(pr[i] || "")}" placeholder="${["예: 하루 5분, 입 닫고 '음'으로 후렴 멜로디", "(선택)"][i]}" style="width:100%;margin:3px 0">`).join("");
+  $("points").innerHTML += `<label style="display:block;margin:6px 0"><input type="checkbox" id="noMission" ${cur.review.no_mission === true ? "checked" : ""}> 이번 주 미션 없음(일부러 비워 둠 — ‘미설정’과 달라요)</label>`;
+  $("noMission").onchange = (e) => { cur.review.no_mission = e.target.checked; renderToday(); };
   $("points").querySelectorAll(".pt").forEach(x => x.oninput = () => { cur.review.points[+x.dataset.i] = x.value.trim(); cur.teacherPts = cur.review.points.some(Boolean); renderToday(); });
   $("points").querySelectorAll(".pr").forEach(x => x.oninput = () => { cur.review.practice[+x.dataset.i] = x.value.trim(); renderToday(); });
 }
@@ -2093,7 +2284,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-26-2045";
+const BUILD = "2026-10-27-0900";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
