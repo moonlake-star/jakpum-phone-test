@@ -437,6 +437,7 @@ function paintList(data, stale) {
   $("vList").innerHTML = todoHtml + blocks.join("") +
     `<p class="muted">${stale ? "최신 내용 확인 중…" : "최신 상태"} · <a href="#" id="reload">새로고침</a></p>`;
   $("reload").onclick = (e) => { e.preventDefault(); renderList(); };
+  $("vList").insertAdjacentHTML("beforeend", `<div id="prefsBox"></div>`); paintPrefs();
   paintJoinRequests();
   $("vList").querySelectorAll(".stuCard.tap").forEach(el => el.onclick = () => openStudent(el.dataset.s));
   $("vList").querySelectorAll(".stuCard .retry").forEach(el => el.onclick = (e) => { e.stopPropagation(); renderList(); });
@@ -1146,6 +1147,144 @@ function paintKakaoImport(sid) {
   };
   kkPreview(sid);
   if (!s.saved) kkLoadSaved(sid);
+}
+
+// ── 강사 알림·활동창 설정 (#70): _시스템/db_backup/강사설정_<강사ID>.json — 백엔드 teacher_prefs_store.py 문서 계약과 같다 ──
+// rev/expected_rev/request_id로 저장: 다른 기기가 먼저 바꿨으면(rev 불일치) 덮어쓰지 않고 최신 값을 다시 보여 준다.
+// 수강생별 공개 시각(students)은 앱이 읽어 그대로 보존만 한다. 알림 메일이 이 설정을 읽는 연결은 백엔드 PR #91(병합 전)이며, 병합 전에는 저장만 되고 알림에는 아직 반영되지 않는다.
+//#tp-begin
+const TP_PREFIX = "강사설정_", TP_ID = /^[A-Za-z0-9_\-]{1,64}$/, TP_HHMM = /^([01]\d|2[0-3]):([0-5]\d)$/, TP_KEYS = ["active_start", "active_end", "tz", "publish_time", "ready_time", "notify", "snooze_until", "off_days"];
+const TP_DEFAULT = { active_start: "10:00", active_end: "22:00", tz: "Asia/Seoul", publish_time: "18:00", ready_time: "16:00", notify: true, snooze_until: null, off_days: [] };
+const TP_MAX_RIDS = 20;
+const tpDocName = (tid) => { if (typeof tid !== "string" || !TP_ID.test(tid)) throw new Error("강사 ID 형식 오류"); return TP_PREFIX + tid + ".json"; };
+const tpClone = (x) => JSON.parse(JSON.stringify(x));
+function tpDay(x) { if (typeof x !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(x)) throw new Error("날짜 형식 오류"); const d = new Date(x + "T00:00:00Z"); if (isNaN(d) || d.toISOString().slice(0, 10) !== x) throw new Error("없는 날짜"); return x; }
+function tpAwareIso(v) {
+  if (typeof v !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/.test(v) || isNaN(Date.parse(v))) throw new Error("시간대가 있는 시각이어야 해요");
+  return v;
+}
+function tpValidate(p) {   // 엄격 검증(저장용) → 정규화 사본. 틀리면 Error
+  if (!p || typeof p !== "object" || Array.isArray(p)) throw new Error("설정 형식 오류");
+  const bad = Object.keys(p).filter(k => !TP_KEYS.includes(k)); if (bad.length) throw new Error("알 수 없는 설정: " + bad.join(","));
+  const o = { ...tpClone(TP_DEFAULT), ...p };
+  for (const k of ["active_start", "active_end", "publish_time", "ready_time"]) if (typeof o[k] !== "string" || !TP_HHMM.test(o[k])) throw new Error(k + ": 시:분 형식이어야 해요");
+  try { new Intl.DateTimeFormat("en", { timeZone: o.tz }); } catch { throw new Error("tz: 알 수 없는 시간대"); }
+  if (typeof o.notify !== "boolean") throw new Error("notify: 켜짐/꺼짐이어야 해요");
+  o.snooze_until = o.snooze_until == null ? null : tpAwareIso(o.snooze_until);
+  if (!Array.isArray(o.off_days)) throw new Error("off_days: 목록이어야 해요");
+  o.off_days = [...new Set(o.off_days.map(tpDay))].sort();
+  if (o.active_start === o.active_end) throw new Error("시작과 끝이 같아요(24시간이면 00:00~23:59)");
+  return o;
+}
+function tpParse(raw, tid) {   // 읽기는 관대: 키별로 틀린 값만 기본값. 반환 {doc, warns}
+  const doc = { schema: 1, teacher_id: tid, rev: 0, updated_at: null, request_ids: [], prefs: tpClone(TP_DEFAULT), students: {} }, warns = [];
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return { doc, warns: ["설정 파일 형식이 달라 기본값을 보여 줘요"] };
+  if (raw.teacher_id != null && raw.teacher_id !== tid) return { doc, warns: ["다른 강사의 설정 파일이라 무시했어요"] };
+  if (Number.isInteger(raw.rev) && raw.rev >= 0) doc.rev = raw.rev;
+  doc.updated_at = typeof raw.updated_at === "string" ? raw.updated_at : null;
+  if (Array.isArray(raw.request_ids)) doc.request_ids = raw.request_ids.filter(r => typeof r === "string").slice(-TP_MAX_RIDS);
+  const p = raw.prefs && typeof raw.prefs === "object" && !Array.isArray(raw.prefs) ? raw.prefs : {};
+  for (const k of TP_KEYS) if (k in p) { try { doc.prefs = tpValidate({ ...doc.prefs, [k]: p[k] }); } catch (e) { warns.push(k + " 값 오류 — 기본값으로 보여 줘요"); } }
+  if (raw.students && typeof raw.students === "object" && !Array.isArray(raw.students)) for (const [sid, v] of Object.entries(raw.students)) {
+    if (TP_ID.test(sid) && v && typeof v === "object" && typeof v.publish_time === "string" && TP_HHMM.test(v.publish_time)) doc.students[sid] = { publish_time: v.publish_time };
+  }
+  return { doc, warns };
+}
+async function tpLoad(D, folder, tid) {   // D = {list, readJSON, writeJSON}. 파일 없음 → 기본값(rev 0). 읽기 실패·깨짐·중복 → error(저장 중단: 기존 값을 덮어쓰지 않는다)
+  let name; try { name = tpDocName(tid); } catch { return { state: "error", msg: "강사 ID에 쓸 수 없는 글자가 있어요(영문·숫자·_-만). 설정 저장을 막았어요" }; }
+  let files; try { files = (await D.list(folder)).filter(x => x.name === name); } catch { return { state: "error", msg: "설정 파일 위치를 확인하지 못했어요. 잠시 뒤 다시 눌러 주세요" }; }
+  if (files.length > 1) return { state: "error", msg: "설정 파일이 둘 이상이에요. 드라이브에서 확인이 필요해요(저장 중단)" };
+  if (!files.length) return { state: "ok", fileId: null, doc: tpParse(null, tid).doc, warns: [] };
+  let raw; try { raw = await D.readJSON(files[0].id); } catch { return { state: "error", msg: "설정 파일을 읽지 못했거나 깨져 있어요(저장·덮어쓰기 중단)" }; }
+  const r = tpParse(raw, tid); return { state: "ok", fileId: files[0].id, doc: r.doc, warns: r.warns };
+}
+function tpPatch(prefs, draft) {   // 바뀐 키만
+  const out = {}; for (const k of TP_KEYS) if (k in draft && JSON.stringify(draft[k]) !== JSON.stringify(prefs[k])) out[k] = draft[k];
+  return out;
+}
+const tpKst = (now) => new Date(now.getTime() + 9 * 3600e3).toISOString().slice(0, 19) + "+09:00";
+// 저장: 쓰기 직전에 다시 읽어 rev·request_id를 확인하고, 쓴 직후 한 번 더 읽어 확인한다(Drive에는 비교-교체가 없어 아주 짧은 틈은 남음).
+// kind: saved | duplicate(같은 요청 재시도 — 다시 쓰지 않음) | noop | conflict(저장 안 함, fresh=최신) | invalid | error(저장 안 함, 또는 unverified=쓴 뒤 확인 불가)
+async function tpSave(D, folder, tid, patch, expectedRev, requestId, now = new Date()) {
+  if (typeof requestId !== "string" || !requestId || requestId.length > 100) return { kind: "invalid", msg: "요청 번호가 없어요" };
+  const cur = await tpLoad(D, folder, tid);
+  if (cur.state !== "ok") return { kind: "error", msg: cur.msg, fresh: cur };
+  if (cur.doc.request_ids.includes(requestId)) return { kind: "duplicate", fresh: cur };
+  if (cur.doc.rev !== expectedRev) return { kind: "conflict", fresh: cur };
+  let prefs; try { prefs = tpValidate({ ...cur.doc.prefs, ...patch }); } catch (e) { return { kind: "invalid", msg: e.message, fresh: cur }; }
+  if (JSON.stringify(prefs) === JSON.stringify(cur.doc.prefs)) return { kind: "noop", fresh: cur };
+  const nd = { schema: 1, teacher_id: tid, rev: cur.doc.rev + 1, updated_at: tpKst(now), request_ids: [...cur.doc.request_ids, requestId].slice(-TP_MAX_RIDS), prefs, students: cur.doc.students };
+  try { await D.writeJSON(folder, tpDocName(tid), nd, cur.fileId || undefined); } catch (e) { return { kind: "error", msg: "저장 실패(기존 설정은 그대로예요): " + String(e?.message || e).slice(0, 80), fresh: cur }; }
+  const back = await tpLoad(D, folder, tid);
+  if (back.state !== "ok") return { kind: "error", unverified: true, msg: "저장했지만 확인하지 못했어요. 다시 불러와서 확인해 주세요", fresh: back };
+  if (back.doc.rev !== nd.rev || back.doc.request_ids.at(-1) !== requestId) return { kind: "conflict", fresh: back };
+  return { kind: "saved", fresh: back };
+}
+const tpWindowText = (s, e) => !TP_HHMM.test(s || "") || !TP_HHMM.test(e || "") ? "" : s === e ? "시작과 끝이 같으면 안 돼요" : e < s ? `${s}부터 다음날 ${e}까지(자정을 넘겨요)` : `${s}부터 ${e}까지`;
+function tpSnoozeText(iso, now) {   // 지금 기준 스누즈 상태 문구
+  if (!iso) return "꺼짐"; const t = Date.parse(iso); if (isNaN(t)) return "꺼짐";
+  if (t <= now.getTime()) return "끝남(지금은 알림 가능)";
+  const m = Math.ceil((t - now.getTime()) / 60000); return m >= 120 ? `약 ${Math.round(m / 60)}시간 뒤까지 쉬는 중` : `${m}분 뒤까지 쉬는 중`;
+}
+function tpHtml(L, draft, now, esc, msg, busy) {
+  if (!L) return `<p class="muted">확인 중…</p>`;
+  if (L.state !== "ok") return `<p style="color:var(--bad)">⚠ ${esc(L.msg)}</p><div class="row"><button class="small ghost" id="tpReload">다시 불러오기</button></div>`;
+  const p = { ...L.doc.prefs, ...draft }, chg = Object.keys(tpPatch(L.doc.prefs, draft)).length, dis = busy ? "disabled" : "";
+  const tm = (k, label) => `<label style="display:inline-block;margin:4px 10px 4px 0">${label} <input type="time" data-tpk="${k}" value="${esc(p[k])}" ${dis}></label>`;
+  const off = p.off_days.map(d => `<span class="chip">${esc(d)} <a href="#" data-tpoff="${esc(d)}" aria-label="${esc(d)} 쉬는 날 지우기">✕</a></span>`).join(" ") || `<span class="muted">없음</span>`;
+  return `<p class="muted" style="margin:6px 0">선생님 알림 메일을 언제 받을지 정해요. 저장해도 이미 보낸 알림이 다시 가지 않고, 수강생에게 가는 내용은 바뀌지 않아요.</p>
+    <label style="display:block;margin:6px 0"><input type="checkbox" data-tpk="notify" ${p.notify ? "checked" : ""} ${dis}> <b>작성 알림 받기</b></label>
+    <div>${tm("active_start", "활동 시작")}${tm("active_end", "활동 끝")}</div>
+    <div class="muted" id="tpWin">활동창: ${esc(tpWindowText(p.active_start, p.active_end))}</div>
+    <div>${tm("publish_time", "공개 시각(기본)")}${tm("ready_time", "준비 권장")}</div>
+    <div style="margin:6px 0">잠깐 쉬기: <b>${esc(tpSnoozeText(p.snooze_until, now))}</b> <button class="small ghost" data-tpsn="3" ${dis}>3시간</button> <button class="small ghost" data-tpsn="24" ${dis}>하루</button> <button class="small ghost" data-tpsn="0" ${dis}>해제</button></div>
+    <div style="margin:6px 0">쉬는 날: ${off}<div style="margin-top:4px"><input type="date" id="tpOffIn" ${dis}> <button class="small ghost" id="tpOffAdd" ${dis}>추가</button></div></div>
+    ${L.warns?.length ? `<p class="muted">${esc(L.warns.join(" · "))}</p>` : ""}
+    ${msg ? `<p>${esc(msg)}</p>` : ""}
+    <div class="muted">저장 번호 ${L.doc.rev}${L.doc.updated_at ? " · 마지막 저장 " + esc(L.doc.updated_at.slice(0, 16).replace("T", " ")) : " · 아직 저장한 적 없음(기본값)"}</div>
+    <div class="row" style="margin-top:6px"><button class="full" id="tpSave" ${busy || !chg ? "disabled" : ""}>${busy ? "처리 중…" : `설정 저장${chg ? ` (${chg}곳 바뀜)` : ""}`}</button><button class="small ghost" id="tpReload" ${dis}>다시 불러오기</button></div>`;
+}
+//#tp-end
+const tpSt = { loaded: null, draft: {}, busy: false, msg: "", open: false, rid: null };
+const tpTid = () => String(cfg?.teacher_id || "").trim() || "default";
+const tpDrive = () => ({ list, readJSON, writeJSON });
+const tpFolder = () => cfg?.system?.db_backup;
+async function tpRefresh(msg) {
+  const f = tpFolder(); tpSt.busy = true; if (msg !== undefined) tpSt.msg = msg; paintPrefs();
+  try { tpSt.loaded = f ? await tpLoad(tpDrive(), f, tpTid()) : { state: "error", msg: "설정 저장 위치(_시스템/db_backup)를 config에서 찾지 못했어요" }; }
+  catch (e) { tpSt.loaded = { state: "error", msg: "설정을 읽지 못했어요: " + errMsg(e) }; }
+  tpSt.busy = false; tpSt.draft = {}; paintPrefs();
+}
+async function tpCommit() {
+  const L = tpSt.loaded; if (tpSt.busy || L?.state !== "ok") return;
+  const patch = tpPatch(L.doc.prefs, tpSt.draft); if (!Object.keys(patch).length) return;
+  try { tpValidate({ ...L.doc.prefs, ...patch }); } catch (e) { tpSt.msg = "저장하지 않았어요: " + e.message; return paintPrefs(); }
+  // 같은 내용·같은 저장 번호의 재시도(응답 유실)는 같은 요청 번호를 써서 두 번 저장되지 않게 한다
+  const key = JSON.stringify([patch, L.doc.rev]);
+  if (tpSt.rid?.key !== key) tpSt.rid = { key, id: "tp-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8) };
+  tpSt.busy = true; tpSt.msg = ""; paintPrefs();
+  let r; try { r = await tpSave(tpDrive(), tpFolder(), tpTid(), patch, L.doc.rev, tpSt.rid.id); } catch (e) { r = { kind: "error", msg: "저장 실패(기존 설정은 그대로예요): " + errMsg(e) }; }
+  tpSt.busy = false;
+  if (r.kind === "saved" || r.kind === "duplicate") { tpSt.loaded = r.fresh; tpSt.draft = {}; tpSt.rid = null; tpSt.msg = r.kind === "saved" ? "저장했어요. 알림 메일에는 백엔드 연결(PR #91 병합)이 끝난 뒤부터 반영돼요." : "이미 저장된 요청이에요. 다시 쓰지 않았어요."; }
+  else if (r.kind === "noop") { tpSt.loaded = r.fresh; tpSt.draft = {}; tpSt.msg = "이미 같은 설정이에요."; }
+  else if (r.kind === "conflict") { tpSt.loaded = r.fresh; tpSt.draft = {}; tpSt.rid = null; tpSt.msg = "그 사이 다른 기기에서 설정이 바뀌었어요. 덮어쓰지 않고 최신 값을 불러왔으니 다시 골라 주세요."; }
+  else { tpSt.msg = r.msg || "저장하지 못했어요"; if (r.unverified) { tpSt.draft = {}; tpSt.loaded = null; } }   // 저장 실패는 고른 값을 남겨 다시 누를 수 있게(같은 요청 번호 재사용)
+  paintPrefs();
+}
+function paintPrefs() {
+  const box = $("prefsBox"); if (!box) return;
+  const L = tpSt.loaded, ok = L?.state === "ok", chip = !L ? "" : !ok ? "읽지 못함" : L.doc.prefs.notify ? "알림 켜짐" : "알림 꺼짐";
+  box.innerHTML = `<details class="card" id="tpDet" ${tpSt.open ? "open" : ""}><summary><b>⏰ 알림 시간·활동창</b> <span class="chip">${esc(chip)}</span></summary>${tpSt.open ? tpHtml(L, tpSt.draft, new Date(), esc, tpSt.msg, tpSt.busy) : ""}</details>`;
+  const det = box.querySelector("details");
+  det.ontoggle = () => { const was = tpSt.open; tpSt.open = det.open; if (det.open && !was) { paintPrefs(); if (!tpSt.loaded && !tpSt.busy) tpRefresh(); } };
+  const redraw = () => { tpSt.msg = ""; paintPrefs(); };
+  box.querySelectorAll("[data-tpk]").forEach(el => el.onchange = () => { if (tpSt.busy) return; tpSt.draft[el.dataset.tpk] = el.type === "checkbox" ? el.checked : el.value; redraw(); });
+  box.querySelectorAll("[data-tpsn]").forEach(b => b.onclick = () => { if (tpSt.busy) return; const h = +b.dataset.tpsn; tpSt.draft.snooze_until = h ? new Date(Date.now() + h * 3600e3).toISOString().replace(/\.\d+Z$/, "+00:00") : null; redraw(); });
+  box.querySelectorAll("[data-tpoff]").forEach(a => a.onclick = (e) => { e.preventDefault(); if (tpSt.busy) return; const cur = tpSt.draft.off_days ?? tpSt.loaded.doc.prefs.off_days; tpSt.draft.off_days = cur.filter(d => d !== a.dataset.tpoff); redraw(); });
+  const add = $("tpOffAdd"); if (add) add.onclick = () => { const v = $("tpOffIn").value; try { tpDay(v); } catch { tpSt.msg = "날짜를 골라 주세요"; return paintPrefs(); }
+    const cur = tpSt.draft.off_days ?? tpSt.loaded.doc.prefs.off_days; tpSt.draft.off_days = [...new Set([...cur, v])].sort(); redraw(); };
+  const sv = $("tpSave"); if (sv) sv.onclick = tpCommit;
+  const rl = $("tpReload"); if (rl) rl.onclick = () => tpRefresh("");
 }
 
 // ── 카톡 개인화 후보 검토 (#83 2단계): 개인화_후보.json 읽기 → 반영/제외 선택 → 후보 status만 저장 ──
