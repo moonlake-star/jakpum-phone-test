@@ -1595,6 +1595,73 @@ function msMock() {   // 화면 예시 전용(저장 안 함, 초안으로 넣�
   return { source: "mock", status: "done", draft: "(예시) 후렴 끝음이 지난번보다 안정적으로 들렸어요. 다음엔 숨을 한 박 먼저 쉬어 보세요.", evidence: [{ point: "예시 항목", measured: false }] };
 }
 //#ms-end
+// ── 과제 AI 분석 '요청 큐' (#74 앱 2단계) ─────────────────────────────────────
+// 버튼은 분석을 시작하지 않는다. 큐 폴더에 `요청_<sid>_<fileid>.json`(백엔드 mission_job.parse_request 계약) 1개만 저장하고,
+// 실제 분석은 서버 실행기(python -m jakpum.mission_queue)가 따로 돌 때 시작된다. 서버가 승인·허용 수강생을 다시 확인하므로 앱 판단은 1차 안내일 뿐이다.
+// 원본 과제 파일·검수.json·수강생기록은 쓰지 않는다. 쓰는 것은 요청 파일 하나뿐.
+//#mq-begin
+const MQ_ID = /^[A-Za-z0-9_\-]{1,100}$/, MQ_FOLDER = /^[A-Za-z0-9_\-]{10,100}$/, MQ_MAX = 4096, mqBusy = new Set();
+const mqReqName = (sid, fid) => `요청_${sid}_${fid}.json`, mqStatusName = (sid, fid) => `상태_${sid}_${fid}.json`;
+function mqGate(cfg, sid) {   // 기본 닫힘: 모든 조건이 맞아야 연다
+  const m = cfg?.mission_ai, st = cfg?.students?.[sid];
+  if (!m || m.enabled !== true) return { ok: false, why: "AI 분석 요청 기능이 꺼져 있어요" };
+  if (typeof m.queue_folder !== "string" || !MQ_FOLDER.test(m.queue_folder)) return { ok: false, why: "요청 큐 폴더 설정이 올바르지 않아요" };
+  if (typeof sid !== "string" || !MQ_ID.test(sid) || !st) return { ok: false, why: "수강생 정보를 확인할 수 없어요" };
+  if (!Array.isArray(m.allowed_students) || !m.allowed_students.includes(sid)) return { ok: false, why: "이 수강생은 AI 분석 요청이 허용되지 않았어요" };
+  if (st.consent_withdrawn || st.status === "test") return { ok: false, why: "이 수강생은 AI 분석을 요청할 수 없어요" };
+  return { ok: true, why: "", folder: m.queue_folder };
+}
+function mqBuild(sid, fid, now, force) {
+  const o = { type: "mission_analyze", student_id: sid, file_id: fid, received_at: now.toISOString().replace(/\.\d+Z$/, "+00:00") };
+  if (force) o.force = true;
+  return o;
+}
+const mqBytes = (o) => new TextEncoder().encode(JSON.stringify(o, null, 1)).length;
+async function mqState(io, cfg, sid, fid) {   // 읽기 전용(Drive 쓰기·유료 호출 없음)
+  const g = mqGate(cfg, sid), mk = (key, label, tone = "", x = {}) => ({ key, label, tone, canRequest: false, canRetry: false, ...x });
+  if (!g.ok) return mk("disabled", g.why);
+  if (typeof fid !== "string" || !MQ_ID.test(fid)) return mk("error", "과제 파일 번호가 올바르지 않아 요청할 수 없어요", "todo");
+  try {
+    const files = await io.list(g.folder), req = files.find(f => f.name === mqReqName(sid, fid)), stf = files.find(f => f.name === mqStatusName(sid, fid));
+    if (!req) return mk("none", "아직 요청 안 함", "", { canRequest: true });
+    if (!stf) return mk("waiting", "요청 저장됨 · 서버 실행 대기 중(서버에서 수동 실행해야 분석이 시작돼요)", "todo", { reqId: req.id });
+    if (Number(req.size) > MQ_MAX) return mk("error", "요청 파일이 비정상적으로 커서 읽지 않았어요", "todo");
+    const [rq, s] = await Promise.all([io.readJSON(req.id), io.readJSON(stf.id)]);
+    if (!s || typeof s !== "object" || (s.submission_id && s.submission_id !== `${sid}:${fid}`)) return mk("error", "서버 상태 파일이 이 과제와 맞지 않아 표시하지 않아요", "todo", { reqId: req.id });
+    if (s.request_received_at !== rq?.received_at) return mk("waiting", "새 요청 저장됨 · 서버 실행 대기 중(수동 실행 필요)", "todo", { reqId: req.id });
+    const note = s.reason ? ` (${String(s.reason).slice(0, 80)})` : "";
+    if (s.status === "failed") return mk("failed", `분석 실패${note} — 다시 요청할 수 있어요`, "todo", { canRetry: true, reqId: req.id });
+    if (s.status === "deferred") return mk("deferred", `보류됨${note} — 서버가 다시 실행할 때 처리돼요`, "todo", { reqId: req.id });
+    if (s.status === "rejected") return mk("rejected", `서버가 거부했어요${note}`, "todo", { reqId: req.id });
+    if (s.status !== "done") return mk("error", "알 수 없는 서버 상태라 표시하지 않아요", "todo", { reqId: req.id });
+    const store = await io.readStore(sid), it = store?.items?.[`${sid}:${fid}`];
+    if (!it || it.student_id !== sid || it.source_file_id !== fid || it.submission_id !== `${sid}:${fid}`) return mk("unverified", "서버 완료 표시는 있지만 분석 결과를 확인할 수 없어요", "todo", { reqId: req.id });
+    const limited = s.limited !== false || s.mode !== "paid" || it.status === "limited";   // 유료 AI 완료가 확실할 때만 ‘제한적’이 아님
+    return limited ? mk("done_limited", "제한적 무료 결과(AI 분석 완료 아님) — 근거가 적어 단정하지 않았어요", "ok", { reqId: req.id })
+                   : mk("done_ai", "서버 AI 분석 완료", "ok", { reqId: req.id });
+  } catch (e) { return mk("error", `상태를 읽지 못했어요(다시 눌러 보세요): ${String(e?.message || e).slice(0, 80)}`, "todo"); }
+}
+// 사용자가 버튼을 눌렀을 때만 호출. 성공 시 요청 파일 1개만 씀. isApproved(sid) = 승인 미션 1차 확인(서버가 다시 확인)
+async function mqRequest(io, cfg, sid, fid, isApproved, now = new Date()) {
+  const key = `${sid}:${fid}`;
+  if (mqBusy.has(key)) return { ok: false, wrote: false, msg: "요청을 저장하는 중이에요" };
+  mqBusy.add(key);
+  try {
+    const g = mqGate(cfg, sid);
+    if (!g.ok) return { ok: false, wrote: false, msg: g.why };
+    let approved = false;
+    try { approved = (await isApproved(sid)) === true; } catch { approved = false; }
+    if (!approved) return { ok: false, wrote: false, msg: "승인된 미션을 확인하지 못해 요청하지 않았어요(강사 승인 후 다시)" };
+    const st = await mqState(io, cfg, sid, fid);
+    if (!st.canRequest && !st.canRetry) return { ok: false, wrote: false, msg: st.key === "none" ? "요청할 수 없어요" : st.label };
+    const body = mqBuild(sid, fid, now, st.canRetry);
+    if (mqBytes(body) > MQ_MAX) return { ok: false, wrote: false, msg: "요청 내용이 너무 커요" };
+    try { await io.write(g.folder, mqReqName(sid, fid), body, st.canRetry ? st.reqId : undefined); }
+    catch (e) { return { ok: false, wrote: false, msg: `요청을 저장하지 못했어요. 다시 눌러 주세요: ${String(e?.message || e).slice(0, 80)}` }; }
+    return { ok: true, wrote: true, msg: "요청을 저장했어요. 분석은 아직 시작 전이고, 서버에서 실행해야 시작돼요" };
+  } finally { mqBusy.delete(key); }
+}
+//#mq-end
 function msPanel(r, sid) {
   const stt = msStatus(r, sid), m = msMission(r, sid), a = r.ai;
   const miss = m.state === "approved" ? `<span class="chip ok">승인된 미션</span> ${esc(m.text)}` : `<span class="chip todo">연결된 승인 미션 없음</span> <span class="muted">승인 미션을 서버가 확인하기 전에는 비교하지 않아요</span>`;
@@ -1605,7 +1672,36 @@ function msPanel(r, sid) {
   return `<div class="msbox" style="margin:6px 0;padding:6px;border:1px dashed var(--line)">
       <div><b>AI 분석</b> <span class="chip ${stt.tone}">${esc(stt.label)}</span></div>
       <div style="margin:4px 0">${miss}</div>${draft}
+      ${mqGate(cfg, sid).ok ? `<div class="mqbox" style="margin:4px 0"><span class="muted">요청 상태 확인 중…</span></div>` : ""}
       <button class="small ghost" data-aimock>예시 화면 보기(실제 분석 아님)</button><div class="msmock hidden"></div></div>`;
+}
+// 요청 큐 버튼/상태(실제 Drive 연결). 버튼은 ‘요청 저장’만 한다 — 분석 시작이 아님
+const mqIO = {
+  list: (id) => gList(id), readJSON: (id) => gJSON(id), write: (folder, name, obj, id) => writeJSON(folder, name, obj, id),
+  readStore: async (sid) => { const f = cfg.students[sid]?.folder; if (!f) return null; const x = (await gList(f)).find(y => y.name === "과제분석.json"); return x ? gJSON(x.id) : null; },
+};
+async function mqApproved(sid) {   // 1차 확인: 이 수강생 레슨 중 강사 미션 승인이 적힌 검수.json 이 있는가(서버가 다시 확인)
+  const root = cfg.students[sid]?.sub?.["02_레슨"]; if (!root) return false;
+  for (const l of (await gList(root)).filter(f => f.mimeType.endsWith("folder"))) {
+    const rf = (await gList(l.id)).find(f => f.name === REVIEW); if (!rf) continue;
+    const ma = (await gJSON(rf.id).catch(() => ({}))).mission_approved;
+    if (ma && typeof ma === "object" && ma.lesson_id && ma.mission_id && ma.approved_at) return true;
+  }
+  return false;
+}
+async function mqPaint(card, sid, fid, msg) {
+  const box = card.querySelector(".mqbox"); if (!box) return;
+  const s = await mqState(mqIO, cfg, sid, fid);
+  box.innerHTML = `<div><span class="chip ${s.tone}">${esc(s.label)}</span></div>${msg ? `<div class="muted">${esc(msg)}</div>` : ""}
+    <div class="muted" style="font-size:.82rem">‘AI 분석 요청’은 요청만 저장해요. 바로 분석하지 않고, 서버에서 실행해야 시작돼요(승인된 과제만 처리).</div>
+    ${s.canRequest || s.canRetry ? `<button class="small" data-mqreq>${s.canRetry ? "다시 요청" : "AI 분석 요청(대기열에 저장)"}</button>` : ""}
+    <button class="small ghost" data-mqrefresh>상태 새로고침</button>`;
+  box.querySelector("[data-mqrefresh]").onclick = () => mqPaint(card, sid, fid);
+  box.querySelector("[data-mqreq]")?.addEventListener("click", async (ev) => {
+    ev.target.disabled = true;
+    const r = await mqRequest(mqIO, cfg, sid, fid, mqApproved);
+    toast(r.msg); mqPaint(card, sid, fid, r.msg);
+  });
 }
 let subsCur = null;
 async function openSubs(sid, box) {
@@ -1635,6 +1731,7 @@ async function openSubs(sid, box) {
     card.querySelector(".reply").oninput = (e) => { rec.reply = e.target.value; };
     const persist = async (msg) => { rec.reply = card.querySelector(".reply").value.trim();
       try { await writeJSON(subsCur.folder, SUBS, subsCur.recs, subsCur.recId); toast(msg); openStudent(sid, "subs"); } catch (e) { toast(e.message); } };
+    mqPaint(card, sid, rec.id);
     card.querySelector("[data-aimock]")?.addEventListener("click", () => {
       const box = card.querySelector(".msmock"), mk = msMock(rec);
       box.innerHTML = `<div class="chip todo">예시 화면 — 실제 분석이 아니고 저장·전송되지 않아요</div><div class="card" style="white-space:pre-wrap">${esc(mk.draft)}</div>`;
