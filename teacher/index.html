@@ -964,7 +964,7 @@ function paintDeliver() {
 }
 function paintLessonsTab(sid) {
   const st = cfg.students[sid], rows = st._rows || [];
-  $("stuTab").innerHTML = `<div id="stuBrief"></div><div id="stuGrowth4"></div><div id="stuKakao"></div><div class="card">` + (rows.length ? rows.map((r, i) => r.err ? `<div class="lesson retry" data-i="${i}" title="${esc(r.err)}"><span>${esc(r.l.name)}</span><span class="chip todo">불러오기 실패(다시 시도)</span></div>`
+  $("stuTab").innerHTML = `<div id="stuBrief"></div><div id="stuGrowth4"></div><div id="stuKakao"></div><div id="stuKakaoCand"></div><div class="card">` + (rows.length ? rows.map((r, i) => r.err ? `<div class="lesson retry" data-i="${i}" title="${esc(r.err)}"><span>${esc(r.l.name)}</span><span class="chip todo">불러오기 실패(다시 시도)</span></div>`
     : `<div class="lesson" data-i="${i}"><span>${esc(r.l.name)}</span><span class="row" style="gap:4px"><span class="chip ${r.fb ? "ok" : "todo"}">${r.fb ? "피드백 ✓" : "피드백 전"}</span>${cfg.practice_check ? `<span class="chip ${r.ck ? "ok" : ""}">${r.ck ? "점검 ✓" : "점검 –"}</span>` : ""}</span></div>`).join("")
     : `<p class="muted">아직 레슨 녹음이 없어요. 녹음이 정리되면 여기에 날짜별로 생기고, 누르면 검수 화면이 열립니다.</p>`) + `</div>`;
   $("stuTab").querySelectorAll(".lesson").forEach(el => el.onclick = () => rows[+el.dataset.i]?.err
@@ -972,6 +972,8 @@ function paintLessonsTab(sid) {
   prefetchLessons([{ rows }]);
   paintBriefing(sid);
   paintKakaoImport(sid);
+  { const k = kcS(sid); if (!k.busy) { k.loaded = null; k.draft = {}; k.msg = ""; } }   // 학생 화면을 열 때마다 최신 후보를 다시 읽는다
+  paintKakaoCand(sid);
 }
 
 // ── 카톡 대화 가져오기 (#83): 붙여넣기/TXT → 요약 미리보기 → 수강생 폴더의 전용 파일에만 저장 ──
@@ -1134,6 +1136,114 @@ function paintKakaoImport(sid) {
   };
   kkPreview(sid);
   if (!s.saved) kkLoadSaved(sid);
+}
+
+// ── 카톡 개인화 후보 검토 (#83 2단계): 개인화_후보.json 읽기 → 반영/제외 선택 → 후보 status만 저장 ──
+// 앱은 후보 파일의 status(+revision)만 바꾼다. 강사·수강생 프로필은 앱이 절대 쓰지 않는다(수집기가 승인분만 반영).
+// '완료'라고 쓰지 않는다: 수집기가 반영 기록(applied)을 남기기 전까지는 '반영 전'이다. 실기기·실제 Drive 미검증.
+//#kc-begin
+const KC_NAME = "개인화_후보.json", KC_STATUS = ["pending", "approved", "excluded"], KC_TYPES = ["teacher_style", "student_reaction"];
+const KC_CONF = { high: "높음", medium: "보통", low: "낮음" }, KC_KIND = { direct_statement: "직접 한 말", followup_action: "과제 뒤 실제 연습 보고", thanks: "칭찬 뒤 감사 표현" };
+function kcValidate(doc, sid) {   // 문제 있으면 이유 문자열, 괜찮으면 null
+  if (!doc || typeof doc !== "object" || Array.isArray(doc)) return "후보 파일 형식이 달라서 열지 않았어요";
+  if (doc.sid !== sid) return "다른 수강생의 후보 파일이라 열지 않았어요";
+  if (!Number.isInteger(doc.revision) || !Array.isArray(doc.candidates)) return "후보 파일 형식이 달라서 열지 않았어요";
+  const ids = new Set();
+  for (const c of doc.candidates) {
+    if (!c || typeof c !== "object" || typeof c.id !== "string" || !c.id || ids.has(c.id)) return "후보 번호가 비었거나 겹쳐서 열지 않았어요";
+    ids.add(c.id);
+    if (!KC_TYPES.includes(c.type) || !KC_STATUS.includes(c.status)) return "알 수 없는 후보 종류/상태가 있어 열지 않았어요";
+  }
+  return null;
+}
+function kcApply(doc, decisions) {   // → {err} | {doc(새 사본, revision+1), changed}. status 외 필드는 건드리지 않는다.
+  const out = JSON.parse(JSON.stringify(doc)), by = new Map(out.candidates.map(c => [c.id, c]));
+  let changed = 0;
+  for (const [id, v] of Object.entries(decisions || {})) {
+    if (!by.has(id)) return { err: "목록에 없는 후보가 있어요(다시 불러와 주세요)" };
+    if (!KC_STATUS.includes(v)) return { err: "알 수 없는 선택이에요" };
+    if (by.get(id).status !== v) { by.get(id).status = v; changed++; }
+  }
+  if (changed) out.revision = doc.revision + 1;
+  return { doc: out, changed };
+}
+async function kcLoad(D, folder, sid) {   // D = {list, readJSON, writeJSON}
+  let files;
+  try { files = (await D.list(folder)).filter(x => x.name === KC_NAME); } catch { return { state: "error", msg: "후보 파일 위치를 확인하지 못했어요. 잠시 뒤 다시 눌러 주세요" }; }
+  if (!files.length) return { state: "waiting" };
+  if (files.length > 1) return { state: "error", msg: "후보 파일이 둘 이상이에요. 드라이브에서 확인이 필요해요(저장 중단)" };
+  let doc; try { doc = await D.readJSON(files[0].id); } catch { return { state: "error", msg: "후보 파일을 읽지 못했거나 깨져 있어요(저장·덮어쓰기 중단)" }; }
+  const bad = kcValidate(doc, sid); if (bad) return { state: "error", msg: bad };
+  return { state: "ok", fileId: files[0].id, doc };
+}
+// 쓰기 직전 재확인(Drive에는 원자적 비교-교체가 없어 아주 짧은 틈은 남는다) + 쓴 직후 다시 읽어 확인. 어긋나면 conflict.
+async function kcSave(D, folder, sid, loaded, decisions) {
+  const fresh = await kcLoad(D, folder, sid);
+  if (fresh.state !== "ok") return { kind: "error", msg: fresh.msg || "후보 파일이 없어져서 저장하지 않았어요", fresh };
+  if (fresh.fileId !== loaded.fileId || JSON.stringify(fresh.doc) !== JSON.stringify(loaded.doc)) return { kind: "conflict", fresh };
+  const r = kcApply(fresh.doc, decisions); if (r.err) return { kind: "error", msg: r.err, fresh };
+  if (!r.changed) return { kind: "noop", fresh };
+  try { await D.writeJSON(folder, KC_NAME, r.doc, fresh.fileId); } catch (e) { return { kind: "error", msg: "저장 실패: " + String(e?.message || e).slice(0, 80), fresh }; }
+  const back = await kcLoad(D, folder, sid);
+  if (back.state !== "ok" || JSON.stringify(back.doc) !== JSON.stringify(r.doc)) return { kind: "conflict", fresh: back };
+  return { kind: "saved", fresh: back, changed: r.changed };
+}
+function kcStatusText(c) {   // '완료' 금지: 수집기가 applied 를 남긴 것만 '반영 기록 있음'
+  if (c.status === "pending") return "검토 대기";
+  if (c.status === "approved") return c.applied ? "승인됨 · 수집기가 프로필에 반영한 기록이 있어요" : "승인됨 · 아직 프로필에 반영 전(다음 자동 수집 때 반영되며, 반영 기능이 꺼져 있으면 반영되지 않아요)";
+  return c.applied ? "제외됨 · 이미 반영된 내용은 다음 자동 수집 때 지워져요" : "제외됨";
+}
+function kcCardHtml(c, draft, studentName, esc) {
+  const v = draft ?? c.status, t = c.type === "teacher_style";
+  const who = t ? "화자: 선생님(문체 후보 — 학생 이름·내용은 가려진 골격)" : `화자: 수강생 ${esc(studentName)}(반응 후보)`;
+  const conf = t ? "" : ` · 신뢰도 <b>${esc(KC_CONF[c.confidence] || "알 수 없음")}</b>${c.confidence === "low" ? "(낮은 신호 — 확정 근거로 쓰지 마세요)" : ""}`;
+  const body = t
+    ? `샘플 ${Number(c.n) || (c.samples || []).length}개 ${Object.keys(c.emoji_tokens || {}).length ? "· 이모지/표현 " + esc(Object.keys(c.emoji_tokens).slice(0, 8).join(" ")) : ""}<br>${(c.samples || []).slice(0, 3).map(s => "“" + esc(String(s.text || "").slice(0, 60)) + "”").join(" ")}`
+    : `${esc(KC_KIND[c.kind] || c.kind || "")} · ${esc(c.category || "")}<br>근거: “${esc(String(c.evidence || "").slice(0, 120))}” ${c.at ? `<span class="muted">${esc(String(c.at).slice(0, 10))}</span>` : ""}`;
+  const btn = (val, label) => `<button class="small ${v === val ? "" : "ghost"}" data-kcid="${esc(c.id)}" data-kcv="${val}">${label}</button>`;
+  return `<div class="card" style="margin:6px 0"><div class="muted">${who}${conf}</div><div style="line-height:1.6">${body}</div>
+    <div class="row" style="margin-top:4px">${btn("approved", "반영")}${btn("excluded", "제외")}${btn("pending", "보류")}</div>
+    <div class="muted" style="margin-top:2px">현재 저장된 상태: ${esc(kcStatusText(c))}${draft && draft !== c.status ? ' · <b>선택 변경됨(아직 저장 전)</b>' : ""}</div></div>`;
+}
+//#kc-end
+const kcSt = {};   // sid별 상태(메모리에만)
+const kcS = (sid) => kcSt[sid] ??= { loaded: null, draft: {}, busy: false, msg: "" };
+const kcDrive = () => ({ list, readJSON, writeJSON });
+async function kcRefresh(sid, msg) {
+  const st = cfg.students[sid], s = kcS(sid); s.busy = true; if (msg !== undefined) s.msg = msg; paintKakaoCand(sid);
+  try { s.loaded = await kcLoad(kcDrive(), st.folder, sid); } finally { s.busy = false; }
+  s.draft = {}; paintKakaoCand(sid);
+}
+async function kcCommit(sid) {
+  const st = cfg.students[sid], s = kcS(sid); if (s.busy || s.loaded?.state !== "ok") return;
+  const dec = Object.fromEntries(Object.entries(s.draft).filter(([id, v]) => s.loaded.doc.candidates.find(c => c.id === id)?.status !== v));
+  if (!Object.keys(dec).length) { s.msg = "바꾼 선택이 없어요."; return paintKakaoCand(sid); }
+  s.busy = true; s.msg = ""; paintKakaoCand(sid);
+  let r;
+  try { r = await kcSave(kcDrive(), st.folder, sid, s.loaded, dec); } catch (e) { r = { kind: "error", msg: "저장 실패: " + errMsg(e) }; }
+  s.busy = false;
+  if (r.kind === "saved") { s.loaded = r.fresh; s.draft = {}; s.msg = `선택 ${r.changed}건을 저장했어요. 프로필에는 아직 안 들어갔어요 — 다음 자동 수집 때(반영 기능이 켜져 있을 때만) 반영돼요.`; }
+  else if (r.kind === "noop") { s.loaded = r.fresh; s.draft = {}; s.msg = "이미 같은 선택으로 저장돼 있어요. 다시 쓰지 않았어요."; }
+  else if (r.kind === "conflict") { s.loaded = r.fresh; s.draft = {}; s.msg = "그 사이 후보가 바뀌었어요(새 대화 분석 또는 다른 기기 저장). 최신 내용을 다시 불러왔으니 선택을 다시 해 주세요."; }
+  else { s.msg = r.msg; if (r.fresh?.state) s.loaded = r.fresh; }
+  paintKakaoCand(sid);
+}
+function paintKakaoCand(sid) {
+  const box = $("stuKakaoCand"), st = cfg.students[sid], s = kcS(sid); if (!box || stuCur?.sid !== sid) return;
+  const L = s.loaded, doc = L?.state === "ok" ? L.doc : null, cs = doc ? doc.candidates : [];
+  const n = (x) => cs.filter(c => c.status === x).length, nChg = Object.keys(s.draft).filter(id => cs.find(c => c.id === id)?.status !== s.draft[id]).length;
+  const chip = !L ? "확인 중…" : L.state === "waiting" ? "학습 대기" : L.state === "error" ? "읽지 못함" : `검토 대기 ${n("pending")} · 승인 ${n("approved")} · 제외 ${n("excluded")}`;
+  box.innerHTML = `<details class="card" id="kcDet" ${doc && n("pending") ? "open" : ""}><summary><b>🧠 문체·반응 후보 검토</b> <span class="chip ${doc && n("pending") ? "todo" : ""}">${esc(chip)}</span></summary>
+    <p class="muted" style="margin:6px 0">${esc(st.name)}(${esc(sid)}) 님 대화에서 뽑은 후보예요. <b>반영</b>을 고른 것만 다음 자동 수집 때 프로필에 들어가고, <b>제외·보류</b>는 쓰지 않아요. 이 화면은 선택만 저장하며 프로필을 직접 바꾸지 않아요.</p>
+    ${!L ? "" : L.state === "waiting" ? `<p>학습 대기 — 후보 파일이 아직 없어요. 카톡 대화를 저장해도 자동 수집이 이 기능을 켜 두었을 때만 후보가 만들어져요.</p>`
+      : L.state === "error" ? `<p style="color:var(--bad)">⚠ ${esc(L.msg)}</p>` : cs.length ? cs.map(c => kcCardHtml(c, s.draft[c.id], st.name, esc)).join("") : `<p class="muted">후보가 없어요(쓸 만한 내용을 못 찾았어요).</p>`}
+    ${s.msg ? `<p>${esc(s.msg)}</p>` : ""}
+    <div class="row" style="margin-top:6px"><button class="full" id="kcSave" ${s.busy || !nChg ? "disabled" : ""}>${s.busy ? "처리 중…" : `선택 저장${nChg ? ` (${nChg}건)` : ""}`}</button><button class="small ghost" id="kcReload" ${s.busy ? "disabled" : ""}>다시 불러오기</button></div></details>`;
+  const det = box.querySelector("details"); if (s.open) det.open = true; det.ontoggle = () => { s.open = det.open; };
+  box.querySelectorAll("[data-kcid]").forEach(b => b.onclick = () => { if (s.busy) return; s.draft[b.dataset.kcid] = b.dataset.kcv; s.msg = ""; paintKakaoCand(sid); });
+  $("kcSave").onclick = () => kcCommit(sid);
+  $("kcReload").onclick = () => kcRefresh(sid, "");
+  if (!L && !s.busy) kcRefresh(sid);
 }
 
 // ── 과제 제출 (카톡 → 공유 → 보컬노트) ─────────────────────
