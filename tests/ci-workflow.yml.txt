@@ -1,0 +1,20 @@
+name: tests
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  node-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      # 운영 키·시크릿 불필요: 모든 시험은 가짜 Drive/가짜 caches만 사용
+      - name: tests/*.test.js 각각 독립 실행
+        run: |
+          set -e
+          for f in tests/*.test.js; do echo "== $f"; node "$f"; done
