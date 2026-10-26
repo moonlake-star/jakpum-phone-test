@@ -54,7 +54,8 @@ function saved() { const v = LS.get("sn_tok"); return v && exp(v) > Date.now() +
 function loginView(msg) {
   $("view").innerHTML = `<div class="card"><h2>로그인</h2>
     <p>선생님이 보내 드린 레슨 노트를 보려면 <b>구글 계정</b>으로 로그인해 주세요. 처음 한 번만 선생님 승인이 필요해요.</p>
-    <div id="gbtn" style="margin:12px 0"></div><p class="muted">${esc(msg || "")}</p></div>`;
+    <div id="gbtn" style="margin:12px 0"></div><p class="muted">${esc(msg || "")}</p>
+    <p class="muted"><a href="privacy.html" style="color:var(--accent)">개인정보 처리 안내</a></p></div>`;
   if (STUDENT_CLIENT_ID.startsWith("__")) { $("gbtn").innerHTML = `<p class="muted">아직 준비 중이에요(선생님 설정 전).</p>`; return; }
   const go = () => {
     if (!window.google?.accounts?.id) return setTimeout(go, 300);
