@@ -83,14 +83,16 @@
   .cand { border-top:1px solid var(--line); padding:10px 0; }
   .cand:first-child { border-top:0; }
   /* 보내기/기록만/빼기: 한 줄 3칸 버튼(라디오), 칸마다 손가락 크기 40px 이상 */
-  .segcap { font-size:.78rem; color:var(--muted); margin:8px 0 3px; }
-  .seg { display:flex; gap:8px; }
-  .seg label { flex:1 1 0; min-height:40px; display:flex; align-items:center; justify-content:center; white-space:nowrap;
-    font-weight:600; color:var(--accent); cursor:pointer; position:relative; user-select:none;
-    border:2px solid var(--line); border-radius:999px; }
-  .seg input { position:absolute; opacity:0; inset:0; margin:0; cursor:pointer; }
-  .seg label.on { background:var(--accent); color:var(--on-accent); border-color:var(--accent); }
-  .seg label:focus-within { outline:3px solid var(--accent); outline-offset:-5px; }
+  /* 클립 처리: 하나만 켜지는 3칸 토글(라디오). 켜진 칸 = 채운 배경 + ✓ + 굵은 테두리, 꺼진 칸 = 흐린 글자. 색만으로 구분하지 않음 */
+  .pickcap { font-size:.78rem; color:var(--muted); margin:8px 0 3px; }
+  .pick { display:flex; gap:4px; padding:4px; border-radius:999px; background:var(--bg); border:1px solid var(--line); }
+  .pick label { flex:1 1 0; min-height:40px; display:flex; align-items:center; justify-content:center; gap:4px; white-space:nowrap;
+    font-weight:600; color:var(--muted); cursor:pointer; position:relative; user-select:none; border-radius:999px; border:2px solid transparent; }
+  .pick input { position:absolute; opacity:0; inset:0; margin:0; cursor:pointer; }
+  .pick label .ck { display:none; }
+  .pick label.on { background:var(--accent); color:var(--on-accent); border-color:var(--fg); font-weight:800; }
+  .pick label.on .ck { display:inline; }
+  .pick label:focus-within { outline:3px solid var(--accent); outline-offset:2px; }
   audio { width:100%; margin:6px 0; }
   select, input, textarea { font:inherit; border-radius:10px; border:1px solid var(--line); background:var(--bg); color:var(--fg); padding:6px 8px; }
   textarea { width:100%; min-height:160px; }
@@ -1355,10 +1357,10 @@ function renderCands() {
         ${c.kind === "manual" ? `<span class="chip">직접 추가${clip ? "" : " · 다음 실행 때 클립 생성"}</span>` : ""}
         ${c.reason || c.note ? `<span class="muted">${esc(c.reason || c.note)}</span>` : ""}</div>
       <div class="row" style="margin-top:4px">${clip ? `<button class="small ghost" data-play="${clip.id}">▶ 듣기</button>` : ""}${mkButton(c.id)}</div>
-      <div class="segcap">이 클립을 오늘 피드백에</div>
-      <div class="seg" role="radiogroup" aria-label="${esc(c.id)} 처리">
+      <div class="pickcap">이 클립을 오늘 피드백에 (하나만 선택)</div>
+      <div class="pick" role="radiogroup" aria-label="${esc(c.id)} 처리">
         ${[["send", "보내기"], ["keep", "기록만"], ["drop", "빼기"]].map(([v, t]) =>
-          `<label class="${d === v ? "on" : ""}"><input type="radio" name="d_${esc(c.id)}" value="${v}" ${d === v ? "checked" : ""}>${t}</label>`).join("")}
+          `<label class="${d === v ? "on" : ""}"><input type="radio" name="d_${esc(c.id)}" value="${v}" ${d === v ? "checked" : ""}><span class="ck" aria-hidden="true">✓</span>${t}</label>`).join("")}
       </div>
       <input class="cnote ${d === "send" ? "" : "hidden"}" data-c="${esc(c.id)}" placeholder="좋았던 점 한 줄 (예: 고음 끝까지 호흡 유지)" value="${esc(cur.review.notes?.[c.id] ?? c.note ?? "")}" style="width:100%;margin-top:4px">
       </div>`;
@@ -1367,7 +1369,7 @@ function renderCands() {
     const bumped = setDecision(cur.review, r.name.slice(2), r.value, allCands().map(c => c.id));
     if (bumped) { toast(`보내기는 최대 ${MAX_GOOD}개 — 가장 먼저 고른 ${bumped}은 ‘기록만’으로 바꿨어요`); renderCands(); return; }
     r.closest(".cand").querySelector(".cnote").classList.toggle("hidden", r.value !== "send");
-    r.closest(".seg").querySelectorAll("label").forEach(l => l.classList.toggle("on", l.contains(r)));
+    r.closest(".pick").querySelectorAll("label").forEach(l => l.classList.toggle("on", l.contains(r)));
     paintSendCount();
   });
   paintSendCount();
@@ -1460,7 +1462,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-26-0940";
+const BUILD = "2026-10-26-1040";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
@@ -1519,7 +1521,28 @@ async function saveReview(quiet = false) {
 }
 $("btnSave").onclick = () => saveReview();
 $("btnFbRegen").onclick = () => { if ($("fb").value.trim() && !confirm("지금 문구를 고른 클립·포인트 기준으로 새로 쓸까요? (고친 내용은 사라져요)")) return; $("fb").value = draftFeedback(); };
-// 보낼 클립 이어 듣기: 한 플레이어로 차례대로(동시 재생 없음). 다시 누르면 멈춤
+// 클립 사이 구분음: 맑은 3음 상승 차임(E6·G#6·B6, 약 0.55초, 보컬보다 작게). 직접 합성 → 저작권 문제 없음.
+// 이어 듣기에서 클립과 클립 '사이'에만. 원본·개별 클립·베스트 테이크 편집에는 넣지 않음
+let chimeCtx = null;
+function playChime() {
+  try {
+    chimeCtx ??= new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = chimeCtx; if (ctx.state === "suspended") ctx.resume();
+    const t0 = ctx.currentTime + 0.02, out = ctx.createGain(); out.gain.value = 0.12; out.connect(ctx.destination);
+    [1318.5, 1661.2, 1975.5].forEach((f, k) => {
+      const t = t0 + k * 0.11;
+      for (const [mult, amp] of [[1, 1], [2.76, 0.18]]) {   // 종소리 느낌: 기본음 + 약한 비정수배 배음
+        const o = ctx.createOscillator(), g = ctx.createGain();
+        o.type = "sine"; o.frequency.value = f * mult;
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(amp, t + 0.006);   // 5ms 페이드인(딸깍 소리 방지)
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.32);
+        o.connect(g).connect(out); o.start(t); o.stop(t + 0.34);
+      }
+    });
+    return new Promise(r => setTimeout(r, 600));
+  } catch { return Promise.resolve(); }   // 소리 장치를 못 쓰면 구분음 없이 계속
+}
+// 보낼 클립 이어 듣기: 한 플레이어로 차례대로(동시 재생 없음). 클립 사이에만 구분음. 다시 누르면 멈춤
 let queueStop = null;
 $("btnPlayAll").onclick = async () => {
   const b = $("btnPlayAll");
@@ -1527,10 +1550,12 @@ $("btnPlayAll").onclick = async () => {
   const files = sendList().map(c => cur.clips.find(f => f.name.startsWith(c.id))).filter(Boolean);
   if (!files.length) return toast("‘보내기’로 고른 클립이 없어요");
   let i = 0, stopped = false;
+  try { chimeCtx ??= new (window.AudioContext || window.webkitAudioContext)(); chimeCtx.resume(); } catch {}   // 폰은 버튼 누를 때 소리 장치를 깨워야 함
   const endBase = player.onended;
   queueStop = () => { stopped = true; player.pause(); player.onended = endBase; b.textContent = "▶ 보낼 클립 이어 듣기"; queueStop = null; };
   const next = async () => {
     if (stopped || i >= files.length) return queueStop?.();
+    if (i > 0) { b.textContent = `■ 이어 듣는 중 ${i}/${files.length} → ${i + 1}`; await playChime(); if (stopped) return; }   // 첫 클립 앞·마지막 클립 뒤엔 없음
     b.textContent = `■ 이어 듣는 중 ${i + 1}/${files.length}`;
     try { cur.clipUrls[files[i].id] ??= URL.createObjectURL(await readBlob(files[i].id)); } catch (e) { toast(e.message); return queueStop?.(); }
     player.src = cur.clipUrls[files[i].id]; i++; player.onended = next; pauseOthers(player); player.play();
