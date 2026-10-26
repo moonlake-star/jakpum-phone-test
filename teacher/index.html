@@ -442,6 +442,7 @@ async function paintBriefing(sid) {
   const st = cfg.students[sid];
   try {
     const rec = await rootFile(st, "수강생기록.json");
+    if (stuCur?.sid === sid) paintGrowth4(rec, st);
     if (!rec?.briefing || !$("stuBrief") || stuCur?.sid !== sid) return;
     const songs = Object.entries(rec.songs || {}).slice(-5);
     $("stuBrief").innerHTML = `<div class="card"><h3 style="margin-top:0">📋 다음 레슨 브리핑 <span class="muted" style="font-size:.85rem;font-weight:400">지난 레슨에서 AI가 정리 · 오늘 레슨 날 아침 메일로도</span></h3>
@@ -451,9 +452,41 @@ async function paintBriefing(sid) {
         `<div style="margin:3px 0"><span class="chip">${{ goal: "목표", taste: "취향", worry: "고민" }[k]}</span> “${esc(x.quote)}” <span class="muted">${esc(x.date)}</span></div>`)).join("")}</details>` : ""}</div>`;
   } catch {}
 }
+// 최근 4회 레슨 돌아보기(#28, 선생님 확인용 초안): 기록된 사실(잘된 점·지도→변화·목표)만으로, 점수·'늘었다' 단정 없음
+function growth4(rec, name) {
+  const ls = (rec?.lessons || []).slice(-4);
+  if (ls.length < 2) return null;
+  const first = ls[0], last = ls.at(-1);
+  const days = Math.round((new Date(last.date) - new Date(first.date)) / 864e5);
+  const good = ls.flatMap(l => (l.strengths || []).slice(0, 1).map(x => ({ d: l.date, t: x.text || x })));
+  const better = ls.flatMap(l => (l.coaching || []).filter(c => c.change === "improved").slice(0, 1).map(c => ({ d: l.date, t: c.issue, how: c.instruction })));
+  const goal = last.next_goal;
+  const songs = Object.entries(rec.songs || {}).map(([t, v]) => ({ t, n: new Set((v.mentions || []).map(m => m.lesson)).size,
+    first: v.mentions?.[0]?.date, last: v.mentions?.at(-1)?.date })).filter(x => x.n >= 2);
+  const md = (d) => d ? d.slice(5).replace("-", "/") : "";
+  const lines = [`${name}님, 최근 ${ls.length}번의 레슨(${md(first.date)}~${md(last.date)})을 돌아봤어요.`];
+  if (good.length) lines.push("", "좋았던 순간", ...good.map(g => `- ${md(g.d)} ${g.t}`));
+  if (better.length) lines.push("", "레슨 중에 바로 달라진 것", ...better.map(b => `- ${md(b.d)} ${b.t}${b.how ? ` → ${b.how}` : ""}`));
+  if (goal) lines.push("", `다음 목표: ${goal}`);
+  lines.push("", "꾸준히 와 주셔서 하나씩 쌓이고 있어요. 다음 레슨도 기대할게요!");
+  return { ls, days, songs, text: lines.join("\n") };
+}
+function paintGrowth4(rec, st) {
+  const g = growth4(rec, st.name), el = $("stuGrowth4");
+  if (!el) return;
+  if (!g) { el.innerHTML = ""; return; }
+  el.innerHTML = `<div class="card"><details><summary><b>🌱 최근 ${g.ls.length}회 레슨 돌아보기</b> <span class="muted" style="font-size:.85rem">선생님 확인용 초안 · ${g.days}일 동안</span></summary>
+    <p class="muted" style="margin:6px 0">기록된 잘된 점·지도 전후 변화·목표만 모았어요(점수·추측 없음). ‘4주’가 아니라 최근 ${g.ls.length}회 레슨 기준이에요. 고쳐서 직접 보내 주세요.</p>
+    <textarea id="g4Text" style="min-height:180px">${esc(g.text)}</textarea>
+    <div class="row"><button class="small" id="g4Copy">문구 복사</button></div>
+    ${g.songs.length ? `<div style="margin-top:8px"><b>곡별 기록</b> <span class="muted" style="font-size:.85rem">여러 레슨에서 이어 부른 곡 · 마무리했다면 완주 리포트 후보</span>${g.songs.map(x =>
+      `<div style="margin:3px 0">🎵 ${esc(x.t)} <span class="muted">${x.n}회 레슨 · ${esc(x.first || "")} ~ ${esc(x.last || "")}</span></div>`).join("")}</div>` : ""}
+  </details></div>`;
+  $("g4Copy").onclick = async () => { try { await navigator.clipboard.writeText($("g4Text").value); toast("복사했어요. 카톡에 붙여넣기 하세요."); } catch { $("g4Text").select(); toast("길게 눌러 복사해 주세요"); } };
+}
 function paintLessonsTab(sid) {
   const st = cfg.students[sid], rows = st._rows || [];
-  $("stuTab").innerHTML = `<div id="stuBrief"></div><div class="card">` + (rows.length ? rows.map((r, i) => `<div class="lesson" data-i="${i}"><span>${esc(r.l.name)}</span><span class="row" style="gap:4px"><span class="chip ${r.fb ? "ok" : "todo"}">${r.fb ? "피드백 ✓" : "피드백 전"}</span>${cfg.practice_check ? `<span class="chip ${r.ck ? "ok" : ""}">${r.ck ? "점검 ✓" : "점검 –"}</span>` : ""}</span></div>`).join("")
+  $("stuTab").innerHTML = `<div id="stuBrief"></div><div id="stuGrowth4"></div><div class="card">` + (rows.length ? rows.map((r, i) => `<div class="lesson" data-i="${i}"><span>${esc(r.l.name)}</span><span class="row" style="gap:4px"><span class="chip ${r.fb ? "ok" : "todo"}">${r.fb ? "피드백 ✓" : "피드백 전"}</span>${cfg.practice_check ? `<span class="chip ${r.ck ? "ok" : ""}">${r.ck ? "점검 ✓" : "점검 –"}</span>` : ""}</span></div>`).join("")
     : `<p class="muted">아직 레슨 녹음이 없어요. 녹음이 정리되면 여기에 날짜별로 생기고, 누르면 검수 화면이 열립니다.</p>`) + `</div>`;
   $("stuTab").querySelectorAll(".lesson").forEach(el => el.onclick = () => openLesson(sid, +el.dataset.i, () => openStudent(sid, "lesson")));
   prefetchLessons([{ rows }]);
@@ -1487,7 +1520,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-26-1140";
+const BUILD = "2026-10-26-1230";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
