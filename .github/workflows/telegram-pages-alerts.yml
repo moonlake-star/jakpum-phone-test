@@ -1,9 +1,7 @@
 name: Telegram Pages deployment alerts
 
 on:
-  workflow_run:
-    workflows: ["pages build and deployment"]
-    types: [completed]
+  deployment_status:
   workflow_dispatch:
 
 permissions:
@@ -11,7 +9,7 @@ permissions:
 
 jobs:
   notify:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.head_branch == 'main' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.deployment_status.state == 'success' || github.event.deployment_status.state == 'failure' }}
     runs-on: ubuntu-latest
     steps:
       - name: Send Telegram notification
@@ -19,9 +17,9 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           EVENT_NAME: ${{ github.event_name }}
-          DEPLOY_RESULT: ${{ github.event.workflow_run.conclusion }}
-          DEPLOY_URL: ${{ github.event.workflow_run.html_url }}
-          DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
+          DEPLOY_RESULT: ${{ github.event.deployment_status.state }}
+          DEPLOY_URL: ${{ github.event.deployment_status.target_url }}
+          DEPLOY_SHA: ${{ github.event.deployment.sha }}
           REPOSITORY: ${{ github.repository }}
         shell: bash
         run: |
@@ -34,7 +32,7 @@ jobs:
             MESSAGE="🔔 작품 보컬노트 텔레그램 알림 연결 테스트입니다. 실제 배포 완료 알림은 아닙니다."
           elif [[ "$DEPLOY_RESULT" == "success" ]]; then
             MESSAGE="✅ 작품 보컬노트 배포 완료
-          GitHub Pages 배포가 성공했습니다.
+          GitHub Pages 배포 성공 상태가 확인됐습니다.
           휴대폰에서 강사 페이지를 새로고침하고 기능을 확인해 주세요.
           Commit: ${DEPLOY_SHA:0:8}
           ${DEPLOY_URL}"
