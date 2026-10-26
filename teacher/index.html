@@ -2584,7 +2584,7 @@ function tpPaint() {
   tpRoot.querySelector(".tpTime").textContent = `${fmt(t)} / ${fmt(d)}`;
   const playButton = tpRoot.querySelector('[data-tp="play"]');
   playButton.textContent = player.paused ? "▶" : "❚❚";
-  playButton.setAttribute("aria-label", player.paused ? "재생" : "일시정지");
+  if (typeof playButton.setAttribute === "function") playButton.setAttribute("aria-label", player.paused ? "재생" : "일시정지");
 }
 for (const ev of ["timeupdate", "play", "pause", "loadedmetadata", "ended"]) player.addEventListener(ev, tpPaint);
 async function tpLoad(root, fileId) {
