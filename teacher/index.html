@@ -83,12 +83,13 @@
   .cand { border-top:1px solid var(--line); padding:10px 0; }
   .cand:first-child { border-top:0; }
   /* 보내기/기록만/빼기: 한 줄 3칸 버튼(라디오), 칸마다 손가락 크기 40px 이상 */
-  .seg { display:flex; margin-top:6px; border:2px solid var(--accent); border-radius:10px; overflow:hidden; }
+  .segcap { font-size:.78rem; color:var(--muted); margin:8px 0 3px; }
+  .seg { display:flex; gap:8px; }
   .seg label { flex:1 1 0; min-height:40px; display:flex; align-items:center; justify-content:center; white-space:nowrap;
-    font-weight:600; color:var(--accent); cursor:pointer; position:relative; user-select:none; }
-  .seg label + label { border-left:2px solid var(--accent); }
+    font-weight:600; color:var(--accent); cursor:pointer; position:relative; user-select:none;
+    border:2px solid var(--line); border-radius:999px; }
   .seg input { position:absolute; opacity:0; inset:0; margin:0; cursor:pointer; }
-  .seg label.on { background:var(--accent); color:var(--on-accent); }
+  .seg label.on { background:var(--accent); color:var(--on-accent); border-color:var(--accent); }
   .seg label:focus-within { outline:3px solid var(--accent); outline-offset:-5px; }
   audio { width:100%; margin:6px 0; }
   select, input, textarea { font:inherit; border-radius:10px; border:1px solid var(--line); background:var(--bg); color:var(--fg); padding:6px 8px; }
@@ -97,6 +98,12 @@
   .seg-list { max-height:50vh; overflow:auto; }
   #toast { position:fixed; left:50%; bottom:16px; transform:translateX(-50%); background:var(--fg); color:var(--bg); padding:8px 14px; border-radius:10px; display:none; max-width:90vw; }
   .hidden { display:none; }
+  #vLesson:not(.hidden) { display:flex; flex-direction:column; }   /* 접힌 상세를 아래로 보내되 DOM은 그대로(입력값·재생 상태 보존) */
+  #vLesson > * { order:1; }
+  #vLesson > .card { margin:6px 0; }
+  .warnbox { border-color:var(--bad) !important; }
+  #vLesson summary { min-height:44px; display:flex; align-items:center; flex-wrap:wrap; gap:4px 6px; cursor:pointer; }
+  #vLesson summary > b { white-space:nowrap; }
   body { -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; -webkit-tap-highlight-color:transparent; }
   textarea, input { -webkit-user-select:text; user-select:text; -webkit-touch-callout:default; }
   .lesson:active { background:var(--chip); }
@@ -135,18 +142,19 @@
   <section id="vSubs" class="hidden"><div class="card" id="subsHead"></div><div id="subsList"></div></section>
 
   <section id="vLesson" class="hidden">
-    <div class="card" id="lsHead"></div>
-    <div class="card hidden" id="anaCard"></div>
+    <div class="card" id="lsHead" style="order:1"></div>
+    <div class="card" id="todayCard" style="order:2"></div>
+    <div class="card hidden" id="anaCard" style="order:8"></div>
 
-    <div class="card">
-      <h3 style="margin-top:0">1. 누가 누구인지</h3>
+    <div class="card" id="spkCard" style="order:9">
+      <details id="spkWrap" data-fold="spk"><summary><b>누가 누구인지</b> <span id="spkSum"></span></summary>
       <p class="muted">AI가 목소리별로 A·B·C…로 나눴습니다. ▶ 시각 버튼을 누르면 그 화자 목소리를 몇 초 들어 볼 수 있어요. 정해 주시면 전사본과 피드백에 이름으로 나옵니다. 노래 부분은 보통 따로 한 화자로 묶입니다.</p>
-      <div id="spk"></div>
+      <div id="spk"></div></details>
     </div>
 
-    <div class="card">
-      <div class="row" style="justify-content:space-between"><h3 style="margin:0">2. 추천 노래 클립</h3><span class="chip" id="sendCount">보내기 0/5</span></div>
-      <p class="muted" style="margin:6px 0">칭찬·다시 해 보기 말 앞뒤 노래 구간. 고르기만 해서는 발송되지 않아요.</p>
+    <div class="card" style="order:4">
+      <div class="row" style="justify-content:space-between"><h3 style="margin:0">1. 추천 노래 클립</h3><span class="chip" id="sendCount">보내기 0/5</span></div>
+      <p class="muted" style="margin:6px 0"><b>오늘 레슨 피드백에 보낼 거리 모음</b> — 칭찬·다시 해 보기 말 앞뒤 노래 구간이에요. 고르기만 해서는 발송되지 않아요.</p>
       <details class="muted" style="margin:0 0 6px"><summary>버튼 뜻</summary>
         <b>보내기</b> = 카톡 문구 ‘좋았던 부분’에 들어가고 ‘클립 보내기’ 때 같이 보내져요(최대 5개, 6번째를 고르면 가장 먼저 고른 것이 ‘기록만’으로).
         <b>기록만</b> = 수강생에겐 안 가고 레슨 기록에만. <b>빼기</b> = 쓰지 않음. 실제 전송은 아래 ‘클립 보내기’ → 카톡에서 직접.</details>
@@ -162,10 +170,10 @@
       </details>
     </div>
 
-    <div class="card">
-      <h3 style="margin-top:0">3. 카톡 피드백 문구</h3>
+    <div class="card" style="order:5">
+      <h3 style="margin-top:0">2. 카톡 피드백 문구</h3>
       <div id="aiNote" class="hidden" style="background:var(--chip);border-radius:10px;padding:8px 10px;margin:6px 0"></div>
-      <p class="muted">초안입니다. 고친 뒤 ‘문구 복사’ → 카톡에 붙여넣기 → 그다음 ‘클립 보내기’로 파일을 보냅니다(카톡은 문구와 파일을 한 번에 받지 못함).</p>
+      <p class="muted" style="margin:6px 0">순서: ‘문구 복사’ → 카톡에 붙여넣기 → ‘클립 보내기’.</p>
       <div id="points"></div>
       <textarea id="fb"></textarea>
       <div class="row" style="margin:2px 0 6px"><button class="small ghost" id="btnFbRegen">고른 클립으로 문구 새로 쓰기</button><span class="muted" style="font-size:.8rem">AI를 다시 부르지 않아요(비용 없음)</span></div>
@@ -179,8 +187,8 @@
       <p class="muted">‘클립 보내기’에서 카톡을 고르면 자동으로 ‘보냄’ 표시됩니다(공유 창을 취소하면 표시 안 됨).</p>
     </div>
 
-    <div class="card hidden" id="ckCard">
-      <h3 style="margin-top:0">5. 연습 점검 <span class="muted" id="ckWhen"></span></h3>
+    <div class="card hidden" id="ckCard" style="order:10">
+      <details id="ckWrap" data-fold="ck"><summary><b>연습 점검</b> <span class="muted" id="ckWhen"></span></summary>
       <p class="muted">레슨과 다음 레슨 사이 중간쯤 보내는 짧은 점검 메시지입니다. 그날 12:30에 메일로 알려 드려요.</p>
       <textarea id="ck" style="min-height:110px"></textarea>
       <div class="row">
@@ -190,10 +198,11 @@
       </div>
       <div class="row sentrow"><span id="ckSent" class="chip todo">점검 보내기 전</span>
         <button class="small ghost" id="btnCkMark">클립 없이 보냈어요</button></div>
+      </details>
     </div>
 
-    <div class="card">
-      <details id="segWrap"><summary><b>4. 전체 전사본</b> <span class="muted">필요할 때만 펼쳐 보세요</span></summary>
+    <div class="card" style="order:11">
+      <details id="segWrap" data-fold="seg"><summary><b>전체 전사본</b> <span class="muted">필요할 때만 펼쳐 보세요</span></summary>
       <p class="muted" id="segHint">말풍선을 누르면 그 부분부터 바로 재생됩니다(누른 곳 앞뒤 2분씩만 받아서 데이터를 거의 안 씀). 다시 누르면 멈춤.</p>
       <div id="segs" class="seg-list"></div></details>
       <div class="mini hidden" id="mini">
@@ -203,8 +212,8 @@
       </div>
     </div>
 
-    <button id="btnSave" class="full">검수 저장</button>
-    <p class="muted" id="saveMsg"></p>
+    <button id="btnSave" class="full" style="order:6">검수 저장</button>
+    <p class="muted" id="saveMsg" style="order:7"></p>
   </section>
 </main>
 <div id="toast"></div>
@@ -1047,8 +1056,9 @@ function lessonData(folderId, files) {
   const by = (n) => files.find(f => f.name === n), j = (n, dflt) => by(n) ? readJSON(by(n).id).catch(() => dflt) : Promise.resolve(dflt);
   const dir = (n) => { const f = files.find(x => x.name === n); return f ? list(f.id) : Promise.resolve([]); };
   const p = Promise.all([j("처리요약.json", {}), j("전사_원본.json", []), j("candidates.json", []), dir("노래후보_클립"),
-                         j("화자샘플.json", []), dir("화자샘플"), j("AI초안.json", null), j("음정분석.json", null), j("레슨분석.json", null)])
-    .then(([summary, segs, cands, clips, samples, sampleFiles, ai, pitch, ana]) => ({ summary, segs, cands, clips, samples, sampleFiles, ai, pitch, ana }));
+                         j("화자샘플.json", []), dir("화자샘플"), j("AI초안.json", null), j("음정분석.json", null), j("레슨분석.json", null),
+                         j("화자자동.json", null)])
+    .then(([summary, segs, cands, clips, samples, sampleFiles, ai, pitch, ana, voice]) => ({ summary, segs, cands, clips, samples, sampleFiles, ai, pitch, ana, voice }));
   p.catch(() => lessonCache.delete(folderId));
   lessonCache.set(folderId, p);
   return p;
@@ -1068,11 +1078,17 @@ async function openLesson(sid, i, backTo) {
   const reviewF = by(REVIEW);
   const review = reviewF ? await readJSON(reviewF.id) : { speakers: {}, decisions: {}, manual: [], feedback: "" };
   const ai = d.ai;
+  const spkSaved = Object.keys(review.speakers || {}).length > 0;            // 선생님이 저장한 화자 지정이 있었나(AI 채움 전)
+  const teacherPts = (review.points || []).some(Boolean);                     // 선생님이 직접 고른 '오늘 포인트'가 있었나
+  // 선생님 목소리로 확실히 정해진 화자(서버 화자자동.json, confidence high)는 확인 없이 먼저 채움
+  const voice = d.voice?.confidence === "high" ? d.voice : null;
+  if (voice && !spkSaved) { review.speakers = review.speakers || {}; Object.assign(review.speakers, voice.roles); }
   // AI 초안: 아직 선생님이 손대지 않은 칸만 채운다(검수 저장한 내용이 있으면 그대로)
   if (ai) {
     review.speakers = review.speakers || {};
-    if (!Object.keys(review.speakers).length)
+    if (!spkSaved)
       for (const [k, v] of Object.entries(ai.speaker_roles || {})) if (v && v !== "unknown") review.speakers[k] = v;
+    if (voice && !spkSaved) Object.assign(review.speakers, voice.roles);   // 선생님·수강생은 목소리 판정이 AI 추측보다 우선
     review.decisions = review.decisions || {}; review.notes = review.notes || {};
     if (!Object.keys(review.decisions).length)
       for (const g of ai.good || []) { review.decisions[g.candidate_id] = "send"; if (g.note) review.notes[g.candidate_id] = g.note; }
@@ -1080,7 +1096,7 @@ async function openLesson(sid, i, backTo) {
     if (!(review.practice || []).some(Boolean)) review.practice = (ai.practice || []).slice(0, 2);
     if (!review.feedback && ai.feedback_text) review.feedback = ai.feedback_text;
   }
-  cur = { sid, st, folder: l, files, summary, segs, cands, clips, samples, sampleFiles, review, reviewId: reviewF?.id, clipUrls: {}, rowIndex: i, back: goBack };
+  cur = { sid, st, folder: l, files, summary, segs, cands, clips, samples, sampleFiles, review, reviewId: reviewF?.id, clipUrls: {}, ai, rowIndex: i, back: goBack, spkSaved, teacherPts, ana: d.ana, voice };
 
   const ls = summary.lesson || {};
   $("lsHead").innerHTML = `<h2 style="margin:0">${esc(st.name)} · ${esc(l.name)}</h2>
@@ -1095,15 +1111,70 @@ async function openLesson(sid, i, backTo) {
   review.pairSend ??= (ai?.audio || []);
   renderAnalysis(d.pitch, d.ana, ai);
   $("fb").value = review.feedback || draftFeedback();
-  $("aiNote").classList.toggle("hidden", !ai);
-  if (ai) $("aiNote").innerHTML = `<b>🤖 AI 초안${ai.first_lesson ? " · 첫 레슨" : ""}</b> <span class="muted">— AI가 채운 초안이에요. 근거 ▶를 눌러 확인하고 고친 뒤 보내 주세요(AI 추측은 위 ‘AI 가설’에만 있고 문구엔 넣지 않게 했어요).</span>` +
-    (ai.evidence?.length ? `<div class="row" style="gap:4px;flex-wrap:wrap;margin-top:4px">${ai.evidence.filter(e => e.t != null).slice(0, 8).map(e =>
-      `<button class="small ghost evd" data-t="${+e.t}" title="${esc(e.text || "")}">▶ ${fmt(+e.t)} ${esc((e.text || "").slice(0, 14))}</button>`).join("")}</div>` : "") +
-    (ai.notes ? `<div class="muted" style="margin-top:4px">선생님께: ${esc(ai.notes)}</div>` : "");
-  document.querySelectorAll("#aiNote .evd").forEach(b => b.onclick = () => playAt(Math.max(0, +b.dataset.t - 1)).catch(e => toast(e.message)));
+  paintAiNote(ai);
   $("ck").value = review.check_text || draftCheck();
   $("ckCard").classList.toggle("hidden", !cfg.practice_check);
   renderSent();
+  renderToday(); renderSpkState(ai);
+}
+
+function paintAiNote(ai) {
+  $("aiNote").classList.toggle("hidden", !ai);
+  // AI 초안 표시는 한 줄, 근거 버튼·AI 메모는 접어 둠(필요할 때 펼쳐 확인)
+  if (ai) { const ev = (ai.evidence || []).filter(e => e.t != null).slice(0, 8);
+    $("aiNote").innerHTML = `<b>🤖 AI 초안${ai.first_lesson ? " · 첫 레슨" : ""}</b> <span class="muted">확인하고 고친 뒤 보내 주세요</span>` +
+    (ev.length || ai.notes ? `<details style="margin-top:4px"><summary class="muted">근거 ${ev.length}개${ai.notes ? " · AI 메모" : ""} 보기</summary>` +
+      (ev.length ? `<div class="row" style="gap:4px;flex-wrap:wrap;margin-top:4px">${ev.map(e =>
+        `<button class="small ghost evd" data-t="${+e.t}" title="${esc(e.text || "")}">▶ ${fmt(+e.t)} ${esc((e.text || "").slice(0, 14))}</button>`).join("")}</div>` : "") +
+      (ai.notes ? `<div class="muted" style="margin-top:4px">선생님께: ${esc(ai.notes)}</div>` : "") + `</details>` : ""); }
+  document.querySelectorAll("#aiNote .evd").forEach(b => b.onclick = () => playAt(Math.max(0, +b.dataset.t - 1)).catch(e => toast(e.message)));
+}
+// ── 화면 간결화(2단계): 접기 상태는 기기별 편의 저장(localStorage). 경고가 있으면 저장값보다 우선해 펼친다 ──
+const FOLD_KEY = "vn_fold";
+function foldGet(k) { return (LS.get(FOLD_KEY) || {})[k] === true; }
+function foldSet(k, open) { const o = LS.get(FOLD_KEY) || {}; o[k] = open; LS.set(FOLD_KEY, o); }
+function initFold(el, forceOpen) {
+  el.open = forceOpen || foldGet(el.dataset.fold);
+  if (!el._foldBound) { el._foldBound = true; el.addEventListener("toggle", () => { if (!el._forced) foldSet(el.dataset.fold, el.open); }); }
+  el._forced = !!forceOpen;
+}
+// 상단: 오늘 핵심 1줄(검수 전 next_goal=AI 초안, 선생님이 포인트를 고르면 그 1번) + 이번 주 연습. 새 문장은 만들지 않는다
+function renderToday() {
+  const rv = cur.review, goal = cur.ana?.next_goal || cur.ai?.next_goal;
+  const mine = cur.teacherPts ? (rv.points || []).find(Boolean) : "";
+  const prs = (rv.practice || []).filter(Boolean).slice(0, 3);
+  const head = mine ? `<div><b>오늘 핵심</b> · ${esc(mine)}</div>`
+    : goal ? `<div><b>오늘 핵심</b> <span class="chip">AI 초안</span> <span class="muted">${esc(goal)}</span></div>`
+    : `<div class="muted">AI 초안 없음 — 아래 ‘카톡 피드백 문구’에서 직접 작성하세요</div>`;
+  $("todayCard").innerHTML = head + (prs.length ? `<div style="margin-top:6px"><b>이번 주 연습</b>${prs.map(x => `<div>· ${esc(x)}</div>`).join("")}</div>` : "");
+}
+// 화자 확인이 필요한 상태(미확인/AI 불확실/3명 이상)면 상단으로 올리고 자동 펼침 + 경고. 아니면 한 줄 요약으로 접음
+function speakerIssues(ai) {
+  const codes = Object.keys(cur.summary.speakers_talk_sec || {}); const all = codes.length ? codes : [...new Set(cur.segs.map(s => s.speaker))];
+  const out = [];
+  const auto = !cur.spkSaved && cur.voice;   // 목소리로 확실히 정해짐 → 선생님·수강생 확인은 생략
+  const rest = auto ? all.filter(c => !cur.voice.roles[c]) : all;
+  if (rest.some(c => !cur.review.speakers[c]) && !(auto && rest.every(c => (cur.summary.speakers_talk_sec?.[c] ?? 99) < 30)))
+    out.push("정하지 않은 화자가 있어요");
+  else if (!cur.spkSaved && !auto) out.push("AI가 정한 화자를 아직 확인하지 않았어요");
+  if (!cur.spkSaved && !auto && Object.values(ai?.speaker_roles || {}).includes("unknown")) out.push("AI가 화자를 확신하지 못했어요");
+  const talk = (c) => cur.summary.speakers_talk_sec?.[c] ?? 99;   // 몇 초만 잡힌 조각(맞장구·잡음)은 사람 수에서 뺌
+  const voices = all.filter(c => (["teacher", "student"].includes(cur.review.speakers[c]) || !cur.review.speakers[c]) && talk(c) >= 30);
+  if (all.length >= 3 && voices.length >= 3) out.push("말한 사람이 3명 이상으로 잡혔어요");
+  return out;
+}
+function renderSpkState(ai) {
+  cur.aiSpkIssues = speakerIssues(ai);
+  paintSpkState();
+  initFold($("spkWrap"), cur.aiSpkIssues.length > 0);
+  initFold($("segWrap"), false); initFold($("ckWrap"), false);
+}
+function paintSpkState(live) {   // live=선생님이 조작 중: 카드 위치·펼침은 그대로 두고 요약만 갱신(손가락 밑에서 화면이 움직이지 않게)
+  const iss = live ? speakerIssues(cur.ai) : (cur.aiSpkIssues || []), c = $("spkCard");
+  if (!live) { c.style.order = iss.length ? 3 : 9; c.classList.toggle("warnbox", iss.length > 0); }
+  const nm = (r) => Object.entries(cur.review.speakers).filter(([, v]) => v === r).map(([k]) => k).join("·");
+  $("spkSum").innerHTML = iss.length ? `<span class="chip todo">⚠ 화자 확인 필요</span> <span class="muted">${esc(iss.join(" · "))}</span>`
+    : `<span class="muted">${!cur.spkSaved && cur.voice ? "🎙 목소리로 자동 확인 · " : ""}선생님=${esc(nm("teacher") || "?")}, ${esc(cur.st.name)}=${esc(nm("student") || "?")} ✓ 눌러서 바꾸기</span>`;
 }
 
 // ── 레슨 분석(선생님 전용): 수강생이 한 말 / 녹음에서 확인된 가창 / 선생님 판단 / AI 가설 / 지도→변화 / 선곡·키 / 챙길 것 ──
@@ -1118,7 +1189,7 @@ function renderAnalysis(pitch, ana, ai) {
   const a = ana || {};
   const obs = pitch?.observations || [];
   const tone = { good: "👍", improve: "🎯", info: "ℹ️" };
-  card.innerHTML = `<h3 style="margin-top:0">🔎 ${a.first_lesson ? "첫 레슨 정밀 진단" : "레슨 분석"} <span class="muted" style="font-size:.85rem;font-weight:400">선생님만 보는 화면 · AI가 정리, 확인 필요</span></h3>
+  card.innerHTML = `<details id="anaWrap" data-fold="ana"><summary><b>🔎 ${a.first_lesson ? "첫 레슨 정밀 진단" : "레슨 분석"} 자세히</b> <span class="muted" style="font-size:.85rem">선생님만 보는 화면 · AI가 정리, 확인 필요</span></summary>
     ${a.next_goal ? `<div style="margin:4px 0"><b>다음 레슨 목표</b> · ${esc(a.next_goal)}${a.mission ? `<br><span class="muted">미션: ${esc(a.mission)}</span>` : ""}</div>` : ""}
     ${sec("지도 → 변화", a.coaching, (k) => { const p = cur.pairs.find(x => x.id === k.id); const c = chg[k.change] || chg.unknown;
       return `<div class="lesson" style="display:block"><div><b>${esc(k.issue || "")}</b> <span class="chip ${c[1]}">${c[0]}</span></div>
@@ -1139,7 +1210,8 @@ function renderAnalysis(pitch, ana, ai) {
     ${sec("성장(지난번보다)", a.progress, (x) => `<div style="margin:4px 0">📈 ${esc(x.text)} <span class="muted">${esc(x.basis || "")}</span></div>`)}
     ${sec("챙길 것(문구엔 넣지 않음)", a.care, (x) => `<div style="margin:4px 0">${T(x.t)} 🤝 ${esc(x.text)}</div>`)}
     ${pitch?.observations?.length ? `<div class="row" style="margin-top:6px"><button class="small ghost" id="btnPitchOk">✓ 음정 측정이 맞게 들림 (이 수강생 음정 학습에 사용)</button><span class="muted" id="pitchOkT"></span></div>` : ""}
-    ${pitch?.error ? `<p class="muted">음정 분석 실패: ${esc(pitch.error)}</p>` : ""}`;
+    ${pitch?.error ? `<p class="muted">음정 분석 실패: ${esc(pitch.error)}</p>` : ""}</details>`;
+  initFold($("anaWrap"), false);
   card.querySelectorAll(".tplay").forEach(b => b.onclick = () => playAt(Math.max(0, +b.dataset.t - 1)).catch(e => toast(e.message)));
   card.querySelectorAll(".pairplay").forEach(b => b.onclick = () => b.dataset.f ? playShared(b, b.dataset.f) : toast("비교 음성이 아직 없어요"));
   card.querySelectorAll(".pairsend").forEach(c => c.onchange = () => { const L = new Set(cur.review.pairSend || []); c.checked ? L.add(c.dataset.id) : L.delete(c.dataset.id); cur.review.pairSend = [...L]; });
@@ -1196,7 +1268,7 @@ function renderSpeakers() {
         .map(([k, n]) => `<option value="${k}" ${k === v ? "selected" : ""}>${n}</option>`).join("")}</select>
       ${btns || `<div class="muted" style="flex-basis:100%">“${esc(sample.slice(0, 70))}”</div>`}</div>`;
   }).join("");
-  $("spk").querySelectorAll("select").forEach(s => s.onchange = () => { cur.review.speakers[s.dataset.c] = s.value; renderSegs(); });
+  $("spk").querySelectorAll("select").forEach(s => s.onchange = () => { cur.review.speakers[s.dataset.c] = s.value; cur.spkSaved = true; renderSegs(); paintSpkState(true); });
   $("spk").querySelectorAll("[data-sample]").forEach(b => b.onclick = () => playShared(b, b.dataset.sample));
 }
 function roleOf(code) { return cur.review.speakers[code] || ""; }
@@ -1283,6 +1355,7 @@ function renderCands() {
         ${c.kind === "manual" ? `<span class="chip">직접 추가${clip ? "" : " · 다음 실행 때 클립 생성"}</span>` : ""}
         ${c.reason || c.note ? `<span class="muted">${esc(c.reason || c.note)}</span>` : ""}</div>
       <div class="row" style="margin-top:4px">${clip ? `<button class="small ghost" data-play="${clip.id}">▶ 듣기</button>` : ""}${mkButton(c.id)}</div>
+      <div class="segcap">이 클립을 오늘 피드백에</div>
       <div class="seg" role="radiogroup" aria-label="${esc(c.id)} 처리">
         ${[["send", "보내기"], ["keep", "기록만"], ["drop", "빼기"]].map(([v, t]) =>
           `<label class="${d === v ? "on" : ""}"><input type="radio" name="d_${esc(c.id)}" value="${v}" ${d === v ? "checked" : ""}>${t}</label>`).join("")}
@@ -1333,8 +1406,8 @@ function renderPoints() {
   const pr = (cur.review.practice ??= []);
   $("points").innerHTML += `<div class="muted" style="margin:8px 0 2px">이번 주 연습 (최대 2개)</div>` +
     [0, 1].map(i => `<input class="pr" data-i="${i}" value="${esc(pr[i] || "")}" placeholder="${["예: 하루 5분, 입 닫고 '음'으로 후렴 멜로디", "(선택)"][i]}" style="width:100%;margin:3px 0">`).join("");
-  $("points").querySelectorAll(".pt").forEach(x => x.oninput = () => { cur.review.points[+x.dataset.i] = x.value.trim(); });
-  $("points").querySelectorAll(".pr").forEach(x => x.oninput = () => { cur.review.practice[+x.dataset.i] = x.value.trim(); });
+  $("points").querySelectorAll(".pt").forEach(x => x.oninput = () => { cur.review.points[+x.dataset.i] = x.value.trim(); cur.teacherPts = cur.review.points.some(Boolean); renderToday(); });
+  $("points").querySelectorAll(".pr").forEach(x => x.oninput = () => { cur.review.practice[+x.dataset.i] = x.value.trim(); renderToday(); });
 }
 function draftFeedback() {
   const name = cur.st.name;
@@ -1387,7 +1460,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-26-0730";
+const BUILD = "2026-10-26-0940";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
