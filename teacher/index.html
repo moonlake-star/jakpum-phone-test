@@ -276,13 +276,44 @@ async function login() {
   $("loginMsg").textContent = "";
   try { await getToken(true); await start(); } catch (e) { $("loginMsg").textContent = e.message; }
 }
+// ── 드라이브 호출 재시도 ─────────────────────────────────
+// 읽기(GET)만 최대 3번 시도: 429·500·502·503·504·403(사용량 초과)·네트워크 끊김. Retry-After가 있으면 그만큼 기다림(최대 30초)
+// 쓰기(POST·PATCH·PUT·DELETE)는 중복 저장/발송 위험 때문에 재시도하지 않음
+const API_TRIES = 3, RETRY_STATUS = [429, 500, 502, 503, 504];
+let apiSleep = (ms) => new Promise(r => setTimeout(r, ms));
+function retryDelay(r, n) {
+  const ra = r?.headers?.get?.("Retry-After");
+  if (ra != null && String(ra).trim() !== "") {
+    const v = String(ra).trim(), sec = /^\d+(\.\d+)?$/.test(v) ? +v : (Date.parse(v) - Date.now()) / 1000;
+    if (isFinite(sec)) return Math.min(Math.max(sec, 0) * 1000, 30000);
+  }
+  return 500 * 2 ** n + Math.floor(Math.random() * 250);
+}
 async function api(url, opt = {}, retried = false) {
-  token = savedToken() || token;
-  if (!savedToken()) token = await getToken(false);
-  const r = await fetch(url, { ...opt, headers: { Authorization: `Bearer ${token}`, ...(opt.headers || {}) } });
-  if (r.status === 401 && !retried) { LS.set("vn_tok", null); return api(url, opt, true); }
-  if (!r.ok) throw new Error(`드라이브 ${r.status}: ${(await r.text()).slice(0, 200)}`);
-  return r;
+  const idem = !opt.method || String(opt.method).toUpperCase() === "GET";
+  for (let n = 0; ; n++) {
+    token = savedToken() || token;
+    if (!savedToken()) token = await getToken(false);
+    let r;
+    try { r = await fetch(url, { ...opt, headers: { Authorization: `Bearer ${token}`, ...(opt.headers || {}) } }); }
+    catch (e) { if (idem && n < API_TRIES - 1) { await apiSleep(retryDelay(null, n)); continue; } throw e; }
+    if (r.status === 401 && !retried) { LS.set("vn_tok", null); return api(url, opt, true); }
+    if (idem && n < API_TRIES - 1) {
+      let again = RETRY_STATUS.includes(r.status), text = null;
+      if (!again && r.status === 403) { text = await r.text(); again = /rateLimitExceeded/i.test(text); }
+      if (again) { await apiSleep(retryDelay(r, n)); continue; }
+      if (text != null) throw new Error(`드라이브 ${r.status}: ${text.slice(0, 200)}`);
+    }
+    if (!r.ok) throw new Error(`드라이브 ${r.status}: ${(await r.text()).slice(0, 200)}`);
+    return r;
+  }
+}
+// 동시에 n개까지만 실행(나머지는 줄 서서 대기). 목록 불러오기에서 드라이브 429를 줄이려고 사용
+function limiter(n) {
+  let active = 0; const wait = [];
+  const next = () => { if (active >= n || !wait.length) return; active++; const [fn, ok, no] = wait.shift();
+    Promise.resolve().then(fn).then(ok, no).finally(() => { active--; next(); }); };
+  return (fn) => new Promise((ok, no) => { wait.push([fn, ok, no]); next(); });
 }
 const q = (s) => encodeURIComponent(s);
 async function list(folder) {
@@ -316,33 +347,47 @@ async function loadConfig() {
 }
 
 // ── 레슨 목록 ────────────────────────────────────────────
-// 목록: ① 이 폰에 저장해 둔 지난 목록을 바로 그리고 ② 드라이브에서 새로 받아(학생·레슨 모두 동시에) 다시 그림
+// 목록: ① 이 폰에 저장해 둔 지난 목록을 바로 그리고 ② 드라이브에서 새로 받아(동시에 최대 6개 호출) 다시 그림
+// 한 수강생·한 레슨만 실패하면 그 칸만 '불러오기 실패(다시 시도)'로 표시하고 나머지는 정상 표시
+const LIST_CONC = 6, listGate = limiter(LIST_CONC);
+const gList = (id) => listGate(() => list(id)), gJSON = (id) => listGate(() => readJSON(id));
+const errMsg = (e) => String(e?.message || e || "오류").slice(0, 120);
 async function loadMkJobs(sid) {
   const st = cfg.students[sid], f7 = st.sub?.["07_커버제작"]; if (!f7) return [];
-  const all = await list(f7), folders = all.filter(x => x.mimeType.endsWith("folder"));
+  const all = await gList(f7), folders = all.filter(x => x.mimeType.endsWith("folder"));
   const hb = all.find(x => x.name === "음정성향.json"); if (hb && hb.modifiedTime !== st._habitAt) { st._habitId = hb.id; st._habitAt = hb.modifiedTime; st._habit = null; }
   const jobs = await Promise.all(folders.map(async (f) => {
-    const files = await list(f.id), rq = files.find(x => x.name === MKREQ);
-    return rq ? { sid, st, folder: f, files, reqId: rq.id, req: await readJSON(rq.id).catch(() => ({})) } : null;
+    const files = await gList(f.id), rq = files.find(x => x.name === MKREQ);
+    return rq ? { sid, st, folder: f, files, reqId: rq.id, req: await gJSON(rq.id).catch(() => ({})) } : null;
   }));
   return jobs.filter(Boolean).sort((a, b) => (b.req.requested_at || "").localeCompare(a.req.requested_at || ""));
 }
-async function studentData(sid) {
+async function studentData(sid, prev) {
   const st = cfg.students[sid], root = st.sub?.["02_레슨"];
   const [lessons, subs, jobs] = await Promise.all([
-    root ? list(root).then(fs => fs.filter(f => f.mimeType.endsWith("folder")).sort((a, b) => b.name.localeCompare(a.name))) : [],
-    loadSubs(st).catch(() => ({ recs: [] })), loadMkJobs(sid).catch(() => [])]);
+    root ? gList(root).then(fs => fs.filter(f => f.mimeType.endsWith("folder")).sort((a, b) => b.name.localeCompare(a.name))) : [],
+    listGate(() => loadSubs(st)).catch(() => ({ recs: [] })), loadMkJobs(sid).catch(() => [])]);
   const rows = await Promise.all(lessons.map(async (l) => {
-    const files = await list(l.id);
-    const rf = files.find(f => f.name === REVIEW);
-    const rv = rf ? await readJSON(rf.id).catch(() => ({})) : {};
-    return { l, files, done: !!rf, fb: !!rv.sent?.feedback, ck: !!rv.sent?.check,
-             ai: files.some(f => f.name === "AI초안.json"), pub: files.some(f => f.name === NOTE) };
+    try {
+      const files = await gList(l.id);
+      const rf = files.find(f => f.name === REVIEW);
+      const rv = rf ? await gJSON(rf.id).catch(() => ({})) : {};
+      return { l, files, done: !!rf, fb: !!rv.sent?.feedback, ck: !!rv.sent?.check,
+               ai: files.some(f => f.name === "AI초안.json"), pub: files.some(f => f.name === NOTE) };
+    } catch (e) {   // 이 레슨만 실패: 지난번 값(있으면)으로 표시만 하고, 누르면 다시 불러옴
+      const p = (prev?.rows || []).find(x => x.l?.id === l.id && !x.err) || {};
+      return { l, files: [], done: !!p.done, fb: !!p.fb, ck: !!p.ck, ai: !!p.ai, pub: !!p.pub, err: errMsg(e) };
+    }
   }));
   return { sid, rows, subs: subs.recs.map(r => ({ received_on: r.received_on, replied_at: r.replied_at, memo: r.memo })),
            jobs: jobs.map(j => ({ folder: j.folder, files: j.files, reqId: j.reqId, req: j.req })), hasRoot: !!root };
 }
-const listData = () => Promise.all(Object.keys(cfg.students).map(studentData));
+// 수강생 한 명 전체가 실패하면 지난번 저장본(있으면)에 실패 표시를 붙여 돌려줌 → 목록 전체는 깨지지 않음
+const listData = (prevList = []) => Promise.all(Object.keys(cfg.students).map((sid) => {
+  const prev = prevList.find(x => x?.sid === sid);
+  return studentData(sid, prev).catch((e) => ({ sid, rows: prev?.rows || [], subs: prev?.subs || [], jobs: prev?.jobs || [],
+    hasRoot: prev?.hasRoot ?? !!cfg.students[sid].sub?.["02_레슨"], err: errMsg(e) }));
+}));
 function attach(d) {  // 캐시 데이터를 수강생 객체에 붙이기
   const st = cfg.students[d.sid]; if (!st) return;
   st._rows = d.rows; st._subs = d.subs; st._jobs = (d.jobs || []).map(j => ({ ...j, sid: d.sid, st }));
@@ -355,7 +400,7 @@ function paintList(data, stale) {
   const todo = [];
   for (const d of data) {
     const st = cfg.students[d.sid]; if (!st) continue;
-    d.rows.forEach((r, i) => { if (!r.fb && daysAgo(r.l.name) <= 14 && !isTeacher(st))
+    d.rows.forEach((r, i) => { if (!r.err && !r.fb && daysAgo(r.l.name) <= 14 && !isTeacher(st))
       todo.push(r.ai && !r.pub ? { k: "lesson", sid: d.sid, i, bell: true, t: `🔔 ${st.name} · ${r.l.name.slice(5, 10).replace("-", "/")} AI 피드백 초안 도착`, c: "검토 대기" }
         : { k: "lesson", sid: d.sid, i, t: `📝 ${st.name} · ${r.l.name.slice(5, 10).replace("-", "/")} 레슨 피드백`, c: r.pub ? "게시됨 · 카톡 전" : "피드백 전" }); });
     const pend = (d.subs || []).filter(x => !x.replied_at).length;
@@ -373,12 +418,14 @@ function paintList(data, stale) {
   const order = data.slice().sort((a, b) => (isTeacher(cfg.students[a.sid] || {}) - isTeacher(cfg.students[b.sid] || {})));
   const blocks = order.map((d) => {
     const st = cfg.students[d.sid]; if (!st) return "";
-    const fbN = d.rows.filter(r => !r.fb).length, pend = (d.subs || []).filter(x => !x.replied_at).length;
+    const fbN = d.rows.filter(r => !r.fb && !r.err).length, errN = d.rows.filter(r => r.err).length, pend = (d.subs || []).filter(x => !x.replied_at).length;
     const act = (d.jobs || []).filter(j => ["queued", "working"].includes(j.req.status)).length;
     const pay = (st.payments || []).slice(-1)[0];
     const sub = isTeacher(st) ? "선생님 본인 곡·작업" : pay ? `최근 결제 ${esc(pay.date)} · ${esc(pay.sessions)}회 묶음` : "결제 기록 없음";
     const tag = st.status === "test" ? ` <span class="chip">연습용</span>` : isTeacher(st) ? ` <span class="chip">선생님</span>` : "";
     const chips = [
+      d.err ? `<span class="chip todo retry" title="${esc(d.err)}">불러오기 실패(다시 시도)</span>` : "",
+      errN && !d.err ? `<span class="chip todo retry" title="일부 레슨을 못 불러왔어요">레슨 ${errN}개 불러오기 실패(다시 시도)</span>` : "",
       isTeacher(st) ? "" : `<span class="chip">레슨 ${d.rows.length}</span>`,
       fbN && !isTeacher(st) ? `<span class="chip todo">피드백 전 ${fbN}</span>` : "",
       pend ? `<span class="chip todo">답장 전 ${pend}</span>` : "",
@@ -392,6 +439,7 @@ function paintList(data, stale) {
   $("reload").onclick = (e) => { e.preventDefault(); renderList(); };
   paintJoinRequests();
   $("vList").querySelectorAll(".stuCard.tap").forEach(el => el.onclick = () => openStudent(el.dataset.s));
+  $("vList").querySelectorAll(".stuCard .retry").forEach(el => el.onclick = (e) => { e.stopPropagation(); renderList(); });
   $("vList").querySelectorAll(".todo-item").forEach(el => el.onclick = () => {
     const x = todo[+el.dataset.n];
     if (x.k === "lesson") { goBack = () => renderList(); openLesson(x.sid, x.i, () => renderList()); }
@@ -405,7 +453,7 @@ async function renderList() {
   const my = ++listGen, cached = LS.get("vn_list");
   if (cached) paintList(cached, true); else $("vList").innerHTML = `<p class="muted">불러오는 중…</p>`;
   try {
-    const data = await listData();
+    const data = await listData(cached || []);
     if (my !== listGen || $("vList").classList.contains("hidden")) { LS.set("vn_list", data); return; }
     LS.set("vn_list", data); paintList(data, false);
     prefetchLessons(data);
@@ -425,7 +473,11 @@ async function openStudent(sid, tab) {
     <div class="tabs">${tabs.map(([k, n]) => `<button class="small ${k === tab ? "on" : ""}" data-tab="${k}">${n}</button>`).join("")}</div>
     <div id="stuTab"><p class="muted">불러오는 중…</p></div>`;
   $("vStu").querySelectorAll("[data-tab]").forEach(b => b.onclick = () => openStudent(sid, b.dataset.tab));
-  if (!st._rows) attach(await studentData(sid));
+  if (!st._rows) {
+    try { attach(await studentData(sid)); }
+    catch (e) { $("stuTab").innerHTML = `<div class="card"><p class="muted">불러오기 실패: ${esc(errMsg(e))}</p><button class="small" id="stuRetry">다시 시도</button></div>`;
+      $("stuRetry").onclick = () => openStudent(sid, tab); return; }
+  }
   if (tab === "lesson") paintLessonsTab(sid);
   else if (tab === "subs") openSubs(sid, $("stuTab"));
   else paintMakeupTab(sid);
@@ -570,9 +622,11 @@ function paintDeliver() {
 }
 function paintLessonsTab(sid) {
   const st = cfg.students[sid], rows = st._rows || [];
-  $("stuTab").innerHTML = `<div id="stuBrief"></div><div id="stuGrowth4"></div><div class="card">` + (rows.length ? rows.map((r, i) => `<div class="lesson" data-i="${i}"><span>${esc(r.l.name)}</span><span class="row" style="gap:4px"><span class="chip ${r.fb ? "ok" : "todo"}">${r.fb ? "피드백 ✓" : "피드백 전"}</span>${cfg.practice_check ? `<span class="chip ${r.ck ? "ok" : ""}">${r.ck ? "점검 ✓" : "점검 –"}</span>` : ""}</span></div>`).join("")
+  $("stuTab").innerHTML = `<div id="stuBrief"></div><div id="stuGrowth4"></div><div class="card">` + (rows.length ? rows.map((r, i) => r.err ? `<div class="lesson retry" data-i="${i}" title="${esc(r.err)}"><span>${esc(r.l.name)}</span><span class="chip todo">불러오기 실패(다시 시도)</span></div>`
+    : `<div class="lesson" data-i="${i}"><span>${esc(r.l.name)}</span><span class="row" style="gap:4px"><span class="chip ${r.fb ? "ok" : "todo"}">${r.fb ? "피드백 ✓" : "피드백 전"}</span>${cfg.practice_check ? `<span class="chip ${r.ck ? "ok" : ""}">${r.ck ? "점검 ✓" : "점검 –"}</span>` : ""}</span></div>`).join("")
     : `<p class="muted">아직 레슨 녹음이 없어요. 녹음이 정리되면 여기에 날짜별로 생기고, 누르면 검수 화면이 열립니다.</p>`) + `</div>`;
-  $("stuTab").querySelectorAll(".lesson").forEach(el => el.onclick = () => openLesson(sid, +el.dataset.i, () => openStudent(sid, "lesson")));
+  $("stuTab").querySelectorAll(".lesson").forEach(el => el.onclick = () => rows[+el.dataset.i]?.err
+    ? (st._rows = null, openStudent(sid, "lesson")) : openLesson(sid, +el.dataset.i, () => openStudent(sid, "lesson")));
   prefetchLessons([{ rows }]);
   paintBriefing(sid);
 }
@@ -1228,14 +1282,16 @@ function lessonData(folderId, files) {
   return p;
 }
 function prefetchLessons(data) {
-  const recent = data.flatMap(d => d.rows.slice(0, 2)).slice(0, 6);
+  const recent = data.flatMap(d => d.rows.filter(r => !r.err).slice(0, 2)).slice(0, 6);
   recent.forEach(r => lessonData(r.l.id, r.files));
 }
 async function openLesson(sid, i, backTo) {
   goBack = backTo || (() => openStudent(sid, "lesson"));
-  const st = cfg.students[sid], { l, files } = st._rows[i];
+  const st = cfg.students[sid];
+  if (!st._rows?.[i] || st._rows[i].err) { st._rows = null; return openStudent(sid, "lesson"); }
+  const { l, files } = st._rows[i];
   show("vLesson"); $("lsHead").innerHTML = `<p class="muted">불러오는 중…</p>`;
-  full.pause(); $("mini").classList.add("hidden"); nowIdx = -1; nextChunk = null; listenFile = null;
+  full.pause(); $("mini").classList.add("hidden"); nowIdx = -1; playSeq++; dropNext(); listenFile = null;
   const by = (n) => files.find(f => f.name === n);
   const d = await lessonData(l.id, files);
   const { summary, segs, cands, clips, samples, sampleFiles } = d;
@@ -1486,6 +1542,11 @@ function renderSegs() {
 // 2분 조각씩 받아 재생하고, 끝나기 20초 전에 다음 조각을 미리 받아 이어 붙인다.
 const BPS = 5000, CHUNK = 120;
 const full = new Audio(); let nowIdx = -1, chunkStart = 0, nextChunk = null, listenFile = null;
+// 연타 대비: 재생 요청마다 번호를 매겨, 늦게 도착한 예전 요청의 조각은 버림(blob URL도 해제)
+let playSeq = 0;
+const freeUrl = (u) => { if (u && String(u).startsWith("blob:")) URL.revokeObjectURL(u); };
+function dropNext() { if (nextChunk?.url) freeUrl(nextChunk.url); nextChunk = null; }
+function setFullSrc(url) { const old = full.src; full.src = url; if (old && old !== url) freeUrl(old); }
 const lessonEnd = () => cur.summary.duration_sec || (cur.segs.at(-1)?.end ?? 0);
 async function fetchChunk(t0) {
   const a = Math.floor(t0 * BPS), b = Math.floor((t0 + CHUNK) * BPS) - 1;
@@ -1498,10 +1559,14 @@ async function playAt(t, keepGoing = true, follow = false) {
   if (!listenFile) { toast("이 레슨은 듣기용 녹음이 아직 없어요"); return; }
   if (player && !player.paused) player.pause();
   toast("불러오는 중…");
-  const c = (nextChunk && Math.abs(nextChunk.t0 - t) < 0.5) ? nextChunk : await fetchChunk(Math.max(0, t));
-  nextChunk = null; chunkStart = c.t0; full.src = c.url;
+  const my = ++playSeq;
+  let c;
+  if (nextChunk?.url && Math.abs(nextChunk.t0 - t) < 0.5) { c = nextChunk; nextChunk = null; }
+  else { dropNext(); c = await fetchChunk(Math.max(0, t)); }
+  if (my !== playSeq) { freeUrl(c.url); return; }            // 그 사이 다른 곳을 눌렀음 → 이 조각은 버림
+  chunkStart = c.t0; setFullSrc(c.url);
   $("mini").classList.remove("hidden");
-  if (keepGoing) await full.play();
+  if (keepGoing) await full.play().catch(e => { if (e?.name !== "AbortError") throw e; });
 }
 function playFrom(i) {
   followTranscript = true;
@@ -1513,8 +1578,9 @@ full.ontimeupdate = () => {
   const t = chunkStart + full.currentTime; $("miniT").textContent = fmt(t);
   if (lessonEnd()) $("miniSeek").value = Math.round(t / lessonEnd() * 1000);
   if (!nextChunk && full.currentTime > CHUNK - 20 && chunkStart + CHUNK < lessonEnd()) {
-    nextChunk = { t0: chunkStart + CHUNK, loading: true };
-    fetchChunk(chunkStart + CHUNK).then(c => nextChunk = c).catch(() => nextChunk = null);
+    const my = playSeq, want = { t0: chunkStart + CHUNK, loading: true }; nextChunk = want;
+    fetchChunk(want.t0).then(c => { if (my === playSeq && nextChunk === want) nextChunk = c; else freeUrl(c.url); })
+      .catch(() => { if (nextChunk === want) nextChunk = null; });
   }
   let i = -1; for (let k = 0; k < cur.segs.length; k++) { if (cur.segs[k].start <= t) i = k; else break; }
   if (i !== nowIdx) {
@@ -1655,7 +1721,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-26-1500";
+const BUILD = "2026-10-26-1900";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
