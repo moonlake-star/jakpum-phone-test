@@ -547,35 +547,48 @@ function paintGrowth4(rec, st) {
   $("g4Copy").onclick = async () => { try { await navigator.clipboard.writeText($("g4Text").value); toast("복사했어요. 카톡에 붙여넣기 하세요."); } catch { $("g4Text").select(); toast("길게 눌러 복사해 주세요"); } };
 }
 // ── 수강생 개인 노트(#44): 가입 승인 · 레슨 노트 게시 · 카톡 안내 멘트 ──
-const NOTE = "수강생노트.json", ACCOUNTS = "수강생계정.json", REQUESTS = "수강생가입신청.json";   // 신청 = 서버만 씀, 승인 = 이 앱만 씀
+const NOTE = "수강생노트.json";
+// v2(2026-10-26): 구글이 이 계정의 Apps Script에 '드라이브 전체 권한'을 막아서, 수강생 노트 연결은 스크립트가 만든
+// '작품 수강생노트 DB' 시트만 쓴다. 이 앱은 시트를 직접 고치지 않고 스크립트에 선생님 토큰으로 요청(t_…)한다
+// → 시트 API를 따로 켤 필요 없음. 승인·게시의 정본은 시트, 레슨 폴더의 수강생노트.json은 선생님 앱용 사본.
 const studentPage = () => cfg.student_page_url || new URL("../student/", location.href).href;
-async function sysFolderId() {
-  if (cfg._sysId) return cfg._sysId;
-  const r = await (await api(`${DRIVE}/files/${cfg._configId}?fields=parents`)).json();
-  Object.defineProperty(cfg, "_sysId", { value: r.parents[0], enumerable: false, writable: true }); return cfg._sysId;
+async function portal(action, extra = {}) {
+  if (!cfg.portal_url) throw new Error("수강생 노트 연결 주소(portal_url)가 아직 설정되지 않았어요");
+  token = savedToken() || token; if (!savedToken()) token = await getToken(false);
+  const r = await fetch(cfg.portal_url, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify({ action, access_token: token, ...extra }) });
+  const j = await r.json();
+  if (!j.ok) throw new Error("수강생 노트 연결: " + (j.error || "실패"));
+  return j;
 }
-async function loadAccounts() {
-  const sys = await sysFolderId(), files = await list(sys);
-  const f = files.find(x => x.name === ACCOUNTS), rq = files.find(x => x.name === REQUESTS);
-  const acc = f ? await readJSON(f.id) : { approved: {}, rejected: {} };
-  return { sys, id: f?.id, acc, requests: rq ? (await readJSON(rq.id)).requests || [] : [] };
+async function loadAccounts() {   // {acc:{approved:{email:sid}, rejected:{email:at}, closed:{email:sid}}, rows, requests, seen}
+  const j = await portal("t_state"), acc = { approved: {}, rejected: {}, closed: {} };
+  for (const a of j.accounts) (acc[a.state] ??= {})[a.email] = a.state === "rejected" ? a.at : a.sid;
+  return { acc, rows: j.accounts, requests: j.requests, seen: j.seen || {} };
+}
+// 동의 철회(consent_withdrawn) 수강생의 승인은 시트에서 '닫힘'으로 — 수강생 페이지가 바로 막힘
+async function closeWithdrawn(rows) {
+  for (const a of rows) if (a.state === "approved" && cfg.students[a.sid]?.consent_withdrawn)
+    await portal("t_account", { email: a.email, sid: a.sid, state: "closed", name: a.name || "" });
 }
 async function paintJoinRequests() {
-  const el = $("joinReq"); if (!el) return;
+  const el = $("joinReq"); if (!el || !cfg.portal_url) return;
   try {
-    const { sys, acc, requests } = await loadAccounts();
-    const wait = requests.filter(r => !acc.approved?.[r.email] && !acc.rejected?.[r.email]);
+    const { acc, rows, requests } = await loadAccounts();
+    closeWithdrawn(rows).catch(() => {});
+    const known = (e) => acc.approved[e] || acc.rejected[e] || acc.closed[e];
+    const wait = requests.filter(r => !known(r.email));
     if (!wait.length) { el.innerHTML = ""; return; }
-    const opts = Object.entries(cfg.students).filter(([, st]) => !isTeacher(st)).map(([k, st]) => `<option value="${esc(k)}">${esc(st.name)}</option>`).join("");
+    const opts = Object.entries(cfg.students).filter(([, st]) => !isTeacher(st) && !st.consent_withdrawn).map(([k, st]) => `<option value="${esc(k)}">${esc(st.name)}</option>`).join("");
     el.innerHTML = `<div class="card"><h3 style="margin:0 0 4px">🙋 수강생 노트 가입 신청 ${wait.length}명</h3>
       <p class="muted" style="margin:4px 0">구글로 로그인한 수강생이에요. 누구인지 골라 한 번만 승인하면 그 뒤로는 언제든 본인 노트를 볼 수 있어요.</p>
       ${wait.map((r, n) => `<div class="row" style="margin:6px 0"><span><b>${esc(r.name || "")}</b> <span class="muted">${esc(r.email)}</span></span>
         <select data-n="${n}">${opts}</select><button class="small" data-ok="${n}">승인</button><button class="small ghost" data-no="${n}">거절</button></div>`).join("")}</div>`;
-    const save = async (fn, msg) => { const cur2 = await loadAccounts(); fn(cur2.acc); await writeJSON(sys, ACCOUNTS, cur2.acc, cur2.id); toast(msg); paintJoinRequests(); };
+    const save = async (extra, msg) => { try { await portal("t_account", extra); toast(msg); } catch (e) { toast(e.message); } paintJoinRequests(); };
     el.querySelectorAll("[data-ok]").forEach(b => b.onclick = () => { const r = wait[+b.dataset.ok], sid = el.querySelector(`select[data-n="${b.dataset.ok}"]`).value;
-      save(a => { (a.approved ??= {})[r.email] = sid; }, `${cfg.students[sid].name}님으로 승인했어요`); });
+      save({ email: r.email, sid, state: "approved", name: cfg.students[sid].name }, `${cfg.students[sid].name}님으로 승인했어요`); });
     el.querySelectorAll("[data-no]").forEach(b => b.onclick = () => { const r = wait[+b.dataset.no];
-      if (confirm(`${r.email} 신청을 거절할까요?`)) save(a => { (a.rejected ??= {})[r.email] = new Date().toISOString(); }, "거절했어요"); });
+      if (confirm(`${r.email} 신청을 거절할까요?`)) save({ email: r.email, sid: "", state: "rejected", name: r.name || "" }, "거절했어요"); });
   } catch { el.innerHTML = ""; }
 }
 // 카톡 안내 멘트: 짧은 존댓말 + 오늘 실제 내용 하나 + 개인 노트 바로가기. 같은 틀이 연달아 나오지 않게(기기별 기억)
@@ -600,26 +613,39 @@ function buildNote() {
     best: rv.sendBest !== false ? bestNote(bp) : null, extra_best: comp && comp !== bp ? [bestNote(comp)] : [],
     clips, highlight: clips[0]?.note || (rv.points || []).find(Boolean) || "", published_at: new Date().toISOString() };
 }
+// 게시한 녹음만 '링크가 있는 사람 보기'로 연다(사용자 결정 2026-10-26). 링크(ID)는 승인된 본인 노트에만 실림.
+const noteFileIds = (n) => [n.best?.file_id, ...(n.extra_best || []).map(x => x?.file_id), ...(n.clips || []).map(x => x.file_id)].filter(Boolean);
+async function openLink(fileId) {
+  await api(`${DRIVE}/files/${fileId}/permissions?sendNotificationEmail=false&fields=id`, { method: "POST",
+    headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "anyone", role: "reader" }) });
+}
 async function publishNote() {
+  if (cur.st.consent_withdrawn) throw new Error("동의 철회된 수강생이라 게시하지 않았어요");
   const note = buildNote(), ex = cur.files.find(f => f.name === NOTE);
-  if (ex) { try { const old = await readJSON(ex.id); if (old.seen_at) note.seen_at = old.seen_at; } catch {} }
-  const id = await writeJSON(cur.folder.id, NOTE, note, ex?.id);
+  for (const id of noteFileIds(note)) await openLink(id);              // 먼저 열어 둬야 수강생이 바로 들을 수 있음
+  await portal("t_note", { sid: cur.sid, lesson_id: note.lesson_id, date: note.date, published_at: note.published_at, note });
+  const id = await writeJSON(cur.folder.id, NOTE, note, ex?.id);         // 선생님 앱용 사본(읽음은 시트에 있음)
   if (!ex) cur.files.push({ id, name: NOTE });
   cur.note = note; cur.review.published_at = note.published_at;
   await saveReview(true);
   return note;
+}
+async function paintSeen() {   // 읽음 여부는 시트에서
+  try { const { seen } = await loadAccounts(), at = seen[cur.note?.lesson_id], ch = $("seenChip");
+    if (ch && at) { ch.className = "chip ok"; ch.textContent = "수강생 읽음 ✓"; } } catch {}
 }
 function paintDeliver() {
   const el = $("deliverBox"); if (!el) return;
   const n = cur.note;
   el.innerHTML = !n ? `<button class="full" id="btnPublish">📮 수강생 노트에 게시하고 카톡 멘트 만들기</button>
       <p class="muted" style="margin:4px 0">게시하면 수강생 개인 페이지(항상 같은 주소)에 오늘 레슨이 추가돼요. 카톡은 선생님이 직접 보내요.</p>`
-    : `<div class="row" style="justify-content:space-between"><b>📮 게시됨</b><span class="chip ${n.seen_at ? "ok" : ""}">${n.seen_at ? "수강생 읽음 ✓" : "아직 안 읽음"}</span></div>
+    : `<div class="row" style="justify-content:space-between"><b>📮 게시됨</b><span id="seenChip" class="chip">아직 안 읽음</span></div>
       <textarea id="kakaoMsg" style="min-height:110px">${esc(cur.kakao || "")}</textarea>
       <div class="row"><button class="small" id="btnKakaoCopy">멘트+링크 한 번에 복사</button><button class="small ghost" id="btnKakaoRe">다른 멘트로</button>
         <button class="small ghost" id="btnRepublish">노트 다시 게시</button></div>
       <p class="muted" style="margin:4px 0">복사 → 카톡 대화창에 붙여넣기 → 보낸 뒤 아래 ‘보냈어요’를 눌러 주세요(앱은 실제 발송 여부를 알 수 없어요).</p>`;
   if (!n) { $("btnPublish").onclick = async () => { try { await publishNote(); cur.kakao = kakaoText(cur.st, cur.note, nextTpl(cur.sid)); paintDeliver(); toast("게시했어요"); } catch (e) { toast(e.message); } }; return; }
+  paintSeen();
   $("btnKakaoCopy").onclick = async () => { try { await navigator.clipboard.writeText($("kakaoMsg").value); toast("복사했어요. 카톡에 붙여넣기 하세요."); } catch { $("kakaoMsg").select(); toast("길게 눌러 복사해 주세요"); } };
   $("btnKakaoRe").onclick = () => { $("kakaoMsg").value = cur.kakao = kakaoText(cur.st, cur.note, nextTpl(cur.sid)); };
   $("btnRepublish").onclick = async () => { try { await publishNote(); toast("노트를 고친 내용으로 다시 게시했어요"); paintDeliver(); } catch (e) { toast(e.message); } };
@@ -1793,7 +1819,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-26-2000";
+const BUILD = "2026-10-26-2010";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();

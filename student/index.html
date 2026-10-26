@@ -38,8 +38,8 @@
 </main>
 <script>
 // ── 설정(비밀값 아님): 수강생 로그인용 구글 클라이언트 ID, 노트 연결(Apps Script 웹 앱) 주소 ──
-const STUDENT_CLIENT_ID = "__STUDENT_CLIENT_ID__";
-const PORTAL_URL = "__PORTAL_URL__";
+const STUDENT_CLIENT_ID = "712936245254-2itl2rolhhcsq9cdqnhku4u43hpdv2mk.apps.googleusercontent.com";
+const PORTAL_URL = "https://script.google.com/macros/s/AKfycbyxHvxn4VkX83JrcGK1bQqJivhUPktWNyJn_HRpSyIyQ-lVoXh0MNaps2PUmY_obwJTBQ/exec";
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -54,7 +54,8 @@ function saved() { const v = LS.get("sn_tok"); return v && exp(v) > Date.now() +
 function loginView(msg) {
   $("view").innerHTML = `<div class="card"><h2>로그인</h2>
     <p>선생님이 보내 드린 레슨 노트를 보려면 <b>구글 계정</b>으로 로그인해 주세요. 처음 한 번만 선생님 승인이 필요해요.</p>
-    <div id="gbtn" style="margin:12px 0"></div><p class="muted">${esc(msg || "")}</p></div>`;
+    <div id="gbtn" style="margin:12px 0"></div><p class="muted">${esc(msg || "")}</p>
+    <p class="muted"><a href="privacy.html" style="color:var(--accent)">개인정보 처리 안내</a></p></div>`;
   if (STUDENT_CLIENT_ID.startsWith("__")) { $("gbtn").innerHTML = `<p class="muted">아직 준비 중이에요(선생님 설정 전).</p>`; return; }
   const go = () => {
     if (!window.google?.accounts?.id) return setTimeout(go, 300);
@@ -84,7 +85,11 @@ async function load() {
     data = j;
     const want = params.get("l");
     if (want && j.lessons.some(l => l.id === want)) openLesson(want); else timeline();
-  } catch (e) { LS.set("sn_tok", null); idToken = null; loginView(e.message); }
+  } catch (e) {   // 로그인 문제일 때만 저장된 로그인을 지움(오프라인·일시 오류로 매번 다시 로그인하지 않게)
+    if (/로그인/.test(e.message)) { LS.set("sn_tok", null); idToken = null; return loginView(e.message); }
+    $("view").innerHTML = `<div class="card"><p>연결이 잠시 안 돼요. 인터넷을 확인하고 다시 눌러 주세요.</p><button class="full" id="retry">다시 불러오기</button><p class="muted">${esc(e.message)}</p></div>`;
+    $("retry").onclick = load;
+  }
 }
 
 const level = () => LS.get("sn_level") || "normal";
@@ -102,19 +107,15 @@ function timeline() {
   $("view").innerHTML = `<div class="card"><h2>${esc(data.name)}님의 레슨 노트</h2>
       <p class="muted" style="margin:0">레슨 ${ls.length}회 · 최근 ${md(ls[0]?.date)}</p>
       ${bests.length > 1 ? `<button class="ghost full" id="playAll" style="margin-top:10px">▶ 그동안의 베스트 가창 이어 듣기 (${bests.length}곡)</button>` : ""}</div>
-    ${ls.map(l => `<button class="lesson" data-l="${esc(l.id)}"><b>${md(l.date)} 레슨</b> ${!seen[l.id] ? `<span class="new">● 새 노트</span>` : ""}
+    ${ls.map(l => `<button class="lesson" data-l="${esc(l.id)}"><b>${md(l.date)} 레슨</b> ${!seen[l.id] && !l.seen_at ? `<span class="new">● 새 노트</span>` : ""}
       <div class="muted">${esc((l.highlight || l.points?.[0] || "").slice(0, 40))}</div></button>`).join("") || `<div class="card"><p>아직 올라온 노트가 없어요.</p></div>`}
     <audio id="allAu" class="hidden" controls></audio>`;
   document.querySelectorAll("[data-l]").forEach(b => b.onclick = () => openLesson(b.dataset.l));
   if ($("playAll")) $("playAll").onclick = () => playSeries(bests.slice().reverse().map(l => l.best.file_id), $("allAu"), $("playAll"));
 }
 
-async function audioUrl(id) {
-  if (audioCache[id]) return audioCache[id];
-  const j = await call("audio", { file_id: id });
-  const bin = Uint8Array.from(atob(j.b64), c => c.charCodeAt(0));
-  return audioCache[id] = URL.createObjectURL(new Blob([bin], { type: j.mime || "audio/mpeg" }));
-}
+// 녹음은 선생님이 게시할 때 '링크가 있는 사람 보기'로 열린 파일을 구글 드라이브에서 바로 재생(v2, 스크립트를 거치지 않음)
+const audioUrl = async (id) => audioCache[id] ||= `https://drive.google.com/uc?export=download&id=${encodeURIComponent(id)}`;
 document.addEventListener("play", (e) => document.querySelectorAll("audio").forEach(a => a !== e.target && a.pause()), true);   // 한 번에 하나만
 function player(id, label) {
   return `<button class="play" data-au="${esc(id)}">▶ ${esc(label)}</button><audio class="hidden" id="au_${esc(id)}" controls></audio>`;
@@ -142,7 +143,8 @@ async function playSeries(ids, au, btn) {
 function openLesson(id) {
   const ls = data.lessons, i = ls.findIndex(l => l.id === id), l = ls[i], prev = ls.slice(i + 1).find(x => x.best?.file_id);
   history.replaceState(null, "", `${location.pathname}?l=${encodeURIComponent(id)}`);
-  const s = seenLocal(); if (!s[id]) { s[id] = Date.now(); LS.set("sn_seen", s); call("seen", { lesson: id }).catch(() => {}); }
+  // 읽음: 서버에 기록된 뒤에만 이 기기에도 표시(실패하면 다음에 열 때 다시 보냄 — 감사 #53)
+  if (!l.seen_at && !seenLocal()[id]) call("seen", { lesson: id }).then(() => { const s = seenLocal(); s[id] = Date.now(); LS.set("sn_seen", s); }).catch(() => {});
   const lev = level();
   const clips = (l.clips || []).slice(0, lev === "simple" ? 0 : lev === "normal" ? 3 : 99);
   const draw = () => openLesson(id);
@@ -165,7 +167,11 @@ function openLesson(id) {
   window.scrollTo(0, 0);
 }
 
-load();
+// 카카오톡 안 브라우저에서는 구글 로그인이 막힘 → 휴대폰 기본 브라우저로 다시 열기
+if (/KAKAOTALK/i.test(navigator.userAgent)) {
+  location.href = "kakaotalk://web/openExternal?url=" + encodeURIComponent(location.href);
+  $("view").innerHTML = `<div class="card"><p>카카오톡 안에서는 구글 로그인이 안 돼요. 잠시 뒤 다른 브라우저로 열리지 않으면 오른쪽 위 <b>⋮ → 다른 브라우저로 열기</b>를 눌러 주세요.</p></div>`;
+} else load();
 </script>
 </body>
 </html>
