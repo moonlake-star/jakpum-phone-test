@@ -31,6 +31,8 @@
   ul { padding-left:1.2em; margin:6px 0; }
   .ab { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
   .hidden { display:none; }
+  .story-item { border-top:1px solid var(--line); padding:12px 0; } .story-item .when { font-weight:700; } .story-item p { margin:4px 0 8px; }
+  @media (max-width:360px) { .story-item .play { font-size:1rem; padding:0 12px; } }
 </style>
 </head>
 <body>
@@ -96,6 +98,22 @@ async function load() {
 
 const seenLocal = () => LS.get("sn_seen") || {};
 
+// 3층 '나의 음악 이야기': 학생이 눌러야 열림. 게시된(=선생님이 승인한) 내 노트의 한마디·베스트만 날짜순으로 모아 보여줌.
+// 서버에 곡 제목·성장 리포트 필드가 없으므로 곡별 묶음·'N회 성장' 요약·수치는 만들지 않음. 기록이 2회 미만이면 아예 그리지 않음.
+const MAX_STORY = 6;
+function storyHtml(ls) {
+  const has = (x) => typeof x === "string" && x.trim() !== "";
+  // 입력 순서를 믿지 않고 날짜 내림차순(YYYY-MM-DD)으로 정렬해 최근 N개를 고른 뒤 오름차순으로 보여줌(같은 날은 입력 순서 유지)
+  const items = (ls || []).filter(l => l && l.date && (has(l.highlight) || l.best?.file_id))
+    .map((l, i) => [l, i]).sort((a, b) => (a[0].date < b[0].date ? 1 : a[0].date > b[0].date ? -1 : a[1] - b[1]))
+    .slice(0, MAX_STORY).reverse().map(x => x[0]);
+  if (items.length < 2) return "";
+  return `<details class="card more story"><summary>📖 나의 음악 이야기</summary>
+    <p class="muted" style="margin:0 0 4px">최근 ${items.length}번의 레슨에서 선생님이 남긴 순간과 베스트예요.</p>
+    ${items.map(l => `<section class="story-item" aria-label="${md(l.date)} 레슨"><div class="when">${md(l.date)}</div>
+      ${has(l.highlight) ? `<p>${esc(l.highlight.trim())}</p>` : ""}${l.best?.file_id ? player(l.best.file_id + "#s", md(l.date) + " 베스트 듣기") : ""}</section>`).join("")}</details>`;
+}
+
 function timeline() {
   history.replaceState(null, "", location.pathname);
   const ls = data.lessons, seen = seenLocal();
@@ -103,10 +121,12 @@ function timeline() {
   $("view").innerHTML = `<div class="card"><h2>${esc(data.name)}님의 레슨 노트</h2>
       <p class="muted" style="margin:0">레슨 ${ls.length}회 · 최근 ${md(ls[0]?.date)}</p>
       ${bests.length > 1 ? `<button class="ghost full" id="playAll" style="margin-top:10px">▶ 그동안의 베스트 가창 이어 듣기 (${bests.length}곡)</button>` : ""}</div>
+    ${storyHtml(ls)}
     ${ls.map(l => `<button class="lesson" data-l="${esc(l.id)}"><b>${md(l.date)} 레슨</b> ${!seen[l.id] && !l.seen_at ? `<span class="new">● 새 노트</span>` : ""}
       <div class="muted">${esc((l.highlight || l.points?.[0] || "").slice(0, 40))}</div></button>`).join("") || `<div class="card"><p>아직 올라온 노트가 없어요.</p></div>`}
     <audio id="allAu" class="hidden" controls></audio>`;
   document.querySelectorAll("[data-l]").forEach(b => b.onclick = () => openLesson(b.dataset.l));
+  wirePlayers();
   if ($("playAll")) $("playAll").onclick = () => playSeries(bests.slice().reverse().map(l => l.best.file_id), $("allAu"), $("playAll"));
 }
 
@@ -121,7 +141,7 @@ function wirePlayers() {
     const au = $("au_" + b.dataset.au), label = b.textContent;
     au.onerror = () => { au.classList.add("hidden"); b.classList.remove("hidden"); b.textContent = "소리를 불러오지 못했어요. 선생님께 알려 주세요"; };
     b.onclick = async () => {
-      try { b.textContent = "불러오는 중…"; au.src = await audioUrl(b.dataset.au.replace(/#b$/, "")); au.classList.remove("hidden"); b.classList.add("hidden"); await au.play(); }
+      try { b.textContent = "불러오는 중…"; au.src = await audioUrl(b.dataset.au.replace(/#[bs]$/, "")); au.classList.remove("hidden"); b.classList.add("hidden"); await au.play(); }
       catch (e) { if (au.error) return; b.textContent = label; au.classList.add("hidden"); b.classList.remove("hidden"); }
     };
   });
