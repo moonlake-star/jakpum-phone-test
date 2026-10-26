@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>내 보컬 노트 · 작품</title>
+<meta name="theme-color" content="#17191d">
+<script src="https://accounts.google.com/gsi/client" async></script>
+<style>
+  :root { color-scheme:dark; --bg:#17191d; --fg:#eceff3; --muted:#a9b1bc; --card:#22262c; --line:#363c45; --accent:#9cc3ff; --on-accent:#10141a; --good:#7fd99a; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:19px/1.6 system-ui, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; }
+  main { max-width:640px; margin:0 auto; padding:16px; }
+  h1 { font-size:1.35rem; margin:4px 0 12px; } h2 { font-size:1.2rem; margin:0 0 8px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:16px; margin:12px 0; }
+  .muted { color:var(--muted); font-size:.9rem; }
+  button { font:inherit; min-height:52px; border-radius:14px; border:0; background:var(--accent); color:var(--on-accent); font-weight:700; padding:0 18px; cursor:pointer; }
+  button.ghost { background:transparent; color:var(--accent); border:2px solid var(--accent); }
+  .full { width:100%; }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .lev { display:flex; gap:4px; padding:4px; border-radius:999px; border:1px solid var(--line); background:var(--bg); }
+  .lev button { flex:1; min-height:46px; background:transparent; color:var(--muted); border-radius:999px; border:2px solid transparent; }
+  .lev button.on { background:var(--accent); color:var(--on-accent); border-color:var(--fg); }
+  .lesson { display:block; width:100%; text-align:left; background:var(--card); color:var(--fg); border:1px solid var(--line); margin:10px 0; padding:14px 16px; min-height:64px; font-weight:400; }
+  .lesson b { font-size:1.05rem; } .new { color:var(--good); font-weight:700; }
+  .play { width:100%; min-height:64px; font-size:1.1rem; }
+  .pre { white-space:pre-wrap; }
+  audio { width:100%; margin-top:8px; }
+  ul { padding-left:1.2em; margin:6px 0; }
+  .ab { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .hidden { display:none; }
+</style>
+</head>
+<body>
+<main>
+  <h1>🎤 내 보컬 노트 <span class="muted" style="font-size:.85rem">뮤직스튜디오 작품</span></h1>
+  <div id="view"><p class="muted">불러오는 중…</p></div>
+</main>
+<script>
+// ── 설정(비밀값 아님): 수강생 로그인용 구글 클라이언트 ID, 노트 연결(Apps Script 웹 앱) 주소 ──
+const STUDENT_CLIENT_ID = "__STUDENT_CLIENT_ID__";
+const PORTAL_URL = "__PORTAL_URL__";
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const LS = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
+const md = (d) => d ? `${+d.slice(5, 7)}월 ${+d.slice(8, 10)}일` : "";
+let idToken = null, data = null, audioCache = {};
+const params = new URLSearchParams(location.search);
+
+function exp(tok) { try { return JSON.parse(atob(tok.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).exp * 1000; } catch { return 0; } }
+function saved() { const v = LS.get("sn_tok"); return v && exp(v) > Date.now() + 60000 ? v : null; }
+
+function loginView(msg) {
+  $("view").innerHTML = `<div class="card"><h2>로그인</h2>
+    <p>선생님이 보내 드린 레슨 노트를 보려면 <b>구글 계정</b>으로 로그인해 주세요. 처음 한 번만 선생님 승인이 필요해요.</p>
+    <div id="gbtn" style="margin:12px 0"></div><p class="muted">${esc(msg || "")}</p></div>`;
+  if (STUDENT_CLIENT_ID.startsWith("__")) { $("gbtn").innerHTML = `<p class="muted">아직 준비 중이에요(선생님 설정 전).</p>`; return; }
+  const go = () => {
+    if (!window.google?.accounts?.id) return setTimeout(go, 300);
+    google.accounts.id.initialize({ client_id: STUDENT_CLIENT_ID, auto_select: true, callback: (r) => { LS.set("sn_tok", r.credential); idToken = r.credential; load(); } });
+    google.accounts.id.renderButton($("gbtn"), { size: "large", text: "signin_with", shape: "pill", width: 300 });
+    google.accounts.id.prompt();
+  };
+  go();
+}
+
+async function call(action, extra = {}) {
+  const r = await fetch(PORTAL_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify({ action, id_token: idToken, ...extra }) });
+  const j = await r.json();
+  if (!j.ok) throw new Error(j.error || "연결 실패");
+  return j;
+}
+
+async function load() {
+  idToken = idToken || saved();
+  if (!idToken) return loginView();
+  try {
+    const j = await call("portal");
+    if (j.state === "pending") return $("view").innerHTML = `<div class="card"><h2>가입 신청 완료 🙌</h2><p>${esc(j.name || "")}님, 선생님이 확인하시면 바로 볼 수 있어요. 승인되면 이 페이지를 다시 열어 주세요.</p></div>`;
+    if (j.state === "rejected") return $("view").innerHTML = `<div class="card"><p>이 계정은 연결되지 않았어요. 선생님께 문의해 주세요.</p></div>`;
+    if (j.state === "closed") return $("view").innerHTML = `<div class="card"><p>지금은 노트를 볼 수 없어요. 선생님께 문의해 주세요.</p></div>`;
+    data = j;
+    const want = params.get("l");
+    if (want && j.lessons.some(l => l.id === want)) openLesson(want); else timeline();
+  } catch (e) { LS.set("sn_tok", null); idToken = null; loginView(e.message); }
+}
+
+const level = () => LS.get("sn_level") || "normal";
+function levelBar() {
+  return `<div class="lev">${[["simple", "심플"], ["normal", "보통"], ["detail", "자세히"]].map(([k, n]) =>
+    `<button data-lev="${k}" class="${level() === k ? "on" : ""}">${n}</button>`).join("")}</div>`;
+}
+function wireLevel(redraw) { document.querySelectorAll("[data-lev]").forEach(b => b.onclick = () => { LS.set("sn_level", b.dataset.lev); redraw(); }); }
+const seenLocal = () => LS.get("sn_seen") || {};
+
+function timeline() {
+  history.replaceState(null, "", location.pathname);
+  const ls = data.lessons, seen = seenLocal();
+  const bests = ls.filter(l => l.best?.file_id);
+  $("view").innerHTML = `<div class="card"><h2>${esc(data.name)}님의 레슨 노트</h2>
+      <p class="muted" style="margin:0">레슨 ${ls.length}회 · 최근 ${md(ls[0]?.date)}</p>
+      ${bests.length > 1 ? `<button class="ghost full" id="playAll" style="margin-top:10px">▶ 그동안의 베스트 가창 이어 듣기 (${bests.length}곡)</button>` : ""}</div>
+    ${ls.map(l => `<button class="lesson" data-l="${esc(l.id)}"><b>${md(l.date)} 레슨</b> ${!seen[l.id] ? `<span class="new">● 새 노트</span>` : ""}
+      <div class="muted">${esc((l.highlight || l.points?.[0] || "").slice(0, 40))}</div></button>`).join("") || `<div class="card"><p>아직 올라온 노트가 없어요.</p></div>`}
+    <audio id="allAu" class="hidden" controls></audio>`;
+  document.querySelectorAll("[data-l]").forEach(b => b.onclick = () => openLesson(b.dataset.l));
+  if ($("playAll")) $("playAll").onclick = () => playSeries(bests.slice().reverse().map(l => l.best.file_id), $("allAu"), $("playAll"));
+}
+
+async function audioUrl(id) {
+  if (audioCache[id]) return audioCache[id];
+  const j = await call("audio", { file_id: id });
+  const bin = Uint8Array.from(atob(j.b64), c => c.charCodeAt(0));
+  return audioCache[id] = URL.createObjectURL(new Blob([bin], { type: j.mime || "audio/mpeg" }));
+}
+document.addEventListener("play", (e) => document.querySelectorAll("audio").forEach(a => a !== e.target && a.pause()), true);   // 한 번에 하나만
+function player(id, label) {
+  return `<button class="play" data-au="${esc(id)}">▶ ${esc(label)}</button><audio class="hidden" id="au_${esc(id)}" controls></audio>`;
+}
+function wirePlayers() {
+  document.querySelectorAll("[data-au]").forEach(b => b.onclick = async () => {
+    const au = $("au_" + b.dataset.au);
+    try { b.textContent = "불러오는 중…"; au.src = await audioUrl(b.dataset.au); au.classList.remove("hidden"); b.classList.add("hidden"); au.play(); }
+    catch (e) { b.textContent = "다시 눌러 주세요 (" + e.message + ")"; }
+  });
+}
+async function playSeries(ids, au, btn) {
+  au.classList.remove("hidden");
+  for (let i = 0; i < ids.length; i++) {
+    btn.textContent = `불러오는 중 ${i + 1}/${ids.length}…`;
+    try { au.src = await audioUrl(ids[i]); } catch { continue; }
+    btn.textContent = `▶ 이어 듣는 중 ${i + 1}/${ids.length}`;
+    await au.play().catch(() => {});
+    await new Promise(r => { au.onended = r; au.onpause = () => au.ended || r(); });
+    if (!au.ended) break;
+  }
+  btn.textContent = "▶ 다시 이어 듣기";
+}
+
+function openLesson(id) {
+  const ls = data.lessons, i = ls.findIndex(l => l.id === id), l = ls[i], prev = ls.slice(i + 1).find(x => x.best?.file_id);
+  history.replaceState(null, "", `${location.pathname}?l=${encodeURIComponent(id)}`);
+  const s = seenLocal(); if (!s[id]) { s[id] = Date.now(); LS.set("sn_seen", s); call("seen", { lesson: id }).catch(() => {}); }
+  const lev = level();
+  const clips = (l.clips || []).slice(0, lev === "simple" ? 0 : lev === "normal" ? 3 : 99);
+  const draw = () => openLesson(id);
+  $("view").innerHTML = `<button class="ghost" id="back">← 전체 노트</button>
+    <div style="margin:12px 0">${levelBar()}</div>
+    <div class="card"><h2>${md(l.date)} 레슨</h2><div class="pre">${esc(l.feedback || "")}</div></div>
+    ${l.best?.file_id ? `<div class="card"><h2>🎵 오늘의 베스트 가창</h2>
+      <p class="muted" style="margin:0 0 8px">${l.best.edited ? "여러 번 부른 것 중 좋은 부분을 이어 붙였어요" : "오늘 가장 좋았던 순간이에요"} · ${l.best.len}초</p>
+      ${player(l.best.file_id, "들어 보기")}</div>` : ""}
+    ${l.practice?.length ? `<div class="card"><h2>📝 이번 주 연습</h2><ul>${l.practice.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>` : ""}
+    ${lev !== "simple" && l.points?.length ? `<div class="card"><h2>오늘 짚어 본 것</h2><ul>${l.points.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>` : ""}
+    ${clips.length ? `<div class="card"><h2>🎧 오늘의 클립</h2>${clips.map(c => `<div style="margin:10px 0">${c.note ? `<div>${esc(c.note)}</div>` : ""}${player(c.file_id, c.label || "듣기")}</div>`).join("")}</div>` : ""}
+    ${lev === "detail" && prev && l.best?.file_id ? `<div class="card"><h2>🔁 지난번과 비교해 듣기</h2>
+      <p class="muted">${md(prev.date)} 베스트 ↔ ${md(l.date)} 베스트</p>
+      <div class="ab"><div>${player(prev.best.file_id, md(prev.date))}</div><div>${player(l.best.file_id + "#b", md(l.date))}</div></div></div>` : ""}
+    ${lev === "detail" && (l.extra_best || []).length ? `<div class="card"><h2>🎵 다른 버전</h2>${l.extra_best.map(x => player(x.file_id, x.kind_ko || "듣기")).join("")}</div>` : ""}`;
+  $("back").onclick = timeline; wireLevel(draw); wirePlayers();
+  document.querySelectorAll('[data-au$="#b"]').forEach(b => { const real = b.dataset.au.slice(0, -2); b.onclick = async () => {
+    const au = $("au_" + b.dataset.au); b.textContent = "불러오는 중…"; au.src = await audioUrl(real); au.classList.remove("hidden"); b.classList.add("hidden"); au.play(); }; });
+  window.scrollTo(0, 0);
+}
+
+load();
+</script>
+</body>
+</html>
