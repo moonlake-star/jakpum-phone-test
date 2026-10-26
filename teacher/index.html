@@ -574,25 +574,145 @@ async function closeWithdrawn(rows) {
   for (const a of rows) if (a.state === "approved" && cfg.students[a.sid]?.consent_withdrawn)
     await portal("t_account", { email: a.email, sid: a.sid, state: "closed", name: a.name || "" });
 }
+// 신규 가입 승인: 기존 학생 연결 또는 완전히 새 학생 생성(Drive 폴더+config.json+계정 순서).
+// 기존 명단의 첫 번째 학생을 자동으로 고르지 않는다. 신규 가입의 기본값은 '새 수강생 등록'.
+const JOIN_NEW = "__new_student__";
+function joinStudentName(name) {
+  const n = String(name || "").trim().replace(/\s+/g, " ");
+  if (!n || n.length > 30 || /[\\/:*?"<>|\r\n]/.test(n)) throw new Error("수강생 이름은 1~30자로 입력해 주세요(특수문자 제외).");
+  return n;
+}
+function joinStudentOptions(selected = JOIN_NEW) {
+  const existing = Object.entries(cfg.students).filter(([, st]) => !isTeacher(st) && !st.consent_withdrawn);
+  return `<option value="${JOIN_NEW}" ${selected === JOIN_NEW ? "selected" : ""}>＋ 새 수강생 이름 입력</option>` +
+    existing.map(([sid, st]) => `<option value="${esc(sid)}" ${sid === selected ? "selected" : ""}>${esc(st.name)} (${esc(sid)})</option>`).join("");
+}
+function joinRow(email, selected, buttonText, showReject = false) {
+  return `<div class="join-row" data-email="${esc(email)}" style="margin:10px 0;padding:10px 0;border-top:1px solid var(--line)">
+    <div class="muted" style="overflow-wrap:anywhere;margin-bottom:8px">${esc(email)}</div>
+    <label class="muted">연결할 수강생</label>
+    <select class="join-choice" style="width:100%;margin:4px 0 8px">${joinStudentOptions(selected)}</select>
+    <div class="join-new-fields hidden" style="margin-bottom:10px">
+      <input class="join-new-name" type="text" maxlength="30" autocomplete="off" placeholder="새 수강생 이름 직접 입력" aria-label="새 수강생 이름" style="width:100%;margin-bottom:6px">
+      <label class="muted" style="display:flex;align-items:center;gap:6px"><input type="checkbox" class="join-test"> 테스트용 수강생으로 등록</label>
+      <p class="muted" style="margin:4px 0">새 전용 폴더·수강생 ID를 만든 다음 이 구글 계정을 연결합니다.</p>
+    </div>
+    <div class="row"><button class="small join-confirm">${buttonText}</button>
+      ${showReject ? '<button class="small ghost join-reject">거절</button>' : '<button class="small ghost join-close">연결 해제</button>'}
+    </div><p class="muted join-msg" role="status" style="margin:6px 0 0"></p>
+  </div>`;
+}
+async function joinMakeFolder(name, parent) {
+  const r = await (await api(`${DRIVE}/files?fields=id`, { method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, parents: [parent], mimeType: "application/vnd.google-apps.folder" }) })).json();
+  if (!r.id) throw new Error("수강생 폴더 생성 결과를 확인하지 못했습니다.");
+  return r.id;
+}
+function joinNewSid(students) {
+  // 날짜와 무작위 토큰을 함께 사용. 이름(동명이인)과 무관하게 변하지 않는 식별자.
+  let id;
+  do { id = "STU_" + Date.now().toString(36).toUpperCase() + "_" +
+    (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function" ? crypto.randomUUID().slice(0, 8) : Math.random().toString(36).slice(2, 10)).toUpperCase(); }
+  while (students[id]);
+  return id;
+}
+async function joinCreateStudent(rawName, forTest = false) {
+  const name = joinStudentName(rawName), cid = cfg?._configId;
+  if (!cid) throw new Error("수강생 설정을 다시 불러와 주세요.");
+  const read = async () => (await api(`${DRIVE}/files/${cid}?alt=media&_=${Date.now()}`, { cache: "no-store" })).json();
+  const version = async () => (await (await api(`${DRIVE}/files/${cid}?fields=version`)).json()).version;
+  const first = await read();
+  if (Object.values(first.students || {}).some(s => s.name === name && s.status !== "teacher"))
+    throw new Error("같은 이름의 수강생이 이미 있습니다. 기존 학생 연결을 선택하거나 이름을 구별해 주세요.");
+  const sample = Object.values(first.students || {}).find(s => s.status !== "teacher" && s.folder);
+  if (!sample) throw new Error("기준 수강생 폴더를 찾지 못했습니다. 기존 수강생이 한 명 이상 필요합니다.");
+  const p = await (await api(`${DRIVE}/files/${sample.folder}?fields=parents,trashed`)).json();
+  if (!p.parents?.[0] || p.trashed) throw new Error("기준 수강생 폴더의 상위 위치를 찾지 못했습니다.");
+  const sid = joinNewSid(first.students || {});
+  const folder = await joinMakeFolder(name + "_" + sid, p.parents[0]);
+  const sub = {};
+  try {
+    for (const key of ["02_레슨", "03_메모_카톡_통화", "04_과제제출", "07_커버제작"])
+      sub[key] = await joinMakeFolder(key, folder);
+  } catch (e) {
+    throw new Error("학생 폴더는 생성됐지만 하위 폴더 생성 중 오류가 났습니다. 다시 승인하지 말고 폴더를 확인하세요: " + e.message);
+  }
+  const student = { name, aliases: [], status: forTest ? "test" : "active", folder, sub, payments: [] };
+  // 기존 saveSubFolder와 동일하게 최신 config 위에서만 해당 신규 학생 한 명을 추가한다.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const v = await version(), latest = await read();
+    if (latest.students?.[sid]) throw new Error("이미 같은 ID가 있습니다. 다시 불러와 주세요.");
+    if (Object.values(latest.students || {}).some(s => s.name === name && s.status !== "teacher"))
+      throw new Error("다른 기기에서 같은 이름을 등록했습니다. 새로고침해서 확인해 주세요.");
+    (latest.students ??= {})[sid] = student;
+    if (await version() !== v) continue;
+    await writeJSON(null, "config.json", latest, cid);
+    const check = await read();
+    if (check.students?.[sid]?.folder === folder) {
+      adoptConfig(check); LS.set("vn_list", null);
+      return { sid, name };
+    }
+  }
+  throw new Error("설정이 다른 기기에서 변경됐습니다. 학생 폴더만 생성됐을 수 있으니 수강생 목록을 확인하세요.");
+}
 async function paintJoinRequests() {
   const el = $("joinReq"); if (!el || !portalUrl()) return;
   try {
-    const { acc, rows, requests } = await loadAccounts();
+    const { rows, requests } = await loadAccounts();
     closeWithdrawn(rows).catch(() => {});
-    const known = (e) => acc.approved[e] || acc.rejected[e] || acc.closed[e];
-    const wait = requests.filter(r => !known(r.email));
-    if (!wait.length) { el.innerHTML = ""; return; }
-    const opts = Object.entries(cfg.students).filter(([, st]) => !isTeacher(st) && !st.consent_withdrawn).map(([k, st]) => `<option value="${esc(k)}">${esc(st.name)}</option>`).join("");
-    el.innerHTML = `<div class="card"><h3 style="margin:0 0 4px">🙋 수강생 노트 가입 신청 ${wait.length}명</h3>
-      <p class="muted" style="margin:4px 0">구글로 로그인한 수강생이에요. 누구인지 골라 한 번만 승인하면 그 뒤로는 언제든 본인 노트를 볼 수 있어요.</p>
-      ${wait.map((r, n) => `<div class="row" style="margin:6px 0"><span><b>${esc(r.name || "")}</b> <span class="muted">${esc(r.email)}</span></span>
-        <select data-n="${n}">${opts}</select><button class="small" data-ok="${n}">승인</button><button class="small ghost" data-no="${n}">거절</button></div>`).join("")}</div>`;
-    const save = async (extra, msg) => { try { await portal("t_account", extra); toast(msg); } catch (e) { toast(e.message); } paintJoinRequests(); };
-    el.querySelectorAll("[data-ok]").forEach(b => b.onclick = () => { const r = wait[+b.dataset.ok], sid = el.querySelector(`select[data-n="${b.dataset.ok}"]`).value;
-      save({ email: r.email, sid, state: "approved", name: cfg.students[sid].name }, `${cfg.students[sid].name}님으로 승인했어요`); });
-    el.querySelectorAll("[data-no]").forEach(b => b.onclick = () => { const r = wait[+b.dataset.no];
-      if (confirm(`${r.email} 신청을 거절할까요?`)) save({ email: r.email, sid: "", state: "rejected", name: r.name || "" }, "거절했어요"); });
-  } catch { el.innerHTML = ""; }
+    const linked = new Set(rows.map(x => String(x.email).toLowerCase()));
+    const wait = requests.filter(r => !linked.has(String(r.email).toLowerCase()));
+    const managed = rows.filter(x => ["approved", "closed"].includes(x.state));
+    if (!wait.length && !managed.length) { el.innerHTML = ""; return; }
+    let busy = false;
+    el.innerHTML = (wait.length ? `<div class="card"><h3 style="margin:0 0 6px">🙋 수강생 노트 가입 신청 ${wait.length}명</h3>
+      <p class="muted" style="margin:4px 0">신규 수강생은 이름을 직접 입력하세요. 기존 수강생이 다른 구글 계정으로 신청한 경우에만 기존 이름을 선택하세요.</p>
+      ${wait.map(r => joinRow(r.email, JOIN_NEW, "승인", true)).join("")}</div>` : "") +
+      (managed.length ? `<details class="card" style="padding:12px"><summary><b>승인된 계정 연결 변경·취소 (${managed.length}명)</b></summary>
+        <p class="muted">잘못 연결한 계정은 다른 수강생으로 변경하거나 연결을 해제할 수 있습니다. 레슨 기록은 바뀌지 않습니다.</p>
+        ${managed.map(a => joinRow(a.email, a.sid && cfg.students[a.sid] ? a.sid : JOIN_NEW, a.state === "closed" ? "다시 승인" : "연결 변경")).join("")}</details>` : "");
+    for (const row of el.querySelectorAll(".join-row")) {
+      const choice = row.querySelector(".join-choice"), newFields = row.querySelector(".join-new-fields");
+      const update = () => { newFields.classList.toggle("hidden", choice.value !== JOIN_NEW); };
+      choice.onchange = update; update();
+      const status = row.querySelector(".join-msg"), email = row.dataset.email;
+      const operate = async (action) => {
+        if (busy) return;
+        const newStudent = action === "approved" && choice.value === JOIN_NEW;
+        let name, sid, forTest = false;
+        if (newStudent) {
+          try { name = joinStudentName(row.querySelector(".join-new-name").value); } catch (e) { status.textContent = e.message; return; }
+          forTest = row.querySelector(".join-test").checked;
+        } else if (action === "approved") {
+          sid = choice.value; name = cfg.students[sid]?.name;
+          if (!name) { status.textContent = "연결할 기존 수강생을 선택하세요."; return; }
+        }
+        const label = action === "rejected" ? "가입을 거절" : action === "closed" ? "계정 연결을 해제"
+          : newStudent ? `‘${name}’ 학생을 새로 등록하고 승인` : `‘${name}’ 학생 계정으로 연결`;
+        if (!confirm(`${email}\n${label}할까요?`)) return;
+        busy = true; status.textContent = "저장 중…";
+        row.querySelectorAll("button,select,input").forEach(x => x.disabled = true);
+        try {
+          if (newStudent) {
+            const created = await joinCreateStudent(name, forTest);
+            sid = created.sid; name = created.name;
+          }
+          await portal("t_account", { email, sid: action === "approved" ? sid : "",
+            state: action, name: action === "approved" ? name : "" });
+          status.textContent = "처리 완료";
+          await renderList();
+        } catch (e) {
+          status.textContent = `완료되지 않았습니다: ${e.message}` +
+            (newStudent ? " (폴더·명단 등록이 완료됐을 수 있으므로 재시도 전에 명단 확인)" : "");
+          row.querySelectorAll("button,select,input").forEach(x => x.disabled = false);
+        } finally { busy = false; }
+      };
+      row.querySelector(".join-confirm").onclick = () => operate("approved");
+      row.querySelector(".join-reject")?.addEventListener("click", () => operate("rejected"));
+      row.querySelector(".join-close")?.addEventListener("click", () => operate("closed"));
+    }
+  } catch (e) { el.innerHTML = '<div class="muted">가입 신청 목록을 불러오지 못했습니다. 목록을 새로고침해 주세요.</div>'; }
 }
 // 카톡 안내 멘트: 짧은 존댓말 + 오늘 실제 내용 하나 + 개인 노트 바로가기. 같은 틀이 연달아 나오지 않게(기기별 기억)
 const KAKAO_TPL = [
