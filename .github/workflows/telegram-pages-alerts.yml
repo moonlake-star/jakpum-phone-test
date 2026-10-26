@@ -1,0 +1,49 @@
+name: Telegram Pages deployment alerts
+
+on:
+  workflow_run:
+    workflows: ["pages build and deployment"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.head_branch == 'main' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Telegram notification
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          EVENT_NAME: ${{ github.event_name }}
+          DEPLOY_RESULT: ${{ github.event.workflow_run.conclusion }}
+          DEPLOY_URL: ${{ github.event.workflow_run.html_url }}
+          DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
+          REPOSITORY: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${TELEGRAM_BOT_TOKEN}" || -z "${TELEGRAM_CHAT_ID}" ]]; then
+            echo "::error::TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID secret is missing"
+            exit 1
+          fi
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            MESSAGE="🔔 작품 보컬노트 텔레그램 알림 연결 테스트입니다. 실제 배포 완료 알림은 아닙니다."
+          elif [[ "$DEPLOY_RESULT" == "success" ]]; then
+            MESSAGE="✅ 작품 보컬노트 배포 완료
+          GitHub Pages 배포가 성공했습니다.
+          휴대폰에서 강사 페이지를 새로고침하고 기능을 확인해 주세요.
+          Commit: ${DEPLOY_SHA:0:8}
+          ${DEPLOY_URL}"
+          else
+            MESSAGE="❌ 작품 보컬노트 배포 실패 (${DEPLOY_RESULT})
+          ${DEPLOY_URL}"
+          fi
+          curl --fail --silent --show-error --retry 3 --max-time 15 \
+            --request POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+            --data-urlencode "text=${MESSAGE}" > /dev/null
+          echo "Telegram API accepted notification"
