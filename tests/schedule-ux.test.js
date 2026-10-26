@@ -5,7 +5,7 @@ const src = fs.readFileSync(__dirname + "/../teacher/index.html", "utf8");
 const pure = src.slice(src.indexOf("// <sched-pure>"), src.indexOf("// </sched-pure>"));
 const pick = (re) => { const m = src.match(re); assert.ok(m, "코드 조각 못 찾음: " + re); return m[0]; };
 assert.ok(pure.includes("function contentSig"));
-const body = [pure, pick(/async function revokeLink[\s\S]*?\n}\n/), pick(/async function refreshSched[\s\S]*?\n}\n/), pick(/async function schedAct[\s\S]*?\n}\n/),
+const body = [pure, pick(/async function revokeLink[\s\S]*?\n}\n/), pick(/async function refreshSched[\s\S]*?\n}\n/), pick(/async function markHeldLocal[\s\S]*?\n}\n/), pick(/async function schedAct[\s\S]*?\n}\n/),
   pick(/const noteFileIds[^\n]*\n/)].join("\n");
 const NOW = "2026-10-27T01:00:00.000Z";   // 서버 시계(KST 10:00)
 function server(opt = {}) {
@@ -38,12 +38,12 @@ function make(srv, over = {}) {
     if (!opt?.method) { const id = url.split("/files/")[1].split("/")[0]; return { json: async () => ({ permissions: perms[id] || [] }) }; }
     if (opt.method === "DELETE") { const [, id, pid] = url.match(/files\/(\w+)\/permissions\/(\w+)/); perms[id] = perms[id].filter(p => p.id !== pid); }
     return { json: async () => ({}) }; };
-  const f = new Function("cur", "portal", "api", "DRIVE", "LS", "buildNote", "writeJSON", "saveReview", "openLinkImpl", "NOTE", "toast",
+  const f = new Function("cur", "portal", "api", "DRIVE", "LS", "buildNote", "writeJSON", "saveReview", "openLinkImpl", "NOTE", "toast", "REVIEW",
     `${body}\n async function openLink(id){ return openLinkImpl(id); } return { schedAct, refreshSched, revokeLink, contentSig, schedStatus, approvalBlockers };`);
-  const saved = [];
+  const saved = [], t0 = {};
   const m = f(cur, srv.portal, api, "DRIVE", { get: () => over.teacherHHMM }, () => JSON.parse(JSON.stringify(note)),
-    async () => { if (over.writeFail) throw new Error("쓰기 실패"); return "W"; }, async () => saved.push(JSON.stringify(cur.review)), async (id) => { dlog.push(["OPEN", id]); if (over.driveFail) throw new Error("링크 실패"); }, "수강생노트.json", () => {});
-  return { m, cur, dlog, perms, note, saved };
+    async (fid, name, obj) => { if (over.writeFail || (over.reviewWriteFail && name === "검수.json")) throw new Error("쓰기 실패"); (t0.writes ||= []).push([name, JSON.stringify(obj)]); return "W"; }, async () => saved.push(JSON.stringify(cur.review)), async (id) => { dlog.push(["OPEN", id]); if (over.driveFail) throw new Error("링크 실패"); }, "수강생노트.json", () => {}, "검수.json");
+  return { m, cur, dlog, perms, note, saved, t0 };
 }
 const sigOf = (t) => t.m.contentSig(t.note);
 (async () => {
@@ -188,5 +188,31 @@ const sigOf = (t) => t.m.contentSig(t.note);
     .split("st === \"unsupported\" || st === \"unknown\"")[1].split("} else {")[1] || ""), "예약 경로에서 publishNote 호출 금지");
   // 26. 구버전 화면: 예약 UI 없이 '지금 바로 게시(예약 아님)'만
   assert.match(src, /아래 버튼이 <b>지금 바로<\/b> 게시합니다\(예약이 아니에요\)/);
+  // 27. 취소/보류 → 검수.json 승인·예약 상태를 서버와 일치(내용·수정기록은 보존), 재예약·재취소
+  { const srv = server(), t = make(srv, { review: { edits: [{ at: "x", text: "e1" }], ai_feedback: "AI원문", feedback: "승인 내용" } });
+    await t.m.schedAct("schedule", OK(t));
+    assert.ok(t.cur.review.approved_sig && t.cur.review.scheduled_for);
+    t.cur.note = t.note; await t.m.schedAct("cancel", {});
+    const rv = t.cur.review;
+    assert.strictEqual(rv.approved_sig, null); assert.strictEqual(rv.scheduled_for, null); assert.strictEqual(rv.approved_at, null); assert.strictEqual(rv.published_at, null);
+    assert.ok(rv.prev_approved_sig && rv.held_at); assert.deepStrictEqual(rv.edits, [{ at: "x", text: "e1" }]); assert.strictEqual(rv.ai_feedback, "AI원문"); assert.strictEqual(rv.feedback, "승인 내용");
+    const w = t.t0.writes.filter(x => x[0] === "검수.json"); assert.ok(w.length >= 1); assert.strictEqual(JSON.parse(w[w.length - 1][1]).approved_sig, null);
+    assert.strictEqual(t.m.schedStatus({ caps: true, srv: { state: "held" }, sigNow: sigOf(t), approvedSig: rv.approved_sig }), "held");
+    await t.m.schedAct("schedule", { ...OK(t), date: "2026-10-29", time: "18:00" });
+    assert.ok(rv.approved_sig && rv.scheduled_for === "2026-10-29T18:00:00+09:00");
+    await t.m.schedAct("cancel", {}); assert.strictEqual(rv.approved_sig, null); assert.ok(rv.prev_approved_sig); }
+  // 28. 공개된 노트 '공개 숨기기' → published_at도 비움
+  { const srv = server(), t = make(srv); await t.m.schedAct("now", OK(t)); t.cur.review.published_at = "2026-10-26T12:00:00Z";
+    t.cur.note = t.note; await t.m.schedAct("cancel", {}); assert.strictEqual(t.cur.review.published_at, null); assert.strictEqual(t.cur.review.approved_sig, null); }
+  // 29. Drive(검수.json) 저장 실패 → 서버는 보류, 경고 문구, 예외 아님
+  { const srv = server(), t = make(srv, { reviewWriteFail: true }); await t.m.schedAct("schedule", OK(t));
+    t.cur.note = t.note; const msg = await t.m.schedAct("cancel", {}); assert.strictEqual(srv.notes["S1|L1"].state, "held"); assert.match(msg, /앱 안 상태 저장은 실패/); }
+  // 30. 서버 취소 실패 → 검수.json 그대로(상태 불일치 만들지 않음)
+  { const srv = server({ netFail: "t_unschedule" }), t = make(srv); await t.m.schedAct("schedule", OK(t));
+    const before = t.cur.review.approved_sig; t.cur.note = t.note; await assert.rejects(t.m.schedAct("cancel", {}), /네트워크/); assert.strictEqual(t.cur.review.approved_sig, before); }
+  // 31. 재예약 중 링크 열기 실패로 자동 보류되면 이전 승인도 해제
+  { const srv = server(), t = make(srv); await t.m.schedAct("schedule", OK(t));
+    const t2 = make(srv, { driveFail: true, review: { ...t.cur.review } }); assert.ok(t2.cur.review.approved_sig);
+    await assert.rejects(t2.m.schedAct("schedule", OK(t2)), /예약을 취소\(보류\)/); assert.strictEqual(t2.cur.review.approved_sig, null); }
   console.log("schedule-ux OK");
 })().catch(e => { console.error(e); process.exit(1); });

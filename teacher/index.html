@@ -850,6 +850,15 @@ async function refreshSched(me) {   // 서버의 실제 상태를 다시 조회(
   } catch (e) { s.caps = null; s.entry = null; s.err = e.message; }
   return s;
 }
+// 서버가 '보류'로 바꾼 뒤 검수.json의 승인·예약·공개 상태를 서버와 맞춘다(알림 메일이 이 값을 읽음). 피드백 내용·수정기록·AI 원문은 건드리지 않고 상태 값만 비운다.
+// 이전 승인 값은 prev_*로 남긴다. 저장이 실패하면 경고 문구만 돌려주고 서버 보류 결과는 그대로 둔다(saveReview는 오류를 삼키므로 writeJSON을 직접 쓴다)
+async function markHeldLocal(me) {
+  const rv = me.review;
+  rv.prev_approved_sig = rv.approved_sig || rv.prev_approved_sig || null; rv.prev_approved_at = rv.approved_at || rv.prev_approved_at || null;
+  rv.approved_sig = null; rv.approved_at = null; rv.scheduled_for = null; rv.published_at = null; rv.held_at = new Date().toISOString();
+  try { me.reviewId = await writeJSON(me.folder.id, REVIEW, rv, me.reviewId); return ""; }
+  catch { return "(서버는 보류됐지만 앱 안 상태 저장은 실패했어요. 알림 메일이 잠시 예전 상태로 보일 수 있어요) "; }
+}
 // 승인·예약·즉시 공개·취소 한 동작. 서버가 요청을 받았다고 확인한 뒤에만 성공으로 본다
 async function schedAct(kind, pick) {
   const me = cur, rv = me.review, s = (me.sched ??= { busy: false, pick: {} });
@@ -862,7 +871,8 @@ async function schedAct(kind, pick) {
     const r = await portal("t_unschedule", key);
     if (r.state !== "held") throw new Error("서버 응답이 예상과 달라요 — 상태를 다시 확인했어요");
     const fails = []; for (const id of noteFileIds(me.note || buildNote())) { try { await revokeLink(id); } catch { fails.push(id); } }
-    return fails.length ? `보류했어요. 다만 녹음 ${fails.length}개의 링크 공유는 못 닫았어요(드라이브에서 직접 확인)` : "보류했어요. 수강생에게 보이지 않아요";
+    const syncWarn = await markHeldLocal(me);
+    return syncWarn + (fails.length ? `보류했어요. 다만 녹음 ${fails.length}개의 링크 공유는 못 닫았어요(드라이브에서 직접 확인)` : "보류했어요. 수강생에게 보이지 않아요");
   }
   const note = buildNote(), sig = contentSig(note), bl = approvalBlockers(note, rv, me.ai).filter(b => b.level === "block");
   if (bl.length) throw new Error("승인 전 확인할 것이 남았어요: " + bl[0].msg);
@@ -880,7 +890,7 @@ async function schedAct(kind, pick) {
   if (r.state !== want) throw new Error(`서버 응답(${r.state || "없음"})이 예상(${want})과 달라요 — 상태를 다시 확인했어요`);
   if (kind === "schedule") {
     try { for (const id of ids) await openLink(id); }
-    catch (e) { try { await portal("t_unschedule", key); } catch {} throw new Error("녹음 공유 권한을 열지 못해 예약을 취소(보류)했어요: " + e.message); }
+    catch (e) { let held = false; try { await portal("t_unschedule", key); held = true; } catch {} if (held) await markHeldLocal(me); throw new Error("녹음 공유 권한을 열지 못해 예약을 취소(보류)했어요: " + e.message); }
   }
   rv.approved_sig = sig; rv.approved_at = note.published_at; rv.scheduled_for = va || null; me.note = note;
   let warn = "";
