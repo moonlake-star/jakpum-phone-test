@@ -55,7 +55,13 @@ const stored = (d, name) => JSON.parse(d.files[F][name][0].text);
   assert.strictEqual(L.doc.rev, 3); assert.strictEqual(L.doc.prefs.active_start, "13:00"); assert.strictEqual(L.doc.prefs.active_end, "22:00"); assert.strictEqual(L.doc.prefs.notify, false); assert.strictEqual(L.doc.prefs.snooze_until, null);
   assert.deepStrictEqual(L.doc.request_ids, ["a"]); assert.deepStrictEqual(L.doc.students, { S1: { publish_time: "09:30" } }); assert.ok(L.warns.length >= 2);
   d = fakeDrive(); put(d, "강사설정_default.json", { teacher_id: "other", rev: 9, prefs: { notify: false } });
-  L = await T.tpLoad(d, F, "default"); assert.strictEqual(L.doc.rev, 0); assert.strictEqual(L.doc.prefs.notify, true); assert.ok(L.warns[0].includes("다른 강사"));
+  L = await T.tpLoad(d, F, "default"); assert.strictEqual(L.state, "error");
+  assert.strictEqual((await T.tpSave(d, F, "default", { notify: false }, 0, "wrong-owner", NOW)).kind, "error");
+  assert.strictEqual(d.writes.length, 0);   // 다른 강사 문서는 절대 덮어쓰지 않음
+  d = fakeDrive(); put(d, "강사설정_default.json", null);
+  assert.strictEqual((await T.tpLoad(d, F, "default")).state, "error");
+  assert.strictEqual((await T.tpSave(d, F, "default", { notify: false }, 0, "null-doc", NOW)).kind, "error");
+  assert.strictEqual(d.writes.length, 0);
   d = fakeDrive(); put(d, "강사설정_default.json", "{깨짐");
   L = await T.tpLoad(d, F, "default"); assert.strictEqual(L.state, "error");
   let r = await T.tpSave(d, F, "default", { notify: false }, 0, "r1", NOW); assert.strictEqual(r.kind, "error"); assert.strictEqual(d.writes.length, 0);   // 깨진 파일을 덮어쓰지 않음
