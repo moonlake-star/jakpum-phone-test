@@ -133,9 +133,12 @@ const stored = (d, name) => JSON.parse(d.files[F][name][0].text);
   assert.strictEqual((await T.tpSave(d, F, "tb", { notify: false }, 0, "b1", NOW)).kind, "saved");
   assert.strictEqual(stored(d, "강사설정_ta.json").prefs.notify, true); assert.strictEqual(stored(d, "강사설정_tb.json").prefs.active_start, "10:00");
   assert.strictEqual((await T.tpLoad(d, F, "ta")).doc.prefs.active_end, "01:00"); assert.strictEqual((await T.tpLoad(d, F, "tb")).doc.prefs.notify, false);
-  // 파일 이름을 바꿔 둔(다른 강사 내용) 문서는 무시되어 기본값 → 그 위에 저장하면 덮어쓰게 되므로 rev 0 기준으로만 저장 가능
+  // 다른 강사의 내용이 같은 파일명에 들어 있으면 읽기/저장 모두 차단(덮어쓰기 금지)
   put(d, "강사설정_tc.json", { teacher_id: "ta", rev: 7, prefs: { notify: false } });
-  assert.strictEqual((await T.tpLoad(d, F, "tc")).doc.prefs.notify, true);
+  assert.strictEqual((await T.tpLoad(d, F, "tc")).state, "error");
+  const wBefore = d.writes.length;
+  assert.strictEqual((await T.tpSave(d, F, "tc", { notify: true }, 0, "tc1", NOW)).kind, "error");
+  assert.strictEqual(d.writes.length, wBefore);
 
   // 9. 화면 문구: 스누즈/OFF/쉬는 날/자정 경계가 보이고, 사용자 입력은 이스케이프
   assert.strictEqual(T.tpSnoozeText(null, NOW), "꺼짐"); assert.ok(T.tpSnoozeText("2026-10-26T17:30:00+00:00", NOW).includes("2시간") || T.tpSnoozeText("2026-10-26T17:30:00+00:00", NOW).includes("약 2시간"));
