@@ -2315,7 +2315,8 @@ function renderBest() {
     <div class="muted" style="font-size:.85rem">수강생에겐 ‘오늘의 베스트 가창’으로 가요 · ${o.isComposite
       ? `여러 테이크에서 줄마다 가장 좋은 구절 ${o.lines?.length || ""}개를 이어 붙인 편집본(테이크 ${o.takes_used || "?"}개) · 이음새에서 박자가 조금 어긋날 수 있어요`
       : `선생님 칭찬 “${esc((o.praise?.text || "").slice(0, 16))}” (${fmt(o.praise?.t || 0)}) 바로 앞에 이어 부른 실제 테이크(편집·보정 없음)`}</div>
-    <div class="row" style="margin-top:6px">${opts.length > 1 ? opts.map((x, k) => `<button class="small ghost bestAlt ${k === i ? "on" : ""}" data-k="${k}">${k === i ? "✓ " : ""}${x.isComposite ? "이어 붙인 1절" : "후보 " + (k + 1)}</button>`).join("") : ""}</div>
+    <div class="row" style="margin-top:6px">${opts.length > 1 ? opts.map((x, k) => `<button class="small ghost bestAlt ${k === i ? "on" : ""}" aria-pressed="${k === i}" data-k="${k}">${k === i ? "✓ " : ""}${x.isComposite ? "베스트 편집본" : "후보 " + (k + 1)}</button>`).join("") : ""}</div>
+    ${o.isComposite ? `<p class="muted" style="margin:8px 0 0;font-size:.85rem">여러 번 부른 노래에서 좋은 구절을 골라 연결한 편집본입니다. 연결부의 박자는 선생님이 확인해 주세요.</p>` : ""}
     ${tpHTML()}
     <div class="row" style="margin-top:8px"><button class="small ghost" id="bestMakeup">🪄 ${bestMakeupLabel(o)}</button></div>
     <label style="display:flex;gap:8px;align-items:center;margin-top:8px;font-size:.92rem"><input type="checkbox" id="bestSend" style="width:22px;height:22px;flex:none" ${rv.sendBest ? "checked" : ""}><span>‘클립 보내기’ 때 맨 앞에 함께 보내기</span></label></div>`;
@@ -2362,7 +2363,7 @@ function wireBest() {
     const job = bestMakeupJob(o);
     return job ? openMkJob(job, back) : makeupFromBest(o, back);
   };
-  document.querySelectorAll(".bestAlt").forEach(b => b.onclick = () => { tpDetach(); cur.review.bestPick = +b.dataset.k; renderToday(); });
+  document.querySelectorAll(".bestAlt").forEach(b => b.onclick = () => { tpDetach(); cur.review.bestPick = +b.dataset.k; renderToday(); const picked = bestPicked(); if (picked) tpWire($("todayCard").querySelector(".tp"), picked.file_id, true); });
   $("bestSend").onchange = (e) => { cur.review.sendBest = e.target.checked; };
 }
 function renderToday() {
@@ -2573,7 +2574,7 @@ let tpRoot = null, tpFile = null, tpEpoch = 0, tpPromise = null, tpActionSeq = 0
 function tpHTML() {
   return `<div class="tp" style="margin-top:6px"><input type="range" class="tpSeek" min="0" max="1000" value="0" aria-label="재생 위치" style="width:100%">
     <div class="row" style="justify-content:space-between"><span class="tpTime muted">0:00 / 0:00</span></div>
-    <div class="row" style="margin-top:4px;gap:6px"><button class="small ghost" data-tp="start">⏮ 처음</button><button class="small ghost" data-tp="back">-5</button><button class="small" data-tp="play">▶ 재생</button><button class="small ghost" data-tp="fwd">+5</button><button class="small ghost" data-tp="end">끝 ⏭</button></div></div>`;
+    <div class="row" style="margin-top:4px;gap:4px;flex-wrap:nowrap;display:grid;grid-template-columns:1.2fr .8fr .85fr .8fr 1.2fr"><button class="small ghost" style="min-width:0;padding:8px 2px" data-tp="start">⏮ 처음</button><button class="small ghost" style="min-width:0;padding:8px 2px" data-tp="back">-5</button><button class="small" style="min-width:0;padding:8px 2px" data-tp="play" aria-label="재생">▶</button><button class="small ghost" style="min-width:0;padding:8px 2px" data-tp="fwd">+5</button><button class="small ghost" style="min-width:0;padding:8px 2px" data-tp="end">끝 ⏭</button></div></div>`;
 }
 function tpDetach() { tpEpoch++; tpActionSeq++; if (tpRoot) { try { player.pause(); } catch {} } tpRoot = null; tpFile = null; tpPromise = null; }
 function tpPaint() {
@@ -2581,7 +2582,9 @@ function tpPaint() {
   const d = player.duration || 0, t = player.currentTime || 0;
   tpRoot.querySelector(".tpSeek").value = d ? Math.round(t / d * 1000) : 0;
   tpRoot.querySelector(".tpTime").textContent = `${fmt(t)} / ${fmt(d)}`;
-  tpRoot.querySelector('[data-tp="play"]').textContent = player.paused ? "▶ 재생" : "❚❚ 일시정지";
+  const playButton = tpRoot.querySelector('[data-tp="play"]');
+  playButton.textContent = player.paused ? "▶" : "❚❚";
+  playButton.setAttribute("aria-label", player.paused ? "재생" : "일시정지");
 }
 for (const ev of ["timeupdate", "play", "pause", "loadedmetadata", "ended"]) player.addEventListener(ev, tpPaint);
 async function tpLoad(root, fileId) {
