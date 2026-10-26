@@ -584,10 +584,35 @@ async function subsFolder(sid) {
   if (st.sub?.["04_과제제출"]) return st.sub["04_과제제출"];
   const id = (await (await api(`${DRIVE}/files?fields=id`, { method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name: "04_과제제출", mimeType: "application/vnd.google-apps.folder", parents: [st.folder] }) })).json()).id;
-  (st.sub ??= {})["04_과제제출"] = id;
-  const clean = JSON.parse(JSON.stringify(cfg, (k, v) => k.startsWith("_") ? undefined : v));
-  await writeJSON(null, "config.json", clean, cfg._configId);
-  return id;
+  return saveSubFolder(sid, "04_과제제출", id);
+}
+// config.json에는 '새 하위 폴더 ID 한 칸'만 최신 서버본 위에 합쳐 쓴다(메모리의 오래된 cfg 통째 덮어쓰기 금지).
+// Drive v3 파일 내용 쓰기에는 If-Match 같은 조건부 쓰기가 없어 완전한 원자성은 불가능 → 버전(version) 확인으로
+// '읽는 사이/쓰기 직전/쓴 직후' 변경을 감지하고, 어긋나면 재시도, 계속 어긋나면 실패(fail-closed)한다.
+// 남는 위험: 쓰기 직전 확인과 실제 쓰기 사이 수 초 안에 다른 기기가 저장하면 그 변경이 덮일 수 있다.
+async function saveSubFolder(sid, key, id) {
+  const cid = cfg._configId, ver = async () => (await (await api(`${DRIVE}/files/${cid}?fields=version,modifiedTime`)).json()).version;
+  const fresh = async () => (await api(`${DRIVE}/files/${cid}?alt=media&_=${Date.now()}`, { cache: "no-store" })).json();
+  for (let n = 0; n < 3; n++) {
+    const v1 = await ver(), latest = await fresh();
+    if (await ver() !== v1) continue;                       // 읽는 도중 바뀜
+    const st = latest.students?.[sid];
+    if (!st) throw new Error("최신 설정에서 이 수강생을 찾지 못해 저장하지 않았어요. 앱을 다시 열어 주세요");
+    if (st.consent_withdrawn) throw new Error("동의 철회된 수강생이라 저장하지 않았어요");   // 운영 규격: 날짜 문자열 또는 true (collector.withdrawn·수강생노트.gs와 같음)
+    if (st.sub?.[key]) { adoptConfig(latest); return st.sub[key]; }   // 다른 기기가 먼저 만들어 둠 → 그 폴더를 쓴다
+    (st.sub ??= {})[key] = id;
+    if (await ver() !== v1) continue;                       // 쓰기 직전 다시 확인
+    await writeJSON(null, "config.json", latest, cid);
+    const after = await fresh();                            // 쓴 직후 읽어 확인
+    if (after.students?.[sid]?.sub?.[key] === id) { adoptConfig(after); return id; }
+  }
+  throw new Error("설정이 다른 기기에서 계속 바뀌고 있어 저장하지 못했어요. 잠시 뒤 다시 눌러 주세요");
+}
+function adoptConfig(latest) {   // 서버 최신본을 cfg로 쓰되, 화면용 임시값(_로 시작)은 유지
+  const old = cfg;
+  for (const [sid, st] of Object.entries(latest.students || {})) for (const k of Object.keys(old.students?.[sid] || {})) if (k.startsWith("_")) st[k] = old.students[sid][k];
+  Object.defineProperty(latest, "_configId", { value: old._configId, enumerable: false });
+  cfg = latest;
 }
 async function loadSubs(st) {
   const fid = st.sub?.["04_과제제출"]; if (!fid) return { recs: [], files: [] };
@@ -621,13 +646,33 @@ function paintUpSteps(title, steps, tip) {
 }
 const mb = (f) => (f.size / 1048576).toFixed(1) + "MB";
 let sharedFiles = [];
+async function sharedMetas(c) {   // 보관 중인 모든 묶음(+예전 방식 단일 보관분)
+  const out = [];
+  for (const k of await c.keys()) {
+    const m = new URL(k.url).pathname.match(/\/shared\/(?:([^/]+)\/)?meta\.json$/); if (!m) continue;
+    const meta = await (await c.match(k)).json().catch(() => null);
+    if (meta) out.push({ ...meta, batch: m[1] || "" });
+  }
+  return out.sort((x, y) => (x.receivedAt || "").localeCompare(y.receivedAt || ""));
+}
+async function clearSharedBatches(files) {   // 드라이브 저장까지 끝난 묶음만 지운다
+  const c = await caches.open("vn-shared-files"), done = new Set(files.map(f => f.batch || ""));
+  for (const k of await c.keys()) {
+    const m = new URL(k.url).pathname.match(/\/shared\/(?:([^/]+)\/)?[^/]+$/);
+    if (m && done.has(m[1] || "")) await c.delete(k);
+  }
+}
 async function openShared() {
   show("vShared");
-  const c = await caches.open("vn-shared-files");
-  const metaR = await c.match("./shared/meta.json");
-  const meta = metaR ? await metaR.json() : { files: [] };
+  const c = await caches.open("vn-shared-files"), metas = await sharedMetas(c);
+  const meta = { text: metas.map(m => m.text).filter(Boolean).pop() || "" };
   sharedFiles = [];
-  for (const f of meta.files) { const r = await c.match(`./shared/${f.i}`); if (r) sharedFiles.push(new File([await r.blob()], f.name || `과제_${f.i}`, { type: f.type })); }
+  for (const m of metas) for (const f of m.files || []) {
+    const r = await c.match(m.batch ? `./shared/${m.batch}/${f.i}` : `./shared/${f.i}`);
+    if (r) { const file = new File([await r.blob()], f.name || `과제_${f.i}`, { type: f.type }); file.batch = m.batch; sharedFiles.push(file); }
+  }
+  const err = metas.find(m => m.error);
+  if (err) toast("일부 파일을 받지 못했어요(저장 공간 부족 등): " + err.error);
   $("shFiles").innerHTML = sharedFiles.length ? sharedFiles.map((f, i) => `<div style="margin:8px 0;padding-top:6px;border-top:1px solid var(--line)">
       <div class="muted">받은 파일: ${esc(f.name)} · ${(f.size / 1048576).toFixed(1)}MB</div>
       <audio controls src="${URL.createObjectURL(f)}" style="width:100%"></audio>
@@ -681,7 +726,7 @@ async function saveShared() {
       subs.recs.push({ id, name, original_name: f.name, received_on: day, saved_at: new Date().toISOString(), memo, reply: "", replied_at: null });
     }
     await writeJSON(folder, SUBS, subs.recs, subs.recId);
-    const c = await caches.open("vn-shared-files"); for (const k of await c.keys()) await c.delete(k);
+    await clearSharedBatches(sharedFiles);
     history.replaceState(null, "", "./");
     toast("저장했어요"); cfg.students[sid]._rows = null; await openStudent(sid, "subs");
   } catch (e) { toast(e.message); }
@@ -742,9 +787,7 @@ async function mkFolder(sid) {
   if (st.sub?.["07_커버제작"]) return st.sub["07_커버제작"];
   const id = (await (await api(`${DRIVE}/files?fields=id`, { method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name: "07_커버제작", mimeType: "application/vnd.google-apps.folder", parents: [st.folder] }) })).json()).id;
-  (st.sub ??= {})["07_커버제작"] = id;
-  await writeJSON(null, "config.json", JSON.parse(JSON.stringify(cfg, (k, v) => k.startsWith("_") ? undefined : v)), cfg._configId);
-  return id;
+  return saveSubFolder(sid, "07_커버제작", id);
 }
 async function newFolder(name, parent) {
   return (await (await api(`${DRIVE}/files?fields=id`, { method: "POST", headers: { "Content-Type": "application/json" },
