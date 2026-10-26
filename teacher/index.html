@@ -613,7 +613,7 @@ function joinNewSid(students) {
   // 날짜와 무작위 토큰을 함께 사용. 이름(동명이인)과 무관하게 변하지 않는 식별자.
   let id;
   do { id = "STU_" + Date.now().toString(36).toUpperCase() + "_" +
-    (typeof crypto?.randomUUID === "function" ? crypto.randomUUID().slice(0, 8) : Math.random().toString(36).slice(2, 10)).toUpperCase(); }
+    (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function" ? crypto.randomUUID().slice(0, 8) : Math.random().toString(36).slice(2, 10)).toUpperCase(); }
   while (students[id]);
   return id;
 }
