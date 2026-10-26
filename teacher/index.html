@@ -1291,6 +1291,62 @@ async function saveShared() {
   } catch (e) { toast(e.message); }
   $("btnShSave").disabled = false; $("btnShSave").textContent = "저장";
 }
+// ── 과제 AI 분석 상태·초안 미리보기 (#74 앱 1단계: 계약 + fail-closed) ─────────────
+// 서버측 AI 분석(worker)·Drive 읽기/쓰기는 아직 없다. 서버가 과제기록.json 의 rec.ai 에 결과를 써 주기 전에는
+// 어떤 버튼·화면도 ‘AI가 분석했다’고 표시하지 않는다. 예시(mock)는 저장하지 않고 ‘실제 분석 아님’으로 표시한다.
+// 계약(제안): rec.ai 는 { source:"server", status:"queued|running|done|failed", submission_id("학생id:파일id"), student_id, source_file_id,
+//   lesson_id, mission_id, mission_approved:true, mission_text, draft, evidence:[{point,measured}], warnings:[], limited:bool, analyzed_at }
+// mission_approved 정본(제안): 강사가 승인·공개한 레슨 노트의 mission_approved={lesson_id,mission_id,approved_at}. 앱은 읽기만, 쓰기는 서버 한 곳.
+//#ms-begin
+const MS_CAPS = { ai: false };   // 서버 AI 분석 연결 전: false. 연결 PR에서 서버가 알려 주는 값으로 바꾼다
+function msValid(rec, sid) {   // 서버가 쓴 완료 결과만 인정. 하나라도 어긋나면 ‘확인 불가’
+  const a = rec?.ai;
+  return !!a && a.source === "server" && a.status === "done" && a.mission_approved === true
+    && a.submission_id === `${sid}:${rec.id}` && a.student_id === sid && a.source_file_id === rec.id
+    && !!a.lesson_id && !!a.mission_id && typeof a.draft === "string" && a.draft.trim() !== ""
+    && Array.isArray(a.evidence) && (a.evidence.length > 0 || a.limited === true);
+}
+function msStatus(rec, sid, caps = MS_CAPS) {   // {key, label, tone}
+  const a = rec?.ai;
+  if (a) {
+    if (a.status === "done") return msValid(rec, sid) ? { key: "done", label: "AI 분석 완료(서버 결과)", tone: "ok" } : { key: "invalid", label: "AI 결과를 확인할 수 없어요(수강생·파일·미션 정보 불일치)", tone: "todo" };
+    if (a.status === "queued") return { key: "queued", label: "AI 분석 대기 중", tone: "todo" };
+    if (a.status === "running") return { key: "running", label: "AI 분석 진행 중", tone: "todo" };
+    if (a.status === "failed") return { key: "failed", label: "AI 분석 실패 — 직접 답장해 주세요", tone: "todo" };
+    return { key: "invalid", label: "AI 결과를 확인할 수 없어요", tone: "todo" };
+  }
+  return caps.ai ? { key: "ready", label: "AI 분석 준비됨 · 아직 분석 안 함", tone: "" } : { key: "off", label: "AI 분석 준비 안 됨(서버 연결 전)", tone: "" };
+}
+function msMission(rec, sid) {   // 선택 미션/승인 상태. 승인 확인 못 하면 ‘미승인’(fail-closed)
+  const a = rec?.ai;
+  if (a?.mission_approved === true && a.mission_id && a.lesson_id && a.student_id === sid) return { state: "approved", text: a.mission_text || "", lesson_id: a.lesson_id, mission_id: a.mission_id };
+  return { state: "unknown", text: "", lesson_id: "", mission_id: "" };
+}
+function msDraftUse(rec, sid, current) {   // 초안을 답장 칸에 넣어도 되는지(수정 중인 글은 덮지 않음)
+  if (!msValid(rec, sid)) return { ok: false, why: "서버가 확인한 분석 결과가 없어요" };
+  if ((current || "").trim() && !/^.{1,20}님, 녹음 잘 들었어요!$/.test(current.trim())) return { ok: false, why: "답장 칸에 쓰던 글이 있어 덮어쓰지 않았어요" };
+  return { ok: true, why: "" };
+}
+function msOnSent(rec, sid, finalText) {   // 보냄 표시 때 AI 초안 사용/수정 여부 기록(유효한 서버 결과가 있을 때만)
+  if (!msValid(rec, sid)) return null;
+  return { at: new Date().toISOString(), edited: finalText.trim() !== rec.ai.draft.trim(), submission_id: rec.ai.submission_id };
+}
+function msMock() {   // 화면 예시 전용(저장 안 함, 초안으로 넣을 수 없음)
+  return { source: "mock", status: "done", draft: "(예시) 후렴 끝음이 지난번보다 안정적으로 들렸어요. 다음엔 숨을 한 박 먼저 쉬어 보세요.", evidence: [{ point: "예시 항목", measured: false }] };
+}
+//#ms-end
+function msPanel(r, sid) {
+  const stt = msStatus(r, sid), m = msMission(r, sid), a = r.ai;
+  const miss = m.state === "approved" ? `<span class="chip ok">승인된 미션</span> ${esc(m.text)}` : `<span class="chip todo">연결된 승인 미션 없음</span> <span class="muted">승인 미션을 서버가 확인하기 전에는 비교하지 않아요</span>`;
+  const draft = stt.key === "done" ? `<div class="muted" style="margin-top:4px">AI 초안(미리보기 · 아직 수강생에게 안 보여요)</div><div class="card" style="white-space:pre-wrap">${esc(a.draft)}</div>
+      ${a.limited ? `<div class="muted">짧거나 잡음이 많아 ‘제한적 분석’이에요. 향상은 단정하지 않았어요.</div>` : `<div class="muted">근거 ${a.evidence.length}개</div>`}
+      ${(a.warnings || []).map(w => `<div class="chip todo">${esc(w)}</div>`).join("")}
+      <button class="small ghost" data-aidraft>초안을 답장 칸에 넣기</button>` : "";
+  return `<div class="msbox" style="margin:6px 0;padding:6px;border:1px dashed var(--line)">
+      <div><b>AI 분석</b> <span class="chip ${stt.tone}">${esc(stt.label)}</span></div>
+      <div style="margin:4px 0">${miss}</div>${draft}
+      <button class="small ghost" data-aimock>예시 화면 보기(실제 분석 아님)</button><div class="msmock hidden"></div></div>`;
+}
 let subsCur = null;
 async function openSubs(sid, box) {
   if (!box) return openStudent(sid, "subs");
@@ -1303,6 +1359,7 @@ async function openSubs(sid, box) {
         <span class="chip ${r.replied_at ? "ok" : "todo"}" style="margin-left:auto">${r.replied_at ? "답장 ✓" : "답장 전"}</span></div>
       <div class="muted" style="font-size:.82rem;word-break:break-all">${esc(r.name || "")}</div>
       <button class="small ghost" data-play="${esc(r.id)}">▶ 듣기</button><audio controls class="hidden" style="width:100%"></audio>
+      ${msPanel(r, sid)}
       <div class="muted" style="margin-top:6px">${r.replied_at ? `보낸 답장 · ${new Date(r.replied_at).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}` : "답장 (여기 쓰고 ‘복사하고 보냄 표시’ → 카톡에 붙여넣기)"}</div>
       <textarea class="reply" style="min-height:90px">${esc(r.reply || `${st.name}님, 녹음 잘 들었어요! `)}</textarea>
       <div class="row">${r.replied_at
@@ -1318,12 +1375,22 @@ async function openSubs(sid, box) {
     card.querySelector(".reply").oninput = (e) => { rec.reply = e.target.value; };
     const persist = async (msg) => { rec.reply = card.querySelector(".reply").value.trim();
       try { await writeJSON(subsCur.folder, SUBS, subsCur.recs, subsCur.recId); toast(msg); openStudent(sid, "subs"); } catch (e) { toast(e.message); } };
+    card.querySelector("[data-aimock]")?.addEventListener("click", () => {
+      const box = card.querySelector(".msmock"), mk = msMock(rec);
+      box.innerHTML = `<div class="chip todo">예시 화면 — 실제 분석이 아니고 저장·전송되지 않아요</div><div class="card" style="white-space:pre-wrap">${esc(mk.draft)}</div>`;
+      box.classList.toggle("hidden");
+    });
+    card.querySelector("[data-aidraft]")?.addEventListener("click", () => {
+      const ta = card.querySelector(".reply"), u = msDraftUse(rec, sid, ta.value);
+      if (!u.ok) return toast(u.why);
+      ta.value = rec.ai.draft; rec.reply = ta.value; toast("초안을 넣었어요. 고쳐서 보내세요(보내기 전엔 수강생에게 안 보여요)");
+    });
     card.querySelector("[data-send]")?.addEventListener("click", async () => {
       const t = card.querySelector(".reply").value.trim();
       try { await navigator.clipboard.writeText(t); } catch { return toast("복사가 안 됐어요. 길게 눌러 복사한 뒤 ‘카톡에 직접 썼어요’를 눌러 주세요"); }
-      rec.replied_at = new Date().toISOString(); await persist("복사했어요. 카톡에 붙여넣기 하세요 (답장 기록됨)");
+      rec.replied_at = new Date().toISOString(); { const m = msOnSent(rec, sid, t); if (m) rec.ai_sent = m; } await persist("복사했어요. 카톡에 붙여넣기 하세요 (답장 기록됨)");
     });
-    card.querySelector("[data-mark]")?.addEventListener("click", async () => { rec.replied_at = new Date().toISOString(); await persist("답장 기록됨"); });
+    card.querySelector("[data-mark]")?.addEventListener("click", async () => { rec.replied_at = new Date().toISOString(); { const m = msOnSent(rec, sid, card.querySelector(".reply").value); if (m) rec.ai_sent = m; } await persist("답장 기록됨"); });
     card.querySelector("[data-save]")?.addEventListener("click", () => persist("저장됨"));
     card.querySelector("[data-undo]")?.addEventListener("click", async () => { rec.replied_at = null; await persist("보냄 취소됨"); });
   });
