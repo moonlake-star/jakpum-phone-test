@@ -18,6 +18,19 @@ assert.ok(h2.includes('aria-label="10월 2일 레슨"'));
 const many = storyHtml(Array.from({ length: 9 }, (_, i) => L(20 - i)));
 assert.strictEqual((many.match(/class="story-item"/g) || []).length, 6);
 assert.ok(many.includes("한마디20") && !many.includes("한마디14"));
+// 정렬 안 된 입력(역순·뒤섞임)에서도 날짜 기준 최근 6개, 오름차순 표시
+const asc = Array.from({ length: 9 }, (_, i) => L(10 + i)); // 10..18 오름차순 입력
+const shuffled = [asc[3], asc[8], asc[0], asc[5], asc[1], asc[7], asc[2], asc[6], asc[4]];
+[asc, shuffled].forEach(inp => {
+  const h = storyHtml(inp);
+  assert.strictEqual((h.match(/class="story-item"/g) || []).length, 6);
+  [13, 14, 15, 16, 17, 18].forEach(n => assert.ok(h.includes("한마디" + n), "포함 " + n));
+  [10, 11, 12].forEach(n => assert.ok(!h.includes("한마디" + n + "<"), "제외 " + n));
+  const pos = [13, 14, 15, 16, 17, 18].map(n => h.indexOf("한마디" + n));
+  assert.deepStrictEqual(pos, [...pos].sort((x, y) => x - y));
+});
+// 입력 배열을 바꾸지 않음
+const keep = [L(5), L(9), L(7)]; storyHtml(keep); assert.deepStrictEqual(keep.map(x => x.id), ["L5", "L9", "L7"]);
 // 오디오 없음 / 한마디 없음
 const noAu = storyHtml([L(3, { best: null }), L(4, { best: null })]); assert.strictEqual(audios(noAu), 0); assert.ok(noAu.includes("한마디3"));
 const noHl = storyHtml([L(3, { highlight: "" }), L(4, { highlight: "  " })]); assert.strictEqual(audios(noHl), 2); assert.ok(!noHl.includes("<p></p>"));
