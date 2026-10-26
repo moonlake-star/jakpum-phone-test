@@ -3,7 +3,7 @@ const fs = require("fs"), assert = require("assert");
 const src = fs.readFileSync(__dirname + "/../teacher/index.html", "utf8");
 const grab = (re) => src.match(re)[0];
 const code = [grab(/const FOLD_KEY[^\n]*\n/), grab(/function foldGet[^\n]*\n/), grab(/function foldSet[^\n]*\n/),
-  grab(/function initFold[\s\S]*?\n}\n/), grab(/function bestOptions[^\n]*\n/), grab(/function bestPicked[^\n]*\n/),
+  grab(/function initFold[\s\S]*?\n}\n/), grab(/function bestOptions[\s\S]*?\n}\n/), grab(/function bestPicked[^\n]*\n/),
   grab(/function renderBest[\s\S]*?\n}\n/), grab(/function wireBest[\s\S]*?\n}\n/), grab(/function renderToday[\s\S]*?\n}\n/), grab(/function speakerIssues[\s\S]*?\n}\n/),
   grab(/function paintSpkState[\s\S]*?\n}\n/)].join("\n");
 function env() {
@@ -73,6 +73,10 @@ e = env(); m = e.mk(cur); m.renderToday(); h = e.els.todayCard.innerHTML;
 assert(h.includes("오늘의 레슨 전달 패키지") && h.includes("오늘의 베스트 테이크 편집") && h.includes("후보 2") && h.includes("오늘의 베스트 가창"));
 assert(!h.includes("AI 베스트") && cur.review.sendBest === true && m.bestPicked().file_id === "b1");
 cur.review.bestPick = 1; assert(m.bestPicked().file_id === "b2");
+cur.best.composite = { status: "ok", file_id: "c1", kind_ko: "여러 테이크 이어 붙인 1절(편집본)", len: 41, lines: [1, 2, 3, 4], takes_used: 2 };
+cur.review.bestPick = 2; m.renderToday(); h = e.els.todayCard.innerHTML;
+assert(m.bestPicked().isComposite && h.includes("이어 붙인 1절") && h.includes("편집본") && h.includes("박자가 조금 어긋날"));
+cur.best.composite = { status: "none", why: "x" }; cur.review.bestPick = 0;
 cur.best = { status: "none", why: "노래 구간 없음" }; m.renderToday(); h = e.els.todayCard.innerHTML;
 assert(h.includes("노래 구간 없음") && !h.includes("bestPlay") && m.bestPicked() === null);
 cur.best = null; m.renderToday(); assert(e.els.todayCard.innerHTML.includes("준비 중"));
