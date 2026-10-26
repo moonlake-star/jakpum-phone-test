@@ -964,13 +964,176 @@ function paintDeliver() {
 }
 function paintLessonsTab(sid) {
   const st = cfg.students[sid], rows = st._rows || [];
-  $("stuTab").innerHTML = `<div id="stuBrief"></div><div id="stuGrowth4"></div><div class="card">` + (rows.length ? rows.map((r, i) => r.err ? `<div class="lesson retry" data-i="${i}" title="${esc(r.err)}"><span>${esc(r.l.name)}</span><span class="chip todo">불러오기 실패(다시 시도)</span></div>`
+  $("stuTab").innerHTML = `<div id="stuBrief"></div><div id="stuGrowth4"></div><div id="stuKakao"></div><div class="card">` + (rows.length ? rows.map((r, i) => r.err ? `<div class="lesson retry" data-i="${i}" title="${esc(r.err)}"><span>${esc(r.l.name)}</span><span class="chip todo">불러오기 실패(다시 시도)</span></div>`
     : `<div class="lesson" data-i="${i}"><span>${esc(r.l.name)}</span><span class="row" style="gap:4px"><span class="chip ${r.fb ? "ok" : "todo"}">${r.fb ? "피드백 ✓" : "피드백 전"}</span>${cfg.practice_check ? `<span class="chip ${r.ck ? "ok" : ""}">${r.ck ? "점검 ✓" : "점검 –"}</span>` : ""}</span></div>`).join("")
     : `<p class="muted">아직 레슨 녹음이 없어요. 녹음이 정리되면 여기에 날짜별로 생기고, 누르면 검수 화면이 열립니다.</p>`) + `</div>`;
   $("stuTab").querySelectorAll(".lesson").forEach(el => el.onclick = () => rows[+el.dataset.i]?.err
     ? (st._rows = null, openStudent(sid, "lesson")) : openLesson(sid, +el.dataset.i, () => openStudent(sid, "lesson")));
   prefetchLessons([{ rows }]);
   paintBriefing(sid);
+  paintKakaoImport(sid);
+}
+
+// ── 카톡 대화 가져오기 (#83): 붙여넣기/TXT → 요약 미리보기 → 수강생 폴더의 전용 파일에만 저장 ──
+// 이 단계는 '저장'까지만. 문체·반응 분석과 프로필 반영은 백엔드 후속 PR(분석 상태는 늘 pending). 카톡 형식은 실제 파일로 검증 전.
+//#kk-begin
+const KK_NAME = "카톡가져오기_대기.json", KK_MAX_CHARS = 300000, KK_MAX_FILE = 2000000, KK_PENDING_MSG = "대화 저장됨 · AI 학습 반영 대기";
+const kkNorm = (t) => String(t ?? "").replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n").normalize("NFC");
+function kkDecode(buf) {   // ArrayBuffer → {text, encoding, warnings[]}; 못 읽으면 text=null
+  const u = new Uint8Array(buf), w = [];
+  if (u[0] === 0xFF && u[1] === 0xFE) return { text: new TextDecoder("utf-16le").decode(u.subarray(2)), encoding: "utf-16le", warnings: [] };
+  if (u[0] === 0xFE && u[1] === 0xFF) return { text: new TextDecoder("utf-16be").decode(u.subarray(2)), encoding: "utf-16be", warnings: [] };
+  try { return { text: new TextDecoder("utf-8", { fatal: true }).decode(u), encoding: "utf-8", warnings: w }; } catch {}
+  try { w.push("UTF-8이 아니라서 EUC-KR로 읽었어요. 아래 미리보기에서 한글이 깨졌는지 꼭 확인하세요."); return { text: new TextDecoder("euc-kr", { fatal: true }).decode(u), encoding: "euc-kr", warnings: w }; } catch {}
+  return { text: null, encoding: null, warnings: ["파일 글자 형식을 읽을 수 없어요. 카톡에서 다시 내보내거나 내용을 복사해 붙여넣어 주세요."] };
+}
+const KK_H24 = (ap, h) => ap === "오전" ? (h === 12 ? 0 : h) : (h === 12 ? 12 : h + 12);
+const kkIso = (y, mo, d, ap, h, mi) => `${y}-${pad2(mo)}-${pad2(d)}T${pad2(KK_H24(ap, +h))}:${mi}:00+09:00`;
+const KK_A_DATE = /^-+\s*(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일.*-+\s*$/, KK_A_MSG = /^\[([^\]]+)\]\s*\[(오전|오후)\s*(\d{1,2}):(\d{2})\]\s?(.*)$/;
+const KK_B_MSG = /^(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})\.\s*(오전|오후)\s*(\d{1,2}):(\d{2}),\s*([^:]+?)\s*:\s?(.*)$/;
+const KK_C_MSG = /^(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일\s*(오전|오후)\s*(\d{1,2}):(\d{2}),\s*(.+?)\s:\s?(.*)$/;
+const KK_C_DATE = /^\d{4}년\s*\d{1,2}월\s*\d{1,2}일\s*(오전|오후)\s*\d{1,2}:\d{2}\s*$/, KK_B_DATE = /^(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일\s*\S*요일\s*$/;
+const KK_SYS = /(님이|님을) (들어왔|나갔|초대했|내보냈)|^(채팅방 관리자|오픈채팅봇)|^저장한 날짜|^.{1,30} 님과 카카오톡 대화$/;
+function kkParse(raw) {   // → {msgs:[{at,speaker,text}], format, title, system, unparsed}
+  const msgs = []; let day = null, fmt = null, title = "", system = 0, unparsed = 0;
+  kkNorm(raw).split("\n").forEach((line, i) => {
+    const t = line.trim(); let m;
+    if (i < 3 && /카카오톡 대화/.test(line)) { title = t; return; }
+    if (m = KK_A_DATE.exec(t)) { day = [m[1], m[2], m[3]]; fmt ||= "A"; return; }
+    if (m = KK_B_DATE.exec(t)) { day = [m[1], m[2], m[3]]; return; }
+    if (day && (m = KK_A_MSG.exec(line))) { fmt ||= "A"; msgs.push({ at: kkIso(day[0], day[1], day[2], m[2], m[3], m[4]), speaker: m[1].trim(), text: m[5] }); return; }
+    if (m = KK_C_MSG.exec(line)) { fmt ||= "C"; msgs.push({ at: kkIso(m[1], m[2], m[3], m[4], m[5], m[6]), speaker: m[7].trim(), text: m[8] }); return; }
+    if (KK_C_DATE.test(t)) return;
+    if (m = KK_B_MSG.exec(line)) { fmt ||= "B"; msgs.push({ at: kkIso(m[1], m[2], m[3], m[4], m[5], m[6]), speaker: m[7].trim(), text: m[8] }); return; }
+    if (!t) return;
+    if (KK_SYS.test(t)) { system++; return; }
+    if (msgs.length) msgs.at(-1).text += "\n" + line; else unparsed++;
+  });
+  return { msgs, format: fmt, title, system, unparsed };
+}
+const KK_INVALID = [["sticker", /^\(?이모티콘\)?(\s|$)|^스티커/], ["photo", /^사진( \d+장)?$/], ["video", /^동영상$/], ["file", /^파일[: ]/], ["deleted", /^삭제된 메시지입니다/],
+  ["call", /^(보이스톡|페이스톡|통화)/], ["forward", /^\(?\[?전달\]?\)?(\s|$)/], ["reply", /^\[?답장\]?(\s|:)/]];
+const kkKind = (text) => { const f = String(text).trim().split("\n")[0].trim(); return (KK_INVALID.find(([, re]) => re.test(f)) || [])[0] || "text"; };
+const KK_EMOJI = /\p{Extended_Pictographic}/u, KK_EMOT = /\^\^|\^_\^|ㅎ{2,}|ㅋ{2,}|ㅠ{2,}|ㅜ{2,}|T_T|;\)|:\)|:D/;
+const kkSame = (a, b) => { a = String(a).replace(/\s/g, ""); b = String(b).replace(/\s/g, ""); return a.length >= 2 && b.length >= 2 && (a.includes(b) || b.includes(a)); };
+// 강사 별칭을 고른 뒤에만 역할이 정해진다. 강사 메시지만 스타일 샘플, 수강생 메시지는 그 학생의 반응 후보로만 센다.
+function kkSummarize(p, aliases, studentName) {
+  const al = new Set(aliases), speakers = [...new Set(p.msgs.map(m => m.speaker))];
+  const others = speakers.filter(s => !al.has(s));
+  const roleOf = (s) => al.has(s) ? "teacher" : others.length === 1 && al.size ? "student" : kkSame(s, studentName) ? "student" : "unknown";
+  const c = { total: p.msgs.length, teacher: 0, student: 0, unknown: 0, invalid: 0, system: p.system, forwardOrReply: 0 };
+  const emoji = new Set(), emot = new Set(); const sample = [];
+  for (const m of p.msgs) {
+    const k = kkKind(m.text);
+    if (k !== "text") { c.invalid++; if (k === "forward" || k === "reply") c.forwardOrReply++; continue; }
+    const r = roleOf(m.speaker); c[r]++;
+    if (r !== "teacher") continue;
+    for (const e of m.text.match(/\p{Extended_Pictographic}/gu) || []) emoji.add(e);
+    const e2 = KK_EMOT.exec(m.text); if (e2) emot.add(e2[0]);
+    if (sample.length < 3 && m.text.trim().length >= 4) sample.push(m.text.trim().slice(0, 60));
+  }
+  const flags = [];
+  if (!p.msgs.length) flags.push("대화를 한 건도 읽지 못했어요(형식 미확인)");
+  if (p.msgs.length && p.unparsed > 3) flags.push(`맨 앞 ${p.unparsed}줄은 읽지 못했어요`);
+  if (!al.size) flags.push("강사 카톡 이름을 아직 고르지 않았어요");
+  else if (!c.teacher) flags.push("고른 이름의 글이 없어요 — 이름이 맞는지 확인");
+  if (c.unknown) flags.push(`누구 말인지 모르는 글 ${c.unknown}건`);
+  if (c.teacher && c.teacher < 5) flags.push("강사 글이 너무 적어 문체 학습에 부족해요");
+  if (speakers.length > 2) flags.push(`말한 사람이 ${speakers.length}명 — 단체방이면 수강생 글이 섞일 수 있어요`);
+  if (p.title && studentName && !kkSame(p.title.replace(/님과 카카오톡 대화$/, ""), studentName) && !speakers.some(s => kkSame(s, studentName))) flags.push("대화 상대 이름이 수강생 이름과 달라요(별명이면 괜찮아요)");
+  return { counts: c, speakers, emoji: [...emoji].slice(0, 12), emot: [...emot], sample, flags, review: flags.length > 0 };
+}
+async function kkSha(text) { const h = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(kkNorm(text))); return [...new Uint8Array(h)].map(b => b.toString(16).padStart(2, "0")).join(""); }
+// 기존 파일 + 새 가져오기 → 새 내용. 같은 내용(SHA)은 다시 쌓지 않고, 다른 수강생 기록이 섞인 파일은 거부한다.
+function kkMerge(ex, rec) {
+  if (ex == null) ex = { version: 1, sid: rec.sid, student_name: rec.student_name, imports: [] };
+  if (typeof ex !== "object" || !Array.isArray(ex.imports)) return { err: "기존 가져오기 파일 형식이 달라 저장하지 않았어요" };
+  if (ex.sid !== rec.sid || ex.imports.some(x => x.sid !== rec.sid)) return { err: "다른 수강생 기록이 섞여 있어 저장하지 않았어요" };
+  if (ex.imports.some(x => x.sha256 === rec.sha256)) return { dup: true, obj: ex };
+  const obj = { ...ex, imports: [...ex.imports, rec] };
+  if (JSON.stringify(obj).length > KK_MAX_FILE) return { err: "저장 한도를 넘어요. 대화를 나눠서 가져와 주세요" };
+  return { obj };
+}
+const kkRecord = (o) => ({ sha256: o.sha, sid: o.sid, student_name: o.name, teacher_aliases: [...o.aliases], export_name: o.fileName || "(붙여넣기)", imported_at: o.now,
+  format: o.p.format, counts: o.sum.counts, review_flags: o.sum.flags, analysis_status: "pending", text: o.text });
+//#kk-end
+const kkSt = {};   // sid별 입력 상태(메모리에만 — 대화 원문은 이 기기 저장소(localStorage)에 남기지 않는다)
+const kkS = (sid) => kkSt[sid] ??= { text: "", fileName: "", aliases: new Set(LS.get("vn_kk_alias") || []), confirm: false, warn: [], busy: false, msg: "", saved: null };
+async function kkLoadSaved(sid) {
+  const st = cfg.students[sid], s = kkS(sid);
+  try { const f = (await list(st.folder)).find(x => x.name === KK_NAME); s.saved = f ? { id: f.id, n: ((await readJSON(f.id)).imports || []).length } : { n: 0 }; } catch { s.saved = { n: -1 }; }
+  if (stuCur?.sid === sid && $("kkSaved")) $("kkSaved").outerHTML = kkSavedChip(s);
+}
+const kkSavedChip = (s) => `<span id="kkSaved" class="chip ${s.saved?.n > 0 ? "ok" : ""}">${!s.saved ? "확인 중…" : s.saved.n < 0 ? "저장 상태를 못 읽었어요" : s.saved.n ? `${s.saved.n}건 저장됨 · AI 학습 반영 대기` : "저장된 대화 없음"}</span>`;
+function kkPreview(sid) {
+  const s = kkS(sid), st = cfg.students[sid], box = $("kkPrev"); if (!box || stuCur?.sid !== sid) return;
+  const raw = kkNorm(s.text), warn = [...s.warn];
+  if (!raw.trim()) { box.innerHTML = warn.map(w => `<p class="muted" style="color:var(--bad)">${esc(w)}</p>`).join("") + `<p class="muted">대화를 붙여넣거나 TXT 파일을 고르면 여기에 요약이 나와요.</p>`; return; }
+  if (raw.length > KK_MAX_CHARS) { box.innerHTML = `<p class="muted" style="color:var(--bad)">너무 길어요(${raw.length.toLocaleString()}자 / 최대 ${KK_MAX_CHARS.toLocaleString()}자). 기간을 나눠 내보내 주세요.</p>`; s.ready = false; return; }
+  const p = kkParse(raw), sum = kkSummarize(p, s.aliases, st.name), c = sum.counts;
+  const alias = sum.speakers.map(n => `<label style="display:inline-block;margin:2px 10px 2px 0"><input type="checkbox" data-kkal="${esc(n)}" ${s.aliases.has(n) ? "checked" : ""}> ${esc(n)}</label>`).join("");
+  const extra = [...s.aliases].filter(a => !sum.speakers.includes(a));
+  const canSave = !!c.total && c.teacher > 0 && s.confirm && !s.busy;
+  s.ready = canSave;
+  box.innerHTML = `${warn.map(w => `<p class="muted" style="color:var(--bad)">⚠ ${esc(w)}</p>`).join("")}
+    <p style="margin:6px 0"><b>① 이 중 선생님 카톡 이름은?</b> <span class="muted">(여러 개 가능 · 고른 이름만 강사 글로 봐요)</span></p>
+    <div>${alias || '<span class="muted">읽은 이름이 없어요</span>'}</div>
+    <div class="row" style="margin-top:4px"><input id="kkAlias" placeholder="목록에 없는 이름 직접 입력 (예: 선생님)" style="flex:1" value="${esc(extra.join(", "))}"></div>
+    <div class="card" style="margin:8px 0"><b>② 요약 미리보기</b> <span class="chip ${sum.review ? "todo" : "ok"}">${sum.review ? "검토 필요" : "읽기 OK"}</span>
+      <div style="line-height:1.6">형식 ${esc(p.format || "알 수 없음")} · 전체 <b>${c.total}</b>건 → 강사 <b>${c.teacher}</b> · 수강생 <b>${c.student}</b> · 화자 불명 <b>${c.unknown}</b><br>
+      쓸 수 없는 글 ${c.invalid}건(사진·이모티콘·삭제·전달·답장 인용 등, 전달/답장 ${c.forwardOrReply}) · 시스템 안내 ${c.system}줄<br>
+      강사 이모지: ${sum.emoji.length ? esc(sum.emoji.join(" ")) : "없음"} · 텍스트 표현: ${sum.emot.length ? esc(sum.emot.join(" ")) : "없음"}<br>
+      ${sum.sample.length ? `강사 글 예: ${sum.sample.map(x => "“" + esc(x) + "”").join(" ")}` : ""}</div>
+      ${sum.flags.length ? `<ul style="margin:6px 0 0 18px">${sum.flags.map(f => `<li>${esc(f)}</li>`).join("")}</ul>` : ""}
+      <p class="muted" style="margin:6px 0 0">수강생 글은 이 수강생의 반응 후보로만 쓰이고 선생님 말투 학습에는 들어가지 않아요.</p></div>
+    <label style="display:block;margin:6px 0"><input type="checkbox" id="kkOk" ${s.confirm ? "checked" : ""}> ③ 이 대화는 <b>${esc(st.name)}</b>(${esc(sid)}) 님과의 대화가 맞아요</label>
+    <button class="full" id="kkSave" ${canSave ? "" : "disabled"}>${s.busy ? "저장 중…" : "이 대화 저장 (AI 학습은 아직 안 함)"}</button>
+    <p class="muted" style="margin:4px 0">${KK_PENDING_MSG}. 같은 내용을 다시 올려도 한 번만 저장돼요. 저장 후 AI가 문체·반응 후보를 뽑으면 ‘반영/제외’를 고르는 화면이 나중에 생겨요.</p>
+    ${s.msg ? `<p>${esc(s.msg)}</p>` : ""}`;
+  box.querySelectorAll("[data-kkal]").forEach(el => el.onchange = () => { el.checked ? s.aliases.add(el.dataset.kkal) : s.aliases.delete(el.dataset.kkal); s.confirm = false; kkPreview(sid); });
+  $("kkAlias").onchange = (e) => { const keep = new Set([...s.aliases].filter(a => sum.speakers.includes(a))); e.target.value.split(",").map(x => x.trim()).filter(Boolean).forEach(a => keep.add(a)); s.aliases = keep; s.confirm = false; kkPreview(sid); };
+  $("kkOk").onchange = (e) => { s.confirm = e.target.checked; kkPreview(sid); };
+  $("kkSave").onclick = () => kkSave(sid);
+}
+async function kkSave(sid) {
+  const s = kkS(sid), st = cfg.students[sid]; if (s.busy || !s.ready) return;
+  s.busy = true; s.msg = ""; kkPreview(sid);
+  try {
+    const text = kkNorm(s.text), p = kkParse(text), sum = kkSummarize(p, s.aliases, st.name);
+    if (!sum.counts.teacher) throw new Error("강사 글이 없어 저장하지 않았어요");
+    const sha = await kkSha(text), files = (await list(st.folder)).filter(x => x.name === KK_NAME);
+    if (files.length > 1) throw new Error("가져오기 파일이 둘 이상이라 저장하지 않았어요(드라이브에서 확인)");
+    let ex = null; if (files[0]) ex = await readJSON(files[0].id);   // 읽기 실패 시 덮어쓰지 않고 중단
+    const rec = kkRecord({ sha, sid, name: st.name, aliases: s.aliases, fileName: s.fileName, now: new Date().toISOString(), p, sum, text: s.text.replace(/^\uFEFF/, "") });
+    const r = kkMerge(ex, rec); if (r.err) throw new Error(r.err);
+    if (!r.dup) await writeJSON(st.folder, KK_NAME, r.obj, files[0]?.id);
+    LS.set("vn_kk_alias", [...s.aliases]);
+    s.saved = { id: files[0]?.id, n: r.obj.imports.length };
+    s.msg = r.dup ? "이미 저장된 같은 대화예요. 다시 쌓지 않았어요." : `저장했어요(${r.obj.imports.length}번째). ${KK_PENDING_MSG}.`;
+    s.text = ""; s.fileName = ""; s.confirm = false; s.warn = [];
+    if (stuCur?.sid === sid && $("kkText")) $("kkText").value = "";
+    if (stuCur?.sid === sid && $("kkSaved")) $("kkSaved").outerHTML = kkSavedChip(s);
+  } catch (e) { s.msg = "저장 실패: " + errMsg(e) + " — 입력한 내용은 그대로 두었어요. 다시 눌러 주세요."; }
+  finally { s.busy = false; kkPreview(sid); }
+}
+function paintKakaoImport(sid) {
+  const box = $("stuKakao"), st = cfg.students[sid], s = kkS(sid); if (!box) return;
+  box.innerHTML = `<details class="card" id="kkDet" ${s.text || s.msg ? "open" : ""}><summary><b>💬 카카오톡 대화 가져오기</b> ${kkSavedChip(s)}</summary>
+    <p class="muted" style="margin:6px 0">현재 수강생: <b>${esc(st.name)}</b> (${esc(sid)}) — 이 수강생과의 대화만 올리세요. 카톡 ‘대화 내보내기’ 글을 붙여넣거나 TXT 파일을 고르세요.</p>
+    <textarea id="kkText" placeholder="여기에 카톡 대화 내보내기 내용을 붙여넣기" autocomplete="off" autocapitalize="off" spellcheck="false">${esc(s.text)}</textarea>
+    <div class="row" style="margin-top:4px"><input type="file" id="kkFile" accept=".txt,text/plain"><button class="small ghost" id="kkClear">비우기</button></div>
+    <div id="kkPrev"></div></details>`;
+  const upd = () => { s.confirm = false; s.msg = ""; kkPreview(sid); };
+  $("kkText").oninput = (e) => { s.text = e.target.value; s.fileName = s.fileName && s.text ? s.fileName : ""; s.warn = []; clearTimeout(s._t); s._t = setTimeout(upd, 400); };
+  $("kkClear").onclick = () => { s.text = ""; s.fileName = ""; s.warn = []; $("kkText").value = ""; $("kkFile").value = ""; upd(); };
+  $("kkFile").onchange = async (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    if (f.size > KK_MAX_FILE) { s.warn = ["파일이 너무 커요(2MB 초과). 기간을 나눠 내보내 주세요."]; s.text = ""; $("kkText").value = ""; return upd(); }
+    const d = kkDecode(await f.arrayBuffer());
+    s.warn = d.warnings; s.text = d.text ?? ""; s.fileName = d.text == null ? "" : f.name; $("kkText").value = s.text; upd();
+  };
+  kkPreview(sid);
+  if (!s.saved) kkLoadSaved(sid);
 }
 
 // ── 과제 제출 (카톡 → 공유 → 보컬노트) ─────────────────────
