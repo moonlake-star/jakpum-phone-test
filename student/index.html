@@ -18,9 +18,11 @@
   button.ghost { background:transparent; color:var(--accent); border:2px solid var(--accent); }
   .full { width:100%; }
   .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-  .lev { display:flex; gap:4px; padding:4px; border-radius:999px; border:1px solid var(--line); background:var(--bg); }
-  .lev button { flex:1; min-height:46px; background:transparent; color:var(--muted); border-radius:999px; border:2px solid transparent; }
-  .lev button.on { background:var(--accent); color:var(--on-accent); border-color:var(--fg); }
+  .moment { border:2px solid var(--accent); } .big { font-size:1.25rem; line-height:1.55; margin:6px 0 0; font-weight:600; }
+  h3 { font-size:1.05rem; margin:16px 0 6px; } .clip { margin:10px 0; }
+  details.more > summary { min-height:56px; display:flex; align-items:center; font-weight:700; font-size:1.1rem; color:var(--accent); cursor:pointer; }
+  details.more[open] > summary { margin-bottom:4px; }
+  @media (max-width:360px) { body { font-size:18px; } main { padding:12px; } .ab { grid-template-columns:1fr; } }
   .lesson { display:block; width:100%; text-align:left; background:var(--card); color:var(--fg); border:1px solid var(--line); margin:10px 0; padding:14px 16px; min-height:64px; font-weight:400; }
   .lesson b { font-size:1.05rem; } .new { color:var(--good); font-weight:700; }
   .play { width:100%; min-height:64px; font-size:1.1rem; }
@@ -92,12 +94,6 @@ async function load() {
   }
 }
 
-const level = () => LS.get("sn_level") || "normal";
-function levelBar() {
-  return `<div class="lev">${[["simple", "심플"], ["normal", "보통"], ["detail", "자세히"]].map(([k, n]) =>
-    `<button data-lev="${k}" class="${level() === k ? "on" : ""}">${n}</button>`).join("")}</div>`;
-}
-function wireLevel(redraw) { document.querySelectorAll("[data-lev]").forEach(b => b.onclick = () => { LS.set("sn_level", b.dataset.lev); redraw(); }); }
 const seenLocal = () => LS.get("sn_seen") || {};
 
 function timeline() {
@@ -121,10 +117,13 @@ function player(id, label) {
   return `<button class="play" data-au="${esc(id)}">▶ ${esc(label)}</button><audio class="hidden" id="au_${esc(id)}" controls></audio>`;
 }
 function wirePlayers() {
-  document.querySelectorAll("[data-au]").forEach(b => b.onclick = async () => {
-    const au = $("au_" + b.dataset.au);
-    try { b.textContent = "불러오는 중…"; au.src = await audioUrl(b.dataset.au); au.classList.remove("hidden"); b.classList.add("hidden"); au.play(); }
-    catch (e) { b.textContent = "다시 눌러 주세요 (" + e.message + ")"; }
+  document.querySelectorAll("[data-au]").forEach(b => {
+    const au = $("au_" + b.dataset.au), label = b.textContent;
+    au.onerror = () => { au.classList.add("hidden"); b.classList.remove("hidden"); b.textContent = "소리를 불러오지 못했어요. 선생님께 알려 주세요"; };
+    b.onclick = async () => {
+      try { b.textContent = "불러오는 중…"; au.src = await audioUrl(b.dataset.au.replace(/#b$/, "")); au.classList.remove("hidden"); b.classList.add("hidden"); await au.play(); }
+      catch (e) { if (au.error) return; b.textContent = label; au.classList.add("hidden"); b.classList.remove("hidden"); }
+    };
   });
 }
 async function playSeries(ids, au, btn) {
@@ -140,30 +139,41 @@ async function playSeries(ids, au, btn) {
   btn.textContent = "▶ 다시 이어 듣기";
 }
 
+// 첫 화면(1층)은 '선생님이 발견한 오늘의 순간'이 주인공. 선생님이 쓴 문장만 보여주고, 앱이 칭찬·점수·변화 문구를 만들지 않음.
+// 선생님용 내부 값(lesson_tone·weekly_mission·evidence·confidence 등)은 아래에서 고른 필드 말고는 절대 그리지 않음.
+const MAX_CLIPS = 3;
+const listHtml = (a) => `<ul>${a.map(x => `<li>${esc(x)}</li>`).join("")}</ul>`;
+function lessonHtml(l, prev) {
+  const has = (x) => typeof x === "string" && x.trim() !== "";
+  const moment = has(l.highlight) ? l.highlight.trim() : "";
+  const practice = (l.practice || []).filter(has), points = (l.points || []).filter(has);
+  const clips = (l.clips || []).filter(c => c?.file_id).slice(0, MAX_CLIPS);
+  const extras = (l.extra_best || []).filter(x => x?.file_id);
+  const compare = l.best?.file_id && prev?.best?.file_id;
+  const more = [
+    compare ? `<h3>🔁 지난번과 비교해 듣기</h3><p class="muted">${md(prev.date)} 베스트 ↔ ${md(l.date)} 베스트</p>
+      <div class="ab"><div>${player(prev.best.file_id, md(prev.date))}</div><div>${player(l.best.file_id + "#b", md(l.date))}</div></div>` : "",
+    clips.length ? `<h3>🎧 오늘의 클립</h3>${clips.map(c => `<div class="clip">${has(c.note) ? `<div>${esc(c.note)}</div>` : ""}${player(c.file_id, c.label || "듣기")}</div>`).join("")}` : "",
+    extras.length ? `<h3>🎵 다른 버전</h3>${extras.map(x => player(x.file_id, x.kind_ko || "듣기")).join("")}` : "",
+    points.length ? `<h3>오늘 짚어 본 것</h3>${listHtml(points)}` : "",
+    practice.length > 1 ? `<h3>연습 더 보기</h3>${listHtml(practice.slice(1))}` : "",
+  ].filter(Boolean).join("");
+  return `<button class="ghost" id="back">← 전체 노트</button>
+    <h2 style="margin:14px 0 4px">${md(l.date)} 레슨</h2>
+    ${moment ? `<div class="card moment" role="region" aria-label="선생님이 발견한 오늘의 순간"><div class="muted">🔎 선생님이 발견한 오늘의 순간</div><p class="big">${esc(moment)}</p></div>` : ""}
+    ${l.best?.file_id ? `<div class="card"><p class="muted" style="margin:0 0 8px">${l.best.edited ? "여러 번 부른 것 중 좋은 부분을 이어 붙였어요" : "오늘 부른 가창이에요"}${l.best.len ? ` · ${l.best.len}초` : ""}</p>${player(l.best.file_id, "듣기")}</div>` : ""}
+    ${has(l.feedback) ? `<div class="card"><h2>💬 선생님 한마디</h2><div class="pre">${esc(l.feedback)}</div></div>` : ""}
+    ${practice.length ? `<div class="card"><h2>📝 이번 주 한 가지</h2><p style="margin:0">${esc(practice[0])}</p></div>` : ""}
+    ${more ? `<details class="card more"><summary>더 들여다보기</summary>${more}</details>` : ""}`;
+}
+
 function openLesson(id) {
   const ls = data.lessons, i = ls.findIndex(l => l.id === id), l = ls[i], prev = ls.slice(i + 1).find(x => x.best?.file_id);
   history.replaceState(null, "", `${location.pathname}?l=${encodeURIComponent(id)}`);
   // 읽음: 서버에 기록된 뒤에만 이 기기에도 표시(실패하면 다음에 열 때 다시 보냄 — 감사 #53)
   if (!l.seen_at && !seenLocal()[id]) call("seen", { lesson: id }).then(() => { const s = seenLocal(); s[id] = Date.now(); LS.set("sn_seen", s); }).catch(() => {});
-  const lev = level();
-  const clips = (l.clips || []).slice(0, lev === "simple" ? 0 : lev === "normal" ? 3 : 99);
-  const draw = () => openLesson(id);
-  $("view").innerHTML = `<button class="ghost" id="back">← 전체 노트</button>
-    <div style="margin:12px 0">${levelBar()}</div>
-    <div class="card"><h2>${md(l.date)} 레슨</h2><div class="pre">${esc(l.feedback || "")}</div></div>
-    ${l.best?.file_id ? `<div class="card"><h2>🎵 오늘의 베스트 가창</h2>
-      <p class="muted" style="margin:0 0 8px">${l.best.edited ? "여러 번 부른 것 중 좋은 부분을 이어 붙였어요" : "오늘 가장 좋았던 순간이에요"} · ${l.best.len}초</p>
-      ${player(l.best.file_id, "들어 보기")}</div>` : ""}
-    ${l.practice?.length ? `<div class="card"><h2>📝 이번 주 연습</h2><ul>${l.practice.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>` : ""}
-    ${lev !== "simple" && l.points?.length ? `<div class="card"><h2>오늘 짚어 본 것</h2><ul>${l.points.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>` : ""}
-    ${clips.length ? `<div class="card"><h2>🎧 오늘의 클립</h2>${clips.map(c => `<div style="margin:10px 0">${c.note ? `<div>${esc(c.note)}</div>` : ""}${player(c.file_id, c.label || "듣기")}</div>`).join("")}</div>` : ""}
-    ${lev === "detail" && prev && l.best?.file_id ? `<div class="card"><h2>🔁 지난번과 비교해 듣기</h2>
-      <p class="muted">${md(prev.date)} 베스트 ↔ ${md(l.date)} 베스트</p>
-      <div class="ab"><div>${player(prev.best.file_id, md(prev.date))}</div><div>${player(l.best.file_id + "#b", md(l.date))}</div></div></div>` : ""}
-    ${lev === "detail" && (l.extra_best || []).length ? `<div class="card"><h2>🎵 다른 버전</h2>${l.extra_best.map(x => player(x.file_id, x.kind_ko || "듣기")).join("")}</div>` : ""}`;
-  $("back").onclick = timeline; wireLevel(draw); wirePlayers();
-  document.querySelectorAll('[data-au$="#b"]').forEach(b => { const real = b.dataset.au.slice(0, -2); b.onclick = async () => {
-    const au = $("au_" + b.dataset.au); b.textContent = "불러오는 중…"; au.src = await audioUrl(real); au.classList.remove("hidden"); b.classList.add("hidden"); au.play(); }; });
+  $("view").innerHTML = lessonHtml(l, prev);
+  $("back").onclick = timeline; wirePlayers();
   window.scrollTo(0, 0);
 }
 
