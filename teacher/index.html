@@ -598,7 +598,7 @@ async function saveSubFolder(sid, key, id) {
     if (await ver() !== v1) continue;                       // 읽는 도중 바뀜
     const st = latest.students?.[sid];
     if (!st) throw new Error("최신 설정에서 이 수강생을 찾지 못해 저장하지 않았어요. 앱을 다시 열어 주세요");
-    if (st.status === "consent_withdrawn") throw new Error("동의 철회된 수강생이라 저장하지 않았어요");
+    if (st.consent_withdrawn) throw new Error("동의 철회된 수강생이라 저장하지 않았어요");   // 운영 규격: 날짜 문자열 또는 true (collector.withdrawn·수강생노트.gs와 같음)
     if (st.sub?.[key]) { adoptConfig(latest); return st.sub[key]; }   // 다른 기기가 먼저 만들어 둠 → 그 폴더를 쓴다
     (st.sub ??= {})[key] = id;
     if (await ver() !== v1) continue;                       // 쓰기 직전 다시 확인
