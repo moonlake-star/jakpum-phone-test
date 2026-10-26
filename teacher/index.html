@@ -1177,7 +1177,11 @@ function initFold(el, forceOpen) {
 }
 // 상단: 오늘 핵심 1줄(검수 전 next_goal=AI 초안, 선생님이 포인트를 고르면 그 1번) + 이번 주 연습. 새 문장은 만들지 않는다
 // 오늘의 레슨 전달 패키지(#24): 베스트 테이크(#23) + 오늘 핵심 + 이번 주 연습. 선생님이 듣고 고르고 직접 보냄
-function bestOptions() { const b = cur.best; return b?.status === "ok" ? [b.best, ...(b.alternatives || [])].filter(o => o.file_id) : []; }
+function bestOptions() {
+  const b = cur.best; if (b?.status !== "ok") return [];
+  const c = b.composite?.status === "ok" && b.composite.file_id ? [{ ...b.composite, isComposite: true }] : [];
+  return [b.best, ...(b.alternatives || []), ...c].filter(o => o.file_id);
+}
 function bestPicked() { const o = bestOptions(); return o[Math.min(cur.review.bestPick || 0, o.length - 1)] || null; }
 function renderBest() {
   const opts = bestOptions(), rv = cur.review;
@@ -1186,9 +1190,11 @@ function renderBest() {
   rv.sendBest ??= true;
   const o = bestPicked(), i = opts.indexOf(o);
   return `<div class="bestbox"><div class="row" style="justify-content:space-between"><b>🎵 오늘의 베스트 테이크 편집</b><span class="chip">${esc(o.kind_ko || "")} · ${Math.round(o.len)}초</span></div>
-    <div class="muted" style="font-size:.85rem">수강생에겐 ‘오늘의 베스트 가창’으로 가요 · 선생님 칭찬 “${esc((o.praise?.text || "").slice(0, 16))}” (${fmt(o.praise?.t || 0)}) 바로 앞에 이어 부른 실제 테이크(편집·보정 없음)</div>
+    <div class="muted" style="font-size:.85rem">수강생에겐 ‘오늘의 베스트 가창’으로 가요 · ${o.isComposite
+      ? `여러 테이크에서 줄마다 가장 좋은 구절 ${o.lines?.length || ""}개를 이어 붙인 편집본(테이크 ${o.takes_used || "?"}개) · 이음새에서 박자가 조금 어긋날 수 있어요`
+      : `선생님 칭찬 “${esc((o.praise?.text || "").slice(0, 16))}” (${fmt(o.praise?.t || 0)}) 바로 앞에 이어 부른 실제 테이크(편집·보정 없음)`}</div>
     <div class="row" style="margin-top:6px"><button class="small" id="bestPlay">▶ 듣기</button>
-      ${opts.length > 1 ? opts.map((x, k) => `<button class="small ghost bestAlt ${k === i ? "on" : ""}" data-k="${k}">${k === i ? "✓ " : ""}후보 ${k + 1}</button>`).join("") : ""}</div>
+      ${opts.length > 1 ? opts.map((x, k) => `<button class="small ghost bestAlt ${k === i ? "on" : ""}" data-k="${k}">${k === i ? "✓ " : ""}${x.isComposite ? "이어 붙인 1절" : "후보 " + (k + 1)}</button>`).join("") : ""}</div>
     <label style="display:flex;gap:8px;align-items:center;margin-top:8px;font-size:.92rem"><input type="checkbox" id="bestSend" style="width:22px;height:22px;flex:none" ${rv.sendBest ? "checked" : ""}><span>‘클립 보내기’ 때 맨 앞에 함께 보내기</span></label></div>`;
 }
 function wireBest() {
@@ -1520,7 +1526,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-26-1230";
+const BUILD = "2026-10-26-1300";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
@@ -1553,7 +1559,7 @@ $("btnShare").onclick = async () => {
   const ids = sent.map(c => cur.clips.find(f => f.name.startsWith(c.id))).filter(Boolean);
   for (const p of (cur.pairs || []).filter(p => (cur.review.pairSend || []).includes(p.id) && p.file_id)) ids.push({ id: p.file_id, name: `지도전후_비교_${p.id}.mp3` });
   const bp = bestPicked();
-  if (bp && cur.review.sendBest !== false) ids.unshift({ id: bp.file_id, name: "오늘의 베스트 가창.mp3" });
+  if (bp && cur.review.sendBest !== false) ids.unshift({ id: bp.file_id, name: bp.isComposite ? "오늘의 베스트 가창(편집본).mp3" : "오늘의 베스트 가창.mp3" });
   if (!ids.length) return toast("‘보냄’으로 고른 클립이 없어요");
   try { if (await shareClips(ids)) await markSent("feedback"); } catch (e) { toast(e.message); }
 };
