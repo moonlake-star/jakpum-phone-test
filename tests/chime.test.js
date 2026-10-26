@@ -10,7 +10,7 @@ async function run(n, stopAfter) {
   const sendList = () => clips.map((c, i) => ({ id: "C" + i }));
   const playChime = async () => { log.push("chime"); if (stopAfter && log.filter(x => x === "chime").length === stopAfter) btnState.stop(); };
   const btnState = {};
-  const ctx = { $, cur, sendList, player, playChime, readBlob: async (id) => id, URL: { createObjectURL: (x) => x }, toast: () => {}, pauseOthers: () => {},
+  const ctx = { $, cur, sendList, player, playChime, readBlob: async (id) => id, URL: { createObjectURL: (x) => x }, toast: () => {}, pauseOthers: () => {}, tpDetach: () => {},
     window: {}, chimeCtx: null };
   const f = new Function(...Object.keys(ctx), "let queueStop=null;" + body.replace('$("btnPlayAll").onclick =', "const h =") + "return [h, () => queueStop];");
   const [h, qs] = f(...Object.values(ctx));

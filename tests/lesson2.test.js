@@ -3,18 +3,18 @@ const fs = require("fs"), assert = require("assert");
 const src = fs.readFileSync(__dirname + "/../teacher/index.html", "utf8");
 const grab = (re) => src.match(re)[0];
 const code = [grab(/const FOLD_KEY[^\n]*\n/), grab(/function foldGet[^\n]*\n/), grab(/function foldSet[^\n]*\n/),
-  grab(/function initFold[\s\S]*?\n}\n/), grab(/function bestOptions[\s\S]*?\n}\n/), grab(/function bestPicked[^\n]*\n/),
+  grab(/function initFold[\s\S]*?\n}\n/), grab(/function tpHTML[\s\S]*?\n}\n/), grab(/function bestOptions[\s\S]*?\n}\n/), grab(/function bestPicked[^\n]*\n/),
   grab(/function renderBest[\s\S]*?\n}\n/), grab(/function wireBest[\s\S]*?\n}\n/), grab(/function renderToday[\s\S]*?\n}\n/), grab(/function speakerIssues[\s\S]*?\n}\n/),
   grab(/function paintSpkState[\s\S]*?\n}\n/)].join("\n");
 function env() {
   const store = {}, els = {};
-  const el = (id) => (els[id] ??= { id, innerHTML: "", style: {}, dataset: {}, classList: { toggle() {} } });
+  const el = (id) => (els[id] ??= { id, innerHTML: "", style: {}, dataset: {}, classList: { toggle() {} }, querySelector: () => null });
   const LS = { get: (k) => store[k] ?? null, set: (k, v) => { store[k] = v; } };
   const esc = (x) => String(x).replace(/[&<>]/g, "");
-  const fmt = (t) => String(Math.round(t)), playShared = () => {}, document = { querySelectorAll: () => [] };
-  const f = new Function("$", "LS", "esc", "cur", "fmt", "playShared", "document",
+  const fmt = (t) => String(Math.round(t)), playShared = () => {}, tpWire = () => {}, tpDetach = () => {}, document = { querySelectorAll: () => [] };
+  const f = new Function("$", "LS", "esc", "cur", "fmt", "playShared", "tpWire", "tpDetach", "document",
     code + "; return {renderToday, speakerIssues, paintSpkState, initFold, foldSet, foldGet, bestPicked};");
-  return { els, store, mk: (cur) => f(el, LS, esc, cur, fmt, playShared, document) };
+  return { els, store, mk: (cur) => f(el, LS, esc, cur, fmt, playShared, tpWire, tpDetach, document) };
 }
 const base = () => ({ st: { name: "홍길동" }, segs: [{ speaker: "A" }, { speaker: "B" }], summary: { speakers_talk_sec: { A: 60, B: 50 } },
   review: { speakers: { A: "teacher", B: "student" }, points: ["AI포인트"], practice: ["하루 5분", "", "x"] }, spkSaved: true, teacherPts: false, ana: { next_goal: "후렴 첫음" }, ai: {} });

@@ -157,10 +157,10 @@
     </div>
 
     <div class="card" style="order:4">
-      <div class="row" style="justify-content:space-between"><h3 style="margin:0">1. 추천 노래 클립</h3><span class="chip" id="sendCount">보내기 0/5</span></div>
-      <p class="muted" style="margin:6px 0"><b>오늘 레슨 피드백에 보낼 거리 모음</b> — 칭찬·다시 해 보기 말 앞뒤 노래 구간이에요. 고르기만 해서는 발송되지 않아요.</p>
+      <div class="row" style="justify-content:space-between"><h3 style="margin:0">1. 추천 노래 클립 <span class="muted" style="font-weight:400">(선택 · 0~3개)</span></h3><span class="chip" id="sendCount">보내기 0/3</span></div>
+      <p class="muted" style="margin:6px 0"><b>오늘 레슨 피드백에 보낼 거리 모음</b> — 칭찬·다시 해 보기 말 앞뒤 노래 구간이에요. 고르기만 해서는 발송되지 않아요. 하나도 안 골라도 괜찮아요(오늘의 베스트만 보내도 됨).</p>
       <details class="muted" style="margin:0 0 6px"><summary>버튼 뜻</summary>
-        <b>보내기</b> = 카톡 문구 ‘좋았던 부분’에 들어가고 ‘클립 보내기’ 때 같이 보내져요(최대 5개, 6번째를 고르면 가장 먼저 고른 것이 ‘기록만’으로).
+        <b>보내기</b> = 카톡 문구 ‘좋았던 부분’에 들어가고 ‘클립 보내기’ 때 같이 보내져요(최대 3개, 4번째를 고르면 가장 먼저 고른 것이 ‘기록만’으로).
         <b>기록만</b> = 수강생에겐 안 가고 레슨 기록에만. <b>빼기</b> = 쓰지 않음. 실제 전송은 아래 ‘클립 보내기’ → 카톡에서 직접.</details>
       <div class="row" style="margin:4px 0"><button class="small ghost" id="btnPlayAll">▶ 보낼 클립 이어 듣기</button></div>
       <div id="cands"></div>
@@ -1397,7 +1397,7 @@ function initFold(el, forceOpen) {
 function bestOptions() {
   const b = cur.best; if (b?.status !== "ok") return [];
   const c = b.composite?.status === "ok" && b.composite.file_id ? [{ ...b.composite, isComposite: true }] : [];
-  return [b.best, ...(b.alternatives || []), ...c].filter(o => o.file_id);
+  return [b.best, ...(b.alternatives || []).slice(0, 1), ...c].filter(o => o.file_id);   // 후보1·후보2·이어붙인 1절 (2026-10-26 사용자 확정, 3개만)
 }
 function bestPicked() { const o = bestOptions(); return o[Math.min(cur.review.bestPick || 0, o.length - 1)] || null; }
 function renderBest() {
@@ -1410,14 +1410,14 @@ function renderBest() {
     <div class="muted" style="font-size:.85rem">수강생에겐 ‘오늘의 베스트 가창’으로 가요 · ${o.isComposite
       ? `여러 테이크에서 줄마다 가장 좋은 구절 ${o.lines?.length || ""}개를 이어 붙인 편집본(테이크 ${o.takes_used || "?"}개) · 이음새에서 박자가 조금 어긋날 수 있어요`
       : `선생님 칭찬 “${esc((o.praise?.text || "").slice(0, 16))}” (${fmt(o.praise?.t || 0)}) 바로 앞에 이어 부른 실제 테이크(편집·보정 없음)`}</div>
-    <div class="row" style="margin-top:6px"><button class="small" id="bestPlay">▶ 듣기</button>
-      ${opts.length > 1 ? opts.map((x, k) => `<button class="small ghost bestAlt ${k === i ? "on" : ""}" data-k="${k}">${k === i ? "✓ " : ""}${x.isComposite ? "이어 붙인 1절" : "후보 " + (k + 1)}</button>`).join("") : ""}</div>
+    <div class="row" style="margin-top:6px">${opts.length > 1 ? opts.map((x, k) => `<button class="small ghost bestAlt ${k === i ? "on" : ""}" data-k="${k}">${k === i ? "✓ " : ""}${x.isComposite ? "이어 붙인 1절" : "후보 " + (k + 1)}</button>`).join("") : ""}</div>
+    ${tpHTML()}
     <label style="display:flex;gap:8px;align-items:center;margin-top:8px;font-size:.92rem"><input type="checkbox" id="bestSend" style="width:22px;height:22px;flex:none" ${rv.sendBest ? "checked" : ""}><span>‘클립 보내기’ 때 맨 앞에 함께 보내기</span></label></div>`;
 }
 function wireBest() {
   const o = bestPicked(); if (!o) return;
-  $("bestPlay").onclick = () => playShared($("bestPlay"), o.file_id);
-  document.querySelectorAll(".bestAlt").forEach(b => b.onclick = () => { cur.review.bestPick = +b.dataset.k; renderToday(); });
+  tpWire($("todayCard").querySelector(".tp"), o.file_id);
+  document.querySelectorAll(".bestAlt").forEach(b => b.onclick = () => { tpDetach(); cur.review.bestPick = +b.dataset.k; renderToday(); });
   $("bestSend").onchange = (e) => { cur.review.sendBest = e.target.checked; };
 }
 function renderToday() {
@@ -1578,7 +1578,7 @@ async function sendPitchReview(sid, folderId, songId, body, label) {
   } catch (e) { toast(e.message); }
 }
 
-const player = new Audio(); let playingBtn = null;
+const player = new Audio(); let playingBtn = null, playSharedSeq = 0;
 // 한 번에 하나만 재생: 새로 재생하면 나머지는 일시정지(위치는 그대로). 메이크업 미리듣기도 멈춤
 function pauseOthers(me) {
   for (const a of [player, full, ...document.querySelectorAll("audio")]) if (a !== me && a && !a.paused) a.pause();
@@ -1588,15 +1588,104 @@ function pauseOthers(me) {
 document.addEventListener("play", (e) => pauseOthers(e.target), true);
 player.onended = () => { if (playingBtn) playingBtn.textContent = playingBtn.dataset.label; playingBtn = null; };
 async function playShared(btn, fileId) {
+  tpDetach();
+  const seq = ++playSharedSeq;
   if (typeof queueStop === "function" && queueStop) queueStop();
   if (playingBtn === btn) { player.pause(); player.onended(); return; }
   if (playingBtn) player.onended();
   btn.dataset.label ??= btn.textContent; btn.textContent = "불러오는 중…";
+  const urls = cur.clipUrls;
   try {
-    cur.clipUrls[fileId] ??= URL.createObjectURL(await readBlob(fileId));
-    player.src = cur.clipUrls[fileId]; await player.play();
+    if (!urls[fileId]) {
+      const blob = await readBlob(fileId);
+      if (seq !== playSharedSeq || !btn.isConnected) return;
+      urls[fileId] = URL.createObjectURL(blob);
+    }
+    if (seq !== playSharedSeq || !btn.isConnected) return;
+    player.src = urls[fileId]; await player.play();
+    if (seq !== playSharedSeq || !btn.isConnected) { player.pause(); return; }
     playingBtn = btn; btn.textContent = "■ 정지";
-  } catch (e) { btn.textContent = btn.dataset.label; toast(e.message); }
+  } catch (e) { if (seq === playSharedSeq) { btn.textContent = btn.dataset.label; toast(e.message); } }
+}
+
+// ── 공통 재생 바(처음/-5/재생·일시정지/+5/끝 + 위치 슬라이더) ─────────────────
+// 앱 전체에서 쓰는 단일 player 하나를 공유하므로 여러 오디오가 동시에 나오지 않는다(새로 재생하면 pauseOthers가 나머지를 멈춤)
+function tpNext(t, dur, act) {   // 순수 함수(시험용): 누른 버튼에 따른 새 위치(초)
+  const end = Math.max(0, (dur || 0) - 0.05);
+  const n = act === "start" ? 0 : act === "back" ? t - 5 : act === "fwd" ? t + 5 : act === "end" ? end : t;
+  return Math.max(0, Math.min(n, end));
+}
+let tpRoot = null, tpFile = null, tpEpoch = 0, tpPromise = null, tpActionSeq = 0;
+function tpHTML() {
+  return `<div class="tp" style="margin-top:6px"><input type="range" class="tpSeek" min="0" max="1000" value="0" aria-label="재생 위치" style="width:100%">
+    <div class="row" style="justify-content:space-between"><span class="tpTime muted">0:00 / 0:00</span></div>
+    <div class="row" style="margin-top:4px;gap:6px"><button class="small ghost" data-tp="start">⏮ 처음</button><button class="small ghost" data-tp="back">-5</button><button class="small" data-tp="play">▶ 재생</button><button class="small ghost" data-tp="fwd">+5</button><button class="small ghost" data-tp="end">끝 ⏭</button></div></div>`;
+}
+function tpDetach() { tpEpoch++; tpActionSeq++; if (tpRoot) { try { player.pause(); } catch {} } tpRoot = null; tpFile = null; tpPromise = null; }
+function tpPaint() {
+  if (!tpRoot || !tpRoot.isConnected) return;
+  const d = player.duration || 0, t = player.currentTime || 0;
+  tpRoot.querySelector(".tpSeek").value = d ? Math.round(t / d * 1000) : 0;
+  tpRoot.querySelector(".tpTime").textContent = `${fmt(t)} / ${fmt(d)}`;
+  tpRoot.querySelector('[data-tp="play"]').textContent = player.paused ? "▶ 재생" : "❚❚ 일시정지";
+}
+for (const ev of ["timeupdate", "play", "pause", "loadedmetadata", "ended"]) player.addEventListener(ev, tpPaint);
+async function tpLoad(root, fileId) {
+  if (tpRoot === root && tpFile === fileId) {
+    if (tpPromise) return tpPromise;
+    if (player.readyState >= 1) return true;
+  }
+  const epoch = ++tpEpoch, urls = cur.clipUrls;
+  ++playSharedSeq;  // 재생 바가 플레이어 소유권을 가져오면 이전 일반 재생의 지연 응답을 취소
+  if (typeof queueStop === "function" && queueStop) queueStop();
+  if (playingBtn) player.onended();
+  player.pause(); tpRoot = root; tpFile = fileId;
+  const pending = (async () => {
+    if (!urls[fileId]) {
+      const blob = await readBlob(fileId);
+      if (epoch !== tpEpoch || tpRoot !== root || !root.isConnected) return false;
+      urls[fileId] = URL.createObjectURL(blob);
+    }
+    if (epoch !== tpEpoch || tpRoot !== root || !root.isConnected) return false;
+    player.src = urls[fileId];
+    if (player.readyState >= 1) return true;
+    return await new Promise((resolve, reject) => {
+      let timer;
+      const cleanup = () => {
+        player.removeEventListener("loadedmetadata", ready);
+        player.removeEventListener("error", fail);
+        clearTimeout(timer);
+      };
+      const ready = () => { cleanup(); resolve(epoch === tpEpoch && tpRoot === root && root.isConnected); };
+      const fail = () => { cleanup(); reject(new Error("오디오를 불러오지 못했어요.")); };
+      player.addEventListener("loadedmetadata", ready);
+      player.addEventListener("error", fail);
+      timer = setTimeout(() => { cleanup(); reject(new Error("재생 준비가 지연돼요. 다시 눌러 주세요.")); }, 7000);
+    });
+  })();
+  tpPromise = pending;
+  try { return await pending; } finally { if (tpPromise === pending) tpPromise = null; }
+}
+function tpWire(root, fileId, autoplay) {
+  if (!root) return;
+  const run = async (fn) => {
+    const seq = ++tpActionSeq;
+    try {
+      if (!await tpLoad(root, fileId) || seq !== tpActionSeq || tpRoot !== root || !root.isConnected) return;
+      await fn();
+      if (seq === tpActionSeq && tpRoot === root) tpPaint();
+    } catch (e) { if (seq === tpActionSeq && tpRoot === root) toast(e.message); }
+  };
+  root.querySelectorAll("[data-tp]").forEach(b => b.onclick = () => run(async () => {
+    const act = b.dataset.tp;
+    if (act === "play") { if (player.paused) { pauseOthers(player); await player.play(); } else player.pause(); }
+    else player.currentTime = tpNext(player.currentTime, player.duration, act);
+  }));
+  root.querySelector(".tpSeek").oninput = (e) => {
+    const value = e.target.value; // 슬라이더를 연속 이동해도 최종 위치만 적용
+    run(async () => { if (player.duration) player.currentTime = player.duration * value / 1000; });
+  };
+  if (autoplay) run(async () => { pauseOthers(player); await player.play(); });
 }
 function speakerName(code) {
   const v = cur.review.speakers[code];
@@ -1716,7 +1805,8 @@ function renderCands() {
     return `<div class="cand"><div class="row"><b>${esc(c.id)}</b><span>${fmt(c.start)} ~ ${fmt(c.end)}</span>
         ${c.kind === "manual" ? `<span class="chip">직접 추가${clip ? "" : " · 다음 실행 때 클립 생성"}</span>` : ""}
         ${c.reason || c.note ? `<span class="muted">${esc(c.reason || c.note)}</span>` : ""}</div>
-      <div class="row" style="margin-top:4px">${clip ? `<button class="small ghost" data-play="${clip.id}">▶ 듣기</button>` : ""}${mkButton(c.id)}</div>
+      <div class="row" style="margin-top:4px">${clip ? `<button class="small ghost" data-tpopen="${clip.id}">▶ 듣기</button>` : ""}${mkButton(c.id)}</div>
+      <div class="tpslot hidden" data-for="${clip ? clip.id : ""}"></div>
       <div class="pickcap">이 클립을 오늘 피드백에 (하나만 선택)</div>
       <div class="pick" role="radiogroup" aria-label="${esc(c.id)} 처리">
         ${[["send", "보내기"], ["keep", "기록만"], ["drop", "빼기"]].map(([v, t]) =>
@@ -1739,9 +1829,15 @@ function renderCands() {
     makeupFromLesson(b.dataset.mk, back);
   });
   $("cands").querySelectorAll(".cnote").forEach(i => i.oninput = () => { (cur.review.notes ??= {})[i.dataset.c] = i.value.trim(); });
-  $("cands").querySelectorAll("[data-play]").forEach(b => b.onclick = () => playShared(b, b.dataset.play));
+  $("cands").querySelectorAll("[data-tpopen]").forEach(b => b.onclick = () => {   // '듣기' → 그 카드 안에서 플레이어가 펼쳐짐(한 번에 한 카드만)
+    const slot = b.closest(".cand").querySelector(".tpslot"), open = slot.classList.contains("hidden");
+    $("cands").querySelectorAll(".tpslot").forEach(x => { x.classList.add("hidden"); x.innerHTML = ""; });
+    tpDetach(); if (!open) return;
+    slot.innerHTML = tpHTML(); slot.classList.remove("hidden");
+    tpWire(slot.querySelector(".tp"), b.dataset.tpopen, true);
+  });
 }
-const MAX_GOOD = 5, MAX_POINT = 3;   // 보내기 최대 5개(2026-10-25 사용자 확정, 넘으면 먼저 고른 것부터 '기록만 저장')
+const MAX_GOOD = 3, MAX_POINT = 3;   // 추천 클립 보내기 최대 3개·0개도 가능(2026-10-26 사용자 확정, 이전 5개 → 3개). 넘으면 먼저 고른 것부터 '기록만 저장'
 // 보내기 순서(sendOrder): 선생님이 '보내기'를 고른 순서. 6번째를 고르면 가장 오래된 것을 keep으로(FIFO). 내용은 지우지 않음
 function setDecision(rv, id, val, ids) {
   rv.decisions ??= {};
@@ -1925,7 +2021,7 @@ $("btnPlayAll").onclick = async () => {
     if (i > 0) { b.textContent = `■ 이어 듣는 중 ${i}/${files.length} → ${i + 1}`; await playChime(); if (stopped) return; }   // 첫 클립 앞·마지막 클립 뒤엔 없음
     b.textContent = `■ 이어 듣는 중 ${i + 1}/${files.length}`;
     try { cur.clipUrls[files[i].id] ??= URL.createObjectURL(await readBlob(files[i].id)); } catch (e) { toast(e.message); return queueStop?.(); }
-    player.src = cur.clipUrls[files[i].id]; i++; player.onended = next; pauseOthers(player); player.play();
+    tpDetach(); player.src = cur.clipUrls[files[i].id]; i++; player.onended = next; pauseOthers(player); player.play();
   };
   next();
 };
