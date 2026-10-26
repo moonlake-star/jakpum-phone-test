@@ -1479,6 +1479,7 @@ async function openLesson(sid, i, backTo) {
       ${ls.package ? `<span class="chip">결제 ${esc(ls.package)}</span>` : ""}
       ${ls.payment_note ? `<span class="chip todo">${esc(ls.payment_note)}</span>` : ""}
       <span>${summary.duration_sec ? fmt(summary.duration_sec) : ""}</span>
+      <button class="small ghost" id="btnSpeakerEdit" type="button">화자 수정</button>
     </div>`;
   renderSpeakers(); renderCands(); renderSegs();
   renderPoints();
@@ -1490,6 +1491,11 @@ async function openLesson(sid, i, backTo) {
   $("ckCard").classList.toggle("hidden", !cfg.practice_check);
   renderSent();
   renderToday(); renderSpkState(ai);
+  $("btnSpeakerEdit").onclick = () => {
+    $("spkCard").classList.remove("hidden");
+    $("spkWrap").open = true;
+    $("spkCard").scrollIntoView({ behavior: "smooth", block: "center" });
+  };
 }
 
 function paintAiNote(ai) {
@@ -1532,11 +1538,51 @@ function renderBest() {
       : `선생님 칭찬 “${esc((o.praise?.text || "").slice(0, 16))}” (${fmt(o.praise?.t || 0)}) 바로 앞에 이어 부른 실제 테이크(편집·보정 없음)`}</div>
     <div class="row" style="margin-top:6px">${opts.length > 1 ? opts.map((x, k) => `<button class="small ghost bestAlt ${k === i ? "on" : ""}" data-k="${k}">${k === i ? "✓ " : ""}${x.isComposite ? "이어 붙인 1절" : "후보 " + (k + 1)}</button>`).join("") : ""}</div>
     ${tpHTML()}
+    <div class="row" style="margin-top:8px"><button class="small ghost" id="bestMakeup">🪄 ${bestMakeupLabel(o)}</button></div>
     <label style="display:flex;gap:8px;align-items:center;margin-top:8px;font-size:.92rem"><input type="checkbox" id="bestSend" style="width:22px;height:22px;flex:none" ${rv.sendBest ? "checked" : ""}><span>‘클립 보내기’ 때 맨 앞에 함께 보내기</span></label></div>`;
+}
+function bestMakeupJob(o) {
+  return (cur.st._jobs || []).find(j => j.req.lesson_folder === cur.folder.id &&
+    j.req.source_id === o?.file_id && j.req.best_file_id === o?.file_id);
+}
+function bestMakeupLabel(o) {
+  const job = bestMakeupJob(o);
+  if (!job) return "메이크업";
+  return job.req.status === "done" ? "메이크업 듣기" :
+    job.req.status === "error" ? "메이크업 실패 · 다시 확인" :
+    "메이크업 진행 " + (job.req.progress?.pct ?? 0) + "%";
+}
+async function makeupFromBest(o, back) {
+  if (!o?.file_id) return toast("선택한 베스트 음원 파일이 없습니다.");
+  if (o.len > 240) return toast("4분 이하 베스트 음원만 메이크업할 수 있어요.");
+  if (!confirm("선택한 " + (o.isComposite ? "이어붙인 1절" : "베스트 테이크") + "에 보컬 메이크업을 적용할까요?")) return;
+  const title = cur.folder.name.slice(0, 10) + "_베스트_" + (o.isComposite ? "이어붙임" : "연속테이크");
+  const req = { status: "queued", mode: "single", title, student_id: cur.sid,
+    student_name: cur.st.name, preset: "표준", settings: {},
+    source_id: o.file_id, source_name: o.file || "베스트.mp3",
+    source_is_clip: true, start: null, end: null,
+    lesson_folder: cur.folder.id, best_file_id: o.file_id, pitch_level: 2,
+    requested_at: new Date().toISOString() };
+  const job = { sid: cur.sid, st: cur.st, req, files: [] };
+  goBack = back || goBack;
+  showProgress(job, "요청 저장 중…");
+  try {
+    const f7 = await mkFolder(cur.sid), jf = await newFolder(title + "_메이크업", f7);
+    job.folder = { id: jf, name: title + "_메이크업" };
+    job.reqId = await writeJSON(jf, MKREQ, req);
+    showProgress(job, "서버 호출 중…");
+    kick().then(ok => { if (!job.req.progress) paintProg(job.req, ok ? "서버 시작 대기 중" : "서버 시작 확인 중"); });
+  } catch (e) { stopProg(); toast(e.message); }
 }
 function wireBest() {
   const o = bestPicked(); if (!o) return;
   tpWire($("todayCard").querySelector(".tp"), o.file_id);
+  const mk = $("bestMakeup");
+  if (mk) mk.onclick = () => {
+    const back = () => openLesson(cur.sid, cur.rowIndex, cur.back);
+    const job = bestMakeupJob(o);
+    return job ? openMkJob(job, back) : makeupFromBest(o, back);
+  };
   document.querySelectorAll(".bestAlt").forEach(b => b.onclick = () => { tpDetach(); cur.review.bestPick = +b.dataset.k; renderToday(); });
   $("bestSend").onchange = (e) => { cur.review.sendBest = e.target.checked; };
 }
@@ -1554,18 +1600,23 @@ function renderToday() {
 }
 // 화자 확인이 필요한 상태(미확인/AI 불확실/3명 이상)면 상단으로 올리고 자동 펼침 + 경고. 아니면 한 줄 요약으로 접음
 function speakerIssues(ai) {
-  const codes = Object.keys(cur.summary.speakers_talk_sec || {}); const all = codes.length ? codes : [...new Set(cur.segs.map(s => s.speaker))];
-  const out = [];
-  const auto = !cur.spkSaved && cur.voice;   // 목소리로 확실히 정해짐 → 선생님·수강생 확인은 생략
-  const rest = auto ? all.filter(c => !cur.voice.roles[c]) : all;
-  if (rest.some(c => !cur.review.speakers[c]) && !(auto && rest.every(c => (cur.summary.speakers_talk_sec?.[c] ?? 99) < 30)))
-    out.push("정하지 않은 화자가 있어요");
-  else if (!cur.spkSaved && !auto) out.push("AI가 정한 화자를 아직 확인하지 않았어요");
-  if (!cur.spkSaved && !auto && Object.values(ai?.speaker_roles || {}).includes("unknown")) out.push("AI가 화자를 확신하지 못했어요");
-  const talk = (c) => cur.summary.speakers_talk_sec?.[c] ?? 99;   // 몇 초만 잡힌 조각(맞장구·잡음)은 사람 수에서 뺌
-  const voices = all.filter(c => (["teacher", "student"].includes(cur.review.speakers[c]) || !cur.review.speakers[c]) && talk(c) >= 30);
-  if (all.length >= 3 && voices.length >= 3) out.push("말한 사람이 3명 이상으로 잡혔어요");
-  return out;
+  const codes = Object.keys(cur.summary.speakers_talk_sec || {});
+  const all = codes.length ? codes : [...new Set(cur.segs.map(x => x.speaker))].filter(Boolean);
+  const talk = (c) => cur.summary.speakers_talk_sec?.[c] ??
+    cur.segs.filter(x => x.speaker === c).reduce((t, x) => t + Math.max(0, x.end - x.start), 0);
+  // 전사의 짧은 조각·노래·음원은 화자 확인을 계속 요구하는 원인이 아니다.
+  const main = all.filter(c => talk(c) >= 30);
+  const roles = cur.review.speakers || {};
+  const unmapped = main.filter(c => !roles[c] || roles[c] === "unknown");
+  const humans = main.filter(c => ["teacher", "student"].includes(roles[c]));
+  if (unmapped.length) return ["주요 화자를 구분하지 못했어요"];
+  if (humans.length > 2) return ["말하는 사람이 3명 이상일 수 있어요"];
+  const teacher = main.filter(c => roles[c] === "teacher").length;
+  const student = main.filter(c => roles[c] === "student").length;
+  if (main.length >= 2 && (!teacher || !student)) return ["강사 또는 수강생 화자 확인이 필요해요"];
+  // 1:1 레슨의 주요 두 화자가 이미 추정됐으면 매 회차 승인 요청을 반복하지 않는다.
+  // 결과가 잘못된 경우 강사는 '화자 수정'으로 언제든 수정할 수 있다.
+  return [];
 }
 function renderSpkState(ai) {
   cur.aiSpkIssues = speakerIssues(ai);
@@ -1575,7 +1626,11 @@ function renderSpkState(ai) {
 }
 function paintSpkState(live) {   // live=선생님이 조작 중: 카드 위치·펼침은 그대로 두고 요약만 갱신(손가락 밑에서 화면이 움직이지 않게)
   const iss = live ? speakerIssues(cur.ai) : (cur.aiSpkIssues || []), c = $("spkCard");
-  if (!live) { c.style.order = iss.length ? 3 : 9; c.classList.toggle("warnbox", iss.length > 0); }
+  if (!live) {
+    c.style.order = iss.length ? 3 : 9;
+    c.classList.toggle("warnbox", iss.length > 0);
+    c.classList.toggle("hidden", !iss.length);
+  }
   const nm = (r) => Object.entries(cur.review.speakers).filter(([, v]) => v === r).map(([k]) => k).join("·");
   $("spkSum").innerHTML = iss.length ? `<span class="chip todo">⚠ 화자 확인 필요</span> <span class="muted">${esc(iss.join(" · "))}</span>`
     : `<span class="muted">${!cur.spkSaved && cur.voice ? "🎙 목소리로 자동 확인 · " : ""}선생님=${esc(nm("teacher") || "?")}, ${esc(cur.st.name)}=${esc(nm("student") || "?")} ✓ 눌러서 바꾸기</span>`;
