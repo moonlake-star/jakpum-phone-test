@@ -500,13 +500,17 @@ async function paintBriefing(sid) {
   const st = cfg.students[sid];
   try {
     const rec = await rootFile(st, "수강생기록.json");
+    if (stuCur?.sid === sid && $("stuBrief")) {   // 확인 전 '수강생이 한 말'(맞아요/아니에요)을 브리핑 위에
+      if (!$("stuSaid")) $("stuBrief").insertAdjacentHTML("beforebegin", `<div id="stuSaid"></div>`);
+      paintSaid($("stuSaid"), sid, null, rec);
+    }
     if (stuCur?.sid === sid) paintGrowth4(rec, st);
     if (!rec?.briefing || !$("stuBrief") || stuCur?.sid !== sid) return;
     const songs = Object.entries(rec.songs || {}).slice(-5);
     $("stuBrief").innerHTML = `<div class="card"><h3 style="margin-top:0">📋 다음 레슨 브리핑 <span class="muted" style="font-size:.85rem;font-weight:400">지난 레슨에서 AI가 정리 · 오늘 레슨 날 아침 메일로도</span></h3>
       <div style="white-space:pre-wrap;line-height:1.55">${esc(rec.briefing)}</div>
       ${songs.length ? `<details style="margin-top:6px"><summary><b>선곡·키 메모</b></summary>${songs.map(([t, v]) => `<div style="margin:3px 0">🎵 ${esc(t)}${v.artist ? " · " + esc(v.artist) : ""}${v.key_notes?.length ? ` <span class="muted">🔑 ${esc(v.key_notes.at(-1))}</span>` : ""}</div>`).join("")}</details>` : ""}
-      ${rec.profile?.goal?.length || rec.profile?.taste?.length ? `<details style="margin-top:6px"><summary><b>수강생이 말한 목표·취향·고민</b></summary>${["goal", "taste", "worry"].flatMap(k => (rec.profile[k] || []).slice(-4).map(x =>
+      ${["goal", "taste", "worry"].some(k => (rec.profile?.[k] || []).some(saidUsed)) ? `<details style="margin-top:6px"><summary><b>수강생이 말한 목표·취향·고민</b></summary>${["goal", "taste", "worry"].flatMap(k => (rec.profile[k] || []).filter(saidUsed).slice(-4).map(x =>
         `<div style="margin:3px 0"><span class="chip">${{ goal: "목표", taste: "취향", worry: "고민" }[k]}</span> “${esc(x.quote)}” <span class="muted">${esc(x.date)}</span></div>`)).join("")}</details>` : ""}</div>`;
   } catch {}
 }
@@ -1428,6 +1432,72 @@ function paintSpkState(live) {   // live=선생님이 조작 중: 카드 위치�
     : `<span class="muted">${!cur.spkSaved && cur.voice ? "🎙 목소리로 자동 확인 · " : ""}선생님=${esc(nm("teacher") || "?")}, ${esc(cur.st.name)}=${esc(nm("student") || "?")} ✓ 눌러서 바꾸기</span>`;
 }
 
+// ── 수강생이 한 말 확인(백엔드 PR #61) ──────────────────────────
+// AI가 녹음에서 뽑은 '수강생이 한 말'은 수강생기록.json profile에 approved:false(확인 전)로 들어온다.
+// 서버(lesson_ai.approved_said)는 approved가 true이거나 표시가 없는(예전) 항목만 브리핑·AI 프롬프트에 쓴다.
+// 선생님: '맞아요' → approved:true, '아니에요' → approved:"rejected"(지우지 않음 — 지우면 다음 분석 때 같은 말이 다시 '확인 전'으로 들어옴).
+const SAID_REC = "수강생기록.json", SAID_KIND = { goal: "목표", taste: "취향", worry: "고민", background: "배경", feeling: "마음", request: "요청" };
+const saidUsed = (x) => !!x && (!("approved" in x) || x.approved === true);   // 서버의 x.get("approved", True) is True 와 같은 뜻
+const saidSame = (x, k) => !!x && x.quote === k.quote && x.date === k.date && x.lesson === k.lesson;
+function saidPending(rec, lesson) {   // 확인 전 항목(lesson을 주면 그 레슨 것만)
+  const out = [];
+  for (const [kind, xs] of Object.entries(rec?.profile || {})) if (Array.isArray(xs)) for (const x of xs)
+    if (x && x.approved === false && (!lesson || x.lesson === lesson)) out.push({ kind, quote: x.quote, date: x.date, lesson: x.lesson, meaning: x.meaning || "" });
+  return out;
+}
+function patchSaid(rec, k, value) {   // 종류+말+날짜+레슨이 같은 '그 한 항목'의 approved만 바꾼다. 못 찾으면 false
+  const x = (rec?.profile?.[k.kind] || []).find(y => saidSame(y, k));
+  if (!x) return false;
+  x.approved = value; return true;
+}
+// 저장: 앱이 들고 있던 기록으로 덮어쓰지 않고, 누르는 순간 드라이브 최신본을 캐시 없이 다시 읽어 그 한 칸만 고쳐 쓴다
+// (자동 수집기가 그사이 추가한 레슨·말·선곡을 지키려고). saveSubFolder와 같은 방식으로 읽는 동안/쓰기 직전 version을 확인하고
+// 쓴 직후 다시 읽어 반영을 확인한다. 남는 위험: Drive에는 조건부 쓰기가 없어, 쓰기 직전 확인과 실제 쓰기 사이 1~2초 안에
+// 수집기가 같은 파일을 저장하면 둘 중 하나가 덮일 수 있다(수집기 쪽이 이기면 쓴 직후 확인에서 걸려 다시 시도).
+async function setSaid(sid, k, value) {
+  const st = cfg.students[sid];
+  const f = st?.folder && (await list(st.folder)).find(x => x.name === SAID_REC);
+  if (!f) throw new Error("수강생기록 파일을 찾지 못해 저장하지 않았어요");
+  const ver = async () => (await (await api(`${DRIVE}/files/${f.id}?fields=version`)).json()).version;
+  const fresh = async () => (await api(`${DRIVE}/files/${f.id}?alt=media&_=${Date.now()}`, { cache: "no-store" })).json();
+  for (let n = 0; n < 3; n++) {
+    const v1 = await ver(), rec = await fresh();
+    if (await ver() !== v1) continue;                       // 읽는 도중 바뀜
+    if (!patchSaid(rec, k, value)) throw new Error("최신 기록에서 이 말을 찾지 못했어요. 화면을 다시 열어 주세요");
+    if (await ver() !== v1) continue;                       // 쓰기 직전 다시 확인
+    await writeJSON(null, SAID_REC, rec, f.id);
+    const after = await fresh();                            // 쓴 직후 확인
+    if ((after.profile?.[k.kind] || []).find(y => saidSame(y, k))?.approved === value) { if (st._root) delete st._root[SAID_REC]; return after; }
+  }
+  throw new Error("기록이 지금 자동 정리 중이라 저장하지 못했어요. 잠시 뒤 다시 눌러 주세요");
+}
+function saidBoxHTML(items) {
+  if (!items.length) return "";
+  return `<div class="card warnbox"><h3 style="margin:0 0 4px">🗣 수강생이 한 말 — 맞는지 봐 주세요 <span class="chip todo">확인 전 ${items.length}개</span></h3>
+    <p class="muted" style="margin:4px 0">AI가 녹음에서 뽑은 말이라 누가 한 말인지 틀릴 수 있어요. ‘맞아요’를 누른 말만 다음 레슨 브리핑과 AI 정리에 써요.</p>
+    ${items.map((x, n) => `<div style="border-top:1px solid var(--line);padding:10px 0">
+      <div><span class="chip todo">확인 전</span> <span class="chip">${esc(SAID_KIND[x.kind] || x.kind)}</span> <span class="muted">${esc(x.date || "")}</span></div>
+      <div style="font-size:1.08rem;margin:6px 0">“${esc(x.quote)}”</div>${x.meaning ? `<div class="muted">${esc(x.meaning)}</div>` : ""}
+      <div class="row" style="margin-top:6px"><button data-said="${n}" data-v="yes" style="flex:1;min-height:54px;font-size:1.05rem">👍 맞아요</button>
+        <button class="ghost" data-said="${n}" data-v="no" style="flex:1;min-height:54px;font-size:1.05rem">✋ 아니에요</button></div></div>`).join("")}</div>`;
+}
+// el에 확인 전 목록을 그린다. lesson(레슨 폴더 ID)을 주면 그 레슨에서 나온 말만. rec를 주면 다시 읽지 않음
+async function paintSaid(el, sid, lesson, rec) {
+  if (!el) return;
+  try {
+    rec ??= await rootFile(cfg.students[sid], SAID_REC);
+    const items = saidPending(rec, lesson);
+    el.innerHTML = saidBoxHTML(items);
+    el.querySelectorAll("[data-said]").forEach(b => b.onclick = async () => {
+      const k = items[+b.dataset.said], yes = b.dataset.v === "yes";
+      el.querySelectorAll("[data-said]").forEach(x => x.disabled = true);
+      try { await setSaid(sid, k, yes ? true : "rejected"); toast(yes ? "확인했어요. 다음 브리핑부터 이 말을 써요" : "빼 두었어요. 브리핑과 AI 정리에 쓰지 않아요"); }
+      catch (e) { toast(errMsg(e)); }
+      if (!lesson && stuCur?.sid === sid) paintBriefing(sid); else paintSaid(el, sid, lesson);
+    });
+  } catch { el.innerHTML = ""; }
+}
+// ── 수강생이 한 말 확인 끝 ──
 // ── 레슨 분석(선생님 전용): 수강생이 한 말 / 녹음에서 확인된 가창 / 선생님 판단 / AI 가설 / 지도→변화 / 선곡·키 / 챙길 것 ──
 function renderAnalysis(pitch, ana, ai) {
   const card = $("anaCard"); cur.pairs = ana?.pairs || ai?.pairs || [];
@@ -1466,6 +1536,8 @@ function renderAnalysis(pitch, ana, ai) {
   card.querySelectorAll(".tplay").forEach(b => b.onclick = () => playAt(Math.max(0, +b.dataset.t - 1)).catch(e => toast(e.message)));
   card.querySelectorAll(".pairplay").forEach(b => b.onclick = () => b.dataset.f ? playShared(b, b.dataset.f) : toast("비교 음성이 아직 없어요"));
   card.querySelectorAll(".pairsend").forEach(c => c.onchange = () => { const L = new Set(cur.review.pairSend || []); c.checked ? L.add(c.dataset.id) : L.delete(c.dataset.id); cur.review.pairSend = [...L]; });
+  card.insertAdjacentHTML("beforeend", `<div id="anaSaid"></div>`);   // 이 레슨에서 나온 확인 전 '수강생이 한 말'(접힌 분석 밖, 늘 보이게)
+  paintSaid($("anaSaid"), cur.sid, cur.folder.id);
   if ($("btnPitchOk")) $("btnPitchOk").onclick = () => sendPitchReview(cur.sid, cur.folder.id, cur.folder.id, { approved: true }, $("pitchOkT"));
 }
 // 선생님 확인 → 서버가 다음 실행 때 학습에 반영(대기 파일). 같은 곳에 이미 대기 파일이 있으면 덮어씀
@@ -1721,7 +1793,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-26-1900";
+const BUILD = "2026-10-26-2000";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
