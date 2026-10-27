@@ -75,6 +75,13 @@
   .bub .hltag, .bub .cptag { font-size:.75rem; margin-left:6px; color:var(--now); }
   .bub .cptag { color:var(--muted,#aaa); }
   .seam { margin:4px 0; text-align:center; }
+  #busy, #pop { position:fixed; left:50%; top:40%; transform:translate(-50%,-50%) scale(.96); z-index:70; background:var(--card); color:var(--fg); border:1px solid var(--accent);
+    border-radius:14px; padding:14px 18px; font-weight:700; box-shadow:0 8px 28px rgba(0,0,0,.5); opacity:0; pointer-events:none; transition:opacity .15s, transform .15s; max-width:86vw; text-align:center; }
+  #busy.on, #pop.on { opacity:1; transform:translate(-50%,-50%) scale(1); }
+  #pop { top:auto; bottom:160px; transform:translate(-50%,0) scale(.96); }
+  #pop.on { transform:translate(-50%,0) scale(1); }
+  .bestAlt.pulse { animation:pulse .5s ease 3; }
+  @keyframes pulse { 50% { box-shadow:0 0 0 4px var(--now); } }
   #resumeBar { position:fixed; left:0; right:0; top:0; z-index:60; background:var(--accent); color:var(--on-accent); text-align:center; padding:12px; font-weight:700; }
   .tp:has(.seamStrip) { position:relative; }
   .seamStrip { position:absolute; left:11px; right:11px; top:6px; height:22px; pointer-events:none; }
@@ -2438,7 +2445,22 @@ function prefetchLessons(data) {
   const recent = data.flatMap(d => d.rows.filter(r => !r.err).slice(0, 2)).slice(0, 6);
   recent.forEach(r => lessonData(r.l.id, r.files));
 }
-async function openLesson(sid, i, backTo) {
+// '불러오는 중' 안내(2026-10-27 사용자: 레슨 화면 3초·재생 1~2초 동안 아무 표시가 없음)
+let busyN = 0, busyT = null;
+function busy(on, msg = "불러오는 중…") {
+  let el = document.getElementById("busy");
+  if (!el) { el = document.createElement("div"); el.id = "busy"; el.setAttribute("role", "status"); document.body.appendChild(el); }
+  busyN = Math.max(0, busyN + (on ? 1 : -1));
+  if (on) { el.textContent = "⏳ " + msg; clearTimeout(busyT); busyT = setTimeout(() => { busyN = 0; el.classList.remove("on"); }, 15000); }
+  el.classList.toggle("on", busyN > 0);
+}
+function popup(msg, ms = 2600) {   // 잠깐 뜨는 안내(확인 버튼 없음)
+  let el = document.getElementById("pop");
+  if (!el) { el = document.createElement("div"); el.id = "pop"; el.setAttribute("role", "alert"); document.body.appendChild(el); }
+  el.textContent = msg; el.classList.add("on"); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove("on"), ms);
+}
+async function openLesson(...a) { busy(true, "레슨 불러오는 중…"); try { return await openLessonInner(...a); } finally { busy(false); } }
+async function openLessonInner(sid, i, backTo) {
   goBack = backTo || (() => openStudent(sid, "lesson"));
   const st = cfg.students[sid];
   if (!st._rows?.[i] || st._rows[i].err) { st._rows = null; return openStudent(sid, "lesson"); }
@@ -2625,7 +2647,13 @@ async function makeupFromBest(o, back) {
 }
 function wireBest() {
   const o = bestPicked(); if (!o) return;
-  tpWire($("todayCard").querySelector(".tp"), o.file_id);
+  const broot = $("todayCard").querySelector(".tp");
+  tpWire(broot, o.file_id);
+  // 아직 안 골랐으면 ▶ 대신 고르라고 안내(2026-10-27 사용자: 안 골랐는데 뭔가 재생됨) — 후보 버튼을 누르면 바로 재생됨
+  if (broot && bestOptions().length > 1 && !bestPickValid()) broot.querySelectorAll('[data-tp]').forEach(b => { b.onclick = () => {
+    popup("후보 1 · 후보 2 · 베스트 편집본 중 하나를 먼저 눌러 골라 주세요");
+    document.querySelectorAll(".bestAlt").forEach(x => { x.classList.remove("pulse"); void x.offsetWidth; x.classList.add("pulse"); });
+  }; });
   const mk = $("bestMakeup");
   if (mk) mk.onclick = () => {
     const back = () => openLesson(cur.sid, cur.rowIndex, cur.back);
@@ -2904,12 +2932,14 @@ function tpWire(root, fileId, autoplay, timeEl) {
   if (!root) return;
   if (timeEl) { tpTimeEl = timeEl; timeEl.textContent = "0:00 / 0:00"; }
   const run = async (fn) => {
-    const seq = ++tpActionSeq;
+    const seq = ++tpActionSeq, wait = tpRoot !== root || tpFile !== fileId || player.readyState < 2;
+    if (wait && typeof busy === "function") busy(true);
     try {
       if (!await tpLoad(root, fileId) || seq !== tpActionSeq || tpRoot !== root || !root.isConnected) return;
       await fn();
       if (seq === tpActionSeq && tpRoot === root) tpPaint();
     } catch (e) { if (seq === tpActionSeq && tpRoot === root) toast(e.message); }
+    finally { if (wait && typeof busy === "function") busy(false); }
   };
   root.querySelectorAll("[data-tp]").forEach(b => b.onclick = () => run(async () => {
     const act = b.dataset.tp;
@@ -2996,11 +3026,13 @@ async function playAt(t, keepGoing = true, follow = false) {
   listenFile ??= cur.files.find(x => x.name === "듣기용.mp3");
   if (!listenFile) { toast("이 레슨은 듣기용 녹음이 아직 없어요"); return; }
   if (player && !player.paused) player.pause();
-  toast("불러오는 중…");
+  if (typeof busy === "function") busy(true); else toast("불러오는 중…");
+  const done = () => { if (typeof busy === "function") busy(false); };
   const my = ++playSeq;
   let c;
   if (nextChunk?.url && Math.abs(nextChunk.t0 - t) < 0.5) { c = nextChunk; nextChunk = null; }
   else { dropNext(); c = await fetchChunk(Math.max(0, t)); }
+  done();
   if (my !== playSeq) { freeUrl(c.url); return; }            // 그 사이 다른 곳을 눌렀음 → 이 조각은 버림
   chunkStart = c.t0; setFullSrc(c.url);
   $("mini").classList.remove("hidden"); if (typeof document !== "undefined") document.body?.classList.add("miniOn");
