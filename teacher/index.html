@@ -3152,7 +3152,7 @@ $("btnPlayAll").onclick = async () => {
     try { cur.clipUrls[files[i].id] ??= URL.createObjectURL(await readBlob(files[i].id)); } catch (e) { toast(e.message); return queueStop?.(); }
     if (stopped) return;   // 받는 도중 정지·다른 재생이 플레이어를 가져갔으면 늦게 온 클립을 재생하지 않음
     player.src = cur.clipUrls[files[i].id]; i++; player.onended = next;
-    if (qroot) { tpRoot = qroot; tpFile = "__queue__"; tpTimeEl = qtime; tpQueueLabel = `${i}/${files.length}`; }
+    if (qroot) { tpRoot = qroot; tpFile = "__queue__"; tpTimeEl = qtime; }
     pauseOthers(player); player.play();
   };
   next();
