@@ -9,7 +9,7 @@ function run(composite, pick = 0, pickId) {
   const cur = { best, review: pickId === undefined ? { bestPick: pick } : { bestPick: pick, bestPickId: pickId }, st: {}, folder: {} };
   const f = new Function('cur', 'esc', 'fmt', 'tpHTML', 'bestMakeupLabel',
     code + '; return {html: renderBest(), picked: bestPicked(), opts: bestOptions()};');
-  return f(cur, esc, String, () => '', () => '메이크업');
+  return f(cur, esc, String, () => '<i aria-label="재생 위치" style="width:100%">', () => '메이크업');
 }
 const v73 = (o = {}) => ({ status: 'ok', file_id: 'c1', len: 40, kind_ko: '베스트 편집본', method: 'v7.3-live', mr_aligned: true, rhythm_verified: false, needs_listen: true, ...o });
 
@@ -21,7 +21,7 @@ assert(r.html.includes('원래 소리·박자 그대로') && r.html.includes('2�
 assert(r.html.includes('확신 못 한 1구절은 기준 테이크 그대로') && r.html.includes('꼭 들어보고'), r.html);
 assert(!r.html.includes('자동 검사 통과') && !r.html.includes('박자 검증됨') && !r.html.includes('기준 테이크 박자 그대로'));
 // 2) 전부 거절(fail-closed): 단일 테이크로 표시하고 이유 안내
-r = run(v73({ takes_used: 1, seams: [], kept_ref_no_mr: 4 }), 2, 'c1');
+r = run(v73({ takes_used: 1, seams: [], kept_ref_no_mr: 4, composition: 'single_take', sections_joined: 1 }), 2, 'c1');
 assert(r.html.includes('사실상 단일 테이크') && r.html.includes('박자·이음새를 확신할 수 없어') && r.html.includes('4구절') && r.html.includes('이어 붙인 곳 없음'), r.html);
 // 3) 기존 MP3(방식 정보 없음/옛 방식)는 새 결과처럼 보이면 안 됨
 for (const old of [{}, { method: 'v5-mrabs', rhythm_verified: false }, { method: 'v7.3-live', mr_aligned: false }]) {
@@ -55,12 +55,28 @@ assert(!r.html.includes('한 테이크 그대로') && !r.html.includes('사실�
 r = run(v73({ takes_used: 3, seams: [], kept_ref_no_mr: 2 }), 2, 'c1');
 assert(r.html.includes('구성 정보가 없는 편집본') && r.html.includes('구성 정보 없음'), r.html);
 assert(!r.html.includes('한 테이크 그대로') && !r.html.includes('사실상 단일 테이크') && !r.html.includes('서로 다른 기준 섹션'), r.html);
-// 8c) composition=single_take 명시 / 옛 메타라도 takes=1,seams=0 이면 단일 테이크
-for (const o of [{ composition: 'single_take', takes_used: 1, seams: [] }, { takes_used: 1, seams: [] }]) {
+// 8c) 섹션 수 1이 확인된 경우에만 단일 테이크(composition 명시 또는 옛 메타)
+for (const o of [{ composition: 'single_take', takes_used: 1, seams: [], sections_joined: 1 }, { takes_used: 1, seams: [], sections_joined: 1 }]) {
   r = run(v73(o), 2, 'c1');
   assert(r.html.includes('사실상 단일 테이크') && r.html.includes('한 테이크 그대로'), JSON.stringify(o));
 }
 // 8d) composition=phrase_swap: 구절 교체 안내, 단일/섹션 문구 아님
 r = run(v73({ takes_used: 2, seams: [{}, {}], composition: 'phrase_swap' }), 2, 'c1');
 assert(r.html.includes('2구절') && !r.html.includes('한 테이크 그대로') && !r.html.includes('서로 다른 기준 섹션'), r.html);
+// 9) 동일 기준 테이크 1개인데 비연속 섹션 2개(백엔드가 single_take 로 오판): 한 테이크 단정 금지
+r = run(v73({ takes_used: 1, seams: [], composition: 'single_take', sections_joined: 2, ref_takes: [1, 1] }), 2, 'c1');
+assert(r.html.includes('기준 섹션 2개') && r.html.includes('시각 미제공') && r.html.includes('청감 확인 필요'), r.html);
+assert(!r.html.includes('한 테이크 그대로') && !r.html.includes('사실상 단일 테이크') && !r.html.includes('이음새 없음') && !r.html.includes('data-seamt'), r.html);
+// 10) sections_joined>1 이고 seams=0, composition 미상
+r = run(v73({ takes_used: 2, seams: [], sections_joined: 3 }), 2, 'c1');
+assert(r.html.includes('기준 섹션 3개') && r.html.includes('섹션 연결부 2곳 시각 미제공') && !r.html.includes('한 테이크 그대로'), r.html);
+// 10b) 구절 교체 + 섹션 연결: 교체 자리는 표시하되 섹션 연결부 시각은 없다고 밝힘
+r = run(v73({ takes_used: 2, len: 40, seams: [{ out_t: 5, ref_t: 1, end_t: 3, to_take: 2 }], composition: 'phrase_swap', sections_joined: 2 }), 2, 'c1');
+assert(r.html.includes('data-seamt="5"') && r.html.includes('섹션 연결부 시각 미제공') && r.html.includes('2개를 잇는 연결부'), r.html);
+// 11) composition·sections_joined 둘 다 없는 구형 MP3(takes 1, seams 0): 한 테이크로 단정하지 않음
+r = run(v73({ takes_used: 1, seams: [] }), 2, 'c1');
+assert(r.html.includes('구성 정보가 없는 편집본') && !r.html.includes('한 테이크 그대로') && !r.html.includes('사실상 단일 테이크') && !r.html.includes('이음새 없음'), r.html);
+// 12) seamStrip 이 읽지 않는 전역 메타(section_joins 위치)는 있는 척하지 않음 — 시각 버튼/노란 칸 없음
+r = run(v73({ takes_used: 2, len: 40, seams: [], composition: 'sections_only', sections_joined: 2, section_joins: [{ out_t: 12 }, { out_t: 20 }] }), 2, 'c1');
+assert(!r.html.includes('data-seamt') && !r.html.includes('seamStrip"') && r.html.includes('시각 미제공'), r.html);
 console.log('best-v73-status ok');
