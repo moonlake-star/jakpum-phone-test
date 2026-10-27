@@ -28,6 +28,8 @@ h = render({method:'v7-live', mr_aligned:true, takes_used:1, seams:[], kept_ref_
 assert(h.includes('바꾼 곳이 없어요') && h.includes('템포·키'));
 h = render({method:'v7.2-live', mr_aligned:true, takes_used:2, seams:[{ref_t:1}]});
 assert(h.includes('원래 소리·박자 그대로') && h.includes('반주를 살짝'));
+assert(h.includes('반주 템포는 구간별 조정됨') && h.includes('직접 확인 필요'), h);
+assert(!h.includes('기준 테이크 박자 그대로'), 'v7.2는 반주 템포를 변경하므로 기존 안내는 잘못됨');
 const today = src.match(/function renderToday[\s\S]*?\n}\n/)[0];
 assert(today.indexOf('${head}') < today.indexOf('renderBest()'));
 assert(today.indexOf('이번 주 연습') < today.indexOf('renderBest()'));
