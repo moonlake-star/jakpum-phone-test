@@ -32,7 +32,7 @@ assert(!h.includes("AI 베스트") && cur.review.sendBest === true && m.bestPick
 cur.review.bestPick = 1; cur.review.bestPickId = "b2"; assert(m.bestPicked().file_id === "b2");
 cur.best.composite = { status: "ok", file_id: "c1", kind_ko: "여러 테이크 이어 붙인 1절(편집본)", len: 41, lines: [1, 2, 3, 4], takes_used: 2 };
 cur.review.bestPick = 2; cur.review.bestPickId = "c1"; m.renderToday(); h = e.els.todayCard.innerHTML;
-assert(m.bestPicked().isComposite && h.includes("이어 붙인 1절") && h.includes("편집본") && h.includes("박자가 조금 어긋날"));
+assert(m.bestPicked().isComposite && h.includes("이어 붙인 편집본") && h.includes("편집본") && h.includes("박자가 조금 어긋날"));
 cur.best.composite = { status: "none", why: "x" }; cur.review.bestPick = 0;
 cur.best = { status: "none", why: "노래 구간 없음" }; m.renderToday(); h = e.els.todayCard.innerHTML;
 assert(h.includes("노래 구간 없음") && !h.includes("bestPlay") && m.bestPicked() === null);
