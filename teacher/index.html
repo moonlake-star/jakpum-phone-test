@@ -222,6 +222,7 @@
 </main>
 <div id="toast"></div>
 
+<script src="../lesson-replies.js"></script>
 <script>
 // ── 설정 ────────────────────────────────────────────────
 // 구글 클라우드의 '웹 애플리케이션' OAuth 클라이언트 ID (비밀값 아님)
@@ -2274,6 +2275,17 @@ async function openLesson(sid, i, backTo) {
   $("ckCard").classList.toggle("hidden", !cfg.practice_check);
   renderSent();
   renderToday(); renderSpkState(ai);
+  document.getElementById('lessonReplies')?.remove();
+  const replies = document.createElement('section'); replies.id = 'lessonReplies'; replies.className = 'card';
+  $('lsHead').after(replies);
+  LessonReplies.mount(replies, {teacher: true,
+    request: (action, extra = {}) => portal(action, {sid, lesson: l.id, ...extra}),
+    playClip: async clip => {
+      let a = replies.querySelector('audio'); if (!a) { a = document.createElement('audio'); a.controls = true; replies.appendChild(a); }
+      a.src = `https://drive.google.com/uc?export=download&id=${encodeURIComponent(clip.file_id)}`;
+      a.onloadedmetadata = () => { a.currentTime = clip.seconds; }; await a.play();
+    }
+  });
   $("btnSpeakerEdit").onclick = () => {
     $("spkCard").classList.remove("hidden");
     $("spkWrap").open = true;
