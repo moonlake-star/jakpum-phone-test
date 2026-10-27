@@ -11,6 +11,7 @@ function render(comp, composite = true) {
 for (const comp of [{}, {method:'v4-rhythm', rhythm_verified:true}, {method:'v5-mrabs', rhythm_verified:false}]) {
   assert(render(comp).includes('새 MR 정렬 결과로 확인되지 않았어요'));
 }
+for (const method of ['v5-mrabs','v6-timeline']) assert(render({method, rhythm_verified:true}).includes('자동 검사 통과'));
 let h = render({method:'v5-mrabs', rhythm_verified:true});
 assert(h.includes('자동 검사 통과') && h.includes('실제 청감 확인 필요'));
 h = render({status:'none', fallback:'best_take', why:'<unsafe>'}, false);
