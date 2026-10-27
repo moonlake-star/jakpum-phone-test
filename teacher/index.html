@@ -458,7 +458,7 @@ function paintList(data, stale) {
   }
   todo.sort((a, b) => (b.bell ? 1 : 0) - (a.bell ? 1 : 0));
   const bells = todo.filter(x => x.bell).length;
-  const todoHtml = `<div id="joinReq">${lastJoinHtml}</div><div class="card"><h3 style="margin:0 0 4px">오늘 할 일 ${bells ? `<span class="chip todo">🔔 검토 대기 ${bells}</span>` : ""}</h3>` + (todo.length ? todo.map((x, n) =>
+  const todoHtml = `<div class="card"><h3 style="margin:0 0 4px">오늘 할 일 ${bells ? `<span class="chip todo">🔔 검토 대기 ${bells}</span>` : ""}</h3>` + (todo.length ? todo.map((x, n) =>
       `<div class="todo-item" data-n="${n}"><span>${esc(x.t)}</span><span class="chip ${x.c.includes("완성") ? "ok" : "todo"}">${esc(x.c)}</span></div>`).join("")
     : `<p class="muted" style="margin:4px 0">할 일 없음 👍</p>`) + `</div>`;
   const order = data.slice().sort((a, b) => (isTeacher(cfg.students[a.sid] || {}) - isTeacher(cfg.students[b.sid] || {})));
@@ -480,7 +480,8 @@ function paintList(data, stale) {
     return `<div class="card stuCard tap" data-s="${esc(d.sid)}"><div class="stuHead"><h3>${esc(st.name)}${tag} <span class="muted">${esc(d.sid)}</span></h3>` +
       `<div class="muted">${sub}</div></div><div class="stuBody"><div class="sum">${chips || `<span class="muted">아직 기록 없음</span>`}</div></div></div>`;
   });
-  $("vList").innerHTML = todoHtml + blocks.join("") +
+  // 가입 신청·계정 연결 카드는 맨 아래(2026-10-27 사용자: 맨 위에 늦게 생겨 아래가 밀리며 엉뚱한 게 눌림)
+  $("vList").innerHTML = todoHtml + blocks.join("") + `<div id="joinReq">${lastJoinHtml}</div>` +
     `<p class="muted">${stale ? "최신 내용 확인 중…" : "최신 상태"} · <a href="#" id="reload">새로고침</a></p>`;
   $("reload").onclick = (e) => { e.preventDefault(); renderList(); };
   $("vList").insertAdjacentHTML("beforeend", `<div id="prefsBox"></div><div id="laBox"></div>`); paintPrefs(); paintLaBox(); if (laIsOn()) laStart();
