@@ -102,6 +102,10 @@
   .seg-list { max-height:50vh; overflow:auto; }
   #toast { position:fixed; left:50%; bottom:16px; transform:translateX(-50%); background:var(--fg); color:var(--bg); padding:8px 14px; border-radius:10px; display:none; max-width:90vw; }
   .hidden { display:none; }
+  /* 재생바가 '뿅' 생기지 않고 아래로 펼쳐지게(2026-10-27 사용자 요청) */
+  .tpslot { overflow:hidden; max-height:0; opacity:0; transform:translateY(-6px); transition:max-height .32s ease, opacity .25s ease, transform .32s ease; }
+  .tpslot.open { max-height:240px; opacity:1; transform:none; }
+  .tpTimeMid { flex:1; text-align:center; font-variant-numeric:tabular-nums; }
   #vLesson:not(.hidden) { display:flex; flex-direction:column; }   /* 접힌 상세를 아래로 보내되 DOM은 그대로(입력값·재생 상태 보존) */
   #vLesson > * { order:1; }
   #vLesson > .card { margin:6px 0; }
@@ -162,7 +166,8 @@
       <details class="muted" style="margin:0 0 6px"><summary>버튼 뜻</summary>
         <b>보내기</b> = 카톡 문구 ‘좋았던 부분’에 들어가고 ‘클립 보내기’ 때 같이 보내져요(최대 3개, 4번째를 고르면 가장 먼저 고른 것이 ‘기록만’으로).
         <b>기록만</b> = 수강생에겐 안 가고 레슨 기록에만. <b>빼기</b> = 쓰지 않음. 실제 전송은 아래 ‘클립 보내기’ → 카톡에서 직접.</details>
-      <div class="row" style="margin:4px 0"><button class="small ghost" id="btnPlayAll">▶ 보낼 클립 이어 듣기</button></div>
+      <div class="row" style="margin:4px 0;flex-wrap:nowrap"><button class="small ghost" id="btnPlayAll">▶ 보낼 클립 이어 듣기</button><span class="tpTimeMid muted" id="queueTime"></span></div>
+      <div class="tpslot" id="queueSlot"></div>
       <div id="cands"></div>
       <details style="margin-top:8px"><summary>구간 직접 추가</summary>
         <div class="row" style="margin-top:6px">
@@ -2711,18 +2716,20 @@ function tpNext(t, dur, act) {   // 순수 함수(시험용): 누른 버튼에 �
   const n = act === "start" ? 0 : act === "back" ? t - 5 : act === "fwd" ? t + 5 : act === "end" ? end : t;
   return Math.max(0, Math.min(n, end));
 }
-let tpRoot = null, tpFile = null, tpEpoch = 0, tpPromise = null, tpActionSeq = 0;
-function tpHTML(iconOnly = false) {
+let tpRoot = null, tpFile = null, tpEpoch = 0, tpPromise = null, tpActionSeq = 0, tpQueueLabel = "";
+function tpHTML(iconOnly = true, withTime = true) {   // 처음·끝은 아이콘만(2026-10-27). 클립 카드는 시간을 '듣기'와 '메이크업' 사이에 따로 표시
   return `<div class="tp" style="margin-top:6px"><input type="range" class="tpSeek" min="0" max="1000" value="0" aria-label="재생 위치" style="width:100%">
-    <div class="row" style="justify-content:space-between"><span class="tpTime muted">0:00 / 0:00</span></div>
-    <div class="row" style="margin-top:4px;gap:4px;flex-wrap:nowrap;display:grid;grid-template-columns:1.2fr .8fr .85fr .8fr 1.2fr"><button class="small ghost" style="min-width:0;padding:8px 2px" data-tp="start" aria-label="처음으로 이동" title="처음으로 이동">⏮${iconOnly ? "" : " 처음"}</button><button class="small ghost" style="min-width:0;padding:8px 2px" data-tp="back">-5</button><button class="small" style="min-width:0;padding:8px 2px" data-tp="play" aria-label="재생">▶</button><button class="small ghost" style="min-width:0;padding:8px 2px" data-tp="fwd">+5</button><button class="small ghost" style="min-width:0;padding:8px 2px" data-tp="end" aria-label="끝으로 이동" title="끝으로 이동">${iconOnly ? "" : "끝 "}⏭</button></div></div>`;
+    ${withTime ? `<div class="row" style="justify-content:space-between"><span class="tpTime muted">0:00 / 0:00</span></div>` : ""}
+    <div class="row" style="margin-top:4px;gap:4px;flex-wrap:nowrap;display:grid;grid-template-columns:1fr 1fr 1.1fr 1fr 1fr"><button class="small ghost" style="min-width:0;padding:8px 2px" data-tp="start" aria-label="처음으로 이동" title="처음으로 이동">⏮</button><button class="small ghost" style="min-width:0;padding:8px 2px" data-tp="back" aria-label="5초 뒤로">-5</button><button class="small" style="min-width:0;padding:8px 2px" data-tp="play" aria-label="재생">▶</button><button class="small ghost" style="min-width:0;padding:8px 2px" data-tp="fwd" aria-label="5초 앞으로">+5</button><button class="small ghost" style="min-width:0;padding:8px 2px" data-tp="end" aria-label="끝으로 이동" title="끝으로 이동">⏭</button></div></div>`;
 }
-function tpDetach() { tpEpoch++; tpActionSeq++; if (tpRoot) { try { player.pause(); } catch {} } tpRoot = null; tpFile = null; tpPromise = null; }
+let tpTimeEl = null;   // 재생 바 밖(예: 클립 카드의 '듣기'와 '메이크업' 사이)에 시간을 보여 줄 곳
+function tpDetach() { tpEpoch++; tpActionSeq++; if (tpRoot) { try { player.pause(); } catch {} } tpRoot = null; tpFile = null; tpPromise = null; if (tpTimeEl) tpTimeEl.textContent = ""; tpTimeEl = null; }
 function tpPaint() {
   if (!tpRoot || !tpRoot.isConnected) return;
   const d = player.duration || 0, t = player.currentTime || 0;
   tpRoot.querySelector(".tpSeek").value = d ? Math.round(t / d * 1000) : 0;
-  tpRoot.querySelector(".tpTime").textContent = `${fmt(t)} / ${fmt(d)}`;
+  const te = tpTimeEl || tpRoot.querySelector(".tpTime");
+  if (te) te.textContent = `${tpQueueLabel ? tpQueueLabel + " · " : ""}${fmt(t)} / ${fmt(d)}`;
   const playButton = tpRoot.querySelector('[data-tp="play"]');
   playButton.textContent = player.paused ? "▶" : "❚❚";
   if (typeof playButton.setAttribute === "function") playButton.setAttribute("aria-label", player.paused ? "재생" : "일시정지");
@@ -2764,8 +2771,9 @@ async function tpLoad(root, fileId) {
   tpPromise = pending;
   try { return await pending; } finally { if (tpPromise === pending) tpPromise = null; }
 }
-function tpWire(root, fileId, autoplay) {
+function tpWire(root, fileId, autoplay, timeEl) {
   if (!root) return;
+  if (timeEl) { tpTimeEl = timeEl; timeEl.textContent = "0:00 / 0:00"; }
   const run = async (fn) => {
     const seq = ++tpActionSeq;
     try {
@@ -2903,8 +2911,8 @@ function renderCands() {
     return `<div class="cand"><div class="row"><b>${esc(c.id)}</b><span>${fmt(c.start)} ~ ${fmt(c.end)}</span>
         ${c.kind === "manual" ? `<span class="chip">직접 추가${clip ? "" : " · 다음 실행 때 클립 생성"}</span>` : ""}
         ${c.reason || c.note ? `<span class="muted">${esc(c.reason || c.note)}</span>` : ""}</div>
-      <div class="row" style="margin-top:4px">${clip ? `<button class="small ghost" data-tpopen="${clip.id}">▶ 듣기</button>` : ""}${mkButton(c.id)}</div>
-      <div class="tpslot hidden" data-for="${clip ? clip.id : ""}"></div>
+      <div class="row" style="margin-top:4px;flex-wrap:nowrap">${clip ? `<button class="small ghost" data-tpopen="${clip.id}">▶ 듣기</button>` : ""}<span class="tpTimeMid muted"></span>${mkButton(c.id)}</div>
+      <div class="tpslot" data-for="${clip ? clip.id : ""}"></div>
       <div class="pickcap">이 클립을 오늘 피드백에 (하나만 선택)</div>
       <div class="pick" role="radiogroup" aria-label="${esc(c.id)} 처리">
         ${[["send", "보내기"], ["keep", "기록만"], ["drop", "빼기"]].map(([v, t]) =>
@@ -2928,11 +2936,12 @@ function renderCands() {
   });
   $("cands").querySelectorAll(".cnote").forEach(i => i.oninput = () => { (cur.review.notes ??= {})[i.dataset.c] = i.value.trim(); });
   $("cands").querySelectorAll("[data-tpopen]").forEach(b => b.onclick = () => {   // '듣기' → 그 카드 안에서 플레이어가 펼쳐짐(한 번에 한 카드만)
-    const slot = b.closest(".cand").querySelector(".tpslot"), open = slot.classList.contains("hidden");
-    $("cands").querySelectorAll(".tpslot").forEach(x => { x.classList.add("hidden"); x.innerHTML = ""; });
+    const card = b.closest(".cand"), slot = card.querySelector(".tpslot"), open = !slot.classList.contains("open");
+    $("cands").querySelectorAll(".tpslot.open").forEach(x => { x.classList.remove("open"); const old = x; setTimeout(() => { if (!old.classList.contains("open")) old.innerHTML = ""; }, 350); });
     tpDetach(); if (!open) return;
-    slot.innerHTML = tpHTML(); slot.classList.remove("hidden");
-    tpWire(slot.querySelector(".tp"), b.dataset.tpopen, true);
+    slot.innerHTML = tpHTML(true, false);
+    requestAnimationFrame(() => slot.classList.add("open"));   // 아래로 펼쳐짐
+    tpWire(slot.querySelector(".tp"), b.dataset.tpopen, true, card.querySelector(".tpTimeMid"));
   });
 }
 const MAX_GOOD = 3, MAX_POINT = 3;   // 추천 클립 보내기 최대 3개·0개도 가능(2026-10-26 사용자 확정, 이전 5개 → 3개). 넘으면 먼저 고른 것부터 '기록만 저장'
@@ -3018,7 +3027,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-27-2010";
+const BUILD = "2026-10-27-1930";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
@@ -3115,14 +3124,36 @@ $("btnPlayAll").onclick = async () => {
   let i = 0, stopped = false;
   try { chimeCtx ??= new (window.AudioContext || window.webkitAudioContext)(); chimeCtx.resume(); } catch {}   // 폰은 버튼 누를 때 소리 장치를 깨워야 함
   const endBase = player.onended;
-  queueStop = () => { stopped = true; player.pause(); player.onended = endBase; b.textContent = "▶ 보낼 클립 이어 듣기"; queueStop = null; };
+  // 이어 듣기에도 재생 바(⏮ -5 ▶ +5 ⏭ + 위치)를 펼친다(2026-10-26·27 사용자 요청). ⏭ = 다음 클립으로
+  const raf = typeof requestAnimationFrame === "function" ? requestAnimationFrame : (f) => setTimeout(f, 0);
+  const slot = $("queueSlot"), qtime = $("queueTime");
+  let qroot = null;
+  if (slot && typeof slot.querySelector === "function" && typeof tpHTML === "function") {
+    tpDetach(); slot.innerHTML = tpHTML(true, false); raf(() => slot.classList.add("open"));
+    qroot = slot.querySelector(".tp");
+  }
+  if (qroot) {
+    qroot.querySelectorAll("[data-tp]").forEach(x => x.onclick = () => {
+      const act = x.dataset.tp;
+      if (act === "play") { if (player.paused) { pauseOthers(player); player.play().catch(() => {}); } else player.pause(); }
+      else if (act === "end") { player.pause(); next(); }          // 다음 클립
+      else player.currentTime = tpNext(player.currentTime, player.duration, act);
+      tpPaint();
+    });
+    qroot.querySelector(".tpSeek").oninput = (e) => { if (player.duration) player.currentTime = player.duration * e.target.value / 1000; };
+  }
+  queueStop = () => { stopped = true; player.pause(); player.onended = endBase; b.textContent = "▶ 보낼 클립 이어 듣기"; queueStop = null;
+    if (qroot) { tpQueueLabel = ""; if (tpRoot === qroot) { tpRoot = null; tpFile = null; tpTimeEl = null; } if (qtime) qtime.textContent = "";
+      slot.classList.remove("open"); setTimeout(() => { if (!slot.classList.contains("open")) slot.innerHTML = ""; }, 350); } };
   const next = async () => {
     if (stopped || i >= files.length) return queueStop?.();
     if (i > 0) { b.textContent = `■ 이어 듣는 중 ${i}/${files.length} → ${i + 1}`; await playChime(); if (stopped) return; }   // 첫 클립 앞·마지막 클립 뒤엔 없음
     b.textContent = `■ 이어 듣는 중 ${i + 1}/${files.length}`;
     try { cur.clipUrls[files[i].id] ??= URL.createObjectURL(await readBlob(files[i].id)); } catch (e) { toast(e.message); return queueStop?.(); }
     if (stopped) return;   // 받는 도중 정지·다른 재생이 플레이어를 가져갔으면 늦게 온 클립을 재생하지 않음
-    tpDetach(); player.src = cur.clipUrls[files[i].id]; i++; player.onended = next; pauseOthers(player); player.play();
+    player.src = cur.clipUrls[files[i].id]; i++; player.onended = next;
+    if (qroot) { tpRoot = qroot; tpFile = "__queue__"; tpTimeEl = qtime; tpQueueLabel = `${i}/${files.length}`; }
+    pauseOthers(player); player.play();
   };
   next();
 };
