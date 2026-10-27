@@ -2613,12 +2613,20 @@ function renderBest() {
   const lost = !valid && Number.isInteger(rv.bestPick) && rv.bestPick >= opts.length;   // 고른 후보(편집본)가 지금 없음 → 안내
   const stale = !valid && Number.isInteger(rv.bestPick) && !lost;                        // 고른 뒤 그 파일이 새로 만들어짐(예: 편집본 재생성)
   const comp = cur.best.composite;
+  // 편집본 구성: 백엔드 composition(single_take/sections_only/phrase_swap)만 믿음. 옛 메타는 근거(이음새 수·테이크 수)로만 추정하고 모르면 unknown
+  const kind = !o.isComposite ? "" : ["single_take", "sections_only", "phrase_swap"].includes(o.composition) ? o.composition
+    : (o.seams || []).length ? "phrase_swap" : (o.takes_used || 0) === 1 ? "single_take" : "unknown";
+  const nSec = o.sections_joined || (o.ref_takes || []).length || "";
   const status = o.isComposite
     ? (/^v[67]/.test(o.method || "") && o.mr_aligned === true
-      ? ((o.takes_used || 0) <= 1 || !(o.seams || []).length
-        ? `⚠ 다른 테이크 구절로 바꾼 곳이 없어요 — 한 테이크를 그대로 쓴 것(사실상 단일 테이크, 박자는 원래대로)${o.kept_ref_no_mr ? ` · 바꾸려던 ${o.kept_ref_no_mr}구절은 ${/^v7/.test(o.method) ? "템포·키 차이나 위치가 불확실해" : "반주 위치를 확인하지 못해"} 그대로 둠` : ""}`
+      ? (kind === "sections_only"
+        ? `서로 다른 기준 섹션${nSec ? ` ${nSec}개` : ""}를 이어 붙인 편집본(테이크 ${o.takes_used || "?"}개, 구절 교체 없음)${o.kept_ref_no_mr ? ` · 박자·이음새를 확신 못 한 ${o.kept_ref_no_mr}구절은 그대로 둠` : ""} · 자동 검사는 합성음 기준이라 섹션 이음새 앞뒤 3초를 꼭 들어보고 판단해 주세요(청감 미검증)`
+        : kind === "unknown"
+        ? `구성 정보가 없는 편집본(테이크 ${o.takes_used || "?"}개, 구절 교체 기록 없음) — 테이크 하나인지 섹션을 이은 것인지 알 수 없어요 · 처음부터 끝까지 들어보고 판단해 주세요(청감 미검증)`
+        : kind === "single_take"
+        ? `⚠ 다른 테이크 구절로 바꾼 곳이 없어요 — 한 테이크를 그대로 쓴 것(사실상 단일 테이크, 박자는 원래대로)${o.kept_ref_no_mr ? ` · 바꾸려던 ${o.kept_ref_no_mr}구절은 ${/^v7/.test(o.method) ? "템포·키·박자·이음새를 확신할 수 없어" : "반주 위치를 확인하지 못해"} 그대로 둠` : ""}`
         : /^v7/.test(o.method || "")
-        ? (/^v7\.2|^v7\.[3-9]/.test(o.method || "") ? `다른 테이크 목소리 ${(o.seams || []).length}구절을 원래 소리·박자 그대로 넣고 반주를 살짝 맞췄어요 · 원래 목소리가 작게 남을 수 있어요` : `직접 반주용 새 방식 · 기준 테이크 반주는 그대로, 다른 테이크 목소리 ${(o.seams || []).length}구절을 템포 맞춰 넣음 · 바꾼 구절 밑에 원래 목소리가 작게 남을 수 있어요 — 들어보고 판단해 주세요`)
+        ? (/^v7\.2|^v7\.[3-9]/.test(o.method || "") ? `다른 테이크 목소리 ${(o.seams || []).length}구절을 원래 소리·박자 그대로 넣고 반주를 살짝 맞췄어요 · 원래 목소리가 작게 남을 수 있어요${o.kept_ref_no_mr ? ` · 박자·이음새를 확신 못 한 ${o.kept_ref_no_mr}구절은 기준 테이크 그대로` : ""} · 자동 검사는 합성음 기준이라 이음새 앞뒤 3초를 꼭 들어보고 판단해 주세요` : `직접 반주용 새 방식 · 기준 테이크 반주는 그대로, 다른 테이크 목소리 ${(o.seams || []).length}구절을 템포 맞춰 넣음 · 바꾼 구절 밑에 원래 목소리가 작게 남을 수 있어요 — 들어보고 판단해 주세요`)
         : `새 방식(기준 테이크 시간축 고정) · 다른 테이크에서 가져온 곳 ${(o.seams || []).length}곳(반주로 같은 자리 확인) · 들어보고 판단해 주세요`)
       : o.method === "v5-mrabs" && o.rhythm_verified === true
       ? "새 MR 정렬 방식 · 자동 검사 통과 · 실제 청감 확인 필요"
@@ -2628,8 +2636,12 @@ function renderBest() {
       : comp?.status === "error" ? "편집본 생성 실패 · 연속 테이크를 확인해 주세요" : "";
   return `<div class="bestbox"><div class="row" style="justify-content:space-between"><b>🎵 오늘의 베스트 테이크 편집</b><span class="chip">${o.isComposite ? "편집본" : esc(o.kind_ko || "")} · ${Math.round(o.len)}초</span></div>
     <div class="muted bestDesc" style="font-size:.85rem">${o.isComposite
-      ? (/^v[67]/.test(o.method || "") ? ((o.takes_used || 0) <= 1
+      ? (/^v[67]/.test(o.method || "") ? (kind === "single_take"
         ? "이어 붙인 곳 없음 · 한 테이크 그대로"
+        : kind === "sections_only"
+        ? `테이크 ${o.takes_used || "?"}개의 기준 섹션${nSec ? ` ${nSec}개` : ""}를 이어 붙임 · 구절 교체 없음`
+        : kind === "unknown"
+        ? `구성 정보 없음 · 테이크 ${o.takes_used || "?"}개 사용`
         : /^v7\.2|^v7\.[3-9]/.test(o.method || "")
         ? ""
         : `테이크 ${o.takes_used}개에서 가져와 ${(o.seams || []).length}곳을 이은 편집본 · 기준 테이크 박자 그대로`)
@@ -3430,7 +3442,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-28-0045-openfix";
+const BUILD = "2026-10-28-0130-v73-comp";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
