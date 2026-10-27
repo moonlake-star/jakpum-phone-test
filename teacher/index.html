@@ -2430,13 +2430,14 @@ function bestOptions() {
   const c = b.composite?.status === "ok" && b.composite.file_id ? [{ ...b.composite, isComposite: true }] : [];
   return [b.best, ...(b.alternatives || []).slice(0, 1), ...c].filter(o => o.file_id);   // 후보1·후보2·이어붙인 1절 (2026-10-26 사용자 확정, 3개만)
 }
-function bestPicked() { const o = bestOptions(); return o[Math.min(cur.review.bestPick || 0, o.length - 1)] || null; }
+// 고른 번호(0부터). 편집본 항목은 bestOptions()가 부를 때마다 새로 만들어져 indexOf로는 못 찾음 → 번호로만 판단(2026-10-27 '눌림 표시 안 됨' 수정)
+function bestPicked() { const o = bestOptions(); return o[Math.max(0, Math.min(cur.review.bestPick || 0, o.length - 1))] || null; }
 function renderBest() {
   const opts = bestOptions(), rv = cur.review;
   if (!cur.best) return `<div class="muted">🎵 오늘의 베스트 테이크: 아직 준비 중이에요(다음 자동 처리 때 만들어져요)</div>`;
   if (!opts.length) return `<div class="muted">🎵 오늘의 베스트 테이크: 이번 레슨에선 고를 만한 노래 구간이 없었어요 — ${esc(cur.best.why || "")}. 아래 추천 클립에서 골라 보내 주세요.</div>`;
   rv.sendBest ??= true;
-  const o = bestPicked(), i = opts.indexOf(o);
+  const i = Math.max(0, Math.min(rv.bestPick || 0, opts.length - 1)), o = opts[i];
   const comp = cur.best.composite;
   const status = o.isComposite
     ? (o.method === "v5-mrabs" && o.rhythm_verified === true
@@ -3012,7 +3013,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-27-audit-2";
+const BUILD = "2026-10-27-1900";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
