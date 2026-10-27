@@ -13,6 +13,10 @@ const RAW = 'https://raw.githubusercontent.com', PG = 'https://moonlake-star.git
   assert.equal(pick(page('x1')), 'x1');
   assert.equal(pick('없음'), null);
   assert.equal((await check(mk({ [RAW]: { body: page('A') }, [PG]: { body: page('A') } }))).code, 0);
+  // 같은 BUILD라도 본문이 다르면 배포 지연/누락을 놓치면 안 된다.
+  const sameBuildOldHtml = await check(mk({ [RAW]: { body: page('A') + '<div>new</div>' }, [PG]: { body: page('A') } }));
+  assert.equal(sameBuildOldHtml.code, 1);
+  assert.equal(sameBuildOldHtml.reason, 'BUILD는 같지만 HTML 본문 불일치');
   const mm = await check(mk({ [RAW]: { body: page('B') }, [PG]: { body: page('A') } }));
   assert.equal(mm.code, 1); assert.equal(mm.status, 'mismatch');
   // 네트워크 실패·HTTP 오류·BUILD 없음은 '확인 못 함'(2) — 성공(0)으로 보이면 안 됨
