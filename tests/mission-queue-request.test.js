@@ -103,7 +103,18 @@ const run = async () => {
   { const e = drive({ [M.mqReqName("s1", "f4")]: { id: "r", body: {}, size: 99999 }, [M.mqStatusName("s1", "f4")]: { id: "q", body: { status: "done" } } });
     assert.equal((await M.mqState(e.io, mkCfg(), "s1", "f4")).key, "error"); }
   // 11) 화면 연결: 기존 패널 재사용, 직접 분석처럼 보이지 않는 문구, rec.ai 직접 생성 금지, 원본 파일 쓰기 없음
-  assert(src.includes("바로 분석하지 않고, 서버에서 실행해야 시작돼요") && src.includes("data-mqreq") && src.includes("mqGate(cfg, sid).ok"));
+  assert(src.includes("서버가 1~3분 안에 분석을 시작해요") && src.includes("자동으로 가지 않아요") && src.includes("data-mqreq") && src.includes("mqGate(cfg, sid).ok"));
+  // 12) 요청 저장 성공 뒤에만 바로 처리(kick) 호출, 실패 시엔 호출 안 함
+  { const h = src.slice(src.indexOf("async function mqPaint"), src.indexOf("let subsCur"));
+    assert(/if \(!r\.ok\) \{[^}]*return mqPaint/.test(h) && h.indexOf("await kick()") > h.indexOf("if (!r.ok)")); }
+  assert(!/수동 실행/.test(code));
+  // 13) "*" = 모든 수강생: 시험·강사·동의철회·미등록은 제외(백엔드 student_allowed 와 같은 규칙)
+  { const all = { students: { s1: {}, s2: { status: "prospect" }, t1: { status: "test" }, k1: { status: "teacher" }, w1: { consent_withdrawn: "2026-01-01" } },
+      mission_ai: { enabled: true, queue_folder: Q, allowed_students: ["*"] } };
+    assert.equal(M.mqGate(all, "s1").ok, true); assert.equal(M.mqGate(all, "s2").ok, true);
+    for (const x of ["t1", "k1", "w1", "nobody"]) assert.equal(M.mqGate(all, x).ok, false, x);
+    const e = drive(); assert.equal((await M.mqRequest(e.io, all, "s2", "f9", yes, NOW)).ok, true); assert.equal(e.writes.length, 1);
+    const e2 = drive(); assert.equal((await M.mqRequest(e2.io, all, "k1", "f9", yes, NOW)).ok, false); assert.equal(e2.writes.length, 0); }
   assert(!/rec\.ai\s*=[^=]/.test(src));
   const wr = [...code.matchAll(/io\.write\(/g)].length; assert.equal(wr, 1);   // 코어의 쓰기 호출은 요청 파일 하나뿐
   console.log("mission-queue-request ok");
