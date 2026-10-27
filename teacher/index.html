@@ -86,6 +86,7 @@
   #resumeBar { position:fixed; left:0; right:0; top:0; z-index:60; background:var(--accent); color:var(--on-accent); text-align:center; padding:12px; font-weight:700; }
   .tp:has(.seamStrip) { position:relative; }
   .seamStrip { position:absolute; left:11px; right:11px; top:6px; height:22px; pointer-events:none; }
+  .seamStrip span.dim { opacity:.45; }
   .seamStrip span { position:absolute; top:0; bottom:0; border-left:2px solid var(--now); border-right:2px solid var(--now); background:rgba(255,210,122,.25); border-radius:3px; }
   #btnSave.saved { background:var(--ok,#5fc27a); color:#10141a; }
   .sentrow { margin-top:8px; }
@@ -246,7 +247,7 @@
           <button class="small" id="miniBtn">❚❚</button>
           <button class="small ghost" data-mini="+5">+5</button><button class="small ghost" data-mini="next" aria-label="다음">⏭</button>
           <span id="miniT" class="muted" style="min-width:3.2em;text-align:center">0:00</span></div>
-        <input type="range" id="miniSeek" min="0" max="1000" step="1" value="0" style="width:100%">
+        <div style="position:relative;width:100%"><input type="range" id="miniSeek" min="0" max="1000" step="1" value="0" style="width:100%"><div class="seamStrip" id="miniMarks" aria-hidden="true" style="top:50%;transform:translateY(-50%)"></div></div>
       </div>
     </div>
 
@@ -1034,6 +1035,7 @@ function paintDeliver() {
     if (!s.loading) { s.loading = true; refreshSched(me).finally(() => { s.loading = false; if (cur === me) paintDeliver(); }); }
     el.innerHTML = `<p class="muted">공개 상태 확인 중…</p>`; return;
   }
+  if (typeof practiceFromText === "function" && !me.review.no_mission) { const pr = practiceFromText(me.review.feedback); if (pr && pr.length && JSON.stringify(pr) !== JSON.stringify((me.review.practice || []).filter(Boolean))) me.review.practice = pr; }
   const rv = me.review, note = buildNote(), sig = contentSig(note), st = schedStatus({ caps: s.caps, srv: s.entry, sigNow: sig, approvedSig: rv.approved_sig });
   const chipCls = { published: "ok", scheduled: "ok" }[st] || (st === "draft" || st === "unknown" || st === "unsupported" ? "todo" : "");
   const sentAt = rv.kakao_sent_at, dis = s.busy ? " disabled" : "";
@@ -2485,7 +2487,7 @@ function popup(msg, ms = 2600) {   // 잠깐 뜨는 안내(확인 버튼 없음)
   if (!el) { el = document.createElement("div"); el.id = "pop"; el.setAttribute("role", "alert"); document.body.appendChild(el); }
   el.textContent = msg; el.classList.add("on"); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove("on"), ms);
 }
-async function openLesson(...a) { busy(true, "레슨 불러오는 중…"); try { return await openLessonInner(...a); } finally { busy(false); } }
+async function openLesson(...a) { miniMarks([]); busy(true, "레슨 불러오는 중…"); try { return await openLessonInner(...a); } finally { busy(false); } }
 async function openLessonInner(sid, i, backTo) {
   goBack = backTo || (() => openStudent(sid, "lesson"));
   const st = cfg.students[sid];
@@ -3138,6 +3140,12 @@ function computeHighlights(cands, segs, roleFn, bestOpts) {
 let hlList = [], hlPlay = null, hlQ = null, hlCur = -1;   // hlCur: 마지막으로 연 하이라이트(⏮⏭는 목록 순서대로)
 // 말풍선이 하이라이트에 들어가나: 살짝 걸친 것(0.4초 등)은 빼고, 1초 이상 또는 절반 이상 겹칠 때만
 const hlIn = (x, h) => Math.min(x.end, h.end) - Math.max(x.start, h.start) >= Math.min(1, 0.5 * (x.end - x.start));
+// 아래 재생바에 하이라이트 자리를 노랗게(2026-10-28 사용자: 이어 듣기 때도 베스트 편집본처럼) — 지금 듣는 것은 진하게
+function miniMarks(ranges, on) {
+  const el = $("miniMarks"), L = typeof lessonEnd === "function" ? lessonEnd() : 0; if (!el) return;
+  el.innerHTML = !L ? "" : (ranges || []).filter(r => Number.isFinite(+r.start) && +r.end > +r.start).map((r, i) =>
+    `<span class="${i === on ? "" : "dim"}" style="left:${(r.start / L * 100).toFixed(2)}%;width:${Math.max(1.2, (r.end - r.start) / L * 100).toFixed(2)}%"></span>`).join("");
+}
 function miniLabel(t) { const el = $("miniLab"); if (el) el.textContent = t || ""; }
 function hlBestOpts() {   // ① = 지금 고른 베스트(편집본을 골랐으면 그 기준이 되는 후보 1)
   const o = bestOptions().filter(x => !x.isComposite), p = bestPicked();
@@ -3212,6 +3220,7 @@ function hlGo(k, queue) {
   const wrap = $("segWrap"); if (wrap && !wrap.open) { wrap._forced = true; wrap.open = true; }   // 전사본을 펼침(접기 저장값은 안 바꿈)
   hlMark(k);   // 전사본에 표시만 — 화면은 움직이지 않음(2026-10-27 22:04 사용자: 자동 스크롤 끔)
   hlPlay = { k, end: h.end, queue: queue || null }; hlCur = k;
+  if (queue) miniMarks(queue.items.map(it => it.k >= 0 ? hlList[it.k] : it), queue.i); else miniMarks([h], 0);
   miniLabel(`${h.isBest ? "🎵" : "★"} 하이라이트 ${h.n}/${hlList.length} · ${fmt(h.start)}~${fmt(h.end)}`);
   playAt(Math.max(0, h.start - 0.3), true, false).catch(e => toast(e.message));
 }
@@ -3245,7 +3254,7 @@ async function hlQueueNext() {
   $("btnPlayAll").textContent = `■ 이어 듣는 중 ${q.i + 1}/${q.items.length}`;
   const it = q.items[q.i];
   if (it.k >= 0) return hlGo(it.k, q);
-  hlPlay = { end: it.end, queue: q }; miniLabel(`${it.label} · ${fmt(it.start)}~${fmt(it.end)}`);
+  hlPlay = { end: it.end, queue: q }; miniMarks(q.items.map(x => x.k >= 0 ? hlList[x.k] : x), q.i); miniLabel(`${it.label} · ${fmt(it.start)}~${fmt(it.end)}`);
   playAt(Math.max(0, it.start - 0.3), true, true).catch(e => toast(e.message));
 }
 function allCands() {
@@ -3405,7 +3414,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-28-0035-practice";
+const BUILD = "2026-10-28-0035-hlmarks";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
@@ -3426,7 +3435,7 @@ document.querySelectorAll("[data-mini]").forEach(b => b.onclick = () => {
   else if (a === "prev") { hlQueueStop(); hlStep(-1); }
   else hlSeek(a === "+5" ? 5 : -5);
 });
-$("miniX").onclick = () => { hlQueueStop(); hlPlay = null; full.pause(); $("mini").classList.add("hidden"); document.body.classList.remove("miniOn"); };
+$("miniX").onclick = () => { miniMarks([]); hlQueueStop(); hlPlay = null; full.pause(); $("mini").classList.add("hidden"); document.body.classList.remove("miniOn"); };
 $("miniSeek").onchange = (e) => { hlPlay = null; hlQueueStop(); playAt(e.target.value / 1000 * lessonEnd()).catch(x => toast(x.message)); };
 // 저장된 출입증이 있으면 로그인 화면 없이 바로 목록
 if (savedToken()) { token = savedToken(); start(); }
