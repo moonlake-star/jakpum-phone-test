@@ -3155,10 +3155,10 @@ function renderHighlights() {
     const bumped = setDecision(cur.review, r.name.slice(2), r.value, allCands().map(c => c.id));
     if (bumped) toast(`보내기는 최대 ${MAX_GOOD}개 — 가장 먼저 고른 ${bumped}은 ‘기록만’으로 바꿨어요`);
     const id = r.name.slice(2), play = r.value !== "drop";
-    renderHighlights(); renderCands();
+    renderHighlights(); renderCands(); syncGood();
     if (play) { const k = hlList.findIndex(h => h.cand === id); if (k >= 0) { hlQueueStop(); hlGo(k); } }   // 고르면 바로 그 구간 재생(2026-10-27 사용자)
   });
-  hs.querySelectorAll(".cnote").forEach(i => i.oninput = () => { (cur.review.notes ??= {})[i.dataset.c] = i.value.trim(); });
+  hs.querySelectorAll(".cnote").forEach(i => { i.oninput = () => { (cur.review.notes ??= {})[i.dataset.c] = i.value.trim(); }; i.onchange = syncGood; });
   wireStab(hs);
   hs.querySelectorAll("[data-mk]").forEach(b => b.onclick = () => {
     const j = lessonJob(b.dataset.mk), back = () => openLesson(cur.sid, cur.rowIndex, cur.back);
@@ -3275,7 +3275,7 @@ function renderCands() {
     if (bumped) { toast(`보내기는 최대 ${MAX_GOOD}개 — 가장 먼저 고른 ${bumped}은 ‘기록만’으로 바꿨어요`); renderHighlights(); renderCands(); return; }
     r.closest(".cand").querySelector(".cnote").classList.toggle("hidden", r.value !== "send");
     r.closest(".pick").querySelectorAll("label").forEach(l => l.classList.toggle("on", l.contains(r)));
-    paintSendCount();
+    paintSendCount(); syncGood();
     if (r.value !== "drop") { const card = r.closest(".cand"), bt = card.querySelector("[data-tpopen]"), sl = card.querySelector(".tpslot");
       if (bt && sl && !sl.classList.contains("open")) bt.click(); }   // 고르면 바로 그 클립 재생
   });
@@ -3285,7 +3285,7 @@ function renderCands() {
     if (j) return openMkJob(j, back);   // 이미 요청한 구간: 진행 화면 또는 바로 듣기
     makeupFromLesson(b.dataset.mk, back);
   });
-  $("cands").querySelectorAll(".cnote").forEach(i => i.oninput = () => { (cur.review.notes ??= {})[i.dataset.c] = i.value.trim(); });
+  $("cands").querySelectorAll(".cnote").forEach(i => { i.oninput = () => { (cur.review.notes ??= {})[i.dataset.c] = i.value.trim(); }; i.onchange = syncGood; });
   $("cands").querySelectorAll("[data-tpopen]").forEach(b => b.onclick = () => {   // '듣기' → 그 카드 안에서 플레이어가 펼쳐짐(한 번에 한 카드만)
     const card = b.closest(".cand"), slot = card.querySelector(".tpslot"), open = !slot.classList.contains("open");
     $("cands").querySelectorAll(".tpslot.open").forEach(x => { x.classList.remove("open"); const old = x; setTimeout(() => { if (!old.classList.contains("open")) old.innerHTML = ""; }, 350); });
@@ -3333,8 +3333,7 @@ function draftFeedback() {
   const pts = (cur.review.points || []).filter(Boolean).slice(0, MAX_POINT);
   const lines = [`${name}님, 오늘 레슨 수고 많으셨어요!`, ""];
   if (sent.length) {
-    lines.push("오늘 특히 좋았던 부분 보내드려요.");
-    sent.forEach(c => { const n = cur.review.notes?.[c.id] ?? c.note; lines.push(`· ${fmt(c.start)}${n ? " " + n : " 부근"}`); });
+    lines.push("오늘 특히 좋았던 부분 보내드려요.", ...goodLines(sent));
     lines.push("");
   }
   lines.push("오늘 중요한 포인트");
@@ -3342,6 +3341,23 @@ function draftFeedback() {
   const pr = (cur.review.practice || []).filter(Boolean).slice(0, 2);
   if (pr.length) { lines.push("", "이번 주 연습"); pr.forEach(t => lines.push(`· ${t}`)); }
   return lines.join("\n").trim();
+}
+// '좋았던 부분' 줄: 고른 하이라이트의 노래 시작 시각(하이라이트가 아니면 후보 시작) + 한 줄 메모
+function goodLines(sent) {
+  return sent.map(c => { const h = (typeof hlList !== "undefined" ? hlList : []).find(x => x.cand === c.id), n = cur.review.notes?.[c.id] ?? c.note;
+    return `· ${fmt(h ? h.start : c.start)}${n ? " " + n : " 부근"}`; });
+}
+// (2026-10-28 사용자) 보내기로 고른 것이 바뀌면 카톡 문구의 '좋았던 부분'만 다시 맞춤 — 다른 문단(인사·포인트·연습)은 선생님이 고친 그대로
+const GOOD_HEAD = "오늘 특히 좋았던 부분 보내드려요.";
+function syncGood() {
+  const el = $("fb"); if (!el) return;
+  const t = el.value, sent = sendList(), block = sent.length ? [GOOD_HEAD, ...goodLines(sent)].join("\n") : "";
+  const re = new RegExp(GOOD_HEAD.replace(/[.]/g, "\\.") + "\\n(?:·[^\\n]*(?:\\n|$))*");
+  let next;
+  if (re.test(t)) next = t.replace(re, block ? block + "\n" : "").replace(/\n{3,}/g, "\n\n");
+  else if (block) { const k = t.indexOf("오늘 중요한 포인트"); next = k >= 0 ? t.slice(0, k) + block + "\n\n" + t.slice(k) : (t ? t + "\n\n" : "") + block; }
+  else return;
+  if (next !== t) { updateFeedbackDraft(next); if (!syncGood._told) { syncGood._told = true; toast("카톡 문구의 ‘좋았던 부분’을 고른 하이라이트에 맞췄어요"); } }
 }
 function draftCheck() {
   const name = cur.st.name, pr = (cur.review.practice || []).filter(Boolean), pts = (cur.review.points || []).filter(Boolean);
@@ -3378,7 +3394,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-28-0025-tidy";
+const BUILD = "2026-10-28-0030-fbsync";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
