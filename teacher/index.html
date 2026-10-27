@@ -2508,7 +2508,7 @@ function renderBest() {
     <div class="muted" style="font-size:.85rem">${o.isComposite
       ? (/^v[67]/.test(o.method || "") ? ((o.takes_used || 0) <= 1
         ? "이어 붙인 곳 없음 · 한 테이크 그대로"
-        : `테이크 ${o.takes_used}개에서 가져와 ${(o.seams || []).length}곳을 이은 편집본 · 기준 테이크 박자 그대로`)
+        : /^v7\.2|^v7\.[3-9]/.test(o.method || "")\n        ? `테이크 ${o.takes_used}개에서 목소리 구절 ${(o.seams || []).length}곳을 교체 · 반주 템포는 구간별 조정됨(박자·이음새 직접 확인 필요)`\n        : `테이크 ${o.takes_used}개에서 가져와 ${(o.seams || []).length}곳을 이은 편집본 · 기준 테이크 박자 그대로`)
         : `여러 테이크에서 줄마다 가장 좋은 구절 ${o.lines?.length || ""}개를 이어 붙인 편집본(테이크 ${o.takes_used || "?"}개) · 이음새에서 박자가 조금 어긋날 수 있어요`)
       : `선생님 칭찬 “${esc((o.praise?.text || "").slice(0, 16))}” (${fmt(o.praise?.t || 0)}) 바로 앞에 이어 부른 실제 테이크(편집·보정 없음)`}</div>
     <div class="row" style="margin-top:6px">${opts.length > 1 ? opts.map((x, k) => `<button class="small ghost bestAlt ${k === i ? "on" : ""}" aria-pressed="${k === i}" data-k="${k}">${k === i ? "✓ " : ""}${x.isComposite ? "베스트 편집본" : "후보 " + (k + 1)}</button>`).join("") : ""}</div>
