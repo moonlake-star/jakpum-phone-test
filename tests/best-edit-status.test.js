@@ -19,9 +19,13 @@ assert(render({status:'error', why:'오류'}, false).includes('편집본 생성 
 assert(!render(undefined, false).includes('새 MR 정렬 방식'));
 // v6 계열: 다른 테이크를 하나도 못 가져왔으면 '11개 이어 붙임'처럼 보이지 않게(2026-10-27 사용자 지적)
 h = render({method:'v6.1-reftime', mr_aligned:true, takes_used:1, seams:[], kept_ref_no_mr:2, lines:new Array(11)});
-assert(h.includes('바꾼 곳이 없어요') && h.includes('사실상 후보 1과 같음') && h.includes('2구절') && !h.includes('11개'), h);
+assert(h.includes('바꾼 곳이 없어요') && h.includes('사실상 단일 테이크') && h.includes('2구절') && !h.includes('11개'), h);
 h = render({method:'v6.1-reftime', mr_aligned:true, takes_used:2, seams:[{ref_t:1},{ref_t:2}], lines:new Array(11)});
 assert(h.includes('가져온 곳 2곳') && h.includes('테이크 2개') && !h.includes('11개'));
+h = render({method:'v7-live', mr_aligned:true, takes_used:2, seams:[{ref_t:1},{ref_t:2},{ref_t:3}]});
+assert(h.includes('직접 반주용') && h.includes('3구절') && h.includes('원래 목소리가 작게'));
+h = render({method:'v7-live', mr_aligned:true, takes_used:1, seams:[], kept_ref_no_mr:2});
+assert(h.includes('바꾼 곳이 없어요') && h.includes('템포·키'));
 const today = src.match(/function renderToday[\s\S]*?\n}\n/)[0];
 assert(today.indexOf('${head}') < today.indexOf('renderBest()'));
 assert(today.indexOf('이번 주 연습') < today.indexOf('renderBest()'));
