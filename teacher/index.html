@@ -272,7 +272,21 @@ const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&l
 const fmt = (sec) => { sec = Math.max(0, Math.round(sec)); const m = Math.floor(sec/60), s = sec%60; return `${m}:${String(s).padStart(2,"0")}`; };
 const parseT = (t) => { const p = String(t).trim().split(":").map(Number); if (p.some(isNaN)) return null; return p.length === 2 ? p[0]*60+p[1] : p.length === 3 ? p[0]*3600+p[1]*60+p[2] : null; };
 function toast(msg) { const t = $("toast"); t.textContent = msg; t.style.display = "block"; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = "none", 2500); }
-function show(view) { for (const v of ["vLogin","vList","vLesson","vShared","vSubs","vStu","vMkJob"]) $(v).classList.toggle("hidden", v !== view); $("btnBack").classList.toggle("hidden", ["vLogin","vList"].includes(view)); if (view !== "vMkJob") { mkStop?.(); stopProg?.(); } window.scrollTo(0,0); }
+// 갤럭시 뒤로 가기(스와이프): 목록 밖 화면이면 기록을 한 칸 두어, 뒤로 가기가 앱 종료 대신 '← 뒤로'와 같게(2026-10-28 사용자)
+let backSkip = false;
+function syncBackHistory(view) {
+  try {
+    const sub = !["vLogin", "vList"].includes(view), has = history.state?.jakpumSub === true;
+    if (sub && !has) history.pushState({ jakpumSub: true }, "");
+    else if (!sub && has) { backSkip = true; history.back(); }      // 화면 버튼으로 목록에 돌아옴 → 남은 칸 정리
+  } catch {}
+}
+window.addEventListener("popstate", () => {
+  if (backSkip) { backSkip = false; return; }
+  const onSub = ["vLesson","vShared","vSubs","vStu","vMkJob"].some(v => !$(v)?.classList.contains("hidden"));
+  if (onSub) { try { goBack(); } catch { renderList(); } }
+});
+function show(view) { syncBackHistory(view); for (const v of ["vLogin","vList","vLesson","vShared","vSubs","vStu","vMkJob"]) $(v).classList.toggle("hidden", v !== view); $("btnBack").classList.toggle("hidden", ["vLogin","vList"].includes(view)); if (view !== "vMkJob") { mkStop?.(); stopProg?.(); } window.scrollTo(0,0); }
 
 // ── 구글 로그인 · 드라이브 ───────────────────────────────
 // 로그인 유지: 구글이 주는 출입증(1시간짜리)을 이 폰에만 보관해, 새로고침·앱 다시 열기에도 다시 묻지 않는다.
@@ -3414,7 +3428,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-28-0035-hlmarks";
+const BUILD = "2026-10-28-0040-back";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
