@@ -5,7 +5,7 @@ const fs = require("fs"), assert = require("assert");
 const src = fs.readFileSync(__dirname + "/../teacher/index.html", "utf8");
 const code = src.match(/\/\/#tp-begin\n([\s\S]*?)\/\/#tp-end/)[1];
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-const T = new Function("esc", code + "return {tpDocName,tpValidate,tpParse,tpLoad,tpPatch,tpSave,tpWindowText,tpSnoozeText,tpHtml,tpKst,TP_DEFAULT};")(esc);
+const T = new Function("esc", code + "return {tpDocName,tpValidate,tpParse,tpLoad:tpPrefsLoad,tpPatch,tpSave,tpWindowText,tpSnoozeText,tpHtml,tpKst,TP_DEFAULT};")(esc);
 // 백엔드 문서 계약 고정: app/jakpum/teacher_prefs_store.py 의 키 목록과 같아야 한다
 assert.deepStrictEqual(Object.keys(T.TP_DEFAULT).sort(), ["active_end", "active_start", "notify", "off_days", "publish_time", "ready_time", "snooze_until", "tz"]);
 
