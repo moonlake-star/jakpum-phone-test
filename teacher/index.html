@@ -827,8 +827,14 @@ function kakaoText(st, note, k) {
   return KAKAO_TPL[k % KAKAO_TPL.length](st.name, p) + "\n👉 " + `${studentPage()}?l=${encodeURIComponent(note.lesson_id)}`;
 }
 function nextTpl(sid) { const key = "vn_tpl_" + sid, k = ((LS.get(key) ?? -1) + 1) % KAKAO_TPL.length; LS.set(key, k); return k; }
+// 학생 노트에 실을 베스트: 보내기 끔이면 없음, 후보가 여럿인데 선생님이 그 파일을 직접 고르지 않았으면(없음·오래됨) 후보 1을 몰래 싣지 않고 없음(fail-closed)
+function bestForNote() {
+  if (cur.review.sendBest === false) return null;
+  const o = bestOptions(); if (!o.length) return null;
+  return (bestPickValid() || o.length === 1) ? bestPicked() : null;
+}
 function buildNote() {
-  const rv = cur.review, bp = bestPicked(), comp = bestOptions().find(o => o.isComposite);
+  const rv = cur.review, bp = bestForNote();
   const clips = sendList().map(c => ({ c, f: cur.clips.find(x => x.name.startsWith(c.id)) })).filter(x => x.f)
     .map(({ c, f }) => ({ file_id: f.id, label: `${fmt(c.start)} 구간`, note: rv.notes?.[c.id] || c.note || "" }));
   const bestNote = (o) => o && { file_id: o.file_id, kind_ko: o.kind_ko, len: Math.round(o.len), edited: !!o.isComposite };
@@ -836,7 +842,7 @@ function buildNote() {
   const noMission = rv.no_mission === true;
   return { lesson_id: cur.folder.id, date: cur.folder.name.slice(0, 10), title: cur.folder.name,
     feedback: $("fb").value, points: (rv.points || []).filter(Boolean), practice: noMission ? [] : (rv.practice || []).filter(Boolean), no_mission: noMission,
-    best: rv.sendBest !== false ? bestNote(bp) : null, extra_best: comp && comp !== bp ? [bestNote(comp)] : [],
+    best: bestNote(bp), extra_best: [],   /* 2026-10-28 P0 #63: 고르지 않은 편집본을 '다른 버전'으로 몰래 싣지 않음. 다른 버전 첨부는 사용자 확인 전 비활성 */
     clips, highlight: clips[0]?.note || (rv.points || []).find(Boolean) || "", published_at: new Date().toISOString() };
 }
 // 게시한 녹음만 '링크가 있는 사람 보기'로 연다(사용자 결정 2026-10-26). 링크(ID)는 승인된 본인 노트에만 실림.
