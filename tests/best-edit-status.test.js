@@ -26,6 +26,8 @@ h = render({method:'v7-live', mr_aligned:true, takes_used:2, seams:[{ref_t:1},{r
 assert(h.includes('직접 반주용') && h.includes('3구절') && h.includes('원래 목소리가 작게'));
 h = render({method:'v7-live', mr_aligned:true, takes_used:1, seams:[], kept_ref_no_mr:2});
 assert(h.includes('바꾼 곳이 없어요') && h.includes('템포·키'));
+h = render({method:'v7.2-live', mr_aligned:true, takes_used:2, seams:[{ref_t:1}]});
+assert(h.includes('원래 소리·박자 그대로') && h.includes('반주를 살짝'));
 const today = src.match(/function renderToday[\s\S]*?\n}\n/)[0];
 assert(today.indexOf('${head}') < today.indexOf('renderBest()'));
 assert(today.indexOf('이번 주 연습') < today.indexOf('renderBest()'));
