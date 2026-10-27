@@ -14,11 +14,16 @@ async function get(fetchFn, url) {
 }
 
 async function check(fetchFn = fetch) {
-  let main, pages;
-  try { main = pick(await get(fetchFn, RAW)); pages = pick(await get(fetchFn, PAGES)); }
+  let mainHtml, pagesHtml;
+  try { mainHtml = await get(fetchFn, RAW); pagesHtml = await get(fetchFn, PAGES); }
   catch (e) { return { code: 2, status: 'unverified', reason: String(e.message || e) }; }
+  const main = pick(mainHtml), pages = pick(pagesHtml);
   if (!main || !pages) return { code: 2, status: 'unverified', reason: 'BUILD 값을 찾지 못함', main, pages };
-  return main === pages ? { code: 0, status: 'match', main, pages } : { code: 1, status: 'mismatch', main, pages };
+  // BUILD만 비교하면 코드가 바뀌고 버전 상수를 안 올렸을 때 예전 Pages를 '일치'로 오판한다.
+  // .nojekyll을 사용하는 이 저장소에서는 공개 HTML 본문 자체도 동일해야 한다.
+  return main === pages && mainHtml === pagesHtml
+    ? { code: 0, status: 'match', main, pages }
+    : { code: 1, status: 'mismatch', reason: main !== pages ? 'BUILD 불일치' : 'BUILD는 같지만 HTML 본문 불일치', main, pages };
 }
 
 module.exports = { check, pick };
