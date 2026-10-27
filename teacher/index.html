@@ -3017,7 +3017,7 @@ function renderHighlights() {
     return `<div class="hl" data-h="${k}"><div class="row" style="flex-wrap:nowrap;gap:8px;align-items:flex-start">
       <button class="small" data-hlplay="${k}" aria-label="하이라이트 ${h.n} 듣기">▶</button>
       <div style="flex:1;min-width:0"><b>${h.isBest ? "🎵 " : ""}${h.n}. ${fmt(h.start)} ~ ${fmt(h.end)}</b> <span class="muted" style="white-space:nowrap">${Math.round(h.end - h.start)}초${h.isBest ? (p?.isComposite ? " · 베스트 편집본의 기준 테이크" : " · 오늘의 베스트") : ""}</span>
-        <div class="hlq">“${esc(h.praise)}”</div></div>${h.cand ? mkButton(h.cand) : ""}</div>
+        <div class="hlq">“${esc(h.praise)}”</div>${stabChips(h.start, h.end)}</div>${h.cand ? mkButton(h.cand) : ""}</div>
       ${h.cand ? `<div class="pick" role="radiogroup" aria-label="하이라이트 ${h.n} 처리">
         ${[["send", "보내기"], ["keep", "기록만"], ["drop", "빼기"]].map(([v, t]) =>
           `<label class="${d === v ? "on" : ""}"><input type="radio" name="h_${esc(h.cand)}" value="${v}" ${d === v ? "checked" : ""}><span class="ck" aria-hidden="true">✓</span>${t}</label>`).join("")}
@@ -3035,10 +3035,32 @@ function renderHighlights() {
     if (play) { const k = hlList.findIndex(h => h.cand === id); if (k >= 0) { hlQueueStop(); hlGo(k); } }   // 고르면 바로 그 구간 재생(2026-10-27 사용자)
   });
   hs.querySelectorAll(".cnote").forEach(i => i.oninput = () => { (cur.review.notes ??= {})[i.dataset.c] = i.value.trim(); });
+  wireStab(hs);
   hs.querySelectorAll("[data-mk]").forEach(b => b.onclick = () => {
     const j = lessonJob(b.dataset.mk), back = () => openLesson(cur.sid, cur.rowIndex, cur.back);
     if (j) return openMkJob(j, back);
     makeupFromLesson(b.dataset.mk, back);
+  });
+}
+// 노래 흔들림·삑사리(AI 참고, 2026-10-27): 오늘의베스트.json stability.events. 누르면 그 자리 앞뒤 1.5초 재생, 맞아요/아니에요는 검수.json에 저장
+const STAB_ICON = { crack: "⚡", break: "✂", wobble: "〰" };
+function stabEvents(a, b) { return (cur.best?.stability?.events || []).filter(e => e.end > a && e.start < b); }
+function stabChips(a, b) {
+  const ev = stabEvents(a, b); if (!ev.length) return "";
+  const fb = cur.review.stab_fb || {};
+  return `<div class="row" style="gap:4px;flex-wrap:wrap;margin-top:4px"><span class="muted" style="font-size:.8rem">AI 참고</span>` + ev.map(e =>
+    `<span class="chip ${fb[e.id] === false ? "" : "todo"}" style="display:inline-flex;flex-wrap:wrap;gap:4px;align-items:center;max-width:100%">${STAB_ICON[e.kind] || "⚠"} <button class="small ghost" data-stabplay="${e.start}" data-stabend="${e.end}" style="padding:2px 6px">${esc(e.label)} ${fmt(e.start)}</button>
+      <button class="small ghost" data-stabfb="${esc(e.id)}" data-v="1" aria-pressed="${fb[e.id] === true}" style="padding:2px 6px">${fb[e.id] === true ? "✓ " : ""}맞아요</button><button class="small ghost" data-stabfb="${esc(e.id)}" data-v="0" aria-pressed="${fb[e.id] === false}" style="padding:2px 6px">${fb[e.id] === false ? "✓ " : ""}아니에요</button></span>`).join("") + `</div>`;
+}
+function wireStab(root) {
+  root.querySelectorAll("[data-stabplay]").forEach(b => b.onclick = () => {
+    const a = +b.dataset.stabplay, e = +b.dataset.stabend;
+    hlQueueStop(); hlPlay = { end: e + 1.5, queue: null }; miniLabel(`AI 참고 ${b.textContent.trim()}`);
+    playAt(Math.max(0, a - 1.5), true, true).catch(x => toast(x.message));
+  });
+  root.querySelectorAll("[data-stabfb]").forEach(b => b.onclick = () => {
+    (cur.review.stab_fb ??= {})[b.dataset.stabfb] = b.dataset.v === "1";
+    renderHighlights(); toast("‘검수 저장’을 누르면 기록돼요 — AI 기준을 맞추는 데 써요");
   });
 }
 function hlMark(k) {
