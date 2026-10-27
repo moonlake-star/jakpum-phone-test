@@ -3,6 +3,8 @@ name: Telegram progress note
 # 개발 진척 알림(사용자 요청 2026-10-27): 지난 기록 정리본, 서버(녹음 처리) 쪽 적용 알림을 텔레그램으로.
 # text 안의 "=====" 줄로 여러 메시지로 나눠 순서대로 보냄(텔레그램 한 메시지 4096자 제한).
 on:
+  repository_dispatch:
+    types: [progress-note]          # 서버 저장소가 main 변경 때 부름(앱 저장소 토큰은 Actions 권한이 없어 이 방식)
   workflow_dispatch:
     inputs:
       text:
@@ -24,7 +26,7 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          TEXT: ${{ inputs.text }}
+          TEXT: ${{ inputs.text || github.event.client_payload.text }}
         shell: python
         run: |
           import os, re, time, urllib.parse, urllib.request
