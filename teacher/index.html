@@ -2501,7 +2501,7 @@ function popup(msg, ms = 2600) {   // 잠깐 뜨는 안내(확인 버튼 없음)
   if (!el) { el = document.createElement("div"); el.id = "pop"; el.setAttribute("role", "alert"); document.body.appendChild(el); }
   el.textContent = msg; el.classList.add("on"); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove("on"), ms);
 }
-async function openLesson(...a) { miniMarks([]); busy(true, "레슨 불러오는 중…"); try { return await openLessonInner(...a); } finally { busy(false); } }
+async function openLesson(...a) { try { miniMarks([]); } catch {} busy(true, "레슨 불러오는 중…"); try { return await openLessonInner(...a); } finally { busy(false); } }
 async function openLessonInner(sid, i, backTo) {
   goBack = backTo || (() => openStudent(sid, "lesson"));
   const st = cfg.students[sid];
@@ -3156,7 +3156,9 @@ let hlList = [], hlPlay = null, hlQ = null, hlCur = -1;   // hlCur: 마지막으
 const hlIn = (x, h) => Math.min(x.end, h.end) - Math.max(x.start, h.start) >= Math.min(1, 0.5 * (x.end - x.start));
 // 아래 재생바에 하이라이트 자리를 노랗게(2026-10-28 사용자: 이어 듣기 때도 베스트 편집본처럼) — 지금 듣는 것은 진하게
 function miniMarks(ranges, on) {
-  const el = $("miniMarks"), L = typeof lessonEnd === "function" ? lessonEnd() : 0; if (!el) return;
+  const el = $("miniMarks"); if (!el) return;
+  if (!ranges || !ranges.length) { el.innerHTML = ""; return; }
+  let L = 0; try { L = lessonEnd(); } catch {}   // 레슨을 열기 전(cur 없음)에도 절대 오류 내지 않음 — 10/28 00:39 레슨이 안 열리던 원인
   el.innerHTML = !L ? "" : (ranges || []).filter(r => Number.isFinite(+r.start) && +r.end > +r.start).map((r, i) =>
     `<span class="${i === on ? "" : "dim"}" style="left:${(r.start / L * 100).toFixed(2)}%;width:${Math.max(1.2, (r.end - r.start) / L * 100).toFixed(2)}%"></span>`).join("");
 }
@@ -3428,7 +3430,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-28-0040-back";
+const BUILD = "2026-10-28-0045-openfix";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
