@@ -342,7 +342,16 @@ function retryDelay(r, n) {
   }
   return 500 * 2 ** n + Math.floor(Math.random() * 250);
 }
+// (2026-10-27 23:55 사용자) 버튼을 누른 뒤 0.7초 넘게 걸리는 드라이브·서버 작업은 항상 '⏳ 불러오는 중…'(배경 미리 받기는 표시 안 함)
+let lastTap = 0;
+if (typeof document !== "undefined") document.addEventListener("pointerdown", () => { lastTap = Date.now(); }, true);
+function autoBusy(p) {
+  if (typeof busy !== "function" || Date.now() - lastTap > 4000) return p;
+  let shown = false; const t = setTimeout(() => { shown = true; busy(true); }, 700);
+  return p.finally(() => { clearTimeout(t); if (shown) busy(false); });
+}
 async function api(url, opt = {}, retried = false) {
+  if (!opt._nb && typeof autoBusy === "function") return autoBusy(api(url, { ...opt, _nb: true }, retried));
   const idem = !opt.method || String(opt.method).toUpperCase() === "GET";
   for (let n = 0; ; n++) {
     token = savedToken() || token;
@@ -378,8 +387,8 @@ async function list(folder) {
   } while (page);
   return out;
 }
-const readJSON = async (id) => (await api(`${DRIVE}/files/${id}?alt=media`)).json();
-const readBlob = async (id, fresh) => (await api(`${DRIVE}/files/${id}?alt=media${fresh ? "&_=" + Date.now() : ""}`, fresh ? { cache: "no-store" } : {})).blob();
+const readJSON = (id) => autoBusy((async () => (await api(`${DRIVE}/files/${id}?alt=media`)).json())());
+const readBlob = (id, fresh) => autoBusy((async () => (await api(`${DRIVE}/files/${id}?alt=media${fresh ? "&_=" + Date.now() : ""}`, fresh ? { cache: "no-store" } : {})).blob())());   // 받는 동안(본문 포함) 안내
 async function writeJSON(folder, name, obj, existingId) {
   const body = new Blob([JSON.stringify(obj, null, 1)], { type: "application/json" });
   if (existingId) { await api(`${UPLOAD}/files/${existingId}?uploadType=media`, { method: "PATCH", body }); return existingId; }
@@ -618,6 +627,8 @@ const studentPage = () => cfg.student_page_url || new URL("../student/", locatio
 const PORTAL_URL_DEFAULT = "https://script.google.com/macros/s/AKfycbyxHvxn4VkX83JrcGK1bQqJivhUPktWNyJn_HRpSyIyQ-lVoXh0MNaps2PUmY_obwJTBQ/exec";
 const portalUrl = () => cfg.portal_url || PORTAL_URL_DEFAULT;
 async function portal(action, extra = {}) {
+  if (!extra._nb && typeof autoBusy === "function") return autoBusy(portal(action, { ...extra, _nb: true }));
+  const { _nb, ...rest } = extra; extra = rest;
   if (!portalUrl()) throw new Error("수강생 노트 연결 주소(portal_url)가 아직 설정되지 않았어요");
   // '선생님 확인 실패'는 서버(Apps Script)가 구글에 이 출입증을 물어볼 때 잠깐 실패하는 경우가 있어 두 번까지 다시 시도(2026-10-27)
   for (let n = 0; ; n++) {
