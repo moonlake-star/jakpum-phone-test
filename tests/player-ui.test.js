@@ -15,7 +15,7 @@ const mk = (alts) => new Function("cur", bo + "return bestOptions();")({ best: {
 assert.strictEqual(mk([{ file_id: "b" }, { file_id: "x" }, { file_id: "y" }]).length, 3);
 assert.strictEqual(mk([]).length, 2);
 // 화면 구성: 베스트 편집에도 추천 클립 카드에도 같은 재생 바, 추천 클립은 선택 사항 0~3
-assert.ok(/function renderBest[\s\S]*tpHTML\(\)/.test(src));
+assert.ok(/function renderBest[\s\S]*tpHTML\(true\)/.test(src));
 assert.ok(src.includes("data-tpopen") && src.includes("선택 · 0~3개"));
 assert.ok(!src.includes('id="bestPlay"'));
 console.log("player-ui ok");
