@@ -21,6 +21,7 @@ jobs:
           DEPLOY_URL: ${{ github.event.deployment_status.target_url }}
           DEPLOY_SHA: ${{ github.event.deployment.sha }}
           REPOSITORY: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
@@ -28,20 +29,30 @@ jobs:
             echo "::error::TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID secret is missing"
             exit 1
           fi
+          # 무엇이 바뀌었는지: 병합된 커밋 메시지(한국어 제목 + 본문 몇 줄). 커밋 번호·링크는 넣지 않음(사용자 요청 2026-10-27)
+          summary() {
+            local msg
+            msg=$(gh api "repos/${REPOSITORY}/commits/${DEPLOY_SHA}" --jq .commit.message 2>/dev/null || true)
+            [[ -z "$msg" ]] && { echo "(바뀐 내용을 불러오지 못했어요)"; return; }
+            local title body
+            title=$(printf '%s\n' "$msg" | head -n1 | sed -E 's/ \(#[0-9]+\)$//; s/^(feat|fix|chore|docs|refactor|test)(\([^)]*\))?: //')
+            body=$(printf '%s\n' "$msg" | tail -n +2 | grep -viE '^\s*$|co-authored-by|claude-session|generated with|https?://|^-{3,}' | head -n 6 | sed -E 's/^[-*•] ?/· /' || true)
+            printf '%s\n%s' "• ${title}" "$body"
+          }
           if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
             MESSAGE="🔔 작품 보컬노트 텔레그램 알림 연결 테스트입니다. 실제 배포 완료 알림은 아닙니다."
           elif [[ "$DEPLOY_RESULT" == "success" ]]; then
-            MESSAGE="✅ 작품 보컬노트 배포 완료
-          GitHub Pages 배포 성공 상태가 확인됐습니다.
-          휴대폰에서 강사 페이지를 새로고침하고 기능을 확인해 주세요.
-          Commit: ${DEPLOY_SHA:0:8}
-          ${DEPLOY_URL}"
+            MESSAGE="✅ 선생님 앱에 적용됐어요
+          $(summary)
+
+          앱을 새로고침하면 바로 보여요."
           else
-            MESSAGE="❌ 작품 보컬노트 배포 실패 (${DEPLOY_RESULT})
-          ${DEPLOY_URL}"
+            MESSAGE="❌ 선생님 앱 적용 실패 — 앱은 이전 상태 그대로예요
+          $(summary)"
           fi
           curl --fail --silent --show-error --retry 3 --max-time 15 \
             --request POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
             --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
-            --data-urlencode "text=${MESSAGE}" > /dev/null
+            --data-urlencode "text=${MESSAGE}" \
+            --data-urlencode "disable_web_page_preview=true" > /dev/null
           echo "Telegram API accepted notification"
