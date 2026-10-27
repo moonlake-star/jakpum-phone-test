@@ -2330,7 +2330,7 @@ function renderBest() {
     <div class="row" style="margin-top:6px">${opts.length > 1 ? opts.map((x, k) => `<button class="small ghost bestAlt ${k === i ? "on" : ""}" aria-pressed="${k === i}" data-k="${k}">${k === i ? "✓ " : ""}${x.isComposite ? "베스트 편집본" : "후보 " + (k + 1)}</button>`).join("") : ""}</div>
     ${status ? `<p role="status" style="margin:8px 0 0;font-size:.92rem">${status}</p>` : ""}
     ${!o.isComposite && ["none", "error"].includes(comp?.status) && comp.why ? `<p class="muted">${esc(comp.why)}</p>` : ""}
-    ${tpHTML()}
+    ${tpHTML(true)}
     <div class="row" style="margin-top:8px"><button class="small ghost" id="bestMakeup">🪄 ${bestMakeupLabel(o)}</button></div>
     <label style="display:flex;gap:8px;align-items:center;margin-top:8px;font-size:.92rem"><input type="checkbox" id="bestSend" style="width:22px;height:22px;flex:none" ${rv.sendBest ? "checked" : ""}><span>‘클립 보내기’ 때 맨 앞에 함께 보내기</span></label></div>`;
 }
@@ -2584,10 +2584,10 @@ function tpNext(t, dur, act) {   // 순수 함수(시험용): 누른 버튼에 �
   return Math.max(0, Math.min(n, end));
 }
 let tpRoot = null, tpFile = null, tpEpoch = 0, tpPromise = null, tpActionSeq = 0;
-function tpHTML() {
+function tpHTML(iconOnly = false) {
   return `<div class="tp" style="margin-top:6px"><input type="range" class="tpSeek" min="0" max="1000" value="0" aria-label="재생 위치" style="width:100%">
     <div class="row" style="justify-content:space-between"><span class="tpTime muted">0:00 / 0:00</span></div>
-    <div class="row" style="margin-top:4px;gap:4px;flex-wrap:nowrap;display:grid;grid-template-columns:1.2fr .8fr .85fr .8fr 1.2fr"><button class="small ghost" style="min-width:0;padding:8px 2px" data-tp="start">⏮ 처음</button><button class="small ghost" style="min-width:0;padding:8px 2px" data-tp="back">-5</button><button class="small" style="min-width:0;padding:8px 2px" data-tp="play" aria-label="재생">▶</button><button class="small ghost" style="min-width:0;padding:8px 2px" data-tp="fwd">+5</button><button class="small ghost" style="min-width:0;padding:8px 2px" data-tp="end">끝 ⏭</button></div></div>`;
+    <div class="row" style="margin-top:4px;gap:4px;flex-wrap:nowrap;display:grid;grid-template-columns:1.2fr .8fr .85fr .8fr 1.2fr"><button class="small ghost" style="min-width:0;padding:8px 2px" data-tp="start" aria-label="처음으로 이동" title="처음으로 이동">⏮${iconOnly ? "" : " 처음"}</button><button class="small ghost" style="min-width:0;padding:8px 2px" data-tp="back">-5</button><button class="small" style="min-width:0;padding:8px 2px" data-tp="play" aria-label="재생">▶</button><button class="small ghost" style="min-width:0;padding:8px 2px" data-tp="fwd">+5</button><button class="small ghost" style="min-width:0;padding:8px 2px" data-tp="end" aria-label="끝으로 이동" title="끝으로 이동">${iconOnly ? "" : "끝 "}⏭</button></div></div>`;
 }
 function tpDetach() { tpEpoch++; tpActionSeq++; if (tpRoot) { try { player.pause(); } catch {} } tpRoot = null; tpFile = null; tpPromise = null; }
 function tpPaint() {
@@ -2890,7 +2890,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-27-audit-1";
+const BUILD = "2026-10-27-audit-2";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
