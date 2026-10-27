@@ -29,9 +29,9 @@ cur = base(); cur.best = { status: "ok", best: { file_id: "b1", kind_ko: "연속
 e = env(); m = e.mk(cur); m.renderToday(); h = e.els.todayCard.innerHTML;
 assert(h.includes("오늘의 레슨 전달 패키지") && h.includes("오늘의 베스트 테이크 편집") && h.includes("후보 2"));
 assert(!h.includes("AI 베스트") && cur.review.sendBest === true && m.bestPicked().file_id === "b1");
-cur.review.bestPick = 1; assert(m.bestPicked().file_id === "b2");
+cur.review.bestPick = 1; cur.review.bestPickId = "b2"; assert(m.bestPicked().file_id === "b2");
 cur.best.composite = { status: "ok", file_id: "c1", kind_ko: "여러 테이크 이어 붙인 1절(편집본)", len: 41, lines: [1, 2, 3, 4], takes_used: 2 };
-cur.review.bestPick = 2; m.renderToday(); h = e.els.todayCard.innerHTML;
+cur.review.bestPick = 2; cur.review.bestPickId = "c1"; m.renderToday(); h = e.els.todayCard.innerHTML;
 assert(m.bestPicked().isComposite && h.includes("이어 붙인 1절") && h.includes("편집본") && h.includes("박자가 조금 어긋날"));
 cur.best.composite = { status: "none", why: "x" }; cur.review.bestPick = 0;
 cur.best = { status: "none", why: "노래 구간 없음" }; m.renderToday(); h = e.els.todayCard.innerHTML;
