@@ -437,7 +437,7 @@ function paintList(data, stale) {
   $("vList").innerHTML = todoHtml + blocks.join("") +
     `<p class="muted">${stale ? "최신 내용 확인 중…" : "최신 상태"} · <a href="#" id="reload">새로고침</a></p>`;
   $("reload").onclick = (e) => { e.preventDefault(); renderList(); };
-  $("vList").insertAdjacentHTML("beforeend", `<div id="prefsBox"></div>`); paintPrefs();
+  $("vList").insertAdjacentHTML("beforeend", `<div id="prefsBox"></div><div id="laBox"></div>`); paintPrefs(); paintLaBox(); if (laIsOn()) laStart();
   paintJoinRequests();
   $("vList").querySelectorAll(".stuCard.tap").forEach(el => el.onclick = () => openStudent(el.dataset.s));
   $("vList").querySelectorAll(".stuCard .retry").forEach(el => el.onclick = (e) => { e.stopPropagation(); renderList(); });
@@ -1190,7 +1190,7 @@ function tpParse(raw, tid) {   // 읽기는 관대: 키별로 틀린 값만 기�
   }
   return { doc, warns };
 }
-async function tpLoad(D, folder, tid) {   // D = {list, readJSON, writeJSON}. 파일 없음 → 기본값(rev 0). 읽기 실패·깨짐·중복 → error(저장 중단: 기존 값을 덮어쓰지 않는다)
+async function tpPrefsLoad(D, folder, tid) {   // (플레이어의 tpLoad와 이름이 겹쳐 덮어써지던 문제를 피하려 이름을 바꿈) D = {list, readJSON, writeJSON}. 파일 없음 → 기본값(rev 0). 읽기 실패·깨짐·중복 → error(저장 중단: 기존 값을 덮어쓰지 않는다)
   let name; try { name = tpDocName(tid); } catch { return { state: "error", msg: "강사 ID에 쓸 수 없는 글자가 있어요(영문·숫자·_-만). 설정 저장을 막았어요" }; }
   let files; try { files = (await D.list(folder)).filter(x => x.name === name); } catch { return { state: "error", msg: "설정 파일 위치를 확인하지 못했어요. 잠시 뒤 다시 눌러 주세요" }; }
   if (files.length > 1) return { state: "error", msg: "설정 파일이 둘 이상이에요. 드라이브에서 확인이 필요해요(저장 중단)" };
@@ -1208,7 +1208,7 @@ const tpKst = (now) => new Date(now.getTime() + 9 * 3600e3).toISOString().slice(
 // kind: saved | duplicate(같은 요청 재시도 — 다시 쓰지 않음) | noop | conflict(저장 안 함, fresh=최신) | invalid | error(저장 안 함, 또는 unverified=쓴 뒤 확인 불가)
 async function tpSave(D, folder, tid, patch, expectedRev, requestId, now = new Date()) {
   if (typeof requestId !== "string" || !requestId || requestId.length > 100) return { kind: "invalid", msg: "요청 번호가 없어요" };
-  const cur = await tpLoad(D, folder, tid);
+  const cur = await tpPrefsLoad(D, folder, tid);
   if (cur.state !== "ok") return { kind: "error", msg: cur.msg, fresh: cur };
   if (cur.doc.request_ids.includes(requestId)) return { kind: "duplicate", fresh: cur };
   if (cur.doc.rev !== expectedRev) return { kind: "conflict", fresh: cur };
@@ -1216,7 +1216,7 @@ async function tpSave(D, folder, tid, patch, expectedRev, requestId, now = new D
   if (JSON.stringify(prefs) === JSON.stringify(cur.doc.prefs)) return { kind: "noop", fresh: cur };
   const nd = { schema: 1, teacher_id: tid, rev: cur.doc.rev + 1, updated_at: tpKst(now), request_ids: [...cur.doc.request_ids, requestId].slice(-TP_MAX_RIDS), prefs, students: cur.doc.students };
   try { await D.writeJSON(folder, tpDocName(tid), nd, cur.fileId || undefined); } catch (e) { return { kind: "error", msg: "저장 실패(기존 설정은 그대로예요): " + String(e?.message || e).slice(0, 80), fresh: cur }; }
-  const back = await tpLoad(D, folder, tid);
+  const back = await tpPrefsLoad(D, folder, tid);
   if (back.state !== "ok") return { kind: "error", unverified: true, msg: "저장했지만 확인하지 못했어요. 다시 불러와서 확인해 주세요", fresh: back };
   if (back.doc.rev !== nd.rev || back.doc.request_ids.at(-1) !== requestId) return { kind: "conflict", fresh: back };
   return { kind: "saved", fresh: back };
@@ -1252,7 +1252,7 @@ const tpDrive = () => ({ list, readJSON, writeJSON });
 const tpFolder = () => cfg?.system?.db_backup;
 async function tpRefresh(msg) {
   const f = tpFolder(); tpSt.busy = true; if (msg !== undefined) tpSt.msg = msg; paintPrefs();
-  try { tpSt.loaded = f ? await tpLoad(tpDrive(), f, tpTid()) : { state: "error", msg: "설정 저장 위치(_시스템/db_backup)를 config에서 찾지 못했어요" }; }
+  try { tpSt.loaded = f ? await tpPrefsLoad(tpDrive(), f, tpTid()) : { state: "error", msg: "설정 저장 위치(_시스템/db_backup)를 config에서 찾지 못했어요" }; }
   catch (e) { tpSt.loaded = { state: "error", msg: "설정을 읽지 못했어요: " + errMsg(e) }; }
   tpSt.busy = false; tpSt.draft = {}; paintPrefs();
 }
@@ -1287,6 +1287,128 @@ function paintPrefs() {
   const sv = $("tpSave"); if (sv) sv.onclick = tpCommit;
   const rl = $("tpReload"); if (rl) rl.onclick = () => tpRefresh("");
 }
+
+// ── 열린 화면 레슨 알림 (#34): 30분 전 브리핑 · 시작 · 4회차 10분 전 결제 확인 — 앱이 열려 있고 화면이 보일 때만 띄운다 ──
+// 정책은 백엔드 lesson_alert_policy.py(#93)를 그대로 옮긴 것이다. 레슨 시각 정본은 앱에 없다: 앱은 구글 캘린더 권한이 없고 Drive만 쓴다.
+// 그래서 백엔드가 만들어 둘 _시스템/db_backup/레슨일정.json({schema:1, teacher_id, lessons:[{event_id,student_id,start(오프셋 포함 ISO),status,session_no?,cycle_size?,paid_status?}]})을
+// 읽기만 한다. 이 파일이 없으면 알림은 0건이다(백엔드가 파일을 만드는 연결은 별도 PR). 기본 꺼짐 — 강사별로 이 기기에서 켠다.
+// 한계: 닫힌 앱·백그라운드 푸시·진동·소리 없음. 브라우저가 탭을 쉬게 하면 늦게 뜨고, 늦으면 만료 규칙대로 건너뛴다. 정각을 보장하지 않는다.
+//#la-begin
+const LA_FILE = "레슨일정.json", LA_MIN = 60000, LA_START_GRACE = 5 * LA_MIN, LA_PAY_LEAD = 10 * LA_MIN, LA_PAY_GRACE = 3 * LA_MIN, LA_BRIEF_LEAD = 30 * LA_MIN;
+const LA_INACTIVE = ["cancelled", "canceled", "postponed", "completed", "done"], LA_LOOKAHEAD = 40 * LA_MIN, LA_LOOKBEHIND = 10 * LA_MIN;
+const LA_LABEL = { briefing: "레슨 30분 전 브리핑", start: "레슨 시작", payment: "재결제 확인" };
+const laDayStr = (ms) => new Date(ms + 9 * 3600e3).toISOString().slice(0, 10);
+const laAt = (day, hhmm) => Date.parse(`${day}T${hhmm}:00+09:00`);
+function laWindow(p, day) { const s = laAt(day, p.active_start); let e = laAt(day, p.active_end); if (p.active_end <= p.active_start) e += 864e5; return [s, e]; }
+function laWindowDay(p, t) { for (const d of [laDayStr(t), laDayStr(t - 864e5)]) { const [s, e] = laWindow(p, d); if (s <= t && t < e) return d; } return null; }
+function laGate(p, t) {   // 강사 설정 때문에 t에 알림을 낼 수 없으면 사유
+  if (!p || p.tz !== "Asia/Seoul") return "tz_unsupported";   // 한국 시간만 다룬다: 모르면 알리지 않는다
+  if (p.notify !== true) return "teacher_notify_off";
+  if (p.snooze_until && t < Date.parse(p.snooze_until)) return "snoozed";
+  const d = laWindowDay(p, t); if (d == null) return "outside_active_window";
+  return (p.off_days || []).includes(d) ? "off_day" : null;
+}
+function laParse(raw, tid) {   // 일정 파일 검증 → {lessons} 또는 {error}. 틀린 줄은 그 줄만 버린다
+  if (!raw || typeof raw !== "object" || Array.isArray(raw) || raw.schema !== 1 || !Array.isArray(raw.lessons)) return { error: "레슨 일정 파일 형식이 달라 알림을 쓰지 않아요" };
+  if (raw.teacher_id !== tid) return { error: "다른 강사의 레슨 일정이라 알림을 쓰지 않아요" };
+  const seen = new Set(), lessons = [];
+  for (const l of raw.lessons) {
+    if (!l || typeof l !== "object" || typeof l.student_id !== "string" || !/^[A-Za-z0-9_\-]{1,64}$/.test(l.student_id) || typeof l.start !== "string") continue;
+    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/.test(l.start)) continue;   // 시간대 없는 시각은 버린다
+    const ms = Date.parse(l.start); if (isNaN(ms)) continue;
+    const dupKey = l.student_id + "|" + ms; if (seen.has(dupKey)) continue; seen.add(dupKey);
+    lessons.push({ event_id: typeof l.event_id === "string" ? l.event_id : null, student_id: l.student_id, start: ms, status: String(l.status || "scheduled").toLowerCase(),
+      session_no: l.session_no, cycle_size: l.cycle_size, paid_status: String(l.paid_status || "unknown").toLowerCase() });
+  }
+  return { lessons };
+}
+function laPaymentOk(l, st) {   // 결제 확인은 회차가 명확할 때만. 금액·미납 단정 없음
+  const ok = (n) => Number.isInteger(n) && n >= 1;
+  if (!ok(l.session_no) || !ok(l.cycle_size) || l.session_no % l.cycle_size !== 0 || l.paid_status === "paid") return false;
+  return Array.isArray(st?.payments) && st.payments.length > 0;   // 결제 기록이 없는 학생은 근거 불명확 → 0
+}
+function laDecide(kind, l, fire, p, now) {   // → {at} | {why}
+  const expire = kind === "start" ? l.start + LA_START_GRACE : kind === "payment" ? Math.min(fire + LA_PAY_GRACE, l.start) : l.start;
+  if (now >= expire) return { why: "expired" };
+  const late = fire < now, t = late ? now : fire, why = laGate(p, t);
+  if (why === "outside_active_window" && kind === "briefing") {   // 브리핑만: 창이 나중에 열려 레슨 전이면 창 시작으로 늦춘다
+    const [s] = laWindow(p, laDayStr(t));
+    if (t < s && s <= l.start && !laGate(p, s)) return { at: s, late: true };
+  }
+  return why ? { why } : { at: t, late };
+}
+// lessons: laParse 결과, cfg: 앱 config(students), p: 강사 prefs, now: ms, sent: 이미 띄운 키 집합 → 지금 띄울 알림 목록(부작용 없음)
+function laPlan(lessons, cfg, p, now, sent) {
+  const out = [], keys = new Set();
+  for (const l of [...lessons].sort((a, b) => a.start - b.start || a.student_id.localeCompare(b.student_id))) {
+    const st = cfg?.students?.[l.student_id];
+    if (!st || st.status === "test" || st.status === "teacher" || st.consent_withdrawn) continue;   // 연습용·선생님 본인·철회 수강생 제외
+    if (LA_INACTIVE.includes(l.status)) continue;
+    if (l.start < now - LA_LOOKBEHIND || l.start > now + LA_LOOKAHEAD) continue;
+    const iso = new Date(l.start).toISOString();
+    const want = [["briefing", l.start - LA_BRIEF_LEAD], ["start", l.start]];
+    if (laPaymentOk(l, st)) want.push(["payment", l.start - LA_PAY_LEAD]);
+    for (const [kind, fire] of want) {
+      const key = `${kind}:${l.student_id}:${iso}`;
+      if (keys.has(key) || sent.has(key)) continue; keys.add(key);
+      const d = laDecide(kind, l, fire, p, now); if (d.at == null || d.at > now) continue;
+      const text = kind === "briefing" ? "30분 뒤 레슨이에요. 지난 기록과 브리핑을 확인해 보세요." : kind === "start" ? "레슨 시작 시각이에요."
+        : `${l.session_no}회차 레슨이에요 — ${l.cycle_size}회 묶음의 마지막이라 재결제 확인 시점이에요(납부 여부는 앱이 몰라요).`;
+      out.push({ key, kind, sid: l.student_id, name: st.name || l.student_id, start: l.start, late: d.late, title: LA_LABEL[kind], text });
+    }
+  }
+  return out;
+}
+async function laLoad(D, folder, tid) {   // 파일 없음 → {state:"none"}; 중복·읽기 실패·형식 오류 → error(알림 0)
+  let files; try { files = (await D.list(folder)).filter(x => x.name === LA_FILE); } catch { return { state: "error", msg: "레슨 일정 위치를 확인하지 못했어요" }; }
+  if (!files.length) return { state: "none" };
+  if (files.length > 1) return { state: "error", msg: "레슨 일정 파일이 둘 이상이라 알림을 쓰지 않아요" };
+  let raw; try { raw = await D.readJSON(files[0].id); } catch { return { state: "error", msg: "레슨 일정 파일을 읽지 못했어요" }; }
+  const r = laParse(raw, tid); return r.error ? { state: "error", msg: r.error } : { state: "ok", lessons: r.lessons };
+}
+const laSeenPrune = (seen, now) => Object.fromEntries(Object.entries(seen || {}).filter(([k, t]) => typeof t === "number" && now - t < 2 * 864e5));
+//#la-end
+const laSt = { on: false, loaded: null, loadedAt: 0, timer: null, queue: [], busy: false };
+const laOnKey = () => "vn_la_on:" + tpTid(), laSeenKey = () => "vn_la_seen:" + tpTid();
+const laIsOn = () => LS.get(laOnKey()) === 1;
+async function laTick(force) {
+  if (!laIsOn() || document.hidden || laSt.busy || !cfg) return;
+  laSt.busy = true;
+  try {
+    const now = Date.now();
+    if (force || !laSt.loaded || now - laSt.loadedAt > 5 * LA_MIN) { const f = tpFolder(); laSt.loaded = f ? await laLoad(tpDrive(), f, tpTid()) : { state: "error", msg: "설정 저장 위치를 찾지 못했어요" }; laSt.loadedAt = Date.now(); }
+    if (laSt.loaded.state === "ok") {
+      let prefs = laSt.prefs; if (!prefs || force || now - (laSt.prefsAt || 0) > 5 * LA_MIN) { const L = await tpPrefsLoad(tpDrive(), tpFolder(), tpTid()); prefs = laSt.prefs = L.state === "ok" ? L.doc.prefs : null; laSt.prefsAt = Date.now(); }
+      const seen = laSeenPrune(LS.get(laSeenKey()), now);
+      if (prefs) for (const a of laPlan(laSt.loaded.lessons, cfg, prefs, Date.now(), new Set(Object.keys(seen)))) { seen[a.key] = now; laSt.queue.push(a); }
+      LS.set(laSeenKey(), seen);
+    }
+  } catch {} finally { laSt.busy = false; }
+  paintLaBanner(); paintLaBox();
+}
+function paintLaBanner() {
+  let el = $("laBanner"); if (!laSt.queue.length) { if (el) el.remove(); return; }
+  if (!el) { el = document.createElement("div"); el.id = "laBanner"; el.setAttribute("role", "alert"); el.style.cssText = "position:fixed;left:8px;right:8px;top:8px;z-index:50;background:#fff7e0;border:2px solid #e0a800;border-radius:10px;padding:10px;box-shadow:0 2px 8px #0003"; document.body.appendChild(el); }
+  const hm = (ms) => new Date(ms + 9 * 3600e3).toISOString().slice(11, 16);
+  el.innerHTML = laSt.queue.map((a, i) => `<div style="margin:4px 0"><b>${a.kind === "payment" ? "❗ " : "⏰ "}${esc(a.title)}</b> · ${esc(a.name)} ${hm(a.start)}${a.late ? " <span class='muted'>(늦게 확인돼 지금 알려요)</span>" : ""}<div>${esc(a.text)}</div>
+    <button class="small" data-laopen="${i}">${a.kind === "briefing" ? "브리핑 보기" : "수강생 열기"}</button> <button class="small ghost" data-ladis="${i}">닫기</button></div>`).join("");
+  el.querySelectorAll("[data-ladis]").forEach(b => b.onclick = () => { laSt.queue.splice(+b.dataset.ladis, 1); paintLaBanner(); });
+  el.querySelectorAll("[data-laopen]").forEach(b => b.onclick = () => { const a = laSt.queue.splice(+b.dataset.laopen, 1)[0]; paintLaBanner(); if (a && cfg.students[a.sid]) openStudent(a.sid, "lesson"); });
+}
+function paintLaBox() {
+  const box = $("laBox"); if (!box) return;
+  const on = laIsOn(), L = laSt.loaded;
+  const stat = !on ? "꺼짐" : !L ? "확인 중…" : L.state === "ok" ? `켜짐 · 레슨 ${L.lessons.length}건 확인` : L.state === "none" ? "켜짐 · 레슨 일정 파일 없음(알림 0건)" : "켜짐 · 쓸 수 없음";
+  box.innerHTML = `<details class="card"><summary><b>🔔 열린 화면 레슨 알림</b> <span class="chip">${esc(stat)}</span></summary>
+    <p class="muted" style="margin:6px 0">이 앱이 <b>열려 있고 화면이 보일 때만</b> 뜹니다. 30분 전 브리핑, 시작, 4회차 10분 전 결제 확인이에요. 앱을 닫으면 알리지 않고, 정각을 보장하지 않아요(늦으면 건너뜀). 위의 활동창·알림 끄기·잠깐 쉬기·쉬는 날 설정을 그대로 따라요.</p>
+    <label style="display:block;margin:6px 0"><input type="checkbox" id="laOn" ${on ? "checked" : ""}> <b>이 기기에서 레슨 알림 받기</b> (기본 꺼짐)</label>
+    ${on && L && L.state !== "ok" ? `<p class="muted">${esc(L.state === "none" ? "레슨 일정 파일(_시스템/db_backup/레슨일정.json)이 아직 없어요. 백엔드 연결 전에는 알림이 뜨지 않아요." : L.msg)}</p>` : ""}
+    <p class="muted" style="margin:4px 0">결제 확인은 회차·결제 기록이 분명한 수강생에게만, 금액이나 미납 단정 없이 나와요. 연습용 수강생은 제외돼요.</p></details>`;
+  const cb = $("laOn"); if (cb) cb.onchange = () => { LS.set(laOnKey(), cb.checked ? 1 : 0); if (cb.checked) laStart(); else { laStop(); laSt.queue = []; paintLaBanner(); } paintLaBox(); };
+}
+function laStart() { if (laSt.timer) return; laSt.timer = setInterval(() => laTick(false), 30000); laTick(true); }
+function laStop() { clearInterval(laSt.timer); laSt.timer = null; laSt.loaded = null; laSt.prefs = null; }
+document.addEventListener("visibilitychange", () => { if (!document.hidden && laSt.timer) laTick(true); });
 
 // ── 카톡 개인화 후보 검토 (#83 2단계): 개인화_후보.json 읽기 → 반영/제외 선택 → 후보 status만 저장 ──
 // 앱은 후보 파일의 status(+revision)만 바꾼다. 강사·수강생 프로필은 앱이 절대 쓰지 않는다(수집기가 승인분만 반영).
