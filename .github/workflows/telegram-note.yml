@@ -1,0 +1,43 @@
+name: Telegram progress note
+
+# 개발 진척 알림(사용자 요청 2026-10-27): 지난 기록 정리본, 서버(녹음 처리) 쪽 적용 알림을 텔레그램으로.
+# text 안의 "=====" 줄로 여러 메시지로 나눠 순서대로 보냄(텔레그램 한 메시지 4096자 제한).
+on:
+  workflow_dispatch:
+    inputs:
+      text:
+        description: "보낼 글"
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: telegram-note
+  cancel-in-progress: false
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TEXT: ${{ inputs.text }}
+        shell: python
+        run: |
+          import os, re, time, urllib.parse, urllib.request
+          tok, chat = os.environ["TELEGRAM_BOT_TOKEN"], os.environ["TELEGRAM_CHAT_ID"]
+          parts = [p.strip() for p in re.split(r"\n=====+\n", os.environ["TEXT"].replace("\r\n", "\n")) if p.strip()]
+          out = []
+          for p in parts:                                   # 그래도 길면 빈 줄 기준으로 더 나눔
+              while len(p) > 3900:
+                  cut = p.rfind("\n\n", 0, 3900); cut = cut if cut > 500 else 3900
+                  out.append(p[:cut].strip()); p = p[cut:].strip()
+              out.append(p)
+          for i, p in enumerate(out):
+              data = urllib.parse.urlencode({"chat_id": chat, "text": p, "disable_web_page_preview": "true"}).encode()
+              urllib.request.urlopen(f"https://api.telegram.org/bot{tok}/sendMessage", data, timeout=20).read()
+              time.sleep(1.2)
+          print(f"sent {len(out)} message(s)")
