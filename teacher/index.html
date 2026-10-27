@@ -904,6 +904,38 @@ async function schedAct(kind, pick) {
   catch { warn = " (서버에는 반영됐지만 앱 안 사본 저장은 실패 — 새로고침하면 ‘이후 수정됨’으로 보일 수 있어요)"; }
   return kind === "now" ? "지금 공개했어요" + warn : `${fmtVisible(va).kst}에 공개되도록 예약했어요` + warn;
 }
+// 미리보기와 아래 피드백 편집칸은 같은 초안을 편집한다. 입력 중에는 DOM을 다시 만들지 않아 한글 조합/커서를 보존한다.
+function updateFeedbackDraft(value, fromPreview = false) {
+  $("fb").value = value;
+  cur.review.feedback = value;
+  if (cur.sched?.pick) cur.sched.pick.okSig = null;
+  const ok = $("chkOk"); if (ok) ok.checked = false;
+  for (const id of ["btnSched", "btnNow"]) { const b = $(id); if (b) b.disabled = true; }
+  const status = $("previewSaveMsg"); if (status) status.textContent = "수정 중 · 저장하면 글투 참고에 반영돼요. 공개된 내용은 아직 바뀌지 않아요.";
+  if (!fromPreview) paintDeliver();
+}
+function feedbackPreviewHTML(note, rv, disabled) {
+  return `<div style="margin-top:6px"><label for="previewFeedback"><b>수강생에게 보이는 내용 미리보기 · 눌러서 수정</b></label>
+    <textarea id="previewFeedback" aria-label="수강생 피드백 미리보기 수정" rows="6" style="width:100%;min-height:150px;max-height:320px;margin:4px 0"${disabled}>${esc(note.feedback)}</textarea>
+    <button type="button" class="small ghost" id="btnPreviewSave"${disabled}>수정 내용 저장</button>
+    <p class="muted" id="previewSaveMsg" role="status" style="margin:4px 0">저장한 수정본은 강사의 글투를 익히는 데 참고해요. 수강생 공개는 아래에서 별도로 해 주세요.</p>
+    <b>이번 주 미션</b> ${missionState(rv) === "none" ? `<span class="chip">미션 없음(선생님이 선택)</span>` : missionState(rv) === "unset" ? `<span class="chip todo">미설정</span>`
+      : note.practice.map(x => `<div>· ${esc(x)}</div>`).join("")}</div>`;
+}
+function wireFeedbackPreview(me) {
+  const field = $("previewFeedback"), button = $("btnPreviewSave");
+  if (!field || !button) return;
+  field.oninput = () => { if (cur === me) updateFeedbackDraft(field.value, true); };
+  button.onclick = async () => {
+    if (cur !== me || me.sched?.busy || button.disabled) return;
+    button.disabled = true; field.disabled = true;
+    const saved = await saveReview(true);
+    if (cur !== me) return;
+    paintDeliver();
+    const msg = $("previewSaveMsg");
+    if (msg) msg.textContent = saved ? "수정본을 저장했어요. 글투 참고에 사용되며, 수강생 공개는 별도로 해 주세요." : "저장하지 못했어요. 수정 내용은 이 화면에 남아 있으니 다시 저장해 주세요.";
+  };
+}
 function paintDeliver() {
   const el = $("deliverBox"); if (!el) return;
   const me = cur, s = (me.sched ??= { busy: false, pick: {} });
@@ -914,6 +946,7 @@ function paintDeliver() {
   const rv = me.review, note = buildNote(), sig = contentSig(note), st = schedStatus({ caps: s.caps, srv: s.entry, sigNow: sig, approvedSig: rv.approved_sig });
   const chipCls = { published: "ok", scheduled: "ok" }[st] || (st === "draft" || st === "unknown" || st === "unsupported" ? "todo" : "");
   const sentAt = rv.kakao_sent_at, dis = s.busy ? " disabled" : "";
+  const preview = feedbackPreviewHTML(note, rv, dis);
   const kakaoBlock = !me.note ? "" : `<div style="margin-top:10px;border-top:1px solid #8884;padding-top:8px"><b>💬 카톡 안내</b>
       <span class="chip ${sentAt ? "ok" : "todo"}">${sentAt ? "카톡 보냄 " + esc(fmtVisible(sentAt).kst) : "카톡 아직 안 보냄"}</span> <span id="seenChip" class="chip">아직 안 읽음</span>
       <textarea id="kakaoMsg" style="min-height:90px">${esc(me.kakao || "")}</textarea>
@@ -924,7 +957,7 @@ function paintDeliver() {
     el.innerHTML = `<div class="row" style="justify-content:space-between"><b>📮 수강생 노트</b><span class="chip todo">${SCHED_LABEL[st]}</span></div>` +
       (st === "unknown" ? `<p class="muted">${esc(s.err || "")}</p><button class="small" id="btnSchedRetry">다시 확인</button>`
         : `<p class="muted" style="margin:4px 0">예약 공개는 수강생 노트 서버(Apps Script)를 새 버전으로 바꿔야 쓸 수 있어요. 그 전까지는 아래 버튼이 <b>지금 바로</b> 게시합니다(예약이 아니에요).</p>
-           <button class="full" id="btnPublish">📮 지금 바로 수강생 노트에 게시</button>`) + kakaoBlock;
+           <button class="full" id="btnPublish">📮 지금 바로 수강생 노트에 게시</button>`) + preview + kakaoBlock;
     if ($("btnSchedRetry")) $("btnSchedRetry").onclick = () => { s.caps = undefined; paintDeliver(); };
     if ($("btnPublish")) $("btnPublish").onclick = async () => { if (s.busy) return; s.busy = true;
       try { await publishNote(); me.kakao = kakaoText(me.st, me.note, nextTpl(me.sid)); toast("지금 게시했어요"); } catch (e) { toast(e.message); } finally { s.busy = false; if (cur === me) paintDeliver(); } };
@@ -933,10 +966,6 @@ function paintDeliver() {
     const hhmm = resolveHHMM({ teacher: LS.get("vn_pub_hhmm"), student: me.st.publish_hhmm }), defIso = defaultVisibleAfter(note.date, hhmm);
     const pickIso = (() => { try { return pickToIso(s.pick, note.date, hhmm); } catch { return null; } })();
     const shown = st === "scheduled" || st === "scheduled_stale" ? s.entry.visible_after : pickIso, fv = shown ? fmtVisible(shown) : null;
-    const preview = `<div style="margin-top:6px"><b>수강생에게 보이는 내용 미리보기</b>
-        <div style="white-space:pre-wrap;max-height:160px;overflow:auto;border:1px solid #8884;border-radius:8px;padding:6px;margin:4px 0">${esc(note.feedback)}</div>
-        <b>이번 주 미션</b> ${missionState(rv) === "none" ? `<span class="chip">미션 없음(선생님이 선택)</span>` : missionState(rv) === "unset" ? `<span class="chip todo">미설정</span>`
-          : note.practice.map(x => `<div>· ${esc(x)}</div>`).join("")}</div>`;
     const warns = bl.map(b => `<div class="chip todo" style="display:block;margin:4px 0;white-space:normal">⚠ ${esc(b.msg)}</div>`).join("");
     const ack = aiMissionFlags(me.ai).length ? `<label style="display:block;margin:4px 0"><input type="checkbox" id="chkAck" ${rv.mission_ack === missionAckKey(rv) ? "checked" : ""}> AI 미션 경고를 읽고 확인했어요</label>` : "";
     const canSchedule = !blocked && s.pick.okSig === sig && !s.busy;
@@ -955,7 +984,7 @@ function paintDeliver() {
         ${s.entry && s.entry.state !== "held" ? `<button class="small ghost" id="btnCancel"${dis}>${s.entry.state === "published" ? "공개 숨기기" : "예약 취소"}</button>` : ""}</div>
       <p class="muted" style="margin:4px 0">${s.busy ? "처리 중… 끝나면 서버 상태를 다시 읽어 표시해요." : "서버가 요청을 받았다고 확인한 뒤에만 ‘예약됨’으로 표시해요."}</p>` + kakaoBlock;
     const chk = (id, f) => { const x = $(id); if (x) x.onchange = () => f(x); };
-    chk("chkOk", x => { s.pick.okSig = x.checked ? sig : null; paintDeliver(); });
+    chk("chkOk", x => { s.pick.okSig = x.checked ? contentSig(buildNote()) : null; paintDeliver(); });
     chk("chkAck", x => { rv.mission_ack = x.checked ? missionAckKey(rv) : null; paintDeliver(); });
     chk("schDate", x => { s.pick.date = x.value; s.pick.okSig = null; paintDeliver(); }); chk("schTime", x => { s.pick.time = x.value; s.pick.okSig = null; paintDeliver(); });
     const go = (kind, ok) => { const b = $(kind === "schedule" ? "btnSched" : kind === "now" ? "btnNow" : "btnCancel"); if (!b) return;
@@ -969,6 +998,7 @@ function paintDeliver() {
     go("schedule"); go("now", "지금 바로 수강생에게 공개할까요? (예약이 아니라 즉시 공개예요)");
     go("cancel", s.entry?.state === "published" ? "이미 공개된 노트를 수강생에게 숨기고 녹음 링크 공유도 닫을까요?" : "예약을 취소(보류)할까요?");
   }
+  wireFeedbackPreview(me);
   if (!me.note) return;
   paintSeen();
   $("btnKakaoCopy").onclick = async () => { try { await navigator.clipboard.writeText($("kakaoMsg").value); toast("복사했어요. 카톡에 붙여넣기 하세요."); } catch { $("kakaoMsg").select(); toast("길게 눌러 복사해 주세요"); } };
@@ -2377,7 +2407,7 @@ async function openLesson(sid, i, backTo) {
       for (const g of ai.good || []) { review.decisions[g.candidate_id] = "send"; if (g.note) review.notes[g.candidate_id] = g.note; }
     if (!(review.points || []).some(Boolean)) review.points = (ai.points || []).map(x => x.text || x).slice(0, 3);
     if (!(review.practice || []).some(Boolean)) review.practice = (ai.practice || []).slice(0, 2);
-    if (!review.feedback && ai.feedback_text) review.feedback = ai.feedback_text;
+    if (!review.reviewed_at && !review.feedback && ai.feedback_text) review.feedback = ai.feedback_text;
   }
   cur = { sid, st, folder: l, files, summary, segs, cands, clips, samples, sampleFiles, review, reviewId: reviewF?.id, clipUrls: {}, ai, rowIndex: i, back: goBack, spkSaved, teacherPts, ana: d.ana, voice, best: d.best, note: d.note };
   if (cur.note) cur.kakao = kakaoText(st, cur.note, LS.get("vn_tpl_" + sid) ?? 0);
@@ -2395,7 +2425,8 @@ async function openLesson(sid, i, backTo) {
   renderPoints();
   review.pairSend ??= (ai?.audio || []);
   renderAnalysis(d.pitch, d.ana, ai);
-  $("fb").value = review.feedback || draftFeedback();
+  $("fb").value = review.reviewed_at ? (review.feedback ?? "") : (review.feedback || draftFeedback());
+  $("fb").oninput = () => updateFeedbackDraft($("fb").value);
   paintAiNote(ai);
   $("ck").value = review.check_text || draftCheck();
   $("ckCard").classList.toggle("hidden", !cfg.practice_check);
@@ -3032,7 +3063,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-27-1950";
+const BUILD = "2026-10-27-2000";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
@@ -3058,7 +3089,7 @@ $("btnAdd").onclick = () => {
   cur.review.manual.push({ id: `M${cur.review.manual.length + 1}`, start: s, end: e, note: $("addNote").value.trim() });
   $("addS").value = $("addE").value = $("addNote").value = ""; renderCands();
 };
-$("btnRegen").onclick = () => { $("fb").value = draftFeedback(); };
+$("btnRegen").onclick = () => { updateFeedbackDraft(draftFeedback()); };
 $("btnCopy").onclick = async () => { try { await navigator.clipboard.writeText($("fb").value); toast("복사했어요. 카톡에 붙여넣기 하세요."); } catch { $("fb").select(); toast("길게 눌러 복사해 주세요"); } };
 $("btnShare").onclick = async () => {
   const sent = sendList();
@@ -3080,24 +3111,25 @@ $("btnCkShare").onclick = async () => {
   try { if (await shareClips(ids)) await markSent("check"); } catch (e) { toast(e.message); }
 };
 async function saveReview(quiet = false) {
-  const fbNow = $("fb").value, rv = cur.review;
+  const me = cur, fbNow = $("fb").value, rv = me.review;
   // 수정 기록(#24): AI 원문과 선생님이 저장한 문구를 남겨 나중에 '자주 고치는 부분'을 제안(자동 적용 없음)
-  if (cur.ai?.feedback_text && !rv.ai_feedback) rv.ai_feedback = cur.ai.feedback_text;
+  if (me.ai?.feedback_text && !rv.ai_feedback) rv.ai_feedback = me.ai.feedback_text;
   if (fbNow && fbNow !== (rv.edits || []).slice(-1)[0]?.text && fbNow !== rv.ai_feedback)
     rv.edits = [...(rv.edits || []), { at: new Date().toISOString(), text: fbNow }].slice(-10);
-  cur.review.feedback = fbNow;
-  cur.review.check_text = $("ck").value;
-  cur.review.reviewed_at = new Date().toISOString();
+  me.review.feedback = fbNow;
+  me.review.check_text = $("ck").value;
+  me.review.reviewed_at = new Date().toISOString();
   try {
-    cur.reviewId = await writeJSON(cur.folder.id, REVIEW, cur.review, cur.reviewId);
-    const needClip = cur.review.manual.some(m => !cur.clips.find(f => f.name.startsWith(m.id)));
+    me.reviewId = await writeJSON(me.folder.id, REVIEW, me.review, me.reviewId);
+    const needClip = (me.review.manual || []).some(m => !me.clips.find(f => f.name.startsWith(m.id)));
     if (needClip) kick();
-    if (!quiet) $("saveMsg").textContent = "저장했어요. " + (needClip ? "직접 추가한 구간은 1~3분 안에 클립으로 만들어집니다." : "");
-    toast(quiet ? "보냄 표시 저장됨" : "저장됨");
-  } catch (e) { toast(e.message); }
+    if (!quiet && cur === me) $("saveMsg").textContent = "저장했어요. " + (needClip ? "직접 추가한 구간은 1~3분 안에 클립으로 만들어집니다." : "");
+    toast(quiet ? "검수 내용 저장됨" : "저장됨");
+    return true;
+  } catch (e) { toast(e.message); return false; }
 }
 $("btnSave").onclick = () => saveReview();
-$("btnFbRegen").onclick = () => { if ($("fb").value.trim() && !confirm("지금 문구를 고른 클립·포인트 기준으로 새로 쓸까요? (고친 내용은 사라져요)")) return; $("fb").value = draftFeedback(); };
+$("btnFbRegen").onclick = () => { if ($("fb").value.trim() && !confirm("지금 문구를 고른 클립·포인트 기준으로 새로 쓸까요? (고친 내용은 사라져요)")) return; updateFeedbackDraft(draftFeedback()); };
 // 클립 사이 구분음: 맑은 3음 상승 차임(E6·G#6·B6, 약 0.55초, 보컬보다 작게). 직접 합성 → 저작권 문제 없음.
 // 이어 듣기에서 클립과 클립 '사이'에만. 원본·개별 클립·베스트 테이크 편집에는 넣지 않음
 let chimeCtx = null;
