@@ -40,6 +40,7 @@
   <h1>🎤 내 보컬 노트 <span class="muted" style="font-size:.85rem">뮤직스튜디오 작품</span></h1>
   <div id="view"><p class="muted">불러오는 중…</p></div>
 </main>
+<script src="../lesson-replies.js"></script>
 <script>
 // ── 설정(비밀값 아님): 수강생 로그인용 구글 클라이언트 ID, 노트 연결(Apps Script 웹 앱) 주소 ──
 const STUDENT_CLIENT_ID = "712936245254-2itl2rolhhcsq9cdqnhku4u43hpdv2mk.apps.googleusercontent.com";
@@ -194,6 +195,21 @@ function openLesson(id) {
   if (!l.seen_at && !seenLocal()[id]) call("seen", { lesson: id }).then(() => { const s = seenLocal(); s[id] = Date.now(); LS.set("sn_seen", s); }).catch(() => {});
   $("view").innerHTML = lessonHtml(l, prev);
   $("back").onclick = timeline; wirePlayers();
+  const replies = document.createElement('section'); replies.className = 'card'; $("view").appendChild(replies);
+  const allowed = [l.best, ...(l.clips || []), ...(l.extra_best || [])].filter(Boolean).map(x => x.file_id);
+  LessonReplies.mount(replies, {
+    request: (action, extra = {}) => call(action, {lesson: id, ...extra}),
+    getClip: () => {
+      const a = [...document.querySelectorAll('audio')].find(a => !a.paused && a.id.startsWith('au_'));
+      const file_id = a?.id.slice(3).replace(/#[bs]$/, '');
+      return allowed.includes(file_id) && Number.isFinite(a.currentTime) ? {file_id, seconds: Math.floor(a.currentTime)} : null;
+    },
+    playClip: async clip => {
+      if (!allowed.includes(clip.file_id)) throw new Error('현재 공개된 녹음이 아니에요.');
+      let a = replies.querySelector('audio'); if(!a) { a = document.createElement('audio'); a.controls = true; replies.appendChild(a); }
+      a.src = await audioUrl(clip.file_id); a.onloadedmetadata = () => { a.currentTime = clip.seconds; }; await a.play();
+    }
+  });
   window.scrollTo(0, 0);
 }
 
