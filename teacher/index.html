@@ -3056,7 +3056,7 @@ function wireStab(root) {
   root.querySelectorAll("[data-stabplay]").forEach(b => b.onclick = () => {
     const a = +b.dataset.stabplay, e = +b.dataset.stabend;
     hlQueueStop(); hlPlay = { end: e + 1.5, queue: null }; miniLabel(`AI 참고 ${b.textContent.trim()}`);
-    playAt(Math.max(0, a - 1.5), true, true).catch(x => toast(x.message));
+    playAt(Math.max(0, a - 1.5), true, false).catch(x => toast(x.message));   // 화면 이동 없음
   });
   root.querySelectorAll("[data-stabfb]").forEach(b => b.onclick = () => {
     (cur.review.stab_fb ??= {})[b.dataset.stabfb] = b.dataset.v === "1";
@@ -3075,11 +3075,10 @@ function hlMark(k) {
 function hlGo(k, queue) {
   const h = hlList[k]; if (!h) return;
   const wrap = $("segWrap"); if (wrap && !wrap.open) { wrap._forced = true; wrap.open = true; }   // 전사본을 펼침(접기 저장값은 안 바꿈)
-  const first = hlMark(k);
-  if (first) setTimeout(() => first.scrollIntoView({ block: "center", behavior: "smooth" }), 50);
+  hlMark(k);   // 전사본에 표시만 — 화면은 움직이지 않음(2026-10-27 22:04 사용자: 자동 스크롤 끔)
   hlPlay = { k, end: h.end, queue: queue || null }; hlCur = k;
   miniLabel(`${h.isBest ? "🎵" : "★"} 하이라이트 ${h.n}/${hlList.length} · ${fmt(h.start)}~${fmt(h.end)}`);
-  playAt(Math.max(0, h.start - 0.3), true, true).catch(e => toast(e.message));
+  playAt(Math.max(0, h.start - 0.3), true, false).catch(e => toast(e.message));
 }
 const hlNow = () => chunkStart + (full.currentTime || 0);
 function hlStep(dir) {   // ⏭ 다음 / ⏮ 이 하이라이트 처음(처음 2초 안이면 이전) — 목록 순서(🎵 베스트가 1번)
