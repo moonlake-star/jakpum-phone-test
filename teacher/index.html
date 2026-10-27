@@ -1597,7 +1597,7 @@ function msMock() {   // 화면 예시 전용(저장 안 함, 초안으로 넣�
 //#ms-end
 // ── 과제 AI 분석 '요청 큐' (#74 앱 2단계) ─────────────────────────────────────
 // 버튼은 분석을 시작하지 않는다. 큐 폴더에 `요청_<sid>_<fileid>.json`(백엔드 mission_job.parse_request 계약) 1개만 저장하고,
-// 실제 분석은 서버 실행기(python -m jakpum.mission_queue)가 따로 돌 때 시작된다. 서버가 승인·허용 수강생을 다시 확인하므로 앱 판단은 1차 안내일 뿐이다.
+// 실제 분석은 예약 수집(collect.yml, run_collect → mission_queue)이 처리한다. 저장 직후 kick()으로 바로 시작(2026-10-27 운영 켬). 서버가 승인·허용 수강생을 다시 확인하므로 앱 판단은 1차 안내일 뿐이다.
 // 원본 과제 파일·검수.json·수강생기록은 쓰지 않는다. 쓰는 것은 요청 파일 하나뿐.
 //#mq-begin
 const MQ_ID = /^[A-Za-z0-9_\-]{1,100}$/, MQ_FOLDER = /^[A-Za-z0-9_\-]{10,100}$/, MQ_MAX = 4096, mqBusy = new Set();
@@ -1610,8 +1610,9 @@ function mqGate(cfg, sid) {   // 기본 닫힘: 모든 조건이 맞아야 연�
   if (!m || m.enabled !== true) return { ok: false, why: "AI 분석 요청 기능이 꺼져 있어요" };
   if (typeof m.queue_folder !== "string" || !MQ_FOLDER.test(m.queue_folder)) return { ok: false, why: "요청 큐 폴더 설정이 올바르지 않아요" };
   if (typeof sid !== "string" || !MQ_ID.test(sid) || !st) return { ok: false, why: "수강생 정보를 확인할 수 없어요" };
-  if (!Array.isArray(m.allowed_students) || !m.allowed_students.includes(sid)) return { ok: false, why: "이 수강생은 AI 분석 요청이 허용되지 않았어요" };
-  if (st.consent_withdrawn || st.status === "test") return { ok: false, why: "이 수강생은 AI 분석을 요청할 수 없어요" };
+  // "*" = 모든 수강생(사용자 결정 2026-10-27, 백엔드 mission_queue.student_allowed 와 같은 규칙). 시험·강사·동의철회는 늘 제외
+  if (!Array.isArray(m.allowed_students) || !(m.allowed_students.includes("*") || m.allowed_students.includes(sid))) return { ok: false, why: "이 수강생은 AI 분석 요청이 허용되지 않았어요" };
+  if (st.consent_withdrawn || st.status === "test" || st.status === "teacher") return { ok: false, why: "이 수강생은 AI 분석을 요청할 수 없어요" };
   return { ok: true, why: "", folder: m.queue_folder };
 }
 function mqBuild(sid, fid, now, force) {
@@ -1627,14 +1628,14 @@ async function mqState(io, cfg, sid, fid) {   // 읽기 전용(Drive 쓰기·유
   try {
     const files = await io.list(g.folder), req = files.find(f => f.name === mqReqName(sid, fid)), stf = files.find(f => f.name === mqStatusName(sid, fid));
     if (!req) return mk("none", "아직 요청 안 함", "", { canRequest: true });
-    if (!stf) return mk("waiting", "요청 저장됨 · 서버 실행 대기 중(서버에서 수동 실행해야 분석이 시작돼요)", "todo", { reqId: req.id });
+    if (!stf) return mk("waiting", "요청됨 · 곧 분석이 시작돼요(보통 1~3분, 늦어도 다음 자동 확인 때)", "todo", { reqId: req.id });
     if (Number(req.size) > MQ_MAX) return mk("error", "요청 파일이 비정상적으로 커서 읽지 않았어요", "todo");
     const [rq, s] = await Promise.all([io.readJSON(req.id), io.readJSON(stf.id)]);
     if (!s || typeof s !== "object" || (s.submission_id && s.submission_id !== `${sid}:${fid}`)) return mk("error", "서버 상태 파일이 이 과제와 맞지 않아 표시하지 않아요", "todo", { reqId: req.id });
-    if (s.request_received_at !== rq?.received_at) return mk("waiting", "새 요청 저장됨 · 서버 실행 대기 중(수동 실행 필요)", "todo", { reqId: req.id });
+    if (s.request_received_at !== rq?.received_at) return mk("waiting", "다시 요청됨 · 곧 분석이 시작돼요(보통 1~3분)", "todo", { reqId: req.id });
     const note = s.reason ? ` (${String(s.reason).slice(0, 80)})` : "";
     if (s.status === "failed") return mk("failed", `분석 실패${note} — 다시 요청할 수 있어요`, "todo", { canRetry: true, reqId: req.id });
-    if (s.status === "deferred") return mk("deferred", `보류됨${note} — 서버가 다시 실행할 때 처리돼요`, "todo", { reqId: req.id });
+    if (s.status === "deferred") return mk("deferred", `보류됨${note} — 하루 분석 한도에 닿으면 다음 날 자동으로 처리돼요`, "todo", { reqId: req.id });
     if (s.status === "rejected") return mk("rejected", `서버가 거부했어요${note}`, "todo", { reqId: req.id });
     if (s.status !== "done") return mk("error", "알 수 없는 서버 상태라 표시하지 않아요", "todo", { reqId: req.id });
     const store = await io.readStore(sid), it = store?.items?.[`${sid}:${fid}`];
@@ -1661,7 +1662,7 @@ async function mqRequest(io, cfg, sid, fid, isApproved, now = new Date()) {
     if (mqBytes(body) > MQ_MAX) return { ok: false, wrote: false, msg: "요청 내용이 너무 커요" };
     try { await io.write(g.folder, mqReqName(sid, fid), body, st.canRetry ? st.reqId : undefined); }
     catch (e) { return { ok: false, wrote: false, msg: `요청을 저장하지 못했어요. 다시 눌러 주세요: ${String(e?.message || e).slice(0, 80)}` }; }
-    return { ok: true, wrote: true, msg: "요청을 저장했어요. 분석은 아직 시작 전이고, 서버에서 실행해야 시작돼요" };
+    return { ok: true, wrote: true, msg: "요청했어요. 곧 분석이 시작돼요" };
   } finally { mqBusy.delete(key); }
 }
 //#mq-end
@@ -1696,14 +1697,17 @@ async function mqPaint(card, sid, fid, msg) {
   const box = card.querySelector(".mqbox"); if (!box) return;
   const s = await mqState(mqIO, cfg, sid, fid);
   box.innerHTML = `<div><span class="chip ${s.tone}">${esc(s.label)}</span></div>${msg ? `<div class="muted">${esc(msg)}</div>` : ""}
-    <div class="muted" style="font-size:.82rem">‘AI 분석 요청’은 요청만 저장해요. 바로 분석하지 않고, 서버에서 실행해야 시작돼요(승인된 과제만 처리).</div>
+    <div class="muted" style="font-size:.82rem">‘AI 분석 요청’을 누르면 서버가 1~3분 안에 분석을 시작해요(승인된 미션 과제만). 결과는 초안이라 수강생에게 자동으로 가지 않아요 — 확인하고 고쳐서 보내 주세요.</div>
     ${s.canRequest || s.canRetry ? `<button class="small" data-mqreq>${s.canRetry ? "다시 요청" : "AI 분석 요청(대기열에 저장)"}</button>` : ""}
     <button class="small ghost" data-mqrefresh>상태 새로고침</button>`;
   box.querySelector("[data-mqrefresh]").onclick = () => mqPaint(card, sid, fid);
   box.querySelector("[data-mqreq]")?.addEventListener("click", async (ev) => {
     ev.target.disabled = true;
     const r = await mqRequest(mqIO, cfg, sid, fid, mqApproved);
+    if (!r.ok) { toast(r.msg); return mqPaint(card, sid, fid, r.msg); }
     toast(r.msg); mqPaint(card, sid, fid, r.msg);
+    const ok = await kick();   // 바로 처리: 예약 확인을 기다리지 않고 서버 작업 시작(실패해도 다음 자동 확인 때 처리)
+    mqPaint(card, sid, fid, ok ? "바로 분석을 시작했어요(보통 1~3분). ‘상태 새로고침’으로 확인하세요" : "요청은 저장됐어요. 다음 자동 확인 때 분석돼요");
   });
 }
 let subsCur = null;
@@ -2877,7 +2881,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-27-0900";
+const BUILD = "2026-10-27-1530";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
