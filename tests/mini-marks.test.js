@@ -13,3 +13,10 @@ miniMarks([]); assert.strictEqual(el.innerHTML, "");
 assert(src.includes('id="miniMarks"'));
 assert(/function hlGo[\s\S]*?miniMarks\(/.test(src) && /function hlQueueNext[\s\S]*?miniMarks\(/.test(src));
 console.log('mini-marks ok');
+// 레슨을 열기 전(cur 없음): lessonEnd가 오류를 내도 miniMarks는 조용히 지나가야 함(10/28 레슨이 안 열리던 원인)
+const el2 = { innerHTML: "x" };
+const mm2 = new Function('$', 'lessonEnd', fn + 'return miniMarks;')(() => el2, () => { throw new TypeError("cur is null"); });
+mm2([]); assert.strictEqual(el2.innerHTML, "");
+mm2([{ start: 1, end: 2 }]); assert.strictEqual(el2.innerHTML, "");
+assert(/async function openLesson\(\.\.\.a\) \{ try \{ miniMarks\(\[\]\); \} catch \{\}/.test(src));
+console.log('mini-marks no-lesson ok');
