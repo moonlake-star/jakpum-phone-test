@@ -1027,11 +1027,12 @@ function paintDeliver() {
       scheduled: `예약 시각: ${fv ? esc(fv.kst) : ""}`, scheduled_stale: "예약은 이전에 승인한 내용으로 나가요. 고친 내용을 쓰려면 아래에서 다시 승인하고 예약하세요.",
       published: "수강생에게 공개 중이에요.", published_stale: "수강생이 보는 노트는 이전 내용이에요. ‘지금 다시 공개’로 고친 내용을 반영할 수 있어요.", held: "승인이 해제되어 수강생에게 안 보여요. 다시 승인하고 예약하세요." }[st];
     el.innerHTML = `<div class="row" style="justify-content:space-between"><b>📮 수강생 노트 공개</b><span class="chip ${chipCls}">${SCHED_LABEL[st]}</span></div>
-      <p class="muted" style="margin:4px 0">${stNote}${s.err ? " · " + esc(s.err) : ""}</p>${preview}${warns}${ack}${approveBox}${timeBox}
+      <p class="muted" style="margin:4px 0">${SAVE_PUBLISH ? (st === "published" ? "✓ 수강생에게 공개 중 · 고친 뒤 ‘검수 저장’을 누르면 같이 바뀌어요" : st === "published_stale" ? "수강생이 보는 노트는 이전 내용 · ‘검수 저장’을 누르면 고친 내용으로 바뀌어요" : "‘검수 저장’을 누르면 바로 수강생 노트에 공개돼요(카톡은 직접 보내기 · 안 보냈으면 알림으로 다시 알려 드려요)") : stNote}${s.err ? " · " + esc(s.err) : ""}</p>${preview}${warns}${ack}
+      ${SAVE_PUBLISH ? (s.entry && s.entry.state !== "held" ? `<details style="margin-top:4px"><summary class="muted">공개 숨기기</summary><button class="small ghost" id="btnCancel"${dis}>${s.entry.state === "published" ? "공개 숨기기" : "예약 취소"}</button></details>` : "") : `${approveBox}${timeBox}
       <div class="row" style="margin-top:6px">
         <button class="small" id="btnSched"${canSchedule ? "" : " disabled"}>${st === "scheduled" || st === "scheduled_stale" ? "시간 변경(다시 예약)" : "승인하고 예약"}</button>
         <button class="small ghost" id="btnNow"${canSchedule ? "" : " disabled"}>${st === "published_stale" ? "지금 다시 공개" : "지금 공개"}</button>
-        ${s.entry && s.entry.state !== "held" ? `<button class="small ghost" id="btnCancel"${dis}>${s.entry.state === "published" ? "공개 숨기기" : "예약 취소"}</button>` : ""}</div>
+        ${s.entry && s.entry.state !== "held" ? `<button class="small ghost" id="btnCancel"${dis}>${s.entry.state === "published" ? "공개 숨기기" : "예약 취소"}</button>` : ""}</div>`}
       ${s.busy ? `<p class="muted" style="margin:4px 0">처리 중…</p>` : ""}` + kakaoBlock;
     const chk = (id, f) => { const x = $(id); if (x) x.onchange = () => f(x); };
     chk("chkOk", x => { s.pick.okSig = x.checked ? contentSig(buildNote()) : null; paintDeliver(); });
@@ -3376,6 +3377,22 @@ $("btnCkShare").onclick = async () => {
   if (!ids.length) return toast("시범으로 보낼 클립(‘보냄’ 고른 것)이 없어요");
   try { if (await shareClips(ids)) await markSent("check"); } catch (e) { toast(e.message); }
 };
+// (2026-10-27 23:46 사용자 결정) 예약 공개 대신: '검수 저장' = 바로 수강생 노트에 공개. 카톡은 선생님이 직접 보내고,
+// 안 보냈으면 정해 둔 시간에 앱·메일 알림으로 다시 알려 줌(기존 피드백 알림 규칙). 예약 기능은 코드에 남기고 화면에서만 뺌.
+const SAVE_PUBLISH = true;
+async function publishOnSave(me) {
+  if (!SAVE_PUBLISH || me.st?.consent_withdrawn || isTeacher(me.st || {}) || typeof schedAct !== "function") return "";
+  const s = (me.sched ??= { busy: false, pick: {} });
+  if (s.caps === undefined) await refreshSched(me);
+  if (s.caps !== true) return " · 수강생 노트 서버를 확인 못 해 공개는 못 했어요";
+  const note = buildNote(), sig = contentSig(note), bl = approvalBlockers(note, me.review, me.ai).filter(b => b.level === "block");
+  if (bl.length) return " · 공개는 보류: " + bl[0].msg;
+  if (s.entry?.state === "published" && me.review.approved_sig === sig) return " · 공개 그대로";
+  s.busy = true;
+  try { await schedAct("now", { okSig: sig }); return s.entry?.state === "published" ? " · 수강생 노트에도 반영" : " · 수강생 노트에 공개됨"; }
+  catch (e) { return " · 공개 실패: " + e.message; }
+  finally { s.busy = false; await refreshSched(me); if (cur === me && typeof paintDeliver === "function") paintDeliver(); }
+}
 async function saveReview(quiet = false) {
   const me = cur, fbNow = $("fb").value, rv = me.review;
   // 수정 기록(#24): AI 원문과 선생님이 저장한 문구를 남겨 나중에 '자주 고치는 부분'을 제안(자동 적용 없음)
@@ -3389,7 +3406,8 @@ async function saveReview(quiet = false) {
     me.reviewId = await writeJSON(me.folder.id, REVIEW, me.review, me.reviewId);
     const needClip = (me.review.manual || []).some(m => !me.clips.find(f => f.name.startsWith(m.id)));
     if (needClip) kick();
-    if (!quiet && cur === me) $("saveMsg").textContent = "저장했어요. " + (needClip ? "직접 추가한 구간은 1~3분 안에 클립으로 만들어집니다." : "");
+    const pub = quiet ? "" : await publishOnSave(me);
+    if (!quiet && cur === me) $("saveMsg").textContent = "저장했어요" + pub + ". " + (needClip ? "직접 추가한 구간은 1~3분 안에 클립으로 만들어집니다." : "");
     if (cur === me && typeof paintSaved === "function") paintSaved(new Date());
     toast(quiet ? "검수 내용 저장됨" : "저장됨");
     return true;
