@@ -76,8 +76,9 @@
   .bub .cptag { color:var(--muted,#aaa); }
   .seam { margin:4px 0; text-align:center; }
   #resumeBar { position:fixed; left:0; right:0; top:0; z-index:60; background:var(--accent); color:var(--on-accent); text-align:center; padding:12px; font-weight:700; }
-  .seamStrip { position:relative; height:8px; margin:0 9px 2px; background:var(--line); border-radius:4px; }
-  .seamStrip span { position:absolute; top:0; bottom:0; background:var(--now); border-radius:4px; }
+  .tp:has(.seamStrip) { position:relative; }
+  .seamStrip { position:absolute; left:11px; right:11px; top:6px; height:22px; pointer-events:none; }
+  .seamStrip span { position:absolute; top:0; bottom:0; border-left:2px solid var(--now); border-right:2px solid var(--now); background:rgba(255,210,122,.25); border-radius:3px; }
   #btnSave.saved { background:var(--ok,#5fc27a); color:#10141a; }
   .sentrow { margin-top:8px; }
   /* 수강생 칸: 이름 머리(밝은 남회색 + 왼쪽 강조선) / 레슨 목록(카드 바탕) 구분 */
@@ -611,12 +612,19 @@ const PORTAL_URL_DEFAULT = "https://script.google.com/macros/s/AKfycbyxHvxn4VkX8
 const portalUrl = () => cfg.portal_url || PORTAL_URL_DEFAULT;
 async function portal(action, extra = {}) {
   if (!portalUrl()) throw new Error("수강생 노트 연결 주소(portal_url)가 아직 설정되지 않았어요");
-  token = savedToken() || token; if (!savedToken()) token = await getToken(false);
-  const r = await fetch(portalUrl(), { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify({ action, access_token: token, ...extra }) });
-  const j = await r.json();
-  if (!j.ok) throw new Error("수강생 노트 연결: " + (j.error || "실패"));
-  return j;
+  // '선생님 확인 실패'는 서버(Apps Script)가 구글에 이 출입증을 물어볼 때 잠깐 실패하는 경우가 있어 두 번까지 다시 시도(2026-10-27)
+  for (let n = 0; ; n++) {
+    token = savedToken() || token; if (!savedToken()) token = await getToken(false);
+    let j;
+    try {
+      const r = await fetch(portalUrl(), { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ action, access_token: token, ...extra }) });
+      j = await r.json();
+    } catch (e) { if (n < 2) { await apiSleep(800 * (n + 1)); continue; } throw new Error("수강생 노트 연결: 서버에 닿지 못했어요"); }
+    if (j.ok) return j;
+    if (n < 2 && /확인 실패|Exception|timed out|Service/.test(j.error || "")) { await apiSleep(800 * (n + 1)); continue; }
+    throw new Error("수강생 노트 연결: " + (j.error || "실패"));
+  }
 }
 async function loadAccounts() {   // {acc:{approved:{email:sid}, rejected:{email:at}, closed:{email:sid}}, rows, requests, seen}
   const j = await portal("t_state"), acc = { approved: {}, rejected: {}, closed: {} };
