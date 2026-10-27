@@ -75,6 +75,7 @@
   .bub .hltag, .bub .cptag { font-size:.75rem; margin-left:6px; color:var(--now); }
   .bub .cptag { color:var(--muted,#aaa); }
   .seam { margin:4px 0; text-align:center; }
+  #resumeBar { position:fixed; left:0; right:0; top:0; z-index:60; background:var(--accent); color:var(--on-accent); text-align:center; padding:12px; font-weight:700; }
   .seamStrip { position:relative; height:8px; margin:0 9px 2px; background:var(--line); border-radius:4px; }
   .seamStrip span { position:absolute; top:0; bottom:0; background:var(--now); border-radius:4px; }
   #btnSave.saved { background:var(--ok,#5fc27a); color:#10141a; }
@@ -268,7 +269,7 @@ const LS = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch 
 let pending = null;
 function getToken(interactive) {
   if (CLIENT_ID.startsWith("__")) return Promise.reject(new Error("아직 웹 로그인 설정 전입니다"));
-  if (!window.google?.accounts) return Promise.reject(new Error("구글 로그인 준비 중… 잠시 후 다시 눌러 주세요"));
+  if (!window.google?.accounts) return gisReady().then(() => getToken(interactive));
   if (pending) return pending;
   pending = new Promise((resolve, reject) => {
     tokenClient = google.accounts.oauth2.initTokenClient({
@@ -283,6 +284,29 @@ function getToken(interactive) {
   return pending;
 }
 function savedToken() { const v = LS.get("vn_tok"); return v && v.exp > Date.now() ? v.t : null; }
+// (2026-10-27 사용자: 매번 로그인 화면) 구글 출입증은 1시간짜리이고, 새 출입증 창은 '화면을 누를 때'만 열 수 있다(브라우저 정책).
+// 그래서 ① 쓰는 동안 아무 곳이나 누를 때 남은 시간이 15분 안쪽이면 조용히 미리 새로 받고 ② 오래 쉬었다 열면 로그인 화면 대신
+// 지난 목록을 바로 보여 주고 첫 터치에 이어서 연결한다. 구글 스크립트가 늦게 뜨면 기다린다(예전엔 바로 로그인 화면으로 떨어졌음).
+function gisReady(ms = 8000) {
+  return new Promise((ok, bad) => { const t0 = Date.now();
+    (function wait() { if (window.google?.accounts) return ok(); if (Date.now() - t0 > ms) return bad(new Error("구글 로그인 준비가 늦어요 — 다시 눌러 주세요")); setTimeout(wait, 150); })(); });
+}
+const tokenLeft = () => { const v = LS.get("vn_tok"); return v ? v.exp - Date.now() : -1; };
+document.addEventListener("pointerdown", () => {
+  if (LS.get("vn_hint") && tokenLeft() < 15 * 60 * 1000 && tokenLeft() > 0 && !pending) getToken(false).catch(() => {});
+}, true);
+let resumeMode = false;
+function resumeOnTap() {
+  resumeMode = true;   // 출입증이 끝난 채로 열었을 때: 지난 목록 위에 안내 띠, 첫 터치로 이어서 연결(그 터치는 다른 버튼으로 가지 않게 막음)
+  const bar = document.createElement("div"); bar.id = "resumeBar";
+  bar.innerHTML = "🔄 화면을 한 번 누르면 이어서 연결돼요";
+  document.body.appendChild(bar);
+  const go = (e) => { e.preventDefault(); e.stopPropagation(); document.removeEventListener("click", go, true);
+    bar.textContent = "연결 중…";
+    resumeMode = false;
+    getToken(false).then(() => { bar.remove(); start(); }).catch(err => { bar.remove(); $("loginMsg").textContent = err.message; show("vLogin"); }); };
+  document.addEventListener("click", go, true);
+}
 async function start() {
   try {
     await loadConfig();
@@ -314,6 +338,7 @@ async function api(url, opt = {}, retried = false) {
   const idem = !opt.method || String(opt.method).toUpperCase() === "GET";
   for (let n = 0; ; n++) {
     token = savedToken() || token;
+    if (!savedToken() && resumeMode) throw new Error("연결 대기 중(화면을 한 번 눌러 주세요)");   // 터치 전 자동 창 열기 막힘 → 멈춘 대기 방지
     if (!savedToken()) token = await getToken(false);
     let r;
     try { r = await fetch(url, { ...opt, headers: { Authorization: `Bearer ${token}`, ...(opt.headers || {}) } }); }
@@ -358,11 +383,11 @@ async function writeJSON(folder, name, obj, existingId) {
 async function loadConfig() {
   // 빠르게: 지난번 찾은 config.json ID로 바로 읽기(1번 호출). 실패하면 다시 찾기
   const cid = LS.get("vn_cfg_id");
-  if (cid) { try { cfg = await readJSON(cid); Object.defineProperty(cfg, "_configId", { value: cid, enumerable: false }); return; } catch {} }
+  if (cid) { try { cfg = await readJSON(cid); Object.defineProperty(cfg, "_configId", { value: cid, enumerable: false }); LS.set("vn_cfg", cfg); return; } catch {} }
   const r = await (await api(`${DRIVE}/files?q=${q("name='_시스템' and mimeType='application/vnd.google-apps.folder' and trashed=false")}&fields=files(id)`)).json();
   for (const f of r.files || []) {
     const c = (await list(f.id)).find(x => x.name === "config.json");
-    if (c) { cfg = await readJSON(c.id); Object.defineProperty(cfg, "_configId", { value: c.id, enumerable: false }); LS.set("vn_cfg_id", c.id); return; }
+    if (c) { cfg = await readJSON(c.id); Object.defineProperty(cfg, "_configId", { value: c.id, enumerable: false }); LS.set("vn_cfg_id", c.id); LS.set("vn_cfg", cfg); return; }
   }
   throw new Error("_시스템/config.json을 찾지 못했습니다");
 }
@@ -433,7 +458,7 @@ function paintList(data, stale) {
   }
   todo.sort((a, b) => (b.bell ? 1 : 0) - (a.bell ? 1 : 0));
   const bells = todo.filter(x => x.bell).length;
-  const todoHtml = `<div id="joinReq"></div><div class="card"><h3 style="margin:0 0 4px">오늘 할 일 ${bells ? `<span class="chip todo">🔔 검토 대기 ${bells}</span>` : ""}</h3>` + (todo.length ? todo.map((x, n) =>
+  const todoHtml = `<div id="joinReq">${lastJoinHtml}</div><div class="card"><h3 style="margin:0 0 4px">오늘 할 일 ${bells ? `<span class="chip todo">🔔 검토 대기 ${bells}</span>` : ""}</h3>` + (todo.length ? todo.map((x, n) =>
       `<div class="todo-item" data-n="${n}"><span>${esc(x.t)}</span><span class="chip ${x.c.includes("완성") ? "ok" : "todo"}">${esc(x.c)}</span></div>`).join("")
     : `<p class="muted" style="margin:4px 0">할 일 없음 👍</p>`) + `</div>`;
   const order = data.slice().sort((a, b) => (isTeacher(cfg.students[a.sid] || {}) - isTeacher(cfg.students[b.sid] || {})));
@@ -469,7 +494,10 @@ function paintList(data, stale) {
     else { const j = cfg.students[x.sid]._jobs.find(y => y.reqId === x.reqId); if (j) openMkJob(j, () => renderList()); }
   });
 }
-let listGen = 0;
+let listGen = 0, lastTouch = 0;
+document.addEventListener("pointerdown", () => { lastTouch = Date.now(); }, true);
+document.addEventListener("scroll", () => { lastTouch = Date.now(); }, { passive: true, capture: true });
+function untilIdle(ms = 1200) { return new Promise(ok => { (function w() { const d = Date.now() - lastTouch; d >= ms ? ok() : setTimeout(w, ms - d + 30); })(); }); }
 async function renderList() {
   show("vList");
   const my = ++listGen, cached = LS.get("vn_list");
@@ -477,7 +505,10 @@ async function renderList() {
   try {
     const data = await listData(cached || []);
     if (my !== listGen || $("vList").classList.contains("hidden")) { LS.set("vn_list", data); return; }
-    LS.set("vn_list", data); paintList(data, false);
+    LS.set("vn_list", data);
+    await untilIdle();                                  // 누르는 중이면 손을 뗀 뒤에 다시 그림(화면이 손가락 밑에서 바뀌지 않게)
+    if (my !== listGen || $("vList").classList.contains("hidden")) return;
+    const y = window.scrollY; paintList(data, false); window.scrollTo(0, y);
     prefetchLessons(data);
   } catch (e) { if (!cached) $("vList").innerHTML = `<p class="muted">불러오기 실패: ${esc(e.message)}</p>`; }
 }
@@ -678,6 +709,7 @@ async function joinCreateStudent(rawName, forTest = false) {
   }
   throw new Error("설정이 다른 기기에서 변경됐습니다. 학생 폴더만 생성됐을 수 있으니 수강생 목록을 확인하세요.");
 }
+let lastJoinHtml = "";   // (2026-10-27 사용자: 목록이 늦게 밀려 엉뚱한 곳이 눌림) 지난번 가입 카드를 바로 그려 자리를 유지
 async function paintJoinRequests() {
   const el = $("joinReq"); if (!el || !portalUrl()) return;
   try {
@@ -686,7 +718,7 @@ async function paintJoinRequests() {
     const linked = new Set(rows.map(x => String(x.email).toLowerCase()));
     const wait = requests.filter(r => !linked.has(String(r.email).toLowerCase()));
     const managed = rows.filter(x => ["approved", "closed"].includes(x.state));
-    if (!wait.length && !managed.length) { el.innerHTML = ""; return; }
+    if (!wait.length && !managed.length) { el.innerHTML = lastJoinHtml = ""; return; }
     let busy = false;
     el.innerHTML = (wait.length ? `<div class="card"><h3 style="margin:0 0 6px">🙋 수강생 노트 가입 신청 ${wait.length}명</h3>
       <p class="muted" style="margin:4px 0">신규 수강생은 이름을 직접 입력하세요. 기존 수강생이 다른 구글 계정으로 신청한 경우에만 기존 이름을 선택하세요.</p>
@@ -694,6 +726,7 @@ async function paintJoinRequests() {
       (managed.length ? `<details class="card" style="padding:12px"><summary><b>승인된 계정 연결 변경·취소 (${managed.length}명)</b></summary>
         <p class="muted">잘못 연결한 계정은 다른 수강생으로 변경하거나 연결을 해제할 수 있습니다. 레슨 기록은 바뀌지 않습니다.</p>
         ${managed.map(a => joinRow(a.email, a.sid && cfg.students[a.sid] ? a.sid : JOIN_NEW, a.state === "closed" ? "다시 승인" : "연결 변경")).join("")}</details>` : "");
+    lastJoinHtml = el.innerHTML;
     for (const row of el.querySelectorAll(".join-row")) {
       const choice = row.querySelector(".join-choice"), newFields = row.querySelector(".join-new-fields");
       const update = () => { newFields.classList.toggle("hidden", choice.value !== JOIN_NEW); };
@@ -2385,8 +2418,8 @@ function lessonData(folderId, files) {
   const dir = (n) => { const f = files.find(x => x.name === n); return f ? list(f.id) : Promise.resolve([]); };
   const p = Promise.all([j("처리요약.json", {}), j("전사_원본.json", []), j("candidates.json", []), dir("노래후보_클립"),
                          j("화자샘플.json", []), dir("화자샘플"), j("AI초안.json", null), j("음정분석.json", null), j("레슨분석.json", null),
-                         j("화자자동.json", null), j("오늘의베스트.json", null), j("수강생노트.json", null)])
-    .then(([summary, segs, cands, clips, samples, sampleFiles, ai, pitch, ana, voice, best, note]) => ({ summary, segs, cands, clips, samples, sampleFiles, ai, pitch, ana, voice, best, note }));
+                         j("화자자동.json", null), j("오늘의베스트.json", null), j("수강생노트.json", null), j("시험편집본.json", null)])
+    .then(([summary, segs, cands, clips, samples, sampleFiles, ai, pitch, ana, voice, best, note, trial]) => ({ summary, segs, cands, clips, samples, sampleFiles, ai, pitch, ana, voice, best, note, trial }));
   p.catch(() => lessonCache.delete(folderId));
   lessonCache.set(folderId, p);
   return p;
@@ -2426,7 +2459,7 @@ async function openLesson(sid, i, backTo) {
     if (!(review.practice || []).some(Boolean)) review.practice = (ai.practice || []).slice(0, 2);
     if (!review.reviewed_at && !review.feedback && ai.feedback_text) review.feedback = ai.feedback_text;
   }
-  cur = { sid, st, folder: l, files, summary, segs, cands, clips, samples, sampleFiles, review, reviewId: reviewF?.id, clipUrls: {}, ai, rowIndex: i, back: goBack, spkSaved, teacherPts, ana: d.ana, voice, best: d.best, note: d.note };
+  cur = { sid, st, folder: l, files, summary, segs, cands, clips, samples, sampleFiles, review, reviewId: reviewF?.id, clipUrls: {}, ai, rowIndex: i, back: goBack, spkSaved, teacherPts, ana: d.ana, voice, best: d.best, note: d.note, trial: d.trial };
   if (cur.note) cur.kakao = kakaoText(st, cur.note, LS.get("vn_tpl_" + sid) ?? 0);
 
   const ls = summary.lesson || {};
@@ -2537,6 +2570,16 @@ function renderBest() {
     <div class="row" style="margin-top:8px"><button class="small ghost" id="bestMakeup">🪄 ${bestMakeupLabel(o)}</button></div>
     <label style="display:flex;gap:8px;align-items:center;margin-top:8px;font-size:.92rem"><input type="checkbox" id="bestSend" style="width:22px;height:22px;flex:none" ${rv.sendBest ? "checked" : ""}><span>‘클립 보내기’ 때 맨 앞에 함께 보내기</span></label></div>`;
 }
+// 박자 확인용 시험 편집본(2026-10-27 23:25 사용자: 4곳 이상 이어 붙여 박자 확인) — 선생님 확인용, 수강생에게는 안 감
+function renderTrial() {
+  const t = cur.trial; if (!t?.file_id) return "";
+  const L = +t.len || 0, ss = (t.seams || []).filter(z => Number.isFinite(+z.out_t)).map(z => ({ a: +z.out_t, b: +z.out_t + (+z.end_t - +z.ref_t) * (+z.speed || 1) }));
+  return `<div class="bestbox" id="trialBox" style="margin-top:10px;border-style:dashed"><b>🧪 박자 확인용 시험 편집본</b> <span class="chip">${Math.round(L)}초 · 이어 붙인 곳 ${ss.length}</span>
+    <div class="muted" style="font-size:.85rem">선생님 확인용(수강생에게 안 감) · 안전 기준을 낮추고 다른 테이크 구절을 최대한 넣은 것이에요. 이음새에서 박이 맞는지 들어 봐 주세요.</div>
+    ${tpHTML(true).replace('aria-label="재생 위치" style="width:100%">', 'aria-label="재생 위치" style="width:100%"><div class="seamStrip" aria-hidden="true">' +
+      ss.map(z => `<span style="left:${(z.a / (L || 1) * 100).toFixed(1)}%;width:${Math.max(1.2, (z.b - z.a) / (L || 1) * 100).toFixed(1)}%"></span>`).join("") + '</div>')}
+    <div class="row" style="gap:4px;flex-wrap:wrap;margin:4px 0"><span class="muted" style="font-size:.85rem">✂ 이음새:</span>${ss.map(z => `<button class="small ghost" data-seamt="${z.a}" style="padding:2px 8px">${fmt(z.a)}</button>`).join("")}</div></div>`;
+}
 function bestMakeupJob(o) {
   return (cur.st._jobs || []).find(j => j.req.lesson_folder === cur.folder.id &&
     j.req.source_id === o?.file_id && j.req.best_file_id === o?.file_id);
@@ -2581,9 +2624,10 @@ function wireBest() {
   };
   document.querySelectorAll(".bestAlt").forEach(b => b.onclick = () => { tpDetach(); cur.review.bestPick = +b.dataset.k; cur.review.bestPickId = bestOptions()[+b.dataset.k]?.file_id; if (typeof markDirty === "function") markDirty(); renderToday(); renderHighlights(); renderCands(); renderSegs(); const picked = bestPicked(); if (picked) tpWire($("todayCard").querySelector(".tp"), picked.file_id, true); });
   $("bestSend").onchange = (e) => { cur.review.sendBest = e.target.checked; };
+  if (cur.trial?.file_id && $("trialBox") && typeof tpWire === "function") tpWire($("trialBox").querySelector(".tp"), cur.trial.file_id);
   document.querySelectorAll("#todayCard [data-seamt]").forEach(b => b.onclick = () => {
-    const t = Math.max(0, +b.dataset.seamt - 1.5);
-    if (!player.duration || !tpRoot) { toast("먼저 ▶를 눌러 편집본을 불러온 뒤 눌러 주세요"); return; }
+    const t = Math.max(0, +b.dataset.seamt - 1.5), root = b.closest(".bestbox")?.querySelector(".tp");
+    if (!player.duration || !tpRoot || tpRoot !== root) { toast("먼저 이 칸의 ▶를 눌러 불러온 뒤 눌러 주세요"); return; }
     player.currentTime = t; if (player.paused) { pauseOthers(player); player.play().catch(() => {}); } tpPaint();
   });
 }
@@ -2596,7 +2640,7 @@ function renderToday() {
     : `<div class="muted">AI 초안 없음 — 아래 ‘카톡 피드백 문구’에서 직접 작성하세요</div>`;
   // 오늘 핵심·이번 주 연습은 아래 '카톡 피드백'과 '수강생에게 보이는 내용'에 같은 글이 있어 여기선 뺌(2026-10-27 사용자: 정보가 너무 많음)
   void head; void prs;
-  $("todayCard").innerHTML = `<h3 style="margin:0 0 6px">📦 오늘의 레슨 전달 패키지</h3>` + renderBest() + `<div id="deliverBox" style="margin-top:10px"></div>`;
+  $("todayCard").innerHTML = `<h3 style="margin:0 0 6px">📦 오늘의 레슨 전달 패키지</h3>` + renderBest() + (typeof renderTrial === "function" ? renderTrial() : "") + `<div id="deliverBox" style="margin-top:10px"></div>`;
   wireBest(); if (typeof paintDeliver === "function" && cur.folder) paintDeliver();
 }
 // 화자 확인이 필요한 상태(미확인/AI 불확실/3명 이상)면 상단으로 올리고 자동 펼침 + 경고. 아니면 한 줄 요약으로 접음
@@ -3038,7 +3082,7 @@ function renderHighlights() {
     return `<div class="hl" data-h="${k}"><div class="row" style="flex-wrap:nowrap;gap:8px;align-items:flex-start">
       <button class="small" data-hlplay="${k}" aria-label="하이라이트 ${h.n} 듣기">▶</button>
       <div style="flex:1;min-width:0"><b>${h.isBest ? "🎵 " : ""}${h.n}. ${fmt(h.start)} ~ ${fmt(h.end)}</b> <span class="muted" style="white-space:nowrap">${Math.round(h.end - h.start)}초${h.isBest ? (p?.isComposite ? " · 베스트 편집본의 기준 테이크" : " · 오늘의 베스트") : ""}</span>
-        <div class="hlq">“${esc(h.praise)}”</div>${stabChips(h.start, h.end)}</div>${h.cand ? mkButton(h.cand) : ""}</div>
+        <div class="hlq">“${esc(h.praise)}”</div></div>${h.cand ? mkButton(h.cand) : ""}</div>
       ${h.cand ? `<div class="pick" role="radiogroup" aria-label="하이라이트 ${h.n} 처리">
         ${[["send", "보내기"], ["keep", "기록만"], ["drop", "빼기"]].map(([v, t]) =>
           `<label class="${d === v ? "on" : ""}"><input type="radio" name="h_${esc(h.cand)}" value="${v}" ${d === v ? "checked" : ""}><span class="ck" aria-hidden="true">✓</span>${t}</label>`).join("")}
@@ -3300,6 +3344,7 @@ $("miniX").onclick = () => { hlQueueStop(); hlPlay = null; full.pause(); $("mini
 $("miniSeek").onchange = (e) => { hlPlay = null; hlQueueStop(); playAt(e.target.value / 1000 * lessonEnd()).catch(x => toast(x.message)); };
 // 저장된 출입증이 있으면 로그인 화면 없이 바로 목록
 if (savedToken()) { token = savedToken(); start(); }
+else if (LS.get("vn_hint") && LS.get("vn_list") && LS.get("vn_cfg")) { cfg = LS.get("vn_cfg"); show("vList"); try { paintList(LS.get("vn_list"), true); } catch {} resumeOnTap(); }
 let goBack = () => renderList();
 $("btnBack").onclick = () => goBack();
 $("btnAdd").onclick = () => {
