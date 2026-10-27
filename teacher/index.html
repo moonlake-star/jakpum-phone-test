@@ -499,7 +499,7 @@ function paintList(data, stale) {
   });
   // 가입 신청·계정 연결 카드는 맨 아래(2026-10-27 사용자: 맨 위에 늦게 생겨 아래가 밀리며 엉뚱한 게 눌림)
   $("vList").innerHTML = todoHtml + blocks.join("") + `<div id="joinReq">${lastJoinHtml}</div>` +
-    `<p class="muted">${stale ? "최신 내용 확인 중…" : "최신 상태"} · <a href="#" id="reload">새로고침</a></p>`;
+    `<p class="muted">${stale ? "최신 내용 확인 중…" : "최신 상태"} · <a href="#" id="reload">새로고침</a> · 앱 버전 ${typeof BUILD === "string" ? BUILD : ""}</p>`;
   $("reload").onclick = (e) => { e.preventDefault(); renderList(); };
   $("vList").insertAdjacentHTML("beforeend", `<div id="prefsBox"></div><div id="laBox"></div>`); paintPrefs(); paintLaBox(); if (laIsOn()) laStart();
   paintJoinRequests();
@@ -3372,7 +3372,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-27-2055-v72-ui";
+const BUILD = "2026-10-28-0005-busy";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
