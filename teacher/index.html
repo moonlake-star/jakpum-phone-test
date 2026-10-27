@@ -64,8 +64,17 @@
   .r-teacher { --bb:var(--t-bg); --bf:var(--t-fg); } .r-student { --bb:var(--s-bg); --bf:var(--s-fg); }
   .r-singing { --bb:var(--g-bg); --bf:var(--g-fg); } .r-music { --bb:var(--m-bg); --bf:var(--m-fg); }
   .r-x0 { --bb:var(--x1-bg); --bf:var(--x1-fg); } .r-x1 { --bb:var(--x2-bg); --bf:var(--x2-fg); } .r-x2 { --bb:var(--x3-bg); --bf:var(--x3-fg); } .r-x3 { --bb:var(--m-bg); --bf:var(--m-fg); }
-  .mini { position:sticky; bottom:0; display:flex; gap:8px; align-items:center; background:var(--card); padding:8px 0 2px; border-top:1px solid var(--line); }
-  .mini input[type=range] { flex:1; }
+  .mini { position:fixed; left:0; right:0; bottom:0; z-index:40; display:flex; flex-direction:column; gap:4px; background:var(--card); padding:8px 12px calc(8px + env(safe-area-inset-bottom)); border-top:1px solid var(--line); box-shadow:0 -4px 14px rgba(0,0,0,.35); max-width:760px; margin:0 auto; transition:transform .25s ease; }
+  .mini.hidden { display:flex !important; transform:translateY(110%); pointer-events:none; }
+  body.miniOn main { padding-bottom:130px; }
+  .hl { border:1px solid var(--line); border-radius:12px; padding:8px 10px; margin:6px 0; }
+  .hl.on { border-color:var(--now); }
+  .hl .hlq { color:var(--fg); font-size:.95rem; }
+  .bub.hlband { box-shadow:inset 4px 0 0 var(--now); }
+  .bub.hlon { background:var(--chip); }
+  .bub .hltag, .bub .cptag { font-size:.75rem; margin-left:6px; color:var(--now); }
+  .bub .cptag { color:var(--muted,#aaa); }
+  .seam { margin:4px 0; text-align:center; }
   .sentrow { margin-top:8px; }
   /* 수강생 칸: 이름 머리(밝은 남회색 + 왼쪽 강조선) / 레슨 목록(카드 바탕) 구분 */
   .stuCard { padding:0; overflow:hidden; }
@@ -161,13 +170,14 @@
     </div>
 
     <div class="card" style="order:4">
-      <div class="row" style="justify-content:space-between"><h3 style="margin:0">1. 추천 노래 클립 <span class="muted" style="font-weight:400">(선택 · 0~3개)</span></h3><span class="chip" id="sendCount">보내기 0/3</span></div>
-      <p class="muted" style="margin:6px 0"><b>오늘 레슨 피드백에 보낼 거리 모음</b> — 칭찬·다시 해 보기 말 앞뒤 노래 구간이에요. 고르기만 해서는 발송되지 않아요. 하나도 안 골라도 괜찮아요(오늘의 베스트만 보내도 됨).</p>
-      <details class="muted" style="margin:0 0 6px"><summary>버튼 뜻</summary>
+      <div class="row" style="justify-content:space-between"><h3 style="margin:0">1. 오늘의 하이라이트 <span class="muted" style="font-weight:400">(최대 3개)</span></h3><span class="chip" id="sendCount">보내기 0/3</span></div>
+      <p class="muted" style="margin:6px 0">선생님이 칭찬한 순간 — 바로 앞 노래부터 칭찬 말까지. 누르면 전사본 그 자리로 가서 들려줘요. 🎵 = 지금 고른 오늘의 베스트. 고르기만 해서는 발송되지 않아요.</p>
+      <div class="row" style="margin:4px 0;flex-wrap:nowrap"><button class="small ghost" id="btnPlayAll">▶ 고른 하이라이트 이어 듣기</button></div>
+      <div id="hls"></div>
+      <details id="candMore" style="margin-top:8px"><summary class="muted" id="candMoreSum">다른 후보 (필요할 때만)</summary>
+      <details class="muted" style="margin:6px 0"><summary>버튼 뜻</summary>
         <b>보내기</b> = 카톡 문구 ‘좋았던 부분’에 들어가고 ‘클립 보내기’ 때 같이 보내져요(최대 3개, 4번째를 고르면 가장 먼저 고른 것이 ‘기록만’으로).
         <b>기록만</b> = 수강생에겐 안 가고 레슨 기록에만. <b>빼기</b> = 쓰지 않음. 실제 전송은 아래 ‘클립 보내기’ → 카톡에서 직접.</details>
-      <div class="row" style="margin:4px 0;flex-wrap:nowrap"><button class="small ghost" id="btnPlayAll">▶ 보낼 클립 이어 듣기</button><span class="tpTimeMid muted" id="queueTime"></span></div>
-      <div class="tpslot" id="queueSlot"></div>
       <div id="cands"></div>
       <details style="margin-top:8px"><summary>구간 직접 추가</summary>
         <div class="row" style="margin-top:6px">
@@ -176,7 +186,7 @@
           <button class="small" id="btnAdd">추가</button>
         </div>
         <p class="muted">직접 추가한 구간은 다음 자동 실행 때 클립으로 잘라 이 폴더에 넣습니다.</p>
-      </details>
+      </details></details>
     </div>
 
     <div class="card" style="order:5">
@@ -215,9 +225,14 @@
       <p class="muted" id="segHint">말풍선을 누르면 그 부분부터 바로 재생됩니다(누른 곳 앞뒤 2분씩만 받아서 데이터를 거의 안 씀). 다시 누르면 멈춤.</p>
       <div id="segs" class="seg-list"></div></details>
       <div class="mini hidden" id="mini">
-        <button class="small" id="miniBtn">❚❚</button>
-        <span id="miniT" class="muted">0:00</span>
-        <input type="range" id="miniSeek" min="0" max="1000" step="1" value="0">
+        <div class="row" style="width:100%;flex-wrap:nowrap;gap:6px"><span id="miniLab" class="muted" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+          <button class="small ghost" id="miniX" aria-label="닫기">✕</button></div>
+        <div class="row" style="width:100%;flex-wrap:nowrap;gap:6px">
+          <button class="small ghost" data-mini="prev" aria-label="처음/이전">⏮</button><button class="small ghost" data-mini="-5">-5</button>
+          <button class="small" id="miniBtn">❚❚</button>
+          <button class="small ghost" data-mini="+5">+5</button><button class="small ghost" data-mini="next" aria-label="다음">⏭</button>
+          <span id="miniT" class="muted" style="min-width:3.2em;text-align:center">0:00</span></div>
+        <input type="range" id="miniSeek" min="0" max="1000" step="1" value="0" style="width:100%">
       </div>
     </div>
 
@@ -2384,7 +2399,7 @@ async function openLesson(sid, i, backTo) {
   if (!st._rows?.[i] || st._rows[i].err) { st._rows = null; return openStudent(sid, "lesson"); }
   const { l, files } = st._rows[i];
   show("vLesson"); $("lsHead").innerHTML = `<p class="muted">불러오는 중…</p>`;
-  full.pause(); $("mini").classList.add("hidden"); nowIdx = -1; playSeq++; dropNext(); listenFile = null;
+  full.pause(); hlQueueStop(); hlList = []; hlCur = -1; $("mini").classList.add("hidden"); document.body.classList.remove("miniOn"); nowIdx = -1; playSeq++; dropNext(); listenFile = null;
   const by = (n) => files.find(f => f.name === n);
   const d = await lessonData(l.id, files);
   const { summary, segs, cands, clips, samples, sampleFiles } = d;
@@ -2421,7 +2436,7 @@ async function openLesson(sid, i, backTo) {
       <span>${summary.duration_sec ? fmt(summary.duration_sec) : ""}</span>
       <button class="small ghost" id="btnSpeakerEdit" type="button">화자 수정</button>
     </div>`;
-  renderSpeakers(); renderCands(); renderSegs();
+  renderSpeakers(); renderHighlights(); renderCands(); renderSegs();
   renderPoints();
   review.pairSend ??= (ai?.audio || []);
   renderAnalysis(d.pitch, d.ana, ai);
@@ -2545,7 +2560,7 @@ function wireBest() {
     const job = bestMakeupJob(o);
     return job ? openMkJob(job, back) : makeupFromBest(o, back);
   };
-  document.querySelectorAll(".bestAlt").forEach(b => b.onclick = () => { tpDetach(); cur.review.bestPick = +b.dataset.k; renderToday(); const picked = bestPicked(); if (picked) tpWire($("todayCard").querySelector(".tp"), picked.file_id, true); });
+  document.querySelectorAll(".bestAlt").forEach(b => b.onclick = () => { tpDetach(); cur.review.bestPick = +b.dataset.k; renderToday(); renderHighlights(); renderCands(); renderSegs(); const picked = bestPicked(); if (picked) tpWire($("todayCard").querySelector(".tp"), picked.file_id, true); });
   $("bestSend").onchange = (e) => { cur.review.sendBest = e.target.checked; };
 }
 function renderToday() {
@@ -2727,7 +2742,7 @@ player.onended = () => { if (playingBtn) playingBtn.textContent = playingBtn.dat
 async function playShared(btn, fileId) {
   tpDetach();
   const seq = ++playSharedSeq;
-  if (typeof queueStop === "function" && queueStop) queueStop();
+  if (typeof hlQueueStop === "function") hlQueueStop();
   if (playingBtn === btn) { player.pause(); player.onended(); return; }
   if (playingBtn) player.onended();
   btn.dataset.label ??= btn.textContent; btn.textContent = "불러오는 중…";
@@ -2778,7 +2793,7 @@ async function tpLoad(root, fileId) {
   }
   const epoch = ++tpEpoch, urls = cur.clipUrls;
   ++playSharedSeq;  // 재생 바가 플레이어 소유권을 가져오면 이전 일반 재생의 지연 응답을 취소
-  if (typeof queueStop === "function" && queueStop) queueStop();
+  if (typeof hlQueueStop === "function") hlQueueStop();
   if (playingBtn) player.onended();
   player.pause(); tpRoot = root; tpFile = fileId;
   const pending = (async () => {
@@ -2851,7 +2866,7 @@ function renderSpeakers() {
         .map(([k, n]) => `<option value="${k}" ${k === v ? "selected" : ""}>${n}</option>`).join("")}</select>
       ${btns || `<div class="muted" style="flex-basis:100%">“${esc(sample.slice(0, 70))}”</div>`}</div>`;
   }).join("");
-  $("spk").querySelectorAll("select").forEach(s => s.onchange = () => { cur.review.speakers[s.dataset.c] = s.value; cur.spkSaved = true; renderSegs(); paintSpkState(true); });
+  $("spk").querySelectorAll("select").forEach(s => s.onchange = () => { cur.review.speakers[s.dataset.c] = s.value; cur.spkSaved = true; renderHighlights(); renderCands(); renderSegs(); paintSpkState(true); });
   $("spk").querySelectorAll("[data-sample]").forEach(b => b.onclick = () => playShared(b, b.dataset.sample));
 }
 function roleOf(code) { return cur.review.speakers[code] || ""; }
@@ -2860,14 +2875,27 @@ function roleClass(code) {
   const codes = [...new Set(cur.segs.map(s => s.speaker))].sort(); return "r-x" + (codes.indexOf(code) % 4);
 }
 function renderSegs() {
-  $("segs").innerHTML = cur.segs.map((s, i) => {
-    const side = !roleOf(s.speaker) || roleOf(s.speaker) === "teacher" ? "left" : "right";
-    const tag = roleOf(s.speaker) === "singing" ? "♪ " : "";
-    return `<div class="seg ${side}"><div class="bub ${roleClass(s.speaker)}" data-i="${i}">
-      <span class="who">${tag}${esc(speakerName(s.speaker))}</span><span class="t">${fmt(s.start)}</span>
-      <span class="tx">${esc(s.text)}</span></div></div>`;
-  }).join("") || `<p class="muted">전사본 없음</p>`;
+  const p = bestPicked(), comp = p?.isComposite ? p : null;
+  const inComp = (x) => !!comp && (comp.segments || []).some(g => x.end > g.start && x.start < g.end);
+  const seams = (comp?.seams || []).map(z => +z.ref_t).filter(Number.isFinite).sort((a, b) => a - b);
+  let si = 0;
+  const seamBtn = (t) => `<div class="seam"><button class="small ghost" data-seam="${t}">✂ 편집 이음새 ${fmt(t)} · 앞뒤 3초 듣기</button></div>`;
+  $("segs").innerHTML = cur.segs.map((x, i) => {
+    let pre = "";
+    while (si < seams.length && seams[si] <= x.start) pre += seamBtn(seams[si++]);
+    const side = !roleOf(x.speaker) || roleOf(x.speaker) === "teacher" ? "left" : "right";
+    const tag = roleOf(x.speaker) === "singing" ? "♪ " : "";
+    const hk = hlList.findIndex(h => hlIn(x, h));
+    const isFirst = hk >= 0 && (i === 0 || !hlIn(cur.segs[i - 1], hlList[hk]));
+    return pre + `<div class="seg ${side}"><div class="bub ${roleClass(x.speaker)}${hk >= 0 ? " hlband" : ""}" data-i="${i}">
+      <span class="who">${tag}${esc(speakerName(x.speaker))}</span><span class="t">${fmt(x.start)}</span>${isFirst ? `<span class="hltag">${hlList[hk].isBest ? "🎵" : "★"} 하이라이트 ${hlList[hk].n}</span>` : ""}${inComp(x) ? `<span class="cptag">✂ 편집본에 들어감</span>` : ""}
+      <span class="tx">${esc(x.text)}</span></div></div>`;
+  }).join("") + seams.slice(si).map(seamBtn).join("") || `<p class="muted">전사본 없음</p>`;
   $("segs").querySelectorAll(".bub").forEach(b => b.onclick = () => playFrom(+b.dataset.i));
+  $("segs").querySelectorAll("[data-seam]").forEach(b => b.onclick = () => {
+    const t = +b.dataset.seam; hlQueueStop(); hlPlay = { end: t + 3, queue: null }; miniLabel(`✂ 이음새 ${fmt(t)} 앞뒤 3초`);
+    playAt(Math.max(0, t - 3), true, true).catch(e => toast(e.message));
+  });
 }
 // ── 전사본 재생: 누른 곳부터 '필요한 부분만' 받아 바로 재생(전체를 받지 않음) ──
 // 듣기용.mp3는 고정 비트레이트(40kbps = 초당 5,000바이트)라 시각 → 파일 위치를 바로 계산할 수 있다.
@@ -2897,17 +2925,22 @@ async function playAt(t, keepGoing = true, follow = false) {
   else { dropNext(); c = await fetchChunk(Math.max(0, t)); }
   if (my !== playSeq) { freeUrl(c.url); return; }            // 그 사이 다른 곳을 눌렀음 → 이 조각은 버림
   chunkStart = c.t0; setFullSrc(c.url);
-  $("mini").classList.remove("hidden");
+  $("mini").classList.remove("hidden"); if (typeof document !== "undefined") document.body?.classList.add("miniOn");
   if (keepGoing) await full.play().catch(e => { if (e?.name !== "AbortError") throw e; });
 }
 function playFrom(i) {
-  followTranscript = true;
+  followTranscript = true; hlQueueStop(); hlPlay = null; hlCur = -1; miniLabel("전사본");
   if (i === nowIdx && !full.paused) { full.pause(); return; }
   playAt(Math.max(0, cur.segs[i].start - 0.3), true, true).catch(e => toast(e.message));
 }
 full.onended = () => { const t = chunkStart + CHUNK; if (t < lessonEnd()) playAt(t).catch(e => toast(e.message)); };
 full.ontimeupdate = () => {
   const t = chunkStart + full.currentTime; $("miniT").textContent = fmt(t);
+  if (hlPlay && t >= hlPlay.end) {            // 하이라이트는 칭찬 말 끝에서 멈춤(이어 듣기면 구분음 뒤 다음 것)
+    const q = hlPlay.queue; hlPlay = null; full.pause();
+    if (q && q === hlQ) hlQueueNext();
+    return;
+  }
   if (lessonEnd()) $("miniSeek").value = Math.round(t / lessonEnd() * 1000);
   if (!nextChunk && full.currentTime > CHUNK - 20 && chunkStart + CHUNK < lessonEnd()) {
     const my = playSeq, want = { t0: chunkStart + CHUNK, loading: true }; nextChunk = want;
@@ -2925,6 +2958,135 @@ full.ontimeupdate = () => {
 full.onplay = () => { pauseOthers(full); $("miniBtn").textContent = "❚❚"; }; full.onpause = () => $("miniBtn").textContent = "▶";
 player.addEventListener("play", () => pauseOthers(player));
 let followTranscript = false;   // 전사 말풍선을 눌러 재생할 때만 화면이 따라감(분석 카드 ▶에서는 스크롤 안 함)
+// ── 오늘의 하이라이트(최대 3개, 2026-10-27 사용자 확정): 선생님 칭찬 말 바로 앞 노래 + 칭찬 말까지 ──
+// 새 AI 호출 없음: candidates.json의 칭찬 단서 + 전사 화자 + 오늘의 베스트 구간만 쓴다. ①은 오늘의 베스트(🎵)
+const HL_MAX = 3, HL_SING_MAX = 45, HL_SING_MIN = 6, HL_PRAISE_MAX = 10;
+const HL_RANK = [[/매우\s*잘|정말\s*잘|너무\s*좋|최고/, 3], [/잘했|잘하|좋았|좋아요|좋네|훌륭|멋지/, 2], [/그렇죠|맞아요|오케이|괜찮/, 1]];
+function praiseRank(t) { for (const [re, v] of HL_RANK) if (re.test(t || "")) return v; return 1; }
+function computeHighlights(cands, segs, roleFn, bestOpts) {
+  const isT = (x) => roleFn(x.speaker) === "teacher";
+  const segAt = (t) => segs.findIndex(x => x.start - 0.3 <= t && t <= x.end + 0.3);
+  const singBefore = (i) => {          // 칭찬 말 앞, 선생님의 긴 말(1.5초+)이 끼기 전까지 = 노래 구간
+    let k = i - 1;
+    while (k >= 0 && !(isT(segs[k]) && segs[k].end - segs[k].start >= 1.5 && (segs[k].text || "").length >= 4)) k--;
+    return k + 1 < i ? Math.max(segs[k + 1].start, segs[i].start - HL_SING_MAX) : null;
+  };
+  const praiseEnd = (x) => Math.min(x.end, x.start + HL_PRAISE_MAX);
+  const quote = (x, w) => { const tx = x.text || "", j = Math.max(0, tx.indexOf(w)); return tx.slice(j, j + 18); };
+  const out = [];
+  (bestOpts || []).forEach((o, k) => {   // 베스트 후보(연속 테이크, [0]=지금 고른 것): 칭찬 말까지 늘림
+    const i = segAt(o.praise?.t ?? o.end); if (i < 0) return;
+    out.push({ cand: o.cand, start: o.start, end: Math.max(o.end, praiseEnd(segs[i])), praiseAt: segs[i].start,
+      praise: quote(segs[i], o.praise?.text || ""), isBest: k === 0, bestAlt: k > 0, score: (k === 0 ? 20 : 8) + praiseRank(segs[i].text) });
+  });
+  for (const c of cands || []) for (const q of c.cues || []) {
+    if (q.kind !== "praise") continue;
+    const i = segAt(q.start); if (i < 0 || !isT(segs[i])) continue;          // 칭찬은 선생님 말일 때만
+    const st = singBefore(i); if (st == null || segs[i].start - st < HL_SING_MIN) continue;   // 앞에 노래가 6초 이상
+    const L = segs[i].start - st;
+    out.push({ cand: c.id, start: st, end: praiseEnd(segs[i]), praiseAt: segs[i].start, praise: quote(segs[i], q.text), isBest: false,
+      score: praiseRank(segs[i].text) + (L >= 15 && L <= 40 ? 1 : 0) + 0.2 * (c.score || 0) });
+  }
+  const pick = [];
+  for (const h of out.sort((a, b) => b.score - a.score)) {
+    if (pick.length >= HL_MAX) break;
+    if (pick.some(p => (p.cand && p.cand === h.cand) || (h.start < p.end && p.start < h.end))) continue;
+    pick.push(h);
+  }
+  pick.sort((a, b) => (b.isBest - a.isBest) || a.start - b.start);
+  return pick.map((h, k) => ({ ...h, n: k + 1, start: Math.round(h.start * 10) / 10, end: Math.round(h.end * 10) / 10 }));
+}
+// 하이라이트 화면: 누르면 전사본 그 자리로 이동·표시 + 노래부터 칭찬 말까지 재생 후 멈춤. 아래 고정 플레이어 ⏭ = 다음 하이라이트
+let hlList = [], hlPlay = null, hlQ = null, hlCur = -1;   // hlCur: 마지막으로 연 하이라이트(⏮⏭는 목록 순서대로)
+// 말풍선이 하이라이트에 들어가나: 살짝 걸친 것(0.4초 등)은 빼고, 1초 이상 또는 절반 이상 겹칠 때만
+const hlIn = (x, h) => Math.min(x.end, h.end) - Math.max(x.start, h.start) >= Math.min(1, 0.5 * (x.end - x.start));
+function miniLabel(t) { const el = $("miniLab"); if (el) el.textContent = t || ""; }
+function hlBestOpts() {   // ① = 지금 고른 베스트(편집본을 골랐으면 그 기준이 되는 후보 1)
+  const o = bestOptions().filter(x => !x.isComposite), p = bestPicked();
+  const first = p && !p.isComposite ? (o.find(x => x.file_id === p.file_id) || o[0]) : o[0];
+  return first ? [first, ...o.filter(x => x !== first)] : [];
+}
+function renderHighlights() {
+  hlList = computeHighlights(cur.cands, cur.segs, roleOf, hlBestOpts());
+  const p = bestPicked(), rv = cur.review;
+  $("hls").innerHTML = hlList.map((h, k) => {
+    const d = rv.decisions[h.cand] || "", c = cur.cands.find(x => x.id === h.cand);
+    return `<div class="hl" data-h="${k}"><div class="row" style="flex-wrap:nowrap;gap:8px;align-items:flex-start">
+      <button class="small" data-hlplay="${k}" aria-label="하이라이트 ${h.n} 듣기">▶</button>
+      <div style="flex:1;min-width:0"><b>${h.isBest ? "🎵 " : ""}${h.n}. ${fmt(h.start)} ~ ${fmt(h.end)}</b> <span class="muted" style="white-space:nowrap">${Math.round(h.end - h.start)}초${h.isBest ? (p?.isComposite ? " · 베스트 편집본의 기준 테이크" : " · 오늘의 베스트") : ""}</span>
+        <div class="hlq">“${esc(h.praise)}”</div></div>${h.cand ? mkButton(h.cand) : ""}</div>
+      ${h.cand ? `<div class="pick" role="radiogroup" aria-label="하이라이트 ${h.n} 처리">
+        ${[["send", "보내기"], ["keep", "기록만"], ["drop", "빼기"]].map(([v, t]) =>
+          `<label class="${d === v ? "on" : ""}"><input type="radio" name="h_${esc(h.cand)}" value="${v}" ${d === v ? "checked" : ""}><span class="ck" aria-hidden="true">✓</span>${t}</label>`).join("")}
+      </div>
+      <input class="cnote ${d === "send" ? "" : "hidden"}" data-c="${esc(h.cand)}" placeholder="좋았던 점 한 줄 (예: 고음 끝까지 호흡 유지)" value="${esc(rv.notes?.[h.cand] ?? c?.note ?? "")}" style="width:100%;margin-top:4px">` : ""}
+    </div>`;
+  }).join("") || `<p class="muted">선생님 칭찬 바로 앞 노래 구간을 찾지 못했어요 — 아래 ‘다른 후보’에서 골라 주세요.</p>`;
+  const hs = $("hls");
+  hs.querySelectorAll("[data-hlplay]").forEach(b => b.onclick = () => { hlQueueStop(); hlGo(+b.dataset.hlplay); });
+  hs.querySelectorAll("input[type=radio]").forEach(r => r.onchange = () => {
+    const bumped = setDecision(cur.review, r.name.slice(2), r.value, allCands().map(c => c.id));
+    if (bumped) toast(`보내기는 최대 ${MAX_GOOD}개 — 가장 먼저 고른 ${bumped}은 ‘기록만’으로 바꿨어요`);
+    renderHighlights(); renderCands();
+  });
+  hs.querySelectorAll(".cnote").forEach(i => i.oninput = () => { (cur.review.notes ??= {})[i.dataset.c] = i.value.trim(); });
+  hs.querySelectorAll("[data-mk]").forEach(b => b.onclick = () => {
+    const j = lessonJob(b.dataset.mk), back = () => openLesson(cur.sid, cur.rowIndex, cur.back);
+    if (j) return openMkJob(j, back);
+    makeupFromLesson(b.dataset.mk, back);
+  });
+}
+function hlMark(k) {
+  const segs = $("segs"); segs.querySelectorAll(".bub.hlon").forEach(x => x.classList.remove("hlon"));
+  $("hls").querySelectorAll(".hl.on").forEach(x => x.classList.remove("on"));
+  const h = hlList[k]; if (!h) return null;
+  $("hls").querySelector(`.hl[data-h="${k}"]`)?.classList.add("on");
+  let first = null;
+  cur.segs.forEach((x, i) => { if (hlIn(x, h)) { const el = segs.querySelector(`.bub[data-i="${i}"]`); if (el) { el.classList.add("hlon"); first ??= el; } } });
+  return first;
+}
+function hlGo(k, queue) {
+  const h = hlList[k]; if (!h) return;
+  const wrap = $("segWrap"); if (wrap && !wrap.open) { wrap._forced = true; wrap.open = true; }   // 전사본을 펼침(접기 저장값은 안 바꿈)
+  const first = hlMark(k);
+  if (first) setTimeout(() => first.scrollIntoView({ block: "center", behavior: "smooth" }), 50);
+  hlPlay = { k, end: h.end, queue: queue || null }; hlCur = k;
+  miniLabel(`${h.isBest ? "🎵" : "★"} 하이라이트 ${h.n}/${hlList.length} · ${fmt(h.start)}~${fmt(h.end)}`);
+  playAt(Math.max(0, h.start - 0.3), true, true).catch(e => toast(e.message));
+}
+const hlNow = () => chunkStart + (full.currentTime || 0);
+function hlStep(dir) {   // ⏭ 다음 / ⏮ 이 하이라이트 처음(처음 2초 안이면 이전) — 목록 순서(🎵 베스트가 1번)
+  if (!hlList.length) { const s = cur.segs[Math.max(0, nowIdx)]; if (s) playAt(Math.max(0, s.start - 0.3), true, true).catch(e => toast(e.message)); return; }
+  if (hlCur < 0 || hlCur >= hlList.length) return hlGo(0);
+  if (dir > 0) return hlCur + 1 < hlList.length ? hlGo(hlCur + 1) : toast("마지막 하이라이트예요");
+  const h = hlList[hlCur], t = hlNow();
+  return hlGo(t - h.start < 2 && hlCur > 0 ? hlCur - 1 : hlCur);
+}
+function hlSeek(d) {
+  const nt = Math.max(0, hlNow() + d), rel = nt - chunkStart;
+  if (rel >= 0 && rel < (full.duration || 0) - 0.5) full.currentTime = rel;
+  else playAt(nt, !full.paused, followTranscript).catch(e => toast(e.message));
+}
+// 고른(보내기) 하이라이트 이어 듣기: 같은 전사 플레이어로 차례대로, 사이에만 구분음
+function hlQueueItems() {
+  return sendList().map(c => { const k = hlList.findIndex(h => h.cand === c.id);
+    return k >= 0 ? { k } : { k: -1, start: c.start, end: c.end, label: c.id }; });
+}
+function hlQueueStop() {
+  if (!hlQ) return; hlQ = null; hlPlay = null; try { full.pause(); } catch {}
+  const b = $("btnPlayAll"); if (b) b.textContent = "▶ 고른 하이라이트 이어 듣기";
+}
+async function hlQueueNext() {
+  const q = hlQ; if (!q) return;
+  q.i++;
+  if (q.i >= q.items.length) { hlQueueStop(); miniLabel("이어 듣기 끝"); return; }
+  if (q.i > 0) { await playChime(); if (hlQ !== q) return; }   // 첫 것 앞·마지막 뒤엔 없음
+  $("btnPlayAll").textContent = `■ 이어 듣는 중 ${q.i + 1}/${q.items.length}`;
+  const it = q.items[q.i];
+  if (it.k >= 0) return hlGo(it.k, q);
+  hlPlay = { end: it.end, queue: q }; miniLabel(`${it.label} · ${fmt(it.start)}~${fmt(it.end)}`);
+  playAt(Math.max(0, it.start - 0.3), true, true).catch(e => toast(e.message));
+}
 function allCands() {
   return [...cur.cands.map(c => ({ ...c, kind: "auto" })), ...cur.review.manual.map((m, i) => ({ ...m, id: m.id || `M${i + 1}`, kind: "manual" }))];
 }
@@ -2940,7 +3102,8 @@ function mkButton(cid) {
   return `<button class="small ${s === "done" ? "" : "ghost"}" data-mk="${esc(cid)}" style="margin-left:auto">${lab}</button>`;
 }
 function renderCands() {
-  const list = allCands();
+  const list = allCands().filter(c => !hlList.some(h => h.cand === c.id));   // 하이라이트에 나온 후보는 위에만
+  if ($("candMoreSum")) $("candMoreSum").textContent = `다른 후보 ${list.length}개 (필요할 때만)`;
   $("cands").innerHTML = list.map(c => {
     const d = cur.review.decisions[c.id] || "";
     const clip = cur.clips.find(f => f.name.startsWith(c.id));
@@ -2959,7 +3122,7 @@ function renderCands() {
   }).join("") || `<p class="muted">후보 없음 — 아래에서 직접 추가할 수 있습니다.</p>`;
   $("cands").querySelectorAll("input[type=radio]").forEach(r => r.onchange = () => {
     const bumped = setDecision(cur.review, r.name.slice(2), r.value, allCands().map(c => c.id));
-    if (bumped) { toast(`보내기는 최대 ${MAX_GOOD}개 — 가장 먼저 고른 ${bumped}은 ‘기록만’으로 바꿨어요`); renderCands(); return; }
+    if (bumped) { toast(`보내기는 최대 ${MAX_GOOD}개 — 가장 먼저 고른 ${bumped}은 ‘기록만’으로 바꿨어요`); renderHighlights(); renderCands(); return; }
     r.closest(".cand").querySelector(".cnote").classList.toggle("hidden", r.value !== "send");
     r.closest(".pick").querySelectorAll("label").forEach(l => l.classList.toggle("on", l.contains(r)));
     paintSendCount();
@@ -3063,7 +3226,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-27-2000";
+const BUILD = "2026-10-27-2020";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
@@ -3078,7 +3241,14 @@ async function checkBuild() {
 }
 checkBuild(); document.addEventListener("visibilitychange", () => { if (!document.hidden) checkBuild(); });
 $("miniBtn").onclick = () => full.paused ? full.play() : full.pause();
-$("miniSeek").onchange = (e) => { playAt(e.target.value / 1000 * lessonEnd()).catch(x => toast(x.message)); };
+document.querySelectorAll("[data-mini]").forEach(b => b.onclick = () => {
+  const a = b.dataset.mini;
+  if (a === "next") { if (hlQ) { hlPlay = null; full.pause(); hlQueueNext(); } else hlStep(1); }
+  else if (a === "prev") { hlQueueStop(); hlStep(-1); }
+  else hlSeek(a === "+5" ? 5 : -5);
+});
+$("miniX").onclick = () => { hlQueueStop(); hlPlay = null; full.pause(); $("mini").classList.add("hidden"); document.body.classList.remove("miniOn"); };
+$("miniSeek").onchange = (e) => { hlPlay = null; hlQueueStop(); playAt(e.target.value / 1000 * lessonEnd()).catch(x => toast(x.message)); };
 // 저장된 출입증이 있으면 로그인 화면 없이 바로 목록
 if (savedToken()) { token = savedToken(); start(); }
 let goBack = () => renderList();
@@ -3151,48 +3321,13 @@ function playChime() {
     return new Promise(r => setTimeout(r, 600));
   } catch { return Promise.resolve(); }   // 소리 장치를 못 쓰면 구분음 없이 계속
 }
-// 보낼 클립 이어 듣기: 한 플레이어로 차례대로(동시 재생 없음). 클립 사이에만 구분음. 다시 누르면 멈춤
-let queueStop = null;
-$("btnPlayAll").onclick = async () => {
-  const b = $("btnPlayAll");
-  if (queueStop) { queueStop(); return; }
-  const files = sendList().map(c => cur.clips.find(f => f.name.startsWith(c.id))).filter(Boolean);
-  if (!files.length) return toast("‘보내기’로 고른 클립이 없어요");
-  let i = 0, stopped = false;
+// 고른 하이라이트 이어 듣기(2026-10-27 사용자 확정: 이어 듣기 = 보내기로 고른 하이라이트). 다시 누르면 멈춤
+$("btnPlayAll").onclick = () => {
+  if (hlQ) { hlQueueStop(); return; }
+  const items = hlQueueItems();
+  if (!items.length) return toast("‘보내기’로 고른 하이라이트가 없어요");
   try { chimeCtx ??= new (window.AudioContext || window.webkitAudioContext)(); chimeCtx.resume(); } catch {}   // 폰은 버튼 누를 때 소리 장치를 깨워야 함
-  const endBase = player.onended;
-  // 이어 듣기에도 재생 바(⏮ -5 ▶ +5 ⏭ + 위치)를 펼친다(2026-10-26·27 사용자 요청). ⏭ = 다음 클립으로
-  const raf = typeof requestAnimationFrame === "function" ? requestAnimationFrame : (f) => setTimeout(f, 0);
-  const slot = $("queueSlot"), qtime = $("queueTime");
-  let qroot = null;
-  if (slot && typeof slot.querySelector === "function" && typeof tpHTML === "function") {
-    tpDetach(); slot.innerHTML = tpHTML(true, false); raf(() => slot.classList.add("open"));
-    qroot = slot.querySelector(".tp");
-  }
-  if (qroot) {
-    qroot.querySelectorAll("[data-tp]").forEach(x => x.onclick = () => {
-      const act = x.dataset.tp;
-      if (act === "play") { if (player.paused) { pauseOthers(player); player.play().catch(() => {}); } else player.pause(); }
-      else if (act === "end") { player.pause(); next(); }          // 다음 클립
-      else player.currentTime = tpNext(player.currentTime, player.duration, act);
-      tpPaint();
-    });
-    qroot.querySelector(".tpSeek").oninput = (e) => { if (player.duration) player.currentTime = player.duration * e.target.value / 1000; };
-  }
-  queueStop = () => { stopped = true; player.pause(); player.onended = endBase; b.textContent = "▶ 보낼 클립 이어 듣기"; queueStop = null;
-    if (qroot) { tpQueueLabel = ""; if (tpRoot === qroot) { tpRoot = null; tpFile = null; tpTimeEl = null; } if (qtime) qtime.textContent = "";
-      slot.classList.remove("open"); setTimeout(() => { if (!slot.classList.contains("open")) slot.innerHTML = ""; }, 350); } };
-  const next = async () => {
-    if (stopped || i >= files.length) return queueStop?.();
-    if (i > 0) { b.textContent = `■ 이어 듣는 중 ${i}/${files.length} → ${i + 1}`; await playChime(); if (stopped) return; }   // 첫 클립 앞·마지막 클립 뒤엔 없음
-    b.textContent = `■ 이어 듣는 중 ${i + 1}/${files.length}`;
-    try { cur.clipUrls[files[i].id] ??= URL.createObjectURL(await readBlob(files[i].id)); } catch (e) { toast(e.message); return queueStop?.(); }
-    if (stopped) return;   // 받는 도중 정지·다른 재생이 플레이어를 가져갔으면 늦게 온 클립을 재생하지 않음
-    player.src = cur.clipUrls[files[i].id]; i++; player.onended = next;
-    if (qroot) { tpRoot = qroot; tpFile = "__queue__"; tpTimeEl = qtime; }
-    pauseOthers(player); player.play();
-  };
-  next();
+  hlQ = { items, i: -1 }; hlQueueNext();
 };
 </script>
 </body>
