@@ -13,4 +13,13 @@ for (const [pick, label] of [[0, "후보 1"], [1, "후보 2"], [2, "베스트 �
   const on = [...html.matchAll(/<button class="small ghost bestAlt on" aria-pressed="true"[^>]*>([^<]*)<\/button>/g)].map(m => m[1]);
   assert.deepStrictEqual(on, ["✓ " + label], `pick=${pick}: ${on}`);
 }
-console.log("best-pressed ok (3 cases)");
+// 고른 편집본이 사라진 경우: 후보 2로 몰래 바뀌지 않고 후보 1 + 경고
+{
+  const html = new Function("cur", "esc", "fmt", "tpHTML", "bestMakeupLabel", `${body}; return renderBest();`)({ review: { bestPick: 2 },
+    best: { status: "ok", best: { file_id: "B1", len: 30 }, alternatives: [{ file_id: "B2", len: 20 }], composite: { status: "none", fallback: "best_take" } } },
+    (x) => String(x ?? ""), () => "0:00", () => "", () => "메이크업");
+  const on = [...html.matchAll(/bestAlt on" aria-pressed="true"[^>]*>([^<]*)</g)].map(m => m[1]);
+  assert.deepStrictEqual(on, ["✓ 후보 1"]);
+  assert.ok(html.includes("전에 고르신 베스트 편집본이 지금 없어"));
+}
+console.log("best-pressed ok (4 cases)");
