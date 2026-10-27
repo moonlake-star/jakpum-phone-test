@@ -3446,13 +3446,35 @@ async function shareClips(fileList) {
   });
 }
 
+// 펼쳐보기(접힌 칸) 열고 닫을 때 아래로 스르륵 펼쳐지는 움직임(2026-10-28 사용자). 화면 안의 모든 펼쳐보기에 적용
+// '동작 줄이기' 설정이면 끔. 열림 상태 저장 등 기존 동작(toggle)은 그대로.
+function detailsAnimate(d, open) {
+  const sm = d.querySelector(":scope > summary"); if (!sm) { d.open = open; return; }
+  d._want = open; const from = d.offsetHeight; d._anim?.cancel(); d.style.overflow = "";
+  const cs = getComputedStyle(d), shut = sm.offsetHeight + parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom) + parseFloat(cs.borderTopWidth) + parseFloat(cs.borderBottomWidth);
+  if (open) d.open = true;
+  const to = open ? d.offsetHeight : shut;      // 다 펼친 실제 높이를 먼저 재고
+  d.style.overflow = "hidden"; d.style.boxSizing = "border-box";   // 높이를 테두리 포함으로 재야 끝에서 덜컥 안 함
+  const a = d._anim = d.animate([{ height: from + "px" }, { height: to + "px" }], { duration: open ? 240 : 180, easing: open ? "cubic-bezier(.2,.8,.2,1)" : "ease-in" });
+  const clear = () => { d.style.overflow = ""; d.style.boxSizing = ""; };
+  const end = () => { if (d._anim !== a) return; d._anim = null; clear(); if (!open) d.open = false; };
+  a.onfinish = end; a.oncancel = () => { if (d._anim === a) { d._anim = null; clear(); } };
+}
+document.addEventListener("click", (e) => {
+  const sm = e.target.closest?.("summary"), d = sm?.parentElement;
+  if (!d || d.tagName !== "DETAILS" || typeof d.animate !== "function") return;
+  if (e.target !== sm && e.target.closest("a,button,input,select,textarea,label") && sm.contains(e.target.closest("a,button,input,select,textarea,label"))) return;
+  if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+  e.preventDefault();
+  detailsAnimate(d, d._anim ? !d._want : !d.open);   // 움직이는 중에 또 누르면 반대로
+}, true);
 // ── 버튼 ────────────────────────────────────────────────
 $("btnLogin").onclick = login;
 $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-28-0050-share";
+const BUILD = "2026-10-28-0055-fold";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
