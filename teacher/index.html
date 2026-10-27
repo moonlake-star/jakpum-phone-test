@@ -75,6 +75,8 @@
   .bub .hltag, .bub .cptag { font-size:.75rem; margin-left:6px; color:var(--now); }
   .bub .cptag { color:var(--muted,#aaa); }
   .seam { margin:4px 0; text-align:center; }
+  .seamStrip { position:relative; height:8px; margin:0 9px 2px; background:var(--line); border-radius:4px; }
+  .seamStrip span { position:absolute; top:0; bottom:0; background:var(--now); border-radius:4px; }
   #btnSave.saved { background:var(--ok,#5fc27a); color:#10141a; }
   .sentrow { margin-top:8px; }
   /* 수강생 칸: 이름 머리(밝은 남회색 + 왼쪽 강조선) / 레슨 목록(카드 바탕) 구분 */
@@ -2487,6 +2489,15 @@ function bestOptions() {
 // (2026-10-27 22:12 사용자: 안 눌렀는데 ✓) 선생님이 '그 파일'을 직접 골랐을 때만 고른 것으로 봄 — 편집본을 다시 만들면 파일이 바뀌므로 다시 골라야 함
 function bestPicked() { const o = bestOptions(); return (bestPickValid() ? o[cur.review.bestPick] : o[0]) || null; } function bestPickValid() { const o = bestOptions(), k = cur.review.bestPick; return Number.isInteger(k) && k < o.length && !!cur.review.bestPickId && o[k].file_id === cur.review.bestPickId; }
 function renderBest() {
+  // 이어 붙인 자리 표시(2026-10-27 사용자): 재생바 바로 아래 노란 칸 + 시각 글자. 누르면 그 자리 1.5초 앞부터
+  function seamList(o) { return (o.seams || []).filter(z => Number.isFinite(+z.out_t)).map(z => ({ a: +z.out_t, b: +z.out_t + (+z.end_t - +z.ref_t) * (+z.speed || 1), take: z.to_take })); }
+  function seamStrip(o) {
+    const L = +o.len || 0, ss = seamList(o);
+    if (!ss.length || !L) return o.isComposite ? `<div class="muted" style="font-size:.85rem;margin:2px 0">✂ 이어 붙인 자리 없음(한 테이크 그대로)</div>` : "";
+    return `<div class="seamStrip" aria-hidden="true">${ss.map(z => `<span style="left:${(z.a / L * 100).toFixed(1)}%;width:${Math.max(1.2, (z.b - z.a) / L * 100).toFixed(1)}%"></span>`).join("")}</div>
+      <div class="row" style="gap:4px;flex-wrap:wrap;margin:2px 0"><span class="muted" style="font-size:.85rem">✂ 이어 붙인 자리 ${ss.length}곳:</span>${ss.map(z =>
+        `<button class="small ghost" data-seamt="${z.a}" style="padding:2px 8px">${fmt(z.a)}~${fmt(z.b)}</button>`).join("")}<span class="muted" style="font-size:.8rem">(다른 테이크 목소리)</span></div>`;
+  }
   const opts = bestOptions(), rv = cur.review;
   if (!cur.best) return `<div class="muted">🎵 오늘의 베스트 테이크: 아직 준비 중이에요(다음 자동 처리 때 만들어져요)</div>`;
   if (!opts.length) return `<div class="muted">🎵 오늘의 베스트 테이크: 이번 레슨에선 고를 만한 노래 구간이 없었어요 — ${esc(cur.best.why || "")}. 아래 추천 클립에서 골라 보내 주세요.</div>`;
@@ -2522,7 +2533,7 @@ function renderBest() {
     ${lost ? `<p role="status" style="margin:8px 0 0;font-size:.92rem;color:var(--warn,#f6b26b)">⚠ 전에 고르신 베스트 편집본이 지금 없어(다시 만드는 중이거나 만들지 못함) 후보 1을 보여 드려요. 보내기 전에 다시 골라 주세요.</p>` : ""}
     ${status ? `<p role="status" style="margin:8px 0 0;font-size:.92rem">${status}</p>` : ""}
     ${!o.isComposite && ["none", "error"].includes(comp?.status) && comp.why ? `<p class="muted">${esc(comp.why)}</p>` : ""}
-    ${tpHTML(true)}
+    ${o.isComposite ? tpHTML(true).replace('aria-label="재생 위치" style="width:100%">', 'aria-label="재생 위치" style="width:100%">' + seamStrip(o)) : tpHTML(true)}
     <div class="row" style="margin-top:8px"><button class="small ghost" id="bestMakeup">🪄 ${bestMakeupLabel(o)}</button></div>
     <label style="display:flex;gap:8px;align-items:center;margin-top:8px;font-size:.92rem"><input type="checkbox" id="bestSend" style="width:22px;height:22px;flex:none" ${rv.sendBest ? "checked" : ""}><span>‘클립 보내기’ 때 맨 앞에 함께 보내기</span></label></div>`;
 }
@@ -2570,6 +2581,11 @@ function wireBest() {
   };
   document.querySelectorAll(".bestAlt").forEach(b => b.onclick = () => { tpDetach(); cur.review.bestPick = +b.dataset.k; cur.review.bestPickId = bestOptions()[+b.dataset.k]?.file_id; if (typeof markDirty === "function") markDirty(); renderToday(); renderHighlights(); renderCands(); renderSegs(); const picked = bestPicked(); if (picked) tpWire($("todayCard").querySelector(".tp"), picked.file_id, true); });
   $("bestSend").onchange = (e) => { cur.review.sendBest = e.target.checked; };
+  document.querySelectorAll("#todayCard [data-seamt]").forEach(b => b.onclick = () => {
+    const t = Math.max(0, +b.dataset.seamt - 1.5);
+    if (!player.duration || !tpRoot) { toast("먼저 ▶를 눌러 편집본을 불러온 뒤 눌러 주세요"); return; }
+    player.currentTime = t; if (player.paused) { pauseOthers(player); player.play().catch(() => {}); } tpPaint();
+  });
 }
 function renderToday() {
   const rv = cur.review, goal = cur.ana?.next_goal || cur.ai?.next_goal;
