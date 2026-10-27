@@ -4,8 +4,7 @@ const src = fs.readFileSync(__dirname + "/../teacher/index.html", "utf8");
 const a = src.indexOf("const player = new Audio()"), b = src.indexOf("function speakerName(");
 assert.ok(a > 0 && b > a);
 const body = src.slice(a, b);
-const qa = src.indexOf('$("btnPlayAll").onclick');
-const queueSrc = src.slice(qa, src.indexOf("</script>", qa)).replace('$("btnPlayAll").onclick =', "const run =");
+const queueSrc = "";   // 이어 듣기는 2026-10-27부터 전사 플레이어(하이라이트)로 → tests/chime.test.js
 
 function makeEnv() {
   const log = [], blobs = {}, timers = [];
@@ -39,7 +38,7 @@ function makeEnv() {
   const button = { textContent: "" };
   const factory = new Function("Audio", "document", "URL", "readBlob", "toast", "fmt", "cur", "setTimeout", "clearTimeout", "full",
     "playChime", "sendList", "$", "chimeCtx",
-    "let queueStop = null;\n" + body + queueSrc + "\nreturn { player, playShared, tpWire, tpDetach, runQueue: run, stopQueue: () => queueStop && queueStop() };");
+    body + queueSrc + "\nreturn { player, playShared, tpWire, tpDetach };");
   const api = factory(FakeAudio, doc, URLm, readBlob, (m) => toasts.push(m), (x) => String(x), cur, setTimeoutM, (t) => { if (t) t.dead = true; }, full,
     async () => {}, () => [{ id: "c1" }], () => button, null);
   return { api, log, blobs, mkRoot, toasts, timers, flush: () => new Promise(r => setImmediate(r)) };
@@ -80,9 +79,5 @@ const btn = () => ({ isConnected: true, textContent: "▶", dataset: { label: "�
     e.blobs.S.res("S"); await e.flush(); e.blobs.A.res("A"); await e.flush();
     assert.ok(!e.log.includes("play:blob:S"), "교대 후 이전 재생이 살아남음");
     assert.ok(e.log.includes("play:blob:A")); }
-  // 6) 이어 듣기 큐: 클립을 받는 중에 정지(또는 다른 재생이 가져가면) 늦게 도착한 클립이 재생되면 안 됨
-  { const e = makeEnv();
-    e.api.runQueue(); await e.flush(); e.api.stopQueue(); e.blobs.F1.res("x"); await e.flush(); await e.flush();
-    assert.ok(!e.log.some(x => x.startsWith("play")), "정지한 뒤에도 이어 듣기가 재생됨"); }
-  console.log("player-race ok (6 scenarios)");
+  console.log("player-race ok (5 scenarios)");
 })().catch(err => { console.error(err); process.exit(1); });

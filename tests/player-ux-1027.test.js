@@ -10,5 +10,5 @@ assert.ok(!tpHTML(true, false).includes("tpTime"));                           //
 const card = src.match(/<button class="small ghost" data-tpopen=[\s\S]*?\$\{mkButton\(c\.id\)\}/)[0];
 assert.ok(/data-tpopen[\s\S]*tpTimeMid[\s\S]*mkButton/.test(card), "시간이 듣기와 메이크업 사이");
 assert.ok(/\.tpslot \{[^}]*transition:max-height/.test(src) && /\.tpslot\.open \{/.test(src), "펼침 애니메이션");
-assert.ok(/id="queueSlot"/.test(src) && /이어 듣기에도 재생 바/.test(src), "이어 듣기 재생바");
+assert.ok(["prev", "-5", "+5", "next"].every(k => src.includes(`data-mini="${k}"`)) && /id="miniSeek"/.test(src), "이어 듣기도 아래 고정 플레이어(⏮ -5 ▶ +5 ⏭ + 재생바)");
 console.log("player-ux-1027 ok");
