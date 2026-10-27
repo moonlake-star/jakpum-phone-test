@@ -75,6 +75,7 @@
   .bub .hltag, .bub .cptag { font-size:.75rem; margin-left:6px; color:var(--now); }
   .bub .cptag { color:var(--muted,#aaa); }
   .seam { margin:4px 0; text-align:center; }
+  #btnSave.saved { background:var(--ok,#5fc27a); color:#10141a; }
   .sentrow { margin-top:8px; }
   /* 수강생 칸: 이름 머리(밝은 남회색 + 왼쪽 강조선) / 레슨 목록(카드 바탕) 구분 */
   .stuCard { padding:0; overflow:hidden; }
@@ -2446,6 +2447,7 @@ async function openLesson(sid, i, backTo) {
   $("ckCard").classList.toggle("hidden", !cfg.practice_check);
   renderSent();
   renderToday(); renderSpkState(ai);
+  if (typeof paintSaved === "function") paintSaved(review.reviewed_at ? new Date(review.reviewed_at) : null);
   $("btnSpeakerEdit").onclick = () => {
     $("spkCard").classList.remove("hidden");
     $("spkWrap").open = true;
@@ -2482,14 +2484,16 @@ function bestOptions() {
 }
 // 고른 번호(0부터). 편집본 항목은 bestOptions()가 부를 때마다 새로 만들어져 indexOf로는 못 찾음 → 번호로만 판단(2026-10-27 '눌림 표시 안 됨' 수정)
 // 고른 번호가 지금 목록에 없으면(예: 편집본이 다시 만들어지는 중이라 빠짐) 다른 후보로 조용히 바꾸지 않고 후보 1로(2026-10-27 감사)
-function bestPicked() { const o = bestOptions(), k = cur.review.bestPick || 0; return o[k < o.length ? k : 0] || null; }
+// (2026-10-27 22:12 사용자: 안 눌렀는데 ✓) 선생님이 '그 파일'을 직접 골랐을 때만 고른 것으로 봄 — 편집본을 다시 만들면 파일이 바뀌므로 다시 골라야 함
+function bestPicked() { const o = bestOptions(); return (bestPickValid() ? o[cur.review.bestPick] : o[0]) || null; } function bestPickValid() { const o = bestOptions(), k = cur.review.bestPick; return Number.isInteger(k) && k < o.length && !!cur.review.bestPickId && o[k].file_id === cur.review.bestPickId; }
 function renderBest() {
   const opts = bestOptions(), rv = cur.review;
   if (!cur.best) return `<div class="muted">🎵 오늘의 베스트 테이크: 아직 준비 중이에요(다음 자동 처리 때 만들어져요)</div>`;
   if (!opts.length) return `<div class="muted">🎵 오늘의 베스트 테이크: 이번 레슨에선 고를 만한 노래 구간이 없었어요 — ${esc(cur.best.why || "")}. 아래 추천 클립에서 골라 보내 주세요.</div>`;
   rv.sendBest ??= true;
-  const want = rv.bestPick || 0, i = want < opts.length ? want : 0, o = opts[i];
-  const lost = want >= opts.length;   // 고른 후보(편집본)가 지금 없음 → 안내
+  const valid = bestPickValid(), i = valid ? (rv.bestPick || 0) : 0, o = opts[i];
+  const lost = !valid && Number.isInteger(rv.bestPick) && rv.bestPick >= opts.length;   // 고른 후보(편집본)가 지금 없음 → 안내
+  const stale = !valid && Number.isInteger(rv.bestPick) && !lost;                        // 고른 뒤 그 파일이 새로 만들어짐(예: 편집본 재생성)
   const comp = cur.best.composite;
   const status = o.isComposite
     ? (/^v[67]/.test(o.method || "") && o.mr_aligned === true
@@ -2513,7 +2517,8 @@ function renderBest() {
         : `테이크 ${o.takes_used}개에서 가져와 ${(o.seams || []).length}곳을 이은 편집본 · 기준 테이크 박자 그대로`)
         : `여러 테이크에서 줄마다 가장 좋은 구절 ${o.lines?.length || ""}개를 이어 붙인 편집본(테이크 ${o.takes_used || "?"}개) · 이음새에서 박자가 조금 어긋날 수 있어요`)
       : `선생님 칭찬 “${esc((o.praise?.text || "").slice(0, 16))}” (${fmt(o.praise?.t || 0)}) 바로 앞에 이어 부른 실제 테이크(편집·보정 없음)`}</div>
-    <div class="row" style="margin-top:6px">${opts.length > 1 ? opts.map((x, k) => `<button class="small ghost bestAlt ${k === i ? "on" : ""}" aria-pressed="${k === i}" data-k="${k}">${k === i ? "✓ " : ""}${x.isComposite ? "베스트 편집본" : "후보 " + (k + 1)}</button>`).join("") : ""}</div>
+    <div class="row" style="margin-top:6px">${opts.length > 1 ? opts.map((x, k) => `<button class="small ghost bestAlt ${valid && k === i ? "on" : ""}" aria-pressed="${valid && k === i}" data-k="${k}">${valid && k === i ? "✓ " : ""}${x.isComposite ? "베스트 편집본" : "후보 " + (k + 1)}</button>`).join("") : ""}</div>
+    ${!valid && opts.length > 1 ? `<p role="status" style="margin:8px 0 0;font-size:.92rem;color:var(--warn,#f6b26b)">${stale ? "⚠ 고르신 뒤 편집본이 새로 만들어졌어요 — 들어보고 다시 골라 주세요." : lost ? "" : "아직 고르지 않았어요 — 들어보고 보낼 것을 눌러 골라 주세요(지금은 후보 1을 들려 드려요)."}</p>` : ""}
     ${lost ? `<p role="status" style="margin:8px 0 0;font-size:.92rem;color:var(--warn,#f6b26b)">⚠ 전에 고르신 베스트 편집본이 지금 없어(다시 만드는 중이거나 만들지 못함) 후보 1을 보여 드려요. 보내기 전에 다시 골라 주세요.</p>` : ""}
     ${status ? `<p role="status" style="margin:8px 0 0;font-size:.92rem">${status}</p>` : ""}
     ${!o.isComposite && ["none", "error"].includes(comp?.status) && comp.why ? `<p class="muted">${esc(comp.why)}</p>` : ""}
@@ -2563,7 +2568,7 @@ function wireBest() {
     const job = bestMakeupJob(o);
     return job ? openMkJob(job, back) : makeupFromBest(o, back);
   };
-  document.querySelectorAll(".bestAlt").forEach(b => b.onclick = () => { tpDetach(); cur.review.bestPick = +b.dataset.k; renderToday(); renderHighlights(); renderCands(); renderSegs(); const picked = bestPicked(); if (picked) tpWire($("todayCard").querySelector(".tp"), picked.file_id, true); });
+  document.querySelectorAll(".bestAlt").forEach(b => b.onclick = () => { tpDetach(); cur.review.bestPick = +b.dataset.k; cur.review.bestPickId = bestOptions()[+b.dataset.k]?.file_id; if (typeof markDirty === "function") markDirty(); renderToday(); renderHighlights(); renderCands(); renderSegs(); const picked = bestPicked(); if (picked) tpWire($("todayCard").querySelector(".tp"), picked.file_id, true); });
   $("bestSend").onchange = (e) => { cur.review.sendBest = e.target.checked; };
 }
 function renderToday() {
@@ -3059,7 +3064,7 @@ function wireStab(root) {
     playAt(Math.max(0, a - 1.5), true, false).catch(x => toast(x.message));   // 화면 이동 없음
   });
   root.querySelectorAll("[data-stabfb]").forEach(b => b.onclick = () => {
-    (cur.review.stab_fb ??= {})[b.dataset.stabfb] = b.dataset.v === "1";
+    (cur.review.stab_fb ??= {})[b.dataset.stabfb] = b.dataset.v === "1"; if (typeof markDirty === "function") markDirty();
     renderHighlights(); toast("‘검수 저장’을 누르면 기록돼요 — AI 기준을 맞추는 데 써요");
   });
 }
@@ -3294,7 +3299,8 @@ $("btnShare").onclick = async () => {
   const ids = sent.map(c => cur.clips.find(f => f.name.startsWith(c.id))).filter(Boolean);
   for (const p of (cur.pairs || []).filter(p => (cur.review.pairSend || []).includes(p.id) && p.file_id)) ids.push({ id: p.file_id, name: `지도전후_비교_${p.id}.mp3` });
   const bp = bestPicked();
-  if (bp && cur.review.sendBest !== false && (cur.review.bestPick || 0) < bestOptions().length) ids.unshift({ id: bp.file_id, name: bp.isComposite ? "오늘의 베스트 가창(편집본).mp3" : "오늘의 베스트 가창.mp3" });
+  if (bp && cur.review.sendBest !== false && !bestPickValid() && bestOptions().length > 1) toast("오늘의 베스트를 아직 안 골라서 함께 보내지 않았어요");
+  if (bp && cur.review.sendBest !== false && (bestPickValid() || bestOptions().length === 1)) ids.unshift({ id: bp.file_id, name: bp.isComposite ? "오늘의 베스트 가창(편집본).mp3" : "오늘의 베스트 가창.mp3" });
   if (!ids.length) return toast("‘보냄’으로 고른 클립이 없어요");
   try { if (await shareClips(ids)) await markSent("feedback"); } catch (e) { toast(e.message); }
 };
@@ -3322,11 +3328,19 @@ async function saveReview(quiet = false) {
     const needClip = (me.review.manual || []).some(m => !me.clips.find(f => f.name.startsWith(m.id)));
     if (needClip) kick();
     if (!quiet && cur === me) $("saveMsg").textContent = "저장했어요. " + (needClip ? "직접 추가한 구간은 1~3분 안에 클립으로 만들어집니다." : "");
+    if (cur === me && typeof paintSaved === "function") paintSaved(new Date());
     toast(quiet ? "검수 내용 저장됨" : "저장됨");
     return true;
   } catch (e) { toast(e.message); return false; }
 }
-$("btnSave").onclick = () => saveReview();
+// 검수 저장 눌림 표시(2026-10-27 사용자): 저장되면 ✓ + 시각, 뭔가 바꾸면 다시 '검수 저장'
+function paintSaved(at) { const b = $("btnSave"); if (!b) return;
+  if (at) { b.textContent = `✓ 저장됨 ${String(at.getHours()).padStart(2, "0")}:${String(at.getMinutes()).padStart(2, "0")}`; b.classList.add("saved"); }
+  else { b.textContent = "검수 저장"; b.classList.remove("saved"); } }
+function markDirty() { paintSaved(null); }
+document.addEventListener("input", (e) => { if (e.target.closest?.("#vLesson")) markDirty(); }, true);
+document.addEventListener("change", (e) => { if (e.target.closest?.("#vLesson")) markDirty(); }, true);
+$("btnSave").onclick = async () => { const b = $("btnSave"); b.disabled = true; b.textContent = "저장 중…"; const ok = await saveReview(); b.disabled = false; if (!ok) paintSaved(null); };
 $("btnFbRegen").onclick = () => { if ($("fb").value.trim() && !confirm("지금 문구를 고른 클립·포인트 기준으로 새로 쓸까요? (고친 내용은 사라져요)")) return; updateFeedbackDraft(draftFeedback()); };
 // 클립 사이 구분음: 맑은 3음 상승 차임(E6·G#6·B6, 약 0.55초, 보컬보다 작게). 직접 합성 → 저작권 문제 없음.
 // 이어 듣기에서 클립과 클립 '사이'에만. 원본·개별 클립·베스트 테이크 편집에는 넣지 않음
