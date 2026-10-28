@@ -259,7 +259,7 @@
       <div class="row" style="margin:4px 0;flex-wrap:nowrap"><button class="small ghost" id="btnPlayAll">▶ 고른 하이라이트 이어 듣기</button></div>
       <div id="hls"></div>
       <button class="small ghost hidden" id="hlMore" aria-expanded="false" style="width:100%;margin-top:6px"></button>
-      <details id="candMore" style="margin-top:8px"><summary class="muted" id="candMoreSum">다른 후보 (필요할 때만)</summary>
+      <details id="candMore" style="margin-top:8px"><summary class="muted" id="candMoreSum">다른 후보</summary>
       <div id="cands"></div>
       <details style="margin-top:8px"><summary>구간 직접 추가</summary>
         <div class="row" style="margin-top:6px">
@@ -3735,10 +3735,13 @@ function renderHighlights() {
     </div>`;
   }).join("") || `<p class="muted">선생님 칭찬 바로 앞 노래 구간을 찾지 못했어요 — 아래 ‘다른 후보’에서 골라 주세요.</p>`;
   const hs = $("hls"), more = $("hlMore");
-  if (more) {   // 처음엔 1개만(10/28 사용자: 페이지를 많이 차지함) — 펼치면 최대 5개
+  if (more) {   // 처음엔 1개만(10/28 사용자: 페이지를 많이 차지함) — 펼치면 나머지 하이라이트 + 바로 아래 '다른 후보'(10/28 23:46 사용자)
+    const cm = $("candMore"); if (cm && cm.nextElementSibling !== more) cm.after(more);   // 버튼은 맨 아래(접기도 아래에서)
     const extra = hlList.length - 1, sentHidden = hlList.slice(1).filter(h => rv.decisions[h.cand] === "send").length;
-    more.classList.toggle("hidden", extra < 1); more.setAttribute("aria-expanded", cur.hlOpen ? "true" : "false");
-    more.textContent = cur.hlOpen ? "▴ 접기" : `▾ 하이라이트 ${extra}개 더 보기${sentHidden ? ` (포함 ${sentHidden}개)` : ""}`;
+    const others = allCands().filter(c => !hlList.some(h => h.cand === c.id)).length;
+    if (cm) { cm.classList.toggle("hidden", !cur.hlOpen); if (cur.hlOpen && !cm._opened) { cm.open = true; cm._opened = true; } }
+    more.classList.toggle("hidden", extra < 1 && others < 1); more.setAttribute("aria-expanded", cur.hlOpen ? "true" : "false");
+    more.textContent = cur.hlOpen ? "▴ 접기" : `▾ ${[extra > 0 ? `하이라이트 ${extra}개` : "", others > 0 ? `다른 후보 ${others}개` : ""].filter(Boolean).join(" · ")} 더 보기${sentHidden ? ` (포함 ${sentHidden}개)` : ""}`;
     more.onclick = () => { cur.hlOpen = !cur.hlOpen; renderHighlights(); };
   }
   hs.querySelectorAll("[data-hlplay]").forEach(b => b.onclick = () => { hlQueueStop(); hlGo(+b.dataset.hlplay); });
@@ -3842,7 +3845,7 @@ function mkButton(cid) {
 }
 function renderCands() {
   const list = allCands().filter(c => !hlList.some(h => h.cand === c.id));   // 하이라이트에 나온 후보는 위에만
-  if ($("candMoreSum")) $("candMoreSum").textContent = `다른 후보 ${list.length}개 (필요할 때만)`;
+  if ($("candMoreSum")) $("candMoreSum").textContent = `다른 후보 ${list.length}개`;
   $("cands").innerHTML = list.map(c => {
     const d = cur.review.decisions[c.id] || "";
     const clip = cur.clips.find(f => f.name.startsWith(c.id));
@@ -4038,7 +4041,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-28-2350-anim";
+const BUILD = "2026-10-28-2355-more";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
