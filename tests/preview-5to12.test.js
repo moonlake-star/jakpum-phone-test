@@ -34,7 +34,8 @@ function mk(saveOk = true) {
   assert(h0.includes('수강생 화면으로 보기') && h0.includes('btnPreviewCancel') && h0.includes('btnPreviewSave'));
   // 2) 터치(포커스/포인터) → 12줄, 입력해도 DOM 교체 없음(커서·한글 조합 보호), 값 그대로
   const e = mk(); e.f.wireFeedbackPreview(e.cur); const fld = e.els.previewFeedback;
-  fld.onpointerdown(); assert.equal(fld.style.height, '306px'); assert.equal(fld.dataset.open, '1'); assert.equal(e.cur.sched.pvBase, '저장된 글');
+  assert.equal(fld.onpointerdown, null, '손가락 대는 순간(스크롤 시작)엔 펼치지 않음 — 10/29');
+  fld.onfocus(); assert.equal(fld.style.height, '306px'); assert.equal(fld.dataset.open, '1'); assert.equal(e.cur.sched.pvBase, '저장된 글');
   fld.value = '고친 글\n둘째 줄'; fld.oninput(); assert.equal(e.paints, 0); assert.equal(fld.value, '고친 글\n둘째 줄'); assert.equal(fld.style.height, '306px');
   fld.onfocus(); assert.equal(e.cur.sched.pvBase, '저장된 글', '재포커스해도 되돌릴 기준 글은 그대로');
   // 3) 저장 성공 → 접힘 상태로 다시 그림, 고친 글 유지, 기준 초기화
