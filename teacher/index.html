@@ -1354,10 +1354,9 @@ function pvHold(el) {
     clearTimeout(h.t); const was = h.on, moved = h.moved; h = null; el.classList.remove("pvHolding");
     if (!was) return;
     e?.preventDefault?.();                      // 길게 누른 뒤 손 뗌: 브라우저 기본(글자 선택·메뉴) 막음
-    if (moved) {                                // 칸 안에서 넘겼으면 펼치지 않고 원래 크기·처음 위치로 돌아감
-      el.style.height = pvFit(el, PV_ROWS.closed) + "px";
-      try { el.scrollTo({ top: 0, behavior: "smooth" }); } catch { el.scrollTop = 0; }
-      setTimeout(() => pvMore(el), 300);
+    if (moved) {                                // 칸 안에서 넘겼으면 펼치지 않고 원래 크기로 — 보던 위치는 그대로(10/29 08:58 사용자: 맨 위로 돌아가면 NG)
+      const top = el.scrollTop; el.style.height = pvFit(el, PV_ROWS.closed) + "px"; el.scrollTop = top;
+      setTimeout(() => { el.scrollTop = top; pvMore(el); }, 300);
     }
     else { openNoSel(); el._pvNoSel = "up"; }   // 움직이지 않고 길게 눌렀다 떼면 = 수정 모드(선택 없이)
   };
@@ -4256,7 +4255,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-29-0910-holdgrow";
+const BUILD = "2026-10-29-0915-holdkeep";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
