@@ -122,6 +122,13 @@
   audio { width:100%; margin:6px 0; }
   select, input, textarea { font:inherit; border-radius:10px; border:1px solid var(--line); background:var(--bg); color:var(--fg); padding:6px 8px; }
   textarea { width:100%; min-height:160px; }
+  /* 수강생 미리보기 글칸(#147): 접힘 5줄 ↔ 펼침 12줄, 250ms. 줄높이 24px·패딩 8px·테두리 1px 고정 → JS 높이 계산(pvH)과 일치 */
+  #previewFeedback { box-sizing:border-box; min-height:0; line-height:24px; padding:8px; border-width:1px; overflow-y:auto; resize:none; transition:height 250ms ease; }
+  @media (prefers-reduced-motion: reduce) { #previewFeedback { transition:none; } }
+  #pvFull { position:fixed; inset:0; z-index:90; background:var(--bg); color:var(--fg); overflow-y:auto; padding:16px; }
+  #pvFull .moment { border:2px solid var(--accent, #9cc3ff); } #pvFull .big { font-size:1.25rem; line-height:1.55; margin:6px 0 0; font-weight:600; }
+  #pvFull .pre { white-space:pre-wrap; line-height:1.6; } #pvFull .ab { display:grid; grid-template-columns:1fr 1fr; gap:8px; } #pvFull .clip { margin:10px 0; }
+  #pvFull .play { min-height:52px; display:flex; align-items:center; gap:6px; opacity:.7; border:1px dashed var(--line); border-radius:14px; padding:0 14px; }
   input.time { width:5.5em; }
   .seg-list { max-height:50vh; overflow:auto; }
   #toast { position:fixed; left:50%; bottom:16px; transform:translateX(-50%); background:var(--fg); color:var(--bg); padding:8px 14px; border-radius:10px; display:none; max-width:90vw; }
@@ -1025,24 +1032,100 @@ function updateFeedbackDraft(value, fromPreview = false) {
   const status = $("previewSaveMsg"); if (status) status.textContent = "수정 중 · ‘검수 저장’을 누르면 수강생 노트에 반영돼요";
   if (!fromPreview) paintDeliver();
 }
-function feedbackPreviewHTML(note, rv, disabled) {
+// 수강생 미리보기 글칸 높이: 접힘 5줄 / 펼침 12줄 (CSS: 줄높이 24px + 위아래 패딩 16px + 테두리 2px)
+const PV_ROWS = { closed: 5, open: 12 }, PV_MS = 250;
+const pvH = (rows) => rows * 24 + 18;
+function pvSetOpen(field, open) {
+  if (!field || !field.style) return;
+  field.style.height = pvH(open ? PV_ROWS.open : PV_ROWS.closed) + "px";   // 전환 시간은 CSS(transition) — 동작 줄이기 설정이면 CSS가 0ms
+  field.dataset && (field.dataset.open = open ? "1" : "0");
+  const t = typeof document !== "undefined" && document.getElementById ? document.getElementById("btnPreviewToggle") : null;
+  if (t) { t.setAttribute("aria-expanded", open ? "true" : "false"); t.textContent = open ? "접기 (5줄)" : "펼치기 (12줄)"; }
+}
+function feedbackPreviewHTML(note, rv, disabled, open = false) {
   return `<div style="margin-top:6px"><label for="previewFeedback"><b>수강생에게 보이는 내용 미리보기 · 눌러서 수정</b></label>
-    <textarea id="previewFeedback" aria-label="수강생 피드백 미리보기 수정" rows="6" style="width:100%;min-height:150px;max-height:320px;margin:4px 0"${disabled}>${esc(note.feedback)}</textarea>
-    <button type="button" class="small ghost" id="btnPreviewSave"${disabled}>수정 내용 저장</button>
+    <textarea id="previewFeedback" aria-label="수강생 피드백 미리보기 수정" rows="${open ? PV_ROWS.open : PV_ROWS.closed}" style="height:${pvH(open ? PV_ROWS.open : PV_ROWS.closed)}px;margin:4px 0"${disabled}>${esc(note.feedback)}</textarea>
+    <div class="row"><button type="button" class="small" id="btnPreviewSave"${disabled}>수정 내용 저장</button>
+      <button type="button" class="small ghost" id="btnPreviewCancel"${disabled}>되돌리기</button>
+      <button type="button" class="small ghost" id="btnPreviewToggle" aria-controls="previewFeedback" aria-expanded="${open}">${open ? "접기 (5줄)" : "펼치기 (12줄)"}</button>
+      <button type="button" class="small ghost" id="btnPreviewFull">🔍 전체 화면 보기</button></div>
     <p class="muted" id="previewSaveMsg" role="status" style="margin:4px 0">고친 문구는 선생님 글투를 익히는 데도 참고해요. ‘이번 주 연습’을 고치면 미션도 같이 바뀌어요.</p>
     <b>이번 주 미션</b> ${missionState(rv) === "none" ? `<span class="chip">미션 없음(선생님이 선택)</span>` : missionState(rv) === "unset" ? `<span class="chip todo">미설정</span>`
       : note.practice.map(x => `<div>· ${esc(x)}</div>`).join("")}</div>`;
 }
+// 전체 화면 보기: student/index.html의 lessonHtml()과 같은 카드·순서·노출 조건으로 그린 읽기 전용 화면(시험이 두 출력을 가짜 노트로 비교).
+// 다른 점 2가지: ① 재생 버튼은 소리를 내지 않는 자리표시(오디오 요소·Drive 주소 없음) ② 지난번 비교(prev)는 이 화면에 없음.
+// 수강생 사이트가 바뀌면 tests/preview-5to12.test.js의 '학생 화면 일치' 시험이 실패해 이 함수를 같이 고치게 한다.
+const SV_MAX_CLIPS = 3;
+const svMd = (d) => d ? `${+d.slice(5, 7)}월 ${+d.slice(8, 10)}일` : "";
+const svList = (a) => `<ul>${a.map(x => `<li>${esc(x)}</li>`).join("")}</ul>`;
+const svPlayer = (id, label) => `<div class="play" aria-disabled="true">▶ ${esc(label)} <span class="muted">(미리보기라 재생 안 해요)</span></div>`;
+const svSidOk = (x) => typeof x === "string" && x.trim() !== "";
+const svMakeupOk = (m, best) => !!m && svSidOk(m.file_id) && svSidOk(m.source_file_id) && m.file_id !== best?.file_id && (!best?.file_id || m.source_file_id === best.file_id);   // 학생 화면 makeupOk와 동일 규칙
+function svLessonHtml(l, prev) {
+  const has = (x) => typeof x === "string" && x.trim() !== "";
+  const moment = has(l.highlight) ? l.highlight.trim() : "";
+  const practice = (l.practice || []).filter(has), points = (l.points || []).filter(has);
+  const clips = (l.clips || []).filter(c => c?.file_id).slice(0, SV_MAX_CLIPS);
+  const extras = (l.extra_best || []).filter(x => x?.file_id);
+  const compare = l.best?.file_id && prev?.best?.file_id;
+  const more = [
+    compare ? `<h3>🔁 지난번과 비교해 듣기</h3><p class="muted">${svMd(prev.date)} 베스트 ↔ ${svMd(l.date)} 베스트</p>
+      <div class="ab"><div>${svPlayer(prev.best.file_id, svMd(prev.date))}</div><div>${svPlayer(l.best.file_id + "#b", svMd(l.date))}</div></div>` : "",
+    clips.length ? `<h3>🎧 오늘의 클립</h3>${clips.map(c => `<div class="clip">${has(c.note) ? `<div>${esc(c.note)}</div>` : ""}${svPlayer(c.file_id, c.label || "듣기")}</div>`).join("")}` : "",
+    extras.length ? `<h3>🎵 다른 버전</h3>${extras.map(x => svPlayer(x.file_id, x.kind_ko || "듣기")).join("")}` : "",
+    points.length ? `<h3>오늘 짚어 본 것</h3>${svList(points)}` : "",
+    practice.length > 1 ? `<h3>연습 더 보기</h3>${svList(practice.slice(1))}` : "",
+  ].filter(Boolean).join("");
+  return `<h2 style="margin:14px 0 4px">${svMd(l.date)} 레슨</h2>
+    ${moment ? `<div class="card moment" role="region" aria-label="선생님이 발견한 오늘의 순간"><div class="muted">🔎 선생님이 발견한 오늘의 순간</div><p class="big">${esc(moment)}</p></div>` : ""}
+    ${l.best?.file_id ? `<div class="card"><p class="muted" style="margin:0 0 8px">${l.best.edited ? "여러 번 부른 것 중 좋은 부분을 이어 붙였어요" : "오늘 부른 가창이에요"}${l.best.len ? ` · ${l.best.len}초` : ""}</p>${svPlayer(l.best.file_id, "듣기")}</div>` : ""}
+    ${svMakeupOk(l.makeup, l.best) ? `<div class="card makeup"><p class="muted" style="margin:0 0 8px">✨ 보컬 메이크업 버전이에요 (선생님이 골라 보낸 것)${l.makeup.len ? ` · ${l.makeup.len}초` : ""}</p>${svPlayer(l.makeup.file_id + "#m", "메이크업 듣기")}</div>` : ""}
+    ${has(l.feedback) ? `<div class="card"><h2>💬 선생님 한마디</h2><div class="pre">${esc(l.feedback)}</div></div>` : ""}
+    ${practice.length ? `<div class="card"><h2>📝 이번 주 한 가지</h2><p style="margin:0">${esc(practice[0])}</p></div>` : ""}
+    ${more ? `<details class="card more"><summary>더 들여다보기</summary>${more}</details>` : ""}`;
+}
+function studentViewHTML(note) {
+  return `<div role="dialog" aria-modal="true" aria-label="수강생 화면 미리보기(읽기 전용)">
+    <div class="row" style="justify-content:space-between"><b>👀 수강생에게 이렇게 보여요</b><button type="button" class="small" id="pvFullClose">닫기</button></div>
+    <p class="muted">읽기 전용 · 저장 전 초안이에요. 오디오는 재생되지 않고, 수강생에게는 승인·공개한 뒤에만 보여요. 지난번 비교 카드는 여기 없어요.</p>
+    <div id="pvFullBody">${svLessonHtml(note, null)}</div></div>`;
+}
+function openStudentView() {
+  closeStudentView();
+  const d = document.createElement("div"); d.id = "pvFull"; d.innerHTML = studentViewHTML(buildNote());
+  document.body.appendChild(d);
+  const close = d.querySelector("#pvFullClose"); close.onclick = closeStudentView; close.focus();
+  d._esc = (e) => { if (e.key === "Escape") closeStudentView(); }; document.addEventListener("keydown", d._esc);
+}
+function closeStudentView() {
+  const d = document.getElementById("pvFull"); if (!d) return;
+  document.removeEventListener("keydown", d._esc); d.remove();
+}
 function wireFeedbackPreview(me) {
   const field = $("previewFeedback"), button = $("btnPreviewSave");
   if (!field || !button) return;
-  field.oninput = () => { if (cur === me) updateFeedbackDraft(field.value, true); };
+  const sc = () => (me.sched ??= { busy: false, pick: {} });
+  const setOpen = (open) => { sc().pvExpanded = open; pvSetOpen(field, open); };
+  const expand = () => { if (cur !== me || sc().pvExpanded) return; sc().pvBase ??= me.review.feedback ?? ""; setOpen(true); };   // 터치(포커스)하면 12줄. 커서·선택 위치는 건드리지 않음
+  field.onfocus = expand; field.onpointerdown = expand;
+  field.oninput = () => { if (cur === me) { expand(); updateFeedbackDraft(field.value, true); } };
   field.onchange = () => { if (cur === me && !me.sched?.busy) { me.sched.pvOpen = true; paintDeliver(); } };   // 다 고치고 나오면 미션 칸·경고를 새로 보여 줌
+  const tg = $("btnPreviewToggle"), cancel = $("btnPreviewCancel"), full = $("btnPreviewFull");
+  if (tg) tg.onclick = () => { if (cur === me) { if (!sc().pvExpanded) sc().pvBase ??= me.review.feedback ?? ""; setOpen(!sc().pvExpanded); } };
+  if (full) full.onclick = () => { if (cur === me) openStudentView(); };
+  if (cancel) cancel.onclick = () => {   // 저장하지 않은 고침을 마지막 저장본(또는 펼치기 전 글)으로 되돌리고 접음
+    if (cur !== me || me.sched?.busy) return;
+    if (sc().pvBase !== undefined) { field.value = sc().pvBase; updateFeedbackDraft(sc().pvBase, true); }
+    sc().pvBase = undefined; setOpen(false);
+    const msg = $("previewSaveMsg"); if (msg) msg.textContent = "저장하지 않은 고침을 되돌렸어요.";
+  };
   button.onclick = async () => {
     if (cur !== me || me.sched?.busy || button.disabled) return;
     button.disabled = true; field.disabled = true;
     const saved = await saveReview(true);
     if (cur !== me) return;
+    if (saved) { sc().pvBase = undefined; sc().pvExpanded = false; }   // 저장되면 5줄로 접힘(고친 글은 그대로)
     paintDeliver();
     const msg = $("previewSaveMsg");
     if (msg) msg.textContent = saved ? "고친 문구를 저장했어요. ‘검수 저장’을 누르면 수강생 노트에 반영돼요." : "저장하지 못했어요. 수정 내용은 이 화면에 남아 있으니 다시 저장해 주세요.";
@@ -1059,7 +1142,7 @@ function paintDeliver() {
   const rv = me.review, note = buildNote(), sig = contentSig(note), st = schedStatus({ caps: s.caps, srv: s.entry, sigNow: sig, approvedSig: rv.approved_sig });
   const chipCls = { published: "ok", scheduled: "ok" }[st] || (st === "draft" || st === "unknown" || st === "unsupported" ? "todo" : "");
   const sentAt = rv.kakao_sent_at, dis = s.busy ? " disabled" : "";
-  const preview = `<details id="pvWrap" style="margin:6px 0"${s.pvOpen ? " open" : ""}><summary><b>수강생에게 보이는 내용</b> <span class="muted">보기·고치기</span></summary>${feedbackPreviewHTML(note, rv, dis)}</details>`;   // 길어서 접어 둠(2026-10-27 사용자: 정보가 너무 많음)
+  const preview = `<details id="pvWrap" style="margin:6px 0"${s.pvOpen ? " open" : ""}><summary><b>수강생에게 보이는 내용</b> <span class="muted">보기·고치기</span></summary>${feedbackPreviewHTML(note, rv, dis, !!s.pvExpanded)}</details>`;   // 길어서 접어 둠(2026-10-27 사용자: 정보가 너무 많음)
   const kakaoBlock = !me.note ? "" : `<div style="margin-top:10px;border-top:1px solid #8884;padding-top:8px"><b>💬 카톡 안내</b>
       <span class="chip ${sentAt ? "ok" : "todo"}">${sentAt ? "카톡 보냄 " + esc(fmtVisible(sentAt).kst) : "카톡 아직 안 보냄"}</span> <span id="seenChip" class="chip">아직 안 읽음</span>
       <textarea id="kakaoMsg" style="min-height:90px">${esc(me.kakao || "")}</textarea>
@@ -3638,7 +3721,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-28-0055-fold";
+const BUILD = "2026-10-28-pv5to12-full";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
