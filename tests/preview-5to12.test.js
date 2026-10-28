@@ -2,7 +2,7 @@
 const fs = require('fs'), assert = require('assert');
 const src = fs.readFileSync(__dirname + '/../teacher/index.html', 'utf8');
 const grab = name => src.match(new RegExp('(?:async )?function '+name+'\\([^]*?\\n}\\n'))[0];
-const consts = ['PV_ROWS','pvH','SV_MAX_CLIPS','svMd','svList','svPlayer'].map(n => src.match(new RegExp('const ' + n + '[^\\n]*\\n'))[0]).join('');
+const consts = ['PV_ROWS','pvH','SV_MAX_CLIPS','svMd','svList','svPlayer','svSidOk','svMakeupOk'].map(n => src.match(new RegExp('const ' + n + '[^\\n]*\\n'))[0]).join('');
 const code = consts + ['pvSetOpen','openStudentView','closeStudentView','studentViewHTML','svLessonHtml','updateFeedbackDraft','feedbackPreviewHTML','wireFeedbackPreview'].map(grab).join('\n');
 const esc = x => String(x).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
 function mk(saveOk = true) {
@@ -72,7 +72,7 @@ function mk(saveOk = true) {
   const ssrc = fs.readFileSync(__dirname + '/../student/index.html', 'utf8');
   const sGrab = n => ssrc.match(new RegExp('function ' + n + '\\([^]*?\\n}\\n'))[0];
   const sMd = ssrc.match(/const md = [^\n]*\n/)[0], sList = ssrc.match(/const listHtml = [^\n]*\n/)[0], sMax = ssrc.match(/const MAX_CLIPS[^\n]*\n/)[0];
-  const stuLesson = new Function('esc', 'player', sMd + sList + sMax + sGrab('lessonHtml').replace('<button class="ghost" id="back">← 전체 노트</button>', '') + ';return lessonHtml;')(
+  const stuLesson = new Function('esc', 'player', sMd + sList + sMax + ssrc.match(/const sidOk = [^\n]*\n/)[0] + ssrc.match(/const makeupOk = [^\n]*\n/)[0] + sGrab('lessonHtml').replace('<button class="ghost" id="back">← 전체 노트</button>', '') + ';return lessonHtml;')(
     esc, (id, label) => `<div class="play" aria-disabled="true">▶ ${esc(label)} <span class="muted">(미리보기라 재생 안 해요)</span></div>`);
   const norm = h => h.replace(/\s+/g, ' ').trim();
   const base = { date: '2026-10-28', feedback: '잘했어요\n둘째 줄 <b>', points: ['호흡', '', '음정'], practice: ['음정 한 가지', '호흡 둘째'], no_mission: false, highlight: '후렴 호흡이 좋았어요', extra_best: [] };
@@ -84,6 +84,8 @@ function mk(saveOk = true) {
     '베스트 포함(편집본)': { ...base, best: { file_id: 'b1', kind_ko: '편집본', len: 42, edited: true }, clips: [A(1)] },
     '베스트 포함(원본)': { ...base, best: { file_id: 'b2', kind_ko: '원본', len: 30, edited: false }, clips: [] },
     '베스트 제외(클립만)': { ...base, best: null, clips: [A(1), A(2)] },
+    '메이크업 포함': { ...base, best: { file_id: 'b1', kind_ko: '편집본', len: 42, edited: true }, makeup: { file_id: 'm1', source_file_id: 'b1', len: 40 }, clips: [] },
+    '메이크업 원본 불일치(숨김)': { ...base, best: { file_id: 'b1', kind_ko: '편집본', len: 42, edited: true }, makeup: { file_id: 'm1', source_file_id: 'zz', len: 40 }, clips: [] },
     '미션 없음': { ...base, practice: [], no_mission: true, best: null, clips: [] },
     '글 없음': { ...base, feedback: '', highlight: '', points: [], practice: [], best: null, clips: [] },
   };
