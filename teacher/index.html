@@ -203,7 +203,8 @@
   details > summary { list-style:none; cursor:pointer; display:flex; align-items:center; flex-wrap:wrap; gap:6px; min-height:42px; padding:6px 12px; margin:0;
     border:1.5px solid #465062; border-radius:12px; background:#1b1f26; color:var(--fg); }
   details > summary::-webkit-details-marker { display:none; }
-  details > summary::before { content:"▸"; color:var(--accent); font-size:1rem; transition:transform .2s; display:inline-block; }
+  details > summary::before { content:"▶"; flex:none; width:24px; height:24px; border-radius:50%; background:#2a3446; color:var(--accent); font-size:.78rem;
+    display:inline-flex; align-items:center; justify-content:center; transition:transform 250ms ease; }   /* 10/28 23:41 사용자: 삼각형이 작음 → 동그라미 안 큰 ▶, 열리면 ▼ 방향 */
   details[open] > summary::before { transform:rotate(90deg); }
   details > summary:active { background:#262c36; }
   details > summary.muted { color:#c8d1dc; }
@@ -4019,7 +4020,7 @@ function detailsAnimate(d, open) {
   if (open) d.open = true;
   const to = open ? d.offsetHeight : shut;      // 다 펼친 실제 높이를 먼저 재고
   d.style.overflow = "hidden"; d.style.boxSizing = "border-box";   // 높이를 테두리 포함으로 재야 끝에서 덜컥 안 함
-  const a = d._anim = d.animate([{ height: from + "px" }, { height: to + "px" }], { duration: open ? 240 : 180, easing: open ? "cubic-bezier(.2,.8,.2,1)" : "ease-in" });
+  const a = d._anim = d.animate([{ height: from + "px" }, { height: to + "px" }], { duration: 250, easing: open ? "cubic-bezier(.2,.8,.2,1)" : "ease-in-out" });   // 10/28 사용자: 모든 펼침 250ms
   const clear = () => { d.style.overflow = ""; d.style.boxSizing = ""; };
   const end = () => { if (d._anim !== a) return; d._anim = null; clear(); if (!open) d.open = false; };
   a.onfinish = end; a.oncancel = () => { if (d._anim === a) { d._anim = null; clear(); } };
@@ -4028,8 +4029,7 @@ document.addEventListener("click", (e) => {
   const sm = e.target.closest?.("summary"), d = sm?.parentElement;
   if (!d || d.tagName !== "DETAILS" || typeof d.animate !== "function") return;
   if (e.target !== sm && e.target.closest("a,button,input,select,textarea,label") && sm.contains(e.target.closest("a,button,input,select,textarea,label"))) return;
-  if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
-  e.preventDefault();
+  e.preventDefault();   // (10/28 23:41 사용자 지시) 모든 펼침에 250ms 움직임 — 기기 '동작 줄이기' 설정과 상관없이
   detailsAnimate(d, d._anim ? !d._want : !d.open);   // 움직이는 중에 또 누르면 반대로
 }, true);
 // ── 버튼 ────────────────────────────────────────────────
@@ -4038,7 +4038,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-28-2345-incl";
+const BUILD = "2026-10-28-2350-anim";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
