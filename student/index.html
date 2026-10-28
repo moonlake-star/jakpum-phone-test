@@ -27,6 +27,11 @@
   .lesson b { font-size:1.05rem; } .new { color:var(--good); font-weight:700; }
   .play { width:100%; min-height:64px; font-size:1.1rem; }
   .pre { white-space:pre-wrap; }
+  /* 레슨 전체 기록(2026-10-29): 접힌 채, 말 누르면 그 자리부터. 오디오 줄은 펼친 상자 위쪽에 붙어 있음 */
+  .fullrec .fullAu { position:sticky; top:0; z-index:2; width:100%; margin:4px 0 8px; }
+  .fullrec .trs { max-height:60vh; overflow-y:auto; } .fullrec .tr { padding:8px 10px; margin:6px 0; border-radius:12px; background:#1b1f26; cursor:pointer; line-height:1.55; }
+  .fullrec .tr-t { background:#1f3050; } .fullrec .tr-s { background:#3d2c17; } .fullrec .tr-g { background:#31224a; } .fullrec .tr.now { outline:2px solid #ffd27a; }
+  .fullrec .tw { font-size:.8rem; font-weight:700; color:#c3cbd6; margin-right:4px; }
   audio { width:100%; margin-top:8px; }
   ul { padding-left:1.2em; margin:6px 0; }
   .ab { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
@@ -160,6 +165,13 @@ function player(id, label, peaks) {
     <div class="muted tm" data-tm="${esc(id)}"></div><audio class="hidden" id="au_${esc(id)}"></audio>`;
 }
 function wirePlayers() {
+  { const au = document.getElementById("fullAu"); if (au) {   // 레슨 전체 기록: 말 누르면 그 자리 2초 앞부터
+    au.onerror = () => { const p = au.closest(".fullrec")?.querySelector("p"); if (p) p.textContent = "녹음을 불러오지 못했어요. 선생님께 알려 주세요"; };
+    const go = async (t) => { try { if (!au.getAttribute("src")) au.src = await audioUrl(au.dataset.fid);
+      const seek = () => { au.currentTime = Math.max(0, t - 2); au.play().catch(() => {}); };
+      if (au.readyState >= 1) seek(); else au.addEventListener("loadedmetadata", seek, { once: true }); } catch {} };
+    document.querySelectorAll(".fullrec [data-ft]").forEach(el => el.onclick = () => { document.querySelectorAll(".fullrec .tr.now").forEach(x => x.classList.remove("now")); el.classList.add("now"); go(+el.dataset.ft); });
+    const box = au.closest("details"); if (box) box.addEventListener("toggle", async () => { if (box.open && !au.getAttribute("src")) { try { au.src = await audioUrl(au.dataset.fid); } catch {} } }); } }
   document.querySelectorAll("[data-au]").forEach(b => {
     const au = $("au_" + b.dataset.au), label = b.textContent;
     au.onerror = () => { au.classList.add("hidden"); b.classList.remove("hidden"); b.textContent = "소리를 불러오지 못했어요. 선생님께 알려 주세요"; };
@@ -235,6 +247,7 @@ function lessonHtml(l, prev, mode = "normal") {
     ${practice.length || (full && song) ? `<div class="card"><h2>📋 다음 미션</h2>${practice.length ? listHtml(practice) : ""}${full && song ? `<div class="song"><div class="muted">🎵 추천 곡</div><b>${esc(song.title)}</b>${has(song.artist) ? ` <span class="muted">(${esc(song.artist)})</span>` : ""}${has(song.why) ? `<p style="margin:4px 0 0">${esc(song.why)}</p>` : ""}</div>` : ""}</div>` : ""}
     ${full && makeupOk(l.makeup, l.best) ? `<div class="card makeup"><div class="cardHead"><span class="badge mk">메이크업본</span><b>간단 음정보정 예시</b>${l.makeup.len ? `<span class="muted">${l.makeup.len}초</span>` : ""}</div><p class="muted" style="margin:4px 0 6px">음원 발매용으로 정식 보정하면 더 자연스럽고 좋아져요</p>${has(l.makeup.msg) ? `<p style="margin:0 0 8px">${esc(l.makeup.msg.trim())}</p>` : ""}${player(l.makeup.file_id + "#m", "메이크업 듣기", l.makeup.peaks)}</div>` : ""}
     ${full && cheer ? `<div class="card cheer"><h2>💌 응원 메시지</h2><p class="pre" style="margin:0">${esc(cheer)}</p></div>` : ""}
+    ${full && l.full && typeof l.full.file_id === "string" && Array.isArray(l.full.segs) && l.full.segs.length ? `<details class="card more fullrec"><summary>📝 레슨 전체 기록 · 전사본과 녹음</summary><p class="muted" style="margin:0 0 6px">AI가 받아쓴 글이라 틀린 곳이 있을 수 있어요 · 말을 누르면 그 자리부터 들려요${l.full.cut ? " · 길어서 앞부분만 실었어요" : ""}</p><audio id="fullAu" class="fullAu" controls preload="none" data-fid="${esc(l.full.file_id)}"></audio><div class="trs">${l.full.segs.filter(Array.isArray).map(([t, w, tx]) => `<div class="tr tr-${({ t: "t", s: "s", g: "g" })[w] || "x"}" data-ft="${Math.max(0, +t || 0)}"><span class="tw">${({ t: "선생님", s: "나", g: "🎵 노래" })[w] || "·"} ${Math.floor((+t || 0) / 60)}:${String(Math.floor((+t || 0) % 60)).padStart(2, "0")}</span> ${esc(tx)}</div>`).join("")}</div></details>` : ""}
     ${more && m === "detail" ? `<div class="card more">${more}</div>` : more && m === "normal" ? `<details class="card more"><summary>더 들여다보기</summary>${more}</details>` : ""}`;
 }
 
