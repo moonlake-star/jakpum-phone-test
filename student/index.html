@@ -9,7 +9,19 @@
 <style>
   :root { color-scheme:dark; --bg:#17191d; --fg:#eceff3; --muted:#a9b1bc; --card:#22262c; --line:#363c45; --accent:#9cc3ff; --on-accent:#10141a; --good:#7fd99a; }
   * { box-sizing:border-box; }
-  body { margin:0; background:var(--bg); color:var(--fg); font:19px/1.6 system-ui, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; }
+  html { font-size:calc(16px * var(--fz, 1)); }   /* 글씨 크기(2026-10-29): rem 글자와 본문 19px을 같은 비율로 */
+  body { margin:0; word-break:keep-all; overflow-wrap:anywhere; background:var(--bg); color:var(--fg); font:calc(19px * var(--fz, 1))/1.6 system-ui, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; }
+  h1 .fzBtn { float:right; min-height:44px; padding:0 14px; border-radius:22px; background:transparent; color:var(--fg); border:1.5px solid #465062; font-size:16px; font-weight:700; }
+  h1 .fzBtn small { font-size:12px; } h1 .fzBtn b { font-size:20px; }
+  #fzSheet { position:fixed; left:0; right:0; bottom:0; z-index:60; max-width:640px; margin:0 auto; background:var(--card); border-top:1.5px solid var(--accent); border-radius:18px 18px 0 0;
+    padding:16px 16px calc(20px + env(safe-area-inset-bottom)); box-shadow:0 -6px 20px #0008; font-size:16px; animation:fzUp .25s ease; }
+  @keyframes fzUp { from { transform:translateY(40px); opacity:.4; } to { transform:none; opacity:1; } }
+  #fzShade { position:fixed; inset:0; z-index:59; background:#0009; }
+  #fzSheet h3 { margin:0 0 10px; font-size:18px; } #fzSheet .fzRow { display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; }
+  #fzSheet .fzRow button { min-height:68px; padding:0 4px; border-radius:14px; border:1.5px solid #465062; background:#1b1f26; color:var(--fg); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; font-size:13px; }
+  #fzSheet .fzRow button.on { background:var(--accent); color:var(--on-accent); border-color:var(--accent); } #fzSheet .fzRow b { line-height:1.1; }
+  #fzSheet p { color:var(--muted); font-size:14px; margin:10px 0 0; } #fzSheet .fzClose { width:100%; margin-top:10px; min-height:48px; font-size:16px; }
+  #fzHint { position:fixed; left:50%; top:12px; transform:translateX(-50%); z-index:55; max-width:92vw; background:#2f3a4a; color:var(--fg); border:1px solid var(--accent); border-radius:14px; padding:10px 14px; font-size:16px; box-shadow:0 4px 14px #0008; cursor:pointer; }
   main { max-width:640px; margin:0 auto; padding:16px; }
   h1 { font-size:1.35rem; margin:4px 0 12px; } h2 { font-size:1.2rem; margin:0 0 8px; }
   .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:16px; margin:12px 0; }
@@ -65,7 +77,7 @@
 </head>
 <body>
 <main>
-  <h1>🎤 내 보컬 노트 <span class="muted" style="font-size:.85rem">뮤직스튜디오 작품</span></h1>
+  <h1><button type="button" class="fzBtn" id="fzBtn" aria-label="글씨 크기 바꾸기"><small>가</small><b>가</b></button>🎤 내 보컬 노트 <span class="muted" style="font-size:.85rem">뮤직스튜디오 작품</span></h1>
   <div id="view"><p class="muted">불러오는 중…</p></div>
 </main>
 <script src="../lesson-replies.js"></script>
@@ -77,6 +89,31 @@ const PORTAL_URL = "https://script.google.com/macros/s/AKfycbyxHvxn4VkX83JrcGK1b
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const LS = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
+// 글씨 크기(2026-10-29 사용자): 맨 위 제목 줄의 '가가'(화면에 붙어 다니지 않음) → 4단계. 고른 크기는 이 폰에 기억(sn_fz).
+// 처음 1~2번 열 때만 안내를 한 번 띄우고, 크기를 한 번이라도 바꾸면 다시 안 띄움(sn_fz_hint)
+const FZ = [["작게", 0.9, 15], ["보통", 1, 18], ["크게", 1.15, 21], ["아주 크게", 1.3, 24]];
+function fzApply(v) { const ok = FZ.some(x => x[1] === v) ? v : 1; document.documentElement.style.setProperty("--fz", String(ok)); return ok; }
+function fzOpen() {
+  fzClose(); const now = fzApply(LS.get("sn_fz") ?? 1);
+  const sh = document.createElement("div"); sh.id = "fzShade"; sh.onclick = fzClose;
+  const d = document.createElement("div"); d.id = "fzSheet"; d.setAttribute("role", "dialog"); d.setAttribute("aria-label", "글씨 크기");
+  d.innerHTML = `<h3>글씨 크기</h3><div class="fzRow">${FZ.map(([n, v, px]) => `<button type="button" data-fz="${v}" class="${v === now ? "on" : ""}" aria-pressed="${v === now}"><b style="font-size:${px}px">가</b>${n}</button>`).join("")}</div>
+    <p>고른 크기는 이 폰에 기억돼서 다음에 열어도 그대로예요. 언제든 맨 위 ‘가가’로 바꿀 수 있어요.</p><button type="button" class="ghost fzClose">닫기</button>`;
+  d.onclick = (e) => { const b = e.target.closest("[data-fz]"); if (b) { const v = fzApply(+b.dataset.fz); LS.set("sn_fz", v); LS.set("sn_fz_hint", 99);
+      d.querySelectorAll("[data-fz]").forEach(x => { const on = +x.dataset.fz === v; x.classList.toggle("on", on); x.setAttribute("aria-pressed", on); }); }
+    if (e.target.closest(".fzClose")) fzClose(); };
+  document.body.append(sh, d); document.getElementById("fzHint")?.remove();
+}
+function fzClose() { document.getElementById("fzSheet")?.remove(); document.getElementById("fzShade")?.remove(); }
+function fzHint() {
+  const n = +(LS.get("sn_fz_hint") || 0); if (n >= 2 || LS.get("sn_fz") != null) return;
+  LS.set("sn_fz_hint", n + 1);
+  const h = document.createElement("div"); h.id = "fzHint"; h.setAttribute("role", "status"); h.textContent = "글씨가 작으면 맨 위 ‘가가’를 눌러 키울 수 있어요";
+  h.onclick = () => { h.remove(); fzOpen(); }; document.body.appendChild(h); setTimeout(() => h.remove(), 6000);
+}
+fzApply(LS.get("sn_fz") ?? 1);
+document.getElementById("fzBtn").onclick = fzOpen;
+setTimeout(fzHint, 1200);
 const md = (d) => d ? `${+d.slice(5, 7)}월 ${+d.slice(8, 10)}일` : "";
 let idToken = null, data = null, audioCache = {};
 const params = new URLSearchParams(location.search);
