@@ -1291,7 +1291,7 @@ function pvWireCards(me) {
     if (typeof renderPoints === "function") { try { renderPoints(); } catch {} } paintDeliver();
     const m = $("previewSaveMsg"); if (m) m.textContent = ok ? msg : "저장하지 못했어요. 다시 눌러 주세요."; };
   for (const id of Object.keys(PV_EDS)) { const el = $(id); if (!el) continue;
-    el.onfocus = el.onpointerdown = () => pvSetH(el, true); }
+    el.onfocus = () => pvSetH(el, true); el.onpointerdown = null; }   // (10/29 사용자) 손가락을 대는 순간이 아니라 톡 눌렀다 뗄 때(포커스)만 펼침 — 끌어서 스크롤할 땐 그대로(긴 글은 칸 안에서 넘어감)
   q("[data-pvsave]").forEach(b => b.onclick = async () => { if (cur !== me || me.sched?.busy) return; const id = b.dataset.pvsave;
     if (id === "pvSong") { const v = (k) => ($(k)?.value || "").trim(); me.review.song = v("pvSongT") ? { title: v("pvSongT"), artist: v("pvSongA"), why: v("pvSongW") } : null;
       return save(me.review.song ? "추천 곡을 저장했어요. ‘검수 저장’ 때 수강생 노트에 반영돼요." : "추천 곡을 비웠어요."); }
@@ -1348,8 +1348,9 @@ function svLessonHtml(l, prev, mode = "normal") {
     ${practice.length || (full && song) ? `<div class="card"><h2>📋 다음 미션</h2>${practice.length ? svList(practice) : ""}${full && song ? `<div class="song"><div class="muted">🎵 추천 곡</div><b>${esc(song.title)}</b>${has(song.artist) ? ` <span class="muted">(${esc(song.artist)})</span>` : ""}${has(song.why) ? `<p style="margin:4px 0 0">${esc(song.why)}</p>` : ""}</div>` : ""}</div>` : ""}
     ${full && svMakeupOk(l.makeup, l.best) ? `<div class="card makeup"><div class="cardHead"><span class="badge mk">메이크업본</span><b>간단 음정보정 예시</b>${l.makeup.len ? `<span class="muted">${l.makeup.len}초</span>` : ""}</div><p class="muted" style="margin:4px 0 6px">음원 발매용으로 정식 보정하면 더 자연스럽고 좋아져요</p>${has(l.makeup.msg) ? `<p style="margin:0 0 8px">${esc(l.makeup.msg.trim())}</p>` : ""}${svPlayer(l.makeup.file_id + "#m", "메이크업 듣기")}</div>` : ""}
     ${full && cheer ? `<div class="card cheer"><h2>💌 응원 메시지</h2><p class="pre" style="margin:0">${esc(cheer)}</p></div>` : ""}
-    ${full && l.full && typeof l.full.file_id === "string" && Array.isArray(l.full.segs) && l.full.segs.length ? `<details class="card more fullrec"><summary>📝 레슨 전체 기록 · 전사본과 녹음</summary><p class="muted" style="margin:0 0 6px">AI가 받아쓴 글이라 틀린 곳이 있을 수 있어요 · 말을 누르면 그 자리부터 들려요${l.full.cut ? " · 길어서 앞부분만 실었어요" : ""}</p><div class="muted" style="font-size:.8rem">미리보기라 재생 안 해요</div><div class="trs">${l.full.segs.filter(Array.isArray).map(([t, w, tx]) => `<div class="tr tr-${({ t: "t", s: "s", g: "g" })[w] || "x"}" data-ft="${Math.max(0, +t || 0)}"><span class="tw">${({ t: "선생님", s: "나", g: "🎵 노래" })[w] || "·"} ${Math.floor((+t || 0) / 60)}:${String(Math.floor((+t || 0) % 60)).padStart(2, "0")}</span> ${esc(tx)}</div>`).join("")}</div></details>` : ""}
-    ${more && m === "detail" ? `<div class="card more">${more}</div>` : more && m === "normal" ? `<details class="card more"><summary>더 들여다보기</summary>${more}</details>` : ""}`;
+    ${more && m === "detail" ? `<div class="card more">${more}</div>` : more && m === "normal" ? `<details class="card more"><summary>더 들여다보기</summary>${more}</details>` : ""}
+    ${full && l.full && typeof l.full.file_id === "string" && Array.isArray(l.full.segs) && l.full.segs.length ? `<details class="card more fullrec" data-fid="${esc(l.full.file_id)}"><summary>📝 레슨 전체 기록 · 전사본과 녹음</summary><p class="muted" style="margin:0 0 6px">AI가 받아쓴 글이라 틀린 곳이 있을 수 있어요 · 말풍선을 누르면 아래 재생바로 그 자리부터 들려요${l.full.cut ? " · 길어서 앞부분만 실었어요" : ""}</p><div class="trs">${l.full.segs.filter(Array.isArray).map(([t, w, tx]) => { const k = ({ t: "t", s: "s", g: "g" })[w] || "x", tt = Math.max(0, +t || 0);
+      return `<div class="fseg ${k === "s" ? "right" : "left"}"><div class="fbub fb-${k}" data-ft="${tt}"><span class="who">${({ t: "선생님", s: "나", g: "🎵 노래" })[k] || "·"}</span><span class="tm">${Math.floor(tt / 60)}:${String(Math.floor(tt % 60)).padStart(2, "0")}</span><span class="tx">${esc(tx)}</span></div></div>`; }).join("")}</div></details>` : ""}`;
 }
 function studentViewHTML(note, mode = "normal") {
   return `<div role="dialog" aria-modal="true" aria-label="수강생 화면 미리보기(읽기 전용)">
@@ -1376,7 +1377,7 @@ function wireFeedbackPreview(me) {
   const sc = () => (me.sched ??= { busy: false, pick: {} });
   const setOpen = (open) => { sc().pvExpanded = open; pvSetOpen(field, open); };
   const expand = () => { if (cur !== me || sc().pvExpanded) return; sc().pvBase ??= me.review.feedback ?? ""; setOpen(true); };   // 터치(포커스)하면 12줄. 커서·선택 위치는 건드리지 않음
-  field.onfocus = expand; field.onpointerdown = expand;
+  field.onfocus = expand; field.onpointerdown = null;   // 스크롤하려고 댄 손가락으로는 펼치지 않음(포커스 = 톡 누름일 때만)
   field.oninput = () => { if (cur === me) { expand(); updateFeedbackDraft(field.value, true); } };
   field.onchange = () => { if (cur === me && !me.sched?.busy) { me.sched.pvOpen = true; paintDeliver(); } };   // 다 고치고 나오면 미션 칸·경고를 새로 보여 줌
   const tg = $("btnPreviewToggle"), cancel = $("btnPreviewCancel"), full = $("btnPreviewFull");
@@ -4170,7 +4171,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-29-0830-automk";
+const BUILD = "2026-10-29-0845-tapedit";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
