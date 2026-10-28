@@ -1,70 +1,246 @@
 <!doctype html>
 <html lang="ko"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex">
-<title>피드백 V2 프로토타입(가상 데이터)</title>
+<meta name="theme-color" content="#17191d">
+<title>피드백 V2 시험판</title>
 <style>
-body{font-family:system-ui,sans-serif;margin:0;background:#f4f1fa;color:#222}
-.ban{background:#7a3df0;color:#fff;padding:8px 12px;font-size:13px;position:sticky;top:0;z-index:2}
-.wrap{max-width:560px;margin:0 auto;padding:12px}
-h2{font-size:17px;margin:14px 0 6px}
-.seg button{padding:8px 14px;border:1px solid #7a3df0;background:#fff;border-radius:18px;margin-right:6px;font-size:14px}
-.seg button.on{background:#7a3df0;color:#fff}
-.line{background:#fff;border-radius:10px;padding:10px;margin:6px 0;display:flex;gap:8px;align-items:flex-start}
-.line .t{flex:1;font-size:14px}.line.seen{border-left:4px solid #2fa36b}
-.line textarea{width:100%;min-height:54px;font:inherit}
-button.pri{width:100%;padding:14px;font-size:16px;border:0;border-radius:12px;background:#7a3df0;color:#fff;margin-top:10px}
-button.pri:disabled{background:#bbb}
-button.sm{padding:6px 10px;border:1px solid #999;background:#fff;border-radius:8px}
-.phone{border:6px solid #333;border-radius:24px;background:#fff;padding:10px;margin-top:8px}
-.card{background:#f4f1fa;border-radius:12px;padding:10px;margin:8px 0}.card b{display:block;margin-bottom:4px}
-.cheer{background:#ffe9a8;border-radius:12px;padding:10px;margin-top:8px}
-#msg{margin-top:8px;font-weight:600}
+:root{color-scheme:dark;--bg:#17191d;--fg:#eceff3;--muted:#a9b1bc;--card:#22262c;--card2:#1b1f26;--line:#363c45;--accent:#9cc3ff;--on-accent:#10141a;--ok:#7fd8a6;--warn:#ffc677;--chip:#2a2f37}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 system-ui,"Malgun Gothic","Apple SD Gothic Neo",sans-serif;padding-bottom:calc(96px + env(safe-area-inset-bottom))}
+button{font:inherit;cursor:pointer;border:0}
+.ban{position:sticky;top:0;z-index:30;background:#3a2a55;color:#e9dcff;font-size:13px;padding:7px 14px;display:flex;gap:8px;align-items:center}
+.ban a{color:#fff;margin-left:auto;white-space:nowrap}
+.wrap{max-width:640px;margin:0 auto;padding:12px 16px}
+.head{background:#2f3a4a;border-left:4px solid var(--accent);border-radius:12px;padding:12px 14px;margin:6px 0 12px}
+.head b{font-size:1.1rem}.muted{color:var(--muted);font-size:.88rem}
+.pri{width:100%;min-height:52px;border-radius:14px;background:var(--accent);color:var(--on-accent);font-weight:800;font-size:1.05rem}
+.pri:disabled{background:#3a404a;color:#8a929d}
+.ghost{min-height:44px;padding:0 14px;border-radius:12px;background:transparent;color:var(--accent);border:2px solid var(--accent);font-weight:700}
+.steps{list-style:none;padding:0;margin:12px 0}
+.steps li{display:flex;gap:10px;align-items:center;padding:6px 0;color:var(--muted)}
+.steps .dot{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:.75rem;font-weight:800;background:var(--chip)}
+.steps li.done{color:var(--fg)}.steps li.done .dot{background:var(--ok);color:#10141a}
+.steps li.now{color:var(--fg);font-weight:700}.steps li.now .dot{background:var(--accent);color:#10141a;animation:pulse 1s ease-in-out infinite}
+@keyframes pulse{50%{transform:scale(1.15)}}
+.bar{position:sticky;top:34px;z-index:20;background:var(--bg);padding:8px 0 10px;border-bottom:1px solid var(--line);margin-bottom:6px}
+.bar .row{display:flex;gap:8px;align-items:center}
+.meter{flex:1;height:8px;border-radius:4px;background:var(--chip);overflow:hidden}.meter i{display:block;height:100%;background:var(--ok);transition:width .3s}
+.seg{display:flex;background:var(--chip);border-radius:12px;padding:3px;margin-top:8px}
+.seg button{flex:1;min-height:38px;border-radius:9px;background:transparent;color:var(--muted);font-weight:700}
+.seg button.on{background:var(--accent);color:var(--on-accent)}
+.emph{background:var(--card2);border:1px dashed var(--line);border-radius:12px;padding:8px 12px;margin:8px 0;font-size:.9rem}
+.emph span{display:inline-block;background:var(--chip);border-radius:10px;padding:1px 8px;margin:2px 4px 2px 0}
+.emph span.prev{background:#1d2b40;color:var(--accent)}
+.card{background:var(--card);border:1.5px solid var(--line);border-radius:16px;padding:12px 14px;margin:12px 0;transition:border-color .3s}
+.card.seen{border-color:#2f5a44}
+.card h3{margin:0 0 6px;font-size:1.05rem;display:flex;align-items:center;gap:8px}
+.card h3 .ck{font-size:.78rem;font-weight:700;color:var(--muted);background:var(--chip);border-radius:10px;padding:1px 8px}
+.card.seen h3 .ck{color:var(--ok)}
+.card h3 .ed{margin-left:auto;min-height:34px;padding:0 12px;border-radius:17px;background:var(--chip);color:var(--accent);font-weight:700;font-size:.88rem}
+.card ul{margin:0;padding-left:1.1em}.card li{margin:3px 0}
+.ev{display:inline-block;font-size:.74rem;color:var(--muted);background:var(--chip);border-radius:8px;padding:0 6px;margin-left:6px;vertical-align:1px}
+.mine{color:var(--warn)}
+.aud{display:flex;gap:10px;align-items:center;margin:4px 0 8px}
+.aud .pl{flex:none;width:40px;height:40px;border-radius:50%;background:var(--accent);color:var(--on-accent);font-size:1rem;font-weight:900}
+.aud canvas{flex:1;min-width:0;height:40px;width:100%;display:block;cursor:pointer}
+.aud .len{flex:none;color:var(--muted);font-size:.82rem;min-width:36px;text-align:right}
+textarea{width:100%;font:inherit;color:var(--fg);background:#0f1216;border:1.5px solid var(--accent);border-radius:10px;padding:8px 10px;resize:none;line-height:1.55}
+.edrow{display:flex;gap:8px;align-items:center;margin-top:6px}.edrow .cnt{margin-right:auto;color:var(--muted);font-size:.85rem}
+.edrow button{min-height:38px;padding:0 14px;border-radius:10px;font-weight:700}
+.edrow .sv{background:var(--accent);color:var(--on-accent)}.edrow .cc{background:var(--chip);color:var(--fg)}
+.cheer{background:#3d2c17;border-color:#5a4322}
+.dock{position:fixed;left:0;right:0;bottom:0;z-index:40;background:var(--card);border-top:1px solid var(--line);padding:10px 16px calc(10px + env(safe-area-inset-bottom));box-shadow:0 -4px 14px rgba(0,0,0,.35)}
+.dock .in{max-width:640px;margin:0 auto;display:flex;gap:8px}
+.dock .pri{flex:1}
+.ov{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;padding:16px;opacity:0;pointer-events:none;transition:opacity .25s}
+.ov.on{opacity:1;pointer-events:auto}
+.phone{width:min(380px,100%);height:min(760px,calc(100vh - 60px));background:#101317;border:8px solid #2b2f36;border-radius:34px;overflow:auto;padding:16px 14px;position:relative}
+.phone .x,.modal .x{position:sticky;top:0;float:right;min-height:34px;padding:0 12px;border-radius:17px;background:var(--chip);color:var(--fg);font-weight:700}
+.sv-h{margin:4px 0 12px}.sv-h b{font-size:1.15rem}
+.sv-c{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin:10px 0}
+.sv-c h4{margin:0 0 4px;font-size:1rem}.sv-c ul{margin:0;padding-left:1.1em}
+.sv-cheer{background:#3d2c17;border-radius:14px;padding:12px;margin-top:12px}
+.modal{width:min(420px,100%);background:var(--card);border:1px solid var(--accent);border-radius:18px;padding:16px}
+.modal h3{margin:0 0 8px}
+.lock{font-size:.85rem;color:var(--muted);text-align:center;margin-top:4px}
 </style></head><body>
-<div class="ban">V2 시험판 · 가상 데이터 · 실제 전송/카톡/API 전부 꺼짐 · <a href="../teacher/" style="color:#fff">V1로 돌아가기</a></div>
+<div class="ban">🧪 V2 시험판 · 가상 데이터 · 실제 전송 꺼짐 <a href="../teacher/">← 지금 앱(V1)</a></div>
 <div class="wrap">
-<h2>1. AI 초안 (가상 레슨)</h2>
-<button class="pri" id="gen">AI 초안 만들기</button>
-<div id="work" hidden>
- <h2>2. 전체 검토 <small id="prog"></small></h2>
- <div class="seg" id="lv"></div>
- <div id="lines"></div>
- <h2>3. 수강생 화면 미리보기</h2>
- <div class="phone" id="pv"></div>
- <button class="pri" id="send" disabled>수강생에게 전달하기 (시뮬레이션)</button>
- <div id="msg"></div>
-</div></div>
+  <div class="head"><b id="hName"></b><div class="muted" id="hSub"></div></div>
+
+  <section id="start">
+    <p class="muted">레슨 녹음과 선생님 말을 바탕으로 AI가 수강생 피드백을 거의 다 써 둡니다. 선생님은 한 번 훑어보고, 고칠 카드만 눌러 고친 뒤 전달하면 됩니다.</p>
+    <button class="pri" id="gen">🤖 AI 초안 만들기</button>
+    <ol class="steps" id="steps" hidden></ol>
+  </section>
+
+  <section id="work" hidden>
+    <div class="bar">
+      <div class="row"><b id="share"></b><span class="muted" id="prog"></span></div>
+      <div class="row" style="margin-top:6px"><div class="meter"><i id="meter"></i></div></div>
+      <div class="seg" id="lv"></div>
+    </div>
+    <div class="emph" id="emph"></div>
+    <div id="cards"></div>
+  </section>
+</div>
+
+<div class="dock" id="dock" hidden><div class="in">
+  <button class="ghost" id="pvBtn">📱 미리보기</button>
+  <button class="pri" id="send" disabled>수강생에게 전달하기</button>
+</div><div class="lock" id="lock"></div></div>
+
+<div class="ov" id="pvOv"><div class="phone" id="phone"></div></div>
+<div class="ov" id="dlOv"><div class="modal" id="modal"></div></div>
+
 <script src="v2-logic.js"></script>
 <script>
-const $ = id => document.getElementById(id);
-const esc = x => String(x).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-let draft = null, level = 'normal', seen = new Set(), editing = null;
-const LABEL = {greet:'인사',best:'베스트',makeup:'메이크업',point1:'포인트1',point2:'포인트2',point3:'포인트3',why1:'이유1',why2:'이유2',mission1:'미션1',mission2:'미션2',song:'추천곡',cheer:'응원'};
-function render() {
-  const keys = V2.visibleKeys(level);
-  $('lv').innerHTML = Object.entries(V2.LEVELS).map(([k, v]) => `<button data-lv="${k}" class="${k === level ? 'on' : ''}">${v}</button>`).join('');
-  $('lines').innerHTML = V2.LINE_KEYS.filter(k => k === 'greet' || keys.includes(k)).map(k =>
-    `<div class="line ${seen.has(k) ? 'seen' : ''}" data-k="${k}"><div class="t"><small>${LABEL[k]}</small><br>` +
-    (editing === k ? `<textarea id="ed">${esc(draft[k])}</textarea><button class="sm" data-save="${k}">저장</button>` : esc(draft[k])) +
-    `</div><button class="sm" data-edit="${k}">수정</button></div>`).join('');
-  const shown = V2.LINE_KEYS.filter(k => k === 'greet' || keys.includes(k));
-  const all = shown.every(k => seen.has(k));
-  $('prog').textContent = `(확인 ${shown.filter(k => seen.has(k)).length}/${shown.length} · 줄을 눌러 확인)`;
-  $('send').disabled = !V2.canDeliver(all);
-  const c = V2.buildCards(draft, level);
-  $('pv').innerHTML = `<b>${esc(draft.greet)}</b>` + c.cards.map(x => `<div class="card"><b>${x.title}</b>${x.lines.map(esc).join('<br>')}</div>`).join('') + `<div class="cheer">${esc(c.cheer)}</div>`;
-}
-$('gen').onclick = () => { draft = V2.generateDraft(V2.MOCK_LESSON); seen = new Set(); editing = null; $('work').hidden = false; $('msg').textContent = ''; render(); };
-document.addEventListener('click', e => {
-  const t = e.target;
-  if (t.dataset.lv) { level = t.dataset.lv; render(); }
-  else if (t.dataset.edit) { editing = t.dataset.edit; seen.add(editing); render(); }
-  else if (t.dataset.save) { draft[t.dataset.save] = $('ed').value; editing = null; render(); }
-  else if (t.closest('.line') && !t.closest('textarea')) { seen.add(t.closest('.line').dataset.k); render(); }
-});
-$('send').onclick = () => {
-  const keys = V2.visibleKeys(level).concat('greet');
-  const r = V2.simulateDeliver(draft, keys.every(k => seen.has(k)));
-  $('msg').textContent = r.ok ? '✅ ' + r.message : r.reason;
-};
+(function () {
+  const $ = id => document.getElementById(id);
+  const esc = x => String(x).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const L = V2.MOCK_LESSON;
+  let draft = null, level = 'normal', seen = new Set(), editing = null, io = null;
+  const player = new Audio(); player.preload = 'none'; let playing = null;
+
+  $('hName').textContent = L.student + ' · ' + L.round + '회차';
+  $('hSub').textContent = L.date + ' · ' + L.song + ' · 가상 레슨';
+
+  // 1) AI 초안 만들기(시뮬레이션)
+  $('gen').onclick = () => {
+    $('gen').disabled = true;
+    const ol = $('steps'); ol.hidden = false;
+    let k = 0;
+    const paint = () => { ol.innerHTML = V2.STEPS.map((s, i) => `<li class="${i < k ? 'done' : i === k ? 'now' : ''}"><span class="dot">${i < k ? '✓' : i + 1}</span>${s}</li>`).join(''); };
+    paint();
+    const tick = setInterval(() => {
+      k++; paint();
+      if (k >= V2.STEPS.length) { clearInterval(tick); setTimeout(open, 350); }
+    }, 450);
+  };
+  function open() {
+    draft = V2.generateDraft(L); seen = new Set(); editing = null;
+    $('start').hidden = true; $('work').hidden = false; $('dock').hidden = false;
+    $('emph').innerHTML = '선생님이 반복해서 강조한 것 ' + L.emphasis.map(e => `<span class="${e.prev ? 'prev' : ''}">${esc(e.term)} ×${e.count}${e.prev ? ' · 지난주부터' : ''}</span>`).join('');
+    render();
+  }
+
+  // 2) 전체 검토: 카드가 화면에 충분히 보이면 '확인'
+  function watch() {
+    if (io) io.disconnect();
+    if (!('IntersectionObserver' in window)) { V2.allCards(draft).forEach(c => seen.add(c.id)); return; }
+    io = new IntersectionObserver(es => {
+      let ch = false;
+      es.forEach(e => { if (e.isIntersecting && !seen.has(e.target.dataset.id)) { seen.add(e.target.dataset.id); e.target.classList.add('seen'); ch = true; } });
+      if (ch) paintBar();
+    }, { threshold: 0.6 });
+    document.querySelectorAll('.card[data-id]').forEach(el => io.observe(el));
+  }
+
+  function paintBar() {
+    const p = V2.reviewProgress(draft, seen);
+    $('share').textContent = `🤖 AI가 ${V2.aiShare(draft)}% 작성`;
+    $('prog').textContent = ` · 훑어본 카드 ${p.done}/${p.total}`;
+    $('meter').style.width = (p.done / p.total * 100) + '%';
+    $('send').disabled = !V2.canDeliver(p.all);
+    $('lock').textContent = p.all ? '' : '아래로 끝까지 한 번 훑어보면 전달 버튼이 켜져요';
+    document.querySelectorAll('.card[data-id]').forEach(el => {
+      const ck = el.querySelector('.ck'); if (ck) ck.textContent = seen.has(el.dataset.id) ? '✓ 확인' : '확인 전';
+    });
+  }
+
+  function cardHTML(c, cheer) {
+    const vis = V2.visibleItems(c, level);
+    let body = '';
+    if (c.audio) body += `<div class="aud"><button class="pl" data-play="${c.id}" aria-label="재생">▶</button><canvas data-wave="${c.id}" height="40"></canvas><span class="len">0:${String(c.audio.len).padStart(2, '0')}</span></div>`;
+    if (editing === c.id) {
+      const txt = vis.map(i => i.text).join('\n');
+      body += `<textarea id="ed" rows="3">${esc(txt)}</textarea><div class="edrow"><span class="cnt" id="edc"></span><button class="cc" data-cancel>취소</button><button class="sv" data-save="${c.id}">저장</button></div>`;
+    } else {
+      body += vis.length ? '<ul>' + vis.map(i => `<li class="${i.ai && i.text === i.ai ? '' : 'mine'}">${esc(i.text)}${i.ev ? `<span class="ev">${esc(i.ev)}</span>` : ''}</li>`).join('') + '</ul>' : '<div class="muted">이 단계에서는 보이지 않아요</div>';
+    }
+    return `<div class="card${cheer ? ' cheer' : ''}${seen.has(c.id) ? ' seen' : ''}" data-id="${c.id}"><h3>${c.icon} ${esc(c.title)} <span class="ck"></span>${editing === c.id ? '' : `<button class="ed" data-edit="${c.id}">✏️ 수정</button>`}</h3>${body}</div>`;
+  }
+
+  function render() {
+    $('lv').innerHTML = Object.entries(V2.LEVELS).map(([k, v]) => `<button data-lv="${k}" class="${k === level ? 'on' : ''}">${v}</button>`).join('');
+    $('cards').innerHTML = `<div class="muted" style="margin:4px 2px">수강생에게 보일 순서 그대로예요. 노란 글씨 = 선생님이 고친 줄.</div>` +
+      draft.cards.map(c => cardHTML(c)).join('') + cardHTML(draft.cheer, true);
+    document.querySelectorAll('canvas[data-wave]').forEach(drawWave);
+    const ta = $('ed'); if (ta) { fit(ta); ta.focus(); ta.oninput = () => fit(ta); }
+    paintBar(); watch();
+  }
+
+  function fit(ta) {
+    const n = ta.value.split('\n').length;
+    ta.rows = Math.min(V2.MAX_LINES, Math.max(2, n));
+    const over = n > V2.MAX_LINES;
+    $('edc').textContent = `${Math.min(n, V2.MAX_LINES)}/${V2.MAX_LINES}줄` + (over ? ' · 12줄 넘는 부분은 빠져요' : '');
+  }
+
+  // 가짜 파형 + 재생 위치
+  function drawWave(cv) {
+    const c = draft.cards.find(x => x.id === cv.dataset.wave); if (!c) return;
+    const w = cv.clientWidth || 260, h = 40, dpr = window.devicePixelRatio || 1;
+    cv.width = w * dpr; cv.height = h * dpr;
+    const g = cv.getContext('2d'); g.scale(dpr, dpr);
+    const pk = V2.mockPeaks(c.audio.seed, 80), bw = w / pk.length;
+    const pos = playing === c.id && player.duration ? player.currentTime / player.duration : 0;
+    pk.forEach((p, i) => {
+      g.fillStyle = (i / pk.length) < pos ? '#9cc3ff' : '#4a525e';
+      const bh = Math.max(2, p * (h - 6)); g.fillRect(i * bw + 1, (h - bh) / 2, Math.max(1, bw - 2), bh);
+    });
+  }
+  function paintPlay() {
+    document.querySelectorAll('[data-play]').forEach(b => b.textContent = playing === b.dataset.play && !player.paused ? '❚❚' : '▶');
+    document.querySelectorAll('canvas[data-wave]').forEach(drawWave);
+  }
+  player.ontimeupdate = paintPlay; player.onpause = paintPlay; player.onplay = paintPlay;
+  player.onended = () => { playing = null; paintPlay(); };
+
+  document.addEventListener('click', e => {
+    const t = e.target.closest('button,canvas'); if (!t) return;
+    if (t.dataset.lv) { level = t.dataset.lv; render(); }
+    else if (t.dataset.edit) { editing = t.dataset.edit; render(); }
+    else if (t.dataset.cancel !== undefined) { editing = null; render(); }
+    else if (t.dataset.save) { const c = V2.allCards(draft).find(x => x.id === t.dataset.save); V2.editCard(c, level, $('ed').value); editing = null; render(); }
+    else if (t.dataset.play) {
+      if (playing === t.dataset.play && !player.paused) { player.pause(); return; }
+      if (playing !== t.dataset.play) { player.src = L.audio; playing = t.dataset.play; }
+      player.play().catch(() => {});
+    } else if (t.dataset.wave) {
+      const r = t.getBoundingClientRect(), f = (e.clientX - r.left) / r.width;
+      if (playing !== t.dataset.wave) { player.src = L.audio; playing = t.dataset.wave; }
+      const go = () => { if (player.duration) player.currentTime = f * player.duration; player.play().catch(() => {}); };
+      player.readyState >= 1 ? go() : player.addEventListener('loadedmetadata', go, { once: true });
+      if (player.readyState < 1) player.load();
+    }
+  });
+
+  // 3) 수강생 화면 미리보기
+  function studentHTML() {
+    const v = V2.buildStudentView(draft, level);
+    return `<button class="x" data-close="pvOv">닫기</button>
+      <div class="sv-h"><b>${esc(L.student)}님의 보컬노트</b><div class="muted">${L.round}회차 · ${L.date} · ${V2.LEVELS[level]}</div></div>
+      <div>${esc(v.greet)}</div>` +
+      v.cards.map(c => `<div class="sv-c"><h4>${c.icon} ${esc(c.title)}</h4>${c.audio ? `<div class="aud"><span class="pl" style="display:grid;place-items:center">▶</span><span class="muted">0:${String(c.audio.len).padStart(2, '0')} 듣기</span></div>` : ''}${c.lines.length ? '<ul>' + c.lines.map(x => `<li>${esc(x)}</li>`).join('') + '</ul>' : ''}</div>`).join('') +
+      `<div class="sv-cheer">💬 ${v.cheer.map(esc).join('<br>')}</div><p class="muted" style="text-align:center">미리보기 · 수강생 폰에서 이렇게 보여요</p>`;
+  }
+  $('pvBtn').onclick = () => { $('phone').innerHTML = studentHTML(); $('phone').scrollTop = 0; $('pvOv').classList.add('on'); };
+
+  // 4) 전달(시뮬레이션)
+  $('send').onclick = () => {
+    const p = V2.reviewProgress(draft, seen);
+    const r = V2.simulateDeliver(draft, p.all);
+    $('modal').innerHTML = r.ok
+      ? `<h3>✅ 전달 시뮬레이션 완료</h3><p>${esc(r.message)}</p><p class="muted">실제 앱이라면 이 순간 수강생 페이지가 열리고 카톡으로 보낼 멘트가 준비됩니다. · AI 작성 ${V2.aiShare(draft)}% · 단계 ${V2.LEVELS[level]}</p><button class="pri" data-close="dlOv">확인</button>`
+      : `<h3>잠깐만요</h3><p>${esc(r.reason)}</p><button class="pri" data-close="dlOv">확인</button>`;
+    $('dlOv').classList.add('on');
+  };
+  document.addEventListener('click', e => {
+    const c = e.target.closest('[data-close]'); if (c) $(c.dataset.close).classList.remove('on');
+    else if (e.target.classList && e.target.classList.contains('ov')) e.target.classList.remove('on');
+  });
+  window.addEventListener('resize', () => document.querySelectorAll('canvas[data-wave]').forEach(drawWave));
+})();
 </script></body></html>
