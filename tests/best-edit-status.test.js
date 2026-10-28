@@ -4,9 +4,9 @@ const src = fs.readFileSync(__dirname + '/../teacher/index.html', 'utf8');
 const fn = src.match(/function renderBest[\s\S]*?\n}\n/)[0];
 function render(comp, composite = true) {
   const o = composite ? {...comp, isComposite: true} : {file_id: 'take', len: 10};
-  const cur = {best: {composite: comp}, review: {}};
-  return new Function('cur','bestOptions','bestPicked','bestPickValid','esc','fmt','tpHTML','bestMakeupLabel', fn + '; return renderBest();')(
-    cur, () => [o], () => o, () => true, x => String(x).replaceAll('<', '&lt;'), String, () => '', () => '메이크업');
+  const cur = {best: {status: 'ok', composite: comp}, review: {}};
+  return new Function('cur','bestOptions','esc','fmt','tpHTML','makeupBoxHTML','inclHTML', fn + '; return renderBest();')(
+    cur, () => composite ? [o] : [], x => String(x).replaceAll('<', '&lt;'), String, () => '', () => '', () => '');
 }
 for (const comp of [{}, {method:'v4-rhythm', rhythm_verified:true}, {method:'v5-mrabs', rhythm_verified:false}]) {
   assert(render(comp).includes('새 MR 정렬 결과로 확인되지 않았어요'));
