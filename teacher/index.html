@@ -331,6 +331,7 @@
   </section>
 </main>
 <div id="toast"></div>
+<script src="../lesson-replies.js"></script>
 
 <script>
 // ── 설정 ────────────────────────────────────────────────
@@ -2857,6 +2858,19 @@ async function openLessonInner(sid, i, backTo) {
   $("ckCard").classList.toggle("hidden", !cfg.practice_check);
   renderSent();
   renderToday(); renderSpkState(ai);
+  // 레슨별 비공개 답신(앱 #39): 수강생이 이 레슨에 남긴 글과 답장 — 평소엔 접힘(화면 길이)
+  document.getElementById("lessonReplies")?.remove();
+  if (typeof LessonReplies !== "undefined") {
+    const wrap = document.createElement("details"); wrap.id = "lessonReplies"; wrap.className = "card"; wrap.style.order = "7";
+    wrap.innerHTML = `<summary><b>💬 레슨 답신</b> <span class="muted">수강생과 이 레슨 이야기</span></summary><div></div>`;
+    $("sendCard").after(wrap);
+    LessonReplies.mount(wrap.querySelector("div"), { teacher: true,
+      request: (action, extra = {}) => portal(action, { sid, lesson: l.id, ...extra }),
+      playClip: async clip => {   // 첨부 위치 = 그 녹음 파일 안의 초(레슨 전체 시각 아님)
+        const box = wrap.querySelector("div"); let a = box.querySelector("audio"); if (!a) { a = document.createElement("audio"); a.controls = true; box.appendChild(a); }
+        if (!cur.clipUrls[clip.file_id]) cur.clipUrls[clip.file_id] = URL.createObjectURL(await readBlob(clip.file_id));
+        a.src = cur.clipUrls[clip.file_id]; a.onloadedmetadata = () => { a.currentTime = clip.seconds; }; pauseOthers(a); await a.play(); } });
+  }
   if (typeof regenRefresh === "function") regenRefresh(cur);
   if (typeof paintSaved === "function") paintSaved(review.reviewed_at ? new Date(review.reviewed_at) : null);
   $("btnSpeakerEdit").onclick = () => {
@@ -4023,7 +4037,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-28-2335-pair";
+const BUILD = "2026-10-28-2340-replies";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();

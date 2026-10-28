@@ -52,6 +52,7 @@
   <h1>🎤 내 보컬 노트 <span class="muted" style="font-size:.85rem">뮤직스튜디오 작품</span></h1>
   <div id="view"><p class="muted">불러오는 중…</p></div>
 </main>
+<script src="../lesson-replies.js"></script>
 <script>
 // ── 설정(비밀값 아님): 수강생 로그인용 구글 클라이언트 ID, 노트 연결(Apps Script 웹 앱) 주소 ──
 const STUDENT_CLIENT_ID = "712936245254-2itl2rolhhcsq9cdqnhku4u43hpdv2mk.apps.googleusercontent.com";
@@ -248,6 +249,23 @@ function openLesson(id) {
       `<div class="card greet"><div class="muted">${esc(data.name)}님의 보컬노트 · ${nth}회차 · ${esc(dd)}</div><p class="big" style="margin:4px 0 0">${esc(data.name)}님, 오늘도 수고 많으셨어요 🎵</p></div><h2 style="margin:14px 0 4px">`);
     $("back").onclick = timeline; wirePlayers();
     document.querySelectorAll("[data-mode]").forEach(b => b.onclick = () => { LS.set("sn_mode", b.dataset.mode); paint(); });
+    // 레슨별 비공개 답신(앱 #39): 이 레슨에 대해 선생님과 주고받는 글. 서버(Apps Script)가 본인 레슨인지 다시 확인
+    if (typeof LessonReplies === "undefined") return;
+    const replies = document.createElement("section"); replies.className = "card"; $("view").appendChild(replies);
+    const allowed = [l.best, l.makeup, ...(l.clips || []), ...(l.extra_best || [])].filter(Boolean).map(x => x.file_id);
+    LessonReplies.mount(replies, {
+      request: (action, extra = {}) => call(action, { lesson: id, ...extra }),
+      getClip: () => {
+        const a = [...document.querySelectorAll("audio")].find(a => !a.paused && a.id.startsWith("au_"));
+        const file_id = a?.id.slice(3).replace(/#[bsm]$/, "");
+        return allowed.includes(file_id) && Number.isFinite(a.currentTime) ? { file_id, seconds: Math.floor(a.currentTime) } : null;
+      },
+      playClip: async clip => {
+        if (!allowed.includes(clip.file_id)) throw new Error("현재 공개된 녹음이 아니에요.");
+        let a = replies.querySelector("audio"); if (!a) { a = document.createElement("audio"); a.controls = true; replies.appendChild(a); }
+        a.src = await audioUrl(clip.file_id); a.onloadedmetadata = () => { a.currentTime = clip.seconds; }; await a.play();
+      }
+    });
   };
   paint();
   window.scrollTo(0, 0);
