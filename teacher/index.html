@@ -2562,6 +2562,7 @@ async function openLessonInner(sid, i, backTo) {
   $("ckCard").classList.toggle("hidden", !cfg.practice_check);
   renderSent();
   renderToday(); renderSpkState(ai);
+  if (typeof regenRefresh === "function") regenRefresh(cur);
   if (typeof paintSaved === "function") paintSaved(review.reviewed_at ? new Date(review.reviewed_at) : null);
   $("btnSpeakerEdit").onclick = () => {
     $("spkCard").classList.remove("hidden");
@@ -2596,6 +2597,8 @@ function initFold(el, forceOpen) {
 // 편집본이 대기·실패·불가이면 단일 테이크로 대신하지 않고 빈 목록(상태 안내만) — 자동 공유·대체 금지
 function bestOptions() {
   const b = cur.best, c = b?.composite;
+  const ad = typeof regenAdopted === "function" ? regenAdopted() : null;   // 선생님이 [새 편집본 채택]을 누른 후보만. 채택 전 후보는 여기에 들어오지 않음
+  if (b?.status === "ok" && ad) return [{ ...ad, isComposite: true }];
   return b?.status === "ok" && c?.status === "ok" && c.file_id ? [{ ...c, isComposite: true }] : [];
 }
 function bestSourceTakes() {   // 하이라이트 기준 테이크 등 내부용. 화면의 선택지가 아님
@@ -2683,6 +2686,117 @@ function renderBest() {
     ${tpHTML(true).replace('aria-label="재생 위치" style="width:100%">', 'aria-label="재생 위치" style="width:100%">' + seamStrip(o))}
     ${makeupBoxHTML(o)}
     <div id="inclBox" style="margin-top:8px">${inclHTML(o)}</div></div>`;
+}
+// ── 베스트 편집본 전체 다시 편집(이슈 #153, 사용자 승인 2026-10-28) ─────────────────────────
+// 부분/연결점 수정이 아니라 레슨 전체에서 베스트를 다시 찾아 새 편집본 '후보'를 만든다. 버튼을 누르기 전에는 요청·처리 0건.
+// 계약: 레슨 폴더에 앱이 요청 파일을 쓰고, 서버가 상태·후보 파일을 쓴다(기존 오늘의베스트.json·기존 mp3는 서버도 건드리지 않음).
+// 후보는 선생님이 [새 편집본 채택]을 누를 때만 '지금 편집본'이 되고(검수.json bestRegen), 채택해도 학생에게 보낼지는 파일 ID 기준으로 따로 고른다.
+const RG_REQ = "전체재편집_요청_", RG_STATE = "전체재편집_상태_", RG_CAND = "전체재편집_후보_", RG_SCHEMA = "best-regen-1";
+const RG_LABEL = { requested: "요청됨", queued: "대기 중", processing: "처리 중", succeeded: "성공", failed: "실패" };
+const RG_ACTIVE = ["requested", "queued", "processing"];
+let regenBusy = false, regenTimer = null;
+function regenNewId() { return "r" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+function regenItems() { return cur?.regen?.items || []; }
+const regenStateOf = (it) => it.state?.state || "requested";   // 서버 상태 파일이 아직 없으면 '요청됨'(서버가 받았다고 가장하지 않음)
+function regenActive() { return regenItems().find(it => RG_ACTIVE.includes(regenStateOf(it))) || null; }
+function regenDecision(it) { return cur?.review?.bestRegen?.[it.rid] || null; }
+function regenCandOk(it) {   // 후보 파일 검증: 같은 수강생·레슨·요청 번호, 상태 ok, 음원 ID 존재
+  const c = it.cand, f = c?.composite;
+  return !!(regenStateOf(it) === "succeeded" && c && c.req_id === it.rid && c.student_id === cur.sid && c.lesson_folder === cur.folder.id &&
+    f?.status !== "none" && f?.status !== "error" && f?.file_id && it.state?.file_id === f.file_id);
+}
+function regenAdopted() {   // 채택 결정이 있고 후보가 유효할 때만. 가장 나중에 채택한 것
+  const ok = regenItems().filter(it => regenCandOk(it) && regenDecision(it)?.decision === "adopt" && regenDecision(it).file_id === it.cand.composite.file_id);
+  const it = ok[ok.length - 1];
+  return it ? { ...it.cand.composite, regen_req_id: it.rid } : null;
+}
+function regenPending() {   // 아직 채택/유지를 안 정한 가장 최근 성공 후보
+  const p = regenItems().filter(it => regenCandOk(it) && !regenDecision(it));
+  return p[p.length - 1] || null;
+}
+function regenLastFailed() {
+  const it = regenItems().slice(-1)[0];
+  return it && regenStateOf(it) === "failed" && !regenDecision(it) ? it : null;
+}
+async function regenRefresh(me, quiet) {
+  try {
+    const fs = await list(me.folder.id);
+    const reqs = fs.filter(f => f.name.startsWith(RG_REQ) && f.name.endsWith(".json")).sort((a, b) => a.name < b.name ? -1 : 1);
+    const items = await Promise.all(reqs.map(async f => {
+      const rid = f.name.slice(RG_REQ.length, -5), sf = fs.find(x => x.name === RG_STATE + rid + ".json"), cf = fs.find(x => x.name === RG_CAND + rid + ".json");
+      const state = sf ? await readJSON(sf.id).catch(() => null) : null;
+      const cand = cf && state?.state === "succeeded" ? await readJSON(cf.id).catch(() => null) : null;
+      return { rid, reqFileId: f.id, state, cand };
+    }));
+    if (cur !== me) return;
+    const was = JSON.stringify(regenItems().map(i => [i.rid, regenStateOf(i)]));
+    me.regen = { items, at: Date.now() };
+    if (was !== JSON.stringify(items.map(i => [i.rid, regenStateOf(i)])) || !quiet) { tpDetach(); renderToday(); }
+    clearTimeout(regenTimer);
+    if (regenActive()) regenTimer = setTimeout(() => { if (cur === me && !document.hidden) regenRefresh(me, true); else if (cur === me) regenTimer = setTimeout(() => regenRefresh(me, true), 30000); }, 30000);
+  } catch (e) { if (!quiet) toast("재편집 상태를 읽지 못했어요: " + e.message); }
+}
+function regenSeamCount(c) { return (c?.composite?.seams || []).length; }
+function regenBoxHTML() {
+  if (!cur?.best || cur.best.status !== "ok") return "";
+  const act = regenActive(), pend = regenPending(), fail = regenLastFailed(), o = bestPicked();
+  const head = `<b>🔁 전체 다시 편집</b> <span class="muted" style="font-size:.85rem">레슨 전체에서 베스트를 다시 찾아 새 편집본 후보를 만들어요 · 기존 편집본은 그대로 보존</span>`;
+  let body = "";
+  if (act) {
+    const s = regenStateOf(act);
+    body = `<p role="status" class="muted" style="margin:6px 0">상태: <span class="chip todo">${RG_LABEL[s]}</span> ${s === "requested" ? "요청을 저장했어요. 서버가 이 요청을 가져가면 ‘대기/처리 중’으로 바뀌어요(앱을 닫아도 요청은 남아요)." : esc(act.state?.reason || "")}</p>
+      <div class="row"><button class="small ghost" id="regenRefresh" type="button">상태 새로고침</button><button class="small" id="regenStart" type="button" disabled>전체 다시 편집 (진행 중)</button></div>`;
+  } else if (pend) {
+    const c = pend.cand, rh = c.rhythm || {}, n = regenSeamCount(c);
+    body = `<p role="status" class="muted" style="margin:6px 0">상태: <span class="chip">${RG_LABEL.succeeded}</span> 새 편집본 후보가 만들어졌어요. 두 버전을 들어 보고 고르세요. 고르기 전에는 학생·카톡에 아무것도 가지 않아요.</p>
+      <p class="muted" style="margin:2px 0;font-size:.85rem">⚠ ${esc(rh.note || "박자 정렬 확인 필요")}${rh.needs_listen !== false ? " · 실제 청감은 아직 검증 전이에요" : ""} · 이어 붙인 곳 ${n}곳 · 사용 방식 ${esc(c.composite?.method || "-")}</p>
+      <div class="muted" style="font-size:.85rem;margin-top:6px"><b>기존 편집본</b>${o ? "" : " (없음)"} — 재생바</div>${o ? `<div id="regenOld">${tpHTML(true)}</div>` : ""}
+      <div class="muted" style="font-size:.85rem;margin-top:6px"><b>새 편집본 후보</b> — 재생바 (한쪽을 재생하면 다른 쪽은 멈춰요)</div><div id="regenNew">${tpHTML(true)}</div>
+      <div class="row" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px">
+        <button class="small" id="regenAdopt" type="button">새 편집본 채택</button><button class="small ghost" id="regenKeep" type="button">기존 편집본 유지</button></div>
+      <p class="muted" style="margin:4px 0 0;font-size:.8rem">채택해도 학생에게 보낼지는 위 ‘베스트 편집본 보내기’에서 다시 골라야 해요. 기존 메이크업본은 이전 편집본용이라 새 편집본에는 이어지지 않아요.</p>`;
+  } else {
+    const failMsg = fail ? `<p role="status" class="muted" style="margin:6px 0">지난 요청은 <span class="chip todo">${RG_LABEL.failed}</span> — ${esc(fail.state?.reason || "사유를 알 수 없어요")}. 기존 편집본은 그대로예요. 다시 시도할 수 있어요.</p>` : "";
+    const ad = regenAdopted();
+    body = `${failMsg}${ad ? `<p class="muted" style="margin:6px 0;font-size:.85rem">지금 쓰는 편집본은 ‘전체 다시 편집’ 후보를 채택한 것이에요.</p>` : ""}
+      <div class="row"><button class="small ghost" id="regenStart" type="button">${fail ? "전체 다시 편집 (재시도)" : "전체 다시 편집"}</button></div>`;
+  }
+  return `<div class="bestbox" id="regenBox" style="margin-top:10px">${head}${body}</div>`;
+}
+async function regenStart() {
+  if (regenBusy) return;
+  regenBusy = true;
+  const me = cur;
+  try {
+    await regenRefresh(me, true);   // 저장 직전 최신 상태로 중복 확인(새로고침·다른 기기 대비)
+    if (cur !== me) return;
+    if (regenActive() || regenPending()) { toast("이미 진행 중이거나 고르지 않은 새 편집본이 있어요"); renderToday(); return; }
+    if (!confirm("기존 편집본은 보존하고 새 편집본을 만듭니다. 완료 후 듣고 채택하세요.\n\n전체 다시 편집을 요청할까요?")) return;
+    const o = bestPicked(), rid = regenNewId();
+    const body = { schema: RG_SCHEMA, req_id: rid, student_id: me.sid, lesson_folder: me.folder.id, base_file_id: o?.file_id || null, requested_at: new Date().toISOString() };
+    const id = await writeJSON(me.folder.id, RG_REQ + rid + ".json", body);
+    if (cur === me) { me.regen = { items: [...regenItems(), { rid, reqFileId: id, state: null, cand: null }] }; tpDetach(); renderToday(); }
+    toast("요청을 저장했어요");
+    regenRefresh(me, true);
+  } catch (e) { toast("요청을 저장하지 못했어요: " + e.message); } finally { regenBusy = false; }
+}
+async function regenDecide(it, decision) {
+  const rv = cur.review;
+  rv.bestRegen = { ...(rv.bestRegen || {}), [it.rid]: { decision, file_id: it.cand.composite.file_id, at: new Date().toISOString() } };
+  if (typeof markDirty === "function") markDirty();
+  tpDetach(); renderToday();
+  await saveReview(true);   // 포함 여부(bestInclude*)는 건드리지 않는다 — 새 파일 ID는 포함 상태를 이어받지 않음
+}
+function wireRegen() {
+  const st = $("regenStart"); if (st && !st.disabled) st.onclick = regenStart;
+  const rf = $("regenRefresh"); if (rf) rf.onclick = () => regenRefresh(cur);
+  const pend = regenPending();
+  if (!pend) return;
+  const o = bestPicked();
+  if ($("regenOld") && o) tpWire($("regenOld").querySelector(".tp"), o.file_id);
+  if ($("regenNew")) tpWire($("regenNew").querySelector(".tp"), pend.cand.composite.file_id);
+  $("regenAdopt").onclick = () => { if (confirm("새 편집본을 지금 편집본으로 채택할까요?\n기존 편집본 파일은 지우지 않아요. 학생에게 보낼지는 따로 골라야 해요.")) regenDecide(pend, "adopt"); };
+  $("regenKeep").onclick = () => regenDecide(pend, "keep");
 }
 const SHOW_TRIAL = false;
 // 박자 확인용 시험 편집본(2026-10-27 23:25 사용자: 4곳 이상 이어 붙여 박자 확인) — 선생님 확인용, 수강생에게는 안 감
@@ -2774,8 +2888,8 @@ function renderToday() {
     : `<div class="muted">AI 초안 없음 — 아래 ‘카톡 피드백 문구’에서 직접 작성하세요</div>`;
   // 오늘 핵심·이번 주 연습은 아래 '카톡 피드백'과 '수강생에게 보이는 내용'에 같은 글이 있어 여기선 뺌(2026-10-27 사용자: 정보가 너무 많음)
   void head; void prs;
-  $("todayCard").innerHTML = `<h3 style="margin:0 0 6px">📦 오늘의 레슨 전달 패키지</h3>` + renderBest() + (typeof renderTrial === "function" ? renderTrial() : "") + `<div id="deliverBox" style="margin-top:10px"></div>`;
-  wireBest(); if (typeof paintDeliver === "function" && cur.folder) paintDeliver();
+  $("todayCard").innerHTML = `<h3 style="margin:0 0 6px">📦 오늘의 레슨 전달 패키지</h3>` + renderBest() + (typeof regenBoxHTML === "function" ? regenBoxHTML() : "") + (typeof renderTrial === "function" ? renderTrial() : "") + `<div id="deliverBox" style="margin-top:10px"></div>`;
+  wireBest(); if (typeof wireRegen === "function") wireRegen(); if (typeof paintDeliver === "function" && cur.folder) paintDeliver();
 }
 // 화자 확인이 필요한 상태(미확인/AI 불확실/3명 이상)면 상단으로 올리고 자동 펼침 + 경고. 아니면 한 줄 요약으로 접음
 function speakerIssues(ai) {
