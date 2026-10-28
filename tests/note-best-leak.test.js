@@ -49,7 +49,7 @@ assert.deepStrictEqual(lite(run(re, B(), [JOB()])), { best: "C1", makeup: "M1", 
 assert.notStrictEqual(run(inc(true, true), B(), [JOB()]).sig, run(inc(true), B(), [JOB()]).sig);
 assert.notStrictEqual(run(inc(true), B(), [JOB()]).sig, run({}, B(), [JOB()]).sig);
 // 직렬화: 메이크업 항목은 원본 편집본과 별개 파일 ID 로 기록
-assert.deepStrictEqual(run(inc(true, true), B(), [JOB()]).n.makeup, { file_id: "M1", len: 32, source_file_id: "C1" });
+assert.deepStrictEqual(run(inc(true, true), B(), [JOB()]).n.makeup, { file_id: "M1", len: 32, source_file_id: "C1", msg: "" });
 // 카톡 보내기 경로도 같은 함수를 씀
 assert.ok(/const bp = bestForNote\(\);/.test(src) && /const mkp = makeupForNote\(\);/.test(src), "btnShare 는 bestForNote/makeupForNote 사용");
 console.log("note-best-leak OK");
