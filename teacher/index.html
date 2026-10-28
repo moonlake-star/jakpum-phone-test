@@ -171,7 +171,8 @@
   .pvEd, #previewFeedback { box-sizing:border-box; width:100%; min-height:0; line-height:24px; padding:8px 10px; border:1px solid transparent; border-radius:12px; background:#11141a; color:var(--fg); overflow-y:auto; resize:none; transition:height 250ms ease, border-color .2s; }
   .pvCard.open .pvEd, .pvCard.open #previewFeedback { border-color:var(--line); background:#0f1216; }
   /* (10/29 사용자) 접힌 칸은 칸 안에서 스크롤 안 됨 → 어디를 끌어도 화면 전체가 스크롤. 넘치는 글은 아래를 흐리게 + 'N줄 더' 표시, 톡/✎ = 펼쳐 수정 */
-  .pvCard:not(.open) .pvEd, .pvCard:not(.open) #previewFeedback { overflow:hidden; }
+  .pvCard:not(.open) .pvEd, .pvCard:not(.open) #previewFeedback { overflow:hidden; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
+  .pvEd.pvHolding, #previewFeedback.pvHolding { border-color:var(--pv, var(--accent)) !important; box-shadow:0 0 0 2px var(--pv, var(--accent)); -webkit-mask-image:none; mask-image:none; }
   .pvCard:not(.open) .pvEd.pvClip, .pvCard:not(.open) #previewFeedback.pvClip { -webkit-mask-image:linear-gradient(#000 62%, transparent); mask-image:linear-gradient(#000 62%, transparent); }
   .pvMore { color:var(--accent); font-size:.85rem; font-weight:600; margin:2px 2px 0; cursor:pointer; } .pvCard.open .pvMore { display:none; }
   .pvFold { margin-left:auto; min-height:32px; height:32px; padding:0 10px; font-size:.85rem; border-radius:16px; } .pvCard:not(.open) .pvFold[data-pvfold] { display:none; }
@@ -1316,7 +1317,7 @@ function pvWireCards(me) {
   q("[data-pvcancel]").forEach(b => b.onclick = () => { const id = b.dataset.pvcancel, el = $(id); if (!el || !PV_EDS[id]) return; el.value = PV_EDS[id].get(me.review); pvSetH(el, false); });
   q("[data-pvopen]").forEach(b => b.onclick = () => { const el = $(b.dataset.pvopen); if (!el) return; el.focus(); if (el.id !== "previewFeedback") pvSetH(el, true); });
   q("[data-pvcheer]").forEach(b => b.onclick = () => { const el = $("pvCheer"); if (!el) return; el.value = pickCheer(+b.dataset.pvcheer, el.value, me.st?.name); pvSetH(el, true); el.focus(); });
-  for (const id of ["previewFeedback", ...Object.keys(PV_EDS)]) { const el = $(id); if (el && el.addEventListener) {
+  for (const id of ["previewFeedback", ...Object.keys(PV_EDS)]) { const el = $(id); if (el && el.addEventListener) { if (typeof pvHold === "function") pvHold(el);
     el.addEventListener("input", () => { pvCount(el); const op = !!el.closest?.(".pvCard")?.classList.contains("open"); el.style.height = pvFit(el, op ? PV_ROWS.open : PV_ROWS.closed) + "px"; });
     pvCount(el); if (typeof requestAnimationFrame === "function") requestAnimationFrame(() => { const op = !!el.closest?.(".pvCard")?.classList.contains("open"); el.style.height = pvFit(el, op ? PV_ROWS.open : PV_ROWS.closed) + "px"; }); } }
   q("[data-pvfold]").forEach(b => b.onclick = () => { const el = $(b.dataset.pvfold); if (el) { el.blur?.(); pvSetH(el, false); } });
@@ -1331,9 +1332,31 @@ function pvSetH(el, open) { if (el && el.style) el.style.height = pvFit(el, open
 function pvMore(el) {   // 접힌 칸에서 안 보이는 줄 수(대략, 줄높이 24px) → 'N줄 더' 표시와 아래 흐림
   if (!el || typeof document === "undefined" || !document.querySelector) return;
   const tag = document.querySelector(`[data-pvmore="${el.id}"]`), open = !!el.closest?.(".pvCard")?.classList.contains("open");
-  const extra = open || !el.isConnected ? 0 : Math.ceil(((el.scrollHeight || 0) - (el.clientHeight || 0) - 4) / 24);
+  const extra = open || !el.isConnected ? 0 : Math.ceil(((el.scrollHeight || 0) - (el.clientHeight || 0) - (el.scrollTop || 0) - 4) / 24);
   el.classList?.toggle("pvClip", extra > 0);
-  if (tag) { tag.hidden = !(extra > 0); tag.textContent = extra > 0 ? `… 아래 ${extra}줄 더 있어요 · 톡 누르면 펼쳐져요` : ""; tag.onclick = () => el.focus(); }
+  if (tag) { tag.hidden = !(extra > 0); tag.textContent = extra > 0 ? `… 아래 ${extra}줄 더 있어요 · 길게 누른 채 끌면 칸 안에서 넘겨져요 · 톡 누르면 펼쳐져요` : ""; tag.onclick = () => el.focus(); }
+}
+// (10/29 08:43 사용자) 접힌 칸: 바로 끌면 화면 스크롤(폰 기본), 0.35초 길게 누른 뒤 끌면 칸 안의 글만 넘김. 수정 모드(펼침)에선 길게 누르기 = 원래대로 글자 선택
+const PV_HOLD_MS = 350, PV_MOVE = 8;
+function pvHold(el) {
+  if (!el || el._pvHold || !el.addEventListener) return; el._pvHold = true;
+  let h = null;
+  const closed = () => !el.closest?.(".pvCard")?.classList.contains("open");
+  const end = (e) => { if (!h) return; clearTimeout(h.t); const was = h.on; h = null; el.classList.remove("pvHolding");
+    if (was) { e?.preventDefault?.(); pvMore(el); } };   // 길게 눌러 넘긴 뒤엔 손을 떼도 펼치지 않음(포커스·클릭 막음)
+  el.addEventListener("touchstart", (e) => {
+    if (!closed() || e.touches.length !== 1) return;
+    const y = e.touches[0].clientY, x = e.touches[0].clientX;
+    h = { y, x, on: false, t: setTimeout(() => { if (!h) return; if (el.scrollHeight <= el.clientHeight + 2) { h = null; return; }
+      h.on = true; el.classList.add("pvHolding"); try { navigator.vibrate?.(12); } catch {} }, PV_HOLD_MS) };
+  }, { passive: true });
+  el.addEventListener("touchmove", (e) => {
+    if (!h) return; const t = e.touches[0];
+    if (!h.on) { if (Math.hypot(t.clientX - h.x, t.clientY - h.y) > PV_MOVE) { clearTimeout(h.t); h = null; } return; }   // 길게 누르기 전에 움직이면 화면 스크롤
+    e.preventDefault(); el.scrollTop += h.y - t.clientY; h.y = t.clientY; pvMore(el);
+  }, { passive: false });
+  el.addEventListener("touchend", end, { passive: false }); el.addEventListener("touchcancel", end);
+  el.addEventListener("contextmenu", (e) => { if (closed()) e.preventDefault(); });   // 접힌 칸에서 길게 눌러도 메뉴·글자 선택 안 뜸
 }
 function pvCount(el) { if (!el || typeof document === "undefined" || !document.querySelector) return; pvMore(el); if (typeof setTimeout === "function") setTimeout(() => pvMore(el), 300);   // 접힘 애니메이션(250ms) 뒤 다시
   const c = document.querySelector(`[data-pvcnt="${el.id}"]`);
@@ -4210,7 +4233,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-29-0900-audio";
+const BUILD = "2026-10-29-0850-hold";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
