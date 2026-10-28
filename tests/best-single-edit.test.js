@@ -42,12 +42,12 @@ for (const [c, msg] of [[{ status: "error", why: "x" }, "편집본 생성 실패
 // 4) 메이크업 상태: 처리 중/실패/완료인데 파일 없음/완료
 for (const [job, msg] of [[JOB({ status: "running", progress: { pct: 40 } }), "처리 중이에요(40%)"], [JOB({ status: "error" }), "처리에 실패했어요"], [JOB({}, []), "음원 파일을 확인하지 못했어요"]]) {
   t = setup({}, COMP, [job]); h = t.api.renderBest();
-  assert.ok(h.includes(msg), msg); assert.ok(!h.includes("위 재생바 = 보정 전"), "음원 없으면 비교 재생바 없음");
+  assert.ok(h.includes(msg), msg); assert.ok(!h.includes("위 = 보정 전"), "음원 없으면 비교 재생바 없음");
   assert.ok(!h.includes('data-incl="makeup"'));
 }
 // 5) 완료된 메이크업: 비교 재생바(편집본 + 메이크업본 = .tp 2개) 와 활성 포함 버튼
 t = setup({}, COMP, [JOB()]); h = t.api.renderBest();
-assert.strictEqual((h.match(/class="tp"/g) || []).length, 2); assert.ok(h.includes("위 재생바 = 보정 전") && h.includes('data-incl="makeup"') && !/data-incl="makeup"[^>]*disabled/.test(h));
+assert.strictEqual((h.match(/class="tp"/g) || []).length, 2); assert.ok(h.includes("위 = 보정 전") && h.includes('data-incl="makeup"') && h.includes('id="abSwap"') && !/data-incl="makeup"[^>]*disabled/.test(h));
 // 6) 보내기 체크: 독립 저장, 파일 ID 기록, 승인 상태 갱신(paintDeliver), 메이크업 없으면 거부, 해제하면 미선택(null)
 const tick = (t, k, on) => { t.btns.length = 0; const mk = (kk) => ({ dataset: { incl: kk }, checked: false, onchange: null, closest: () => null });
   const bs = [mk("best"), mk("makeup")]; t.btns.push(...bs);

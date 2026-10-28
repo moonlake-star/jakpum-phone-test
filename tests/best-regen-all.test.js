@@ -122,7 +122,7 @@ const F = (name, id) => ({ id: id || name, name });
   // 10) 코드 경로 정적 점검: 학생 노트·카톡 경로는 후보를 직접 읽지 않고 bestForNote(포함 ID 일치)만 통과
   assert.ok(/function bestForNote\(\) \{ const o = bestPicked\(\); return o && inclOk\(cur\.review, "best", o\.file_id\) \? o : null; \}/.test(src));
   const regenSrc = src.slice(src.indexOf("const RG_REQ"), src.indexOf("const SHOW_TRIAL"));
-  assert.ok(!/buildNote|kakaoText|publish|navigator\.share|clipboard|\bkick\(/.test(regenSrc), "재편집 코드는 학생 공개·카톡·서버 호출(kick)을 하지 않음");
+  assert.ok(!/buildNote|kakaoText|publish|navigator\.share|clipboard/.test(regenSrc), "재편집 코드는 학생 공개·카톡을 하지 않음"); assert.ok(/kick\(\)/.test(regenSrc), "요청 저장 뒤 서버를 바로 시작(10/28 사용자: 다 적용)");
   assert.ok(!/오늘의베스트\.json|MKREQ|trashed|DELETE/.test(regenSrc), "기존 편집본 파일·메타를 쓰거나 지우지 않음");
   console.log("best-regen-all OK");
 })().catch(e => { console.error(e); process.exit(1); });

@@ -2873,7 +2873,8 @@ function makeupBoxHTML(o) {
   const ms = makeupState(o), job = ms === "none" ? null : bestMakeupJob(o);
   const head = `<div class="row" style="justify-content:space-between;flex-wrap:nowrap"><span><b>🪄 메이크업본</b> <span class="muted" style="font-size:.85rem">음정 보정 등</span></span>${ms === "ready" && typeof inclChk === "function" ? inclChk("makeup", o) : ""}</div>`;
   if (ms === "ready") return `<div id="mkBox" style="margin-top:10px">${head}
-    <p class="muted" style="margin:2px 0;font-size:.85rem">위 재생바 = 보정 전(편집본 원본), 아래 재생바 = 보정 후(메이크업본). 한쪽을 재생하면 다른 쪽은 멈춰요.</p>${tpHTML(true)}</div>`;
+    <p class="muted" style="margin:2px 0;font-size:.85rem">위 = 보정 전(편집본), 아래 = 보정 후(메이크업본). 한쪽을 재생하면 다른 쪽은 멈춰요.</p>${tpHTML(true)}
+    <button class="small ghost" id="abSwap" style="width:100%;margin-top:6px">⇄ 같은 위치에서 원본·메이크업 바꿔 듣기</button></div>`;
   const msg = ms === "none" ? "아직 만들지 않았어요. 만들기 전에는 학생에게 보낼 수 없어요."
     : ms === "working" ? `처리 중이에요(${job.req.progress?.pct ?? 0}%). 끝나면 여기서 들어볼 수 있어요.`
     : ms === "error" ? "처리에 실패했어요. 결과 화면에서 원인을 확인해 주세요. 메이크업본은 없는 것으로 취급해요."
@@ -3012,7 +3013,8 @@ async function regenStart() {
     const body = { schema: RG_SCHEMA, req_id: rid, student_id: me.sid, lesson_folder: me.folder.id, base_file_id: o?.file_id || null, requested_at: new Date().toISOString() };
     const id = await writeJSON(me.folder.id, RG_REQ + rid + ".json", body);
     if (cur === me) { me.regen = { items: [...regenItems(), { rid, reqFileId: id, state: null, cand: null }] }; tpDetach(); renderToday(); }
-    toast("요청을 저장했어요");
+    toast("요청을 저장했어요 · 서버가 바로 시작해요");
+    if (typeof kick === "function") kick();   // 예약 실행을 기다리지 않고 바로(서버가 요청을 다시 확인)
     regenRefresh(me, true);
   } catch (e) { toast("요청을 저장하지 못했어요: " + e.message); } finally { regenBusy = false; }
 }
@@ -3109,7 +3111,17 @@ function wireBest() {
     return job ? openMkJob(job, back) : makeupFromBest(o, back);
   };
   const job = bestMakeupJob(o), mbox = $("mkBox");
-  if (mbox && makeupState(o) === "ready") tpWire(mbox.querySelector(".tp"), bestMakeupAudio(o).file_id);   // 같은 player를 공유 → 두 음원이 겹쳐 재생되지 않음
+  if (mbox && makeupState(o) === "ready") {
+    tpWire(mbox.querySelector(".tp"), bestMakeupAudio(o).file_id);   // 같은 player를 공유 → 두 음원이 겹쳐 재생되지 않음
+    const sw = $("abSwap");
+    if (sw) sw.onclick = async () => {   // (#83 A/B) 지금 듣던 자리 그대로 다른 쪽으로 — 한 player라 동시에 나지 않음
+      const m = bestMakeupAudio(o); if (!m) return;
+      const toM = tpFile !== m.file_id, t = tpFile ? (player.currentTime || 0) : 0, root = toM ? mbox.querySelector(".tp") : broot;
+      try { if (!await tpLoad(root, toM ? m.file_id : o.file_id)) return;
+        player.currentTime = Math.min(t, Math.max(0, (player.duration || t) - 0.05)); pauseOthers(player); await player.play(); tpPaint();
+        sw.textContent = toM ? "⇄ 지금: 메이크업본 · 누르면 원본으로" : "⇄ 지금: 원본 · 누르면 메이크업본으로";
+      } catch (e) { toast(e.message); } };
+  }
   else if (job?.req.status === "done" && !job._filesTried && job.folder?.id) {   // 끝난 작업의 파일 목록을 한 번 읽어 mix.mp3 확인
     job._filesTried = true;
     const me = cur;
@@ -3923,7 +3935,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-28-2310-kakao1";
+const BUILD = "2026-10-28-2320-ab";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
