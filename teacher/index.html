@@ -1125,7 +1125,7 @@ function feedbackPreviewHTML(note, rv, disabled, open = false) {
   const audio = (kind, o, color) => `<div class="pvAudio"><button type="button" data-pvplay="${kind}" aria-label="듣기">▶</button>${wave(o.file_id, color)}</div>`;
   let pvN = 0; const num = () => `<span class="pvNum">${++pvN}</span>`;   // 보이는 카드만 1부터 차례로
   const ms = missionState(rv), song = rv.song || {}, mmss = (x) => `${Math.floor((+x || 0) / 60)}:${String(Math.round((+x || 0) % 60)).padStart(2, "0")}`;
-  const CHEER = [["격려", "오늘 정말 잘하셨어요! 꾸준히 하시면 더 멋진 목소리가 될 거예요 😊"], ["성장", "지난번보다 확실히 좋아졌어요. 이 흐름 그대로 가 봐요! 🎵"], ["지속 응원", "한 주 동안 조금씩만 연습해도 충분해요. 늘 응원할게요 💪"]];
+  const CHEER = [["격려", 0], ["성장", 1], ["지속 응원", 2]];   // 문구는 CHEER_SETS(종류마다 8개, 누를 때마다 무작위)
   return `<div style="margin-top:6px"><div class="pvHead"><span class="muted">✎나 글을 누르면 12줄로 펼쳐 고쳐요</span>
       <button type="button" class="small ghost pvFullBtn" id="btnPreviewFull">⛶ 수강생 화면으로 보기</button></div>
     <div class="pvStrip" id="pvStrip">
@@ -1148,7 +1148,7 @@ function feedbackPreviewHTML(note, rv, disabled, open = false) {
             <button type="button" class="small" data-pvsave="pvSong"${disabled}>추천 곡 저장</button></details></div></section>
       <section class="pvCard" style="--pv:#ff5c8a" aria-label="5 응원 메시지"><h4>${num()}응원 메시지<button type="button" class="small ghost pvFold" data-pvfold="pvCheer">접기</button></h4>
         ${pvEdHTML("pvCheer", "응원 메시지", rv.cheer || "", disabled, "예: 오늘 정말 잘하셨어요! 꾸준히 하시면 더 멋진 목소리가 될 거예요 😊")}
-        <div class="pvChips">${CHEER.map(([k, v]) => `<button type="button" data-pvcheer="${esc(v)}"${disabled}>${k}</button>`).join("")}</div></section>
+        <div class="pvChips">${CHEER.map(([k, v]) => `<button type="button" data-pvcheer="${v}"${disabled}>🎲 ${k}</button>`).join("")}</div></section>
     </div>
     <p class="muted" id="previewSaveMsg" role="status" style="margin:4px 0">고친 문구는 선생님 글투를 익히는 데도 참고해요. 포인트·미션을 고치면 카톡 문구도 같이 바뀌어요.</p></div>`;
 }
@@ -1169,6 +1169,44 @@ const PV_EDS = {
     updateFeedbackDraft(setBlock(me.review.feedback, "이번 주 연습", a)); } },
   pvCheer: { get: (rv) => rv.cheer || "", set: (me, v) => { me.review.cheer = v.trim(); } },
 };
+// 응원 문구(10/28 23:05 사용자: 종류마다 8가지, 누를 때마다 무작위). 선생님 카톡 글투 기준 — 따뜻한 존댓말, 가끔 이모지, 선생님 1인칭
+const CHEER_SETS = [
+  [ // 격려
+    "오늘 정말 잘하셨어요! 꾸준히 하시면 더 멋진 목소리가 될 거예요 😊",
+    "{n}님, 오늘 어려운 부분도 끝까지 해내셨어요. 그 마음이면 충분해요 😄",
+    "처음엔 다 어려워요. 오늘처럼만 해 주시면 금방 편해지실 거예요!",
+    "오늘 한 번 잡힌 느낌, 그거 잊지 마세요. 정말 잘하셨어요 👏",
+    "목소리가 점점 자리를 잡아 가고 있어요. 자신감 가지셔도 돼요 😊",
+    "오늘 레슨에서 몇 번이나 좋은 소리가 나왔어요. 스스로 칭찬해 주세요!",
+    "안 되는 부분보다 된 부분이 훨씬 많았어요. 오늘 정말 수고하셨어요 😄",
+    "{n}님 노래에는 감정이 잘 담겨요. 그 장점 그대로 가져가시면 돼요!",
+  ],
+  [ // 성장
+    "지난번보다 확실히 좋아졌어요. 이 흐름 그대로 가 봐요! 🎵",
+    "처음 오셨을 때랑 비교하면 소리가 정말 많이 달라졌어요 😊",
+    "호흡이 한결 안정적이에요. 연습하신 게 소리로 나오고 있어요!",
+    "오늘은 고음에서도 덜 힘들어 보였어요. 확실히 늘고 계세요 👍",
+    "한 주 사이에 이만큼 달라지는 게 쉽지 않은데, 정말 잘하고 계세요!",
+    "지난번에 어려워하셨던 부분이 오늘은 자연스럽게 됐어요 😄",
+    "소리가 점점 {n}님다워지고 있어요. 이게 진짜 성장이에요 🎵",
+    "녹음 비교해 들어 보시면 달라진 게 느껴지실 거예요. 정말 좋아졌어요!",
+  ],
+  [ // 지속 응원
+    "한 주 동안 조금씩만 연습해도 충분해요. 늘 응원할게요 💪",
+    "하루 10분이라도 꾸준히가 제일 중요해요. 다음 레슨 때 또 들어 볼게요 😊",
+    "연습하시다 막히면 녹음해서 톡으로 보내 주세요. 제가 들어보고 같이 봐 드릴게요 😄",
+    "무리하지 마시고 목 컨디션 챙기면서 천천히 해 보세요. 늘 응원해요!",
+    "이번 주도 편하게 즐기면서 불러 보세요. 다음 레슨 기다릴게요 🎵",
+    "잘 안 되는 날도 있어요. 그래도 계속하시면 반드시 좋아져요 💪",
+    "{n}님 페이스대로 가시면 돼요. 저는 늘 옆에서 응원하고 있을게요 😊",
+    "다음 주엔 오늘보다 한 걸음 더! 같이 해 봐요 😄",
+  ],
+];
+function pickCheer(kind, now, name) {   // 같은 종류 안에서 지금 칸에 있는 것과 다른 문구를 무작위로
+  const set = CHEER_SETS[kind] || CHEER_SETS[0], fill = (t) => t.replaceAll("{n}", name || "");
+  const pool = set.map(fill).filter(t => t !== String(now || "").trim());
+  return pool[Math.floor(Math.random() * pool.length)] || fill(set[0]);
+}
 function pvWireCards(me) {
   const q = (sel) => (typeof document !== "undefined" && document.querySelectorAll) ? [...document.querySelectorAll(sel)] : [];
   const save = async (msg) => { if (typeof markDirty === "function") markDirty(); const ok = await saveReview(true); if (cur !== me) return;
@@ -1183,7 +1221,7 @@ function pvWireCards(me) {
     await save("저장했어요. ‘검수 저장’을 누르면 수강생 노트에 반영돼요."); });
   q("[data-pvcancel]").forEach(b => b.onclick = () => { const id = b.dataset.pvcancel, el = $(id); if (!el || !PV_EDS[id]) return; el.value = PV_EDS[id].get(me.review); pvSetH(el, false); });
   q("[data-pvopen]").forEach(b => b.onclick = () => { const el = $(b.dataset.pvopen); if (!el) return; el.focus(); if (el.id !== "previewFeedback") pvSetH(el, true); });
-  q("[data-pvcheer]").forEach(b => b.onclick = () => { const el = $("pvCheer"); if (!el) return; el.value = b.dataset.pvcheer; pvSetH(el, true); el.focus(); });
+  q("[data-pvcheer]").forEach(b => b.onclick = () => { const el = $("pvCheer"); if (!el) return; el.value = pickCheer(+b.dataset.pvcheer, el.value, me.st?.name); pvSetH(el, true); el.focus(); });
   for (const id of ["previewFeedback", ...Object.keys(PV_EDS)]) { const el = $(id); if (el && el.addEventListener) {
     el.addEventListener("input", () => { pvCount(el); const op = !!el.closest?.(".pvCard")?.classList.contains("open"); el.style.height = pvFit(el, op ? PV_ROWS.open : PV_ROWS.closed) + "px"; });
     pvCount(el); if (typeof requestAnimationFrame === "function") requestAnimationFrame(() => { const op = !!el.closest?.(".pvCard")?.classList.contains("open"); el.style.height = pvFit(el, op ? PV_ROWS.open : PV_ROWS.closed) + "px"; }); } }
@@ -3946,7 +3984,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-28-2330-fit";
+const BUILD = "2026-10-28-2340-cheer";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
