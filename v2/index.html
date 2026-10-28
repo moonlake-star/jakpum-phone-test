@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>피드백 V2 프로토타입(가상 데이터)</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:0;background:#f4f1fa;color:#222}
+.ban{background:#7a3df0;color:#fff;padding:8px 12px;font-size:13px;position:sticky;top:0;z-index:2}
+.wrap{max-width:560px;margin:0 auto;padding:12px}
+h2{font-size:17px;margin:14px 0 6px}
+.seg button{padding:8px 14px;border:1px solid #7a3df0;background:#fff;border-radius:18px;margin-right:6px;font-size:14px}
+.seg button.on{background:#7a3df0;color:#fff}
+.line{background:#fff;border-radius:10px;padding:10px;margin:6px 0;display:flex;gap:8px;align-items:flex-start}
+.line .t{flex:1;font-size:14px}.line.seen{border-left:4px solid #2fa36b}
+.line textarea{width:100%;min-height:54px;font:inherit}
+button.pri{width:100%;padding:14px;font-size:16px;border:0;border-radius:12px;background:#7a3df0;color:#fff;margin-top:10px}
+button.pri:disabled{background:#bbb}
+button.sm{padding:6px 10px;border:1px solid #999;background:#fff;border-radius:8px}
+.phone{border:6px solid #333;border-radius:24px;background:#fff;padding:10px;margin-top:8px}
+.card{background:#f4f1fa;border-radius:12px;padding:10px;margin:8px 0}.card b{display:block;margin-bottom:4px}
+.cheer{background:#ffe9a8;border-radius:12px;padding:10px;margin-top:8px}
+#msg{margin-top:8px;font-weight:600}
+</style></head><body>
+<div class="ban">V2 시험판 · 가상 데이터 · 실제 전송/카톡/API 전부 꺼짐 · <a href="../teacher/" style="color:#fff">V1로 돌아가기</a></div>
+<div class="wrap">
+<h2>1. AI 초안 (가상 레슨)</h2>
+<button class="pri" id="gen">AI 초안 만들기</button>
+<div id="work" hidden>
+ <h2>2. 전체 검토 <small id="prog"></small></h2>
+ <div class="seg" id="lv"></div>
+ <div id="lines"></div>
+ <h2>3. 수강생 화면 미리보기</h2>
+ <div class="phone" id="pv"></div>
+ <button class="pri" id="send" disabled>수강생에게 전달하기 (시뮬레이션)</button>
+ <div id="msg"></div>
+</div></div>
+<script src="v2-logic.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const esc = x => String(x).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let draft = null, level = 'normal', seen = new Set(), editing = null;
+const LABEL = {greet:'인사',best:'베스트',makeup:'메이크업',point1:'포인트1',point2:'포인트2',point3:'포인트3',why1:'이유1',why2:'이유2',mission1:'미션1',mission2:'미션2',song:'추천곡',cheer:'응원'};
+function render() {
+  const keys = V2.visibleKeys(level);
+  $('lv').innerHTML = Object.entries(V2.LEVELS).map(([k, v]) => `<button data-lv="${k}" class="${k === level ? 'on' : ''}">${v}</button>`).join('');
+  $('lines').innerHTML = V2.LINE_KEYS.filter(k => k === 'greet' || keys.includes(k)).map(k =>
+    `<div class="line ${seen.has(k) ? 'seen' : ''}" data-k="${k}"><div class="t"><small>${LABEL[k]}</small><br>` +
+    (editing === k ? `<textarea id="ed">${esc(draft[k])}</textarea><button class="sm" data-save="${k}">저장</button>` : esc(draft[k])) +
+    `</div><button class="sm" data-edit="${k}">수정</button></div>`).join('');
+  const shown = V2.LINE_KEYS.filter(k => k === 'greet' || keys.includes(k));
+  const all = shown.every(k => seen.has(k));
+  $('prog').textContent = `(확인 ${shown.filter(k => seen.has(k)).length}/${shown.length} · 줄을 눌러 확인)`;
+  $('send').disabled = !V2.canDeliver(all);
+  const c = V2.buildCards(draft, level);
+  $('pv').innerHTML = `<b>${esc(draft.greet)}</b>` + c.cards.map(x => `<div class="card"><b>${x.title}</b>${x.lines.map(esc).join('<br>')}</div>`).join('') + `<div class="cheer">${esc(c.cheer)}</div>`;
+}
+$('gen').onclick = () => { draft = V2.generateDraft(V2.MOCK_LESSON); seen = new Set(); editing = null; $('work').hidden = false; $('msg').textContent = ''; render(); };
+document.addEventListener('click', e => {
+  const t = e.target;
+  if (t.dataset.lv) { level = t.dataset.lv; render(); }
+  else if (t.dataset.edit) { editing = t.dataset.edit; seen.add(editing); render(); }
+  else if (t.dataset.save) { draft[t.dataset.save] = $('ed').value; editing = null; render(); }
+  else if (t.closest('.line') && !t.closest('textarea')) { seen.add(t.closest('.line').dataset.k); render(); }
+});
+$('send').onclick = () => {
+  const keys = V2.visibleKeys(level).concat('greet');
+  const r = V2.simulateDeliver(draft, keys.every(k => seen.has(k)));
+  $('msg').textContent = r.ok ? '✅ ' + r.message : r.reason;
+};
+</script></body></html>
