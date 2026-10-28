@@ -40,7 +40,7 @@ for (const [c, msg] of [[{ status: "error", why: "x" }, "편집본 생성 실패
   assert.ok(!h.includes('class="tp"') && !h.includes("incl") && !h.includes("B1"), "대체 재생바·포함 버튼·단일 테이크 노출 금지");
 }
 // 4) 메이크업 상태: 처리 중/실패/완료인데 파일 없음/완료
-for (const [job, msg] of [[JOB({ status: "running", progress: { pct: 40 } }), "처리 중이에요(40%)"], [JOB({ status: "error" }), "처리에 실패했어요"], [JOB({}, []), "음원 파일을 확인하지 못했어요"]]) {
+for (const [job, msg] of [[JOB({ status: "running", progress: { pct: 40 } }), "만드는 중이에요(40%)"], [JOB({ status: "error" }), "처리에 실패했어요"], [JOB({}, []), "음원 파일을 확인하지 못했어요"]]) {
   t = setup({}, COMP, [job]); h = t.api.renderBest();
   assert.ok(h.includes(msg), msg); assert.ok(!h.includes('data-abrow="mk"'), "음원 없으면 메이크업 파형 없음");
   assert.ok(!h.includes('data-incl="makeup"'));
