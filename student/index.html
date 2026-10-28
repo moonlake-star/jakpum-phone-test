@@ -39,6 +39,9 @@
   .song { margin-top:10px; padding:10px 12px; border-radius:12px; background:#1b1e23; border:1px solid var(--line); }
   .cheer { border-color:#b98ad6; }
   .wave { position:relative; height:56px; margin:4px 0 8px; cursor:pointer; touch-action:manipulation; }
+  .aud { display:flex; align-items:center; gap:12px; background:#11141a; border-radius:16px; padding:10px 12px; } .aud .wave { flex:1; min-width:0; margin:0; height:48px; }
+  .rp { flex:none; width:60px; height:60px; min-height:60px; padding:0; border-radius:50%; font-size:1.5rem; } .makeup .rp { background:#9b5cff; color:#fff; }
+  .tm { text-align:right; margin:4px 2px 0; }
   .wave svg { position:absolute; inset:0; width:100%; height:100%; } .wave .on { position:absolute; inset:0; clip-path:inset(0 100% 0 0); }
   .story-item { border-top:1px solid var(--line); padding:12px 0; } .story-item .when { font-weight:700; } .story-item p { margin:4px 0 8px; }
   @media (max-width:360px) { .story-item .play { font-size:1rem; padding:0 12px; } }
@@ -150,13 +153,26 @@ function waveSvg(pk, color) {
 }
 function player(id, label, peaks) {
   const pk = Array.isArray(peaks) && peaks.length >= 20 && peaks.length <= 400 ? peaks : null;
-  return `${pk ? `<div class="wave" data-wv="${esc(id)}" role="presentation">${waveSvg(pk, "#5b6573")}<div class="on">${waveSvg(pk, "#9cc3ff")}</div></div>` : ""}<button class="play" data-au="${esc(id)}">▶ ${esc(label)}</button><audio class="hidden" id="au_${esc(id)}" controls></audio>`;
+  if (!pk) return `<button class="play" data-au="${esc(id)}">▶ ${esc(label)}</button><audio class="hidden" id="au_${esc(id)}" controls></audio>`;
+  // 시안 모양: 동그란 재생 버튼 + 파형 한 줄, 아래에 시간. 버튼 = 재생/멈춤, 파형을 누르면 그 자리부터
+  return `<div class="aud"><button class="rp" data-au="${esc(id)}" data-rp="1" aria-label="${esc(label)}">▶</button><div class="wave" data-wv="${esc(id)}" role="presentation">${waveSvg(pk, "#5b6573")}<div class="on">${waveSvg(pk, "#9cc3ff")}</div></div></div>
+    <div class="muted tm" data-tm="${esc(id)}"></div><audio class="hidden" id="au_${esc(id)}"></audio>`;
 }
 function wirePlayers() {
   document.querySelectorAll("[data-au]").forEach(b => {
     const au = $("au_" + b.dataset.au), label = b.textContent;
     au.onerror = () => { au.classList.add("hidden"); b.classList.remove("hidden"); b.textContent = "소리를 불러오지 못했어요. 선생님께 알려 주세요"; };
-    b.onclick = async () => {
+    const tm = [...document.querySelectorAll("[data-tm]")].find(x => x.dataset.tm === b.dataset.au);
+    const mmss = (x) => `${Math.floor((x || 0) / 60)}:${String(Math.floor((x || 0) % 60)).padStart(2, "0")}`;
+    if (b.dataset.rp) {   // 동그란 버튼: 오디오 칸은 숨긴 채 재생/멈춤만
+      const ico = () => { b.textContent = au.paused ? "▶" : "❚❚"; if (tm) tm.textContent = au.duration ? `${mmss(au.currentTime)} / ${mmss(au.duration)}` : ""; };
+      for (const ev of ["play", "pause", "ended", "timeupdate", "loadedmetadata"]) au.addEventListener(ev, ico);
+      au.onerror = () => { b.textContent = "!"; if (tm) tm.textContent = "소리를 불러오지 못했어요. 선생님께 알려 주세요"; };
+      b.onclick = async () => {
+        try { if (!au.getAttribute("src")) { b.textContent = "…"; au.src = await audioUrl(b.dataset.au.replace(/#[bsm]$/, "")); }
+          if (au.paused) await au.play(); else au.pause(); } catch (e) { ico(); }
+      };
+    } else b.onclick = async () => {
       try { b.textContent = "불러오는 중…"; au.src = await audioUrl(b.dataset.au.replace(/#[bsm]$/, "")); au.classList.remove("hidden"); b.classList.add("hidden"); await au.play(); }
       catch (e) { if (au.error) return; b.textContent = label; au.classList.add("hidden"); b.classList.remove("hidden"); }
     };
@@ -166,7 +182,8 @@ function wirePlayers() {
       au.addEventListener("timeupdate", () => { if (au.duration) on.style.clipPath = `inset(0 ${(100 - au.currentTime / au.duration * 100).toFixed(1)}% 0 0)`; });
       wv.onclick = async (e) => { const fr = Math.min(1, Math.max(0, (e.clientX - wv.getBoundingClientRect().left) / wv.clientWidth));
         if (!au.getAttribute("src")) await b.onclick();
-        if (au.duration) au.currentTime = fr * au.duration; else au.addEventListener("loadedmetadata", () => { au.currentTime = fr * au.duration; }, { once: true }); };
+        if (au.duration) au.currentTime = fr * au.duration; else au.addEventListener("loadedmetadata", () => { au.currentTime = fr * au.duration; }, { once: true });
+        if (au.paused) au.play().catch(() => {}); };
     }
   });
 }

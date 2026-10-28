@@ -73,7 +73,7 @@ function mk(saveOk = true) {
   const sGrab = n => ssrc.match(new RegExp('function ' + n + '\\([^]*?\\n}\\n'))[0];
   const sMd = ssrc.match(/const md = [^\n]*\n/)[0], sList = ssrc.match(/const listHtml = [^\n]*\n/)[0], sMax = ssrc.match(/const MAX_CLIPS[^\n]*\n/)[0];
   const stuLesson = new Function('esc', 'player', sMd + sList + sMax + ssrc.match(/const sidOk = [^\n]*\n/)[0] + ssrc.match(/const makeupOk = [^\n]*\n/)[0] + sGrab('lessonHtml').replace('<button class="ghost" id="back">← 전체 노트</button>', '') + ';return lessonHtml;')(
-    esc, (id, label) => `<div class="play" aria-disabled="true">▶ ${esc(label)} <span class="muted">(미리보기라 재생 안 해요)</span></div>`);
+    esc, new Function('esc', src.match(/const svPlayer[^\n]*\n/)[0] + 'return svPlayer;')(esc));   // 재생 자리만 선생님 미리보기 자리표시로 같게
   const norm = h => h.replace(/\s+/g, ' ').trim();
   const base = { date: '2026-10-28', feedback: '잘했어요\n둘째 줄 <b>', points: ['호흡', '', '음정'], practice: ['음정 한 가지', '호흡 둘째'], no_mission: false, highlight: '후렴 호흡이 좋았어요', extra_best: [] };
   const A = n => ({ file_id: 'f' + n, label: n + '구간', note: n + '번 메모' });
