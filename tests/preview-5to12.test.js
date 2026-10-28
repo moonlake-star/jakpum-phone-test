@@ -31,7 +31,7 @@ function mk(saveOk = true) {
   assert(h0.includes('rows="5"') && h0.includes('height:138px') && h0.includes('aria-expanded="false"') && h0.includes('펼치기 (12줄)'));
   const h1 = mk().f.feedbackPreviewHTML({ feedback: '안녕', practice: ['a'] }, {}, '', true);
   assert(h1.includes('rows="12"') && h1.includes('height:306px') && h1.includes('aria-expanded="true"'));
-  assert(h0.includes('전체 화면 보기') && h0.includes('btnPreviewCancel') && h0.includes('btnPreviewSave'));
+  assert(h0.includes('수강생 화면으로 보기') && h0.includes('btnPreviewCancel') && h0.includes('btnPreviewSave'));
   // 2) 터치(포커스/포인터) → 12줄, 입력해도 DOM 교체 없음(커서·한글 조합 보호), 값 그대로
   const e = mk(); e.f.wireFeedbackPreview(e.cur); const fld = e.els.previewFeedback;
   fld.onpointerdown(); assert.equal(fld.style.height, '306px'); assert.equal(fld.dataset.open, '1'); assert.equal(e.cur.sched.pvBase, '저장된 글');
