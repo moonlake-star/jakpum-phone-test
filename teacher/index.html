@@ -3355,7 +3355,7 @@ const saidSame = (x, k) => !!x && x.quote === k.quote && x.date === k.date && x.
 function saidPending(rec, lesson) {   // 확인 전 항목(lesson을 주면 그 레슨 것만)
   const out = [];
   for (const [kind, xs] of Object.entries(rec?.profile || {})) if (Array.isArray(xs)) for (const x of xs)
-    if (x && x.approved === false && (!lesson || x.lesson === lesson)) out.push({ kind, quote: x.quote, date: x.date, lesson: x.lesson, meaning: x.meaning || "" });
+    if (x && x.approved === false && (!lesson || x.lesson === lesson)) out.push({ kind, quote: x.quote, date: x.date, lesson: x.lesson, meaning: x.meaning || "", t: Number.isFinite(+x.t) ? +x.t : null });
   return out;
 }
 function patchSaid(rec, k, value) {   // 종류+말+날짜+레슨이 같은 '그 한 항목'의 approved만 바꾼다. 못 찾으면 false
@@ -3384,15 +3384,15 @@ async function setSaid(sid, k, value) {
   }
   throw new Error("기록이 지금 자동 정리 중이라 저장하지 못했어요. 잠시 뒤 다시 눌러 주세요");
 }
-function saidBoxHTML(items) {
+function saidBoxHTML(items, canPlay) {   // canPlay = 지금 열린 레슨에서 나온 말이면 ▶ 그 자리 듣기(아래 재생바, 2026-10-29 사용자)
   if (!items.length) return "";
   return `<div class="card warnbox"><h3 style="margin:0 0 4px">🗣 수강생이 한 말 — 맞는지 봐 주세요 <span class="chip todo">확인 전 ${items.length}개</span></h3>
     <p class="muted" style="margin:4px 0">AI가 녹음에서 뽑은 말이라 누가 한 말인지 틀릴 수 있어요. ‘맞아요’를 누른 말만 다음 레슨 브리핑과 AI 정리에 써요.</p>
     ${items.map((x, n) => `<div style="border-top:1px solid var(--line);padding:10px 0">
-      <div><span class="chip todo">확인 전</span> <span class="chip">${esc(SAID_KIND[x.kind] || x.kind)}</span> <span class="muted">${esc(x.date || "")}</span></div>
+      <div class="row" style="gap:6px"><span class="chip todo">확인 전</span> <span class="chip">${esc(SAID_KIND[x.kind] || x.kind)}</span> <span class="muted">${esc(x.date || "")}</span>${canPlay && x.t != null ? `<button class="small ghost" data-saidplay="${n}" style="margin-left:auto;min-height:34px">▶ ${fmt(x.t)} 듣기</button>` : ""}</div>
       <div style="font-size:1.08rem;margin:6px 0">“${esc(x.quote)}”</div>${x.meaning ? `<div class="muted">${esc(x.meaning)}</div>` : ""}
-      <div class="row" style="margin-top:6px"><button data-said="${n}" data-v="yes" style="flex:1;min-height:54px;font-size:1.05rem">👍 맞아요</button>
-        <button class="ghost" data-said="${n}" data-v="no" style="flex:1;min-height:54px;font-size:1.05rem">✋ 아니에요</button></div></div>`).join("")}</div>`;
+      <div class="row" style="margin-top:6px"><button data-said="${n}" data-v="yes" style="flex:1;min-height:40px">👍 맞아요</button>
+        <button class="ghost" data-said="${n}" data-v="no" style="flex:1;min-height:40px">✋ 아니에요</button></div></div>`).join("")}</div>`;
 }
 // el에 확인 전 목록을 그린다. lesson(레슨 폴더 ID)을 주면 그 레슨에서 나온 말만. rec를 주면 다시 읽지 않음
 async function paintSaid(el, sid, lesson, rec) {
@@ -3400,7 +3400,8 @@ async function paintSaid(el, sid, lesson, rec) {
   try {
     rec ??= await rootFile(cfg.students[sid], SAID_REC);
     const items = saidPending(rec, lesson);
-    el.innerHTML = saidBoxHTML(items);
+    el.innerHTML = saidBoxHTML(items, !!lesson && cur?.folder?.id === lesson);
+    el.querySelectorAll("[data-saidplay]").forEach(b => b.onclick = () => { const x = items[+b.dataset.saidplay]; if (x?.t != null) playAt(Math.max(0, x.t - 2)).catch(e => toast(e.message)); });
     el.querySelectorAll("[data-said]").forEach(b => b.onclick = async () => {
       const k = items[+b.dataset.said], yes = b.dataset.v === "yes";
       el.querySelectorAll("[data-said]").forEach(x => x.disabled = true);
@@ -4109,7 +4110,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-29-0830-v2";
+const BUILD = "2026-10-29-0800-saidplay";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
