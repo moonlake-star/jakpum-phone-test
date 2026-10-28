@@ -20,3 +20,8 @@ for (const bad of [undefined, null, [], [1, 2, 3], 'x', Array(500).fill(1)]) { c
 assert(!player('B1', '듣기', [...pk.slice(0, 119), '<script>']).includes('<script>'), '이상한 값도 숫자로만');
 assert(/l\.best\.peaks/.test(st) && /l\.makeup\.peaks/.test(st));
 console.log('waveform ok');
+// 파형을 누르면 그 자리부터 바로 재생
+{ const fs2 = require('fs'), t2 = fs2.readFileSync(__dirname + '/../teacher/index.html', 'utf8');
+  require('assert')(/\.tpSeek"\)\.onchange = \(e\) => \{[^]*?player\.currentTime = player\.duration \* value \/ 1000; if \(player\.paused\) \{ pauseOthers\(player\); await player\.play\(\);/.test(t2), '파형 탭 → 재생');
+  require('assert')(/if \(!peaks\) \{ g\.fillStyle = "#3a414b"; g\.fillRect\(0, h \/ 2 - 1, w, 2\); return; \}/.test(t2), '받기 전엔 가짜 파형 없음');
+  console.log('waveform tap ok'); }
