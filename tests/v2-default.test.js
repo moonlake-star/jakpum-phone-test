@@ -59,3 +59,13 @@ assert.ok(v1.includes("V1 보관본") && !v1.includes("V2 선생님 화면"));
 const man = JSON.parse(fs.readFileSync(__dirname + "/../teacher-v1/manifest.webmanifest", "utf8"));
 assert.ok(!man.share_target && /V1/.test(man.name));
 console.log("v2-default ok");
+// 8) 메이크업 자동(2026-10-29): 같은 편집본 요청이 있으면 안 만듦·30일 안·4분 이하·철회/시험 제외, 앱 요청 형식 = 서버 auto_makeup 형식
+{
+  const f = src.match(/function mkAutoEnsure\([\s\S]*?\n}\n/)[0];
+  assert.ok(f.includes("loadMkJobs(me.sid)") && f.includes("if (bestMakeupJob(o))"), "최신 목록으로 중복 확인");
+  assert.ok(f.includes("consent_withdrawn") && f.includes('status === "test"') && f.includes("> 240") && f.includes("MK_AUTO_DAYS"));
+  assert.ok(f.includes("auto: true") && f.includes("best_file_id: o.file_id") && f.includes("lesson_folder: me.folder.id"));
+  assert.ok(!f.includes("Include"), "자동으로 만들기만, 수강생에게 보내기(포함)는 건드리지 않음");
+  assert.ok(src.includes("if (typeof mkAutoEnsure === \"function\") { try { mkAutoEnsure(o); } catch {} }"));
+}
+console.log("v2-default auto-makeup ok");

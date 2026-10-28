@@ -3017,7 +3017,7 @@ function inclHTML(o) {
 function makeupBoxHTML(o) {   // (A안 10/28) 메이크업본이 준비되면 위 탭으로 듣는다. 여기선 준비 전 상태·만들기만
   const ms = makeupState(o), job = ms === "none" ? null : bestMakeupJob(o);
   if (ms === "ready") return "";
-  const msg = ms === "none" ? "" : ms === "working" ? `메이크업 처리 중이에요(${job.req.progress?.pct ?? 0}%)`
+  const msg = ms === "none" ? "" : ms === "working" ? `✨ 메이크업본 ${job.req.auto ? "자동으로 " : ""}만드는 중이에요(${job.req.progress?.pct ?? 0}%) · 다 되면 여기 나타나요`
     : ms === "error" ? "메이크업 처리에 실패했어요 · 결과 화면에서 원인을 확인해 주세요" : "메이크업 음원 파일을 확인하지 못했어요 · 재생·전달하지 않아요";
   return msg ? `<p class="muted" id="mkBox" style="margin:4px 0 0;font-size:.85rem">${msg}</p>` : "";
 }
@@ -3243,6 +3243,47 @@ async function makeupFromBest(o, back) {
     kick().then(ok => { if (!job.req.progress) paintProg(job.req, ok ? "서버 시작 대기 중" : "서버 시작 확인 중"); });
   } catch (e) { stopProg(); toast(e.message); }
 }
+// 메이크업본 자동(사용자 2026-10-29 08:00: 매번 버튼 누르고 3분 넘게 기다리는 게 별로). 서버도 새 편집본이 생기면 자동 요청하고(auto_makeup.py),
+// 앱은 그보다 먼저 연 레슨·새로 채택한 편집본·예전 레슨(30일 안)을 채운다. 같은 편집본 요청이 있으면 만들지 않음. 보낼지는 여전히 '피드백에 포함' 체크로만.
+const MK_AUTO_DAYS = 30;
+function mkAutoEnsure(o) {
+  const me = cur; if (!me || !o?.file_id) return;
+  const ms = makeupState(o);
+  if (ms === "working") return mkAutoPoll(me);
+  if (ms !== "none" || +o.len > 240 || me.st?.consent_withdrawn || me.st?.status === "test" || (typeof isTeacher === "function" && isTeacher(me.st || {}))) return;
+  const d = Date.parse(String(me.folder?.name || "").slice(0, 10)); if (!(d > Date.now() - MK_AUTO_DAYS * 864e5)) return;
+  me._mkAuto ??= {}; if (me._mkAuto[o.file_id]) return; me._mkAuto[o.file_id] = true;
+  (async () => {
+    try {
+      const fresh = await loadMkJobs(me.sid).catch(() => null); if (cur !== me) return;   // 서버가 먼저 만들었을 수 있음 → 최신 목록으로 중복 확인
+      if (fresh) me.st._jobs = fresh;
+      if (bestMakeupJob(o)) { renderToday(); return; }
+      const title = me.folder.name.slice(0, 10) + "_베스트_" + (o.isComposite ? "이어붙임" : "연속테이크");
+      const req = { status: "queued", mode: "single", title, student_id: me.sid, student_name: me.st.name, preset: "표준", settings: {},
+        source_id: o.file_id, source_name: o.file || "베스트.mp3", source_is_clip: true, start: null, end: null,
+        lesson_folder: me.folder.id, best_file_id: o.file_id, pitch_level: 2, requested_at: new Date().toISOString(), auto: true };
+      const f7 = await mkFolder(me.sid), jf = await newFolder(title + "_메이크업", f7), reqId = await writeJSON(jf, MKREQ, req);
+      me.st._jobs = [{ sid: me.sid, st: me.st, folder: { id: jf, name: title + "_메이크업" }, files: [], reqId, req }, ...(me.st._jobs || [])];
+      kick().catch(() => {});
+      if (cur === me) { renderToday(); toast("✨ 메이크업본을 자동으로 만들기 시작했어요(보통 3~5분)"); }
+    } catch (e) { me._mkAuto[o.file_id] = false; }
+  })();
+}
+function mkAutoPoll(me) {   // 처리 중이면 20초마다 진행률만 갱신(재생 중인 화면은 다시 그리지 않음), 끝나면 한 번 다시 그림
+  clearTimeout(me._mkPoll);
+  me._mkPoll = setTimeout(async () => {
+    if (cur !== me || $("vLesson").classList.contains("hidden")) return;
+    const o = bestPicked(), job = o && bestMakeupJob(o); if (!job) return;
+    try {
+      const [req, files] = await Promise.all([(await api(`${DRIVE}/files/${job.reqId}?alt=media&_=${Date.now()}`, { cache: "no-store" })).json(), list(job.folder.id)]);
+      if (cur !== me) return; job.req = req; job.files = files;
+      if (req.status === "done" || req.status === "error") { try { tpDetach(); } catch {} renderToday(); toast(req.status === "done" ? "✨ 메이크업본이 준비됐어요 · 들어 보고 '피드백에 포함'을 체크해 주세요" : "메이크업본을 만들지 못했어요"); return; }
+      const mb = $("mkBox"); if (mb) mb.textContent = `✨ 메이크업본 자동으로 만드는 중이에요(${req.progress?.pct ?? 0}%) · 다 되면 여기 나타나요`;
+      const bt = $("bestMakeup"); if (bt) bt.textContent = "🪄 " + bestMakeupLabel(o);
+    } catch {}
+    mkAutoPoll(me);
+  }, 20000);
+}
 function wireIncl(o) {
   document.querySelectorAll("input[data-incl]").forEach(c => c.onchange = () => {
     const key = c.dataset.incl, rv = cur.review, id = key === "best" ? o.file_id : bestMakeupAudio(o)?.file_id;
@@ -3264,6 +3305,7 @@ function wireIncl(o) {
 }
 function wireBest() {
   const o = bestPicked(); if (!o) return;
+  if (typeof mkAutoEnsure === "function") { try { mkAutoEnsure(o); } catch {} }
   const box = $("todayCard").querySelector(".abPair"), broot = box?.querySelector('[data-abrow="orig"] .tp') || $("todayCard").querySelector(".tp");
   const timeEl = box?.querySelector(".abTime");
   tpWire(broot, o.file_id, false, timeEl);
@@ -4128,7 +4170,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-29-0815-fullrec";
+const BUILD = "2026-10-29-0830-automk";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
