@@ -125,6 +125,11 @@
   .pick2 label { min-height:40px; padding:0 16px; display:inline-flex; align-items:center; border-radius:20px; border:2px solid var(--line); color:var(--fg); font-weight:700; cursor:pointer; }
   .pick2 label.on { background:var(--accent); color:var(--on-accent); border-color:var(--accent); } .pick2 label.on.off { background:#3a414b; color:var(--fg); border-color:#5b6573; }
   .pick2 input { position:absolute; opacity:0; width:1px; height:1px; } .pick2 label:focus-within { outline:3px solid var(--accent); outline-offset:2px; }
+  .sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); }
+  .abTabs { display:grid; grid-template-columns:1fr 1fr; gap:4px; background:#11141a; border-radius:12px; padding:4px; margin:8px 0 4px; }
+  .abTabs button { min-height:40px; border-radius:9px; background:transparent; color:var(--fg); border:0; font-weight:700; }
+  .abTabs button.on { background:var(--accent); color:var(--on-accent); } .abTabs .mkMake { color:var(--accent); border:1.5px dashed #465062; }
+  .ab-mk .seamStrip, .ab-mk .seamLabels { display:none; }
   .inclChk { flex:none; display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:16px; border:1.5px solid var(--line); font-weight:700; font-size:.9rem; cursor:pointer; white-space:nowrap; }
   .inclChk input { width:20px; height:20px; accent-color:var(--accent); margin:0; } .inclChk.on { border-color:var(--accent); color:var(--accent); }
   .inclSm { min-height:40px; padding:0 16px; border-radius:20px; background:transparent; color:var(--fg); border:2px solid var(--line); }
@@ -2912,7 +2917,7 @@ function makeupState(o) {   // none | working | error | nofile | ready
 function inclChk(key, o) {
   const rv = cur.review, f = key === "best" ? o : (o && bestMakeupAudio(o)), id = f?.file_id;
   const on = !!id && rv[key + "Include"] === true && rv[key + "IncludeId"] === id;
-  return `<label class="inclChk${on ? " on" : ""}"${id ? "" : ` title="아직 보낼 파일이 없어요"`}><input type="checkbox" data-incl="${key}" ${on ? "checked" : ""}${id ? "" : " disabled"}> 보내기</label>`;
+  return `<label class="inclChk${on ? " on" : ""}"${id ? "" : ` title="아직 보낼 파일이 없어요"`}><input type="checkbox" data-incl="${key}" ${on ? "checked" : ""}${id ? "" : " disabled"}> ${key === "best" ? "원본" : "메이크업"} 보내기</label>`;
 }
 function inclHTML(o) {
   const rv = cur.review, mk = o && bestMakeupAudio(o), ms = makeupState(o);
@@ -2926,18 +2931,12 @@ function inclHTML(o) {
   return row("best", "베스트 편집본 보내기", !!o, o?.file_id, "보낼 편집본이 아직 없어요") +
     row("makeup", "메이크업본 보내기", !!mk, mk?.file_id, ms === "working" ? "메이크업 처리 중이라 아직 고를 수 없어요" : ms === "error" ? "메이크업이 실패해서 보낼 수 없어요" : "메이크업본이 아직 없어서 고를 수 없어요");
 }
-function makeupBoxHTML(o) {
+function makeupBoxHTML(o) {   // (A안 10/28) 메이크업본이 준비되면 위 탭으로 듣는다. 여기선 준비 전 상태·만들기만
   const ms = makeupState(o), job = ms === "none" ? null : bestMakeupJob(o);
-  const head = `<div class="row" style="justify-content:space-between;flex-wrap:nowrap"><span><b>🪄 메이크업본</b> <span class="muted" style="font-size:.85rem">음정 보정 등</span></span>${ms === "ready" && typeof inclChk === "function" ? inclChk("makeup", o) : ""}</div>`;
-  if (ms === "ready") return `<div id="mkBox" style="margin-top:10px">${head}
-    <p class="muted" style="margin:2px 0;font-size:.85rem">위 = 보정 전(편집본), 아래 = 보정 후(메이크업본). 한쪽을 재생하면 다른 쪽은 멈춰요.</p>${tpHTML(true)}
-    <button class="small ghost" id="abSwap" style="width:100%;margin-top:6px">⇄ 같은 위치에서 원본·메이크업 바꿔 듣기</button></div>`;
-  const msg = ms === "none" ? "아직 만들지 않았어요. 만들기 전에는 학생에게 보낼 수 없어요."
-    : ms === "working" ? `처리 중이에요(${job.req.progress?.pct ?? 0}%). 끝나면 여기서 들어볼 수 있어요.`
-    : ms === "error" ? "처리에 실패했어요. 결과 화면에서 원인을 확인해 주세요. 메이크업본은 없는 것으로 취급해요."
-    : "처리는 끝났다고 되어 있지만 음원 파일을 확인하지 못했어요. 재생·전달하지 않아요.";
-  return `<div id="mkBox" style="margin-top:10px">${head}<p class="muted" style="margin:2px 0;font-size:.85rem">${msg}</p>
-    <div class="row"><button class="small ghost" id="bestMakeup">🪄 ${ms === "none" ? "메이크업본 만들기" : bestMakeupLabel(o)}</button></div></div>`;
+  if (ms === "ready") return "";
+  const msg = ms === "none" ? "" : ms === "working" ? `메이크업 처리 중이에요(${job.req.progress?.pct ?? 0}%)`
+    : ms === "error" ? "메이크업 처리에 실패했어요 · 결과 화면에서 원인을 확인해 주세요" : "메이크업 음원 파일을 확인하지 못했어요 · 재생·전달하지 않아요";
+  return msg ? `<p class="muted" id="mkBox" style="margin:4px 0 0;font-size:.85rem">${msg}</p>` : "";
 }
 function renderBest() {
   // 이어 붙인 자리 표시(2026-10-27 사용자): 재생바 바로 아래 노란 칸 + 시각 글자. 누르면 그 자리 1.5초 앞부터
@@ -2974,12 +2973,22 @@ function renderBest() {
       ? "새 MR 정렬 방식 · 자동 검사 통과 · 실제 청감 확인 필요"
       : "기존 또는 방식 미확인 편집본 · 새 MR 정렬 결과로 확인되지 않았어요 · 자동으로 바뀌지 않습니다";
   const segs = (o.segments || []).filter(g => Number.isFinite(+g.start) && +g.end > +g.start).slice(0, 12);
-  return `<div class="bestbox"><div class="row" style="justify-content:space-between;flex-wrap:nowrap"><span><b>🎵 오늘의 베스트 편집본</b> <span class="muted" style="font-size:.85rem">${Math.round(o.len)}초</span></span>${typeof inclChk === "function" ? inclChk("best", o) : ""}</div>
-    <div class="muted bestDesc" style="font-size:.85rem">AI가 이번 레슨 녹음에서 좋은 구간을 골라 박자에 맞춰 하나로 이어 붙인 편집본이에요${o.takes_used ? ` (테이크 ${o.takes_used}개 사용)` : ""}</div>
-    <p role="status" class="muted" style="margin:6px 0 0;font-size:.85rem">${status}</p>
-    ${segs.length ? `<details style="margin:4px 0"><summary class="muted" style="font-size:.85rem">원본 레슨에서 가져온 구간 ${segs.length}곳 보기</summary><div class="muted" style="font-size:.85rem">${segs.map(g => `${fmt(+g.start)}~${fmt(+g.end)}`).join(" · ")}</div></details>` : ""}
-    ${tpHTML(true).replace('aria-label="재생 위치" style="width:100%"></div>', 'aria-label="재생 위치" style="width:100%">' + seamStrip(o, "strip") + '</div>' + seamStrip(o, "labels"))}
-    ${makeupBoxHTML(o)}</div>`;
+  const ms = typeof makeupState === "function" ? makeupState(o) : "none", tab = ms === "ready" && cur.abTab === "mk" ? "mk" : "orig";
+  // (A안 10/28 23:18 사용자) 카드 하나: 원본/메이크업 탭 + 파형·재생 줄 1개 + 보내기 체크 2개, 긴 설명은 'ℹ 자세히'
+  return `<div class="bestbox${tab === "mk" ? " ab-mk" : ""}"><span class="sr-only">오늘의 베스트 편집본 ${Math.round(o.len)}초</span>
+    <div class="abTabs" role="tablist" aria-label="듣기 버전">
+      <button type="button" role="tab" data-ab="orig" class="${tab === "orig" ? "on" : ""}" aria-selected="${tab === "orig"}">원본 편집본</button>
+      ${ms === "ready" ? `<button type="button" role="tab" data-ab="mk" class="${tab === "mk" ? "on" : ""}" aria-selected="${tab === "mk"}">✨ 메이크업본</button>`
+        : `<button type="button" id="bestMakeup" class="mkMake">🪄 ${ms === "none" ? "메이크업 만들기" : bestMakeupLabel(o)}</button>`}</div>
+    ${makeupBoxHTML(o)}
+    ${tpHTML(true).replace('aria-label="재생 위치" style="width:100%"></div>', 'aria-label="재생 위치" style="width:100%">' + seamStrip(o, "strip") + '</div><div class="seamLabels">' + seamStrip(o, "labels") + '</div>')}
+    <div class="row" style="gap:8px;margin-top:6px">${typeof inclChk === "function" ? inclChk("best", o) + (ms === "ready" ? inclChk("makeup", o) : "") : ""}</div>
+    <details style="margin-top:6px"><summary class="muted" style="font-size:.88rem">ℹ 자세히 · 어떻게 만들었나</summary>
+      <div class="muted bestDesc" style="font-size:.85rem">AI가 이번 레슨 녹음에서 좋은 구간을 골라 박자에 맞춰 하나로 이어 붙인 편집본이에요${o.takes_used ? ` (테이크 ${o.takes_used}개 사용)` : ""}</div>
+      <p role="status" class="muted" style="margin:6px 0 0;font-size:.85rem">${status}</p>
+      ${segs.length ? `<p class="muted" style="font-size:.85rem;margin:4px 0">원본 레슨에서 가져온 구간 ${segs.length}곳: ${segs.map(g => `${fmt(+g.start)}~${fmt(+g.end)}`).join(" · ")}</p>` : ""}
+      ${ms === "ready" ? `<p class="muted" style="font-size:.85rem;margin:4px 0">✨ 메이크업본 = 이 편집본에 음정 보정 등을 한 별도 파일이에요 · 탭을 바꾸면 듣던 자리 그대로 이어서 들려요</p>` : ""}</details>
+  </div>`;
 }
 // ── 베스트 편집본 전체 다시 편집(이슈 #153, 사용자 승인 2026-10-28) ─────────────────────────
 // 부분/연결점 수정이 아니라 레슨 전체에서 베스트를 다시 찾아 새 편집본 '후보'를 만든다. 버튼을 누르기 전에는 요청·처리 0건.
@@ -3055,6 +3064,7 @@ function regenBoxHTML() {
     body = `${failMsg}${ad ? `<p class="muted" style="margin:6px 0;font-size:.85rem">지금 쓰는 편집본은 ‘전체 다시 편집’ 후보를 채택한 것이에요.</p>` : ""}
       <div class="row"><button class="small ghost" id="regenStart" type="button">${fail ? "전체 다시 편집 (재시도)" : "전체 다시 편집"}</button></div>`;
   }
+  if (!act && !pend) return `<details id="regenBox" style="margin-top:8px"><summary class="muted" style="font-size:.88rem">🔁 전체 다시 편집 · 레슨 전체에서 다시 찾기</summary>${body}</details>`;   // (A안) 평소엔 한 줄
   return `<div class="bestbox" id="regenBox" style="margin-top:10px">${head}${body}</div>`;
 }
 async function regenStart() {
@@ -3167,17 +3177,20 @@ function wireBest() {
     const job = bestMakeupJob(o);
     return job ? openMkJob(job, back) : makeupFromBest(o, back);
   };
-  const job = bestMakeupJob(o), mbox = $("mkBox");
-  if (mbox && makeupState(o) === "ready") {
-    tpWire(mbox.querySelector(".tp"), bestMakeupAudio(o).file_id);   // 같은 player를 공유 → 두 음원이 겹쳐 재생되지 않음
-    const sw = $("abSwap");
-    if (sw) sw.onclick = async () => {   // (#83 A/B) 지금 듣던 자리 그대로 다른 쪽으로 — 한 player라 동시에 나지 않음
-      const m = bestMakeupAudio(o); if (!m) return;
-      const toM = tpFile !== m.file_id, t = tpFile ? (player.currentTime || 0) : 0, root = toM ? mbox.querySelector(".tp") : broot;
-      try { if (!await tpLoad(root, toM ? m.file_id : o.file_id)) return;
-        player.currentTime = Math.min(t, Math.max(0, (player.duration || t) - 0.05)); pauseOthers(player); await player.play(); tpPaint();
-        sw.textContent = toM ? "⇄ 지금: 메이크업본 · 누르면 원본으로" : "⇄ 지금: 원본 · 누르면 메이크업본으로";
-      } catch (e) { toast(e.message); } };
+  const job = bestMakeupJob(o);
+  if (makeupState(o) === "ready") {
+    const m = bestMakeupAudio(o);
+    if (cur.abTab === "mk" && m) tpWire(broot, m.file_id);
+    document.querySelectorAll("#todayCard [data-ab]").forEach(b => b.onclick = async () => {
+      const toM = b.dataset.ab === "mk"; if ((cur.abTab === "mk") === toM) return;
+      const was = tpRoot === broot && !player.paused, t = tpRoot === broot ? (player.currentTime || 0) : 0, id = toM ? m.file_id : o.file_id;
+      cur.abTab = toM ? "mk" : "orig";
+      document.querySelectorAll("#todayCard [data-ab]").forEach(x => { const on = x.dataset.ab === cur.abTab; x.classList.toggle("on", on); x.setAttribute("aria-selected", on); });
+      broot.closest(".bestbox")?.classList.toggle("ab-mk", toM);
+      tpWire(broot, id);
+      if (t > 0 || was) { try { if (!await tpLoad(broot, id)) return; player.currentTime = Math.min(t, Math.max(0, (player.duration || t) - 0.05)); if (was) { pauseOthers(player); await player.play(); } tpPaint(); } catch (e) { toast(e.message); } }
+      else { if (typeof drawWave === "function") drawWave(broot.querySelector(".tpWave"), wavePeaks[id], 0); }
+    });
   }
   else if (job?.req.status === "done" && !job._filesTried && job.folder?.id) {   // 끝난 작업의 파일 목록을 한 번 읽어 mix.mp3 확인
     job._filesTried = true;
@@ -3992,7 +4005,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-28-2345-sumbox";
+const BUILD = "2026-10-28-2330-tabs";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
