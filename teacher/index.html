@@ -184,7 +184,8 @@
   #pvFull .play { min-height:52px; display:flex; align-items:center; gap:6px; opacity:.7; border:1px dashed var(--line); border-radius:14px; padding:0 14px; }
   input.time { width:5.5em; }
   .seg-list { max-height:50vh; overflow:auto; }
-  #toast { position:fixed; left:50%; bottom:16px; transform:translateX(-50%); background:var(--fg); color:var(--bg); padding:8px 14px; border-radius:10px; display:none; max-width:90vw; }
+  #toast { position:fixed; left:50%; bottom:16px; transform:translateX(-50%); background:var(--fg); color:var(--bg); padding:8px 14px; border-radius:10px; display:none; max-width:90vw; z-index:100; }
+  body.v2 #toast { bottom:calc(118px + env(safe-area-inset-bottom)); } body.v2.miniOn #toast { bottom:calc(250px + env(safe-area-inset-bottom)); }
   .hidden { display:none; }
   /* 재생바가 '뿅' 생기지 않고 아래로 펼쳐지게(2026-10-27 사용자 요청) */
   .tpslot { overflow:hidden; max-height:0; opacity:0; transform:translateY(-6px); transition:max-height .32s ease, opacity .25s ease, transform .32s ease; }
@@ -210,7 +211,7 @@
   details > summary.muted { color:#c8d1dc; }
   /* ── V2 선생님 화면(2026-10-29 사용자 승인 시안, 다크 유지). body.v2 일 때만. V1 화면은 body에서 v2를 빼면 그대로 ── */
   .v2only { display:none !important; }
-  body.v2 .v2only:not(.hidden) { display:block !important; } body.v2 .row.v2only { display:flex !important; } body.v2 .v1only { display:none !important; }
+  body.v2 .v2only:not(.hidden) { display:block !important; } body.v2 .row.v2only { display:flex !important; } body.v2 span.v2only { display:inline !important; } body.v2 .v1only { display:none !important; }
   /* V1 카드에 style="order:N"이 박혀 있어 !important로 덮음(V1 화면에선 그대로) */
   body.v2 #vLesson > #v2Bar { order:2 !important; } body.v2 #vLesson > #todayCard { order:3 !important; } body.v2 #vLesson > #noteCard { order:4 !important; } body.v2 #vLesson > #hlCard { order:5 !important; }
   body.v2 #vLesson > #lessonReplies { order:6 !important; } body.v2 #vLesson > #saveMsg { order:18 !important; } body.v2 #vLesson > #v2More { order:19 !important; }
@@ -228,10 +229,11 @@
   @media (min-width:700px) { body.v2 .pvStrip { display:grid; grid-template-columns:1fr 1fr; align-items:start; } body.v2 .pvCard.open { grid-column:1/-1; } }
   body.v2 .pvCard.v2seen, body.v2 #todayCard.v2seen, body.v2 #hlCard.v2seen { border-color:#2f5a44; }
   .v2ck { font-size:.75rem; font-weight:700; color:var(--muted); margin-left:4px; } .v2seen .v2ck { color:var(--ok); }
-  body.v2lv-simple .pvCard[data-v2="makeup"], body.v2lv-simple .pvCard[data-v2="cheer"], body.v2lv-simple .pvSong, body.v2lv-simple #todayCard [data-abrow="mk"] { display:none !important; }
+  /* 심플 보기: 수강생 심플 화면에 안 나오는 칸은 흐리게(숨기면 포함 체크를 못 봄 — 보통 보기에선 수강생에게 보임) */
+  body.v2lv-simple .pvCard[data-v2="makeup"], body.v2lv-simple .pvCard[data-v2="cheer"], body.v2lv-simple .pvSong, body.v2lv-simple #todayCard [data-abrow="mk"] { opacity:.45; }
   .bestTag { font-size:.78rem; font-weight:700; color:var(--muted); background:#2a2f37; border-radius:10px; padding:1px 8px; margin-left:6px; vertical-align:2px; }
   #v2Dock { position:fixed; left:0; right:0; bottom:0; z-index:45; background:var(--card); border-top:1px solid var(--line); box-shadow:0 -4px 14px rgba(0,0,0,.35); padding:8px 16px calc(10px + env(safe-area-inset-bottom)); }
-  body.miniOn #v2Dock { bottom:128px; } #v2Dock .in { max-width:760px; margin:0 auto; } #v2Dock #v2DockMsg { display:block; font-size:.8rem; text-align:center; margin-bottom:4px; min-height:1em; }
+  body.miniOn #v2Dock { bottom:calc(128px + env(safe-area-inset-bottom)); } #v2Dock .in { max-width:760px; margin:0 auto; } #v2Dock #v2DockMsg { display:block; font-size:.8rem; text-align:center; margin-bottom:4px; min-height:1em; }
   #v2Dock .btns { display:flex; gap:8px; } #v2Dock .btns button { min-height:50px; } #v2Dock #v2Send { flex:1; background:#ff5fa2; color:#fff; } #v2Dock #v2Send.todo { background:#3a404a; color:#d6dbe2; }
   /* 전달하기 = 아래에서 올라오는 시트(보내기 카드를 그대로 씀: 공개·카톡 복사·보냄 표시는 V1과 같은 동작) */
   body.v2 #vLesson > #sendCard { display:none; }
@@ -405,7 +407,7 @@ window.addEventListener("popstate", () => {
   const onSub = ["vLesson","vShared","vSubs","vStu","vMkJob"].some(v => !$(v)?.classList.contains("hidden"));
   if (onSub) { try { goBack(); } catch { renderList(); } }
 });
-function show(view) { syncBackHistory(view); for (const v of ["vLogin","vList","vLesson","vShared","vSubs","vStu","vMkJob"]) $(v).classList.toggle("hidden", v !== view); try { $("v2Dock")?.classList.toggle("hidden", view !== "vLesson"); document.body.classList.remove("v2send"); } catch {} $("btnBack").classList.toggle("hidden", ["vLogin","vList"].includes(view)); if (view !== "vMkJob") { mkStop?.(); stopProg?.(); } window.scrollTo(0,0); }
+function show(view) { syncBackHistory(view); for (const v of ["vLogin","vList","vLesson","vShared","vSubs","vStu","vMkJob"]) $(v).classList.toggle("hidden", v !== view); try { $("v2Dock")?.classList.add("hidden"); document.body.classList.remove("v2send"); document.getElementById("v2Ai")?.remove(); } catch {} $("btnBack").classList.toggle("hidden", ["vLogin","vList"].includes(view)); if (view !== "vMkJob") { mkStop?.(); stopProg?.(); } window.scrollTo(0,0); }
 
 // ── 구글 로그인 · 드라이브 ───────────────────────────────
 // 로그인 유지: 구글이 주는 출입증(1시간짜리)을 이 폰에만 보관해, 새로고침·앱 다시 열기에도 다시 묻지 않는다.
@@ -955,7 +957,7 @@ function buildNote() {
   const rv = cur.review, bp = bestForNote(), mk = makeupForNote();
   const clips = sendList().map(c => ({ c, f: cur.clips.find(x => x.name.startsWith(c.id)) })).filter(x => x.f)
     .map(({ c, f }) => ({ file_id: f.id, label: `${fmt(c.start)} 구간`, note: rv.notes?.[c.id] || c.note || "" }));
-  const bestNote = (o) => o && { file_id: o.file_id, kind_ko: o.kind_ko, len: Math.round(o.len), edited: !!o.isComposite, ...(o.isComposite && typeof bestJoined === "function" ? { joined: bestJoined(o) } : {}) };
+  const bestNote = (o) => o && { file_id: o.file_id, kind_ko: o.kind_ko, len: Math.round(o.len), edited: !!o.isComposite, ...(o.isComposite && typeof bestJoined === "function" && bestJoined(o) !== undefined ? { joined: bestJoined(o) } : {}) };
   // practice(이번 주 미션)와 no_mission(‘미션 없음’ 의도적 선택)을 구분해 싣는다. 미설정(둘 다 없음)은 승인 단계에서 막힘
   const noMission = rv.no_mission === true;
   return { lesson_id: cur.folder.id, date: cur.folder.name.slice(0, 10), title: cur.folder.name,
@@ -1409,7 +1411,9 @@ function paintDeliver() {
         : `<p class="muted" style="margin:4px 0">예약 공개는 수강생 노트 서버(Apps Script)를 새 버전으로 바꿔야 쓸 수 있어요. 그 전까지는 아래 버튼이 <b>지금 바로</b> 게시합니다(예약이 아니에요).</p>
            <button class="full" id="btnPublish">📮 지금 바로 수강생 노트에 게시</button>`) + kakaoBlock;
     if ($("btnSchedRetry")) $("btnSchedRetry").onclick = () => { s.caps = undefined; paintDeliver(); };
-    if ($("btnPublish")) $("btnPublish").onclick = async () => { if (s.busy) return; s.busy = true;
+    if ($("btnPublish")) $("btnPublish").onclick = async () => { if (s.busy) return;
+      { const bl0 = approvalBlockers(buildNote(), me.review, me.ai).find(b => b.level === "block"); if (bl0) return toast("공개 전에 할 것: " + bl0.msg); }   // (10/29 감사) 구버전 서버 경로도 승인 전 확인 목록을 지킴
+      s.busy = true;
       try { await publishNote(); me.kakao = kakaoText(me.st, me.note, nextTpl(me.sid)); toast("지금 게시했어요"); } catch (e) { toast(e.message); } finally { s.busy = false; if (cur === me) paintDeliver(); } };
   } else {
     const bl = approvalBlockers(note, rv, me.ai), blocked = bl.some(b => b.level === "block");
@@ -3299,7 +3303,7 @@ function renderToday() {
     : `<div class="muted">AI 초안 없음 — 아래 ‘카톡 피드백 문구’에서 직접 작성하세요</div>`;
   // 오늘 핵심·이번 주 연습은 아래 '카톡 피드백'과 '수강생에게 보이는 내용'에 같은 글이 있어 여기선 뺌(2026-10-27 사용자: 정보가 너무 많음)
   void head; void prs;
-  const bo = typeof bestPicked === "function" ? bestPicked() : null, tag = bo && typeof bestJoined === "function" ? `<span class="bestTag">${bestJoined(bo) ? "오늘 잘한 부분 이어붙임" : "가장 좋았던 한 번"}</span>` : "";
+  const bo = typeof bestPicked === "function" ? bestPicked() : null, bj = bo && typeof bestJoined === "function" ? bestJoined(bo) : undefined, tag = bj === undefined ? "" : `<span class="bestTag">${bj ? "오늘 잘한 부분 이어붙임" : "가장 좋았던 한 번"}</span>`;
   $("todayCard").innerHTML = `<h3 style="margin:0 0 6px">🎵 오늘의 베스트${tag}<span class="v2ck v2only"></span></h3>` + renderBest() + (typeof regenBoxHTML === "function" ? regenBoxHTML() : "") + (typeof renderTrial === "function" ? renderTrial() : "");
   wireBest(); if (typeof wireRegen === "function") wireRegen(); if (typeof paintDeliver === "function" && cur.folder) paintDeliver();
 }
@@ -4266,7 +4270,7 @@ function v2Lv() { try { const v = LS.get(V2_LV); return ["simple", "normal", "de
 function v2Apply() {
   const on = v2On(), lv = v2Lv(), B = document.body.classList;
   B.toggle("v2", on); for (const k of ["simple", "normal", "detail"]) B.toggle("v2lv-" + k, on && lv === k);
-  if (!on) B.remove("v2send");
+  if (!on) { B.remove("v2send"); try { v2Io?.disconnect(); } catch {} }
   const b = $("btnUi"); if (b) b.textContent = on ? "V1 화면" : "V2 화면";
 }
 // 글자 단위 공통 부분 길이(최대 1500자) — 'AI가 쓴 글이 얼마나 남았나' 계산용
@@ -4287,6 +4291,7 @@ function v2AiShare(me) {   // 선생님 한마디·핵심 포인트·미션 글 
 // 베스트 편집본이 실제로 여러 곳을 이었는지(한 테이크 그대로면 false) — 선생님·수강생 화면 꼬리표 공통 기준(#108과 같은 판단)
 function bestJoined(o) {
   if (!o?.isComposite || o.composition === "single_take") return false;
+  if (o.composition == null && !Array.isArray(o.seams) && o.sections_joined == null && o.takes_used == null) return undefined;   // 예전 편집본: 모름(수강생 화면은 예전 문구)
   return (o.seams || []).length > 0 || o.composition === "sections_only" || (+o.sections_joined || 0) > 1 || (+o.takes_used || 0) > 1;
 }
 // 훑어보기: 카드가 화면에 충분히 보이면 '✓ 확인'. 다 보기 전엔 전달 버튼이 '다음 카드 보기'로 바뀐다(막지 않고 안내)
@@ -4307,7 +4312,7 @@ function v2Watch(me) {
 function v2Count(me) {
   const tg = v2Targets(), seen = me.v2seen ??= new Set(), done = tg.filter(el => seen.has(v2Key(el))).length;
   tg.forEach(el => { el.classList.add("v2card"); el.classList.toggle("v2seen", seen.has(v2Key(el)));
-    const h = el.querySelector("h3, h4"); if (h) { let c = h.querySelector(".v2ck"); if (!c) { c = document.createElement("span"); c.className = "v2ck"; h.appendChild(c); } c.textContent = seen.has(v2Key(el)) ? "✓ 확인" : "확인 전"; } });
+    const h = el.querySelector("h3, h4"); if (h) { let c = h.querySelector(".v2ck"); if (!c) { c = document.createElement("span"); c.className = "v2ck v2only"; h.appendChild(c); } c.textContent = seen.has(v2Key(el)) ? "✓ 확인" : "확인 전"; } });
   const st = $("v2Seen"), m = $("v2Meter"); if (st) st.textContent = `훑어본 카드 ${done}/${tg.length}`; if (m) m.style.width = (tg.length ? done / tg.length * 100 : 0) + "%";
   v2DockPaint(me, done, tg.length);
   return { done, total: tg.length };
@@ -4391,7 +4396,7 @@ const v2Fix = (el) => { if (!el || !v2On()) return; const t = el.textContent; if
 try { new MutationObserver(() => { v2Fix(document.getElementById("previewSaveMsg")); v2Fix(document.getElementById("toast")); v2Fix(document.getElementById("saveMsg")); })
   .observe(document.body, { subtree: true, childList: true, characterData: true }); } catch {}
 $("btnUi").onclick = () => { LS.set(V2_KEY, v2On() ? "v1" : "v2"); v2Apply();
-  $("v2Dock")?.classList.toggle("hidden", !v2On() || $("vLesson").classList.contains("hidden"));
+  $("v2Dock")?.classList.toggle("hidden", !v2On() || !cur || $("vLesson").classList.contains("hidden"));
   if (cur && !$("vLesson").classList.contains("hidden")) { paintDeliver(); window.scrollTo(0, 0); }
   toast(v2On() ? "새 화면(V2)으로 바꿨어요" : "예전 화면(V1)으로 바꿨어요 · 위 버튼으로 다시 바꿀 수 있어요"); };
 $("v2Save").onclick = async () => { const b = $("v2Save"); b.disabled = true; const ok = await saveReview(true); b.disabled = false;
