@@ -40,3 +40,12 @@ assert(/cheer: \(rv\.cheer \|\| ""\)\.trim\(\), song: rv\.song\?\.title/.test(sr
 assert(/n\.cheer \|\| "", n\.song \|\| null, n\.makeup\?\.msg \|\| ""/.test(src));
 assert(/@media \(prefers-reduced-motion: reduce\) \{ \.pvEd \{ transition:none; \}/.test(src));
 console.log('preview-5cards ok');
+// 응원 문구: 종류마다 8개, 누를 때마다 지금과 다른 문구(무작위), 이름 채움, 버튼에 🎲
+{ const src2 = require('fs').readFileSync(__dirname + '/../teacher/index.html', 'utf8');
+  const sets = new Function(src2.match(/const CHEER_SETS = \[[^]*?\n\];\n/)[0] + src2.match(/function pickCheer\([^]*?\n}\n/)[0] + 'return {CHEER_SETS, pickCheer};')();
+  require('assert')(sets.CHEER_SETS.length === 3 && sets.CHEER_SETS.every(x => x.length === 8 && new Set(x).size === 8));
+  let prev = '', seen = new Set();
+  for (let i = 0; i < 60; i++) { const v = sets.pickCheer(1, prev, '홍길동'); require('assert')(v !== prev && !v.includes('{n}')); seen.add(v); prev = v; }
+  require('assert')(seen.size >= 5, '무작위로 여러 문구');
+  require('assert')(/🎲 \$\{k\}/.test(src2));
+  console.log('cheer variants ok'); }
