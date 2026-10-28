@@ -227,10 +227,11 @@
     </div>
 
     <div class="card" style="order:4">
-      <div class="row" style="justify-content:space-between"><h3 style="margin:0">1. 오늘의 하이라이트 <span class="muted" style="font-weight:400">(최대 3개)</span></h3><span class="chip" id="sendCount">보내기 0/3</span></div>
+      <div class="row" style="justify-content:space-between"><h3 style="margin:0">⭐ 오늘의 하이라이트</h3><span class="chip" id="sendCount">보내기 0/3</span></div>
       <p class="muted" style="margin:4px 0">칭찬한 순간(노래 + 칭찬 말) · 🎵 = 오늘의 베스트</p>
       <div class="row" style="margin:4px 0;flex-wrap:nowrap"><button class="small ghost" id="btnPlayAll">▶ 고른 하이라이트 이어 듣기</button></div>
       <div id="hls"></div>
+      <button class="small ghost hidden" id="hlMore" aria-expanded="false" style="width:100%;margin-top:6px"></button>
       <details id="candMore" style="margin-top:8px"><summary class="muted" id="candMoreSum">다른 후보 (필요할 때만)</summary>
       <details class="muted" style="margin:6px 0"><summary>버튼 뜻</summary>
         <b>보내기</b> = 카톡 문구 ‘좋았던 부분’에 들어가고 ‘클립 보내기’ 때 같이 보내져요(최대 3개, 4번째를 고르면 가장 먼저 고른 것이 ‘기록만’으로).
@@ -246,22 +247,28 @@
       </details></details>
     </div>
 
-    <div class="card" style="order:5">
-      <h3 style="margin-top:0">2. 카톡 피드백 문구</h3>
+    <!-- 10/28 정리: 고치는 곳은 '수강생 노트' 한 곳, 보내는 건 '보내기' 한 곳(같은 글을 여러 칸에서 고치지 않게) -->
+    <div class="card" id="noteCard" style="order:5">
+      <h3 style="margin:0 0 4px">📝 수강생 노트</h3>
       <div id="aiNote" class="hidden" style="background:var(--chip);border-radius:10px;padding:8px 10px;margin:6px 0"></div>
-      <details id="ptWrap" style="margin:4px 0"><summary class="muted">오늘 포인트 · 이번 주 연습 고치기</summary><div id="points"></div></details>
-      <textarea id="fb"></textarea>
-      <div class="row" style="margin-top:4px">
-        <button class="small" id="btnCopy">문구 복사</button>
+      <div id="pvBox"><p class="muted">불러오는 중…</p></div>
+      <details id="ptWrap" class="hidden"><summary></summary><div id="points"></div></details>
+      <textarea id="fb" class="hidden" aria-hidden="true" tabindex="-1"></textarea>
+      <details style="margin-top:4px"><summary class="muted">문구를 처음부터 다시 쓰기</summary>
+        <div class="row" style="margin-top:6px">
+          <button class="small ghost" id="btnFbRegen">고른 하이라이트로 새로 쓰기</button>
+          <button class="small ghost" id="btnRegen">AI 초안으로 되돌리기</button>
+        </div></details>
+    </div>
+    <div class="card" id="sendCard" style="order:6">
+      <h3 style="margin:0 0 4px">📮 보내기</h3>
+      <div id="deliverBox"></div>
+      <div id="sendBtns" class="row" style="margin-top:6px">
+        <button class="small" id="btnCopy">긴 글로 복사</button>
         <button class="small" id="btnShare">클립 보내기</button>
         <span id="fbSent" class="chip todo" style="margin-left:auto">피드백 보내기 전</span>
+        <button class="small ghost hidden" id="btnFbMark">클립 없이 보냈어요</button>
       </div>
-      <details style="margin-top:6px"><summary class="muted">문구 다시 쓰기 · 보냄 표시</summary>
-        <div class="row" style="margin-top:6px">
-          <button class="small ghost" id="btnFbRegen">고른 클립으로 문구 새로 쓰기</button>
-          <button class="small ghost" id="btnRegen">초안 다시 만들기</button>
-          <button class="small ghost" id="btnFbMark">클립 없이 보냈어요</button>
-        </div></details>
     </div>
 
     <div class="card hidden" id="ckCard" style="order:10">
@@ -1098,24 +1105,23 @@ function feedbackPreviewHTML(note, rv, disabled, open = false) {
     return `<svg viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true">${Array.from({ length: n }, (_, i) => { const v = P[Math.floor(i * st)] || 0, h = Math.max(2, v / 99 * 36);
       return `<rect x="${(i * w + w * .2).toFixed(2)}" y="${((40 - h) / 2).toFixed(2)}" width="${(w * .6).toFixed(2)}" height="${h.toFixed(2)}" rx=".4" fill="${color}"/>`; }).join("")}</svg>`; };
   const audio = (kind, o, color) => `<div class="pvAudio"><button type="button" data-pvplay="${kind}" aria-label="듣기">▶</button>${wave(o.file_id, color)}</div>`;
+  let pvN = 0; const num = () => `<span class="pvNum">${++pvN}</span>`;   // 보이는 카드만 1부터 차례로
   const ms = missionState(rv), song = rv.song || {}, mmss = (x) => `${Math.floor((+x || 0) / 60)}:${String(Math.round((+x || 0) % 60)).padStart(2, "0")}`;
   const CHEER = [["격려", "오늘 정말 잘하셨어요! 꾸준히 하시면 더 멋진 목소리가 될 거예요 😊"], ["성장", "지난번보다 확실히 좋아졌어요. 이 흐름 그대로 가 봐요! 🎵"], ["지속 응원", "한 주 동안 조금씩만 연습해도 충분해요. 늘 응원할게요 💪"]];
-  return `<div style="margin-top:6px"><div class="pvHead"><b>수강생이 볼 화면 <span class="muted" style="font-weight:400">간단 미리보기</span></b>
-      <button type="button" class="small ghost pvFullBtn" id="btnPreviewFull">⛶ 전체 화면 보기</button></div>
-    <p class="muted" style="margin:2px 0 8px">✎를 누르거나 글을 누르면 12줄로 펼쳐 고칠 수 있어요.</p>
+  return `<div style="margin-top:6px"><div class="pvHead"><span class="muted">✎나 글을 누르면 12줄로 펼쳐 고쳐요</span>
+      <button type="button" class="small ghost pvFullBtn" id="btnPreviewFull">⛶ 수강생 화면으로 보기</button></div>
     <div class="pvStrip" id="pvStrip">
-      <section class="pvCard${open ? " open" : ""}" style="--pv:#4c8dff" aria-label="1 오늘의 베스트"><h4><span class="pvNum">1</span>오늘의 베스트 편집본${note.best ? `<span class="len">${mmss(note.best.len)}</span>` : ""}</h4>
-        ${note.best ? audio("best", note.best, "#7fb0ff") : `<p class="muted" style="margin:0">아직 포함 안 함 · 위 ‘오늘의 베스트’에서 포함을 켜면 수강생에게 보여요</p>`}
+      <section class="pvCard${open ? " open" : ""}" style="--pv:#4c8dff" aria-label="1 오늘의 베스트"><h4>${num()}선생님 한마디${note.best ? `<span class="len">🎵 베스트 ${mmss(note.best.len)}</span>` : ""}</h4>
+        ${note.best ? "" : `<p class="muted" style="margin:0">베스트는 아직 포함 안 함 · 위 ‘오늘의 베스트’에서 포함을 켜면 같이 보여요</p>`}
         <div class="pvEdWrap"><textarea id="previewFeedback" aria-label="수강생 피드백 미리보기 수정" rows="${open ? PV_ROWS.open : PV_ROWS.closed}" style="height:${pvH(open ? PV_ROWS.open : PV_ROWS.closed)}px;margin:0"${disabled}>${esc(note.feedback)}</textarea>
           <button type="button" class="pvEdit" data-pvopen="previewFeedback" aria-label="선생님 한마디 고치기"${disabled}>✎</button></div>
         <div class="pvAct"><span class="cnt" data-pvcnt="previewFeedback"></span><button type="button" class="small ghost" id="btnPreviewCancel"${disabled}>되돌리기</button><button type="button" class="small save" id="btnPreviewSave"${disabled}>수정 내용 저장</button></div>
         <button type="button" class="small ghost" id="btnPreviewToggle" aria-controls="previewFeedback" aria-expanded="${open}" style="align-self:flex-start;min-height:36px">${open ? "접기 (5줄)" : "펼치기 (12줄)"}</button></section>
-      <section class="pvCard" style="--pv:#9b5cff" aria-label="2 메이크업본"><h4><span class="pvNum">2</span>메이크업본 <span class="muted" style="font-weight:400">(AI 보정)</span>${note.makeup?.len ? `<span class="len">${mmss(note.makeup.len)}</span>` : ""}</h4>
-        ${note.makeup ? audio("makeup", note.makeup, "#c39bff") + pvEdHTML("pvMakeup", "메이크업본 설명", rv.makeup_msg || "", disabled, "예: 음정과 호흡을 자연스럽게 정리한 버전이에요. 원본과 비교해서 들어보세요.")
-          : `<p class="muted" style="margin:0">메이크업본을 포함하면 여기에 보여요(지금은 수강생에게 안 보임)</p>`}</section>
-      <section class="pvCard" style="--pv:#2fbf71" aria-label="3 오늘의 핵심 포인트"><h4><span class="pvNum">3</span>오늘의 핵심 포인트</h4>
+      ${note.makeup ? `<section class="pvCard" style="--pv:#9b5cff" aria-label="2 메이크업본 설명"><h4>${num()}메이크업본 설명${note.makeup.len ? `<span class="len">${mmss(note.makeup.len)}</span>` : ""}</h4>
+        ${pvEdHTML("pvMakeup", "메이크업본 설명", rv.makeup_msg || "", disabled, "예: 음정과 호흡을 자연스럽게 정리한 버전이에요. 원본과 비교해서 들어보세요.")}</section>` : ""}
+      <section class="pvCard" style="--pv:#2fbf71" aria-label="3 오늘의 핵심 포인트"><h4>${num()}오늘의 핵심 포인트</h4>
         ${pvEdHTML("pvPoints", "오늘의 핵심 포인트", (rv.points || []).filter(Boolean).join("\n"), disabled, "한 줄에 하나 · 최대 3개\n예: 호흡이 한층 안정적이에요")}</section>
-      <section class="pvCard" style="--pv:#ff8a3d" aria-label="4 다음 미션"><h4><span class="pvNum">4</span>다음 미션${ms === "unset" ? ` <span class="chip todo" style="margin-left:auto">미설정</span>` : ""}</h4>
+      <section class="pvCard" style="--pv:#ff8a3d" aria-label="4 다음 미션"><h4>${num()}다음 미션${ms === "unset" ? ` <span class="chip todo" style="margin-left:auto">미설정</span>` : ""}</h4>
         ${ms === "none" ? `<p style="margin:0"><span class="chip">미션 없음(선생님이 선택)</span></p>` : pvEdHTML("pvMission", "다음 미션", (rv.practice || []).filter(Boolean).join("\n"), disabled, "한 줄에 하나 · 최대 2개\n예: 후렴 두 마디만 천천히 매끄럽게")}
         <div class="pvSong"><div class="pvSongRow"><span class="art" aria-hidden="true">🎵</span><div style="min-width:0"><div class="muted">추천 곡</div><b>${esc(song.title || "아직 없음")}</b>${song.artist ? ` <span class="muted">(${esc(song.artist)})</span>` : ""}</div></div>
           <details style="margin-top:6px"><summary class="muted">추천 곡 고치기</summary>
@@ -1123,7 +1129,7 @@ function feedbackPreviewHTML(note, rv, disabled, open = false) {
             <input id="pvSongA" aria-label="가수" placeholder="가수" value="${esc(song.artist || "")}" style="width:100%;margin:3px 0"${disabled}>
             <input id="pvSongW" aria-label="추천 이유" placeholder="한 줄 이유(예: 지금 톤과 잘 어울려요)" value="${esc(song.why || "")}" style="width:100%;margin:3px 0"${disabled}>
             <button type="button" class="small" data-pvsave="pvSong"${disabled}>추천 곡 저장</button></details></div></section>
-      <section class="pvCard" style="--pv:#ff5c8a" aria-label="5 응원 메시지"><h4><span class="pvNum">5</span>응원 메시지 <span class="len" aria-hidden="true">♡</span></h4>
+      <section class="pvCard" style="--pv:#ff5c8a" aria-label="5 응원 메시지"><h4>${num()}응원 메시지 <span class="len" aria-hidden="true">♡</span></h4>
         ${pvEdHTML("pvCheer", "응원 메시지", rv.cheer || "", disabled, "예: 오늘 정말 잘하셨어요! 꾸준히 하시면 더 멋진 목소리가 될 거예요 😊")}
         <div class="pvChips">${CHEER.map(([k, v]) => `<button type="button" data-pvcheer="${esc(v)}"${disabled}>${k}</button>`).join("")}</div></section>
     </div>
@@ -1257,29 +1263,36 @@ function wireFeedbackPreview(me) {
     if (msg) msg.textContent = saved ? "고친 문구를 저장했어요. ‘검수 저장’을 누르면 수강생 노트에 반영돼요." : "저장하지 못했어요. 수정 내용은 이 화면에 남아 있으니 다시 저장해 주세요.";
   };
 }
+let sendBtnsEl = null;   // '긴 글로 복사·클립 보내기' 묶음(처음 한 번 연결된 버튼을 ② 자리로 옮겨 씀)
 function paintDeliver() {
   const el = $("deliverBox"); if (!el) return;
   const me = cur, s = (me.sched ??= { busy: false, pick: {} });
+  sendBtnsEl ??= $("sendBtns");
   if (s.caps === undefined) {
     if (!s.loading) { s.loading = true; refreshSched(me).finally(() => { s.loading = false; if (cur === me) paintDeliver(); }); }
-    el.innerHTML = `<p class="muted">공개 상태 확인 중…</p>`; return;
+    el.innerHTML = `<p class="muted">공개 상태 확인 중…</p>`; if (sendBtnsEl && !sendBtnsEl.isConnected) el.after(sendBtnsEl); return;
   }
   if (typeof practiceFromText === "function" && !me.review.no_mission) { const pr = practiceFromText(me.review.feedback); if (pr && pr.length && JSON.stringify(pr) !== JSON.stringify((me.review.practice || []).filter(Boolean))) me.review.practice = pr; }
   const rv = me.review, note = buildNote(), sig = contentSig(note), st = schedStatus({ caps: s.caps, srv: s.entry, sigNow: sig, approvedSig: rv.approved_sig });
   const chipCls = { published: "ok", scheduled: "ok" }[st] || (st === "draft" || st === "unknown" || st === "unsupported" ? "todo" : "");
   const sentAt = rv.kakao_sent_at, dis = s.busy ? " disabled" : "";
-  const preview = `<details id="pvWrap" style="margin:6px 0"${s.pvOpen ? " open" : ""}><summary><b>수강생에게 보이는 내용</b> <span class="muted">보기·고치기</span></summary>${feedbackPreviewHTML(note, rv, dis, !!s.pvExpanded)}</details>`;   // 길어서 접어 둠(2026-10-27 사용자: 정보가 너무 많음)
-  const kakaoBlock = !me.note ? "" : `<div style="margin-top:10px;border-top:1px solid #8884;padding-top:8px"><b>💬 카톡 안내</b>
-      <span class="chip ${sentAt ? "ok" : "todo"}">${sentAt ? "카톡 보냄 " + esc(fmtVisible(sentAt).kst) : "카톡 아직 안 보냄"}</span> <span id="seenChip" class="chip">아직 안 읽음</span>
-      <textarea id="kakaoMsg" style="min-height:90px">${esc(me.kakao || "")}</textarea>
-      <div class="row"><button class="small" id="btnKakaoCopy">멘트+링크 복사</button><button class="small ghost" id="btnKakaoRe">다른 멘트로</button>
-        <button class="small ghost" id="btnKakaoMark">${sentAt ? "보냄 표시 취소" : "카톡 보냈어요 표시"}</button></div>
-      <p class="muted" style="margin:4px 0">${st === "published" || st === "published_stale" ? "공개된 노트라 링크가 열려요." : "⚠ 아직 수강생에게 공개되지 않았어요. 공개 전에 보내면 링크를 열어도 노트가 안 보여요."} 카톡은 선생님이 직접 보내고, 보낸 뒤 표시해 주세요(앱은 실제 발송 여부를 몰라요). 이 표시는 예약·공개와 별개예요.</p></div>`;
+  const filled = [["한마디", !!String(note.feedback || "").trim()], ["포인트", (note.points || []).length], ["미션", rv.no_mission ? "없음" : (note.practice || []).length], ["추천 곡", note.song ? 1 : 0], ["응원", note.cheer ? 1 : 0]]
+    .map(([k, v]) => `${k} ${v === true ? "✓" : v === "없음" ? "없음" : v ? (v === 1 && k !== "포인트" && k !== "미션" ? "✓" : v + "개") : "–"}`).join(" · ");
+  const preview = `<details id="pvWrap" style="margin:6px 0"${s.pvOpen ? " open" : ""}><summary><b>보기·고치기</b> <span class="muted">${esc(filled)}</span></summary>${feedbackPreviewHTML(note, rv, dis, !!s.pvExpanded)}</details>`;   // 처음엔 접힘(10/28 사용자)
+  const pvBox = $("pvBox");
+  const kakaoBlock = `<div style="margin-top:10px;border-top:1px solid #8884;padding-top:8px"><b>② 카톡 보내기</b> <span class="muted">짧은 인사+노트 링크(추천) 또는 긴 글</span>${!me.note ? `<p class="muted" style="margin:4px 0">공개(①)한 뒤 인사+링크를 복사할 수 있어요. 긴 글·클립은 아래에서 바로 보낼 수 있어요.</p><div id="step2Slot"></div>
+      <div style="margin-top:10px;border-top:1px solid #8884;padding-top:8px"><b>③ 보냈으면 표시</b> <button class="small ghost" id="btnKakaoMark">${sentAt ? "보냄 취소" : "카톡 보냈어요"}</button></div></div>` : `
+      <textarea id="kakaoMsg" style="min-height:80px;margin-top:4px">${esc(me.kakao || "")}</textarea>
+      <div class="row"><button class="small" id="btnKakaoCopy">인사+링크 복사</button><button class="small ghost" id="btnKakaoRe">🎲 다른 인사말</button></div>
+      ${st === "published" || st === "published_stale" ? "" : `<p class="muted" style="margin:4px 0">⚠ 아직 공개 전이에요. 링크를 열어도 노트가 안 보여요.</p>`}<div id="step2Slot"></div>
+      <div style="margin-top:10px;border-top:1px solid #8884;padding-top:8px"><b>③ 보냈으면 표시</b> <button class="small ghost" id="btnKakaoMark">${sentAt ? "보냄 취소" : "카톡 보냈어요"}</button>
+        <span class="chip ${sentAt ? "ok" : "todo"}">${sentAt ? "보냄 " + esc(fmtVisible(sentAt).kst) : "아직 안 보냄"}</span> <span id="seenChip" class="chip">아직 안 읽음</span>
+        <p class="muted" style="margin:4px 0">카톡은 선생님이 직접 보내요. 표시하지 않으면 앱 알림으로 다시 알려 드려요.</p></div></div>`}`;
   if (st === "unsupported" || st === "unknown") {
-    el.innerHTML = `<div class="row" style="justify-content:space-between"><b>📮 수강생 노트</b><span class="chip todo">${SCHED_LABEL[st]}</span></div>` +
+    el.innerHTML = `<div class="row" style="justify-content:space-between"><b>① 공개</b><span class="chip todo">${SCHED_LABEL[st]}</span></div>` +
       (st === "unknown" ? `<p class="muted">${esc(s.err || "")}</p><button class="small" id="btnSchedRetry">다시 확인</button>`
         : `<p class="muted" style="margin:4px 0">예약 공개는 수강생 노트 서버(Apps Script)를 새 버전으로 바꿔야 쓸 수 있어요. 그 전까지는 아래 버튼이 <b>지금 바로</b> 게시합니다(예약이 아니에요).</p>
-           <button class="full" id="btnPublish">📮 지금 바로 수강생 노트에 게시</button>`) + preview + kakaoBlock;
+           <button class="full" id="btnPublish">📮 지금 바로 수강생 노트에 게시</button>`) + kakaoBlock;
     if ($("btnSchedRetry")) $("btnSchedRetry").onclick = () => { s.caps = undefined; paintDeliver(); };
     if ($("btnPublish")) $("btnPublish").onclick = async () => { if (s.busy) return; s.busy = true;
       try { await publishNote(); me.kakao = kakaoText(me.st, me.note, nextTpl(me.sid)); toast("지금 게시했어요"); } catch (e) { toast(e.message); } finally { s.busy = false; if (cur === me) paintDeliver(); } };
@@ -1298,8 +1311,8 @@ function paintDeliver() {
     const stNote = { draft: "승인하고 예약해야 수강생에게 나가요.", approved_unsaved: "승인했지만 서버에서 확인되지 않았어요. 다시 예약해 주세요.",
       scheduled: `예약 시각: ${fv ? esc(fv.kst) : ""}`, scheduled_stale: "예약은 이전에 승인한 내용으로 나가요. 고친 내용을 쓰려면 아래에서 다시 승인하고 예약하세요.",
       published: "수강생에게 공개 중이에요.", published_stale: "수강생이 보는 노트는 이전 내용이에요. ‘지금 다시 공개’로 고친 내용을 반영할 수 있어요.", held: "승인이 해제되어 수강생에게 안 보여요. 다시 승인하고 예약하세요." }[st];
-    el.innerHTML = `<div class="row" style="justify-content:space-between"><b>📮 수강생 노트 공개</b><span class="chip ${chipCls}">${SCHED_LABEL[st]}</span></div>
-      <p class="muted" style="margin:4px 0">${SAVE_PUBLISH ? (st === "published" ? "✓ 수강생에게 공개 중 · 고친 뒤 ‘검수 저장’을 누르면 같이 바뀌어요" : st === "published_stale" ? "수강생이 보는 노트는 이전 내용 · ‘검수 저장’을 누르면 고친 내용으로 바뀌어요" : "‘검수 저장’을 누르면 바로 수강생 노트에 공개돼요(카톡은 직접 보내기 · 안 보냈으면 알림으로 다시 알려 드려요)") : stNote}${s.err ? " · " + esc(s.err) : ""}</p>${preview}${warns}${ack}
+    el.innerHTML = `<div class="row" style="justify-content:space-between"><span></span><span class="chip ${chipCls}">${SCHED_LABEL[st]}</span></div>
+      <p style="margin:4px 0"><b>① 공개</b> <span class="muted">${SAVE_PUBLISH ? (st === "published" ? "✓ 수강생에게 공개 중 · 고친 뒤 ‘검수 저장’을 누르면 같이 바뀌어요" : st === "published_stale" ? "수강생이 보는 노트는 이전 내용 · ‘검수 저장’을 누르면 고친 내용으로 바뀌어요" : "아래 ‘검수 저장’을 누르면 바로 수강생 노트에 공개돼요") : stNote}${s.err ? " · " + esc(s.err) : ""}</span></p>${warns}${ack}
       ${SAVE_PUBLISH ? (s.entry && s.entry.state !== "held" ? `<details style="margin-top:4px"><summary class="muted">공개 숨기기</summary><button class="small ghost" id="btnCancel"${dis}>${s.entry.state === "published" ? "공개 숨기기" : "예약 취소"}</button></details>` : "") : `${approveBox}${timeBox}
       <div class="row" style="margin-top:6px">
         <button class="small" id="btnSched"${canSchedule ? "" : " disabled"}>${st === "scheduled" || st === "scheduled_stale" ? "시간 변경(다시 예약)" : "승인하고 예약"}</button>
@@ -1321,16 +1334,20 @@ function paintDeliver() {
     go("schedule"); go("now", "지금 바로 수강생에게 공개할까요? (예약이 아니라 즉시 공개예요)");
     go("cancel", s.entry?.state === "published" ? "이미 공개된 노트를 수강생에게 숨기고 녹음 링크 공유도 닫을까요?" : "예약을 취소(보류)할까요?");
   }
+  if (pvBox) { if (!document.activeElement?.closest?.("#pvBox") || !pvBox.innerHTML.includes("pvWrap")) pvBox.innerHTML = preview; }   // 고치는 중이면 다시 그리지 않음(커서·한글 조합 보호)
+  else el.insertAdjacentHTML("afterbegin", preview);
+  { const slot = $("step2Slot"); if (slot && sendBtnsEl) slot.appendChild(sendBtnsEl); }
   wireFeedbackPreview(me);
   { const pv = $("pvWrap"); if (pv) pv.ontoggle = () => { s.pvOpen = pv.open; }; }
+  $("btnKakaoMark").onclick = async () => {   // ③ 하나로: 카톡 보냄(알림용)과 '피드백 보냄'(목록 표시)을 같이
+    const on = !rv.kakao_sent_at;
+    if (on && !(s.entry && s.entry.state === "published")) toast("아직 공개 전이에요. 링크를 보냈다면 ‘검수 저장’으로 공개해 주세요");
+    if (on) { rv.kakao_sent_at = new Date().toISOString(); (rv.sent ??= {}).feedback ??= rv.kakao_sent_at; } else { delete rv.kakao_sent_at; if (rv.sent) delete rv.sent.feedback; }
+    paintDeliver(); if (typeof renderSent === "function") renderSent(); try { await saveReview(true); } catch (e) { toast(e.message); } };
   if (!me.note) return;
   paintSeen();
   $("btnKakaoCopy").onclick = async () => { try { await navigator.clipboard.writeText($("kakaoMsg").value); toast("복사했어요. 카톡에 붙여넣기 하세요."); } catch { $("kakaoMsg").select(); toast("길게 눌러 복사해 주세요"); } };
   $("btnKakaoRe").onclick = () => { $("kakaoMsg").value = me.kakao = kakaoText(me.st, me.note, nextTpl(me.sid)); };
-  $("btnKakaoMark").onclick = async () => {   // 서버 예약과 독립. 단, 아직 공개 전이면 '보냈다'고 표시하지 못하게 막는다
-    if (!rv.kakao_sent_at && !(s.entry && s.entry.state === "published")) return toast("아직 수강생에게 공개되지 않았어요. 공개된 뒤에 표시해 주세요");
-    if (rv.kakao_sent_at) delete rv.kakao_sent_at; else rv.kakao_sent_at = new Date().toISOString();
-    paintDeliver(); try { await saveReview(true); } catch (e) { toast(e.message); } };
 }
 function paintLessonsTab(sid) {
   const st = cfg.students[sid], rows = st._rows || [];
@@ -3097,7 +3114,7 @@ function renderToday() {
     : `<div class="muted">AI 초안 없음 — 아래 ‘카톡 피드백 문구’에서 직접 작성하세요</div>`;
   // 오늘 핵심·이번 주 연습은 아래 '카톡 피드백'과 '수강생에게 보이는 내용'에 같은 글이 있어 여기선 뺌(2026-10-27 사용자: 정보가 너무 많음)
   void head; void prs;
-  $("todayCard").innerHTML = `<h3 style="margin:0 0 6px">📦 오늘의 레슨 전달 패키지</h3>` + renderBest() + (typeof regenBoxHTML === "function" ? regenBoxHTML() : "") + (typeof renderTrial === "function" ? renderTrial() : "") + `<div id="deliverBox" style="margin-top:10px"></div>`;
+  $("todayCard").innerHTML = `<h3 style="margin:0 0 6px">🎵 오늘의 베스트</h3>` + renderBest() + (typeof regenBoxHTML === "function" ? regenBoxHTML() : "") + (typeof renderTrial === "function" ? renderTrial() : "");
   wireBest(); if (typeof wireRegen === "function") wireRegen(); if (typeof paintDeliver === "function" && cur.folder) paintDeliver();
 }
 // 화자 확인이 필요한 상태(미확인/AI 불확실/3명 이상)면 상단으로 올리고 자동 펼침 + 경고. 아니면 한 줄 요약으로 접음
@@ -3514,7 +3531,7 @@ player.addEventListener("play", () => pauseOthers(player));
 let followTranscript = false;   // 전사 말풍선을 눌러 재생할 때만 화면이 따라감(분석 카드 ▶에서는 스크롤 안 함)
 // ── 오늘의 하이라이트(최대 3개, 2026-10-27 사용자 확정): 선생님 칭찬 말 바로 앞 노래 + 칭찬 말까지 ──
 // 새 AI 호출 없음: candidates.json의 칭찬 단서 + 전사 화자 + 오늘의 베스트 구간만 쓴다. ①은 오늘의 베스트(🎵)
-const HL_MAX = 3, HL_SING_MAX = 45, HL_SING_MIN = 6, HL_PRAISE_MAX = 10;
+const HL_MAX = 5, HL_SING_MAX = 45, HL_SING_MIN = 6, HL_PRAISE_MAX = 10;
 const HL_RANK = [[/매우\s*잘|정말\s*잘|너무\s*좋|최고/, 3], [/잘했|잘하|좋았|좋아요|좋네|훌륭|멋지/, 2], [/그렇죠|맞아요|오케이|괜찮/, 1]];
 function praiseRank(t) { for (const [re, v] of HL_RANK) if (re.test(t || "")) return v; return 1; }
 function computeHighlights(cands, segs, roleFn, bestOpts) {
@@ -3571,7 +3588,7 @@ function renderHighlights() {
   const p = bestPicked(), rv = cur.review;
   $("hls").innerHTML = hlList.map((h, k) => {
     const d = rv.decisions[h.cand] || "", c = cur.cands.find(x => x.id === h.cand);
-    return `<div class="hl" data-h="${k}"><div class="row" style="flex-wrap:nowrap;gap:8px;align-items:flex-start">
+    return `<div class="hl${k > 0 && !cur.hlOpen ? " hidden" : ""}" data-h="${k}"><div class="row" style="flex-wrap:nowrap;gap:8px;align-items:flex-start">
       <button class="small" data-hlplay="${k}" aria-label="하이라이트 ${h.n} 듣기">▶</button>
       <div style="flex:1;min-width:0"><b>${h.isBest ? "🎵 " : ""}${h.n}. ${fmt(h.start)} ~ ${fmt(h.end)}</b> <span class="muted" style="white-space:nowrap">${Math.round(h.end - h.start)}초${h.isBest ? (p?.isComposite ? " · 베스트 편집본의 기준 테이크" : " · 오늘의 베스트") : ""}</span>
         <div class="hlq">“${esc(h.praise)}”</div></div></div>
@@ -3582,7 +3599,13 @@ function renderHighlights() {
       <input class="cnote ${d === "send" ? "" : "hidden"}" data-c="${esc(h.cand)}" placeholder="좋았던 점 한 줄 (예: 고음 끝까지 호흡 유지)" value="${esc(rv.notes?.[h.cand] ?? c?.note ?? "")}" style="width:100%;margin-top:4px">` : ""}
     </div>`;
   }).join("") || `<p class="muted">선생님 칭찬 바로 앞 노래 구간을 찾지 못했어요 — 아래 ‘다른 후보’에서 골라 주세요.</p>`;
-  const hs = $("hls");
+  const hs = $("hls"), more = $("hlMore");
+  if (more) {   // 처음엔 1개만(10/28 사용자: 페이지를 많이 차지함) — 펼치면 최대 5개
+    const extra = hlList.length - 1, sentHidden = hlList.slice(1).filter(h => rv.decisions[h.cand] === "send").length;
+    more.classList.toggle("hidden", extra < 1); more.setAttribute("aria-expanded", cur.hlOpen ? "true" : "false");
+    more.textContent = cur.hlOpen ? "▴ 접기" : `▾ 하이라이트 ${extra}개 더 보기${sentHidden ? ` (보내기 ${sentHidden}개 포함)` : ""}`;
+    more.onclick = () => { cur.hlOpen = !cur.hlOpen; renderHighlights(); };
+  }
   hs.querySelectorAll("[data-hlplay]").forEach(b => b.onclick = () => { hlQueueStop(); hlGo(+b.dataset.hlplay); });
   hs.querySelectorAll("input[type=radio]").forEach(r => r.onchange = () => {
     const bumped = setDecision(cur.review, r.name.slice(2), r.value, allCands().map(c => c.id));
@@ -3872,7 +3895,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-28-2235-vertical";
+const BUILD = "2026-10-28-2250-tidy";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
@@ -3907,7 +3930,8 @@ $("btnAdd").onclick = () => {
   $("addS").value = $("addE").value = $("addNote").value = ""; renderCands();
 };
 $("btnRegen").onclick = () => { updateFeedbackDraft(draftFeedback()); };
-$("btnCopy").onclick = async () => { try { await navigator.clipboard.writeText($("fb").value); toast("복사했어요. 카톡에 붙여넣기 하세요."); } catch { $("fb").select(); toast("길게 눌러 복사해 주세요"); } };
+$("btnCopy").onclick = async () => { const link = cur.note && typeof kakaoText === "function" ? (kakaoText(cur.st, cur.note, 0).match(/https?:\/\/\S+/) || [""])[0] : "";
+  try { await navigator.clipboard.writeText($("fb").value + (link ? "\n\n📒 노트: " + link : "")); toast("복사했어요. 카톡에 붙여넣기 하세요."); } catch { $("fb").select(); toast("길게 눌러 복사해 주세요"); } };
 $("btnShare").onclick = async () => {
   const sent = sendList();
   const ids = sent.map(c => cur.clips.find(f => f.name.startsWith(c.id))).filter(Boolean);
@@ -3918,7 +3942,7 @@ $("btnShare").onclick = async () => {
   if (mkp) ids.unshift({ id: mkp.file_id, name: "오늘의 베스트 가창(메이크업본).mp3" });
   if (bp) ids.unshift({ id: bp.file_id, name: "오늘의 베스트 가창(편집본).mp3" });
   if (!ids.length) return toast("‘보냄’으로 고른 클립이 없어요");
-  try { if (await shareClips(ids)) await markSent("feedback"); } catch (e) { toast(e.message); }
+  try { if (await shareClips(ids)) { cur.review.kakao_sent_at ??= new Date().toISOString(); await markSent("feedback"); if (typeof paintDeliver === "function") paintDeliver(); } } catch (e) { toast(e.message); }
 };
 $("btnFbMark").onclick = () => markSent("feedback", !cur.review.sent?.feedback);
 $("btnCkMark").onclick = () => markSent("check", !cur.review.sent?.check);

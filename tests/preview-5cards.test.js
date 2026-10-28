@@ -13,13 +13,13 @@ var me;
 const note = { feedback: '안녕하세요', best: { file_id: 'b', len: 35 }, makeup: { file_id: 'm', len: 28 }, practice: ['미션1'] };
 const rv = { points: ['호흡', '고음'], practice: ['미션1'], cheer: '힘내요 <3', song: { title: '가짜 곡', artist: '홍길동', why: '톤' }, makeup_msg: '보정본' };
 const h = f.feedbackPreviewHTML(note, rv, '');
-const order = ['오늘의 베스트 편집본', '메이크업본', '오늘의 핵심 포인트', '다음 미션', '응원 메시지'].map(x => h.indexOf(x));
+const order = ['선생님 한마디', '메이크업본 설명', '오늘의 핵심 포인트', '다음 미션', '응원 메시지'].map(x => h.indexOf(x));
 assert(order.every((x, i) => x > 0 && (i === 0 || x > order[i - 1])), '5칸 순서');
 assert(h.includes('id="previewFeedback"') && h.includes('rows="5"') && h.includes('id="pvPoints"') && h.includes('호흡\n고음') && h.includes('힘내요 &lt;3') && h.includes('value="가짜 곡"'));
 assert(h.includes('class="pvStrip"') && (h.match(/class="pvCard"/g) || []).length === 5);
 // 포함 안 한 베스트·메이크업은 안내만(재생 버튼 없음)
 const h2 = f.feedbackPreviewHTML({ feedback: '', best: null, makeup: null, practice: [] }, { no_mission: true }, '');
-assert(!h2.includes('data-pvplay') && h2.includes('아직 포함 안 함') && h2.includes('메이크업본을 포함하면') && h2.includes('미션 없음(선생님이 선택)') && !h2.includes('id="pvMission"'));
+assert(!h2.includes('data-pvplay') && h2.includes('아직 포함 안 함') && !h2.includes('메이크업본 설명') && (h2.match(/class="pvCard"/g) || []).length === 4 && h2.includes('미션 없음(선생님이 선택)') && !h2.includes('id="pvMission"'));
 // 2) setBlock: 덩어리 교체·추가·삭제
 const fb = '홍길동님 수고하셨어요!\n\n오늘 중요한 포인트\n· 옛 포인트\n\n이번 주 연습\n· 옛 연습\n· 옛 연습2';
 assert.equal(f.setBlock(fb, '이번 주 연습', ['새 연습']), '홍길동님 수고하셨어요!\n\n오늘 중요한 포인트\n· 옛 포인트\n\n이번 주 연습\n· 새 연습');
