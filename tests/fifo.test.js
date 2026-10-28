@@ -3,8 +3,8 @@ const fs = require("fs"), assert = require("assert");
 const src = fs.readFileSync(__dirname + "/../teacher/index.html", "utf8");
 const body = src.match(/function setDecision[\s\S]*?\n}\n/)[0];
 const MAX = +src.match(/const MAX_GOOD = (\d+)/)[1];
-assert.strictEqual(MAX, 3);                                            // 2026-10-26 사용자 확정: 최대 3개
-const setDecision = new Function("MAX_GOOD", body + "return setDecision;")(MAX);
+assert.strictEqual(MAX, 5);                                            // 2026-10-28 #79/#145 사용자 확정: 최대 5개(이전 3개)
+const setDecision = new Function("MAX_GOOD", body + "return setDecision;")(3);   // 밀려나기 규칙은 상한 3으로 시험(실제 상한은 위에서 5 확인)
 const ids = ["C1","C2","C3","C4","C5","C6","C7"];
 const rv = { decisions: {} };
 for (const i of ids.slice(0, 3)) assert.strictEqual(setDecision(rv, i, "send", ids), null);
@@ -22,4 +22,7 @@ assert.deepStrictEqual(rv.sendOrder, []);
 const old = { decisions: { C1: "send", C2: "send", C3: "keep" } };
 setDecision(old, "C4", "send", ids);
 assert.deepStrictEqual(old.sendOrder, ["C1","C2","C4"]);
-console.log("fifo ok (max 3)");
+// 다시 누르면 미선택(#79): decisions에서 지워지고 순서에서도 빠짐
+const z = { decisions: {} }; setDecision(z, "C1", "send", ids); setDecision(z, "C1", null, ids);
+assert.ok(!("C1" in z.decisions)); assert.deepStrictEqual(z.sendOrder, []);
+console.log("fifo ok (max 5, 밀려나기·선택 취소)");
