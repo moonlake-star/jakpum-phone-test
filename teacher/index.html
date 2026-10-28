@@ -192,6 +192,14 @@
   body { -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; -webkit-tap-highlight-color:transparent; }
   textarea, input { -webkit-user-select:text; user-select:text; -webkit-touch-callout:default; }
   .lesson:active { background:var(--chip); }
+  /* 누르면 펼쳐지는 줄(펼쳐보기)은 눈에 띄게: 테두리 상자 + ▸(열리면 ▾) — 10/28 23:07 사용자 */
+  details > summary { list-style:none; cursor:pointer; display:flex; align-items:center; flex-wrap:wrap; gap:6px; min-height:42px; padding:6px 12px; margin:0;
+    border:1.5px solid #465062; border-radius:12px; background:#1b1f26; color:var(--fg); }
+  details > summary::-webkit-details-marker { display:none; }
+  details > summary::before { content:"▸"; color:var(--accent); font-size:1rem; transition:transform .2s; display:inline-block; }
+  details[open] > summary::before { transform:rotate(90deg); }
+  details > summary:active { background:#262c36; }
+  details > summary.muted { color:#c8d1dc; }
 </style>
 </head>
 <body>
@@ -3984,7 +3992,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-28-2340-cheer";
+const BUILD = "2026-10-28-2345-sumbox";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
