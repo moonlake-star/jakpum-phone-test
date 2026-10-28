@@ -34,7 +34,7 @@ assert(m.bestPicked() === null && !h.includes("data-tp="));
 cur.best.composite = { status: "ok", file_id: "c1", kind_ko: "여러 테이크 이어 붙인 1절(편집본)", len: 41, lines: [1, 2, 3, 4], takes_used: 2 };
 m.renderToday(); h = e.els.todayCard.innerHTML;
 assert(m.bestPicked().isComposite && m.bestPicked().file_id === "c1" && h.includes("편집본") && !h.includes("후보"));
-assert(h.includes("아직 안 골랐어요") && !/aria-pressed="true"/.test(h));
+assert(!/data-incl="[a-z]+" checked/.test(h), "기본은 보내기 해제");
 cur.best.composite = { status: "none", why: "x" };
 cur.best = { status: "none", why: "노래 구간 없음" }; m.renderToday(); h = e.els.todayCard.innerHTML;
 assert(h.includes("노래 구간 없음") && !h.includes("bestPlay") && m.bestPicked() === null);
