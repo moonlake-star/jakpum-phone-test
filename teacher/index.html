@@ -827,8 +827,10 @@ function kakaoText(st, note, k) {
   return KAKAO_TPL[k % KAKAO_TPL.length](st.name, p) + "\n👉 " + `${studentPage()}?l=${encodeURIComponent(note.lesson_id)}`;
 }
 function nextTpl(sid) { const key = "vn_tpl_" + sid, k = ((LS.get(key) ?? -1) + 1) % KAKAO_TPL.length; LS.set(key, k); return k; }
+// 학생 노트·카톡에 실을 베스트: 보내기 끔이거나, 선생님이 그 파일을 직접 고르지 않았으면(후보 0·1·여럿 모두) 없음(사용자 확정 2026-10-28, 기본 미선택)
+function bestForNote() { return cur.review.sendBest !== false && bestPickValid() ? bestPicked() : null; }
 function buildNote() {
-  const rv = cur.review, bp = bestPicked(), comp = bestOptions().find(o => o.isComposite);
+  const rv = cur.review, bp = bestForNote();
   const clips = sendList().map(c => ({ c, f: cur.clips.find(x => x.name.startsWith(c.id)) })).filter(x => x.f)
     .map(({ c, f }) => ({ file_id: f.id, label: `${fmt(c.start)} 구간`, note: rv.notes?.[c.id] || c.note || "" }));
   const bestNote = (o) => o && { file_id: o.file_id, kind_ko: o.kind_ko, len: Math.round(o.len), edited: !!o.isComposite };
@@ -836,7 +838,7 @@ function buildNote() {
   const noMission = rv.no_mission === true;
   return { lesson_id: cur.folder.id, date: cur.folder.name.slice(0, 10), title: cur.folder.name,
     feedback: $("fb").value, points: (rv.points || []).filter(Boolean), practice: noMission ? [] : (rv.practice || []).filter(Boolean), no_mission: noMission,
-    best: rv.sendBest !== false ? bestNote(bp) : null, extra_best: comp && comp !== bp ? [bestNote(comp)] : [],
+    best: bestNote(bp), extra_best: [],   /* 고르지 않은 편집본을 '다른 버전'으로 몰래 싣지 않음 */
     clips, highlight: clips[0]?.note || (rv.points || []).find(Boolean) || "", published_at: new Date().toISOString() };
 }
 // 게시한 녹음만 '링크가 있는 사람 보기'로 연다(사용자 결정 2026-10-26). 링크(ID)는 승인된 본인 노트에만 실림.
@@ -2642,7 +2644,7 @@ function renderBest() {
     ${!o.isComposite && ["none", "error"].includes(comp?.status) && comp.why ? `<p class="muted">${esc(comp.why)}</p>` : ""}
     ${o.isComposite ? tpHTML(true).replace('aria-label="재생 위치" style="width:100%">', 'aria-label="재생 위치" style="width:100%">' + seamStrip(o)) : tpHTML(true)}
     <div class="row" style="margin-top:8px"><button class="small ghost" id="bestMakeup">🪄 ${bestMakeupLabel(o)}</button></div>
-    <label style="display:flex;gap:8px;align-items:flex-start;margin-top:8px;font-size:.92rem"><input type="checkbox" id="bestSend" style="width:22px;height:22px;flex:none" ${rv.sendBest ? "checked" : ""}><span><b>오늘의 베스트도 함께 보내기</b><br><span class="muted" style="font-size:.85rem">${valid || opts.length === 1 ? "끄면 하이라이트 클립만 가요" : "위에서 후보를 먼저 골라 주세요"}</span></span></label></div>`;   /* 문구 2026-10-28 사용자 확정(A안) */
+    <label style="display:flex;gap:8px;align-items:flex-start;margin-top:8px;font-size:.92rem"><input type="checkbox" id="bestSend" style="width:22px;height:22px;flex:none" ${rv.sendBest ? "checked" : ""}><span><b>오늘의 베스트도 함께 보내기</b><br><span class="muted" style="font-size:.85rem">${valid ? "끄면 하이라이트 클립만 가요" : "위에서 후보를 먼저 골라 주세요"}</span></span></label></div>`;   /* 문구 2026-10-28 사용자 확정(A안) */
 }
 const SHOW_TRIAL = false;
 // 박자 확인용 시험 편집본(2026-10-27 23:25 사용자: 4곳 이상 이어 붙여 박자 확인) — 선생님 확인용, 수강생에게는 안 감
@@ -3514,9 +3516,9 @@ $("btnShare").onclick = async () => {
   const sent = sendList();
   const ids = sent.map(c => cur.clips.find(f => f.name.startsWith(c.id))).filter(Boolean);
   for (const p of (cur.pairs || []).filter(p => (cur.review.pairSend || []).includes(p.id) && p.file_id)) ids.push({ id: p.file_id, name: `지도전후_비교_${p.id}.mp3` });
-  const bp = bestPicked();
-  if (bp && cur.review.sendBest !== false && !bestPickValid() && bestOptions().length > 1) toast("오늘의 베스트를 아직 안 골라서 함께 보내지 않았어요");
-  if (bp && cur.review.sendBest !== false && (bestPickValid() || bestOptions().length === 1)) ids.unshift({ id: bp.file_id, name: bp.isComposite ? "오늘의 베스트 가창(편집본).mp3" : "오늘의 베스트 가창.mp3" });
+  const bp = bestForNote();
+  if (!bp && cur.review.sendBest !== false && bestOptions().length) toast("오늘의 베스트를 아직 안 골라서 함께 보내지 않았어요");
+  if (bp) ids.unshift({ id: bp.file_id, name: bp.isComposite ? "오늘의 베스트 가창(편집본).mp3" : "오늘의 베스트 가창.mp3" });
   if (!ids.length) return toast("‘보냄’으로 고른 클립이 없어요");
   try { if (await shareClips(ids)) await markSent("feedback"); } catch (e) { toast(e.message); }
 };
