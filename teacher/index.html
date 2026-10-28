@@ -89,7 +89,8 @@
   /* 재생바 = 소리 파형(10/28 시안): 눌러서/끌어서 위치 이동은 투명한 슬라이더가 그대로 받음 */
   .tpBtns button { min-height:36px; height:36px; padding:0 2px !important; border-radius:10px; font-size:.95rem; }   /* 10/28 사용자: 재생 버튼 높이 좁게 */
   .tpWaveBox { position:relative; height:52px; margin:2px 0; } .tpWaveBox canvas { position:absolute; inset:0; width:100%; height:100%; }
-  .tpWaveBox .tpSeek { position:absolute; inset:0; width:100%; height:100%; margin:0; opacity:0; cursor:pointer; }
+  .tpWaveBox .tpSeek { position:absolute; inset:0; width:100%; height:100%; margin:0; opacity:0; cursor:pointer; pointer-events:none; }   /* (10/29) 손가락은 아래 상자가 받음: 톡=그 자리 재생, 끌기=스크롤 */
+  .tpWaveBox { touch-action:pan-y; cursor:pointer; }
   .tpWaveBox .seamStrip { left:0; right:0; top:0; height:100%; }
   .seamStrip span.dim { opacity:.45; }
   .seamStrip span { position:absolute; top:0; bottom:0; border-left:2px solid var(--now); border-right:2px solid var(--now); background:rgba(255,210,122,.25); border-radius:3px; }
@@ -3670,6 +3671,17 @@ function tpWire(root, fileId, autoplay, timeEl) {
     const value = e.target.value;
     run(async () => { if (player.duration) player.currentTime = player.duration * value / 1000; if (player.paused) { pauseOthers(player); await player.play(); } });
   };
+  { const box = root.querySelector(".tpWaveBox"), seek = root.querySelector(".tpSeek");   // (10/29 사용자) 스크롤하려고 댄 손가락으로는 재생하지 않음 — 같은 자리를 톡 눌렀다 뗄 때만
+    if (box && seek && box.addEventListener) { let st = null;
+      box.addEventListener("pointerdown", (e) => { st = { x: e.clientX, y: e.clientY, t: Date.now(), id: e.pointerId }; });
+      box.addEventListener("pointercancel", () => { st = null; });
+      box.addEventListener("pointerup", (e) => {
+        const a = st; st = null; if (!a || a.id !== e.pointerId) return;
+        if (Math.hypot(e.clientX - a.x, e.clientY - a.y) > 10 || Date.now() - a.t > 700) return;   // 움직였거나 오래 눌렀으면 스크롤로 봄
+        const r = box.getBoundingClientRect(); if (!r.width) return;
+        seek.value = String(Math.round(Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)) * 1000));
+        seek.onchange({ target: seek });
+      }); } }
   if (autoplay) run(async () => { pauseOthers(player); await player.play(); });
 }
 function speakerName(code) {
@@ -4171,7 +4183,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-29-0845-tapedit";
+const BUILD = "2026-10-29-0825-wavetap";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
