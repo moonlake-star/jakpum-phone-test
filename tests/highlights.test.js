@@ -19,8 +19,10 @@ const cands = [{ id: "C001", score: 1.5, cues: [cue(465.857, "좋았어요")] },
   { id: "C005", score: 3.0, cues: [cue(889.494, "좋아요"), cue(894.594, "잘했"), cue(910.488, "좋아요")] }, { id: "C006", score: 2.8, cues: [cue(968.504, "잘했")] }];
 const best = [{ cand: "C004", start: 767.34, end: 805.68, praise: { t: 805.282, text: "잘했" } }, { cand: "C006", start: 939.67, end: 968.9, praise: { t: 968.504, text: "잘했" } }];
 const h = computeHighlights(cands, segs, role, best);
-assert.strictEqual(h.length, 3);
-assert.deepStrictEqual(h.map(x => [x.n, x.cand, x.isBest]), [[1, "C004", true], [2, "C001", false], [3, "C006", false]]);
+assert.strictEqual(h.length, 4, "10/28: 최대 5개까지(겹치는 후보는 하나로)");
+assert.deepStrictEqual(h.slice(0, 1).map(x => [x.n, x.cand, x.isBest]), [[1, "C004", true]]);
+assert.deepStrictEqual(h.map(x => x.cand).filter(c => ["C001", "C006"].includes(c)), ["C001", "C006"], "기존 3개는 그대로 포함");
+assert(/const HL_MAX = 5/.test(src) && /k > 0 && !cur\.hlOpen \? " hidden"/.test(src), "처음엔 1개만, 펼치면 최대 5개");
 assert.ok(h[0].end >= 815 && h[0].end <= 815.4, "베스트는 칭찬 말까지(최대 10초)");
 assert.ok(h[0].praise.startsWith("잘했"));
 assert.ok(h[1].start === 439.2 && h[1].end > 465.9, "노래 + 칭찬 말까지");

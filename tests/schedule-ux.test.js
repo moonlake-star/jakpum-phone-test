@@ -183,7 +183,7 @@ const sigOf = (t) => t.m.contentSig(t.note);
     const msg = await t.m.schedAct("schedule", OK(t)); assert.match(msg, /사본 저장은 실패/); assert.strictEqual(srv.notes["S1|L1"].state, "scheduled"); }
   // 25. 이중 클릭 방지·카톡 표시는 화면 코드(s.busy 선점, 공개 전 표시 거부)로 — 정적 확인
   assert.match(src, /if \(s\.busy\) return; if \(ok && !confirm\(ok\)\) return;\s*s\.busy = true;/);
-  assert.match(src, /공개되지 않았어요\. 공개된 뒤에 표시해 주세요/);
+  assert.match(src, /아직 공개 전이에요\. 링크를 보냈다면/);   // 10/28 정리: ③ 하나로(공개 전이면 막지 않고 알려 줌)
   assert.ok(!/btnSched[\s\S]{0,400}publishNote\(\)/.test(src.slice(src.indexOf("function paintDeliver"), src.indexOf("function paintLessonsTab"))
     .split("st === \"unsupported\" || st === \"unknown\"")[1].split("} else {")[1] || ""), "예약 경로에서 publishNote 호출 금지");
   // 26. 구버전 화면: 예약 UI 없이 '지금 바로 게시(예약 아님)'만
