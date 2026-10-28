@@ -26,7 +26,7 @@ let t = setup({}), h = t.api.renderBest();
 assert.ok(h.includes("오늘의 베스트") && h.includes("원본 편집본") && h.includes("원본 레슨에서 가져온 구간 2곳") && h.includes("100~120"));
 assert.ok(!/후보|bestAlt|data-k="\d"/.test(h) && !h.includes("B1") && !h.includes("B2"), "단일 테이크 후보 노출 금지");
 assert.strictEqual(pressed(h), 0);
-assert.ok(h.includes('data-incl="best"') && h.includes("보내기"), "편집본 제목 옆 체크박스(기본 해제)");
+assert.ok(h.includes('data-incl="best"') && h.includes("피드백에 포함"), "편집본 제목 옆 체크박스(기본 해제)");
 assert.ok(h.includes("메이크업본 만들기") && !h.includes('data-incl="makeup"') && !h.includes('data-abrow="mk"'), "메이크업 음원 없으면 보내기 체크박스 없음");
 // 2) 이어 붙인 자리 정보가 없는데 '한 테이크 그대로'라고 하지 않음
 h = setup({}, { ...COMP, seams: [], takes_used: 3, method: "v5-mrabs" }).api.renderBest();
