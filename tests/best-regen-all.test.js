@@ -104,9 +104,12 @@ const F = (name, id) => ({ id: id || name, name });
   t = setup({ files: okFiles, blobs: okBlobs, review: { bestInclude: true, bestIncludeId: "OLD" } });
   await t.api.regenRefresh(t.cur); t.api.wireRegen(); t.els.regenAdopt.onclick(); await new Promise(r => setImmediate(r));
   assert.strictEqual(t.api.bestOptions()[0].file_id, "NEW_" + rid);
-  const inclOk = (rv, key, id) => !!id && rv[key + "Include"] === true && rv[key + "IncludeId"] === id;   // teacher/index.html 와 같은 규칙
-  assert.ok(src.includes('const inclOk = (rv, key, id) => !!id && rv[key + "Include"] === true && rv[key + "IncludeId"] === id;'));
-  assert.strictEqual(inclOk(t.cur.review, "best", t.api.bestOptions()[0].file_id), false, "새 편집본은 학생 포함이 자동 승계되지 않음");
+  const inclOk = new Function(src.match(/const inclOk = [^\n]*\n/)[0] + "; return inclOk;")();   // teacher/index.html 규칙 그대로
+  // (2026-10-29 사용자) 베스트는 기본 포함: 채택한 새 편집본도 기본 포함, 예전 파일을 '뺀' 기록은 새 파일에 안 옮겨감
+  assert.strictEqual(inclOk(t.cur.review, "best", t.api.bestOptions()[0].file_id), true, "채택한 새 편집본은 기본 포함");
+  assert.strictEqual(inclOk({ bestInclude: false, bestIncludeId: "OLD" }, "best", t.api.bestOptions()[0].file_id), true);
+  assert.strictEqual(inclOk({ bestInclude: false, bestIncludeId: t.api.bestOptions()[0].file_id }, "best", t.api.bestOptions()[0].file_id), false, "지금 파일을 끄면 뺌");
+  assert.strictEqual(inclOk({}, "makeup", "M1"), false, "메이크업은 기본 미포함");
 
   // 9) 유효성: 다른 수강생/레슨/요청번호의 후보·상태 불일치는 채택 불가(기본 미선택 유지)
   for (const bad of [{ student_id: "s2" }, { lesson_folder: "L9" }, { req_id: "rzzz999" }]) {
