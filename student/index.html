@@ -38,6 +38,8 @@
   .badge { font-size:.75rem; font-weight:800; padding:2px 8px; border-radius:6px; background:#e2475a; color:#fff; } .badge.mk { background:#7a4fd6; }
   .song { margin-top:10px; padding:10px 12px; border-radius:12px; background:#1b1e23; border:1px solid var(--line); }
   .cheer { border-color:#b98ad6; }
+  .wave { position:relative; height:56px; margin:4px 0 8px; cursor:pointer; touch-action:manipulation; }
+  .wave svg { position:absolute; inset:0; width:100%; height:100%; } .wave .on { position:absolute; inset:0; clip-path:inset(0 100% 0 0); }
   .story-item { border-top:1px solid var(--line); padding:12px 0; } .story-item .when { font-weight:700; } .story-item p { margin:4px 0 8px; }
   @media (max-width:360px) { .story-item .play { font-size:1rem; padding:0 12px; } }
 </style>
@@ -140,8 +142,15 @@ function timeline() {
 // 녹음은 선생님이 게시할 때 '링크가 있는 사람 보기'로 열린 파일을 구글 드라이브에서 바로 재생(v2, 스크립트를 거치지 않음)
 const audioUrl = async (id) => audioCache[id] ||= `https://drive.google.com/uc?export=download&id=${encodeURIComponent(id)}`;
 document.addEventListener("play", (e) => document.querySelectorAll("audio").forEach(a => a !== e.target && a.pause()), true);   // 한 번에 하나만
-function player(id, label) {
-  return `<button class="play" data-au="${esc(id)}">▶ ${esc(label)}</button><audio class="hidden" id="au_${esc(id)}" controls></audio>`;
+// 파형(선생님 앱이 공개할 때 함께 실은 막대 높이 0~99). 없으면 기존처럼 버튼만. 파형을 누르면 그 자리부터.
+function waveSvg(pk, color) {
+  const n = pk.length, w = 100 / n;
+  return `<svg viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true">${pk.map((v, i) => { const h = Math.max(1.5, (Math.min(99, Math.max(0, +v || 0)) / 99) * 36);
+    return `<rect x="${(i * w + w * 0.18).toFixed(2)}" y="${((40 - h) / 2).toFixed(2)}" width="${(w * 0.64).toFixed(2)}" height="${h.toFixed(2)}" fill="${color}"/>`; }).join("")}</svg>`;
+}
+function player(id, label, peaks) {
+  const pk = Array.isArray(peaks) && peaks.length >= 20 && peaks.length <= 400 ? peaks : null;
+  return `${pk ? `<div class="wave" data-wv="${esc(id)}" role="presentation">${waveSvg(pk, "#5b6573")}<div class="on">${waveSvg(pk, "#9cc3ff")}</div></div>` : ""}<button class="play" data-au="${esc(id)}">▶ ${esc(label)}</button><audio class="hidden" id="au_${esc(id)}" controls></audio>`;
 }
 function wirePlayers() {
   document.querySelectorAll("[data-au]").forEach(b => {
@@ -151,6 +160,14 @@ function wirePlayers() {
       try { b.textContent = "불러오는 중…"; au.src = await audioUrl(b.dataset.au.replace(/#[bsm]$/, "")); au.classList.remove("hidden"); b.classList.add("hidden"); await au.play(); }
       catch (e) { if (au.error) return; b.textContent = label; au.classList.add("hidden"); b.classList.remove("hidden"); }
     };
+    const wv = [...document.querySelectorAll("[data-wv]")].find(x => x.dataset.wv === b.dataset.au);
+    if (wv) {
+      const on = wv.querySelector(".on");
+      au.addEventListener("timeupdate", () => { if (au.duration) on.style.clipPath = `inset(0 ${(100 - au.currentTime / au.duration * 100).toFixed(1)}% 0 0)`; });
+      wv.onclick = async (e) => { const fr = Math.min(1, Math.max(0, (e.clientX - wv.getBoundingClientRect().left) / wv.clientWidth));
+        if (!au.getAttribute("src")) await b.onclick();
+        if (au.duration) au.currentTime = fr * au.duration; else au.addEventListener("loadedmetadata", () => { au.currentTime = fr * au.duration; }, { once: true }); };
+    }
   });
 }
 async function playSeries(ids, au, btn) {
@@ -194,8 +211,8 @@ function lessonHtml(l, prev, mode = "normal") {
   return `<button class="ghost" id="back">← 전체 노트</button>
     <h2 style="margin:14px 0 4px">${md(l.date)} 레슨</h2>${modeBar(m)}
     ${full && moment ? `<div class="card moment" role="region" aria-label="선생님이 발견한 오늘의 순간"><div class="muted">🔎 선생님이 발견한 오늘의 순간</div><p class="big">${esc(moment)}</p></div>` : ""}
-    ${l.best?.file_id ? `<div class="card"><div class="cardHead"><span class="badge">베스트</span><b>${l.best.edited ? "오늘의 베스트 편집본" : "오늘의 베스트 가창"}</b>${l.best.len ? `<span class="muted">${l.best.len}초</span>` : ""}</div><p class="muted" style="margin:4px 0 8px">${l.best.edited ? "여러 번 부른 것 중 좋은 부분을 이어 붙였어요" : "오늘 부른 가창이에요"}</p>${player(l.best.file_id, "듣기")}</div>` : ""}
-    ${full && makeupOk(l.makeup, l.best) ? `<div class="card makeup"><div class="cardHead"><span class="badge mk">메이크업</span><b>보컬 메이크업 버전</b>${l.makeup.len ? `<span class="muted">${l.makeup.len}초</span>` : ""}</div><p style="margin:4px 0 8px"${has(l.makeup.msg) ? "" : ` class="muted"`}>${has(l.makeup.msg) ? esc(l.makeup.msg.trim()) : "선생님이 골라 보낸 보정 버전이에요"}</p>${player(l.makeup.file_id + "#m", "메이크업 듣기")}</div>` : ""}
+    ${l.best?.file_id ? `<div class="card"><div class="cardHead"><span class="badge">베스트</span><b>${l.best.edited ? "오늘의 베스트 편집본" : "오늘의 베스트 가창"}</b>${l.best.len ? `<span class="muted">${l.best.len}초</span>` : ""}</div><p class="muted" style="margin:4px 0 8px">${l.best.edited ? "여러 번 부른 것 중 좋은 부분을 이어 붙였어요" : "오늘 부른 가창이에요"}</p>${player(l.best.file_id, "듣기", l.best.peaks)}</div>` : ""}
+    ${full && makeupOk(l.makeup, l.best) ? `<div class="card makeup"><div class="cardHead"><span class="badge mk">메이크업</span><b>보컬 메이크업 버전</b>${l.makeup.len ? `<span class="muted">${l.makeup.len}초</span>` : ""}</div><p style="margin:4px 0 8px"${has(l.makeup.msg) ? "" : ` class="muted"`}>${has(l.makeup.msg) ? esc(l.makeup.msg.trim()) : "선생님이 골라 보낸 보정 버전이에요"}</p>${player(l.makeup.file_id + "#m", "메이크업 듣기", l.makeup.peaks)}</div>` : ""}
     ${has(l.feedback) ? `<div class="card"><h2>💬 선생님 한마디</h2><div class="pre">${esc(l.feedback)}</div></div>` : ""}
     ${points.length ? `<div class="card"><h2>⭐ 오늘의 핵심 포인트</h2>${listHtml(points)}</div>` : ""}
     ${practice.length || (full && song) ? `<div class="card"><h2>📋 다음 미션</h2>${practice.length ? listHtml(practice) : ""}${full && song ? `<div class="song"><div class="muted">🎵 추천 곡</div><b>${esc(song.title)}</b>${has(song.artist) ? ` <span class="muted">(${esc(song.artist)})</span>` : ""}${has(song.why) ? `<p style="margin:4px 0 0">${esc(song.why)}</p>` : ""}</div>` : ""}</div>` : ""}

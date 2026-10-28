@@ -86,6 +86,10 @@
   #resumeBar { position:fixed; left:0; right:0; top:0; z-index:60; background:var(--accent); color:var(--on-accent); text-align:center; padding:12px; font-weight:700; }
   .tp:has(.seamStrip) { position:relative; }
   .seamStrip { position:absolute; left:11px; right:11px; top:6px; height:22px; pointer-events:none; }
+  /* 재생바 = 소리 파형(10/28 시안): 눌러서/끌어서 위치 이동은 투명한 슬라이더가 그대로 받음 */
+  .tpWaveBox { position:relative; height:52px; margin:2px 0; } .tpWaveBox canvas { position:absolute; inset:0; width:100%; height:100%; }
+  .tpWaveBox .tpSeek { position:absolute; inset:0; width:100%; height:100%; margin:0; opacity:0; cursor:pointer; }
+  .tpWaveBox .seamStrip { left:0; right:0; top:0; height:100%; }
   .seamStrip span.dim { opacity:.45; }
   .seamStrip span { position:absolute; top:0; bottom:0; border-left:2px solid var(--now); border-right:2px solid var(--now); background:rgba(255,210,122,.25); border-radius:3px; }
   #btnSave.saved { background:var(--ok,#5fc27a); color:#10141a; }
@@ -872,9 +876,14 @@ async function openLink(fileId) {
   await api(`${DRIVE}/files/${fileId}/permissions?sendNotificationEmail=false&fields=id`, { method: "POST",
     headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "anyone", role: "reader" }) });
 }
+async function notePeaks(fileId) {
+  if (!fileId) return null; if (wavePeaks[fileId]) return wavePeaks[fileId];
+  try { const pk = await peaksOf(await readBlob(fileId)); if (pk) wavePeaks[fileId] = pk; return pk; } catch { return null; }
+}
 async function publishNote() {
   if (cur.st.consent_withdrawn) throw new Error("동의 철회된 수강생이라 게시하지 않았어요");
   const note = buildNote(), ex = cur.files.find(f => f.name === NOTE);
+  if (typeof notePeaks === "function") for (const k of ["best", "makeup"]) if (note[k]?.file_id) { const pk = await notePeaks(note[k].file_id); if (pk) note[k].peaks = pk; }   // 수강생 화면 파형(못 구하면 없이 공개)
   for (const id of noteFileIds(note)) await openLink(id);              // 먼저 열어 둬야 수강생이 바로 들을 수 있음
   await portal("t_note", { sid: cur.sid, lesson_id: note.lesson_id, date: note.date, published_at: note.published_at, note });
   const id = await writeJSON(cur.folder.id, NOTE, note, ex?.id);         // 선생님 앱용 사본(읽음은 시트에 있음)
@@ -3252,16 +3261,39 @@ function tpNext(t, dur, act) {   // 순수 함수(시험용): 누른 버튼에 �
 }
 let tpRoot = null, tpFile = null, tpEpoch = 0, tpPromise = null, tpActionSeq = 0, tpQueueLabel = "";
 function tpHTML(iconOnly = true, withTime = true) {   // 처음·끝은 아이콘만(2026-10-27). 클립 카드는 시간을 '듣기'와 '메이크업' 사이에 따로 표시
-  return `<div class="tp" style="margin-top:6px"><input type="range" class="tpSeek" min="0" max="1000" value="0" aria-label="재생 위치" style="width:100%">
+  return `<div class="tp" style="margin-top:6px"><div class="tpWaveBox"><canvas class="tpWave" aria-hidden="true"></canvas><input type="range" class="tpSeek" min="0" max="1000" value="0" aria-label="재생 위치" style="width:100%"></div>
     ${withTime ? `<div class="row" style="justify-content:space-between"><span class="tpTime muted">0:00 / 0:00</span></div>` : ""}
     <div class="row" style="margin-top:4px;gap:4px;flex-wrap:nowrap;display:grid;grid-template-columns:1fr 1fr 1.1fr 1fr 1fr"><button class="small ghost" style="min-width:0;padding:8px 2px" data-tp="start" aria-label="처음으로 이동" title="처음으로 이동">⏮</button><button class="small ghost" style="min-width:0;padding:8px 2px" data-tp="back" aria-label="5초 뒤로">-5</button><button class="small" style="min-width:0;padding:8px 2px" data-tp="play" aria-label="재생">▶</button><button class="small ghost" style="min-width:0;padding:8px 2px" data-tp="fwd" aria-label="5초 앞으로">+5</button><button class="small ghost" style="min-width:0;padding:8px 2px" data-tp="end" aria-label="끝으로 이동" title="끝으로 이동">⏭</button></div></div>`;
 }
 let tpTimeEl = null;   // 재생 바 밖(예: 클립 카드의 '듣기'와 '메이크업' 사이)에 시간을 보여 줄 곳
 function tpDetach() { tpEpoch++; tpActionSeq++; if (tpRoot) { try { player.pause(); } catch {} } tpRoot = null; tpFile = null; tpPromise = null; if (tpTimeEl) tpTimeEl.textContent = ""; tpTimeEl = null; }
+// 소리 파형: 이미 받은 녹음(blob)을 휴대폰에서 풀어 막대 120개 높이(0~99)로 줄임. 받기 전에는 옅은 기본 막대.
+const WAVE_N = 120, wavePeaks = {};
+async function peaksOf(blob) {
+  const Ctx = window.OfflineAudioContext || window.webkitOfflineAudioContext; if (!Ctx) return null;
+  const buf = await new Ctx(1, 8000, 8000).decodeAudioData(await blob.arrayBuffer());
+  const d = buf.getChannelData(0), step = Math.max(1, Math.floor(d.length / WAVE_N)), out = [];
+  for (let i = 0; i < WAVE_N; i++) { let m = 0; for (let j = i * step, e = Math.min(d.length, j + step); j < e; j += 4) { const v = Math.abs(d[j]); if (v > m) m = v; } out.push(m); }
+  const top = Math.max(...out, 1e-6); return out.map(v => Math.round(Math.sqrt(v / top) * 99));   // 제곱근: 작은 소리도 보이게
+}
+function drawWave(cv, peaks, frac) {
+  if (!cv || !cv.getContext) return;
+  const w = cv.clientWidth, h = cv.clientHeight; if (!w || !h) return;
+  const r = window.devicePixelRatio || 1; if (cv.width !== Math.round(w * r)) { cv.width = Math.round(w * r); cv.height = Math.round(h * r); }
+  const g = cv.getContext("2d"); g.setTransform(r, 0, 0, r, 0, 0); g.clearRect(0, 0, w, h);
+  const P = peaks || Array.from({ length: WAVE_N }, (_, i) => 18 + 10 * Math.sin(i / 3)), n = P.length, bw = w / n;
+  for (let i = 0; i < n; i++) {
+    const bh = Math.max(2, (P[i] / 99) * (h - 6)), x = i * bw;
+    g.fillStyle = !peaks ? "#3a414b" : (i + 0.5) / n <= frac ? "#9cc3ff" : "#5b6573";
+    g.fillRect(x + bw * 0.18, (h - bh) / 2, Math.max(1, bw * 0.64), bh);
+  }
+  if (peaks && frac > 0) { g.fillStyle = "#ffd27a"; g.fillRect(Math.min(w - 2, frac * w), 2, 2, h - 4); }   // 지금 위치
+}
 function tpPaint() {
   if (!tpRoot || !tpRoot.isConnected) return;
   const d = player.duration || 0, t = player.currentTime || 0;
   tpRoot.querySelector(".tpSeek").value = d ? Math.round(t / d * 1000) : 0;
+  drawWave(tpRoot.querySelector(".tpWave"), wavePeaks[tpFile], d ? t / d : 0);
   const te = tpTimeEl || tpRoot.querySelector(".tpTime");
   if (te) te.textContent = `${tpQueueLabel ? tpQueueLabel + " · " : ""}${fmt(t)} / ${fmt(d)}`;
   const playButton = tpRoot.querySelector('[data-tp="play"]');
@@ -3284,6 +3316,7 @@ async function tpLoad(root, fileId) {
       const blob = await readBlob(fileId);
       if (epoch !== tpEpoch || tpRoot !== root || !root.isConnected) return false;
       urls[fileId] = URL.createObjectURL(blob);
+      if (!wavePeaks[fileId]) peaksOf(blob).then(pk => { if (pk) { wavePeaks[fileId] = pk; if (tpFile === fileId) tpPaint(); } }).catch(() => {});
     }
     if (epoch !== tpEpoch || tpRoot !== root || !root.isConnected) return false;
     player.src = urls[fileId];
@@ -3307,6 +3340,7 @@ async function tpLoad(root, fileId) {
 }
 function tpWire(root, fileId, autoplay, timeEl) {
   if (!root) return;
+  if (typeof requestAnimationFrame === "function") requestAnimationFrame(() => drawWave(root.querySelector(".tpWave"), wavePeaks[fileId], 0));
   if (timeEl) { tpTimeEl = timeEl; timeEl.textContent = "0:00 / 0:00"; }
   const run = async (fn) => {
     const seq = ++tpActionSeq, wait = tpRoot !== root || tpFile !== fileId || player.readyState < 2;
@@ -3805,7 +3839,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-28-2205-pvopen";
+const BUILD = "2026-10-28-2230-wave";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
