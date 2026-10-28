@@ -2,7 +2,8 @@
 const fs = require('fs'), assert = require('assert');
 const src = fs.readFileSync(__dirname + '/../teacher/index.html', 'utf8');
 const grab = name => src.match(new RegExp('(?:async )?function '+name+'\\([^]*?\\n}\\n'))[0];
-const functions = ['updateFeedbackDraft','feedbackPreviewHTML','wireFeedbackPreview','saveReview'].map(grab).join('\n');
+const consts = src.match(/const PV_ROWS[^\n]*\n/)[0] + src.match(/const pvH[^\n]*\n/)[0];
+const functions = consts + ['pvSetOpen','openStudentView','closeStudentView','studentViewHTML','updateFeedbackDraft','feedbackPreviewHTML','wireFeedbackPreview','saveReview'].map(grab).join('\n');
 function env(fail = false) {
   const els = {};
   for (const id of ['fb','ck','chkOk','btnSched','btnNow','previewSaveMsg','previewFeedback','btnPreviewSave','saveMsg'])
