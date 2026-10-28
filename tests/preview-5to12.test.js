@@ -67,7 +67,7 @@ function mk(saveOk = true) {
   assert.equal(5 * 24 + 8 * 2 + 2, 138);
   // 9) 전체 화면 보기: 읽기 전용(입력칸·오디오 없음), 글 이스케이프
   const v = e.f.studentViewHTML({ date: '2026-10-28', feedback: '<img src=x onerror=1>좋아요', practice: ['음정'], no_mission: false, best: null, clips: [] });
-  assert(!/<textarea|<input|contenteditable|<audio|<button class="play"|data-au|drive\.google/i.test(v) && !v.includes('<img') && v.includes('읽기 전용') && v.includes('이번 주 한 가지') && !v.includes('오늘 부른'));
+  assert(!/<textarea|<input|contenteditable|<audio|<button class="play"|data-au|drive\.google/i.test(v) && !v.includes('<img') && v.includes('읽기 전용') && v.includes('다음 미션') && !v.includes('오늘 부른'));
   // 9-a) 학생 화면 일치: student/index.html의 lessonHtml을 꺼내 같은 가짜 노트로 돌려 출력이 같아야 함(재생 버튼만 같은 자리표시로 바꿔 비교)
   const ssrc = fs.readFileSync(__dirname + '/../student/index.html', 'utf8');
   const sGrab = n => ssrc.match(new RegExp('function ' + n + '\\([^]*?\\n}\\n'))[0];
@@ -89,10 +89,12 @@ function mk(saveOk = true) {
     '미션 없음': { ...base, practice: [], no_mission: true, best: null, clips: [] },
     '글 없음': { ...base, feedback: '', highlight: '', points: [], practice: [], best: null, clips: [] },
   };
-  for (const [name, note] of Object.entries(cases)) {
-    const body = e.f.studentViewHTML(note).match(/<div id="pvFullBody">([^]*)<\/div><\/div>\s*$/)[1];
-    assert.equal(norm(body), norm(stuLesson(note)), '학생 화면과 다름: ' + name);
-  }
+  cases['추천곡·응원·메이크업 문구'] = { ...base, best: { file_id: 'b1', kind_ko: '편집본', len: 42, edited: true }, makeup: { file_id: 'm1', source_file_id: 'b1', len: 40, msg: '보정 <b>버전' }, cheer: '힘내요 😊', song: { title: '가짜 곡', artist: '홍길동', why: '톤' }, clips: [A(1)] };
+  for (const mode of ['simple', 'normal', 'detail'])
+    for (const [name, note] of Object.entries(cases)) {
+      const body = e.f.studentViewHTML(note, mode).match(/<div id="pvFullBody">([^]*)<\/div><\/div>\s*$/)[1];
+      assert.equal(norm(body), norm(stuLesson(note, null, mode)), '학생 화면과 다름: ' + mode + ' ' + name);
+    }
   // 9-b) 공개 금지: 고르지 않은 오디오는 화면에 없다(노트에 없는 파일·다른 버전·베스트)
   const none = e.f.studentViewHTML(cases['선택 0(기본 미선택)']);
   assert(!none.includes('오늘의 클립') && !none.includes('오늘 부른') && !none.includes('여러 번 부른') && !none.includes('다른 버전'));

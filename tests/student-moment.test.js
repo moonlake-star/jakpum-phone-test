@@ -12,13 +12,13 @@ const base = { id: "L2", date: "2026-10-26", feedback: "오늘 숨 쉬는 자리
 const prev = { id: "L1", date: "2026-10-19", best: { file_id: "B1", len: 35 } };
 const INTERNAL = ["lesson_tone", "weekly_mission", "evidence", "confidence", "condition_guard", "needs_teacher_check", "낙심", "challenging"];
 (() => {
-  // 1. 좋았던 날: 첫 화면 = 순간 → 베스트 1개 → 한마디 → 미션 1개, 상세는 접힘
+  // 1. 좋았던 날(10/28 승인 시안): 첫 화면 = 순간 → 베스트 1개 → 한마디 → 핵심 포인트 → 다음 미션(전부), 클립·비교는 접힘
   const [top, more] = split(lessonHtml(base, null));
-  const iM = top.indexOf("선생님이 발견한 오늘의 순간"), iA = top.indexOf('data-au="B2"'), iF = top.indexOf("선생님 한마디"), iP = top.indexOf("이번 주 한 가지");
-  assert.ok(iM >= 0 && iM < iA && iA < iF && iF < iP, "순서: 순간 → 오디오 → 한마디 → 미션");
+  const iM = top.indexOf("선생님이 발견한 오늘의 순간"), iA = top.indexOf('data-au="B2"'), iF = top.indexOf("선생님 한마디"), iK = top.indexOf("오늘의 핵심 포인트"), iP = top.indexOf("다음 미션");
+  assert.ok(iM >= 0 && iM < iA && iA < iF && iF < iK && iK < iP, "순서: 순간 → 오디오 → 한마디 → 핵심 포인트 → 미션");
   assert.strictEqual(audios(top), 1);
-  assert.ok(!top.includes("둘째 줄만"), "미션은 첫 항목 1개만 첫 화면");
-  assert.ok(top.includes("하루 한 번 허밍")); assert.ok(more.includes("둘째 줄만 천천히") && more.includes("오늘 짚어 본 것"));
+  assert.ok(top.includes("하루 한 번 허밍") && top.includes("둘째 줄만 천천히"), "미션은 첫 화면에 모두");
+  assert.ok(top.includes("숨") && top.includes("끝음"), "핵심 포인트는 첫 화면");
   assert.ok(!/<details[^>]*\bopen\b/.test(more), "상세는 학생이 눌러야 열림");
   assert.ok(!/성장|점수|%|향상/.test(top), "만든 칭찬·수치 없음");
   // 2. 첫 레슨·데이터 희소: 빈 카드/빈 상세 없음
@@ -56,5 +56,16 @@ const INTERNAL = ["lesson_tone", "weekly_mission", "evidence", "confidence", "co
   assert.ok(/max-width:360px/.test(src) && /name="viewport"/.test(src) && /aria-label="선생님이 발견한/.test(src));
   // 9. 회귀: 로그인·읽음·타임라인·포털 호출 코드 유지
   ["loginView", 'call("seen"', "function timeline", 'call("portal")', "playSeries", "KAKAOTALK"].forEach(k => assert.ok(src.includes(k), "유지: " + k));
-  console.log("student-moment ok (9 scenarios)");
+  // 10. 보기 방식: 심플 = 순간·메이크업·응원·추천곡·상세 없음 / 자세히 = 상세를 펼친 채(details 없음)
+  const rich = { ...base, cheer: "꾸준히 하시면 더 좋아져요", song: { title: "가짜 노래", artist: "홍길동", why: "톤과 어울려요" }, clips: [{ file_id: "K1", label: "구간" }] };
+  const sim = lessonHtml(rich, prev, "simple");
+  assert.ok(!sim.includes("오늘의 순간") && !sim.includes("응원 메시지") && !sim.includes("추천 곡") && !sim.includes("<details") && !sim.includes("오늘의 클립"));
+  assert.ok(sim.includes("선생님 한마디") && sim.includes("다음 미션") && sim.includes('aria-pressed="true"'));
+  const nor = lessonHtml(rich, prev, "normal");
+  assert.ok(nor.includes("응원 메시지") && nor.includes("가짜 노래") && nor.includes("(홍길동)") && nor.includes("<details"));
+  const det = lessonHtml(rich, prev, "detail");
+  assert.ok(!det.includes("<details") && det.includes("오늘의 클립") && det.includes("지난번과 비교"));
+  assert.strictEqual(lessonHtml(rich, prev, "이상한값"), nor, "모르는 값은 보통");
+  assert.ok(src.includes('LS.set("sn_mode"'), "고른 보기 방식 기억");
+  console.log("student-moment ok (10 scenarios)");
 })();
