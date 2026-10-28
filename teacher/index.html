@@ -1335,10 +1335,10 @@ function pvMore(el) {   // 접힌 칸에서 안 보이는 줄 수(대략, 줄높
   const tag = document.querySelector(`[data-pvmore="${el.id}"]`), open = !!el.closest?.(".pvCard")?.classList.contains("open");
   const extra = open || !el.isConnected ? 0 : Math.ceil(((el.scrollHeight || 0) - (el.clientHeight || 0) - (el.scrollTop || 0) - 4) / 24);
   el.classList?.toggle("pvClip", extra > 0);
-  if (tag) { tag.hidden = !(extra > 0); tag.textContent = extra > 0 ? `… 아래 ${extra}줄 더 있어요 · 길게 누른 채 끌면 칸 안에서 넘겨져요 · 톡 누르면 펼쳐져요` : ""; tag.onclick = () => el.focus(); }
+  if (tag) { tag.hidden = !(extra > 0); tag.textContent = extra > 0 ? `… 아래 ${extra}줄 더 있어요 · 길게 누르면 크게 보여요(누른 채 끌면 넘겨짐) · 톡 누르면 고치기` : ""; tag.onclick = () => el.focus(); }
 }
 // (10/29 08:43 사용자) 접힌 칸: 바로 끌면 화면 스크롤(폰 기본), 0.35초 길게 누른 뒤 끌면 칸 안의 글만 넘김. 수정 모드(펼침)에선 길게 누르기 = 원래대로 글자 선택
-const PV_HOLD_MS = 200, PV_MOVE = 8;   // (10/29 08:51 사용자) 0.2초
+const PV_HOLD_MS = 170, PV_MOVE = 8;   // (10/29 08:55 사용자) 0.17초 · 누르는 동안 칸이 커졌다가(최대 12줄) 손 떼면 원래 크기로(250ms)
 // 길게 눌러 들어간 수정 모드에선 그 손가락으로 글자가 선택되지 않게: 손을 떼고 '다시' 길게 눌렀을 때만 선택(_pvNoSel)
 function pvHold(el) {
   if (!el || el._pvHold || !el.addEventListener) return; el._pvHold = true;
@@ -1354,14 +1354,19 @@ function pvHold(el) {
     clearTimeout(h.t); const was = h.on, moved = h.moved; h = null; el.classList.remove("pvHolding");
     if (!was) return;
     e?.preventDefault?.();                      // 길게 누른 뒤 손 뗌: 브라우저 기본(글자 선택·메뉴) 막음
-    if (moved) pvMore(el);                      // 칸 안에서 넘겼으면 그대로(펼치지 않음)
+    if (moved) {                                // 칸 안에서 넘겼으면 펼치지 않고 원래 크기·처음 위치로 돌아감
+      el.style.height = pvFit(el, PV_ROWS.closed) + "px";
+      try { el.scrollTo({ top: 0, behavior: "smooth" }); } catch { el.scrollTop = 0; }
+      setTimeout(() => pvMore(el), 300);
+    }
     else { openNoSel(); el._pvNoSel = "up"; }   // 움직이지 않고 길게 눌렀다 떼면 = 수정 모드(선택 없이)
   };
   el.addEventListener("touchstart", (e) => {
     if (e.touches.length !== 1) return;
     if (!closed()) { if (el._pvNoSel === "up") el._pvNoSel = null; return; }   // 수정 모드에서 '새로' 누름 → 이제부터 선택 허용
     const y = e.touches[0].clientY, x = e.touches[0].clientX;
-    h = { y, x, on: false, moved: false, t: setTimeout(() => { if (!h) return; h.on = true; el.classList.add("pvHolding"); try { navigator.vibrate?.(12); } catch {} }, PV_HOLD_MS) };
+    h = { y, x, on: false, moved: false, t: setTimeout(() => { if (!h) return; h.on = true; el.classList.add("pvHolding"); try { navigator.vibrate?.(12); } catch {}
+      el.style.height = pvFit(el, PV_ROWS.open) + "px"; }, PV_HOLD_MS) };   // 누르는 동안 칸을 키워 글을 더 보여 줌(애니메이션은 CSS height 250ms)
   }, { passive: true });
   el.addEventListener("touchmove", (e) => {
     if (!h) return; const t = e.touches[0];
@@ -4251,7 +4256,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-29-0905-dockpv";
+const BUILD = "2026-10-29-0910-holdgrow";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
