@@ -964,10 +964,27 @@ function buildNote() {
     feedback: $("fb").value, points: (rv.points || []).filter(Boolean), practice: noMission ? [] : (rv.practice || []).filter(Boolean), no_mission: noMission,
     best: bestNote(bp), makeup: mk ? { file_id: mk.file_id, len: mk.len, source_file_id: mk.source_file_id, msg: (rv.makeup_msg || "").trim() } : null, extra_best: [],
     cheer: (rv.cheer || "").trim(), song: rv.song?.title ? { title: rv.song.title, artist: rv.song.artist || "", why: rv.song.why || "" } : null,   /* 고르지 않은 편집본을 '다른 버전'으로 몰래 싣지 않음 */
-    clips, highlight: clips[0]?.note || (rv.points || []).find(Boolean) || "", published_at: new Date().toISOString() };
+    clips, highlight: clips[0]?.note || (rv.points || []).find(Boolean) || "", published_at: new Date().toISOString(),
+    ...(typeof fullForNote === "function" && fullForNote() ? { full: fullForNote() } : {}) };
+}
+// 레슨 전체 기록(사용자 확정 2026-10-29 07:5x: '항상 같이 보내기'): 듣기용.mp3 + 전사본(같은 사람 이어지는 말은 합쳐 줄임).
+// 노트는 서버 시트 한 칸(최대 5만 자)에 들어가므로 전사본은 3만8천 자까지만 싣고, 넘으면 cut=true(수강생 화면에 '앞부분만' 표시)
+const FULL_MAX = 38000;
+function fullForNote() {
+  const f = (cur?.files || []).find(x => x.name === "듣기용.mp3"); if (!f || !(cur.segs || []).length) return null;
+  const roles = cur.review?.speakers || {}, who = (sp) => ({ teacher: "t", student: "s", singing: "g" })[roles[sp]] || "x";
+  const out = []; let n = 0, cut = false;
+  for (const g of cur.segs) {
+    const tx = String(g?.text || "").trim(); if (!tx) continue;
+    const w = who(g.speaker), t = Math.max(0, Math.round(+g.start || 0)), last = out[out.length - 1];
+    if (last && last[1] === w && t - last[0] < 60 && last[2].length < 300) { last[2] += " " + tx; n += tx.length + 1; }
+    else { out.push([t, w, tx]); n += tx.length + 14; }
+    if (n > FULL_MAX) { cut = true; out.pop(); break; }
+  }
+  return out.length ? { file_id: f.id, len: Math.round(+cur.summary?.duration_sec || 0), segs: out, cut } : null;
 }
 // 게시한 녹음만 '링크가 있는 사람 보기'로 연다(사용자 결정 2026-10-26). 링크(ID)는 승인된 본인 노트에만 실림.
-const noteFileIds = (n) => [n.best?.file_id, n.makeup?.file_id, ...(n.extra_best || []).map(x => x?.file_id), ...(n.clips || []).map(x => x.file_id)].filter(Boolean);
+const noteFileIds = (n) => [n.best?.file_id, n.makeup?.file_id, n.full?.file_id, ...(n.extra_best || []).map(x => x?.file_id), ...(n.clips || []).map(x => x.file_id)].filter(Boolean);
 async function openLink(fileId) {
   await api(`${DRIVE}/files/${fileId}/permissions?sendNotificationEmail=false&fields=id`, { method: "POST",
     headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "anyone", role: "reader" }) });
@@ -1028,7 +1045,7 @@ function fnv(s) { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h ^= 
 function contentSig(note) {
   const n = note || {}, id = (x) => x ? x.file_id || null : null;
   return fnv(JSON.stringify([n.lesson_id, n.feedback, n.points, n.practice, !!n.no_mission, id(n.best), id(n.makeup), (n.extra_best || []).map(id), n.cheer || "", n.song || null, n.makeup?.msg || "",
-    (n.clips || []).map(c => [c.file_id, c.label, c.note])]));
+    (n.clips || []).map(c => [c.file_id, c.label, c.note]), ...(n.full?.file_id ? [n.full.file_id] : [])]));
 }
 const missionState = (rv) => rv?.no_mission === true ? "none" : (rv?.practice || []).some(Boolean) ? "set" : "unset";
 // 피드백 문구 속 '이번 주 연습'과 미션 칸이 서로 같은지(학생에게 두 곳이 다르게 보이면 안 됨)
@@ -1194,7 +1211,7 @@ function feedbackPreviewHTML(note, rv, disabled, open = false) {
         ${note.best ? "" : `<p class="muted" style="margin:0">베스트는 아직 포함 안 함 · 위 ‘오늘의 베스트’에서 포함을 켜면 같이 보여요</p>`}
         <div class="pvEdWrap"><textarea id="previewFeedback" aria-label="수강생 피드백 미리보기 수정" rows="${open ? PV_ROWS.open : PV_ROWS.closed}" style="height:${pvH(open ? PV_ROWS.open : PV_ROWS.closed)}px;margin:0"${disabled}>${esc(note.feedback)}</textarea>
           <button type="button" class="pvEdit" data-pvopen="previewFeedback" aria-label="선생님 한마디 고치기"${disabled}>✎</button></div>
-        <div class="pvAct"><span class="cnt" data-pvcnt="previewFeedback"></span><button type="button" class="small ghost" id="btnPreviewCancel"${disabled}>되돌리기</button><button type="button" class="small save" id="btnPreviewSave"${disabled}>수정 내용 저장</button></div></section>
+        <div class="pvAct"><span class="cnt" data-pvcnt="previewFeedback"></span><button type="button" class="small ghost" id="btnPreviewCancel"${disabled} title="저장하지 않은 고침을 버리고 마지막 저장 글로">취소</button><button type="button" class="small save" id="btnPreviewSave"${disabled}>수정 내용 저장</button></div></section>
       ${note.makeup ? `<section class="pvCard" data-v2="makeup" style="--pv:#9b5cff" aria-label="2 메이크업본 설명"><h4>${num()}메이크업본 설명<button type="button" class="small ghost pvFold" data-pvfold="pvMakeup">접기</button></h4>
         ${pvEdHTML("pvMakeup", "메이크업본 설명", rv.makeup_msg || "", disabled, "예: 음정과 호흡을 자연스럽게 정리한 버전이에요. 원본과 비교해서 들어보세요.")}</section>` : ""}
       <section class="pvCard" data-v2="points" style="--pv:#2fbf71" aria-label="3 오늘의 핵심 포인트"><h4>${num()}오늘의 핵심 포인트<button type="button" class="small ghost pvFold" data-pvfold="pvPoints">접기</button></h4>
@@ -1331,6 +1348,7 @@ function svLessonHtml(l, prev, mode = "normal") {
     ${practice.length || (full && song) ? `<div class="card"><h2>📋 다음 미션</h2>${practice.length ? svList(practice) : ""}${full && song ? `<div class="song"><div class="muted">🎵 추천 곡</div><b>${esc(song.title)}</b>${has(song.artist) ? ` <span class="muted">(${esc(song.artist)})</span>` : ""}${has(song.why) ? `<p style="margin:4px 0 0">${esc(song.why)}</p>` : ""}</div>` : ""}</div>` : ""}
     ${full && svMakeupOk(l.makeup, l.best) ? `<div class="card makeup"><div class="cardHead"><span class="badge mk">메이크업본</span><b>간단 음정보정 예시</b>${l.makeup.len ? `<span class="muted">${l.makeup.len}초</span>` : ""}</div><p class="muted" style="margin:4px 0 6px">음원 발매용으로 정식 보정하면 더 자연스럽고 좋아져요</p>${has(l.makeup.msg) ? `<p style="margin:0 0 8px">${esc(l.makeup.msg.trim())}</p>` : ""}${svPlayer(l.makeup.file_id + "#m", "메이크업 듣기")}</div>` : ""}
     ${full && cheer ? `<div class="card cheer"><h2>💌 응원 메시지</h2><p class="pre" style="margin:0">${esc(cheer)}</p></div>` : ""}
+    ${full && l.full && typeof l.full.file_id === "string" && Array.isArray(l.full.segs) && l.full.segs.length ? `<details class="card more fullrec"><summary>📝 레슨 전체 기록 · 전사본과 녹음</summary><p class="muted" style="margin:0 0 6px">AI가 받아쓴 글이라 틀린 곳이 있을 수 있어요 · 말을 누르면 그 자리부터 들려요${l.full.cut ? " · 길어서 앞부분만 실었어요" : ""}</p><div class="muted" style="font-size:.8rem">미리보기라 재생 안 해요</div><div class="trs">${l.full.segs.filter(Array.isArray).map(([t, w, tx]) => `<div class="tr tr-${({ t: "t", s: "s", g: "g" })[w] || "x"}" data-ft="${Math.max(0, +t || 0)}"><span class="tw">${({ t: "선생님", s: "나", g: "🎵 노래" })[w] || "·"} ${Math.floor((+t || 0) / 60)}:${String(Math.floor((+t || 0) % 60)).padStart(2, "0")}</span> ${esc(tx)}</div>`).join("")}</div></details>` : ""}
     ${more && m === "detail" ? `<div class="card more">${more}</div>` : more && m === "normal" ? `<details class="card more"><summary>더 들여다보기</summary>${more}</details>` : ""}`;
 }
 function studentViewHTML(note, mode = "normal") {
@@ -4110,7 +4128,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-29-0800-saidplay";
+const BUILD = "2026-10-29-0815-fullrec";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
@@ -4349,7 +4367,7 @@ function v2PubPaint(me) {   // 전달하기 시트 맨 위 ① 공개 — 공개
   const label = (typeof SCHED_LABEL !== "undefined" && SCHED_LABEL[st]) || "공개 상태 확인 중";
   el.innerHTML = `<p style="margin:8px 0 0"><b>① 수강생 노트에 공개</b><span class="chip ${st === "published" ? "ok" : "todo"}">${esc(label)}</span></p>
     <button type="button" class="pubBtn" id="v2PubBtn"${bl.length || off || me.sched?.busy ? " disabled" : ""}>${st === "published" ? "✓ 공개 중 · 저장하고 다시 반영" : st === "published_stale" ? "📮 고친 내용으로 다시 공개" : "📮 저장하고 수강생 노트에 공개"}</button>
-    ${off ? `<p class="muted" style="margin:0">이 수강생은 공개하지 않아요(동의 철회 또는 선생님 본인)</p>` : bl.length ? `<p class="muted" style="margin:0">공개 전에 할 것: ${esc(bl[0].msg)}</p>` : `<p class="muted" style="margin:0">공개해도 카톡은 자동으로 안 가요. 아래 ②에서 직접 보내고 ③을 눌러 주세요.</p>`}`;
+    ${off ? `<p class="muted" style="margin:0">이 수강생은 공개하지 않아요(동의 철회 또는 선생님 본인)</p>` : bl.length ? `<p class="muted" style="margin:0">공개 전에 할 것: ${esc(bl[0].msg)}</p>` : `<p class="muted" style="margin:0">공개해도 카톡은 자동으로 안 가요. 아래 ②에서 직접 보내고 ③을 눌러 주세요.${typeof fullForNote === "function" && fullForNote() ? " · 레슨 전체 녹음·전사본도 수강생 화면에 접힌 채로 같이 공개돼요" : ""}</p>`}`;
   $("v2PubBtn").onclick = async () => {
     const b = $("v2PubBtn"); if (!b || b.disabled) return; b.disabled = true; b.textContent = "공개하는 중…";
     const ok = await saveReview(false);
