@@ -33,4 +33,20 @@ assert(!h.includes('기준 테이크 박자 그대로'), 'v7.2는 반주 템포�
 const today = src.match(/function renderToday[\s\S]*?\n}\n/)[0];
 assert(today.indexOf('${head}') < today.indexOf('renderBest()'));
 assert(today.indexOf('이번 주 연습') < today.indexOf('renderBest()'));
-console.log('best-edit-status ok (legacy/unknown/current/fallback/error + core first)');
+// #76 sections_only: 구절 교체 0이어도 여러 섹션을 이었으면 '한 테이크 그대로'라고 하지 않는다
+{
+  const base = {method:'v7.5-live', mr_aligned:true, takes_used:1, seams:[], len:20};
+  const view = (o) => new Function('cur','bestOptions','esc','fmt','tpHTML','makeupBoxHTML','inclHTML', fn + '; return renderBest();')(
+    {best:{status:'ok', composite:o}, review:{}}, () => [{...o, isComposite:true}], String, String, () => '', () => '', () => '');
+  let h = view({...base, composition:'sections_only', sections_joined:2});
+  assert(!h.includes('한 테이크 그대로'), h);
+  assert(!h.includes('사실상 단일 테이크'), h);
+  assert(h.includes('여러 섹션') && h.includes('청감 확인 필요'), h);
+  h = view({...base, sections_joined:3});   // composition 없이 sections_joined만
+  assert(!h.includes('한 테이크 그대로'), h);
+  h = view({...base, composition:'single_take', sections_joined:1});
+  assert(h.includes('이어 붙인 자리 없음(한 테이크 그대로)'), h);
+  h = view({...base});   // 과거 메타 없음 → 단정 금지
+  assert(!h.includes('이어 붙인 자리 없음(한 테이크 그대로)') && h.includes('확인하지 못했어요'), h);
+}
+console.log('best-edit-status ok (legacy/unknown/current/fallback/error + core first + sections_only)');
