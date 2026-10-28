@@ -3665,7 +3665,13 @@ full.ontimeupdate = () => {
     nowIdx = i;
   }
 };
-full.onplay = () => { pauseOthers(full); $("miniBtn").textContent = "❚❚"; }; full.onpause = () => $("miniBtn").textContent = "▶";
+// 하이라이트 카드의 ▶도 지금 재생 상태를 따라감(재생 중인 하이라이트만 ❚❚)
+function paintHlBtns() {
+  const hs = $("hls"); if (!hs) return;
+  hs.querySelectorAll("[data-hlplay]").forEach(b => { const on = +b.dataset.hlplay === hlCur && !!hlPlay && hlPlay.k === hlCur && !full.paused;
+    b.textContent = on ? "❚❚" : "▶"; b.setAttribute("aria-label", on ? "일시정지" : `하이라이트 ${+b.dataset.hlplay + 1} 듣기`); });
+}
+full.onplay = () => { pauseOthers(full); $("miniBtn").textContent = "❚❚"; paintHlBtns(); }; full.onpause = () => { $("miniBtn").textContent = "▶"; paintHlBtns(); };
 player.addEventListener("play", () => pauseOthers(player));
 let followTranscript = false;   // 전사 말풍선을 눌러 재생할 때만 화면이 따라감(분석 카드 ▶에서는 스크롤 안 함)
 // ── 오늘의 하이라이트(최대 3개, 2026-10-27 사용자 확정): 선생님 칭찬 말 바로 앞 노래 + 칭찬 말까지 ──
@@ -3744,7 +3750,11 @@ function renderHighlights() {
     more.textContent = cur.hlOpen ? "▴ 접기" : `▾ ${[extra > 0 ? `하이라이트 ${extra}개` : "", others > 0 ? `다른 후보 ${others}개` : ""].filter(Boolean).join(" · ")} 더 보기${sentHidden ? ` (포함 ${sentHidden}개)` : ""}`;
     more.onclick = () => { cur.hlOpen = !cur.hlOpen; renderHighlights(); };
   }
-  hs.querySelectorAll("[data-hlplay]").forEach(b => b.onclick = () => { hlQueueStop(); hlGo(+b.dataset.hlplay); });
+  hs.querySelectorAll("[data-hlplay]").forEach(b => b.onclick = () => {   // 같은 하이라이트면 ▶/❚❚ 토글(10/28 사용자), 다른 것이면 그 구간 처음부터
+    const k = +b.dataset.hlplay;
+    if (hlCur === k && hlPlay && hlPlay.k === k) { if (full.paused) full.play().catch(e => toast(e.message)); else full.pause(); return; }
+    hlQueueStop(); hlGo(k); });
+  paintHlBtns();
   wirePick2(hs, (id, v) => {
     renderHighlights(); renderCands(); syncGood();
     if (v === "send") { const k = hlList.findIndex(h => h.cand === id); if (k >= 0) { hlQueueStop(); hlGo(k); } }   // 포함하면 바로 그 구간 재생(2026-10-27 사용자)
@@ -4041,7 +4051,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-29-0000-regenmsg";
+const BUILD = "2026-10-29-0005-hlpause";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
