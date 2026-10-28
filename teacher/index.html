@@ -120,6 +120,11 @@
     font-weight:600; color:var(--muted); cursor:pointer; position:relative; user-select:none; border-radius:999px; border:2px solid transparent; }
   .pick input { position:absolute; opacity:0; inset:0; margin:0; cursor:pointer; }
   .pick label .ck { display:none; }
+  .pick2 { display:flex; gap:6px; align-items:center; margin-top:6px; flex-wrap:wrap; }
+  .pick2 label { min-height:40px; padding:0 16px; display:inline-flex; align-items:center; border-radius:20px; border:2px solid var(--line); color:var(--fg); font-weight:700; cursor:pointer; }
+  .pick2 label.on { background:var(--accent); color:var(--on-accent); border-color:var(--accent); } .pick2 label.on.off { background:#3a414b; color:var(--fg); border-color:#5b6573; }
+  .pick2 input { position:absolute; opacity:0; width:1px; height:1px; } .pick2 label:focus-within { outline:3px solid var(--accent); outline-offset:2px; }
+  .hlMemo { margin-top:4px; } .hlMemo > summary { min-height:36px; display:flex; align-items:center; gap:6px; cursor:pointer; font-size:.92rem; }
   .pick label.on { background:var(--accent); color:var(--on-accent); border-color:var(--fg); font-weight:800; }
   .pick label.on .ck { display:inline; }
   .pick label:focus-within { outline:3px solid var(--accent); outline-offset:2px; }
@@ -227,7 +232,7 @@
     </div>
 
     <div class="card" style="order:4">
-      <div class="row" style="justify-content:space-between"><h3 style="margin:0">⭐ 오늘의 하이라이트</h3><span class="chip" id="sendCount">보내기 0/3</span></div>
+      <div class="row" style="justify-content:space-between"><h3 style="margin:0">⭐ 오늘의 하이라이트</h3><span class="chip" id="sendCount">포함 0/3</span></div>
       <p class="muted" style="margin:4px 0">칭찬한 순간(노래 + 칭찬 말) · 🎵 = 오늘의 베스트</p>
       <div class="row" style="margin:4px 0;flex-wrap:nowrap"><button class="small ghost" id="btnPlayAll">▶ 고른 하이라이트 이어 듣기</button></div>
       <div id="hls"></div>
@@ -3592,24 +3597,27 @@ function renderHighlights() {
       <button class="small" data-hlplay="${k}" aria-label="하이라이트 ${h.n} 듣기">▶</button>
       <div style="flex:1;min-width:0"><b>${h.isBest ? "🎵 " : ""}${h.n}. ${fmt(h.start)} ~ ${fmt(h.end)}</b> <span class="muted" style="white-space:nowrap">${Math.round(h.end - h.start)}초${h.isBest ? (p?.isComposite ? " · 베스트 편집본의 기준 테이크" : " · 오늘의 베스트") : ""}</span>
         <div class="hlq">“${esc(h.praise)}”</div></div></div>
-      ${h.cand ? `<div class="pick" role="radiogroup" aria-label="하이라이트 ${h.n} 처리">
-        ${[["send", "보내기"], ["keep", "기록만"], ["drop", "빼기"]].map(([v, t]) =>
-          `<label class="${d === v ? "on" : ""}"><input type="radio" name="h_${esc(h.cand)}" value="${v}" ${d === v ? "checked" : ""}><span class="ck" aria-hidden="true">✓</span>${t}</label>`).join("")}
-      </div>
-      <input class="cnote ${d === "send" ? "" : "hidden"}" data-c="${esc(h.cand)}" placeholder="좋았던 점 한 줄 (예: 고음 끝까지 호흡 유지)" value="${esc(rv.notes?.[h.cand] ?? c?.note ?? "")}" style="width:100%;margin-top:4px">` : ""}
+      ${h.cand ? (() => {   // 10/28 22:48 사용자: 포함/제외 2개로 작게(예전 '기록만'·'빼기'는 제외로 보임 — 레슨 기록은 그대로 남음). 아무것도 안 고르면 미선택
+        const inc = d === "send", exc = d === "keep" || d === "drop", memo = rv.notes?.[h.cand] ?? c?.note ?? "";
+        return `<div class="pick2" role="radiogroup" aria-label="하이라이트 ${h.n} 수강생에게 보낼지">
+          <label class="${inc ? "on" : ""}"><input type="radio" name="h_${esc(h.cand)}" value="send" ${inc ? "checked" : ""}>${inc ? "✓ " : ""}포함</label>
+          <label class="${exc ? "on off" : ""}"><input type="radio" name="h_${esc(h.cand)}" value="keep" ${exc ? "checked" : ""}>${exc ? "✓ " : ""}제외</label>
+          ${!inc && !exc ? `<span class="muted" style="font-size:.85rem">아직 안 골랐어요</span>` : ""}</div>
+        ${inc ? `<details class="hlMemo"><summary>✎ 좋았던 점 <span class="muted">${esc(memo ? memo.slice(0, 26) + (memo.length > 26 ? "…" : "") : "한 줄 적기(선택)")}</span></summary>
+          <input class="cnote" data-c="${esc(h.cand)}" placeholder="좋았던 점 한 줄 (예: 고음 끝까지 호흡 유지)" value="${esc(memo)}" style="width:100%;margin-top:4px"></details>` : ""}`; })() : ""}
     </div>`;
   }).join("") || `<p class="muted">선생님 칭찬 바로 앞 노래 구간을 찾지 못했어요 — 아래 ‘다른 후보’에서 골라 주세요.</p>`;
   const hs = $("hls"), more = $("hlMore");
   if (more) {   // 처음엔 1개만(10/28 사용자: 페이지를 많이 차지함) — 펼치면 최대 5개
     const extra = hlList.length - 1, sentHidden = hlList.slice(1).filter(h => rv.decisions[h.cand] === "send").length;
     more.classList.toggle("hidden", extra < 1); more.setAttribute("aria-expanded", cur.hlOpen ? "true" : "false");
-    more.textContent = cur.hlOpen ? "▴ 접기" : `▾ 하이라이트 ${extra}개 더 보기${sentHidden ? ` (보내기 ${sentHidden}개 포함)` : ""}`;
+    more.textContent = cur.hlOpen ? "▴ 접기" : `▾ 하이라이트 ${extra}개 더 보기${sentHidden ? ` (포함 ${sentHidden}개)` : ""}`;
     more.onclick = () => { cur.hlOpen = !cur.hlOpen; renderHighlights(); };
   }
   hs.querySelectorAll("[data-hlplay]").forEach(b => b.onclick = () => { hlQueueStop(); hlGo(+b.dataset.hlplay); });
   hs.querySelectorAll("input[type=radio]").forEach(r => r.onchange = () => {
     const bumped = setDecision(cur.review, r.name.slice(2), r.value, allCands().map(c => c.id));
-    if (bumped) toast(`보내기는 최대 ${MAX_GOOD}개 — 가장 먼저 고른 ${bumped}은 ‘기록만’으로 바꿨어요`);
+    if (bumped) toast(`포함은 최대 ${MAX_GOOD}개 — 가장 먼저 고른 ${bumped}은 ‘제외’로 바꿨어요`);
     const id = r.name.slice(2), play = r.value !== "drop";
     renderHighlights(); renderCands(); syncGood();
     if (play) { const k = hlList.findIndex(h => h.cand === id); if (k >= 0) { hlQueueStop(); hlGo(k); } }   // 고르면 바로 그 구간 재생(2026-10-27 사용자)
@@ -3771,7 +3779,7 @@ function sendList() {   // 보내기 고른 순서대로
   const rest = ids.filter(x => rv.decisions[x] === "send" && !order.includes(x));
   return [...order, ...rest].map(x => allCands().find(c => c.id === x)).filter(Boolean).slice(0, MAX_GOOD);
 }
-function paintSendCount() { if ($("sendCount")) $("sendCount").textContent = `보내기 ${sendList().length}/${MAX_GOOD}`; }
+function paintSendCount() { if ($("sendCount")) $("sendCount").textContent = `포함 ${sendList().length}/${MAX_GOOD}`; }
 function renderPoints() {
   const p = (cur.review.points ??= []);
   $("points").innerHTML = `<div class="muted" style="margin:2px 0">오늘 중요한 포인트 (1~3개)</div>` +
@@ -3895,7 +3903,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-28-2250-tidy";
+const BUILD = "2026-10-28-2255-hl2";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
