@@ -1,6 +1,6 @@
 // V2 프로토타입(시안 2026-10-29): 5카드+응원, 단계별 표시, 카드 편집(12줄·500자)·AI 문구 제안, 미션 체크, AI 원문 보기,
 // AI 작성 비율, 전체 훑기 전 전달 차단, 실제 전송 경로 없음, V1 무변경
-const fs = require('fs'), assert = require('assert'), cp = require('child_process');
+const fs = require('fs'), assert = require('assert'), _cp = null;
 const V2 = require('../v2/v2-logic.js');
 let d = V2.generateDraft(V2.MOCK_LESSON);
 
@@ -69,9 +69,9 @@ for (const f of ['v2/v2-logic.js', 'v2/index.html']) {
   const s = fs.readFileSync(__dirname + '/../' + f, 'utf8');
   assert(!/fetch\(|XMLHttpRequest|sendBeacon|WebSocket|script\.google|googleapis|api\.|Authorization|localStorage|sessionStorage|indexedDB|navigator\.share|kakao/i.test(s), f + ' 네트워크/저장/공유 금지');
 }
-// V1 무변경: main 대비 v2/·tests/v2-*만 추가
-try {
-  const out = cp.execSync('git diff --name-only origin/main...HEAD', { cwd: __dirname + '/..', stdio: ['ignore', 'pipe', 'ignore'] }).toString().split('\n').filter(Boolean);
-  assert(out.every(f => f.startsWith('v2/') || f === 'tests/v2-prototype.test.js'), 'V1 파일 변경 금지: ' + out);
-} catch (e) { if (e.name === 'AssertionError') throw e; }
+// V1 분리: 지금 앱(teacher/student)은 V2 파일을 불러오지 않는다(병합 후에도 다른 PR을 막지 않도록 diff 검사 대신)
+for (const f of ['teacher/index.html', 'student/index.html']) {
+  const s = fs.readFileSync(__dirname + '/../' + f, 'utf8');
+  assert(!/v2-logic\.js|src=["'][^"']*v2\//.test(s), f + '가 V2를 불러오면 안 됨');
+}
 console.log('v2-prototype ok');
