@@ -87,6 +87,7 @@
   .tp:has(.seamStrip) { position:relative; }
   .seamStrip { position:absolute; left:11px; right:11px; top:6px; height:22px; pointer-events:none; }
   /* 재생바 = 소리 파형(10/28 시안): 눌러서/끌어서 위치 이동은 투명한 슬라이더가 그대로 받음 */
+  .tpBtns button { min-height:36px; height:36px; padding:0 2px !important; border-radius:10px; font-size:.95rem; }   /* 10/28 사용자: 재생 버튼 높이 좁게 */
   .tpWaveBox { position:relative; height:52px; margin:2px 0; } .tpWaveBox canvas { position:absolute; inset:0; width:100%; height:100%; }
   .tpWaveBox .tpSeek { position:absolute; inset:0; width:100%; height:100%; margin:0; opacity:0; cursor:pointer; }
   .tpWaveBox .seamStrip { left:0; right:0; top:0; height:100%; }
@@ -120,6 +121,15 @@
     font-weight:600; color:var(--muted); cursor:pointer; position:relative; user-select:none; border-radius:999px; border:2px solid transparent; }
   .pick input { position:absolute; opacity:0; inset:0; margin:0; cursor:pointer; }
   .pick label .ck { display:none; }
+  .pick2 { display:flex; gap:6px; align-items:center; margin-top:6px; flex-wrap:wrap; }
+  .pick2 label { min-height:40px; padding:0 16px; display:inline-flex; align-items:center; border-radius:20px; border:2px solid var(--line); color:var(--fg); font-weight:700; cursor:pointer; }
+  .pick2 label.on { background:var(--accent); color:var(--on-accent); border-color:var(--accent); } .pick2 label.on.off { background:#3a414b; color:var(--fg); border-color:#5b6573; }
+  .pick2 input { position:absolute; opacity:0; width:1px; height:1px; } .pick2 label:focus-within { outline:3px solid var(--accent); outline-offset:2px; }
+  .inclChk { flex:none; display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:16px; border:1.5px solid var(--line); font-weight:700; font-size:.9rem; cursor:pointer; white-space:nowrap; }
+  .inclChk input { width:20px; height:20px; accent-color:var(--accent); margin:0; } .inclChk.on { border-color:var(--accent); color:var(--accent); }
+  .inclSm { min-height:40px; padding:0 16px; border-radius:20px; background:transparent; color:var(--fg); border:2px solid var(--line); }
+  .inclSm.on { background:var(--accent); color:var(--on-accent); border-color:var(--accent); } .inclSm.on.off { background:#3a414b; color:var(--fg); border-color:#5b6573; }
+  .hlMemo { margin-top:4px; } .hlMemo > summary { min-height:36px; display:flex; align-items:center; gap:6px; cursor:pointer; font-size:.92rem; }
   .pick label.on { background:var(--accent); color:var(--on-accent); border-color:var(--fg); font-weight:800; }
   .pick label.on .ck { display:inline; }
   .pick label:focus-within { outline:3px solid var(--accent); outline-offset:2px; }
@@ -227,15 +237,12 @@
     </div>
 
     <div class="card" style="order:4">
-      <div class="row" style="justify-content:space-between"><h3 style="margin:0">⭐ 오늘의 하이라이트</h3><span class="chip" id="sendCount">보내기 0/3</span></div>
-      <p class="muted" style="margin:4px 0">칭찬한 순간(노래 + 칭찬 말) · 🎵 = 오늘의 베스트</p>
+      <div class="row" style="justify-content:space-between"><h3 style="margin:0">⭐ 오늘의 하이라이트</h3><span class="chip" id="sendCount">포함 0/5</span></div>
+      <p class="muted" style="margin:4px 0">칭찬한 순간(노래 + 칭찬 말) · 🎵 = 오늘의 베스트 · <b>포함</b>한 것만 수강생에게 가요(최대 5개, 다시 누르면 취소)</p>
       <div class="row" style="margin:4px 0;flex-wrap:nowrap"><button class="small ghost" id="btnPlayAll">▶ 고른 하이라이트 이어 듣기</button></div>
       <div id="hls"></div>
       <button class="small ghost hidden" id="hlMore" aria-expanded="false" style="width:100%;margin-top:6px"></button>
       <details id="candMore" style="margin-top:8px"><summary class="muted" id="candMoreSum">다른 후보 (필요할 때만)</summary>
-      <details class="muted" style="margin:6px 0"><summary>버튼 뜻</summary>
-        <b>보내기</b> = 카톡 문구 ‘좋았던 부분’에 들어가고 ‘클립 보내기’ 때 같이 보내져요(최대 3개, 4번째를 고르면 가장 먼저 고른 것이 ‘기록만’으로).
-        <b>기록만</b> = 수강생에겐 안 가고 레슨 기록에만. <b>빼기</b> = 쓰지 않음. 실제 전송은 아래 ‘클립 보내기’ → 카톡에서 직접.</details>
       <div id="cands"></div>
       <details style="margin-top:8px"><summary>구간 직접 추가</summary>
         <div class="row" style="margin-top:6px">
@@ -264,8 +271,10 @@
       <h3 style="margin:0 0 4px">📮 보내기</h3>
       <div id="deliverBox"></div>
       <div id="sendBtns" class="row" style="margin-top:6px">
-        <button class="small" id="btnCopy">긴 글로 복사</button>
-        <button class="small" id="btnShare">클립 보내기</button>
+        <button class="small" id="btnCopy">멘트+링크 복사</button>
+        <button class="small ghost" id="btnGreet">🎲 인사말 바꾸기</button>
+        <button class="small ghost" id="btnKakaoOpen">카카오톡 열기</button>
+        <button class="small ghost" id="btnShare">클립 보내기</button>
         <span id="fbSent" class="chip todo" style="margin-left:auto">피드백 보내기 전</span>
         <button class="small ghost hidden" id="btnFbMark">클립 없이 보냈어요</button>
       </div>
@@ -1280,14 +1289,12 @@ function paintDeliver() {
     .map(([k, v]) => `${k} ${v === true ? "✓" : v === "없음" ? "없음" : v ? (v === 1 && k !== "포인트" && k !== "미션" ? "✓" : v + "개") : "–"}`).join(" · ");
   const preview = `<details id="pvWrap" style="margin:6px 0"${s.pvOpen ? " open" : ""}><summary><b>보기·고치기</b> <span class="muted">${esc(filled)}</span></summary>${feedbackPreviewHTML(note, rv, dis, !!s.pvExpanded)}</details>`;   // 처음엔 접힘(10/28 사용자)
   const pvBox = $("pvBox");
-  const kakaoBlock = `<div style="margin-top:10px;border-top:1px solid #8884;padding-top:8px"><b>② 카톡 보내기</b> <span class="muted">짧은 인사+노트 링크(추천) 또는 긴 글</span>${!me.note ? `<p class="muted" style="margin:4px 0">공개(①)한 뒤 인사+링크를 복사할 수 있어요. 긴 글·클립은 아래에서 바로 보낼 수 있어요.</p><div id="step2Slot"></div>
-      <div style="margin-top:10px;border-top:1px solid #8884;padding-top:8px"><b>③ 보냈으면 표시</b> <button class="small ghost" id="btnKakaoMark">${sentAt ? "보냄 취소" : "카톡 보냈어요"}</button></div></div>` : `
-      <textarea id="kakaoMsg" style="min-height:80px;margin-top:4px">${esc(me.kakao || "")}</textarea>
-      <div class="row"><button class="small" id="btnKakaoCopy">인사+링크 복사</button><button class="small ghost" id="btnKakaoRe">🎲 다른 인사말</button></div>
-      ${st === "published" || st === "published_stale" ? "" : `<p class="muted" style="margin:4px 0">⚠ 아직 공개 전이에요. 링크를 열어도 노트가 안 보여요.</p>`}<div id="step2Slot"></div>
-      <div style="margin-top:10px;border-top:1px solid #8884;padding-top:8px"><b>③ 보냈으면 표시</b> <button class="small ghost" id="btnKakaoMark">${sentAt ? "보냄 취소" : "카톡 보냈어요"}</button>
-        <span class="chip ${sentAt ? "ok" : "todo"}">${sentAt ? "보냄 " + esc(fmtVisible(sentAt).kst) : "아직 안 보냄"}</span> <span id="seenChip" class="chip">아직 안 읽음</span>
-        <p class="muted" style="margin:4px 0">카톡은 선생님이 직접 보내요. 표시하지 않으면 앱 알림으로 다시 알려 드려요.</p></div></div>`}`;
+  const pubOk = st === "published" || st === "published_stale";
+  const kakaoBlock = `<div style="margin-top:10px;border-top:1px solid #8884;padding-top:8px"><b>② 카톡 보내기</b>
+      <p class="muted" style="margin:2px 0">보낼 글 = 위 ‘수강생 노트’의 선생님 한마디(한 곳에서만 고쳐요) + 노트 링크 1번${pubOk ? "" : " · ⚠ 아직 공개 전이라 링크를 열어도 노트가 안 보여요"}</p><div id="step2Slot"></div>
+      <div style="margin-top:10px;border-top:1px solid #8884;padding-top:8px"><b>③ 보냈으면 표시</b> <button class="small ghost" id="btnKakaoMark">${sentAt ? "✓ 보냄 표시 취소" : "카톡 전송 완료 표시"}</button>
+        <span class="chip ${sentAt ? "ok" : "todo"}">${sentAt ? "보냄 " + esc(fmtVisible(sentAt).kst) : "아직 안 보냄"}</span>${me.note ? ` <span id="seenChip" class="chip">아직 안 읽음</span>` : ""}
+        <p class="muted" style="margin:4px 0">복사·클립 보내기만으로는 보낸 걸로 치지 않아요. 직접 보낸 뒤 눌러 주세요. 안 누르면 앱 알림으로 다시 알려 드려요.</p></div></div>`;
   if (st === "unsupported" || st === "unknown") {
     el.innerHTML = `<div class="row" style="justify-content:space-between"><b>① 공개</b><span class="chip todo">${SCHED_LABEL[st]}</span></div>` +
       (st === "unknown" ? `<p class="muted">${esc(s.err || "")}</p><button class="small" id="btnSchedRetry">다시 확인</button>`
@@ -1346,8 +1353,6 @@ function paintDeliver() {
     paintDeliver(); if (typeof renderSent === "function") renderSent(); try { await saveReview(true); } catch (e) { toast(e.message); } };
   if (!me.note) return;
   paintSeen();
-  $("btnKakaoCopy").onclick = async () => { try { await navigator.clipboard.writeText($("kakaoMsg").value); toast("복사했어요. 카톡에 붙여넣기 하세요."); } catch { $("kakaoMsg").select(); toast("길게 눌러 복사해 주세요"); } };
-  $("btnKakaoRe").onclick = () => { $("kakaoMsg").value = me.kakao = kakaoText(me.st, me.note, nextTpl(me.sid)); };
 }
 function paintLessonsTab(sid) {
   const st = cfg.students[sid], rows = st._rows || [];
@@ -2846,21 +2851,27 @@ function makeupState(o) {   // none | working | error | nofile | ready
   if (job.req.status !== "done") return "working";
   return bestMakeupAudio(o) ? "ready" : "nofile";
 }
+// 수강생에게 보내기 = 제목 옆 체크박스 하나(10/28 22:52 사용자: 포함/제외 큰 버튼 대신). 체크 = '그 파일'을 명시적으로 포함, 해제 = 안 보냄(기본 미선택)
+function inclChk(key, o) {
+  const rv = cur.review, f = key === "best" ? o : (o && bestMakeupAudio(o)), id = f?.file_id;
+  const on = !!id && rv[key + "Include"] === true && rv[key + "IncludeId"] === id;
+  return `<label class="inclChk${on ? " on" : ""}"${id ? "" : ` title="아직 보낼 파일이 없어요"`}><input type="checkbox" data-incl="${key}" ${on ? "checked" : ""}${id ? "" : " disabled"}> 보내기</label>`;
+}
 function inclHTML(o) {
   const rv = cur.review, mk = o && bestMakeupAudio(o), ms = makeupState(o);
   const row = (key, title, avail, id, hint) => {
     const v = rv[key + "Include"], on = (x) => avail && v === x && rv[key + "IncludeId"] === id;
     const state = !avail ? hint : on(true) ? "✓ 학생 노트에 포함돼요" : on(false) ? "제외(학생에게 안 보여요 · 파일은 그대로 남아요)" : "아직 안 골랐어요 — 지금은 학생에게 가지 않아요";
     return `<div class="inclRow" style="margin-top:8px"><b>${title}</b> <span class="muted" style="font-size:.85rem" role="status">${state}</span>
-      <div class="row" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:4px">${[[1, "포함"], [0, "제외"]].map(([x, t]) =>
-        `<button class="small ghost incl ${on(!!x) ? "on" : ""}" data-k="${key}" data-v="${x}" aria-pressed="${on(!!x)}"${avail ? "" : " disabled"}>${on(!!x) ? "✓ " : ""}${t}</button>`).join("")}</div></div>`;
+      <div class="pick2">${[[1, "포함"], [0, "제외"]].map(([x, t]) =>
+        `<button class="small incl inclSm ${on(!!x) ? "on" : ""}${on(!!x) && !x ? " off" : ""}" data-k="${key}" data-v="${x}" aria-pressed="${on(!!x)}"${avail ? "" : " disabled"}>${on(!!x) ? "✓ " : ""}${t}</button>`).join("")}</div></div>`;
   };
   return row("best", "베스트 편집본 보내기", !!o, o?.file_id, "보낼 편집본이 아직 없어요") +
     row("makeup", "메이크업본 보내기", !!mk, mk?.file_id, ms === "working" ? "메이크업 처리 중이라 아직 고를 수 없어요" : ms === "error" ? "메이크업이 실패해서 보낼 수 없어요" : "메이크업본이 아직 없어서 고를 수 없어요");
 }
 function makeupBoxHTML(o) {
   const ms = makeupState(o), job = ms === "none" ? null : bestMakeupJob(o);
-  const head = `<b>🪄 메이크업본</b> <span class="muted" style="font-size:.85rem">음정 보정 등 · 편집본과 별개의 파일</span>`;
+  const head = `<div class="row" style="justify-content:space-between;flex-wrap:nowrap"><span><b>🪄 메이크업본</b> <span class="muted" style="font-size:.85rem">음정 보정 등</span></span>${ms === "ready" && typeof inclChk === "function" ? inclChk("makeup", o) : ""}</div>`;
   if (ms === "ready") return `<div id="mkBox" style="margin-top:10px">${head}
     <p class="muted" style="margin:2px 0;font-size:.85rem">위 재생바 = 보정 전(편집본 원본), 아래 재생바 = 보정 후(메이크업본). 한쪽을 재생하면 다른 쪽은 멈춰요.</p>${tpHTML(true)}</div>`;
   const msg = ms === "none" ? "아직 만들지 않았어요. 만들기 전에는 학생에게 보낼 수 없어요."
@@ -2905,13 +2916,12 @@ function renderBest() {
       ? "새 MR 정렬 방식 · 자동 검사 통과 · 실제 청감 확인 필요"
       : "기존 또는 방식 미확인 편집본 · 새 MR 정렬 결과로 확인되지 않았어요 · 자동으로 바뀌지 않습니다";
   const segs = (o.segments || []).filter(g => Number.isFinite(+g.start) && +g.end > +g.start).slice(0, 12);
-  return `<div class="bestbox"><div class="row" style="justify-content:space-between"><b>🎵 오늘의 베스트 편집본</b><span class="chip">${Math.round(o.len)}초 · 완료</span></div>
+  return `<div class="bestbox"><div class="row" style="justify-content:space-between;flex-wrap:nowrap"><span><b>🎵 오늘의 베스트 편집본</b> <span class="muted" style="font-size:.85rem">${Math.round(o.len)}초</span></span>${typeof inclChk === "function" ? inclChk("best", o) : ""}</div>
     <div class="muted bestDesc" style="font-size:.85rem">AI가 이번 레슨 녹음에서 좋은 구간을 골라 박자에 맞춰 하나로 이어 붙인 편집본이에요${o.takes_used ? ` (테이크 ${o.takes_used}개 사용)` : ""}</div>
     <p role="status" class="muted" style="margin:6px 0 0;font-size:.85rem">${status}</p>
     ${segs.length ? `<details style="margin:4px 0"><summary class="muted" style="font-size:.85rem">원본 레슨에서 가져온 구간 ${segs.length}곳 보기</summary><div class="muted" style="font-size:.85rem">${segs.map(g => `${fmt(+g.start)}~${fmt(+g.end)}`).join(" · ")}</div></details>` : ""}
     ${tpHTML(true).replace('aria-label="재생 위치" style="width:100%"></div>', 'aria-label="재생 위치" style="width:100%">' + seamStrip(o, "strip") + '</div>' + seamStrip(o, "labels"))}
-    ${makeupBoxHTML(o)}
-    <div id="inclBox" style="margin-top:8px">${inclHTML(o)}</div></div>`;
+    ${makeupBoxHTML(o)}</div>`;
 }
 // ── 베스트 편집본 전체 다시 편집(이슈 #153, 사용자 승인 2026-10-28) ─────────────────────────
 // 부분/연결점 수정이 아니라 레슨 전체에서 베스트를 다시 찾아 새 편집본 '후보'를 만든다. 버튼을 누르기 전에는 요청·처리 0건.
@@ -3070,6 +3080,14 @@ async function makeupFromBest(o, back) {
   } catch (e) { stopProg(); toast(e.message); }
 }
 function wireIncl(o) {
+  document.querySelectorAll("input[data-incl]").forEach(c => c.onchange = () => {
+    const key = c.dataset.incl, rv = cur.review, id = key === "best" ? o.file_id : bestMakeupAudio(o)?.file_id;
+    if (!id) { c.checked = false; return toast(key === "best" ? "보낼 편집본이 없어요" : "메이크업본 음원이 없어서 고를 수 없어요"); }
+    if (c.checked) { rv[key + "Include"] = true; rv[key + "IncludeId"] = id; } else { rv[key + "Include"] = null; delete rv[key + "IncludeId"]; }
+    c.closest(".inclChk")?.classList.toggle("on", c.checked);
+    if (typeof markDirty === "function") markDirty();
+    if (typeof paintDeliver === "function" && cur.folder) paintDeliver();
+  });
   document.querySelectorAll("#inclBox .incl").forEach(b => b.onclick = () => {
     const key = b.dataset.k, v = b.dataset.v === "1", rv = cur.review;
     const id = key === "best" ? o.file_id : bestMakeupAudio(o)?.file_id;
@@ -3313,7 +3331,7 @@ let tpRoot = null, tpFile = null, tpEpoch = 0, tpPromise = null, tpActionSeq = 0
 function tpHTML(iconOnly = true, withTime = true) {   // 처음·끝은 아이콘만(2026-10-27). 클립 카드는 시간을 '듣기'와 '메이크업' 사이에 따로 표시
   return `<div class="tp" style="margin-top:6px"><div class="tpWaveBox"><canvas class="tpWave" aria-hidden="true"></canvas><input type="range" class="tpSeek" min="0" max="1000" value="0" aria-label="재생 위치" style="width:100%"></div>
     ${withTime ? `<div class="row" style="justify-content:space-between"><span class="tpTime muted">0:00 / 0:00</span></div>` : ""}
-    <div class="row" style="margin-top:4px;gap:4px;flex-wrap:nowrap;display:grid;grid-template-columns:1fr 1fr 1.1fr 1fr 1fr"><button class="small ghost" style="min-width:0;padding:8px 2px" data-tp="start" aria-label="처음으로 이동" title="처음으로 이동">⏮</button><button class="small ghost" style="min-width:0;padding:8px 2px" data-tp="back" aria-label="5초 뒤로">-5</button><button class="small" style="min-width:0;padding:8px 2px" data-tp="play" aria-label="재생">▶</button><button class="small ghost" style="min-width:0;padding:8px 2px" data-tp="fwd" aria-label="5초 앞으로">+5</button><button class="small ghost" style="min-width:0;padding:8px 2px" data-tp="end" aria-label="끝으로 이동" title="끝으로 이동">⏭</button></div></div>`;
+    <div class="row tpBtns" style="margin-top:4px;gap:4px;flex-wrap:nowrap;display:grid;grid-template-columns:1fr 1fr 1.1fr 1fr 1fr"><button class="small ghost" style="min-width:0;padding:8px 2px" data-tp="start" aria-label="처음으로 이동" title="처음으로 이동">⏮</button><button class="small ghost" style="min-width:0;padding:8px 2px" data-tp="back" aria-label="5초 뒤로">-5</button><button class="small" style="min-width:0;padding:8px 2px" data-tp="play" aria-label="재생">▶</button><button class="small ghost" style="min-width:0;padding:8px 2px" data-tp="fwd" aria-label="5초 앞으로">+5</button><button class="small ghost" style="min-width:0;padding:8px 2px" data-tp="end" aria-label="끝으로 이동" title="끝으로 이동">⏭</button></div></div>`;
 }
 let tpTimeEl = null;   // 재생 바 밖(예: 클립 카드의 '듣기'와 '메이크업' 사이)에 시간을 보여 줄 곳
 function tpDetach() { tpEpoch++; tpActionSeq++; if (tpRoot) { try { player.pause(); } catch {} } tpRoot = null; tpFile = null; tpPromise = null; if (tpTimeEl) tpTimeEl.textContent = ""; tpTimeEl = null; }
@@ -3331,7 +3349,8 @@ function drawWave(cv, peaks, frac) {
   const w = cv.clientWidth, h = cv.clientHeight; if (!w || !h) return;
   const r = window.devicePixelRatio || 1; if (cv.width !== Math.round(w * r)) { cv.width = Math.round(w * r); cv.height = Math.round(h * r); }
   const g = cv.getContext("2d"); g.setTransform(r, 0, 0, r, 0, 0); g.clearRect(0, 0, w, h);
-  const P = peaks || Array.from({ length: WAVE_N }, (_, i) => 18 + 10 * Math.sin(i / 3)), n = P.length, bw = w / n;
+  if (!peaks) { g.fillStyle = "#3a414b"; g.fillRect(0, h / 2 - 1, w, 2); return; }   // 받기 전: 실제 파형인 척하지 않음(가는 선)
+  const P = peaks, n = P.length, bw = w / n;
   for (let i = 0; i < n; i++) {
     const bh = Math.max(2, (P[i] / 99) * (h - 6)), x = i * bw;
     g.fillStyle = !peaks ? "#3a414b" : (i + 0.5) / n <= frac ? "#9cc3ff" : "#5b6573";
@@ -3410,6 +3429,10 @@ function tpWire(root, fileId, autoplay, timeEl) {
   root.querySelector(".tpSeek").oninput = (e) => {
     const value = e.target.value; // 슬라이더를 연속 이동해도 최종 위치만 적용
     run(async () => { if (player.duration) player.currentTime = player.duration * value / 1000; });
+  };
+  root.querySelector(".tpSeek").onchange = (e) => {   // 파형을 누르면(손을 떼면) 그 자리부터 바로 재생(10/28 사용자)
+    const value = e.target.value;
+    run(async () => { if (player.duration) player.currentTime = player.duration * value / 1000; if (player.paused) { pauseOthers(player); await player.play(); } });
   };
   if (autoplay) run(async () => { pauseOthers(player); await player.play(); });
 }
@@ -3592,27 +3615,20 @@ function renderHighlights() {
       <button class="small" data-hlplay="${k}" aria-label="하이라이트 ${h.n} 듣기">▶</button>
       <div style="flex:1;min-width:0"><b>${h.isBest ? "🎵 " : ""}${h.n}. ${fmt(h.start)} ~ ${fmt(h.end)}</b> <span class="muted" style="white-space:nowrap">${Math.round(h.end - h.start)}초${h.isBest ? (p?.isComposite ? " · 베스트 편집본의 기준 테이크" : " · 오늘의 베스트") : ""}</span>
         <div class="hlq">“${esc(h.praise)}”</div></div></div>
-      ${h.cand ? `<div class="pick" role="radiogroup" aria-label="하이라이트 ${h.n} 처리">
-        ${[["send", "보내기"], ["keep", "기록만"], ["drop", "빼기"]].map(([v, t]) =>
-          `<label class="${d === v ? "on" : ""}"><input type="radio" name="h_${esc(h.cand)}" value="${v}" ${d === v ? "checked" : ""}><span class="ck" aria-hidden="true">✓</span>${t}</label>`).join("")}
-      </div>
-      <input class="cnote ${d === "send" ? "" : "hidden"}" data-c="${esc(h.cand)}" placeholder="좋았던 점 한 줄 (예: 고음 끝까지 호흡 유지)" value="${esc(rv.notes?.[h.cand] ?? c?.note ?? "")}" style="width:100%;margin-top:4px">` : ""}
+      ${h.cand ? pick2HTML("h_" + h.cand, d, `하이라이트 ${h.n} 수강생에게 보낼지`) + memoHTML(h.cand, d, rv.notes?.[h.cand] ?? c?.note ?? "") : ""}
     </div>`;
   }).join("") || `<p class="muted">선생님 칭찬 바로 앞 노래 구간을 찾지 못했어요 — 아래 ‘다른 후보’에서 골라 주세요.</p>`;
   const hs = $("hls"), more = $("hlMore");
   if (more) {   // 처음엔 1개만(10/28 사용자: 페이지를 많이 차지함) — 펼치면 최대 5개
     const extra = hlList.length - 1, sentHidden = hlList.slice(1).filter(h => rv.decisions[h.cand] === "send").length;
     more.classList.toggle("hidden", extra < 1); more.setAttribute("aria-expanded", cur.hlOpen ? "true" : "false");
-    more.textContent = cur.hlOpen ? "▴ 접기" : `▾ 하이라이트 ${extra}개 더 보기${sentHidden ? ` (보내기 ${sentHidden}개 포함)` : ""}`;
+    more.textContent = cur.hlOpen ? "▴ 접기" : `▾ 하이라이트 ${extra}개 더 보기${sentHidden ? ` (포함 ${sentHidden}개)` : ""}`;
     more.onclick = () => { cur.hlOpen = !cur.hlOpen; renderHighlights(); };
   }
   hs.querySelectorAll("[data-hlplay]").forEach(b => b.onclick = () => { hlQueueStop(); hlGo(+b.dataset.hlplay); });
-  hs.querySelectorAll("input[type=radio]").forEach(r => r.onchange = () => {
-    const bumped = setDecision(cur.review, r.name.slice(2), r.value, allCands().map(c => c.id));
-    if (bumped) toast(`보내기는 최대 ${MAX_GOOD}개 — 가장 먼저 고른 ${bumped}은 ‘기록만’으로 바꿨어요`);
-    const id = r.name.slice(2), play = r.value !== "drop";
+  wirePick2(hs, (id, v) => {
     renderHighlights(); renderCands(); syncGood();
-    if (play) { const k = hlList.findIndex(h => h.cand === id); if (k >= 0) { hlQueueStop(); hlGo(k); } }   // 고르면 바로 그 구간 재생(2026-10-27 사용자)
+    if (v === "send") { const k = hlList.findIndex(h => h.cand === id); if (k >= 0) { hlQueueStop(); hlGo(k); } }   // 포함하면 바로 그 구간 재생(2026-10-27 사용자)
   });
   hs.querySelectorAll(".cnote").forEach(i => { i.oninput = () => { (cur.review.notes ??= {})[i.dataset.c] = i.value.trim(); }; i.onchange = syncGood; });
   wireStab(hs);
@@ -3719,22 +3735,12 @@ function renderCands() {
         ${c.reason || c.note ? `<span class="muted">${esc(c.reason || c.note)}</span>` : ""}</div>
       <div class="row" style="margin-top:4px;flex-wrap:nowrap">${clip ? `<button class="small ghost" data-tpopen="${clip.id}">▶ 듣기</button>` : ""}<span class="tpTimeMid muted"></span>${mkButton(c.id)}</div>
       <div class="tpslot" data-for="${clip ? clip.id : ""}"></div>
-      <div class="pickcap">이 클립을 오늘 피드백에 (하나만 선택)</div>
-      <div class="pick" role="radiogroup" aria-label="${esc(c.id)} 처리">
-        ${[["send", "보내기"], ["keep", "기록만"], ["drop", "빼기"]].map(([v, t]) =>
-          `<label class="${d === v ? "on" : ""}"><input type="radio" name="d_${esc(c.id)}" value="${v}" ${d === v ? "checked" : ""}><span class="ck" aria-hidden="true">✓</span>${t}</label>`).join("")}
-      </div>
-      <input class="cnote ${d === "send" ? "" : "hidden"}" data-c="${esc(c.id)}" placeholder="좋았던 점 한 줄 (예: 고음 끝까지 호흡 유지)" value="${esc(cur.review.notes?.[c.id] ?? c.note ?? "")}" style="width:100%;margin-top:4px">
+      ${pick2HTML("d_" + c.id, d, c.id + " 수강생에게 보낼지")}${memoHTML(c.id, d, cur.review.notes?.[c.id] ?? c.note ?? "")}
       </div>`;
   }).join("") || `<p class="muted">후보 없음 — 아래에서 직접 추가할 수 있습니다.</p>`;
-  $("cands").querySelectorAll("input[type=radio]").forEach(r => r.onchange = () => {
-    const bumped = setDecision(cur.review, r.name.slice(2), r.value, allCands().map(c => c.id));
-    if (bumped) { toast(`보내기는 최대 ${MAX_GOOD}개 — 가장 먼저 고른 ${bumped}은 ‘기록만’으로 바꿨어요`); renderHighlights(); renderCands(); return; }
-    r.closest(".cand").querySelector(".cnote").classList.toggle("hidden", r.value !== "send");
-    r.closest(".pick").querySelectorAll("label").forEach(l => l.classList.toggle("on", l.contains(r)));
-    paintSendCount(); syncGood();
-    if (r.value !== "drop") { const card = r.closest(".cand"), bt = card.querySelector("[data-tpopen]"), sl = card.querySelector(".tpslot");
-      if (bt && sl && !sl.classList.contains("open")) bt.click(); }   // 고르면 바로 그 클립 재생
+  wirePick2($("cands"), (id, v) => {
+    renderHighlights(); renderCands(); syncGood();
+    if (v === "send") { const bt = [...$("cands").querySelectorAll("[data-tpopen]")].find(x => x.closest(".cand")?.querySelector(`[name="d_${CSS.escape(id)}"]`)); if (bt) bt.click(); }   // 포함하면 바로 그 클립 재생
   });
   paintSendCount();
   $("cands").querySelectorAll("[data-mk]").forEach(b => b.onclick = () => {
@@ -3752,12 +3758,34 @@ function renderCands() {
     tpWire(slot.querySelector(".tp"), b.dataset.tpopen, true, card.querySelector(".tpTimeMid"));
   });
 }
-const MAX_GOOD = 3, MAX_POINT = 3;   // 추천 클립 보내기 최대 3개·0개도 가능(2026-10-26 사용자 확정, 이전 5개 → 3개). 넘으면 먼저 고른 것부터 '기록만 저장'
+const MAX_GOOD = 5, MAX_POINT = 3;   // #79(10/28 확정): 하이라이트 포함 최대 5개   // 추천 클립 보내기 최대 3개·0개도 가능(2026-10-26 사용자 확정, 이전 5개 → 3개). 넘으면 먼저 고른 것부터 '기록만 저장'
 // 보내기 순서(sendOrder): 선생님이 '보내기'를 고른 순서. 6번째를 고르면 가장 오래된 것을 keep으로(FIFO). 내용은 지우지 않음
+// 하이라이트·후보 고르기(#79 확정): [포함]/[제외] 2개, 처음엔 미선택, 고른 걸 다시 누르면 미선택으로. 예전 '기록만'·'빼기'는 제외로 보임
+function pick2HTML(name, d, label) {
+  const inc = d === "send", exc = d === "keep" || d === "drop";
+  return `<div class="pick2" role="radiogroup" aria-label="${esc(label)}">
+    <label class="${inc ? "on" : ""}"><input type="radio" name="${esc(name)}" value="send" ${inc ? "checked" : ""}>${inc ? "✓ " : ""}포함</label>
+    <label class="${exc ? "on off" : ""}"><input type="radio" name="${esc(name)}" value="keep" ${exc ? "checked" : ""}>${exc ? "✓ " : ""}제외</label>
+    ${!inc && !exc ? `<span class="muted" style="font-size:.85rem">아직 안 골랐어요</span>` : ""}</div>`;
+}
+function memoHTML(id, d, memo) {
+  return d !== "send" ? "" : `<details class="hlMemo"><summary>✎ 좋았던 점 <span class="muted">${esc(memo ? memo.slice(0, 26) + (memo.length > 26 ? "…" : "") : "한 줄 적기(선택)")}</span></summary>
+    <input class="cnote" data-c="${esc(id)}" placeholder="좋았던 점 한 줄 (예: 고음 끝까지 호흡 유지)" value="${esc(memo)}" style="width:100%;margin-top:4px"></details>`;
+}
+function wirePick2(root, after) {
+  root.querySelectorAll(".pick2 label").forEach(l => l.onclick = (e) => {
+    const r = l.querySelector("input"); if (!r) return; e.preventDefault();
+    const id = r.name.slice(2), was = cur.review.decisions?.[id], same = r.value === "send" ? was === "send" : (was === "keep" || was === "drop");
+    const bumped = setDecision(cur.review, id, same ? null : r.value, allCands().map(c => c.id));
+    if (bumped) toast(`포함은 최대 ${MAX_GOOD}개 — 가장 먼저 고른 ${bumped}은 ‘제외’로 바꿨어요`);
+    if (typeof markDirty === "function") markDirty();
+    after(id, same ? null : r.value);
+  });
+}
 function setDecision(rv, id, val, ids) {
   rv.decisions ??= {};
   rv.sendOrder = (rv.sendOrder || ids.filter(x => rv.decisions[x] === "send")).filter(x => x !== id && rv.decisions[x] === "send");
-  rv.decisions[id] = val;
+  if (val == null) delete rv.decisions[id]; else rv.decisions[id] = val;
   let bumped = null;
   if (val === "send") {
     rv.sendOrder.push(id);
@@ -3771,7 +3799,7 @@ function sendList() {   // 보내기 고른 순서대로
   const rest = ids.filter(x => rv.decisions[x] === "send" && !order.includes(x));
   return [...order, ...rest].map(x => allCands().find(c => c.id === x)).filter(Boolean).slice(0, MAX_GOOD);
 }
-function paintSendCount() { if ($("sendCount")) $("sendCount").textContent = `보내기 ${sendList().length}/${MAX_GOOD}`; }
+function paintSendCount() { if ($("sendCount")) $("sendCount").textContent = `포함 ${sendList().length}/${MAX_GOOD}`; }
 function renderPoints() {
   const p = (cur.review.points ??= []);
   $("points").innerHTML = `<div class="muted" style="margin:2px 0">오늘 중요한 포인트 (1~3개)</div>` +
@@ -3895,7 +3923,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-28-2250-tidy";
+const BUILD = "2026-10-28-2310-kakao1";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
@@ -3930,8 +3958,24 @@ $("btnAdd").onclick = () => {
   $("addS").value = $("addE").value = $("addNote").value = ""; renderCands();
 };
 $("btnRegen").onclick = () => { updateFeedbackDraft(draftFeedback()); };
-$("btnCopy").onclick = async () => { const link = cur.note && typeof kakaoText === "function" ? (kakaoText(cur.st, cur.note, 0).match(/https?:\/\/\S+/) || [""])[0] : "";
-  try { await navigator.clipboard.writeText($("fb").value + (link ? "\n\n📒 노트: " + link : "")); toast("복사했어요. 카톡에 붙여넣기 하세요."); } catch { $("fb").select(); toast("길게 눌러 복사해 주세요"); } };
+// (#80·#81) 카톡 버튼: 멘트+링크 복사(링크 1번) · 🎲 인사말 바꾸기(첫 줄만) · 카카오톡 열기(열기만) — 셋 다 '보냄'으로 치지 않음
+function kakaoCopyText() {
+  const link = cur.note ? `${studentPage()}?l=${encodeURIComponent(cur.note.lesson_id)}` : `${studentPage()}?l=${encodeURIComponent(cur.folder.id)}`;
+  const body = String($("fb").value || "").trim();
+  return body.includes(link) ? body : body + "\n\n👉 노트 보기: " + link;
+}
+const GREETS = [(n) => `${n}님, 오늘 레슨 수고 많으셨어요!`, (n) => `${n}님 오늘도 고생 많으셨습니다 :)`, (n) => `${n}님, 오늘 수업 감사했습니다!`, (n) => `오늘 레슨 즐거우셨죠, ${n}님?`, (n) => `${n}님, 오늘 정말 잘하셨어요!`];
+function swapGreeting(text, name, k) {   // 첫 줄이 인사말이면 그 줄만 바꾸고, 아니면 맨 위에 인사말 한 줄을 넣음. 나머지 본문은 그대로
+  const L = String(text || "").split("\n"), g = GREETS[k % GREETS.length](name);
+  if (L.length && (L[0].includes(name) || /수고|고생|감사|레슨|잘하셨/.test(L[0])) && L[0].length <= 40) { L[0] = g; return L.join("\n"); }
+  return g + "\n\n" + L.join("\n");
+}
+$("btnCopy").onclick = async () => { const t = kakaoCopyText(); if (!cur.note) toast("아직 공개 전이에요 — 링크를 열어도 노트가 안 보여요");
+  try { await navigator.clipboard.writeText(t); toast("복사했어요. 카톡에 붙여넣기 하세요. 보낸 뒤 ③을 눌러 주세요"); } catch { toast("복사하지 못했어요. 다시 눌러 주세요"); } };
+$("btnGreet").onclick = () => { const now = String($("fb").value || "").split("\n")[0], i0 = GREETS.findIndex(g => g(cur.st.name) === now);
+  let k = (i0 + 1) % GREETS.length; if (i0 < 0) k = nextTpl(cur.sid) % GREETS.length; const v = swapGreeting($("fb").value, cur.st.name, k);   // 누를 때마다 지금과 다른 인사말
+  if (typeof updateFeedbackDraft === "function") updateFeedbackDraft(v); else $("fb").value = v; toast("인사말만 바꿨어요"); };
+$("btnKakaoOpen").onclick = () => { location.href = /Android/i.test(navigator.userAgent) ? "intent://#Intent;scheme=kakaotalk;package=com.kakao.talk;end" : "kakaotalk://"; };
 $("btnShare").onclick = async () => {
   const sent = sendList();
   const ids = sent.map(c => cur.clips.find(f => f.name.startsWith(c.id))).filter(Boolean);
@@ -3942,7 +3986,7 @@ $("btnShare").onclick = async () => {
   if (mkp) ids.unshift({ id: mkp.file_id, name: "오늘의 베스트 가창(메이크업본).mp3" });
   if (bp) ids.unshift({ id: bp.file_id, name: "오늘의 베스트 가창(편집본).mp3" });
   if (!ids.length) return toast("‘보냄’으로 고른 클립이 없어요");
-  try { if (await shareClips(ids)) { cur.review.kakao_sent_at ??= new Date().toISOString(); await markSent("feedback"); if (typeof paintDeliver === "function") paintDeliver(); } } catch (e) { toast(e.message); }
+  try { if (await shareClips(ids)) toast("클립을 넘겼어요. 카톡으로 다 보냈으면 ③ ‘카톡 전송 완료 표시’를 눌러 주세요"); } catch (e) { toast(e.message); }
 };
 $("btnFbMark").onclick = () => markSent("feedback", !cur.review.sent?.feedback);
 $("btnCkMark").onclick = () => markSent("check", !cur.review.sent?.check);
