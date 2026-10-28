@@ -1226,7 +1226,7 @@ function paintDeliver() {
   const rv = me.review, note = buildNote(), sig = contentSig(note), st = schedStatus({ caps: s.caps, srv: s.entry, sigNow: sig, approvedSig: rv.approved_sig });
   const chipCls = { published: "ok", scheduled: "ok" }[st] || (st === "draft" || st === "unknown" || st === "unsupported" ? "todo" : "");
   const sentAt = rv.kakao_sent_at, dis = s.busy ? " disabled" : "";
-  const preview = `<details id="pvWrap" style="margin:6px 0"${s.pvOpen ? " open" : ""}><summary><b>수강생에게 보이는 내용</b> <span class="muted">보기·고치기</span></summary>${feedbackPreviewHTML(note, rv, dis, !!s.pvExpanded)}</details>`;   // 길어서 접어 둠(2026-10-27 사용자: 정보가 너무 많음)
+  const preview = `<details id="pvWrap" style="margin:6px 0"${s.pvOpen !== false ? " open" : ""}><summary><b>수강생에게 보이는 내용</b> <span class="muted">보기·고치기</span></summary>${feedbackPreviewHTML(note, rv, dis, !!s.pvExpanded)}</details>`;   // 길어서 접어 둠(2026-10-27 사용자: 정보가 너무 많음)
   const kakaoBlock = !me.note ? "" : `<div style="margin-top:10px;border-top:1px solid #8884;padding-top:8px"><b>💬 카톡 안내</b>
       <span class="chip ${sentAt ? "ok" : "todo"}">${sentAt ? "카톡 보냄 " + esc(fmtVisible(sentAt).kst) : "카톡 아직 안 보냄"}</span> <span id="seenChip" class="chip">아직 안 읽음</span>
       <textarea id="kakaoMsg" style="min-height:90px">${esc(me.kakao || "")}</textarea>
@@ -3805,7 +3805,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-28-2230-pv5cards";
+const BUILD = "2026-10-28-2205-pvopen";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
