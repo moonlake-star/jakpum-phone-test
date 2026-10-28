@@ -5,94 +5,138 @@
 <meta name="theme-color" content="#17191d">
 <title>피드백 V2 시험판</title>
 <style>
-:root{color-scheme:dark;--bg:#17191d;--fg:#eceff3;--muted:#a9b1bc;--card:#22262c;--card2:#1b1f26;--line:#363c45;--accent:#9cc3ff;--on-accent:#10141a;--ok:#7fd8a6;--warn:#ffc677;--chip:#2a2f37}
+:root{color-scheme:dark;--bg:#17191d;--fg:#eceff3;--muted:#a9b1bc;--card:#22262c;--card2:#1b1f26;--line:#363c45;--accent:#9cc3ff;--blue:#4c8dff;--on-accent:#10141a;--ok:#7fd8a6;--warn:#ffc677;--chip:#2a2f37;--red:#e5484d;--purple:#9b6bff;--pink:#ff5fa2}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 system-ui,"Malgun Gothic","Apple SD Gothic Neo",sans-serif;padding-bottom:calc(96px + env(safe-area-inset-bottom))}
-button{font:inherit;cursor:pointer;border:0}
+body{margin:0;word-break:keep-all;overflow-wrap:anywhere;background:var(--bg);color:var(--fg);font:16px/1.55 system-ui,"Malgun Gothic","Apple SD Gothic Neo",sans-serif;padding-bottom:calc(84px + env(safe-area-inset-bottom))}
+button{font:inherit;cursor:pointer;border:0;color:inherit}
 .ban{position:sticky;top:0;z-index:30;background:#3a2a55;color:#e9dcff;font-size:13px;padding:7px 14px;display:flex;gap:8px;align-items:center}
 .ban a{color:#fff;margin-left:auto;white-space:nowrap}
-.wrap{max-width:640px;margin:0 auto;padding:12px 16px}
-.head{background:#2f3a4a;border-left:4px solid var(--accent);border-radius:12px;padding:12px 14px;margin:6px 0 12px}
-.head b{font-size:1.1rem}.muted{color:var(--muted);font-size:.88rem}
-.pri{width:100%;min-height:52px;border-radius:14px;background:var(--accent);color:var(--on-accent);font-weight:800;font-size:1.05rem}
+.wrap{max-width:1100px;margin:0 auto;padding:12px 16px}
+.sec{background:var(--card2);border:1px solid var(--line);border-radius:18px;padding:14px;margin:12px 0}
+.sec>h2{margin:0 0 4px;font-size:1.12rem;display:flex;align-items:center;gap:10px}
+.num{flex:none;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--blue);color:#fff;font-size:.95rem;font-weight:800}
+.lead{color:var(--muted);font-size:.9rem;margin:0 0 10px}
+.muted{color:var(--muted);font-size:.86rem}
+.head{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin:4px 2px 10px}.head b{font-size:1.1rem}
+.pri{min-height:48px;padding:0 18px;border-radius:12px;background:var(--blue);color:#fff;font-weight:800}
 .pri:disabled{background:#3a404a;color:#8a929d}
-.ghost{min-height:44px;padding:0 14px;border-radius:12px;background:transparent;color:var(--accent);border:2px solid var(--accent);font-weight:700}
-.steps{list-style:none;padding:0;margin:12px 0}
-.steps li{display:flex;gap:10px;align-items:center;padding:6px 0;color:var(--muted)}
-.steps .dot{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:.75rem;font-weight:800;background:var(--chip)}
-.steps li.done{color:var(--fg)}.steps li.done .dot{background:var(--ok);color:#10141a}
-.steps li.now{color:var(--fg);font-weight:700}.steps li.now .dot{background:var(--accent);color:#10141a;animation:pulse 1s ease-in-out infinite}
-@keyframes pulse{50%{transform:scale(1.15)}}
-.bar{position:sticky;top:34px;z-index:20;background:var(--bg);padding:8px 0 10px;border-bottom:1px solid var(--line);margin-bottom:6px}
-.bar .row{display:flex;gap:8px;align-items:center}
-.meter{flex:1;height:8px;border-radius:4px;background:var(--chip);overflow:hidden}.meter i{display:block;height:100%;background:var(--ok);transition:width .3s}
-.seg{display:flex;background:var(--chip);border-radius:12px;padding:3px;margin-top:8px}
-.seg button{flex:1;min-height:38px;border-radius:9px;background:transparent;color:var(--muted);font-weight:700}
-.seg button.on{background:var(--accent);color:var(--on-accent)}
-.emph{background:var(--card2);border:1px dashed var(--line);border-radius:12px;padding:8px 12px;margin:8px 0;font-size:.9rem}
-.emph span{display:inline-block;background:var(--chip);border-radius:10px;padding:1px 8px;margin:2px 4px 2px 0}
-.emph span.prev{background:#1d2b40;color:var(--accent)}
-.card{background:var(--card);border:1.5px solid var(--line);border-radius:16px;padding:12px 14px;margin:12px 0;transition:border-color .3s}
+.ghost{min-height:42px;padding:0 14px;border-radius:12px;background:transparent;color:var(--fg);border:1.5px solid var(--line);font-weight:600}
+/* ① 생성 */
+.gen{display:grid;grid-template-columns:96px 1fr;gap:12px;align-items:start}
+.inputs{display:flex;flex-direction:column;gap:8px}
+.inputs div{background:var(--card);border-radius:12px;padding:8px;font-size:.82rem;text-align:center;line-height:1.3}
+.inputs div span{display:block;font-size:1.3rem}
+.genbox{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px}
+.genbox h3{margin:0 0 8px;font-size:1rem}
+.gi{display:flex;gap:10px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:7px 10px;margin:6px 0;font-size:.88rem;transition:border-color .25s,background .25s}
+.gi .desc{color:var(--muted);flex:1}.gi .st{flex:none;width:22px;text-align:center}
+.gi.now{border-color:var(--blue)}.gi.done{background:#1c2a22;border-color:#2f5a44}
+.tag{flex:none;font-size:.76rem;font-weight:800;border-radius:6px;padding:1px 7px;background:var(--chip)}
+.tag.red{background:var(--red);color:#fff}.tag.purple{background:var(--purple);color:#fff}
+/* ② 검토 */
+.tool{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+.tool h3{margin:0;font-size:1rem;margin-right:auto}
+.seg{display:flex;background:var(--chip);border-radius:10px;padding:3px}
+.seg button{min-height:36px;padding:0 12px;border-radius:8px;background:transparent;color:var(--muted);font-weight:700;font-size:.9rem}
+.seg button.on{background:var(--blue);color:#fff}
+.pvbtn{min-height:42px;padding:0 14px;border-radius:10px;background:var(--blue);color:#fff;font-weight:700;font-size:.9rem}
+.stat{display:flex;gap:10px;align-items:center;font-size:.88rem;margin:4px 0 8px}
+.meter{flex:1;height:6px;border-radius:3px;background:var(--chip);overflow:hidden}.meter i{display:block;height:100%;background:var(--ok);transition:width .3s}
+.emph{font-size:.84rem;color:var(--muted);margin-bottom:8px}
+.emph span{display:inline-block;background:var(--chip);color:var(--fg);border-radius:10px;padding:0 8px;margin:2px 4px 2px 0}.emph span.prev{background:#1d2b40;color:var(--accent)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.card{position:relative;background:var(--card);border:1.5px solid var(--line);border-radius:14px;padding:12px 12px 40px;min-width:0;transition:border-color .3s}
 .card.seen{border-color:#2f5a44}
-.card h3{margin:0 0 6px;font-size:1.05rem;display:flex;align-items:center;gap:8px}
-.card h3 .ck{font-size:.78rem;font-weight:700;color:var(--muted);background:var(--chip);border-radius:10px;padding:1px 8px}
-.card.seen h3 .ck{color:var(--ok)}
-.card h3 .ed{margin-left:auto;min-height:34px;padding:0 12px;border-radius:17px;background:var(--chip);color:var(--accent);font-weight:700;font-size:.88rem}
-.card ul{margin:0;padding-left:1.1em}.card li{margin:3px 0}
-.ev{display:inline-block;font-size:.74rem;color:var(--muted);background:var(--chip);border-radius:8px;padding:0 6px;margin-left:6px;vertical-align:1px}
+.card.editing{grid-column:1/-1;border-color:var(--blue);padding-bottom:12px;animation:grow .25s ease}
+@keyframes grow{from{opacity:.4;transform:scale(.98)}to{opacity:1;transform:none}}
+.ctop{display:flex;align-items:center;gap:6px;margin-bottom:4px}.ctop .t{margin-left:auto;color:var(--muted);font-size:.82rem}
+.card h4{margin:0 0 6px;font-size:.98rem;display:flex;gap:6px;align-items:center}
+.card ul{margin:0;padding-left:1.1em;font-size:.9rem}.card li{margin:2px 0}
+.card p{margin:0;font-size:.9rem}
+.ev{display:block;font-size:.72rem;color:var(--muted)}
 .mine{color:var(--warn)}
-.aud{display:flex;gap:10px;align-items:center;margin:4px 0 8px}
-.aud .pl{flex:none;width:40px;height:40px;border-radius:50%;background:var(--accent);color:var(--on-accent);font-size:1rem;font-weight:900}
-.aud canvas{flex:1;min-width:0;height:40px;width:100%;display:block;cursor:pointer}
-.aud .len{flex:none;color:var(--muted);font-size:.82rem;min-width:36px;text-align:right}
-textarea{width:100%;font:inherit;color:var(--fg);background:#0f1216;border:1.5px solid var(--accent);border-radius:10px;padding:8px 10px;resize:none;line-height:1.55}
-.edrow{display:flex;gap:8px;align-items:center;margin-top:6px}.edrow .cnt{margin-right:auto;color:var(--muted);font-size:.85rem}
-.edrow button{min-height:38px;padding:0 14px;border-radius:10px;font-weight:700}
-.edrow .sv{background:var(--accent);color:var(--on-accent)}.edrow .cc{background:var(--chip);color:var(--fg)}
-.cheer{background:#3d2c17;border-color:#5a4322}
+.ck{position:absolute;left:12px;bottom:10px;font-size:.72rem;color:var(--muted)}.card.seen .ck{color:var(--ok)}
+.pen{position:absolute;right:8px;bottom:8px;width:32px;height:32px;border-radius:8px;background:var(--chip);color:var(--accent);font-size:.95rem}
+.chk{list-style:none;padding:0 !important}.chk li{display:flex;gap:8px;align-items:flex-start;cursor:pointer}
+.chk .box{flex:none;width:18px;height:18px;margin-top:3px;border-radius:4px;border:2px solid var(--blue);display:grid;place-items:center;font-size:.7rem;font-weight:900;color:#fff}
+.chk li.on .box{background:var(--blue)}.chk li:not(.on) .tx{color:var(--muted);text-decoration:line-through}
+.aud{display:flex;gap:8px;align-items:center;margin:4px 0 8px}
+.pl{flex:none;width:36px;height:36px;border-radius:50%;background:var(--blue);color:#fff;font-size:.85rem;font-weight:900;display:grid;place-items:center}
+.purple .pl,.pl.purple{background:var(--purple)}
+.aud canvas{flex:1;min-width:0;width:100%;height:36px;display:block;cursor:pointer}
+.songrow{display:flex;gap:10px;align-items:center;margin-bottom:6px}
+.thumb{flex:none;width:46px;height:46px;border-radius:10px;background:linear-gradient(135deg,#ff7aa8,#6a5cff);display:grid;place-items:center;font-size:1.3rem}
+.cheer{display:flex;gap:10px;align-items:center;background:#2a1f2a;border:1.5px solid #4a3050;border-radius:14px;padding:12px 48px 12px 14px;margin-top:10px;position:relative}
+.cheer.seen{border-color:#2f5a44}.cheer b{flex:none}
+.cheer.editing{display:block;padding-right:14px;border-color:var(--blue);animation:grow .25s ease}
+.acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+/* ③ 편집 */
+.edhd{display:flex;align-items:center;gap:8px;margin-bottom:8px}.edhd b{margin-right:auto}
+.edhd .x{width:34px;height:34px;border-radius:8px;background:var(--chip);font-size:1rem}
+textarea{width:100%;font:inherit;font-size:.95rem;color:var(--fg);background:#0f1216;border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;resize:none;line-height:1.6}
+textarea:focus{outline:none;border-color:var(--blue)}
+.edft{display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap}.edft .cnt{width:100%;color:var(--muted);font-size:.82rem}.edft .sug{margin-right:auto}
+.edft button{min-height:38px;padding:0 12px;font-size:.9rem;border-radius:10px;font-weight:700}
+.sug{background:#2a2340;color:#cdb8ff;border:1.5px solid #4a3a7a !important}
+.cc{background:var(--chip)}.sv{background:var(--blue);color:#fff}
+/* 하단 고정 */
 .dock{position:fixed;left:0;right:0;bottom:0;z-index:40;background:var(--card);border-top:1px solid var(--line);padding:10px 16px calc(10px + env(safe-area-inset-bottom));box-shadow:0 -4px 14px rgba(0,0,0,.35)}
-.dock .in{max-width:640px;margin:0 auto;display:flex;gap:8px}
-.dock .pri{flex:1}
+.dock .in{max-width:1100px;margin:0 auto;display:flex;gap:8px;align-items:center}
+.dock .pri{flex:1;background:var(--pink)}.dock .pri:disabled{background:#3a404a}
+/* 오버레이 */
 .ov{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;padding:16px;opacity:0;pointer-events:none;transition:opacity .25s}
 .ov.on{opacity:1;pointer-events:auto}
-.phone{width:min(380px,100%);height:min(760px,calc(100vh - 60px));background:#101317;border:8px solid #2b2f36;border-radius:34px;overflow:auto;padding:16px 14px;position:relative}
-.phone .x,.modal .x{position:sticky;top:0;float:right;min-height:34px;padding:0 12px;border-radius:17px;background:var(--chip);color:var(--fg);font-weight:700}
-.sv-h{margin:4px 0 12px}.sv-h b{font-size:1.15rem}
-.sv-c{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin:10px 0}
-.sv-c h4{margin:0 0 4px;font-size:1rem}.sv-c ul{margin:0;padding-left:1.1em}
-.sv-cheer{background:#3d2c17;border-radius:14px;padding:12px;margin-top:12px}
-.modal{width:min(420px,100%);background:var(--card);border:1px solid var(--accent);border-radius:18px;padding:16px}
-.modal h3{margin:0 0 8px}
-.lock{font-size:.85rem;color:var(--muted);text-align:center;margin-top:4px}
+.phone{width:min(380px,100%);height:min(780px,calc(100vh - 40px));background:#0f1216;border:9px solid #2b2f36;border-radius:36px;overflow:auto;position:relative}
+.sbar{position:sticky;top:0;z-index:2;background:#0f1216;display:flex;justify-content:space-between;padding:8px 18px 2px;font-size:.78rem;font-weight:700}
+.phd{position:sticky;top:26px;z-index:2;background:#0f1216;padding:4px 14px 8px}
+.phd .r{display:flex;align-items:center;gap:8px}.phd .r b{flex:1;text-align:center;margin-right:28px}
+.phd .bk{width:28px;height:28px;border-radius:8px;background:transparent;font-size:1.2rem}
+.phd .seg{margin-top:6px}.phd .seg button{flex:1}
+.pbody{padding:4px 14px 20px}
+.sc{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin:10px 0}
+.sc h4{margin:0 0 4px;font-size:.98rem;display:flex;gap:6px;align-items:center}.sc ul{margin:0;padding-left:1.1em;font-size:.92rem}.sc p{margin:0;font-size:.92rem}
+.scheer{background:#2a1f2a;border-radius:14px;padding:12px;margin-top:10px;font-size:.92rem}
+.modal{width:min(460px,100%);max-height:calc(100vh - 40px);overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px}
+.modal h3{margin:0 0 8px}.modal .row{display:flex;gap:8px;margin-top:12px}.modal .row button{flex:1}
+.diff{border-top:1px solid var(--line);padding:8px 0;font-size:.9rem}.diff s{color:var(--muted)}.diff .now{color:var(--warn)}
+#toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);z-index:70;background:#2f3a4a;color:var(--fg);padding:10px 16px;border-radius:12px;font-size:.9rem;opacity:0;transition:opacity .25s;pointer-events:none;max-width:90vw;text-align:center}
+#toast.on{opacity:1}
+@media (max-width:520px){.card{padding:10px 10px 40px}.card h4{font-size:.92rem}.card ul,.card p{font-size:.86rem}.gen{grid-template-columns:1fr}.inputs{flex-direction:row}.inputs div{flex:1}.tool h3{width:100%}}
 </style></head><body>
 <div class="ban">🧪 V2 시험판 · 가상 데이터 · 실제 전송 꺼짐 <a href="../teacher/">← 지금 앱(V1)</a></div>
 <div class="wrap">
-  <div class="head"><b id="hName"></b><div class="muted" id="hSub"></div></div>
+  <div class="head"><b id="hName"></b><span class="muted" id="hSub"></span></div>
 
-  <section id="start">
-    <p class="muted">레슨 녹음과 선생님 말을 바탕으로 AI가 수강생 피드백을 거의 다 써 둡니다. 선생님은 한 번 훑어보고, 고칠 카드만 눌러 고친 뒤 전달하면 됩니다.</p>
-    <button class="pri" id="gen">🤖 AI 초안 만들기</button>
-    <ol class="steps" id="steps" hidden></ol>
+  <section class="sec" id="s1">
+    <h2><span class="num">1</span>AI 자동 생성 (레슨 분석)</h2>
+    <p class="lead">레슨 음성, 강사 메모, 녹음 데이터를 분석해서 피드백 초안을 자동으로 만듭니다.</p>
+    <div class="gen">
+      <div class="inputs" id="inputs"></div>
+      <div class="genbox"><h3>✦ AI 피드백 초안 생성</h3><div id="genList"></div>
+        <button class="pri" id="gen" style="width:100%;margin-top:8px">🤖 AI 초안 만들기</button></div>
+    </div>
   </section>
 
-  <section id="work" hidden>
-    <div class="bar">
-      <div class="row"><b id="share"></b><span class="muted" id="prog"></span></div>
-      <div class="row" style="margin-top:6px"><div class="meter"><i id="meter"></i></div></div>
-      <div class="seg" id="lv"></div>
-    </div>
+  <section class="sec" id="s2" hidden>
+    <h2><span class="num">2</span>강사 검토 화면 (한눈에 전체 확인)</h2>
+    <p class="lead">카드를 한 번 훑어보고, 고칠 카드만 ✏️를 눌러 고치세요. 카드는 수강생에게 보일 순서 그대로예요.</p>
+    <div class="tool"><h3>수강생 미리보기 (강사 화면)</h3><div class="seg" id="lv"></div><button class="pvbtn" id="pvBtn">수강생 화면 미리보기</button></div>
+    <div class="stat"><b id="share"></b><span class="muted" id="prog"></span><div class="meter"><i id="meter"></i></div></div>
     <div class="emph" id="emph"></div>
-    <div id="cards"></div>
+    <div class="grid" id="grid"></div>
+    <div id="cheerBox"></div>
+    <div class="acts"><button class="ghost" id="origBtn">👁 AI 원문 다시 보기</button><button class="ghost" id="regenBtn">↻ 다시 생성 (AI 재분석)</button></div>
   </section>
 </div>
 
-<div class="dock" id="dock" hidden><div class="in">
-  <button class="ghost" id="pvBtn">📱 미리보기</button>
-  <button class="pri" id="send" disabled>수강생에게 전달하기</button>
-</div><div class="lock" id="lock"></div></div>
+<div class="dock" id="dock" hidden><div class="in" style="position:relative">
+  <button class="ghost" id="saveBtn">임시저장</button>
+  <button class="pri" id="send" disabled>✈ 수강생에게 전달하기</button>
+</div></div>
 
 <div class="ov" id="pvOv"><div class="phone" id="phone"></div></div>
-<div class="ov" id="dlOv"><div class="modal" id="modal"></div></div>
+<div class="ov" id="mdOv"><div class="modal" id="modal"></div></div>
+<div id="toast"></div>
 
 <script src="v2-logic.js"></script>
 <script>
@@ -100,96 +144,111 @@ textarea{width:100%;font:inherit;color:var(--fg);background:#0f1216;border:1.5px
   const $ = id => document.getElementById(id);
   const esc = x => String(x).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const L = V2.MOCK_LESSON;
-  let draft = null, level = 'normal', seen = new Set(), editing = null, io = null;
+  let draft = null, level = 'normal', seen = new Set(), editing = null, sugK = 0, io = null, saved = null;
   const player = new Audio(); player.preload = 'none'; let playing = null;
 
   $('hName').textContent = L.student + ' · ' + L.round + '회차';
   $('hSub').textContent = L.date + ' · ' + L.song + ' · 가상 레슨';
+  $('inputs').innerHTML = L.inputs.map(x => `<div><span>${x.icon}</span>${esc(x.name)}</div>`).join('');
+  const paintGen = k => { $('genList').innerHTML = V2.GEN_ITEMS.map((g, i) => `<div class="gi ${k > i ? 'done' : k === i ? 'now' : ''}"><span class="tag ${g.tone}">${esc(g.tag)}</span><span class="desc">${esc(g.desc)}</span><span class="st">${k > i ? '✓' : k === i ? '⋯' : ''}</span></div>`).join(''); };
+  paintGen(-1);
+  function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toast.h); toast.h = setTimeout(() => el.classList.remove('on'), 2400); }
 
-  // 1) AI 초안 만들기(시뮬레이션)
-  $('gen').onclick = () => {
-    $('gen').disabled = true;
-    const ol = $('steps'); ol.hidden = false;
-    let k = 0;
-    const paint = () => { ol.innerHTML = V2.STEPS.map((s, i) => `<li class="${i < k ? 'done' : i === k ? 'now' : ''}"><span class="dot">${i < k ? '✓' : i + 1}</span>${s}</li>`).join(''); };
-    paint();
+  // ① AI 초안 만들기(시뮬레이션)
+  function runGen() {
+    $('gen').disabled = true; $('gen').textContent = '분석 중…';
+    let k = 0; paintGen(0);
     const tick = setInterval(() => {
-      k++; paint();
-      if (k >= V2.STEPS.length) { clearInterval(tick); setTimeout(open, 350); }
-    }, 450);
-  };
+      k++; paintGen(k);
+      if (k >= V2.GEN_ITEMS.length) { clearInterval(tick); $('gen').textContent = '✓ 초안 완성'; setTimeout(open, 300); }
+    }, 380);
+  }
+  $('gen').onclick = runGen;
   function open() {
     draft = V2.generateDraft(L); seen = new Set(); editing = null;
-    $('start').hidden = true; $('work').hidden = false; $('dock').hidden = false;
-    $('emph').innerHTML = '선생님이 반복해서 강조한 것 ' + L.emphasis.map(e => `<span class="${e.prev ? 'prev' : ''}">${esc(e.term)} ×${e.count}${e.prev ? ' · 지난주부터' : ''}</span>`).join('');
+    $('s2').hidden = false; $('dock').hidden = false;
+    $('emph').innerHTML = '선생님이 반복해서 강조한 것: ' + L.emphasis.map(e => `<span class="${e.prev ? 'prev' : ''}">${esc(e.term)} ×${e.count}${e.prev ? ' · 지난주부터' : ''}</span>`).join('');
     render();
+    $('s2').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
-  // 2) 전체 검토: 카드가 화면에 충분히 보이면 '확인'
+  // ② 검토: 카드가 화면에 충분히 보이면 '확인'
   function watch() {
     if (io) io.disconnect();
     if (!('IntersectionObserver' in window)) { V2.allCards(draft).forEach(c => seen.add(c.id)); return; }
     io = new IntersectionObserver(es => {
       let ch = false;
-      es.forEach(e => { if (e.isIntersecting && !seen.has(e.target.dataset.id)) { seen.add(e.target.dataset.id); e.target.classList.add('seen'); ch = true; } });
+      es.forEach(e => { const id = e.target.dataset.id; if (e.isIntersecting && !seen.has(id)) { seen.add(id); e.target.classList.add('seen'); ch = true; } });
       if (ch) paintBar();
     }, { threshold: 0.6 });
-    document.querySelectorAll('.card[data-id]').forEach(el => io.observe(el));
+    document.querySelectorAll('[data-id]').forEach(el => io.observe(el));
   }
-
   function paintBar() {
     const p = V2.reviewProgress(draft, seen);
-    $('share').textContent = `🤖 AI가 ${V2.aiShare(draft)}% 작성`;
-    $('prog').textContent = ` · 훑어본 카드 ${p.done}/${p.total}`;
+    $('share').textContent = `🤖 AI 작성 ${V2.aiShare(draft)}%`;
+    $('prog').textContent = `훑어본 카드 ${p.done}/${p.total}`;
     $('meter').style.width = (p.done / p.total * 100) + '%';
     $('send').disabled = !V2.canDeliver(p.all);
-    $('lock').textContent = p.all ? '' : '아래로 끝까지 한 번 훑어보면 전달 버튼이 켜져요';
-    document.querySelectorAll('.card[data-id]').forEach(el => {
-      const ck = el.querySelector('.ck'); if (ck) ck.textContent = seen.has(el.dataset.id) ? '✓ 확인' : '확인 전';
-    });
+    $('send').textContent = p.all ? '✈ 수강생에게 전달하기' : `끝까지 훑어보면 켜져요 (${p.done}/${p.total})`;
+    document.querySelectorAll('[data-id]').forEach(el => { const c = el.querySelector('.ck'); if (c) c.textContent = seen.has(el.dataset.id) ? '✓ 확인' : '확인 전'; });
   }
 
-  function cardHTML(c, cheer) {
+  // ③ 카드 편집창
+  function editorHTML(c) {
+    const txt = V2.cardText(c, level).split('\n').filter(Boolean).map(s => '• ' + s).join('\n');
+    return `<div class="edhd"><b>${c.icon || ''} ${esc(c.title)}</b><span class="muted">${V2.LEVELS[level]} 보기에서 보이는 줄</span><button class="x" data-cancel aria-label="닫기">✕</button></div>
+      <textarea id="ed" rows="4" maxlength="${V2.MAX_CHARS}">${esc(txt)}</textarea>
+      <div class="edft"><span class="cnt" id="edc"></span><button class="sug" data-sug="${c.id}">✦ AI 문구 제안</button><button class="cc" data-cancel>취소</button><button class="sv" data-save="${c.id}">저장</button></div>`;
+  }
+  function itemsHTML(c) {
     const vis = V2.visibleItems(c, level);
-    let body = '';
-    if (c.audio) body += `<div class="aud"><button class="pl" data-play="${c.id}" aria-label="재생">▶</button><canvas data-wave="${c.id}" height="40"></canvas><span class="len">0:${String(c.audio.len).padStart(2, '0')}</span></div>`;
-    if (editing === c.id) {
-      const txt = vis.map(i => i.text).join('\n');
-      body += `<textarea id="ed" rows="3">${esc(txt)}</textarea><div class="edrow"><span class="cnt" id="edc"></span><button class="cc" data-cancel>취소</button><button class="sv" data-save="${c.id}">저장</button></div>`;
-    } else {
-      body += vis.length ? '<ul>' + vis.map(i => `<li class="${i.ai && i.text === i.ai ? '' : 'mine'}">${esc(i.text)}${i.ev ? `<span class="ev">${esc(i.ev)}</span>` : ''}</li>`).join('') + '</ul>' : '<div class="muted">이 단계에서는 보이지 않아요</div>';
-    }
-    return `<div class="card${cheer ? ' cheer' : ''}${seen.has(c.id) ? ' seen' : ''}" data-id="${c.id}"><h3>${c.icon} ${esc(c.title)} <span class="ck"></span>${editing === c.id ? '' : `<button class="ed" data-edit="${c.id}">✏️ 수정</button>`}</h3>${body}</div>`;
+    if (!vis.length) return '<p class="muted">이 보기에서는 안 보여요</p>';
+    if (c.check) return '<ul class="chk">' + vis.map((i, k) => `<li class="${i.on ? 'on' : ''}" data-chk="${c.id}" data-k="${k}"><span class="box">${i.on ? '✓' : ''}</span><span class="tx ${i.ai && i.text === i.ai ? '' : 'mine'}">${esc(i.text)}${i.ev ? `<span class="ev">${esc(i.ev)}</span>` : ''}</span></li>`).join('') + '</ul>';
+    const tag = (c.audio || c.song) ? 'p' : 'li';
+    const rows = vis.map(i => `<${tag} class="${i.ai && i.text === i.ai ? '' : 'mine'}">${esc(i.text)}${i.ev ? `<span class="ev">${esc(i.ev)}</span>` : ''}</${tag}>`).join('');
+    return tag === 'li' ? '<ul>' + rows + '</ul>' : rows;
+  }
+  function cardHTML(c) {
+    const ed = editing === c.id;
+    let top = c.badge ? `<div class="ctop"><span class="tag ${c.tone}">${esc(c.badge)}</span><span class="t">${V2.mmss(c.audio.len)}</span></div>` : '';
+    let body = ed ? '' : `<h4>${c.icon ? c.icon + ' ' : ''}${esc(c.title)}</h4>`;
+    if (c.audio) body += `<div class="aud ${c.tone}"><button class="pl" data-play="${c.id}" aria-label="재생">▶</button><canvas data-wave="${c.id}"></canvas></div>`;
+    if (c.song) body += `<div class="songrow"><div class="thumb">🎤</div><div><b>${esc(c.song.title)}</b><div class="muted">(${esc(c.song.artist)})</div></div></div>`;
+    body += ed ? editorHTML(c) : itemsHTML(c);
+    return `<div class="card${seen.has(c.id) ? ' seen' : ''}${ed ? ' editing' : ''}" data-id="${c.id}">${top}${body}${ed ? '' : `<span class="ck"></span><button class="pen" data-edit="${c.id}" aria-label="수정">✏️</button>`}</div>`;
+  }
+  function cheerHTML() {
+    const c = draft.cheer, ed = editing === c.id;
+    if (ed) return `<div class="cheer editing seen" data-id="cheer">${editorHTML(c)}</div>`;
+    const vis = V2.visibleItems(c, level);
+    return `<div class="cheer${seen.has('cheer') ? ' seen' : ''}" data-id="cheer"><b>💗 응원 메시지</b><span class="${vis.every(i => i.text === i.ai) ? '' : 'mine'}">${vis.map(i => esc(i.text)).join(' ')}</span><button class="pen" data-edit="cheer" aria-label="수정">✏️</button></div>`;
   }
 
   function render() {
-    $('lv').innerHTML = Object.entries(V2.LEVELS).map(([k, v]) => `<button data-lv="${k}" class="${k === level ? 'on' : ''}">${v}</button>`).join('');
-    $('cards').innerHTML = `<div class="muted" style="margin:4px 2px">수강생에게 보일 순서 그대로예요. 노란 글씨 = 선생님이 고친 줄.</div>` +
-      draft.cards.map(c => cardHTML(c)).join('') + cardHTML(draft.cheer, true);
+    $('lv').innerHTML = Object.entries(V2.LEVELS).map(([k, v]) => `<button data-lv="${k}" class="${k === level ? 'on' : ''}">${v} 보기</button>`).join('');
+    $('grid').innerHTML = draft.cards.map(cardHTML).join('');
+    $('cheerBox').innerHTML = cheerHTML();
     document.querySelectorAll('canvas[data-wave]').forEach(drawWave);
-    const ta = $('ed'); if (ta) { fit(ta); ta.focus(); ta.oninput = () => fit(ta); }
+    const ta = $('ed'); if (ta) { fit(ta); ta.focus({ preventScroll: true }); ta.oninput = () => fit(ta); ta.closest('[data-id]').scrollIntoView({ behavior: 'smooth', block: 'center' }); }
     paintBar(); watch();
+    if ($('pvOv').classList.contains('on')) paintPhone();
   }
-
   function fit(ta) {
-    const n = ta.value.split('\n').length;
-    ta.rows = Math.min(V2.MAX_LINES, Math.max(2, n));
-    const over = n > V2.MAX_LINES;
-    $('edc').textContent = `${Math.min(n, V2.MAX_LINES)}/${V2.MAX_LINES}줄` + (over ? ' · 12줄 넘는 부분은 빠져요' : '');
+    const c = V2.counts(ta.value), n = ta.value.split('\n').length;
+    ta.rows = Math.min(V2.MAX_LINES, Math.max(3, n));
+    $('edc').textContent = `${c.chars}/${V2.MAX_CHARS} · ${Math.min(c.lines, V2.MAX_LINES)}/${V2.MAX_LINES}줄` + (c.lines > V2.MAX_LINES ? ' · 12줄 넘는 부분은 빠져요' : '');
   }
 
   // 가짜 파형 + 재생 위치
   function drawWave(cv) {
     const c = draft.cards.find(x => x.id === cv.dataset.wave); if (!c) return;
-    const w = cv.clientWidth || 260, h = 40, dpr = window.devicePixelRatio || 1;
+    const w = cv.clientWidth || 200, h = 36, dpr = window.devicePixelRatio || 1;
     cv.width = w * dpr; cv.height = h * dpr;
     const g = cv.getContext('2d'); g.scale(dpr, dpr);
-    const pk = V2.mockPeaks(c.audio.seed, 80), bw = w / pk.length;
+    const pk = V2.mockPeaks(c.audio.seed, Math.max(30, Math.floor(w / 3.5))), bw = w / pk.length;
     const pos = playing === c.id && player.duration ? player.currentTime / player.duration : 0;
-    pk.forEach((p, i) => {
-      g.fillStyle = (i / pk.length) < pos ? '#9cc3ff' : '#4a525e';
-      const bh = Math.max(2, p * (h - 6)); g.fillRect(i * bw + 1, (h - bh) / 2, Math.max(1, bw - 2), bh);
-    });
+    const on = c.tone === 'purple' ? '#b48cff' : '#5b9bff', off = c.tone === 'purple' ? '#4b3d6e' : '#30466e';
+    pk.forEach((p, i) => { g.fillStyle = (i / pk.length) < pos || !pos ? on : off; if (pos && (i / pk.length) >= pos) g.fillStyle = off; const bh = Math.max(2, p * (h - 4)); g.fillRect(i * bw + .5, (h - bh) / 2, Math.max(1, bw - 1.2), bh); });
   }
   function paintPlay() {
     document.querySelectorAll('[data-play]').forEach(b => b.textContent = playing === b.dataset.play && !player.paused ? '❚❚' : '▶');
@@ -197,49 +256,67 @@ textarea{width:100%;font:inherit;color:var(--fg);background:#0f1216;border:1.5px
   }
   player.ontimeupdate = paintPlay; player.onpause = paintPlay; player.onplay = paintPlay;
   player.onended = () => { playing = null; paintPlay(); };
+  function playFrom(id, f) {
+    if (playing !== id) { player.src = L.audio; playing = id; }
+    const go = () => { if (f != null && player.duration) player.currentTime = f * player.duration; player.play().catch(() => {}); };
+    if (f == null || player.readyState >= 1) go(); else { player.addEventListener('loadedmetadata', go, { once: true }); player.load(); }
+  }
 
   document.addEventListener('click', e => {
-    const t = e.target.closest('button,canvas'); if (!t) return;
-    if (t.dataset.lv) { level = t.dataset.lv; render(); }
-    else if (t.dataset.edit) { editing = t.dataset.edit; render(); }
+    const t = e.target.closest('button,canvas,li[data-chk]'); if (!t || !draft) return;
+    const card = id => V2.allCards(draft).find(x => x.id === id);
+    if (t.dataset.lv) { level = t.dataset.lv; editing = null; render(); }
+    else if (t.dataset.edit) { editing = t.dataset.edit; sugK = 0; render(); }
     else if (t.dataset.cancel !== undefined) { editing = null; render(); }
-    else if (t.dataset.save) { const c = V2.allCards(draft).find(x => x.id === t.dataset.save); V2.editCard(c, level, $('ed').value); editing = null; render(); }
-    else if (t.dataset.play) {
-      if (playing === t.dataset.play && !player.paused) { player.pause(); return; }
-      if (playing !== t.dataset.play) { player.src = L.audio; playing = t.dataset.play; }
-      player.play().catch(() => {});
-    } else if (t.dataset.wave) {
-      const r = t.getBoundingClientRect(), f = (e.clientX - r.left) / r.width;
-      if (playing !== t.dataset.wave) { player.src = L.audio; playing = t.dataset.wave; }
-      const go = () => { if (player.duration) player.currentTime = f * player.duration; player.play().catch(() => {}); };
-      player.readyState >= 1 ? go() : player.addEventListener('loadedmetadata', go, { once: true });
-      if (player.readyState < 1) player.load();
-    }
+    else if (t.dataset.save) { V2.editCard(card(t.dataset.save), level, $('ed').value); editing = null; render(); toast('저장했어요 · 수강생 화면에 바로 반영돼요'); }
+    else if (t.dataset.sug) { const s = V2.suggest(t.dataset.sug, sugK++); if (s) { $('ed').value = s.split('\n').map(x => '• ' + x).join('\n'); fit($('ed')); } }
+    else if (t.dataset.chk) { V2.toggleCheck(card(t.dataset.chk), +t.dataset.k, level); render(); }
+    else if (t.dataset.play) { if (playing === t.dataset.play && !player.paused) player.pause(); else playFrom(t.dataset.play, null); }
+    else if (t.dataset.wave) { const r = t.getBoundingClientRect(); playFrom(t.dataset.wave, Math.max(0, Math.min(1, (e.clientX - r.left) / r.width))); }
+    else if (t.dataset.plv) { level = t.dataset.plv; editing = null; render(); }
   });
 
-  // 3) 수강생 화면 미리보기
-  function studentHTML() {
-    const v = V2.buildStudentView(draft, level);
-    return `<button class="x" data-close="pvOv">닫기</button>
-      <div class="sv-h"><b>${esc(L.student)}님의 보컬노트</b><div class="muted">${L.round}회차 · ${L.date} · ${V2.LEVELS[level]}</div></div>
-      <div>${esc(v.greet)}</div>` +
-      v.cards.map(c => `<div class="sv-c"><h4>${c.icon} ${esc(c.title)}</h4>${c.audio ? `<div class="aud"><span class="pl" style="display:grid;place-items:center">▶</span><span class="muted">0:${String(c.audio.len).padStart(2, '0')} 듣기</span></div>` : ''}${c.lines.length ? '<ul>' + c.lines.map(x => `<li>${esc(x)}</li>`).join('') + '</ul>' : ''}</div>`).join('') +
-      `<div class="sv-cheer">💬 ${v.cheer.map(esc).join('<br>')}</div><p class="muted" style="text-align:center">미리보기 · 수강생 폰에서 이렇게 보여요</p>`;
+  // ④⑤ 수강생 화면 미리보기(실시간 반영)
+  function paintPhone() {
+    const v = V2.buildStudentView(draft, level), sc = $('phone').scrollTop;
+    $('phone').innerHTML = `<div class="sbar"><span>9:41</span><span>▂▄▆ ᯤ ▮</span></div>
+      <div class="phd"><div class="r"><button class="bk" data-close="pvOv" aria-label="닫기">‹</button><b>오늘의 레슨 피드백</b></div>
+      <div class="seg">${Object.entries(V2.LEVELS).map(([k, x]) => `<button data-plv="${k}" class="${k === level ? 'on' : ''}">${x}</button>`).join('')}</div></div>
+      <div class="pbody"><div class="muted">${esc(L.student)}님의 보컬노트 · ${L.round}회차 · ${L.date}</div><p style="margin:6px 0 0">${esc(v.greet)}</p>` +
+      v.cards.map(c => `<div class="sc">${c.badge ? `<div class="ctop"><span class="tag ${c.tone}">${esc(c.badge)}</span><span class="t muted">${V2.mmss(c.audio.len)}</span></div>` : ''}<h4>${c.icon ? c.icon + ' ' : ''}${esc(c.title)}</h4>` +
+        (c.audio ? `<div class="aud"><span class="pl ${c.tone}">▶</span><canvas data-pwave="${c.id}"></canvas></div>` : '') +
+        (c.song ? `<div class="songrow"><div class="thumb">🎤</div><div><b>${esc(c.song.title)}</b><div class="muted">(${esc(c.song.artist)})</div></div></div>` : '') +
+        (c.lines.length ? (c.audio || c.song ? c.lines.map(x => `<p>${esc(x)}</p>`).join('') : `<ul>${c.lines.map(x => `<li>${c.check ? '☑️ ' : ''}${esc(x)}</li>`).join('')}</ul>`) : '') + '</div>').join('') +
+      `<div class="scheer">💗 ${v.cheer.map(esc).join(' ')}</div><p class="muted" style="text-align:center">미리보기 · 수강생 폰에서 이렇게 보여요</p></div>`;
+    $('phone').querySelectorAll('canvas[data-pwave]').forEach(cv => { cv.dataset.wave = cv.dataset.pwave; drawWave(cv); delete cv.dataset.wave; });
+    $('phone').scrollTop = sc;
   }
-  $('pvBtn').onclick = () => { $('phone').innerHTML = studentHTML(); $('phone').scrollTop = 0; $('pvOv').classList.add('on'); };
+  $('pvBtn').onclick = () => { paintPhone(); $('phone').scrollTop = 0; $('pvOv').classList.add('on'); };
 
-  // 4) 전달(시뮬레이션)
-  $('send').onclick = () => {
-    const p = V2.reviewProgress(draft, seen);
-    const r = V2.simulateDeliver(draft, p.all);
-    $('modal').innerHTML = r.ok
-      ? `<h3>✅ 전달 시뮬레이션 완료</h3><p>${esc(r.message)}</p><p class="muted">실제 앱이라면 이 순간 수강생 페이지가 열리고 카톡으로 보낼 멘트가 준비됩니다. · AI 작성 ${V2.aiShare(draft)}% · 단계 ${V2.LEVELS[level]}</p><button class="pri" data-close="dlOv">확인</button>`
-      : `<h3>잠깐만요</h3><p>${esc(r.reason)}</p><button class="pri" data-close="dlOv">확인</button>`;
-    $('dlOv').classList.add('on');
+  // AI 원문 다시 보기 / 다시 생성 / 임시저장
+  function modal(html) { $('modal').innerHTML = html; $('mdOv').classList.add('on'); }
+  $('origBtn').onclick = () => {
+    const o = V2.originals(draft);
+    modal(`<h3>👁 AI 원문 다시 보기</h3>` + (o.length ? `<p class="muted">선생님이 고친 줄 ${o.length}개 — 회색이 AI 원문, 노란색이 지금 문장이에요.</p>` + o.map(x => `<div class="diff"><div class="muted">${esc(x.card)}</div><s>${esc(x.ai)}</s><div class="now">→ ${esc(x.now)}</div></div>`).join('') : '<p>아직 고친 줄이 없어요. 전부 AI가 쓴 그대로예요.</p>') +
+      `<div class="row">${o.length ? '<button class="ghost" data-revert>전부 AI 원문으로</button>' : ''}<button class="pri" data-close="mdOv">닫기</button></div>`);
   };
+  $('regenBtn').onclick = () => modal(`<h3>↻ 다시 생성할까요?</h3><p>AI가 레슨을 다시 분석해 초안을 새로 씁니다. <b>지금까지 고친 내용은 사라져요.</b></p><p class="muted">시험판이라 실제 AI는 부르지 않고 같은 가상 초안을 다시 만듭니다(비용 없음).</p><div class="row"><button class="ghost" data-close="mdOv">취소</button><button class="pri" data-regen>다시 생성</button></div>`);
+  $('saveBtn').onclick = () => { saved = V2.snapshot(draft); toast('임시저장했어요 (시험판: 이 화면에서만, 새로고침하면 사라져요)'); };
+
+  // ⑥ 전달(시뮬레이션)
+  $('send').onclick = () => {
+    const r = V2.simulateDeliver(draft, V2.reviewProgress(draft, seen).all);
+    modal(r.ok
+      ? `<h3>✅ 전달 시뮬레이션 완료</h3><p>${esc(r.message)}</p><p class="muted">실제 앱이라면 이 순간 수강생 페이지가 열리고 카톡으로 보낼 멘트가 준비됩니다.<br>AI 작성 ${V2.aiShare(draft)}% · ${V2.LEVELS[level]} 보기</p><div class="row"><button class="pri" data-close="mdOv">확인</button></div>`
+      : `<h3>잠깐만요</h3><p>${esc(r.reason)}</p><div class="row"><button class="pri" data-close="mdOv">확인</button></div>`);
+  };
+
   document.addEventListener('click', e => {
-    const c = e.target.closest('[data-close]'); if (c) $(c.dataset.close).classList.remove('on');
-    else if (e.target.classList && e.target.classList.contains('ov')) e.target.classList.remove('on');
+    const c = e.target.closest('[data-close]');
+    if (c) { $(c.dataset.close).classList.remove('on'); return; }
+    if (e.target.closest('[data-revert]')) { V2.allCards(draft).forEach(cd => { cd.items = cd.items.filter(i => i.ai).map(i => Object.assign(i, { text: i.ai })); }); $('mdOv').classList.remove('on'); render(); toast('전부 AI 원문으로 되돌렸어요'); return; }
+    if (e.target.closest('[data-regen]')) { $('mdOv').classList.remove('on'); $('gen').disabled = false; $('s1').scrollIntoView({ behavior: 'smooth' }); setTimeout(runGen, 300); return; }
+    if (e.target.classList && e.target.classList.contains('ov')) e.target.classList.remove('on');
   });
   window.addEventListener('resize', () => document.querySelectorAll('canvas[data-wave]').forEach(drawWave));
 })();
