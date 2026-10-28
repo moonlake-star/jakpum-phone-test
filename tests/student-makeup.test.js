@@ -30,7 +30,7 @@ assert.deepStrictEqual(au(lessonHtml(base, null)), ["B2"]);
 h = lessonHtml({ ...base, makeup: { ...MK, file_id: 'M"><img src=x>', job_id: "SECRET", status: "done" } }, null);
 assert.ok(!h.includes("<img") && !h.includes("SECRET") && !h.includes("done"));
 // 재생 연결: '#m' 접미사를 벗겨 원래 파일 ID로 요청
-assert.ok(src.includes('replace(/#[bsm]$/, "")'), "#m 접미사 제거");
+assert.ok(src.includes('replace(/#[bsmp]$/, "")'), "#m 접미사 제거");
 // A/B 동기 전환은 미구현 — 학생 화면이 약속하지 않음
 assert.ok(!/동기|A\/B 전환/.test(h));
 console.log("student-makeup test ok");

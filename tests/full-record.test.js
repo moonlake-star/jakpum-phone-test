@@ -22,7 +22,7 @@ let h = lessonHtml(L, null, "normal");
 assert.ok(h.includes('class="card more fullrec"') && h.includes("<details") && !h.includes("<details open"), "접힌 채");
 assert.ok(h.includes('data-ft="3"') && h.includes('data-ft="70"') && h.includes('<span class="who">선생님</span><span class="tm">0:03</span>') && h.includes('<span class="who">나</span><span class="tm">1:10</span>'));
 assert.ok(/fseg left[^]*fb-t/.test(h) && /fseg right"><div class="fbub fb-s/.test(h), "V1처럼 말풍선: 선생님 왼쪽, 나 오른쪽");
-const hm = lessonHtml({ ...L, clips: [{ file_id: "C1", label: "1:00 구간" }] }, null, "normal");
+const hm = lessonHtml({ ...L, extra_best: [{ file_id: "X1", kind_ko: "다른 버전" }] }, null, "normal");
 assert.ok(hm.indexOf("더 들여다보기") > 0 && hm.indexOf("더 들여다보기") < hm.indexOf("fullrec"), "더 들여다보기가 위");
 assert.ok(!h.includes("<b>먼저") && h.includes("&lt;b&gt;"), "이스케이프");
 assert.ok(h.includes("앞부분만"), "잘렸으면 표시");

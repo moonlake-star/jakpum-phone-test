@@ -12,10 +12,10 @@ const base = { id: "L2", date: "2026-10-26", feedback: "오늘 숨 쉬는 자리
 const prev = { id: "L1", date: "2026-10-19", best: { file_id: "B1", len: 35 } };
 const INTERNAL = ["lesson_tone", "weekly_mission", "evidence", "confidence", "condition_guard", "needs_teacher_check", "낙심", "challenging"];
 (() => {
-  // 1. 좋았던 날(10/28 승인 시안): 첫 화면 = 순간 → 베스트 1개 → 한마디 → 핵심 포인트 → 다음 미션(전부), 클립·비교는 접힘
+  // 1. 좋았던 날(10/29 사용자: 들을 거리 먼저): 첫 화면 = 베스트 → 순간 → 한마디 → 핵심 포인트 → 다음 미션(전부), 비교는 접힘
   const [top, more] = split(lessonHtml(base, null));
   const iM = top.indexOf("선생님이 발견한 오늘의 순간"), iA = top.indexOf('data-au="B2"'), iF = top.indexOf("선생님 한마디"), iK = top.indexOf("오늘의 핵심 포인트"), iP = top.indexOf("다음 미션");
-  assert.ok(iM >= 0 && iM < iA && iA < iF && iF < iK && iK < iP, "순서: 순간 → 오디오 → 한마디 → 핵심 포인트 → 미션");
+  assert.ok(iA >= 0 && iA < iM && iM < iF && iF < iK && iK < iP, "순서: 베스트 오디오 → 순간 → 한마디 → 핵심 포인트 → 미션");
   assert.strictEqual(audios(top), 1);
   assert.ok(top.includes("하루 한 번 허밍") && top.includes("둘째 줄만 천천히"), "미션은 첫 화면에 모두");
   assert.ok(top.includes("숨") && top.includes("끝음"), "핵심 포인트는 첫 화면");
@@ -34,11 +34,11 @@ const INTERNAL = ["lesson_tone", "weekly_mission", "evidence", "confidence", "co
   assert.ok(!h.includes("지난번과 비교"), "오늘 베스트가 없으면 비교 없음");
   // 4. 오디오 없음이어도 순간/한마디는 정상
   assert.ok(lessonHtml({ ...base, best: null }, prev).includes("두 번째 줄 끝음"));
-  // 5. 클립 0 / 3 / 5개 → 최대 3개, 모두 상세 안
+  // 5. 클립 0 / 3 / 5개 → 최대 3개, 첫 화면 '오늘 좋았던 순간'(10/29: 접힌 곳에서 꺼냄)
   [[0, 0], [3, 3], [5, 3]].forEach(([n, want]) => {
     const clips = Array.from({ length: n }, (_, i) => ({ file_id: "K" + i, label: "구간" + i }));
     const [t, m] = split(lessonHtml({ ...base, clips }, null));
-    assert.strictEqual(audios(m), want); assert.strictEqual(audios(t), 1); assert.strictEqual(m.includes("오늘의 클립"), want > 0);
+    assert.strictEqual(audios(t), 1 + want); assert.strictEqual(t.includes("오늘 좋았던 순간"), want > 0); assert.ok(!m.includes("오늘의 클립"));
   });
   // 6. 비교: 둘 다 있을 때만, 상세 안에서만
   const [t6, m6] = split(lessonHtml(base, prev));
@@ -47,7 +47,7 @@ const INTERNAL = ["lesson_tone", "weekly_mission", "evidence", "confidence", "co
   // 7. 깨진 항목과 HTML 주입
   const odd = lessonHtml({ ...base, clips: [null, {}, { file_id: "K9" }], extra_best: [null, {}], points: [null, "", "숨"], highlight: "<img src=x onerror=1>" }, null);
   assert.ok(!odd.includes("<img") && odd.includes("&lt;img"));
-  assert.strictEqual(audios(split(odd)[1]), 1);
+  assert.strictEqual(audios(split(odd)[0]), 2, "베스트 + 파일 있는 클립 1개");
   // 8. 접근성·재생·모바일·3단계 막대 제거
   assert.ok(/details\.more > summary \{ min-height:56px/.test(src), "큰 터치 영역");
   assert.ok(/addEventListener\("play"[\s\S]*?pause\(\)/.test(src), "단일 재생");
@@ -64,7 +64,7 @@ const INTERNAL = ["lesson_tone", "weekly_mission", "evidence", "confidence", "co
   const nor = lessonHtml(rich, prev, "normal");
   assert.ok(nor.includes("응원 메시지") && nor.includes("가짜 노래") && nor.includes("(홍길동)") && nor.includes("<details"));
   const det = lessonHtml(rich, prev, "detail");
-  assert.ok(!det.includes("<details") && det.includes("오늘의 클립") && det.includes("지난번과 비교"));
+  assert.ok(!det.includes("<details") && det.includes("오늘 좋았던 순간") && det.includes("지난번과 비교"));
   assert.strictEqual(lessonHtml(rich, prev, "이상한값"), nor, "모르는 값은 보통");
   assert.ok(src.includes('LS.set("sn_mode"'), "고른 보기 방식 기억");
   console.log("student-moment ok (10 scenarios)");
