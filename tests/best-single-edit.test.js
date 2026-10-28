@@ -27,7 +27,7 @@ assert.ok(h.includes("오늘의 베스트") && h.includes("원본 편집본") &&
 assert.ok(!/후보|bestAlt|data-k="\d"/.test(h) && !h.includes("B1") && !h.includes("B2"), "단일 테이크 후보 노출 금지");
 assert.strictEqual(pressed(h), 0);
 assert.ok(h.includes('data-incl="best"') && h.includes("보내기"), "편집본 제목 옆 체크박스(기본 해제)");
-assert.ok(h.includes("메이크업 만들기") && !h.includes('data-incl="makeup"') && !h.includes('data-ab="mk"'), "메이크업 음원 없으면 보내기 체크박스 없음");
+assert.ok(h.includes("메이크업본 만들기") && !h.includes('data-incl="makeup"') && !h.includes('data-abrow="mk"'), "메이크업 음원 없으면 보내기 체크박스 없음");
 // 2) 이어 붙인 자리 정보가 없는데 '한 테이크 그대로'라고 하지 않음
 h = setup({}, { ...COMP, seams: [], takes_used: 3, method: "v5-mrabs" }).api.renderBest();
 assert.ok(h.includes("한 테이크 그대로라는 뜻이 아니에요") && !h.includes("(한 테이크 그대로)"));
@@ -42,12 +42,12 @@ for (const [c, msg] of [[{ status: "error", why: "x" }, "편집본 생성 실패
 // 4) 메이크업 상태: 처리 중/실패/완료인데 파일 없음/완료
 for (const [job, msg] of [[JOB({ status: "running", progress: { pct: 40 } }), "처리 중이에요(40%)"], [JOB({ status: "error" }), "처리에 실패했어요"], [JOB({}, []), "음원 파일을 확인하지 못했어요"]]) {
   t = setup({}, COMP, [job]); h = t.api.renderBest();
-  assert.ok(h.includes(msg), msg); assert.ok(!h.includes('data-ab="mk"'), "음원 없으면 메이크업 탭 없음");
+  assert.ok(h.includes(msg), msg); assert.ok(!h.includes('data-abrow="mk"'), "음원 없으면 메이크업 파형 없음");
   assert.ok(!h.includes('data-incl="makeup"'));
 }
 // 5) 완료된 메이크업: 비교 재생바(편집본 + 메이크업본 = .tp 2개) 와 활성 포함 버튼
 t = setup({}, COMP, [JOB()]); h = t.api.renderBest();
-assert.strictEqual((h.match(/class="tp"/g) || []).length, 1, "A안: 재생 줄은 하나"); assert.ok(h.includes('data-ab="mk"') && h.includes('data-incl="makeup"') && !/data-incl="makeup"[^>]*disabled/.test(h));
+assert.strictEqual((h.match(/class="tp"/g) || []).length, 2, "B안: 파형 2개"); assert.strictEqual((h.match(/data-abp="play"/g) || []).length, 1, "재생 줄은 하나"); assert.ok(h.includes('data-abrow="mk"') && h.includes('data-abp="swap"') && h.includes('data-incl="makeup"') && !/data-incl="makeup"[^>]*disabled/.test(h));
 // 6) 보내기 체크: 독립 저장, 파일 ID 기록, 승인 상태 갱신(paintDeliver), 메이크업 없으면 거부, 해제하면 미선택(null)
 const tick = (t, k, on) => { t.btns.length = 0; const mk = (kk) => ({ dataset: { incl: kk }, checked: false, onchange: null, closest: () => null });
   const bs = [mk("best"), mk("makeup")]; t.btns.push(...bs);
@@ -67,7 +67,7 @@ t = setup({}, COMP, [JOB()]);
 }
 // 7) 두 음원 동시 재생 방지: 편집본·메이크업본 재생바는 같은 단일 player 에 연결되고 별도 Audio 를 만들지 않음
 const wb = grab(/function wireBest\(\) \{[\s\S]*?\n\}\n/);
-assert.ok(/tpWire\(broot, o\.file_id\)/.test(wb) && /tpWire\(broot, id\)/.test(wb) && /player\.currentTime = Math\.min\(t,/.test(wb), "A안: 한 재생 줄을 원본/메이크업으로 바꿔 끼우고 같은 위치 유지");
+assert.ok(/tpWire\(broot, o\.file_id, false, timeEl\)/.test(wb) && /tpWire\(mroot, m\.file_id, false, timeEl\)/.test(wb) && /player\.currentTime = Math\.min\(t,/.test(wb), "B안: 같은 player, ⇄는 같은 위치 유지");
 assert.ok(!/new Audio|<audio/.test(wb + grab(/function makeupBoxHTML\(o\) \{[\s\S]*?\n\}\n/)), "메이크업 비교용 별도 오디오 금지");
 assert.ok(/const player = new Audio\(\)/.test(src) && (src.match(/const player = new Audio\(\)/g) || []).length === 1);
 assert.ok(/function tpLoad[\s\S]*?player\.pause\(\); tpRoot = root/.test(src), "다른 재생바로 바꾸면 이전 음원을 멈춤");
