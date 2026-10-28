@@ -2,8 +2,8 @@
 const fs = require('fs'), assert = require('assert');
 const src = fs.readFileSync(__dirname + '/../teacher/index.html', 'utf8');
 const grab = name => src.match(new RegExp('(?:async )?function '+name+'\\([^]*?\\n}\\n'))[0];
-const consts = src.match(/const PV_ROWS[^\n]*\n/)[0] + src.match(/const pvH[^\n]*\n/)[0];
-const code = consts + ['pvSetOpen','openStudentView','closeStudentView','studentViewHTML','updateFeedbackDraft','feedbackPreviewHTML','wireFeedbackPreview'].map(grab).join('\n');
+const consts = ['PV_ROWS','pvH','SV_MAX_CLIPS','svMd','svList','svPlayer'].map(n => src.match(new RegExp('const ' + n + '[^\\n]*\\n'))[0]).join('');
+const code = consts + ['pvSetOpen','openStudentView','closeStudentView','studentViewHTML','svLessonHtml','updateFeedbackDraft','feedbackPreviewHTML','wireFeedbackPreview'].map(grab).join('\n');
 const esc = x => String(x).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
 function mk(saveOk = true) {
   const mkEl = () => ({ value:'', textContent:'', disabled:false, checked:false, style:{}, dataset:{}, attrs:{}, setAttribute(k,v){ this.attrs[k]=v; } });
@@ -21,7 +21,7 @@ function mk(saveOk = true) {
   els.fb.value = cur.review.feedback; let paints = 0, saves = 0;
   const buildNote = () => ({ date: '2026-10-28', feedback: els.fb.value, practice: ['음정'], no_mission: false, best: null, clips: [] });
   const f = new Function('$','cur','paintDeliver','saveReview','esc','missionState','document','buildNote',
-    code + ';return {pvSetOpen,wireFeedbackPreview,feedbackPreviewHTML,studentViewHTML,openStudentView,closeStudentView,updateFeedbackDraft};')(
+    code + ';return {pvSetOpen,wireFeedbackPreview,feedbackPreviewHTML,studentViewHTML,svLessonHtml,openStudentView,closeStudentView,updateFeedbackDraft};')(
     id => els[id], cur, () => { paints++; }, async () => { saves++; return saveOk; }, esc, () => 'set', document, buildNote);
   return { els, cur, f, keys, get overlay(){ return overlay; }, get paints(){ return paints; }, get saves(){ return saves; } };
 }
@@ -65,16 +65,44 @@ function mk(saveOk = true) {
   assert(/transition:\s*height 250ms/.test(css) && /overflow-y:\s*auto/.test(css) && /line-height:\s*24px/.test(css) && /padding:\s*8px/.test(css) && /box-sizing:\s*border-box/.test(css) && /border-width:\s*1px/.test(css));
   assert(/@media \(prefers-reduced-motion: reduce\)\s*\{\s*#previewFeedback\s*\{\s*transition:\s*none/.test(src));
   assert.equal(5 * 24 + 8 * 2 + 2, 138);
-  // 9) 전체 화면 보기: 읽기 전용(입력칸 없음), 수강생 노트 구성, 글 이스케이프, 안 고른 베스트는 표시 안 함
+  // 9) 전체 화면 보기: 읽기 전용(입력칸·오디오 없음), 글 이스케이프
   const v = e.f.studentViewHTML({ date: '2026-10-28', feedback: '<img src=x onerror=1>좋아요', practice: ['음정'], no_mission: false, best: null, clips: [] });
-  assert(!/<textarea|<input|contenteditable/i.test(v) && !v.includes('<img') && v.includes('읽기 전용') && v.includes('이번 주 미션') && !v.includes('베스트 편집본'));
-  assert(e.f.studentViewHTML({ date: 'd', feedback: 'x', practice: [], no_mission: false, best: { kind_ko: '편집본' }, clips: [{}, {}] }).includes('베스트 편집본 1개'));
-  assert(e.f.studentViewHTML({ date: 'd', feedback: 'x', practice: [], no_mission: true, best: null, clips: [] }).includes('미션이 없어요'));
+  assert(!/<textarea|<input|contenteditable|<audio|<button class="play"|data-au|drive\.google/i.test(v) && !v.includes('<img') && v.includes('읽기 전용') && v.includes('이번 주 한 가지') && !v.includes('오늘 부른'));
+  // 9-a) 학생 화면 일치: student/index.html의 lessonHtml을 꺼내 같은 가짜 노트로 돌려 출력이 같아야 함(재생 버튼만 같은 자리표시로 바꿔 비교)
+  const ssrc = fs.readFileSync(__dirname + '/../student/index.html', 'utf8');
+  const sGrab = n => ssrc.match(new RegExp('function ' + n + '\\([^]*?\\n}\\n'))[0];
+  const sMd = ssrc.match(/const md = [^\n]*\n/)[0], sList = ssrc.match(/const listHtml = [^\n]*\n/)[0], sMax = ssrc.match(/const MAX_CLIPS[^\n]*\n/)[0];
+  const stuLesson = new Function('esc', 'player', sMd + sList + sMax + sGrab('lessonHtml').replace('<button class="ghost" id="back">← 전체 노트</button>', '') + ';return lessonHtml;')(
+    esc, (id, label) => `<div class="play" aria-disabled="true">▶ ${esc(label)} <span class="muted">(미리보기라 재생 안 해요)</span></div>`);
+  const norm = h => h.replace(/\s+/g, ' ').trim();
+  const base = { date: '2026-10-28', feedback: '잘했어요\n둘째 줄 <b>', points: ['호흡', '', '음정'], practice: ['음정 한 가지', '호흡 둘째'], no_mission: false, highlight: '후렴 호흡이 좋았어요', extra_best: [] };
+  const A = n => ({ file_id: 'f' + n, label: n + '구간', note: n + '번 메모' });
+  const cases = {
+    '선택 0(기본 미선택)': { ...base, best: null, clips: [] },
+    '선택 1(클립)': { ...base, best: null, clips: [A(1)] },
+    '선택 다수(5개→3개만)': { ...base, best: null, clips: [1, 2, 3, 4, 5].map(A) },
+    '베스트 포함(편집본)': { ...base, best: { file_id: 'b1', kind_ko: '편집본', len: 42, edited: true }, clips: [A(1)] },
+    '베스트 포함(원본)': { ...base, best: { file_id: 'b2', kind_ko: '원본', len: 30, edited: false }, clips: [] },
+    '베스트 제외(클립만)': { ...base, best: null, clips: [A(1), A(2)] },
+    '미션 없음': { ...base, practice: [], no_mission: true, best: null, clips: [] },
+    '글 없음': { ...base, feedback: '', highlight: '', points: [], practice: [], best: null, clips: [] },
+  };
+  for (const [name, note] of Object.entries(cases)) {
+    const body = e.f.studentViewHTML(note).match(/<div id="pvFullBody">([^]*)<\/div><\/div>\s*$/)[1];
+    assert.equal(norm(body), norm(stuLesson(note)), '학생 화면과 다름: ' + name);
+  }
+  // 9-b) 공개 금지: 고르지 않은 오디오는 화면에 없다(노트에 없는 파일·다른 버전·베스트)
+  const none = e.f.studentViewHTML(cases['선택 0(기본 미선택)']);
+  assert(!none.includes('오늘의 클립') && !none.includes('오늘 부른') && !none.includes('여러 번 부른') && !none.includes('다른 버전'));
+  const one = e.f.studentViewHTML(cases['선택 1(클립)']);
+  assert(one.includes('1구간') && !one.includes('2구간'));
+  assert.equal(e.f.studentViewHTML(cases['선택 다수(5개→3개만)']).split('class="clip"').length - 1, 3, '수강생처럼 클립은 최대 3개');
+  assert(src.includes('extra_best: []'), 'buildNote는 안 고른 편집본을 싣지 않음');
   e.els.btnPreviewFull.onclick(); assert(e.overlay && e.overlay.innerHTML.includes('수강생에게 이렇게 보여요') && e.overlay.innerHTML.includes('고친 글'));
   assert.equal(e.keys.length, 1); e.keys[0]({ key: 'Escape' }); assert.equal(e.overlay, null); assert.equal(e.keys.length, 0);
   assert.equal(e.saves, 1, '전체 화면 보기는 저장·게시·공개 호출을 하지 않음');
-  const fn = grab('openStudentView') + grab('studentViewHTML');
+  const fn = grab('openStudentView') + grab('studentViewHTML') + grab('svLessonHtml');
   assert(!/writeJSON|portal\(|openLink|publishNote|saveReview|api\(/.test(fn), '전체 화면 보기 코드에 쓰기/공개 호출 없음');
-  assert(fn.includes('buildNote()'), '실제 수강생 노트 생성 경로(buildNote)와 같은 데이터를 사용');
+  assert(grab('openStudentView').includes('buildNote()'), '실제 수강생 노트 생성 경로(buildNote)와 같은 데이터를 사용');
   console.log('preview-5to12 ok (5↔12줄·250ms·reduced-motion·저장/되돌리기·긴 글·전체화면 읽기 전용)');
 })().catch(err => { console.error(err); process.exit(1); });
