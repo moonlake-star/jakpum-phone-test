@@ -3,7 +3,7 @@ const fs = require("fs"), assert = require("assert");
 const src = fs.readFileSync(__dirname + "/../student/index.html", "utf8");
 const pick = (re) => { const m = src.match(re); assert.ok(m, "코드 조각 못 찾음: " + re); return m[0]; };
 const body = [pick(/const esc = [^\n]*\n/), pick(/const md = [^\n]*\n/), pick(/function player\([\s\S]*?\n}\n/),
-  pick(/const MAX_CLIPS[^\n]*\n/), pick(/const listHtml[^\n]*\n/), pick(/function lessonHtml\([\s\S]*?\n}\n/)].join("\n");
+  pick(/const MAX_CLIPS[^\n]*\n/), pick(/const listHtml[^\n]*\n/), pick(/const sidOk = [^\n]*\n/), pick(/const makeupOk = [^\n]*\n/), pick(/function lessonHtml\([\s\S]*?\n}\n/)].join("\n");
 const lessonHtml = new Function(body + "; return lessonHtml;")();
 const split = (h) => { const i = h.indexOf("<details"); return i < 0 ? [h, ""] : [h.slice(0, i), h.slice(i)]; };
 const audios = (h) => (h.match(/data-au="/g) || []).length;

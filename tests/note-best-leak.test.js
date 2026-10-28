@@ -1,35 +1,55 @@
-// P0 (#143/#63): 선생님이 직접 고르지 않은 베스트(후보 0·1·여럿, 편집본 포함)는 학생 노트·링크 권한·카톡 보내기에 실리지 않음
+// P0 (#143/#63) + 단일 베스트 편집본(#83): 선생님이 '그 파일'을 직접 [포함]하지 않은 베스트 편집본·메이크업본은
+// 학생 노트·링크 권한(file IDs)·카톡 보내기에 실리지 않음. 두 항목은 서로 독립, 기본 미선택(null).
 const fs = require("fs"), assert = require("assert");
 const src = fs.readFileSync(__dirname + "/../teacher/index.html", "utf8");
 const grab = (re) => { const m = src.match(re); assert.ok(m, "못 찾음 " + re); return m[0]; };
-const body = [grab(/function bestOptions\(\) \{[\s\S]*?\n\}\n/), grab(/function bestPicked\(\)[^\n]*\n/),
-  grab(/function bestForNote\(\)[^\n]*\n/), grab(/function buildNote\(\) \{[\s\S]*?\n\}\n/), grab(/const noteFileIds = [^\n]*\n/)].join("\n");
-const comp = { status: "ok", file_id: "C1", len: 32, lines: [1] };
-const run = (review, best) => new Function("cur", "$", "fmt", "sendList",
-  `${body}; const n = buildNote(); return { n, ids: noteFileIds(n) };`)(
-  { review, folder: { id: "L1", name: "2026-10-28 레슨" }, clips: [], best },
+const body = [grab(/function bestOptions\(\) \{[\s\S]*?\n\}\n/), grab(/function bestPicked\(\)[^\n]*\n/), grab(/function bestMakeupAudio\(o\) \{[\s\S]*?\n\}\n/),
+  grab(/const inclOk = [^\n]*\n/), grab(/function bestForNote\(\)[^\n]*\n/), grab(/function makeupForNote\(\)[^\n]*\n/),
+  grab(/function buildNote\(\) \{[\s\S]*?\n\}\n/), grab(/const noteFileIds = [^\n]*\n/), grab(/function contentSig\(note\) \{[\s\S]*?\n\}\n/),
+  grab(/function fnv\(s\)[^\n]*\n/), grab(/function bestMakeupJob\(o\) \{[\s\S]*?\n\}\n/)].join("\n");
+const COMP = { status: "ok", file_id: "C1", len: 32, lines: [1] };
+const B = (c = COMP) => ({ status: "ok", best: { file_id: "B1", len: 30 }, alternatives: [{ file_id: "B2", len: 20 }], composite: c });
+// 메이크업 작업: lesson L1, 소스=C1, 결과 mix.mp3 = M1
+const JOB = (over = {}, files = [{ id: "M1", name: "mix.mp3" }]) => ({ req: { lesson_folder: "L1", source_id: "C1", best_file_id: "C1", status: "done", result: { measure: { duration_sec: 31.6 } }, ...over }, files });
+const run = (review, best, jobs = []) => new Function("cur", "$", "fmt", "sendList",
+  `${body}; const n = buildNote(); return { n, ids: noteFileIds(n), sig: contentSig(n) };`)(
+  { review, folder: { id: "L1", name: "2026-10-28 레슨" }, clips: [], best, st: { _jobs: jobs } },
   () => ({ value: "fb" }), (x) => String(x), () => []);
-const B = (c = comp) => ({ status: "ok", best: { file_id: "B1", len: 30 }, alternatives: [{ file_id: "B2", len: 20 }], composite: c });
-const lite = (r) => ({ best: r.n.best?.file_id ?? null, extra: r.n.extra_best.length, ids: r.ids });
-const none = { best: null, extra: 0, ids: [] };
-// 다수 후보, 안 고름 → 아무것도 공개 안 함 (후보1·편집본 모두)
-assert.deepStrictEqual(lite(run({ sendBest: true }, B())), none);
-// 후보 1개뿐이어도 자동 선택 금지
-assert.deepStrictEqual(lite(run({ sendBest: true }, { status: "ok", best: { file_id: "B1", len: 30 } })), none);
-// 후보 0 / 분석 없음
-assert.deepStrictEqual(lite(run({ sendBest: true }, { status: "none" })), none);
-assert.deepStrictEqual(lite(run({ sendBest: true }, undefined)), none);
-// 직접 고른 것만
-assert.deepStrictEqual(lite(run({ sendBest: true, bestPick: 0, bestPickId: "B1" }, B())), { best: "B1", extra: 0, ids: ["B1"] });
-assert.deepStrictEqual(lite(run({ sendBest: true, bestPick: 2, bestPickId: "C1" }, B())), { best: "C1", extra: 0, ids: ["C1"] });
-assert.deepStrictEqual(lite(run({ sendBest: true, bestPick: 0, bestPickId: "B1" }, { status: "ok", best: { file_id: "B1", len: 30 } })), { best: "B1", extra: 0, ids: ["B1"] });
-// 보내기 끔
-assert.deepStrictEqual(lite(run({ sendBest: false, bestPick: 2, bestPickId: "C1" }, B())), none);
-// 기존 저장 상태 마이그레이션: 번호만 있고 파일 ID 없음 / 파일이 바뀜 / 편집본 사라짐 → 공개 안 함
-assert.deepStrictEqual(lite(run({ sendBest: true, bestPick: 0 }, B())), none);
-assert.deepStrictEqual(lite(run({ sendBest: true, bestPick: 2, bestPickId: "C0" }, B())), none);
-assert.deepStrictEqual(lite(run({ sendBest: true, bestPick: 2, bestPickId: "C1" }, B({ status: "none" }))), none);
-// 카톡 보내기 경로도 같은 함수를 씀 (후보 1개 자동 선택 제거)
-assert.ok(/const bp = bestForNote\(\);/.test(src), "btnShare 는 bestForNote 사용");
-assert.ok(!/opts\.length === 1 \? "끄면/.test(src), "후보 1개 자동선택 안내 제거");
+const lite = (r) => ({ best: r.n.best?.file_id ?? null, makeup: r.n.makeup?.file_id ?? null, extra: r.n.extra_best.length, ids: r.ids });
+const none = { best: null, makeup: null, extra: 0, ids: [] };
+const inc = (b, m) => ({ ...(b === undefined ? {} : { bestInclude: b, bestIncludeId: "C1" }), ...(m === undefined ? {} : { makeupInclude: m, makeupIncludeId: "M1" }) });
+
+// 첫 진입(미선택 null) → 아무것도 공개 안 함. 편집본·메이크업본 둘 다 있어도
+assert.deepStrictEqual(lite(run({}, B(), [JOB()])), none);
+// 단일 테이크만 있고 편집본이 없으면(후보 0/1/여럿, 실패, 대기, 분석 없음) 자동 선택·대체 금지
+for (const best of [{ status: "ok", best: { file_id: "B1", len: 30 } }, B({ status: "error" }), B({ status: "none", fallback: "best_take" }), B(null), { status: "none" }, undefined])
+  assert.deepStrictEqual(lite(run(inc(true, true), best, [JOB()])), none);
+// 편집본만 포함 / 메이크업본만 포함 / 둘 다 — 서로 독립
+assert.deepStrictEqual(lite(run(inc(true), B(), [JOB()])), { best: "C1", makeup: null, extra: 0, ids: ["C1"] });
+assert.deepStrictEqual(lite(run(inc(undefined, true), B(), [JOB()])), { best: null, makeup: "M1", extra: 0, ids: ["M1"] });
+assert.deepStrictEqual(lite(run(inc(true, true), B(), [JOB()])), { best: "C1", makeup: "M1", extra: 0, ids: ["C1", "M1"] });
+assert.deepStrictEqual(lite(run(inc(false, true), B(), [JOB()])), { best: null, makeup: "M1", extra: 0, ids: ["M1"] });   // 제외 = 숨김일 뿐
+assert.deepStrictEqual(lite(run(inc(true, false), B(), [JOB()])), { best: "C1", makeup: null, extra: 0, ids: ["C1"] });
+// 메이크업 음원이 없는 모든 경우: 포함이라 기록돼 있어도 실리지 않음(없는 음원 공유 금지)
+for (const jobs of [[], [JOB({ status: "queued" })], [JOB({ status: "error" })], [JOB({}, [])], [JOB({}, [{ id: "X", name: "vocal_dry.mp3" }])],
+  [JOB({ best_file_id: "OLD" })], [JOB({ source_id: "OLD", best_file_id: "OLD" })], [JOB({ lesson_folder: "OTHER" })]])
+  assert.deepStrictEqual(lite(run(inc(undefined, true), B(), jobs)), none, JSON.stringify(jobs));
+// 파일 ID 검증: 고른 뒤 파일이 바뀌면(편집본 재생성·메이크업 재생성) 다시 골라야 함 / ID 없는 옛 기록
+assert.deepStrictEqual(lite(run({ bestInclude: true, bestIncludeId: "C0" }, B(), [])), none);
+assert.deepStrictEqual(lite(run({ bestInclude: true }, B(), [])), none);
+assert.deepStrictEqual(lite(run({ makeupInclude: true, makeupIncludeId: "M0" }, B(), [JOB()])), none);
+// 옛 저장 상태(sendBest/bestPick) 는 무시 — 무단 공개 없음
+assert.deepStrictEqual(lite(run({ sendBest: true, bestPick: 2, bestPickId: "C1" }, B(), [JOB()])), none);
+assert.deepStrictEqual(lite(run({ sendBest: true, bestPick: 0, bestPickId: "B1" }, B(), [])), none);
+// extra_best 재유출 금지: 어떤 경우에도 빈 배열
+assert.strictEqual(run(inc(true, true), B(), [JOB()]).n.extra_best.length, 0);
+// 저장/재로드: review 를 JSON 으로 왕복해도 선택 유지, 포함 상태가 바뀌면 승인 지문(contentSig)도 달라져 재승인 필요
+const rv = inc(true, true), re = JSON.parse(JSON.stringify(rv));
+assert.deepStrictEqual(lite(run(re, B(), [JOB()])), { best: "C1", makeup: "M1", extra: 0, ids: ["C1", "M1"] });
+assert.notStrictEqual(run(inc(true, true), B(), [JOB()]).sig, run(inc(true), B(), [JOB()]).sig);
+assert.notStrictEqual(run(inc(true), B(), [JOB()]).sig, run({}, B(), [JOB()]).sig);
+// 직렬화: 메이크업 항목은 원본 편집본과 별개 파일 ID 로 기록
+assert.deepStrictEqual(run(inc(true, true), B(), [JOB()]).n.makeup, { file_id: "M1", len: 32, source_file_id: "C1" });
+// 카톡 보내기 경로도 같은 함수를 씀
+assert.ok(/const bp = bestForNote\(\);/.test(src) && /const mkp = makeupForNote\(\);/.test(src), "btnShare 는 bestForNote/makeupForNote 사용");
 console.log("note-best-leak OK");

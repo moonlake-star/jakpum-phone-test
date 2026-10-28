@@ -108,6 +108,7 @@
   /* 보내기/기록만/빼기: 한 줄 3칸 버튼(라디오), 칸마다 손가락 크기 40px 이상 */
   /* 클립 처리: 하나만 켜지는 3칸 토글(라디오). 켜진 칸 = 채운 배경 + ✓ + 굵은 테두리, 꺼진 칸 = 흐린 글자. 색만으로 구분하지 않음 */
   .bestbox { border:2px solid var(--accent); border-radius:12px; padding:10px; background:var(--bg); }
+  .incl.on { background:var(--accent); color:var(--on-accent); }
   .bestAlt.on { background:var(--accent); color:var(--on-accent); }
   .pickcap { font-size:.78rem; color:var(--muted); margin:8px 0 3px; }
   .pick { display:flex; gap:4px; padding:4px; border-radius:999px; background:var(--bg); border:1px solid var(--line); }
@@ -835,9 +836,12 @@ function kakaoText(st, note, k) {
 }
 function nextTpl(sid) { const key = "vn_tpl_" + sid, k = ((LS.get(key) ?? -1) + 1) % KAKAO_TPL.length; LS.set(key, k); return k; }
 // 학생 노트·카톡에 실을 베스트: 보내기 끔이거나, 선생님이 그 파일을 직접 고르지 않았으면(후보 0·1·여럿 모두) 없음(사용자 확정 2026-10-28, 기본 미선택)
-function bestForNote() { return cur.review.sendBest !== false && bestPickValid() ? bestPicked() : null; }
+// (2026-10-28 단일 편집본) 베스트 편집본·메이크업본은 각각 독립적으로, 선생님이 '그 파일'을 명시적으로 [포함]했을 때만 실림(기본 미선택=null, 옛 기록 sendBest/bestPick 은 무시)
+const inclOk = (rv, key, id) => !!id && rv[key + "Include"] === true && rv[key + "IncludeId"] === id;
+function bestForNote() { const o = bestPicked(); return o && inclOk(cur.review, "best", o.file_id) ? o : null; }
+function makeupForNote() { const o = bestPicked(), m = o && bestMakeupAudio(o); return m && inclOk(cur.review, "makeup", m.file_id) ? m : null; }
 function buildNote() {
-  const rv = cur.review, bp = bestForNote();
+  const rv = cur.review, bp = bestForNote(), mk = makeupForNote();
   const clips = sendList().map(c => ({ c, f: cur.clips.find(x => x.name.startsWith(c.id)) })).filter(x => x.f)
     .map(({ c, f }) => ({ file_id: f.id, label: `${fmt(c.start)} 구간`, note: rv.notes?.[c.id] || c.note || "" }));
   const bestNote = (o) => o && { file_id: o.file_id, kind_ko: o.kind_ko, len: Math.round(o.len), edited: !!o.isComposite };
@@ -845,11 +849,11 @@ function buildNote() {
   const noMission = rv.no_mission === true;
   return { lesson_id: cur.folder.id, date: cur.folder.name.slice(0, 10), title: cur.folder.name,
     feedback: $("fb").value, points: (rv.points || []).filter(Boolean), practice: noMission ? [] : (rv.practice || []).filter(Boolean), no_mission: noMission,
-    best: bestNote(bp), extra_best: [],   /* 고르지 않은 편집본을 '다른 버전'으로 몰래 싣지 않음 */
+    best: bestNote(bp), makeup: mk ? { file_id: mk.file_id, len: mk.len, source_file_id: mk.source_file_id } : null, extra_best: [],   /* 고르지 않은 편집본을 '다른 버전'으로 몰래 싣지 않음 */
     clips, highlight: clips[0]?.note || (rv.points || []).find(Boolean) || "", published_at: new Date().toISOString() };
 }
 // 게시한 녹음만 '링크가 있는 사람 보기'로 연다(사용자 결정 2026-10-26). 링크(ID)는 승인된 본인 노트에만 실림.
-const noteFileIds = (n) => [n.best?.file_id, ...(n.extra_best || []).map(x => x?.file_id), ...(n.clips || []).map(x => x.file_id)].filter(Boolean);
+const noteFileIds = (n) => [n.best?.file_id, n.makeup?.file_id, ...(n.extra_best || []).map(x => x?.file_id), ...(n.clips || []).map(x => x.file_id)].filter(Boolean);
 async function openLink(fileId) {
   await api(`${DRIVE}/files/${fileId}/permissions?sendNotificationEmail=false&fields=id`, { method: "POST",
     headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "anyone", role: "reader" }) });
@@ -904,7 +908,7 @@ function fnv(s) { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h ^= 
 // 수강생에게 보이는 내용의 지문(published_at 제외). 승인 뒤 한 글자라도 바뀌면 달라져서 '재승인'이 필요해진다
 function contentSig(note) {
   const n = note || {}, id = (x) => x ? x.file_id || null : null;
-  return fnv(JSON.stringify([n.lesson_id, n.feedback, n.points, n.practice, !!n.no_mission, id(n.best), (n.extra_best || []).map(id),
+  return fnv(JSON.stringify([n.lesson_id, n.feedback, n.points, n.practice, !!n.no_mission, id(n.best), id(n.makeup), (n.extra_best || []).map(id),
     (n.clips || []).map(c => [c.file_id, c.label, c.note])]));
 }
 const missionState = (rv) => rv?.no_mission === true ? "none" : (rv?.practice || []).some(Boolean) ? "set" : "unset";
@@ -2668,63 +2672,97 @@ function initFold(el, forceOpen) {
 }
 // 상단: 오늘 핵심 1줄(검수 전 next_goal=AI 초안, 선생님이 포인트를 고르면 그 1번) + 이번 주 연습. 새 문장은 만들지 않는다
 // 오늘의 레슨 전달 패키지(#24): 베스트 테이크(#23) + 오늘 핵심 + 이번 주 연습. 선생님이 듣고 고르고 직접 보냄
+// 오늘의 베스트 편집본 '하나'(사용자 확정 2026-10-28). 후보 1·2(단일 테이크)는 편집 알고리즘 내부 재료일 뿐 선택지로 보이지 않음.
+// 편집본이 대기·실패·불가이면 단일 테이크로 대신하지 않고 빈 목록(상태 안내만) — 자동 공유·대체 금지
 function bestOptions() {
-  const b = cur.best; if (b?.status !== "ok") return [];
-  const c = b.composite?.status === "ok" && b.composite.file_id ? [{ ...b.composite, isComposite: true }] : [];
-  return [b.best, ...(b.alternatives || []).slice(0, 1), ...c].filter(o => o.file_id);   // 후보1·후보2·이어붙인 1절 (2026-10-26 사용자 확정, 3개만)
+  const b = cur.best, c = b?.composite;
+  return b?.status === "ok" && c?.status === "ok" && c.file_id ? [{ ...c, isComposite: true }] : [];
 }
-// 고른 번호(0부터). 편집본 항목은 bestOptions()가 부를 때마다 새로 만들어져 indexOf로는 못 찾음 → 번호로만 판단(2026-10-27 '눌림 표시 안 됨' 수정)
-// 고른 번호가 지금 목록에 없으면(예: 편집본이 다시 만들어지는 중이라 빠짐) 다른 후보로 조용히 바꾸지 않고 후보 1로(2026-10-27 감사)
-// (2026-10-27 22:12 사용자: 안 눌렀는데 ✓) 선생님이 '그 파일'을 직접 골랐을 때만 고른 것으로 봄 — 편집본을 다시 만들면 파일이 바뀌므로 다시 골라야 함
-function bestPicked() { const o = bestOptions(); return (bestPickValid() ? o[cur.review.bestPick] : o[0]) || null; } function bestPickValid() { const o = bestOptions(), k = cur.review.bestPick; return Number.isInteger(k) && k < o.length && !!cur.review.bestPickId && o[k].file_id === cur.review.bestPickId; }
+function bestSourceTakes() {   // 하이라이트 기준 테이크 등 내부용. 화면의 선택지가 아님
+  const b = cur.best; if (b?.status !== "ok") return [];
+  return [b.best, ...(b.alternatives || []).slice(0, 1)].filter(o => o?.file_id);
+}
+function bestPicked() { return bestOptions()[0] || null; }   // 화면에 보여 줄 편집본. 학생에게 보낼지는 bestForNote()
+// 메이크업본: 끝난 작업(done)의 mix.mp3 실물이 있고, 그 작업이 '지금 이 편집본'으로 만든 것일 때만 있다고 봄
+function bestMakeupAudio(o) {
+  const job = o?.file_id ? bestMakeupJob(o) : null;
+  if (!job || job.req.status !== "done" || job.req.best_file_id !== o.file_id) return null;
+  const f = (job.files || []).find(x => x.name === "mix.mp3");
+  return f?.id ? { file_id: f.id, len: Math.round(+job.req.result?.measure?.duration_sec || 0), source_file_id: o.file_id } : null;
+}
+function makeupState(o) {   // none | working | error | nofile | ready
+  const job = o?.file_id ? bestMakeupJob(o) : null;
+  if (!job) return "none";
+  if (job.req.status === "error") return "error";
+  if (job.req.status !== "done") return "working";
+  return bestMakeupAudio(o) ? "ready" : "nofile";
+}
+function inclHTML(o) {
+  const rv = cur.review, mk = o && bestMakeupAudio(o), ms = makeupState(o);
+  const row = (key, title, avail, id, hint) => {
+    const v = rv[key + "Include"], on = (x) => avail && v === x && rv[key + "IncludeId"] === id;
+    const state = !avail ? hint : on(true) ? "✓ 학생 노트에 포함돼요" : on(false) ? "제외(학생에게 안 보여요 · 파일은 그대로 남아요)" : "아직 안 골랐어요 — 지금은 학생에게 가지 않아요";
+    return `<div class="inclRow" style="margin-top:8px"><b>${title}</b> <span class="muted" style="font-size:.85rem" role="status">${state}</span>
+      <div class="row" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:4px">${[[1, "포함"], [0, "제외"]].map(([x, t]) =>
+        `<button class="small ghost incl ${on(!!x) ? "on" : ""}" data-k="${key}" data-v="${x}" aria-pressed="${on(!!x)}"${avail ? "" : " disabled"}>${on(!!x) ? "✓ " : ""}${t}</button>`).join("")}</div></div>`;
+  };
+  return row("best", "베스트 편집본 보내기", !!o, o?.file_id, "보낼 편집본이 아직 없어요") +
+    row("makeup", "메이크업본 보내기", !!mk, mk?.file_id, ms === "working" ? "메이크업 처리 중이라 아직 고를 수 없어요" : ms === "error" ? "메이크업이 실패해서 보낼 수 없어요" : "메이크업본이 아직 없어서 고를 수 없어요");
+}
+function makeupBoxHTML(o) {
+  const ms = makeupState(o), job = ms === "none" ? null : bestMakeupJob(o);
+  const head = `<b>🪄 메이크업본</b> <span class="muted" style="font-size:.85rem">음정 보정 등 · 편집본과 별개의 파일</span>`;
+  if (ms === "ready") return `<div id="mkBox" style="margin-top:10px">${head}
+    <p class="muted" style="margin:2px 0;font-size:.85rem">위 재생바 = 보정 전(편집본 원본), 아래 재생바 = 보정 후(메이크업본). 한쪽을 재생하면 다른 쪽은 멈춰요.</p>${tpHTML(true)}</div>`;
+  const msg = ms === "none" ? "아직 만들지 않았어요. 만들기 전에는 학생에게 보낼 수 없어요."
+    : ms === "working" ? `처리 중이에요(${job.req.progress?.pct ?? 0}%). 끝나면 여기서 들어볼 수 있어요.`
+    : ms === "error" ? "처리에 실패했어요. 결과 화면에서 원인을 확인해 주세요. 메이크업본은 없는 것으로 취급해요."
+    : "처리는 끝났다고 되어 있지만 음원 파일을 확인하지 못했어요. 재생·전달하지 않아요.";
+  return `<div id="mkBox" style="margin-top:10px">${head}<p class="muted" style="margin:2px 0;font-size:.85rem">${msg}</p>
+    <div class="row"><button class="small ghost" id="bestMakeup">🪄 ${ms === "none" ? "메이크업본 만들기" : bestMakeupLabel(o)}</button></div></div>`;
+}
 function renderBest() {
   // 이어 붙인 자리 표시(2026-10-27 사용자): 재생바 바로 아래 노란 칸 + 시각 글자. 누르면 그 자리 1.5초 앞부터
   function seamList(o) { return (o.seams || []).filter(z => Number.isFinite(+z.out_t)).map(z => ({ a: +z.out_t, b: +z.out_t + (+z.end_t - +z.ref_t) * (+z.speed || 1), take: z.to_take })); }
   function seamStrip(o) {
     const L = +o.len || 0, ss = seamList(o);
-    if (!ss.length || !L) return o.isComposite ? `<div class="muted" style="font-size:.85rem;margin:2px 0">✂ 이어 붙인 자리 없음(한 테이크 그대로)</div>` : "";
+    if (!ss.length || !L) return `<div class="muted" style="font-size:.85rem;margin:2px 0">${o.takes_used === 1 ? "✂ 이어 붙인 자리 없음(한 테이크 그대로)" : "✂ 이어 붙인 자리 정보가 없어요(한 테이크 그대로라는 뜻이 아니에요)"}</div>`;
     return `<div class="seamStrip" aria-hidden="true">${ss.map(z => `<span style="left:${(z.a / L * 100).toFixed(1)}%;width:${Math.max(1.2, (z.b - z.a) / L * 100).toFixed(1)}%"></span>`).join("")}</div>
-      <div class="row" style="gap:4px;flex-wrap:wrap;margin:2px 0"><span class="muted" style="font-size:.85rem">✂ 이어 붙인 자리</span>${ss.map(z =>
+      <div class="row" style="gap:4px;flex-wrap:wrap;margin:2px 0"><span class="muted" style="font-size:.85rem">✂ 이어 붙인 지점</span>${ss.map(z =>
         `<button class="small ghost" data-seamt="${z.a}" style="padding:2px 8px">${fmt(z.a)}~${fmt(z.b)}</button>`).join("")}</div>`;
   }
-  const opts = bestOptions(), rv = cur.review;
-  if (!cur.best) return `<div class="muted">🎵 오늘의 베스트 테이크: 아직 준비 중이에요(다음 자동 처리 때 만들어져요)</div>`;
-  if (!opts.length) return `<div class="muted">🎵 오늘의 베스트 테이크: 이번 레슨에선 고를 만한 노래 구간이 없었어요 — ${esc(cur.best.why || "")}. 아래 추천 클립에서 골라 보내 주세요.</div>`;
-  rv.sendBest ??= true;
-  const valid = bestPickValid(), i = valid ? (rv.bestPick || 0) : 0, o = opts[i];
-  const lost = !valid && Number.isInteger(rv.bestPick) && rv.bestPick >= opts.length;   // 고른 후보(편집본)가 지금 없음 → 안내
-  const stale = !valid && Number.isInteger(rv.bestPick) && !lost;                        // 고른 뒤 그 파일이 새로 만들어짐(예: 편집본 재생성)
-  const comp = cur.best.composite;
-  const status = o.isComposite
-    ? (/^v[67]/.test(o.method || "") && o.mr_aligned === true
-      ? ((o.takes_used || 0) <= 1 || !(o.seams || []).length
+  const opts = bestOptions();
+  if (!cur.best) return `<div class="muted">🎵 오늘의 베스트 편집본: 아직 준비 중이에요(다음 자동 처리 때 만들어져요)</div>`;
+  if (!opts.length) {
+    const comp = cur.best.composite;
+    if (cur.best.status !== "ok") return `<div class="muted">🎵 오늘의 베스트 편집본: 이번 레슨에선 쓸 만한 노래 구간이 없었어요 — ${esc(cur.best.why || "")}. 아래 추천 클립에서 골라 보내 주세요.</div>`;
+    const why = comp?.fallback === "best_take" ? "편집본 생성 보류 — 박자를 확신할 수 없어 편집본을 만들지 않았어요" + (comp.why ? ` (${esc(comp.why)})` : "")
+      : comp?.status === "error" ? "편집본 생성 실패" + (comp.why ? ` (${esc(comp.why)})` : "")
+      : comp?.status === "none" ? "이번 레슨에선 이어 붙일 만한 구간을 못 찾았어요" + (comp.why ? ` (${esc(comp.why)})` : "")
+      : "편집본이 아직 만들어지는 중이에요(대기)";
+    return `<div class="bestbox"><b>🎵 오늘의 베스트 편집본</b> <span class="chip todo">편집본 없음</span>
+      <p role="status" class="muted" style="margin:6px 0 0">${why}. 다음 자동 처리 때 다시 시도해요. <b>단일 테이크로 대신하거나 학생에게 자동으로 보내지 않아요.</b> 급하면 아래 추천 클립에서 골라 보내 주세요.</p></div>`;
+  }
+  const o = opts[0];
+  const status = /^v[67]/.test(o.method || "") && o.mr_aligned === true
+      ? ((o.takes_used || 0) === 1
         ? `⚠ 다른 테이크 구절로 바꾼 곳이 없어요 — 한 테이크를 그대로 쓴 것(사실상 단일 테이크, 박자는 원래대로)${o.kept_ref_no_mr ? ` · 바꾸려던 ${o.kept_ref_no_mr}구절은 ${/^v7/.test(o.method) ? "템포·키 차이나 위치가 불확실해" : "반주 위치를 확인하지 못해"} 그대로 둠` : ""}`
+        : !(o.seams || []).length
+        ? "⚠ 이어 붙인 자리 기록이 없어요 — 어디를 이었는지 확인할 수 없으니 끝까지 들어보고 판단해 주세요"
         : /^v7/.test(o.method || "")
         ? (/^v7\.2|^v7\.[3-9]/.test(o.method || "") ? `다른 테이크 목소리 ${(o.seams || []).length}구절을 원래 소리·박자 그대로 넣고 반주를 살짝 맞췄어요 · 원래 목소리가 작게 남을 수 있어요` : `직접 반주용 새 방식 · 기준 테이크 반주는 그대로, 다른 테이크 목소리 ${(o.seams || []).length}구절을 템포 맞춰 넣음 · 바꾼 구절 밑에 원래 목소리가 작게 남을 수 있어요 — 들어보고 판단해 주세요`)
         : `새 방식(기준 테이크 시간축 고정) · 다른 테이크에서 가져온 곳 ${(o.seams || []).length}곳(반주로 같은 자리 확인) · 들어보고 판단해 주세요`)
       : o.method === "v5-mrabs" && o.rhythm_verified === true
       ? "새 MR 정렬 방식 · 자동 검사 통과 · 실제 청감 확인 필요"
-      : "기존 또는 방식 미확인 편집본 · 새 MR 정렬 결과로 확인되지 않았어요 · 자동으로 바뀌지 않습니다")
-    : comp?.fallback === "best_take"
-      ? "편집본 생성 보류 · 박자를 확신할 수 없어 연속 테이크를 사용합니다"
-      : comp?.status === "error" ? "편집본 생성 실패 · 연속 테이크를 확인해 주세요" : "";
-  return `<div class="bestbox"><div class="row" style="justify-content:space-between"><b>🎵 오늘의 베스트 테이크 편집</b><span class="chip">${o.isComposite ? "편집본" : esc(o.kind_ko || "")} · ${Math.round(o.len)}초</span></div>
-    <div class="muted bestDesc" style="font-size:.85rem">${o.isComposite
-      ? (/^v[67]/.test(o.method || "") ? ((o.takes_used || 0) <= 1
-        ? "이어 붙인 곳 없음 · 한 테이크 그대로"
-        : /^v7\.2|^v7\.[3-9]/.test(o.method || "")
-        ? ""
-        : `테이크 ${o.takes_used}개에서 가져와 ${(o.seams || []).length}곳을 이은 편집본 · 기준 테이크 박자 그대로`)
-        : `여러 테이크에서 줄마다 가장 좋은 구절 ${o.lines?.length || ""}개를 이어 붙인 편집본(테이크 ${o.takes_used || "?"}개) · 이음새에서 박자가 조금 어긋날 수 있어요`)
-      : `선생님 칭찬 “${esc((o.praise?.text || "").slice(0, 16))}” (${fmt(o.praise?.t || 0)}) 바로 앞에 이어 부른 실제 테이크(편집·보정 없음)`}</div>
-    <div class="row" style="margin-top:6px">${opts.length > 1 ? opts.map((x, k) => `<button class="small ghost bestAlt ${valid && k === i ? "on" : ""}" aria-pressed="${valid && k === i}" data-k="${k}">${valid && k === i ? "✓ " : ""}${x.isComposite ? "베스트 편집본" : "후보 " + (k + 1)}</button>`).join("") : ""}</div>
-    ${!valid && opts.length > 1 ? `<p role="status" style="margin:8px 0 0;font-size:.92rem;color:var(--warn,#f6b26b)">${stale ? "⚠ 고르신 뒤 편집본이 새로 만들어졌어요 — 들어보고 다시 골라 주세요." : lost ? "" : "아직 고르지 않았어요 — 들어보고 보낼 것을 눌러 골라 주세요(지금은 후보 1을 들려 드려요)."}</p>` : ""}
-    ${lost ? `<p role="status" style="margin:8px 0 0;font-size:.92rem;color:var(--warn,#f6b26b)">⚠ 전에 고르신 베스트 편집본이 지금 없어(다시 만드는 중이거나 만들지 못함) 후보 1을 보여 드려요. 보내기 전에 다시 골라 주세요.</p>` : ""}
-    ${status ? `<p role="status" class="muted" style="margin:6px 0 0;font-size:.85rem">${status}</p>` : ""}
-    ${!o.isComposite && ["none", "error"].includes(comp?.status) && comp.why ? `<p class="muted">${esc(comp.why)}</p>` : ""}
-    ${o.isComposite ? tpHTML(true).replace('aria-label="재생 위치" style="width:100%">', 'aria-label="재생 위치" style="width:100%">' + seamStrip(o)) : tpHTML(true)}
-    <div class="row" style="margin-top:8px"><button class="small ghost" id="bestMakeup">🪄 ${bestMakeupLabel(o)}</button></div>
-    <label style="display:flex;gap:8px;align-items:flex-start;margin-top:8px;font-size:.92rem"><input type="checkbox" id="bestSend" style="width:22px;height:22px;flex:none" ${rv.sendBest ? "checked" : ""}><span><b>오늘의 베스트도 함께 보내기</b><br><span class="muted" style="font-size:.85rem">${valid ? "끄면 하이라이트 클립만 가요" : "위에서 후보를 먼저 골라 주세요"}</span></span></label></div>`;   /* 문구 2026-10-28 사용자 확정(A안) */
+      : "기존 또는 방식 미확인 편집본 · 새 MR 정렬 결과로 확인되지 않았어요 · 자동으로 바뀌지 않습니다";
+  const segs = (o.segments || []).filter(g => Number.isFinite(+g.start) && +g.end > +g.start).slice(0, 12);
+  return `<div class="bestbox"><div class="row" style="justify-content:space-between"><b>🎵 오늘의 베스트 편집본</b><span class="chip">${Math.round(o.len)}초 · 완료</span></div>
+    <div class="muted bestDesc" style="font-size:.85rem">AI가 이번 레슨 녹음에서 좋은 구간을 골라 박자에 맞춰 하나로 이어 붙인 편집본이에요${o.takes_used ? ` (테이크 ${o.takes_used}개 사용)` : ""}</div>
+    <p role="status" class="muted" style="margin:6px 0 0;font-size:.85rem">${status}</p>
+    ${segs.length ? `<details style="margin:4px 0"><summary class="muted" style="font-size:.85rem">원본 레슨에서 가져온 구간 ${segs.length}곳 보기</summary><div class="muted" style="font-size:.85rem">${segs.map(g => `${fmt(+g.start)}~${fmt(+g.end)}`).join(" · ")}</div></details>` : ""}
+    ${tpHTML(true).replace('aria-label="재생 위치" style="width:100%">', 'aria-label="재생 위치" style="width:100%">' + seamStrip(o))}
+    ${makeupBoxHTML(o)}
+    <div id="inclBox" style="margin-top:8px">${inclHTML(o)}</div></div>`;
 }
 const SHOW_TRIAL = false;
 // 박자 확인용 시험 편집본(2026-10-27 23:25 사용자: 4곳 이상 이어 붙여 박자 확인) — 선생님 확인용, 수강생에게는 안 감
@@ -2752,7 +2790,7 @@ function bestMakeupLabel(o) {
 async function makeupFromBest(o, back) {
   if (!o?.file_id) return toast("선택한 베스트 음원 파일이 없습니다.");
   if (o.len > 240) return toast("4분 이하 베스트 음원만 메이크업할 수 있어요.");
-  if (!confirm("선택한 " + (o.isComposite ? "이어붙인 1절" : "베스트 테이크") + "에 보컬 메이크업을 적용할까요?")) return;
+  if (!confirm("선택한 " + "베스트 편집본에 보컬 메이크업(음정 보정 등)을 적용할까요? 서버 처리가 시작돼요.")) return;
   const title = cur.folder.name.slice(0, 10) + "_베스트_" + (o.isComposite ? "이어붙임" : "연속테이크");
   const req = { status: "queued", mode: "single", title, student_id: cur.sid,
     student_name: cur.st.name, preset: "표준", settings: {},
@@ -2771,23 +2809,35 @@ async function makeupFromBest(o, back) {
     kick().then(ok => { if (!job.req.progress) paintProg(job.req, ok ? "서버 시작 대기 중" : "서버 시작 확인 중"); });
   } catch (e) { stopProg(); toast(e.message); }
 }
+function wireIncl(o) {
+  document.querySelectorAll("#inclBox .incl").forEach(b => b.onclick = () => {
+    const key = b.dataset.k, v = b.dataset.v === "1", rv = cur.review;
+    const id = key === "best" ? o.file_id : bestMakeupAudio(o)?.file_id;
+    if (!id) return toast(key === "best" ? "보낼 편집본이 없어요" : "메이크업본 음원이 없어서 고를 수 없어요");
+    rv[key + "Include"] = v; rv[key + "IncludeId"] = id;   // '그 파일'을 직접 골랐을 때만 인정 — 파일이 바뀌면 다시 골라야 함
+    if (typeof markDirty === "function") markDirty();
+    $("inclBox").innerHTML = inclHTML(o); wireIncl(o);
+    if (typeof paintDeliver === "function" && cur.folder) paintDeliver();
+  });
+}
 function wireBest() {
   const o = bestPicked(); if (!o) return;
   const broot = $("todayCard").querySelector(".tp");
   tpWire(broot, o.file_id);
-  // 아직 안 골랐으면 ▶ 대신 고르라고 안내(2026-10-27 사용자: 안 골랐는데 뭔가 재생됨) — 후보 버튼을 누르면 바로 재생됨
-  if (broot && bestOptions().length > 1 && !bestPickValid()) broot.querySelectorAll('[data-tp]').forEach(b => { b.onclick = () => {
-    popup("후보 1 · 후보 2 · 베스트 편집본 중 하나를 먼저 눌러 골라 주세요");
-    document.querySelectorAll(".bestAlt").forEach(x => { x.classList.remove("pulse"); void x.offsetWidth; x.classList.add("pulse"); });
-  }; });
   const mk = $("bestMakeup");
   if (mk) mk.onclick = () => {
     const back = () => openLesson(cur.sid, cur.rowIndex, cur.back);
     const job = bestMakeupJob(o);
     return job ? openMkJob(job, back) : makeupFromBest(o, back);
   };
-  document.querySelectorAll(".bestAlt").forEach(b => b.onclick = () => { tpDetach(); cur.review.bestPick = +b.dataset.k; cur.review.bestPickId = bestOptions()[+b.dataset.k]?.file_id; if (typeof markDirty === "function") markDirty(); renderToday(); renderHighlights(); renderCands(); renderSegs(); const picked = bestPicked(); if (picked) tpWire($("todayCard").querySelector(".tp"), picked.file_id, true); });
-  $("bestSend").onchange = (e) => { cur.review.sendBest = e.target.checked; };
+  const job = bestMakeupJob(o), mbox = $("mkBox");
+  if (mbox && makeupState(o) === "ready") tpWire(mbox.querySelector(".tp"), bestMakeupAudio(o).file_id);   // 같은 player를 공유 → 두 음원이 겹쳐 재생되지 않음
+  else if (job?.req.status === "done" && !job._filesTried && job.folder?.id) {   // 끝난 작업의 파일 목록을 한 번 읽어 mix.mp3 확인
+    job._filesTried = true;
+    const me = cur;
+    list(job.folder.id).then(fs => { job.files = fs; if (cur === me) { tpDetach(); renderToday(); } }).catch(() => {});
+  }
+  wireIncl(o);
   if (cur.trial?.file_id && $("trialBox") && typeof tpWire === "function") tpWire($("trialBox").querySelector(".tp"), cur.trial.file_id);
   document.querySelectorAll("#todayCard [data-seamt]").forEach(b => b.onclick = () => {
     const t = Math.max(0, +b.dataset.seamt - 1.5), root = b.closest(".bestbox")?.querySelector(".tp");
@@ -3246,9 +3296,7 @@ function miniMarks(ranges, on) {
 }
 function miniLabel(t) { const el = $("miniLab"); if (el) el.textContent = t || ""; }
 function hlBestOpts() {   // ① = 지금 고른 베스트(편집본을 골랐으면 그 기준이 되는 후보 1)
-  const o = bestOptions().filter(x => !x.isComposite), p = bestPicked();
-  const first = p && !p.isComposite ? (o.find(x => x.file_id === p.file_id) || o[0]) : o[0];
-  return first ? [first, ...o.filter(x => x !== first)] : [];
+  return bestSourceTakes();   // 편집본의 재료가 된 단일 테이크(내부 기준). 화면 선택지가 아님
 }
 function renderHighlights() {
   hlList = computeHighlights(cur.cands, cur.segs, roleOf, hlBestOpts());
@@ -3597,8 +3645,10 @@ $("btnShare").onclick = async () => {
   const ids = sent.map(c => cur.clips.find(f => f.name.startsWith(c.id))).filter(Boolean);
   for (const p of (cur.pairs || []).filter(p => (cur.review.pairSend || []).includes(p.id) && p.file_id)) ids.push({ id: p.file_id, name: `지도전후_비교_${p.id}.mp3` });
   const bp = bestForNote();
-  if (!bp && cur.review.sendBest !== false && bestOptions().length) toast("오늘의 베스트를 아직 안 골라서 함께 보내지 않았어요");
-  if (bp) ids.unshift({ id: bp.file_id, name: bp.isComposite ? "오늘의 베스트 가창(편집본).mp3" : "오늘의 베스트 가창.mp3" });
+  const mkp = makeupForNote();
+  if (!bp && !mkp && bestOptions().length && cur.review.bestInclude == null && cur.review.makeupInclude == null) toast("베스트 편집본·메이크업본을 [포함]으로 고르지 않아 함께 보내지 않았어요");
+  if (mkp) ids.unshift({ id: mkp.file_id, name: "오늘의 베스트 가창(메이크업본).mp3" });
+  if (bp) ids.unshift({ id: bp.file_id, name: "오늘의 베스트 가창(편집본).mp3" });
   if (!ids.length) return toast("‘보냄’으로 고른 클립이 없어요");
   try { if (await shareClips(ids)) await markSent("feedback"); } catch (e) { toast(e.message); }
 };
