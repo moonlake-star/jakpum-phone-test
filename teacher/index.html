@@ -241,7 +241,8 @@
   .bestTag { font-size:.78rem; font-weight:700; color:var(--muted); background:#2a2f37; border-radius:10px; padding:1px 8px; margin-left:6px; vertical-align:2px; }
   #v2Dock { position:fixed; left:0; right:0; bottom:0; z-index:45; background:var(--card); border-top:1px solid var(--line); box-shadow:0 -4px 14px rgba(0,0,0,.35); padding:8px 16px calc(10px + env(safe-area-inset-bottom)); }
   body.miniOn #v2Dock { bottom:calc(128px + env(safe-area-inset-bottom)); } #v2Dock .in { max-width:760px; margin:0 auto; } #v2Dock #v2DockMsg { display:block; font-size:.8rem; text-align:center; margin-bottom:4px; min-height:1em; }
-  #v2Dock .btns { display:flex; gap:8px; } #v2Dock .btns button { min-height:50px; } #v2Dock #v2Send { flex:1; background:#ff5fa2; color:#fff; } #v2Dock #v2Send.todo { background:#3a404a; color:#d6dbe2; }
+  #v2Dock .btns { display:flex; gap:6px; } #v2Dock .btns button { min-height:50px; padding:0 12px; white-space:nowrap; } #v2Dock #v2Send { min-width:0; overflow:hidden; text-overflow:ellipsis; }
+  @media (max-width:420px) { #v2Dock .btns button { padding:0 10px; font-size:.95rem; } } #v2Dock #v2Send { flex:1; background:#ff5fa2; color:#fff; } #v2Dock #v2Send.todo { background:#3a404a; color:#d6dbe2; }
   /* 전달하기 = 아래에서 올라오는 시트(보내기 카드를 그대로 씀: 공개·카톡 복사·보냄 표시는 V1과 같은 동작) */
   body.v2 #vLesson > #sendCard { display:none; }
   body.v2.v2send #vLesson > #sendCard { display:block; position:fixed; left:0; right:0; bottom:0; z-index:80; margin:0 auto !important; max-width:760px; max-height:86vh; overflow:auto; border-radius:18px 18px 0 0; border-color:var(--accent); padding-bottom:calc(16px + env(safe-area-inset-bottom)); animation:v2up .25s ease; }
@@ -379,7 +380,7 @@
   </section>
 </main>
 <div id="v2Dock" class="v2only hidden"><div class="in"><span id="v2DockMsg" class="muted"></span>
-  <div class="btns"><button type="button" class="ghost" id="v2Save">임시저장</button><button type="button" id="v2Send">✈ 수강생에게 전달하기</button></div></div></div>
+  <div class="btns"><button type="button" class="ghost" id="v2Save">임시저장</button><button type="button" class="ghost" id="v2PvDock" aria-label="수강생 화면 미리보기">👀 미리보기</button><button type="button" id="v2Send" aria-label="수강생에게 전달하기">✈ 전달하기</button></div></div></div>
 <div id="v2Shade" class="v2only"></div>
 <div id="toast"></div>
 <script src="../lesson-replies.js"></script>
@@ -4250,7 +4251,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-29-0900-hold2";
+const BUILD = "2026-10-29-0905-dockpv";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
@@ -4465,7 +4466,7 @@ function v2DockPaint(me, done, total) {
   const all = done >= total, rv = me.review || {}, st = v2State(me), msg = $("v2DockMsg"), b = $("v2Send"); if (!msg || !b) return;
   const pub = st === "published" ? "✓ 수강생에게 공개 중" : st === "published_stale" ? "⚠ 고친 내용은 아직 수강생 화면에 반영 전 · 전달하기에서 다시 공개" : "아직 수강생에게 공개 전";
   msg.textContent = (all ? "" : `카드를 끝까지 한 번 훑어봐 주세요 (${done}/${total}) · `) + pub + (rv.kakao_sent_at ? " · 카톡 보냄 ✓" : "");
-  b.textContent = all ? "✈ 수강생에게 전달하기" : `↓ 다음 카드 보기 (${done}/${total})`; b.classList.toggle("todo", !all);
+  b.textContent = all ? "✈ 전달하기" : `↓ 다음 카드 (${done}/${total})`; b.setAttribute("aria-label", all ? "수강생에게 전달하기" : "다음 카드 보기"); b.classList.toggle("todo", !all);
 }
 function v2Paint() {
   const me = cur; v2Apply(); if (!me || !v2On() || !$("v2Bar")) return;
@@ -4548,6 +4549,7 @@ $("v2Send").onclick = () => {
   if (next) { me.v2seen.add(v2Key(next)); next.scrollIntoView({ behavior: "smooth", block: "start" }); v2Count(me); return; }
   v2SheetOpen();
 };
+$("v2PvDock").onclick = () => { if (cur) openStudentView(v2Lv()); };   // (10/29 사용자) 전달하기 옆에서 바로 수강생 화면 미리보기
 $("v2SendX").onclick = () => v2SheetClose(); $("v2Shade").onclick = () => v2SheetClose();
 v2Apply();
 </script>
