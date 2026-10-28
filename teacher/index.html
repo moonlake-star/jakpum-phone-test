@@ -3067,7 +3067,7 @@ function regenBoxHTML() {
   let body = "";
   if (act) {
     const s = regenStateOf(act);
-    body = `<p role="status" class="muted" style="margin:6px 0">상태: <span class="chip todo">${RG_LABEL[s]}</span> ${s === "requested" ? "요청을 저장했어요. 서버가 이 요청을 가져가면 ‘대기/처리 중’으로 바뀌어요(앱을 닫아도 요청은 남아요)." : esc(act.state?.reason || "")}</p>
+    body = `<p role="status" class="muted" style="margin:6px 0">상태: <span class="chip todo">${RG_LABEL[s]}</span> ${s === "requested" ? "요청을 저장했어요. 서버가 가져가면 ‘대기/처리 중’으로 바뀌어요." : esc(act.state?.reason || "")} <b>완성되면 알림 메일로 알려 드려요</b>(앱을 닫아도 돼요).</p>
       <div class="row"><button class="small ghost" id="regenRefresh" type="button">상태 새로고침</button><button class="small" id="regenStart" type="button" disabled>전체 다시 편집 (진행 중)</button></div>`;
   } else if (pend) {
     const c = pend.cand, rh = c.rhythm || {}, n = regenSeamCount(c);
@@ -3100,7 +3100,7 @@ async function regenStart() {
     const body = { schema: RG_SCHEMA, req_id: rid, student_id: me.sid, lesson_folder: me.folder.id, base_file_id: o?.file_id || null, requested_at: new Date().toISOString() };
     const id = await writeJSON(me.folder.id, RG_REQ + rid + ".json", body);
     if (cur === me) { me.regen = { items: [...regenItems(), { rid, reqFileId: id, state: null, cand: null }] }; tpDetach(); renderToday(); }
-    toast("요청을 저장했어요 · 서버가 바로 시작해요");
+    toast("요청을 저장했어요 · 서버가 바로 시작하고, 완성되면 메일로 알려 드려요");
     if (typeof kick === "function") kick();   // 예약 실행을 기다리지 않고 바로(서버가 요청을 다시 확인)
     regenRefresh(me, true);
   } catch (e) { toast("요청을 저장하지 못했어요: " + e.message); } finally { regenBusy = false; }
@@ -4041,7 +4041,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-28-2355-more";
+const BUILD = "2026-10-29-0000-regenmsg";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
