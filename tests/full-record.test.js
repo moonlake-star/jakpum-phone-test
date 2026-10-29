@@ -28,5 +28,5 @@ assert.ok(!h.includes("<b>먼저") && h.includes("&lt;b&gt;"), "이스케이프"
 assert.ok(h.includes("앞부분만"), "잘렸으면 표시");
 assert.ok(!lessonHtml(L, null, "simple").includes("fullrec"), "심플에선 숨김");
 assert.ok(!lessonHtml({ ...L, full: { file_id: 5, segs: [] } }, null, "normal").includes("fullrec"), "잘못된 값이면 안 그림");
-assert.ok(stu.includes('bar.id = "fullBar"') && stu.includes("audioUrl(fid)") && stu.includes("au.currentTime = Math.max(0, t - 2)"), "아래 재생바, 2초 앞부터");
+assert.ok(stu.includes('bar.id = "fullBar"') && stu.includes("tgt = Math.max(0, t - 2)") && stu.includes("const pp = au.play()"), "아래 재생바, 2초 앞부터");
 console.log("full-record ok");
