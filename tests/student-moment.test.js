@@ -12,10 +12,10 @@ const base = { id: "L2", date: "2026-10-26", feedback: "오늘 숨 쉬는 자리
 const prev = { id: "L1", date: "2026-10-19", best: { file_id: "B1", len: 35 } };
 const INTERNAL = ["lesson_tone", "weekly_mission", "evidence", "confidence", "condition_guard", "needs_teacher_check", "낙심", "challenging"];
 (() => {
-  // 1. 좋았던 날(10/29 09:54 확정): 첫 화면 = 한마디(+베스트 듣기) → 순간 → 핵심 포인트 → 다음 미션(전부), 비교는 접힘
+  // 1. 좋았던 날(10/29 10:33 시안 C): 한마디(+베스트) → (다른 데 안 나온 순간) → 핵심 포인트 → … → 응원 → 다음 미션, 비교는 접힘
   const [top, more] = split(lessonHtml(base, null));
   const iM = top.indexOf("선생님이 발견한 오늘의 순간"), iA = top.indexOf('data-lp="B2"'), iF = top.indexOf("선생님 한마디"), iK = top.indexOf("오늘의 핵심 포인트"), iP = top.indexOf("다음 미션");
-  assert.ok(iF >= 0 && iF < iA && iA < iM && iM < iK && iK < iP, "순서: 한마디(+베스트) → 순간 → 핵심 포인트 → 미션");
+  assert.ok(iF >= 0 && iF < iA && iA < iM && iM < iK && iK < iP, "순서: 한마디(+베스트) → 순간(다른 곳에 없을 때) → 핵심 포인트 → 미션");
   assert.strictEqual(audios(top), 1);
   assert.ok(top.includes("하루 한 번 허밍") && top.includes("둘째 줄만 천천히"), "미션은 첫 화면에 모두");
   assert.ok(top.includes("숨") && top.includes("끝음"), "핵심 포인트는 첫 화면");
