@@ -291,8 +291,8 @@ function wirePlayers() {
     const marks = (r) => { const el = document.getElementById("fbMarks"), L = au.duration || +full.len || 0; if (!el) return; el.innerHTML = r && L ? `<span style="left:${(r[0] / L * 100).toFixed(2)}%;width:${Math.max(1.2, (r[1] - r[0]) / L * 100).toFixed(2)}%"></span>` : ""; };
     au.addEventListener("loadedmetadata", () => marks(bar._rng));
     const go = async (t, label, segOnly) => { try { bar.classList.add("on"); document.body.classList.add("fbOn");
-      const r = rangeAt(t, full.rng, starts, segOnly); bar._rng = r; marks(r);
-      const lab = document.getElementById("fbLab"), base = (label || "레슨 녹음") + ` · ${mm(r[0])}~${mm(r[1])}`; lab.textContent = "⏳ 불러오는 중… · " + base;   // (10/29 11:00 사용자) 불러오는 중 표시 + 노란 칸
+      const r = segOnly ? null : rangeAt(t, full.rng, starts); bar._rng = r; marks(r);   // (10/29 11:19 사용자) 전사본 말풍선은 노란 칸 없음
+      const lab = document.getElementById("fbLab"), base = (label || "레슨 녹음") + (r ? ` · ${mm(r[0])}~${mm(r[1])}` : ""); lab.textContent = "⏳ 불러오는 중… · " + base;   // (10/29 11:00 사용자) 불러오는 중 표시 + 노란 칸
       au.addEventListener("playing", () => { lab.textContent = base; }, { once: true });
       await load(); const seek = () => { au.currentTime = Math.max(0, t - 2); au.play().catch(() => {}); };
       if (au.readyState >= 1) seek(); else au.addEventListener("loadedmetadata", seek, { once: true }); } catch {} };
