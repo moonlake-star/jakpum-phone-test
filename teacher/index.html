@@ -1640,7 +1640,7 @@ function svLessonHtml(l, prev, mode = "normal") {
       <div class="ab"><div>${svPlayer(prev.best.file_id, svMd(prev.date))}</div><div>${svPlayer(l.best.file_id + "#b", svMd(l.date))}</div></div>` : "",
     extras.length ? `<h3>🎵 다른 버전</h3>${extras.map(x => svPlayer(x.file_id, x.kind_ko || "듣기")).join("")}` : "",
   ].filter(Boolean).join("");
-  return `<h2 style="margin:14px 0 4px">${svMd(l.date)} 레슨</h2>${svModeBar(m)}
+  return `<h2 style="margin:14px 0 4px">${svMd(l.date)} 레슨</h2>
     ${has(l.feedback) ? `<div class="card letter"><h2>💬 선생님 한마디</h2>${letter}${bestBlock}</div>` : bestBlock ? `<div class="card">${bestBlock}</div>` : ""}
     ${full && moment && !clips.some(c => (c.note || "").trim() === moment) && !points.some(t => t.trim() === moment) ? `<div class="card moment" role="region" aria-label="선생님이 발견한 오늘의 순간"><div class="muted">🔎 선생님이 발견한 오늘의 순간</div><p class="big">${esc(moment)}</p></div>` : ""}
     ${!ptsIn && points.length ? `<div class="card"><h2>⭐ 오늘의 핵심 포인트</h2>${ptsHtml(points)}</div>` : ""}
@@ -1655,7 +1655,7 @@ function studentViewHTML(note, mode = "normal") {
   return `<div role="dialog" aria-modal="true" aria-label="수강생 화면 미리보기(읽기 전용)">
     <div class="row" style="justify-content:space-between"><b>👀 수강생에게 이렇게 보여요</b><button type="button" class="small" id="pvFullClose">닫기</button></div>
     <p class="muted">글은 읽기 전용(고치기는 선생님 화면에서) · ▶·시각·말풍선은 눌러서 들어 볼 수 있어요. 수강생에게는 공개한 뒤에만 보여요. 지난번 비교 카드는 여기 없어요.</p>
-    <div id="pvFullBody">${svLessonHtml(note, null, mode)}</div></div>`;
+    <div id="pvFullBody">${svLessonHtml(note, null, "normal")}</div></div>`;
 }
 function openStudentView(mode = "normal") {
   closeStudentView();
@@ -4588,7 +4588,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-29-1450-akey";
+const BUILD = "2026-10-29-1740-nomode";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
