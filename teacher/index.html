@@ -177,6 +177,7 @@
   .pvAudio { display:flex; align-items:center; gap:10px; background:#11141a; border-radius:14px; padding:8px 10px; }
   .pvAudio button { flex:none; width:44px; height:44px; min-height:44px; padding:0; border-radius:50%; background:var(--pv, var(--accent)); color:#fff; font-size:1.1rem; }
   .pvAudio svg { flex:1; height:34px; min-width:0; }
+  .pvCard { position:relative; will-change:transform; } .pvCard.pvLift { z-index:40; box-shadow:0 12px 40px rgba(0,0,0,.55); }   /* (10/29 11:16) 길게 누르는 중 터치가 끊기지 않게 미리 층을 만들어 둠 */
   .pvEdWrap { position:relative; } .pvEdWrap .pvEdit { position:absolute; right:6px; bottom:6px; width:38px; height:38px; min-height:38px; padding:0; border-radius:50%; background:#2a303a; color:var(--fg); border:1px solid var(--line); box-shadow:0 2px 8px rgba(0,0,0,.35); font-size:1rem; }
   .pvCard.open .pvEdWrap .pvEdit { display:none; }
   .pvEd, #previewFeedback { box-sizing:border-box; width:100%; min-height:0; line-height:24px; padding:8px 10px; border:1px solid transparent; border-radius:12px; background:#11141a; color:var(--fg); overflow-y:auto; resize:none; transition:height 250ms ease, border-color .2s; }
@@ -1472,10 +1473,16 @@ function pvHold(el) {
   const end = (e) => {
     if (!h) { if (el._pvNoSel === "down") el._pvNoSel = "up"; el.readOnly = false; return; }
     if (!h.on) { clearTimeout(h.t); h = null; el.readOnly = false; return; }   // 제자리에서 톡 눌렀다 뗌 = 수정 모드(브라우저가 그 자리에 커서·자판)
-    clearTimeout(h.t); const was = h.on, moved = h.moved, fl = h.fl, dy = h.dy || 0; h = null; el.classList.remove("pvHolding");
-    if (fl) {   // (10/29 11:11 사용자) 손 떼도 아래로 내려가지 않게: 띄운 만큼 화면을 그 자리에서 바로 굴려(손을 뗀 뒤라 터치가 안 끊김) 카드가 보이던 자리에 그대로
+    clearTimeout(h.t); const was = h.on, moved = h.moved, fl = h.fl, dy = h.dy || 0;
+    if (e?.type === "touchcancel" && was) {   // (10/29 11:16) 폰이 터치를 끊어도 접지 않음: 커진 채 가운데에 두고, 다시 대면 이어서 넘김 · 카드 밖을 누르면 접힘
+      el._pvStay = { fl, dy, moved }; h = null;
+      const out = (ev) => { if (el.contains(ev.target)) return; document.removeEventListener("touchstart", out, true); if (el._pvStay) { const st = el._pvStay; el._pvStay = null; h = { on: true, moved: st.moved, fl: st.fl, dy: st.dy, t: null }; end({ type: "touchend" }); } };
+      document.addEventListener("touchstart", out, true); return;
+    }
+    h = null; el.classList.remove("pvHolding");
+    if (fl) { fl.classList.remove("pvLift");   // (10/29 11:11 사용자) 손 떼도 아래로 내려가지 않게: 띄운 만큼 화면을 그 자리에서 바로 굴려(손을 뗀 뒤라 터치가 안 끊김) 카드가 보이던 자리에 그대로
       fl.style.transition = "box-shadow 250ms ease"; fl.style.transform = ""; if (dy) { try { window.scrollBy({ top: dy, behavior: "instant" }); } catch { window.scrollBy(0, dy); } }
-      fl.style.boxShadow = ""; setTimeout(() => { if (!h) { fl.style.zIndex = ""; fl.style.position = ""; fl.style.transition = ""; } }, 260); }
+      setTimeout(() => { if (!h) fl.style.transition = ""; }, 260); }
     if (!was) return;
     e?.preventDefault?.();                      // 길게 누른 뒤 손 뗌: 브라우저 기본(글자 선택·메뉴) 막음
     if (moved) {                                // 칸 안에서 넘겼으면 펼치지 않고 원래 크기로 — 보던 위치는 그대로(10/29 08:58 사용자: 맨 위로 돌아가면 NG)
@@ -1490,12 +1497,13 @@ function pvHold(el) {
     if (e.touches.length !== 1) return;
     if (!closed()) { if (el._pvNoSel === "up") el._pvNoSel = null; return; }   // 수정 모드에서 '새로' 누름 → 이제부터 선택 허용
     const y = e.touches[0].clientY, x = e.touches[0].clientX;
+    if (el._pvStay) { const st = el._pvStay; el._pvStay = null; el.readOnly = true; h = { y, x, on: true, moved: st.moved, fl: st.fl, dy: st.dy, t: null }; return; }   // 끊긴 뒤 다시 댐 → 바로 이어서
     el.readOnly = true;   // 누르고 있는 동안엔 자판·수정 모드가 뜨지 않게(안드로이드는 길게 누르면 칸에 포커스를 줌)
     h = { y, x, on: false, moved: false, t: setTimeout(() => { if (!h) return; h.on = true; el.classList.add("pvHolding"); try { navigator.vibrate?.(12); } catch {}
       const H = pvFit(el, PV_ROWS.open); el.style.height = H + "px";
       try { const r = el.getBoundingClientRect(), dy = Math.round(r.top + H / 2 - window.innerHeight / 2);   // (10/29 10:48 사용자) 화면을 굴리면 폰이 터치를 끊음 → 화면은 그대로, 칸만 가운데로 띄움
         const fl = card() || el; h.fl = fl;   // (10/29 11:11 사용자) 글 칸만이 아니라 바깥 카드째로 가운데로 — 일체감
-        fl.style.transition = "transform 250ms ease, box-shadow 250ms ease"; fl.style.position = "relative"; fl.style.zIndex = "40"; fl.style.boxShadow = "0 12px 40px rgba(0,0,0,.55)"; if (Math.abs(dy) > 8) { fl.style.transform = `translateY(${-dy}px)`; h.dy = dy; } } catch {}
+        fl.style.transition = "transform 250ms ease, box-shadow 250ms ease"; fl.classList.add("pvLift"); if (Math.abs(dy) > 8) { fl.style.transform = `translateY(${-dy}px)`; h.dy = dy; } } catch {}   // 위치(transform)와 그림자만 — 배치가 바뀌는 스타일은 누르기 전부터 고정(CSS)
     }, PV_HOLD_MS) };   // 누르는 동안 칸을 키워 글을 더 보여 줌(애니메이션은 CSS height 250ms)
   }, { passive: true });
   el.addEventListener("touchmove", (e) => {
@@ -4485,7 +4493,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-29-1150-holdcard";
+const BUILD = "2026-10-29-1200-holdsafe";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
