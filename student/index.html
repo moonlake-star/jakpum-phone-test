@@ -445,7 +445,7 @@ function lessonHtml(l, prev, mode = "normal") {
     extras.length ? `<h3>🎵 다른 버전</h3>${extras.map(x => player(x.file_id, x.kind_ko || "듣기")).join("")}` : "",
   ].filter(Boolean).join("");
   return `<button class="ghost" id="back">← 전체 노트</button>
-    <h2 style="margin:14px 0 4px">${md(l.date)} 레슨</h2>${modeBar(m)}
+    <h2 style="margin:14px 0 4px">${md(l.date)} 레슨</h2>
     ${has(l.feedback) ? `<div class="card letter"><h2>💬 선생님 한마디</h2>${letter}${bestBlock}</div>` : bestBlock ? `<div class="card">${bestBlock}</div>` : ""}
     ${full && moment && !clips.some(c => (c.note || "").trim() === moment) && !points.some(t => t.trim() === moment) ? `<div class="card moment" role="region" aria-label="선생님이 발견한 오늘의 순간"><div class="muted">🔎 선생님이 발견한 오늘의 순간</div><p class="big">${esc(moment)}</p></div>` : ""}
     ${!ptsIn && points.length ? `<div class="card"><h2>⭐ 오늘의 핵심 포인트</h2>${ptsHtml(points)}</div>` : ""}
@@ -464,7 +464,7 @@ function openLesson(id) {
   if (!l.seen_at && !seenLocal()[id]) call("seen", { lesson: id }).then(() => { const s = seenLocal(); s[id] = Date.now(); LS.set("sn_seen", s); }).catch(() => {});
   const paint = () => {
     const nth = ls.length - i, dd = (l.date || "").replaceAll("-", ".");
-    $("view").innerHTML = lessonHtml(l, prev, LS.get("sn_mode") || "normal").replace('<h2 style="margin:14px 0 4px">',
+    $("view").innerHTML = lessonHtml(l, prev, "normal")   /* 10/29 17:28 사용자: 심플/보통/자세히 버튼 없애고 보통만 */.replace('<h2 style="margin:14px 0 4px">',
       `<div class="card greet"><div class="muted">${esc(data.name)}님의 보컬노트 · ${nth}회차 · ${esc(dd)}</div><p class="big" style="margin:4px 0 0">${esc(data.name)}님, 오늘도 수고 많으셨어요 🎵</p></div><h2 style="margin:14px 0 4px">`);
     $("back").onclick = timeline; wirePlayers();
     document.querySelectorAll("[data-mode]").forEach(b => b.onclick = () => { LS.set("sn_mode", b.dataset.mode); paint(); });

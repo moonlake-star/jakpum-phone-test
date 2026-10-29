@@ -60,8 +60,9 @@ const INTERNAL = ["lesson_tone", "weekly_mission", "evidence", "confidence", "co
   const rich = { ...base, cheer: "꾸준히 하시면 더 좋아져요", song: { title: "가짜 노래", artist: "홍길동", why: "톤과 어울려요" }, clips: [{ file_id: "K1", label: "구간" }] };
   const sim = lessonHtml(rich, prev, "simple");
   assert.ok(!sim.includes("오늘의 순간") && !sim.includes("응원 메시지") && !sim.includes("추천 곡") && !sim.includes("<details") && !sim.includes("오늘의 클립"));
-  assert.ok(sim.includes("선생님 한마디") && sim.includes("다음 미션") && sim.includes('aria-pressed="true"'));
+  assert.ok(sim.includes("선생님 한마디") && sim.includes("다음 미션") && !sim.includes('data-mode='));   // 10/29 17:28 보기 방식 버튼 없앰(보통 고정)
   const nor = lessonHtml(rich, prev, "normal");
+  assert.ok(src.includes('lessonHtml(l, prev, "normal")'), "수강생 화면은 보통 고정");
   assert.ok(nor.includes("응원 메시지") && nor.includes("가짜 노래") && nor.includes("(홍길동)") && nor.includes("<details"));
   const det = lessonHtml(rich, prev, "detail");
   assert.ok(!det.includes("<details") && det.includes("더 들어 보기") && det.includes("지난번과 비교"));
