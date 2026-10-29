@@ -8,9 +8,11 @@ const lessonHtml = new Function(body + "; return lessonHtml;")();
 const L = { id: "L", date: "2026-10-25", feedback: "오늘 좋았던 부분\n· 8:24 '오' 발음\n· 9:11~12:01 구간\n비율 10:30:20 은 아님", points: ["호흡"], practice: ["숨 5번"], clips: [{ file_id: "K1", label: "1:00 구간", note: "좋았던 브릿지" }], extra_best: [],
   best: { file_id: "B", len: 30, edited: true, joined: true }, highlight: "후렴 호흡", full: { file_id: "LISTEN", segs: [[1, "t", "안녕"]] }, pairs: [{ file_id: "P1", label: "첫 소절 톤" }] };
 let h = lessonHtml(L, null, "normal");
-// (10/29 09:54 확정) 순서: 한마디(+베스트 듣기) → 오늘의 순간 → 핵심 포인트 → 미션 → 더 들어 보기(포인트에 안 붙은 소리)
+// (10/29 10:33 시안 C) 순서: 한마디(+베스트) → 핵심 포인트(글에 제목 줄이 없을 때 따로) → 더 들어 보기 → 다음 미션(응원 다음). 순간은 클립 메모와 같으면 따로 안 보임
 const i = (k) => h.indexOf(k);
-assert.ok(i("선생님 한마디") < i('data-lp="B"') && i('data-lp="B"') < i("선생님이 발견한 오늘의 순간") && i("선생님이 발견한 오늘의 순간") < i("오늘의 핵심 포인트") && i("오늘의 핵심 포인트") < i("다음 미션") && i("다음 미션") < i("더 들어 보기"));
+assert.ok(i("선생님 한마디") < i('data-lp="B"') && i('data-lp="B"') < i("오늘의 핵심 포인트") && i("오늘의 핵심 포인트") < i("더 들어 보기") && i("더 들어 보기") < i("다음 미션"));
+assert.ok(h.includes("선생님이 발견한 오늘의 순간"), "클립 메모와 다른 순간 문장은 카드로(내용 빠짐 없음)");
+assert.ok(!lessonHtml({ ...L, highlight: "좋았던 브릿지" }, null, "normal").includes("선생님이 발견한 오늘의 순간"), "같은 문장은 한 번만");
 assert.ok(h.includes("좋았던 브릿지") && h.includes('data-lp="K1"') && i('data-lp="K1"') > i("더 들어 보기"), "안 붙은 클립은 더 들어 보기");
 // 글 속 시각 → ▶ 버튼(초), 범위 양끝 모두, 시:분:초 같은 3단은 건드리지 않음
 assert.ok(h.includes('data-ftc="504"') && h.includes("▶ 8:24") && h.includes('data-ftc="551"') && h.includes('data-ftc="721"'));
