@@ -178,8 +178,11 @@ async function load() {
     if (j.state === "rejected") return $("view").innerHTML = `<div class="card"><p>이 계정은 연결되지 않았어요. 선생님께 문의해 주세요.</p></div>`;
     if (j.state === "closed") return $("view").innerHTML = `<div class="card"><p>지금은 노트를 볼 수 없어요. 선생님께 문의해 주세요.</p></div>`;
     data = j;
+    // 출석·수강권 현황(선생님 앱이 '_status' 칸으로 보냄, 2026-10-29): 레슨 목록에서는 빼고 맨 위 카드로
+    const sx = (j.lessons || []).find(l => l && l.id === "_status"); data.status = sx && sx.kind === "status" ? sx : null;
+    data.lessons = (j.lessons || []).filter(l => l && l.id !== "_status");
     const want = params.get("l");
-    if (want && j.lessons.some(l => l.id === want)) openLesson(want); else timeline();
+    if (want && data.lessons.some(l => l.id === want)) openLesson(want); else timeline();
   } catch (e) {   // 로그인 문제일 때만 저장된 로그인을 지움(오프라인·일시 오류로 매번 다시 로그인하지 않게)
     if (/로그인/.test(e.message)) { LS.set("sn_tok", null); idToken = null; return loginView(e.message); }
     $("view").innerHTML = `<div class="card"><p>연결이 잠시 안 돼요. 인터넷을 확인하고 다시 눌러 주세요.</p><button class="full" id="retry">다시 불러오기</button><p class="muted">${esc(e.message)}</p></div>`;
@@ -205,11 +208,22 @@ function storyHtml(ls) {
       ${has(l.highlight) ? `<p>${esc(l.highlight.trim())}</p>` : ""}${l.best?.file_id ? player(l.best.file_id + "#s", md(l.date) + " 베스트 듣기") : ""}</section>`).join("")}</details>`;
 }
 
+// 칭호(사용자 확정 10/29: 확인된 레슨 누적 4/12/24/48, 내려가지 않음)
+const TITLES = [[0, "🌱", "새싹 가수"], [4, "🌿", "연습하는 가수"], [12, "🌳", "노래하는 사람"], [24, "🎙️", "무대 위 가수"], [48, "👑", "작품 가수"]];
+function statusHtml(s) {
+  if (!s) return "";
+  const n = Math.max(0, +s.lessons_confirmed || 0), i = TITLES.reduce((k, x, j) => n >= x[0] ? j : k, 0), T = TITLES[i], N = TITLES[i + 1];
+  const nx = s.next_lesson ? new Date(s.next_lesson) : null;
+  const when = nx && !isNaN(nx) ? `${nx.getMonth() + 1}월 ${nx.getDate()}일(${"일월화수목금토"[nx.getDay()]}) ${nx.getHours() < 12 ? "오전" : "오후"} ${(nx.getHours() % 12) || 12}시${nx.getMinutes() ? " " + nx.getMinutes() + "분" : ""}` : "";
+  return `<div class="card status"><div class="cardHead"><b>${T[1]} ${esc(T[2])}</b><span class="muted">레슨 ${n}회${N ? ` · 다음 칭호까지 ${N[0] - n}회` : ""}</span></div>
+    ${when ? `<p style="margin:8px 0 0">📅 다음 레슨 <b>${esc(when)}</b></p>` : ""}${s.line ? `<p style="margin:4px 0 0">🎫 ${esc(s.line)}</p>` : ""}</div>`;
+}
+
 function timeline() {
   history.replaceState(null, "", location.pathname);
   const ls = data.lessons, seen = seenLocal();
   const bests = ls.filter(l => l.best?.file_id);
-  $("view").innerHTML = `<div class="card"><h2>${esc(data.name)}님의 레슨 노트</h2>
+  $("view").innerHTML = `${statusHtml(data.status)}<div class="card"><h2>${esc(data.name)}님의 레슨 노트</h2>
       <p class="muted" style="margin:0">레슨 ${ls.length}회 · 최근 ${md(ls[0]?.date)}</p>
       ${bests.length > 1 ? `<button class="ghost full" id="playAll" style="margin-top:10px">▶ 그동안의 베스트 가창 이어 듣기 (${bests.length}곡)</button>` : ""}</div>
     ${storyHtml(ls)}
