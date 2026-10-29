@@ -3505,7 +3505,7 @@ function regenBoxHTML() {
     body = `<p role="status" class="muted" style="margin:6px 0">상태: <span class="chip">${RG_LABEL.succeeded}</span> 새 편집본 후보가 만들어졌어요. 두 버전을 들어 보고 고르세요. 고르기 전에는 학생·카톡에 아무것도 가지 않아요.</p>
       <p class="muted" style="margin:2px 0;font-size:.85rem">⚠ ${esc(rh.note || "박자 정렬 확인 필요")}${rh.needs_listen !== false ? " · 실제 청감은 아직 검증 전이에요" : ""} · 이어 붙인 곳 ${n}곳 · 사용 방식 ${esc(c.composite?.method || "-")}</p>
       <div class="muted" style="font-size:.85rem;margin-top:6px"><b>기존 편집본</b>${o ? "" : " (없음)"} — 재생바</div>${o ? `<div id="regenOld">${tpHTML(true)}</div>` : ""}
-      <div class="muted" style="font-size:.85rem;margin-top:6px"><b>새 편집본 후보</b> — 재생바 (한쪽을 재생하면 다른 쪽은 멈춰요)</div><div id="regenNew">${tpHTML(true)}</div>
+      <div class="muted" style="font-size:.85rem;margin-top:6px"><b>${c.composite?.splice_try ? "짜깁기 시도본(기준 낮춤)" : "새 편집본 후보"}</b>${c.composite?.len ? ` ${Math.round(c.composite.len)}초` : ""} — 재생바 (한쪽을 재생하면 다른 쪽은 멈춰요)</div>${c.composite?.note ? `<p class="muted" style="margin:2px 0;font-size:.82rem">${esc(c.composite.note)}</p>` : ""}<div id="regenNew">${tpHTML(true)}</div>
       <div class="row" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px">
         <button class="small" id="regenAdopt" type="button">새 편집본 채택</button><button class="small ghost" id="regenKeep" type="button">기존 편집본 유지</button></div>
       <p class="muted" style="margin:4px 0 0;font-size:.8rem">채택해도 학생에게 보낼지는 위 ‘베스트 편집본 보내기’에서 다시 골라야 해요. 기존 메이크업본은 이전 편집본용이라 새 편집본에는 이어지지 않아요.</p>`;
@@ -4550,7 +4550,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-29-1330-uniform";
+const BUILD = "2026-10-29-1345-splice";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
