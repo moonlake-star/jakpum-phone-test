@@ -1,7 +1,7 @@
 // 수강생 배지/칭호 로직 — 모의 데이터 전용. 네트워크 호출·저장·운영 데이터 접근 없음.
-// 칭호 임계값(TITLE_STEPS)은 '테스트 명세 가정값'이며 사용자 확정 전에는 운영에 적용하지 않는다(PROVISIONAL).
+// 칭호 임계값 4/12/24/48: 사용자 확정 2026-10-29 17:42. 개근·연속 = 수강권 묶음 완주(주 단위 아님) — 정본 계산은 백엔드 lesson_sync(#182/#186), 여기는 화면 샘플용 단순 계산(4회 = 1묶음).
 (function (root) {
-  const PROVISIONAL = true;
+  const PROVISIONAL = false;
   const TITLE_STEPS = [
     { id: 'sprout', icon: '🌱', name: '새싹 가수', min: 0 },
     { id: 'practicing', icon: '🌿', name: '연습하는 가수', min: 4 },
@@ -11,11 +11,11 @@
   ];
   const CATEGORIES = { lesson: '레슨', mission: '미션', note: '노트·소감', teacher: '선생님 수여' };
   // rule: metric은 summarize()가 만든 값 이름. 해당 이벤트 데이터가 없으면 획득 불가(추정·허위 집계 없음).
-  const METRIC_EVENT = { lessons: 'lesson', bestWeekStreak: 'lesson', missions: 'mission', bestMissionWeekStreak: 'mission', reflections: 'reflection', noteReplays: 'note_replay' };
+  const METRIC_EVENT = { lessons: 'lesson', bestWeekStreak: 'lesson', packagesDone: 'lesson', missions: 'mission', bestMissionWeekStreak: 'mission', reflections: 'reflection', noteReplays: 'note_replay' };
   const CATALOG = [
     { id: 'first_lesson', icon: '🎵', name: '첫 레슨', cat: 'lesson', kind: 'auto', rule: { metric: 'lessons', gte: 1 } },
     { id: 'four_done', icon: '🏅', name: '4회 완주', cat: 'lesson', kind: 'auto', rule: { metric: 'lessons', gte: 4 } },
-    { id: 'streak5', icon: '🔥', name: '5주 연속 레슨', cat: 'lesson', kind: 'auto', rule: { metric: 'bestWeekStreak', gte: 5 } },
+    { id: 'pkg_streak3', icon: '🔥', name: '3번 연속 완주', cat: 'lesson', kind: 'auto', rule: { metric: 'packagesDone', gte: 3 } },
     { id: 'first_mission', icon: '📝', name: '첫 미션 해 옴', cat: 'mission', kind: 'auto', rule: { metric: 'missions', gte: 1 } },
     { id: 'missions5', icon: '📚', name: '미션 5회 해 옴', cat: 'mission', kind: 'auto', rule: { metric: 'missions', gte: 5 } },
     { id: 'mission_streak3', icon: '🌟', name: '미션 3주 연속', cat: 'mission', kind: 'auto', rule: { metric: 'bestMissionWeekStreak', gte: 3 } },
@@ -45,6 +45,7 @@
       lessons: lessons.length, missions: missions.length,
       reflections: by('reflection').length, noteReplays: by('note_replay').length,
       bestWeekStreak: bestStreak(lessons.map((e) => e.date)),
+      packagesDone: Math.floor(lessons.length / 4),   // 샘플: 4회권 기준(결석 표시 없음 = 연속 유지)
       bestMissionWeekStreak: bestStreak(missions.map((e) => e.date)),
     };
   }
@@ -62,6 +63,7 @@
   function earnDate(def, events) {
     const { metric, gte } = def.rule;
     const dates = (events || []).filter((e) => e.type === METRIC_EVENT[metric]).map((e) => e.date).sort();
+    if (metric === 'packagesDone') return dates.length >= gte * 4 ? dates[gte * 4 - 1] : null;
     if (!/Streak$/.test(metric)) return dates.length >= gte ? dates[gte - 1] : null;
     for (let n = gte; n <= dates.length; n++) if (bestStreak(dates.slice(0, n)) >= gte) return dates[n - 1];
     return null;
@@ -75,7 +77,7 @@
       let date = null, progress = null;
       if (def.kind === 'auto') {
         date = earnDate(def, ev);
-        progress = { have: Math.min(sum[def.rule.metric], def.rule.gte), need: def.rule.gte, unit: /Streak$/.test(def.rule.metric) ? '주' : '회' };
+        progress = { have: Math.min(sum[def.rule.metric], def.rule.gte), need: def.rule.gte, unit: /Streak$/.test(def.rule.metric) ? '주' : def.rule.metric === 'packagesDone' ? '번' : '회' };
       } else if (awards[def.id]) date = awards[def.id].date;
       if (!date && kept.earned && kept.earned[def.id]) date = kept.earned[def.id];
       return { ...def, earned: !!date, date, progress, award: awards[def.id] || null };
@@ -83,7 +85,7 @@
     const t = titleFor(sum.lessons, kept.titleIndex);
     const earned = {};
     badges.forEach((b) => { if (b.earned) earned[b.id] = b.date; });
-    const best = Math.max(kept.bestStreak || 0, sum.bestWeekStreak);
+    const best = Math.max(kept.bestStreak || 0, sum.packagesDone);
     return {
       summary: sum, title: t, badges, bestStreak: best,
       recent: badges.filter((b) => b.earned).sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 3),
