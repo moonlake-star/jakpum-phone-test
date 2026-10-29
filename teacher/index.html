@@ -3536,8 +3536,8 @@ function wireRegen() {
   const pend = regenPending();
   if (!pend) return;
   const o = bestPicked();
-  if ($("regenOld") && o) tpWire($("regenOld").querySelector(".tp"), o.file_id);
-  if ($("regenNew")) tpWire($("regenNew").querySelector(".tp"), pend.cand.composite.file_id);
+  if ($("regenOld") && o) tpWire($("regenOld").querySelector(".tp"), o.file_id, false, null, o.len);
+  if ($("regenNew")) tpWire($("regenNew").querySelector(".tp"), pend.cand.composite.file_id, false, null, pend.cand.composite.len);
   $("regenAdopt").onclick = () => { if (confirm("새 편집본을 지금 편집본으로 채택할까요?\n기존 편집본 파일은 지우지 않아요. 학생에게 보낼지는 따로 골라야 해요.")) regenDecide(pend, "adopt"); };
   $("regenKeep").onclick = () => regenDecide(pend, "keep");
 }
@@ -3652,7 +3652,7 @@ function wireBest() {
   if (typeof mkAutoEnsure === "function") { try { mkAutoEnsure(o); } catch {} }
   const box = $("todayCard").querySelector(".abPair"), broot = box?.querySelector('[data-abrow="orig"] .tp') || $("todayCard").querySelector(".tp");
   const timeEl = box?.querySelector(".abTime");
-  tpWire(broot, o.file_id, false, timeEl);
+  tpWire(broot, o.file_id, false, timeEl, o.len);
   const mk = $("bestMakeup");
   if (mk) mk.onclick = () => {
     const back = () => openLesson(cur.sid, cur.rowIndex, cur.back);
@@ -3964,7 +3964,9 @@ async function tpLoad(root, fileId) {
   ++playSharedSeq;  // 재생 바가 플레이어 소유권을 가져오면 이전 일반 재생의 지연 응답을 취소
   if (typeof hlQueueStop === "function") hlQueueStop();
   if (playingBtn) player.onended();
-  player.pause(); tpRoot = root; tpFile = fileId;
+  player.pause();
+  if (tpRoot && tpRoot !== root) { const pb = tpRoot.querySelector?.('[data-tp="play"]'); if (pb) pb.textContent = "▶"; }   // 앞 재생바는 ▶로
+  tpRoot = root; tpFile = fileId; tpTimeEl = root._tpTimeEl || null;
   const pending = (async () => {
     if (!urls[fileId]) {
       const blob = await readBlob(fileId);
@@ -3992,10 +3994,12 @@ async function tpLoad(root, fileId) {
   tpPromise = pending;
   try { return await pending; } finally { if (tpPromise === pending) tpPromise = null; }
 }
-function tpWire(root, fileId, autoplay, timeEl) {
+function tpWire(root, fileId, autoplay, timeEl, len) {
   if (!root) return;
+  root._tpTimeEl = timeEl || null;   // (10/29 12:35 버그) 다른 재생바의 바깥 시간 칸이 남아 있으면 이 재생바 시간이 0:00으로 멈춰 보였음
+  if (+len > 0) { const own = root.querySelector(".tpTime"); if (own && !timeEl) own.textContent = `0:00 / ${fmt(+len)}`; }   // 누르기 전에도 길이 보이기
   if (typeof requestAnimationFrame === "function") requestAnimationFrame(() => drawWave(root.querySelector(".tpWave"), wavePeaks[fileId], 0));
-  if (timeEl) { tpTimeEl = timeEl; timeEl.textContent = "0:00 / 0:00"; }
+  if (timeEl) { tpTimeEl = timeEl; timeEl.textContent = +len > 0 ? `0:00 / ${fmt(+len)}` : "0:00 / 0:00"; }
   const run = async (fn) => {
     const seq = ++tpActionSeq, wait = tpRoot !== root || tpFile !== fileId || player.readyState < 2;
     if (wait && typeof busy === "function") busy(true);
@@ -4531,7 +4535,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-29-1305-ease";
+const BUILD = "2026-10-29-1315-tptime";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
