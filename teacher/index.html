@@ -287,6 +287,8 @@
   #v2Ai { position:fixed; inset:0; z-index:85; background:rgba(0,0,0,.7); display:flex; align-items:center; justify-content:center; padding:16px; }
   #v2Ai .box { width:min(560px,100%); max-height:86vh; overflow:auto; background:var(--card); border:1px solid var(--line); border-radius:16px; padding:14px; }
   #v2Ai .diff { border-top:1px solid var(--line); padding:8px 0; font-size:.92rem; white-space:pre-wrap; } #v2Ai .diff .k { color:var(--muted); font-size:.82rem; }
+  .attSheet { position:fixed; inset:0; z-index:80; background:rgba(0,0,0,.55); display:flex; align-items:flex-end; justify-content:center; }
+  .attSheet .attBox { width:100%; max-width:560px; background:var(--card, #22262c); border-radius:18px 18px 0 0; padding:16px 16px 22px; box-sizing:border-box; }
 </style>
 </head>
 <body>
@@ -592,6 +594,77 @@ async function loadConfig() {
   throw new Error("_시스템/config.json을 찾지 못했습니다");
 }
 
+// ── 출석·수강권 현황(#182, 사용자 승인 2026-10-29 17:55) ─────────────
+// 수집기가 _시스템 DB 폴더에 쓴 출석현황.json을 읽어 ① 수강생 줄에 '4회 중 3회 · 다음 11/3' ② 오늘 할 일에 '확인 필요'
+// ③ 수강생 화면으로 상태 한 줄(금액·미납 없음)을 '_status' 칸으로 보냄. 선생님 결정은 출석_선생님확인.json(다음 수집 때 반영).
+const ATT_STATUS = "출석현황.json", ATT_DEC = "출석_선생님확인.json";
+let att = LS.get("vn_att") || null;
+async function loadAttendance() {
+  const db = cfg?.system?.db_backup; if (!db) return null;
+  const fs = await list(db), sf = fs.find(f => f.name === ATT_STATUS), df = fs.find(f => f.name === ATT_DEC);
+  const a = sf ? await (await api(`${DRIVE}/files/${sf.id}?alt=media&_=${Date.now()}`, { cache: "no-store" })).json() : null;
+  if (a) { Object.defineProperty(a, "_db", { value: db, enumerable: false }); Object.defineProperty(a, "_decId", { value: df?.id || null, enumerable: false, writable: true }); }
+  return a;
+}
+const attOf = (sid) => att?.students?.[sid] || null;
+const attWhen = (iso) => { const d = new Date(iso); return isNaN(d) ? "" : `${d.getMonth() + 1}/${d.getDate()}(${"일월화수목금토"[d.getDay()]}) ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
+const attLocal = () => LS.get("vn_att_dec") || {};   // 이 폰에서 방금 고른 것(수집 반영 전까지 목록에서 숨김)
+const ATT_KIND = {
+  same_day_cancel: { t: "오늘 레슨 취소됨", btn: [["makeup", "📅 보강일 잡기", 1], ["forfeit", "소멸로 처리", 0]] },
+  missing_recording: { t: "레슨 녹음이 없어요", btn: [["done", "✅ 했어요(녹음 없음)", 1], ["makeup", "📅 보강 잡기", 0], ["absent", "결석", 0], ["forfeit", "소멸", 0]] },
+  adhoc_lesson: { t: "캘린더에 없는 레슨 녹음", btn: [["lesson", "✅ 레슨 맞아요", 1], ["not_lesson", "레슨 아니에요", 0]] },
+};
+function attTodos() {
+  const out = [], loc = attLocal();
+  for (const [sid, s] of Object.entries(att?.students || {})) {
+    const st = cfg.students[sid]; if (!st || isTeacher(st)) continue;
+    for (const q of s.queue || []) {
+      const key = q.event_id || q.file_id, k = ATT_KIND[q.kind]; if (!key || !k || loc[key]) continue;
+      out.push({ k: "att", sid, key, q, t: `❓ ${st.name} · ${attWhen(q.at || q.time || "")} ${k.t}`, c: "확인 필요" });
+    }
+  }
+  return out;
+}
+async function attDecide(x, val) {
+  const db = att?._db; if (!db) throw new Error("출석 현황을 아직 못 불러왔어요");
+  const fs = await list(db), df = fs.find(f => f.name === ATT_DEC);
+  const cur = df ? await (await api(`${DRIVE}/files/${df.id}?alt=media&_=${Date.now()}`, { cache: "no-store" })).json().catch(() => ({})) : {};
+  cur[x.key] = val;
+  await writeJSON(db, ATT_DEC, cur, df?.id);
+  const loc = attLocal(); loc[x.key] = val; LS.set("vn_att_dec", loc);
+  if (val === "makeup") {   // 선생님 구글 캘린더에 '보강 레슨' 새 일정 화면 열기(제목에 '보강'이 있으면 원래 레슨과 자동으로 짝지어짐)
+    const nm = cfg.students[x.sid]?.name || "";
+    window.open(`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(nm + " 보강 레슨")}`, "_blank");
+  }
+  toast("저장했어요 · 다음 자동 수집 때 반영돼요");
+}
+function attSheet(x) {
+  const k = ATT_KIND[x.q.kind]; if (!k) return;
+  const d = document.createElement("div"); d.className = "attSheet";
+  d.innerHTML = `<div class="attBox"><h3 style="margin:0 0 6px">${esc(x.t.replace(/^❓ /, ""))}</h3>
+    <p class="muted" style="margin:0 0 10px">${x.q.kind === "same_day_cancel" ? "안내 원칙은 소멸이지만, 보강일을 잡아 이번 달 회차를 채우는 게 기본이에요." : x.q.kind === "adhoc_lesson" ? "녹음은 있는데 캘린더에 일정이 없어요." : "일정은 지났는데 녹음이 없어요."}</p>
+    ${k.btn.map(([v, l, main]) => `<button type="button" class="${main ? "" : "ghost"} full" data-v="${v}" style="margin:4px 0">${esc(l)}</button>`).join("")}
+    <button type="button" class="ghost full" data-v="" style="margin:10px 0 0">닫기</button></div>`;
+  document.body.appendChild(d);
+  d.onclick = async (e) => {
+    const b = e.target.closest("button[data-v]"); if (!b && e.target !== d) return;
+    const v = b?.dataset.v; d.remove(); if (!v) return;
+    try { await attDecide(x, v); renderList(); } catch (err) { toast(err.message); }
+  };
+}
+async function pushStatuses() {   // 수강생 화면 맨 위 카드용(바뀐 사람만, 조용히)
+  if (!att?.students || !portalUrl()) return;
+  const sent = LS.get("vn_att_pushed") || {};
+  for (const [sid, s] of Object.entries(att.students)) {
+    const st = cfg.students[sid]; if (!st || isTeacher(st) || st.status === "test" || st.consent_withdrawn) continue;
+    const note = { kind: "status", line: s.line || null, next_lesson: s.next_lesson || null, lessons_confirmed: s.lessons_confirmed || 0,
+                   badges: s.badges || [], streak: s.streak || 0, updated_at: att.updated_at || null };
+    const h = JSON.stringify({ ...note, updated_at: null }); if (sent[sid] === h) continue;
+    try { await portal("t_note", { sid, lesson_id: "_status", date: "", published_at: note.updated_at || new Date().toISOString(), note, _nb: true }); sent[sid] = h; LS.set("vn_att_pushed", sent); }
+    catch { /* 다음에 다시 */ }
+  }
+}
+
 // ── 레슨 목록 ────────────────────────────────────────────
 // 목록: ① 이 폰에 저장해 둔 지난 목록을 바로 그리고 ② 드라이브에서 새로 받아(동시에 최대 6개 호출) 다시 그림
 // 한 수강생·한 레슨만 실패하면 그 칸만 '불러오기 실패(다시 시도)'로 표시하고 나머지는 정상 표시
@@ -656,6 +729,7 @@ function paintList(data, stale) {
       else if (j.req.status === "done" && !j.req.sent_at && daysAgo(j.req.done_at) <= 7) todo.push({ k: "job", sid: d.sid, reqId: j.reqId, t: `🪄 ${st.name} · ${j.req.title}`, c: "완성 · 들어보기" });
     });
   }
+  if (typeof attTodos === "function") try { todo.push(...attTodos()); } catch {}
   todo.sort((a, b) => (b.bell ? 1 : 0) - (a.bell ? 1 : 0));
   const bells = todo.filter(x => x.bell).length;
   const todoHtml = `<div class="card"><h3 style="margin:0 0 4px">오늘 할 일 ${bells ? `<span class="chip todo">🔔 검토 대기 ${bells}</span>` : ""}</h3>` + (todo.length ? todo.map((x, n) =>
@@ -667,7 +741,9 @@ function paintList(data, stale) {
     const fbN = d.rows.filter(r => !r.fb && !r.err).length, errN = d.rows.filter(r => r.err).length, pend = (d.subs || []).filter(x => !x.replied_at).length;
     const act = (d.jobs || []).filter(j => ["queued", "working"].includes(j.req.status)).length;
     const pay = (st.payments || []).slice(-1)[0];
-    const sub = isTeacher(st) ? "선생님 본인 곡·작업" : pay ? `최근 결제 ${esc(pay.date)} · ${esc(pay.sessions)}회 묶음` : "결제 기록 없음";
+    const a = attOf(d.sid);
+    const sub = isTeacher(st) ? "선생님 본인 곡·작업" : a?.line ? `${esc(a.line)}${a.next_lesson ? ` · 다음 ${esc(attWhen(a.next_lesson))}` : ""}`
+      : pay ? `최근 결제 ${esc(pay.date)} · ${esc(pay.sessions)}회 묶음` : "결제 기록 없음";
     const tag = st.status === "test" ? ` <span class="chip">연습용</span>` : isTeacher(st) ? ` <span class="chip">선생님</span>` : "";
     const chips = [
       d.err ? `<span class="chip todo retry" title="${esc(d.err)}">불러오기 실패(다시 시도)</span>` : "",
@@ -692,6 +768,7 @@ function paintList(data, stale) {
     const x = todo[+el.dataset.n];
     if (x.k === "lesson") { goBack = () => renderList(); openLesson(x.sid, x.i, () => renderList()); }
     else if (x.k === "subs") openStudent(x.sid, "subs");
+    else if (x.k === "att") attSheet(x);
     else { const j = cfg.students[x.sid]._jobs.find(y => y.reqId === x.reqId); if (j) openMkJob(j, () => renderList()); }
   });
 }
@@ -704,7 +781,9 @@ async function renderList() {
   const my = ++listGen, cached = LS.get("vn_list");
   if (cached) paintList(cached, true); else $("vList").innerHTML = `<p class="muted">불러오는 중…</p>`;
   try {
+    const attP = loadAttendance().then(a => { if (a) { att = a; LS.set("vn_att", a); } return a; }).catch(() => null);
     const data = await listData(cached || []);
+    await attP; if (att) pushStatuses().catch(() => {});
     if (my !== listGen || $("vList").classList.contains("hidden")) { LS.set("vn_list", data); return; }
     LS.set("vn_list", data);
     await untilIdle();                                  // 누르는 중이면 손을 뗀 뒤에 다시 그림(화면이 손가락 밑에서 바뀌지 않게)
@@ -4588,7 +4667,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-29-1740-nomode";
+const BUILD = "2026-10-29-1900-att";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
