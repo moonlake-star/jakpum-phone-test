@@ -98,6 +98,21 @@
   .wave svg { position:absolute; inset:0; width:100%; height:100%; } .wave .on { position:absolute; inset:0; clip-path:inset(0 100% 0 0); }
   .story-item { border-top:1px solid var(--line); padding:12px 0; } .story-item .when { font-weight:700; } .story-item p { margin:4px 0 8px; }
   @media (max-width:360px) { .story-item .play { font-size:1rem; padding:0 12px; } }
+  /* 레슨 캘린더(#182, 2026-10-29): 색만으로 구분하지 않고 아이콘+글자 */
+  .cal { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; margin-top:8px; }
+  .cal .hd { text-align:center; font-size:.8rem; color:var(--muted); padding:2px 0; }
+  .cal .dy { min-height:54px; border-radius:10px; background:#1b1f26; border:1px solid var(--line); padding:3px 2px; text-align:center; font-size:.85rem; line-height:1.2; color:var(--fg); }
+  .cal .dy.today { border-color:var(--accent); } .cal .dy.empty { background:transparent; border-color:transparent; }
+  .cal .dy .ic { display:block; font-size:1.05rem; margin-top:2px; } .cal button.dy { font:inherit; min-height:54px; padding:3px 2px; cursor:pointer; font-weight:400; }
+  .cal .dy.sel { outline:2px solid var(--accent); }
+  .calNav { display:flex; align-items:center; justify-content:space-between; gap:8px; } .calNav b { font-size:1.15rem; }
+  .calNav button { min-height:44px; min-width:52px; padding:0 10px; }
+  .calLeg { display:flex; flex-wrap:wrap; gap:6px 12px; font-size:.85rem; color:var(--muted); margin-top:8px; }
+  .calRow { display:flex; align-items:center; gap:8px; padding:10px 0; border-top:1px solid var(--line); }
+  .calRow .w { flex:1; } .calRow button { min-height:44px; padding:0 12px; font-size:.95rem; }
+  .medalRow { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; text-align:center; font-size:.85rem; margin-top:8px; }
+  .medalRow .md { width:58px; height:58px; margin:0 auto 4px; border-radius:50%; display:grid; place-items:center; font-size:1.7rem; background:radial-gradient(circle at 35% 30%,#ffe7a3,#c8912e 70%); box-shadow:0 0 0 3px #6b4d17; }
+  .medalRow .off .md { background:#2b3038; box-shadow:0 0 0 3px #3a414b; filter:grayscale(1); opacity:.5; } .medalRow .off { color:var(--muted); }
 </style>
 </head>
 <body>
@@ -208,15 +223,49 @@ function storyHtml(ls) {
       ${has(l.highlight) ? `<p>${esc(l.highlight.trim())}</p>` : ""}${l.best?.file_id ? player(l.best.file_id + "#s", md(l.date) + " 베스트 듣기") : ""}</section>`).join("")}</details>`;
 }
 
+// ── 레슨 캘린더 공통(#182, 2026-10-29) ──
+const CAL_S = { done: ["✅", "완료"], makeup_done: ["🔁", "보강 완료"], scheduled: ["📅", "예정"], cancelled: ["✖️", "휴강"], forfeit: ["✖️", "휴강"], review: ["⏳", "확인 중"] };
+const calYm = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+const calShift = (ym, n) => { const [y, m] = ym.split("-").map(Number), d = new Date(y, m - 1 + n, 1); return calYm(d); };
+function calGrid(ym, byDate, sel, tap) {   // byDate[YYYY-MM-DD] = [{s}] → 칸마다 대표 아이콘(여럿이면 개수)
+  const [y, m] = ym.split("-").map(Number), first = new Date(y, m - 1, 1), n = new Date(y, m, 0).getDate(), today = new Date();
+  const td = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  let h = "일월화수목금토".split("").map(x => `<div class="hd">${x}</div>`).join("") + "<div class=\"dy empty\"></div>".repeat(first.getDay());
+  for (let d = 1; d <= n; d++) {
+    const k = `${ym}-${String(d).padStart(2, "0")}`, xs = byDate[k] || [], ic = xs.length > 1 ? `${CAL_S[xs[0].s]?.[0] || "•"}${xs.length}` : xs.length ? (CAL_S[xs[0].s]?.[0] || "•") : "";
+    const cls = `dy${k === td ? " today" : ""}${k === sel ? " sel" : ""}`, lab = xs.length ? ` aria-label="${m}월 ${d}일 ${xs.map(x => CAL_S[x.s]?.[1] || "").join(", ")}"` : "";
+    h += tap && xs.length ? `<button type="button" class="${cls}" data-cd="${k}"${lab}>${d}<span class="ic">${ic}</span></button>` : `<div class="${cls}"${lab}>${d}<span class="ic">${ic}</span></div>`;
+  }
+  return `<div class="cal">${h}</div><div class="calLeg">${["done", "makeup_done", "scheduled", "cancelled", "review"].map(s => `<span>${CAL_S[s][0]} ${CAL_S[s][1]}</span>`).join("")}</div>`;
+}
+const calDay = (iso) => { const d = new Date(iso + "T00:00:00"); return `${d.getMonth() + 1}/${d.getDate()}(${"일월화수목금토"[d.getDay()]})`; };
+const S_BADGES = [["first_lesson", "🎵", "첫 레슨"], ["four_done", "🏅", "4회 완주"], ["pkg_streak3", "🔥", "3번 연속 완주"]];
+function myLessons(ym) {   // '나의 레슨': 이번 달 달력 + 그 달 레슨 목록(누르면 노트) + 배지
+  const s = data.status || {}, days = Array.isArray(s.days) ? s.days : [];
+  ym = ym || calYm(new Date());
+  const by = {}; days.forEach(d => (by[d.date] ||= []).push(d));
+  const mine = days.filter(d => d.date.startsWith(ym)), has = new Set(data.lessons.map(l => l.id)), got = new Set(s.badges || []);
+  $("view").innerHTML = `<button class="ghost" id="back">← 전체 노트</button>${statusHtml(s, true)}
+    <div class="card"><div class="calNav"><button class="ghost" id="cPrev" aria-label="지난달">‹</button><b>${+ym.slice(0, 4)}년 ${+ym.slice(5)}월</b><button class="ghost" id="cNext" aria-label="다음 달">›</button></div>
+    ${calGrid(ym, by, null, false)}
+    ${mine.length ? mine.map(d => `<div class="calRow"><span class="w">${calDay(d.date)} ${esc(d.time)} · ${CAL_S[d.s]?.[0] || ""} ${CAL_S[d.s]?.[1] || ""}</span>${d.lesson_id && has.has(d.lesson_id) ? `<button class="ghost" data-nl="${esc(d.lesson_id)}">노트 보기</button>` : ""}</div>`).join("")
+      : `<p class="muted" style="margin:10px 0 0">이 달에는 레슨 기록이 없어요.</p>`}</div>
+    <div class="card"><h2 style="margin:0">🏆 나의 배지</h2><p class="muted" style="margin:2px 0 0">다른 분과 비교하지 않아요. 한 번 받은 배지는 계속 남아요.</p>
+    <div class="medalRow">${S_BADGES.map(([id, ic, nm]) => `<div class="${got.has(id) ? "" : "off"}"><div class="md">${ic}</div>${esc(nm)}</div>`).join("")}</div></div>`;
+  $("back").onclick = () => timeline();
+  $("cPrev").onclick = () => myLessons(calShift(ym, -1)); $("cNext").onclick = () => myLessons(calShift(ym, 1));
+  document.querySelectorAll("[data-nl]").forEach(b => b.onclick = () => openLesson(b.dataset.nl));
+  window.scrollTo(0, 0);
+}
 // 칭호(사용자 확정 10/29: 확인된 레슨 누적 4/12/24/48, 내려가지 않음)
 const TITLES = [[0, "🌱", "새싹 가수"], [4, "🌿", "연습하는 가수"], [12, "🌳", "노래하는 사람"], [24, "🎙️", "무대 위 가수"], [48, "👑", "작품 가수"]];
-function statusHtml(s) {
-  if (!s) return "";
+function statusHtml(s, flat) {
+  if (!s || !s.kind) return "";
   const n = Math.max(0, +s.lessons_confirmed || 0), i = TITLES.reduce((k, x, j) => n >= x[0] ? j : k, 0), T = TITLES[i], N = TITLES[i + 1];
   const nx = s.next_lesson ? new Date(s.next_lesson) : null;
   const when = nx && !isNaN(nx) ? `${nx.getMonth() + 1}월 ${nx.getDate()}일(${"일월화수목금토"[nx.getDay()]}) ${nx.getHours() < 12 ? "오전" : "오후"} ${(nx.getHours() % 12) || 12}시${nx.getMinutes() ? " " + nx.getMinutes() + "분" : ""}` : "";
   return `<div class="card status"><div class="cardHead"><b>${T[1]} ${esc(T[2])}</b><span class="muted">레슨 ${n}회${N ? ` · 다음 칭호까지 ${N[0] - n}회` : ""}</span></div>
-    ${when ? `<p style="margin:8px 0 0">📅 다음 레슨 <b>${esc(when)}</b></p>` : ""}${s.line ? `<p style="margin:4px 0 0">🎫 ${esc(s.line)}</p>` : ""}</div>`;
+    ${when ? `<p style="margin:8px 0 0">📅 다음 레슨 <b>${esc(when)}</b></p>` : ""}${s.line ? `<p style="margin:4px 0 0">🎫 ${esc(s.line)}</p>` : ""}${flat ? "" : `<button class="ghost full" id="myLes" style="margin-top:10px">📅 나의 레슨 · 배지 보기</button>`}</div>`;
 }
 
 function timeline() {
@@ -231,6 +280,7 @@ function timeline() {
       <div class="muted">${esc((l.highlight || l.points?.[0] || "").slice(0, 40))}</div></button>`).join("") || `<div class="card"><p>아직 올라온 노트가 없어요.</p></div>`}
     <audio id="allAu" class="hidden" controls></audio>`;
   document.querySelectorAll("[data-l]").forEach(b => b.onclick = () => openLesson(b.dataset.l));
+  if ($("myLes")) $("myLes").onclick = () => myLessons();
   wirePlayers();
   if ($("playAll")) $("playAll").onclick = () => playSeries(bests.slice().reverse().map(l => l.best.file_id), $("allAu"), $("playAll"));
 }
