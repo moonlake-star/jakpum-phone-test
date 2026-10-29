@@ -21,10 +21,21 @@
   header h1 { font-size:1.25rem; margin:8px 0; flex:1; }
   .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin:12px 0; }
   .muted { color:var(--muted); font-size:.9rem; }
-  button { font:inherit; min-height:46px; padding:0 14px; border-radius:12px; border:0; background:var(--accent); color:var(--on-accent); font-weight:700; cursor:pointer; }
-  button.ghost { background:transparent; color:var(--accent); border:2px solid var(--accent); }
-  button.small { min-height:36px; padding:0 10px; font-size:.9rem; }
+  /* (10/29 10:52 사용자) 수강생 화면과 같은 결: 둥근 알약 모양, 은은한 그라데이션·빛, 누르면 살짝 눌림 */
+  button { font:inherit; min-height:46px; padding:0 16px; border-radius:999px; border:0; background:linear-gradient(180deg, #b9d5ff, var(--accent)); color:var(--on-accent); font-weight:700; cursor:pointer;
+    box-shadow:0 2px 10px rgba(156,195,255,.22); transition:transform 120ms ease, box-shadow 160ms ease, background 160ms ease, opacity 160ms ease; -webkit-tap-highlight-color:transparent; }
+  button:active:not(:disabled) { transform:scale(.96); box-shadow:0 1px 4px rgba(156,195,255,.18); }
+  button:disabled { opacity:.55; cursor:default; }
+  button.ghost { background:linear-gradient(135deg, rgba(156,195,255,.14), rgba(156,195,255,.05)); color:var(--accent); border:0; box-shadow:inset 0 0 0 1.5px rgba(156,195,255,.42); }
+  button.ghost:active:not(:disabled) { box-shadow:inset 0 0 0 1.5px rgba(156,195,255,.6); }
+  button.small { min-height:36px; padding:0 12px; font-size:.9rem; }
+  @media (prefers-reduced-motion: reduce) { button { transition:none; } button:active:not(:disabled) { transform:none; } }
   button.full { width:100%; margin:6px 0; }
+  .saidHit { animation:saidPop 320ms ease; } .saidHit.yes { background:linear-gradient(180deg, #9ff0b6, var(--ok)) !important; color:#0f1a12 !important; opacity:1 !important; } .saidHit.no { background:#3a404a !important; color:#eceff3 !important; box-shadow:none !important; opacity:1 !important; }
+  @keyframes saidPop { 0% { transform:scale(1); } 35% { transform:scale(.9); } 70% { transform:scale(1.06); } 100% { transform:scale(1); } }
+  .saidItem, .warnbox { transition:max-height 380ms ease, opacity 300ms ease, transform 300ms ease, padding 380ms ease, margin 380ms ease; }
+  .saidGone { max-height:0 !important; opacity:0; transform:translateX(24px); padding-top:0 !important; padding-bottom:0 !important; margin-top:0 !important; margin-bottom:0 !important; overflow:hidden; border-color:transparent !important; }
+  @media (prefers-reduced-motion: reduce) { .saidHit { animation:none; } .saidItem, .warnbox { transition:none; } }
   .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
   .lesson { display:flex; justify-content:space-between; gap:8px; align-items:center; padding:10px 0; border-top:1px solid var(--line); cursor:pointer; }
   .lesson:first-of-type { border-top:0; }
@@ -87,7 +98,7 @@
   .tp:has(.seamStrip) { position:relative; }
   .seamStrip { position:absolute; left:11px; right:11px; top:6px; height:22px; pointer-events:none; }
   /* 재생바 = 소리 파형(10/28 시안): 눌러서/끌어서 위치 이동은 투명한 슬라이더가 그대로 받음 */
-  .tpBtns button { min-height:36px; height:36px; padding:0 2px !important; border-radius:10px; font-size:.95rem; }   /* 10/28 사용자: 재생 버튼 높이 좁게 */
+  .tpBtns button { min-height:36px; height:36px; padding:0 2px !important; border-radius:18px; font-size:.95rem; }   /* 10/28 사용자: 재생 버튼 높이 좁게 */
   .tpWaveBox { position:relative; height:52px; margin:2px 0; } .tpWaveBox canvas { position:absolute; inset:0; width:100%; height:100%; }
   .tpWaveBox .tpSeek { position:absolute; inset:0; width:100%; height:100%; margin:0; opacity:0; cursor:pointer; pointer-events:none; }   /* (10/29) 손가락은 아래 상자가 받음: 톡=그 자리 재생, 끌기=스크롤 */
   .tpWaveBox { touch-action:pan-y; cursor:pointer; }
@@ -166,7 +177,7 @@
   .pvAudio { display:flex; align-items:center; gap:10px; background:#11141a; border-radius:14px; padding:8px 10px; }
   .pvAudio button { flex:none; width:44px; height:44px; min-height:44px; padding:0; border-radius:50%; background:var(--pv, var(--accent)); color:#fff; font-size:1.1rem; }
   .pvAudio svg { flex:1; height:34px; min-width:0; }
-  .pvEdWrap { position:relative; } .pvEdWrap .pvEdit { position:absolute; right:6px; bottom:6px; width:38px; height:38px; min-height:38px; padding:0; border-radius:10px; background:#2a303a; color:var(--fg); border:1px solid var(--line); font-size:1rem; }
+  .pvEdWrap { position:relative; } .pvEdWrap .pvEdit { position:absolute; right:6px; bottom:6px; width:38px; height:38px; min-height:38px; padding:0; border-radius:50%; background:#2a303a; color:var(--fg); border:1px solid var(--line); box-shadow:0 2px 8px rgba(0,0,0,.35); font-size:1rem; }
   .pvCard.open .pvEdWrap .pvEdit { display:none; }
   .pvEd, #previewFeedback { box-sizing:border-box; width:100%; min-height:0; line-height:24px; padding:8px 10px; border:1px solid transparent; border-radius:12px; background:#11141a; color:var(--fg); overflow-y:auto; resize:none; transition:height 250ms ease, border-color .2s; }
   .pvCard.open .pvEd, .pvCard.open #previewFeedback { border-color:var(--line); background:#0f1216; }
@@ -3705,7 +3716,7 @@ function saidBoxHTML(items, canPlay) {   // canPlay = 지금 열린 레슨에서
   if (!items.length) return "";
   return `<div class="card warnbox"><h3 style="margin:0 0 4px">🗣 수강생이 한 말 — 맞는지 봐 주세요 <span class="chip todo">확인 전 ${items.length}개</span></h3>
     <p class="muted" style="margin:4px 0">AI가 녹음에서 뽑은 말이라 누가 한 말인지 틀릴 수 있어요. ‘맞아요’를 누른 말만 다음 레슨 브리핑과 AI 정리에 써요.</p>
-    ${items.map((x, n) => `<div style="border-top:1px solid var(--line);padding:10px 0">
+    ${items.map((x, n) => `<div class="saidItem" style="border-top:1px solid var(--line);padding:10px 0">
       <div class="row" style="gap:6px"><span class="chip todo">확인 전</span> <span class="chip">${esc(SAID_KIND[x.kind] || x.kind)}</span> <span class="muted">${esc(x.date || "")}</span>${canPlay && x.t != null ? `<button class="small ghost" data-saidplay="${n}" style="margin-left:auto;min-height:34px">▶ ${fmt(x.t)} 듣기</button>` : ""}</div>
       <div style="font-size:1.08rem;margin:6px 0">“${esc(x.quote)}”</div>${x.meaning ? `<div class="muted">${esc(x.meaning)}</div>` : ""}
       <div class="row" style="margin-top:6px"><button data-said="${n}" data-v="yes" style="flex:1;min-height:40px">👍 맞아요</button>
@@ -3720,10 +3731,16 @@ async function paintSaid(el, sid, lesson, rec) {
     el.innerHTML = saidBoxHTML(items, !!lesson && cur?.folder?.id === lesson);
     el.querySelectorAll("[data-saidplay]").forEach(b => b.onclick = () => { const x = items[+b.dataset.saidplay]; if (x?.t != null) playAt(Math.max(0, x.t - 2)).catch(e => toast(e.message)); });
     el.querySelectorAll("[data-said]").forEach(b => b.onclick = async () => {
-      const k = items[+b.dataset.said], yes = b.dataset.v === "yes";
+      const k = items[+b.dataset.said], yes = b.dataset.v === "yes", row = b.closest(".saidItem"), box = b.closest(".warnbox");
       el.querySelectorAll("[data-said]").forEach(x => x.disabled = true);
-      try { await setSaid(sid, k, yes ? true : "rejected"); toast(yes ? "확인했어요. 다음 브리핑부터 이 말을 써요" : "빼 두었어요. 브리핑과 AI 정리에 쓰지 않아요"); }
+      b.classList.add("saidHit", yes ? "yes" : "no"); b.textContent = yes ? "✓ 맞아요" : "✓ 뺐어요";   // (10/29 10:52 사용자) 눌렸다는 표시
+      let ok = false;
+      try { await setSaid(sid, k, yes ? true : "rejected"); ok = true; toast(yes ? "확인했어요. 다음 브리핑부터 이 말을 써요" : "빼 두었어요. 브리핑과 AI 정리에 쓰지 않아요"); }
       catch (e) { toast(errMsg(e)); }
+      if (ok && row) {   // 그 말 칸이 접히며 사라짐(마지막이면 상자째)
+        const tgt = items.length === 1 && box ? box : row; tgt.style.maxHeight = tgt.scrollHeight + "px"; void tgt.offsetHeight; tgt.classList.add("saidGone");
+        await new Promise(r => setTimeout(r, window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? 0 : 420));
+      }
       if (!lesson && stuCur?.sid === sid) paintBriefing(sid); else paintSaid(el, sid, lesson);
     });
   } catch { el.innerHTML = ""; }
@@ -4438,7 +4455,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-29-1110-float";
+const BUILD = "2026-10-29-1120-soft";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
