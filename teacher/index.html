@@ -3188,7 +3188,7 @@ function renderBest() {
     <details style="margin-top:6px"><summary class="muted" style="font-size:.88rem">ℹ 자세히 · 어떻게 만들었나</summary>
       <p class="muted" style="font-size:.85rem;margin:4px 0">☑ <b>피드백에 포함</b>을 체크한 것만 수강생 노트에 실리고 ‘클립 보내기’ 때 같이 가요. 체크하지 않으면 수강생에게 안 가요(파일은 그대로 남아요).</p>
       <div class="seamLabels">${seamStrip(o, "labels")}<p class="muted" style="font-size:.8rem;margin:2px 0">노란 칸 = 다른 테이크에서 가져와 이어 붙인 자리 · 시간을 누르면 그 바로 앞부터 들려요</p></div>
-      <div class="muted bestDesc" style="font-size:.85rem">AI가 이번 레슨 녹음에서 좋은 구간을 골라 박자에 맞춰 하나로 이어 붙인 편집본이에요${o.takes_used ? ` (테이크 ${o.takes_used}개 사용)` : ""}</div>
+      <div class="muted bestDesc" style="font-size:.85rem">${o.base === "fullrun" ? `그날 가장 길게 이어 부른 부분(약 ${Math.round(+o.fullrun?.len || o.len)}초 — 1절이면 1절, 2절까지면 2절까지)을 바탕으로, 칭찬받은 테이크의 더 좋은 구절을 같은 자리에 바꿔 넣은 편집본이에요` : "AI가 이번 레슨 녹음에서 좋은 구간을 골라 박자에 맞춰 하나로 이어 붙인 편집본이에요"}${o.takes_used ? ` (테이크 ${o.takes_used}개 사용)` : ""}</div>
       <p role="status" class="muted" style="margin:6px 0 0;font-size:.85rem">${status}</p>
       ${segs.length ? `<p class="muted" style="font-size:.85rem;margin:4px 0">원본 레슨에서 가져온 구간 ${segs.length}곳: ${segs.map(g => `${fmt(+g.start)}~${fmt(+g.end)}`).join(" · ")}</p>` : ""}
       ${ms === "ready" ? `<p class="muted" style="font-size:.85rem;margin:4px 0">✨ 메이크업본 = 이 편집본에 음정 보정 등을 한 별도 파일 · ⇄를 누르면 듣던 자리 그대로 다른 쪽이 들려요</p>` : ""}</details>
@@ -4291,7 +4291,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-29-0925-svlive";
+const BUILD = "2026-10-29-0935-fullrun";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
