@@ -35,7 +35,7 @@ assert.ok(src.includes('공개 전에 할 것: " + bl0.msg'), "구버전 서버 
 // 5) 수강생 화면(실제 사이트)과 선생님 미리보기: 같은 문구, 메이크업은 미션 뒤·응원 앞, 심플에선 숨김
 for (const [name, s, fn] of [["student", stu, "lessonHtml"], ["teacher-preview", src, "svLessonHtml"]]) {
   const f = grab(s, fn);
-  assert.ok(f.includes("오늘 잘한 부분을 이어 붙였어요") && f.includes("오늘 가장 좋았던 한 번을 골랐어요"), name);
+  assert.ok(f.includes("오늘의 가장 좋았던 부분을 모아 이어붙여봤어요") && f.includes("오늘 가장 좋았던 한 번을 골랐어요"), name);
   assert.ok(f.includes("간단 음정보정 예시") && f.includes("음원 발매용으로 정식 보정하면 더 자연스럽고 좋아져요"), name);
   assert.ok(!f.includes("보컬 메이크업 버전"), name);
   const iMk = f.indexOf('class="card makeup"'), iMission = f.indexOf("📋 다음 미션"), iCheer = f.indexOf('class="card cheer"');
