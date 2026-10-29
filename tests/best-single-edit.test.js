@@ -70,5 +70,5 @@ const wb = grab(/function wireBest\(\) \{[\s\S]*?\n\}\n/);
 assert.ok(/tpWire\(broot, o\.file_id, false, timeEl(, o\.len)?\)/.test(wb) && /tpWire\(mroot, m\.file_id, false, timeEl\)/.test(wb) && /player\.currentTime = Math\.min\(t,/.test(wb), "B안: 같은 player, ⇄는 같은 위치 유지");
 assert.ok(!/new Audio|<audio/.test(wb + grab(/function makeupBoxHTML\(o\) \{[\s\S]*?\n\}\n/)), "메이크업 비교용 별도 오디오 금지");
 assert.ok(/const player = new Audio\(\)/.test(src) && (src.match(/const player = new Audio\(\)/g) || []).length === 1);
-assert.ok(/function tpLoad[\s\S]*?player\.pause\(\); tpRoot = root/.test(src), "다른 재생바로 바꾸면 이전 음원을 멈춤");
+assert.ok(/function tpLoad[\s\S]*?player\.pause\(\);[\s\S]{0,200}tpRoot = root/.test(src), "다른 재생바로 바꾸면 이전 음원을 멈춤");
 console.log("best-single-edit OK");
