@@ -204,6 +204,8 @@
   #pvFull .lp.open .lab { display:none; } #pvFull .lp.open .wv { display:block; position:relative; flex:1; min-width:0; height:28px; } #pvFull .lp.open .tm { display:block; flex:none; font-size:.78rem; color:var(--muted); font-weight:500; font-variant-numeric:tabular-nums; }
   #pvFull .lp .wv svg { position:absolute; inset:0; width:100%; height:100%; } #pvFull .lp .wv .on { position:absolute; inset:0; clip-path:inset(0 100% 0 0); } #pvFull .lp .wv .flat { position:absolute; left:0; right:0; top:50%; height:2px; margin-top:-1px; background:#3a414b; }
   #pvFull .letter .sub { margin:14px 0 6px; font-size:.85rem; font-weight:700; color:#9cc3ff; letter-spacing:.02em; } #pvFull .letter .pts + .pre { margin-top:14px; } #pvFull .memo { font-size:.86rem; color:var(--muted); }
+  #pvFull .letter .gl { display:flex; flex-direction:column; align-items:flex-start; gap:4px; margin:2px 0 10px; } #pvFull .letter .gl .pre { width:100%; }
+  #pvFull .card.cheer.mission h2.mh { margin-top:16px; padding-top:14px; border-top:1px solid rgba(255,170,90,.22); }
   #pvFull .card.mission { background:linear-gradient(180deg, rgba(255,170,90,.07), transparent 70%), var(--card); border-color:rgba(255,170,90,.28); } #pvFull .card.mission h2 { color:#ffb37a; }
   #pvFull .best { margin-top:12px; padding-top:12px; border-top:1px solid var(--line); }
   #pvFull ol.pts { list-style:none; margin:4px 0 0; padding:0; display:flex; flex-direction:column; gap:14px; } #pvFull ol.pts li { display:flex; flex-direction:column; align-items:flex-start; gap:6px; } #pvFull ol.pts .pt { display:flex; gap:8px; } #pvFull ol.pts .pt b { color:#9cc3ff; flex:none; } #pvFull .cap { font-size:.82rem; color:var(--muted); }
@@ -995,7 +997,7 @@ function makeupForNote() { const o = bestPicked(), m = o && bestMakeupAudio(o); 
 function buildNote() {
   const rv = cur.review, bp = bestForNote(), mk = makeupForNote();
   const clips = sendList().map(c => ({ c, f: cur.clips.find(x => x.name.startsWith(c.id)) })).filter(x => x.f)
-    .map(({ c, f }) => ({ file_id: f.id, label: `${fmt(c.start)} 구간`, note: rv.notes?.[c.id] || c.note || "" }));
+    .map(({ c, f }) => ({ file_id: f.id, label: `${fmt(c.start)} 구간`, t: Math.round(+c.start || 0), note: rv.notes?.[c.id] || c.note || "" }));
   const bestNote = (o) => o && { file_id: o.file_id, kind_ko: o.kind_ko, len: Math.round(o.len), edited: !!o.isComposite, ...(o.isComposite && typeof bestJoined === "function" && bestJoined(o) !== undefined ? { joined: bestJoined(o) } : {}) };
   // practice(이번 주 미션)와 no_mission(‘미션 없음’ 의도적 선택)을 구분해 싣는다. 미설정(둘 다 없음)은 승인 단계에서 막힘
   const noMission = rv.no_mission === true;
@@ -1548,11 +1550,23 @@ function svLessonHtml(l, prev, mode = "normal") {
   const ptsIn = bP && bP.items.length ? bP.items : null, mission = practice.length ? practice : (bM ? bM.items : []);
   const memo = (id) => { const c = clips.find(x => x.file_id === id); return c && has(c.note) ? `<div class="memo">🔎 ${esc(c.note)}</div>` : ""; };
   const ptsHtml = (arr) => `<ol class="pts">${arr.map((t, i) => `<li><div class="pt"><b>${i + 1}</b><span>${tchip(esc(t))}</span></div>${psnd.filter(x => x.p === i).slice(0, 2).map(x => x.kind === "pair" ? svPill(x.file_id + "#p", "🔁 지도 전 → 후 듣기", x.peaks || peakOf(x.file_id)) + `<div class="cap">지도 전 → 지도 후 순서로 들려요</div>` : memo(x.file_id) + svPill(x.file_id, "좋았던 순간 듣기", x.peaks || peakOf(x.file_id))).join("")}</li>`).join("")}</ol>`;
-  const txt = (a) => { const t = a.join("\n").replace(/^\s*\n+|\n\s*$/g, ""); return t.trim() ? `<div class="pre">${tchip(esc(t))}</div>` : ""; };
+  // (10/29 11:05 사용자) '좋았던 부분' 줄(· 8:24 …)에 같은 시각의 좋았던 순간 소리가 있으면 ▶시각 대신 그 줄 아래 듣기 버튼 — '더 들어 보기'와 겹치지 않게
+  const inl = new Set(), clipT = (c) => { if (Number.isFinite(+c.t)) return +c.t; const q = String(c.label || "").match(/(\d{1,2}):([0-5]\d)/); return q ? +q[1] * 60 + +q[2] : null; };
+  const txt = (a) => { const out = []; let buf = [];
+    const flush = () => { const t = buf.join("\n").replace(/^\s*\n+|\n\s*$/g, ""); if (t.trim()) out.push(`<div class="pre">${tchip(esc(t))}</div>`); buf = []; };
+    for (const ln of a) {
+      const q = full && /^[ \t]*[·•\-]/.test(ln) ? ln.match(/(^|[\s·(])(\d{1,2}):([0-5]\d)(?![\d:~])/) : null, tt = q ? +q[2] * 60 + +q[3] : null;
+      const c = tt == null ? null : clips.find(x => !atIds.has(x.file_id) && !inl.has(x.file_id) && clipT(x) != null && Math.abs(clipT(x) - tt) <= 5);
+      if (!c) { buf.push(ln); continue; }
+      flush(); inl.add(c.file_id);
+      out.push(`<div class="gl"><div class="pre">· ${tchip(esc(ln.replace(q[0], q[1]).replace(/^[ \t]*[·•\-]\s*/, "").trim()))}</div>${svPill(c.file_id, "좋았던 순간 듣기", c.peaks)}</div>`);
+    }
+    flush(); return out.join(""); };
   let letter = "", at = 0;
   for (const [a, b, w] of [ptsIn ? [bP.i, bP.j, "P"] : null, bM ? [bM.i, bM.j, "M"] : null].filter(Boolean).sort((x, y) => x[0] - y[0])) {
     if (a < at) continue; letter += txt(fbL.slice(at, a)); if (w === "P") letter += `<div class="sub">오늘 중요한 포인트</div>${ptsHtml(ptsIn)}`; at = b; }
   letter += txt(fbL.slice(at));
+  const restC = restClips.filter(c => !inl.has(c.file_id));
   const more = [
     compare ? `<h3>🔁 지난번과 비교해 듣기</h3><p class="muted">${svMd(prev.date)} 베스트 ↔ ${svMd(l.date)} 베스트</p>
       <div class="ab"><div>${svPlayer(prev.best.file_id, svMd(prev.date))}</div><div>${svPlayer(l.best.file_id + "#b", svMd(l.date))}</div></div>` : "",
@@ -1562,10 +1576,9 @@ function svLessonHtml(l, prev, mode = "normal") {
     ${has(l.feedback) ? `<div class="card letter"><h2>💬 선생님 한마디</h2>${letter}${bestBlock}</div>` : bestBlock ? `<div class="card">${bestBlock}</div>` : ""}
     ${full && moment && !clips.some(c => (c.note || "").trim() === moment) && !points.some(t => t.trim() === moment) ? `<div class="card moment" role="region" aria-label="선생님이 발견한 오늘의 순간"><div class="muted">🔎 선생님이 발견한 오늘의 순간</div><p class="big">${esc(moment)}</p></div>` : ""}
     ${!ptsIn && points.length ? `<div class="card"><h2>⭐ 오늘의 핵심 포인트</h2>${ptsHtml(points)}</div>` : ""}
-    ${full && (restClips.length || restPairs.length) ? `<div class="card listen"><h2>🎧 더 들어 보기</h2>${restClips.map(c => `<div class="clip">${has(c.note) ? `<div>${esc(c.note)}</div>` : ""}${svPill(c.file_id, "좋았던 순간 듣기", c.peaks)}</div>`).join("")}${restPairs.map(x => `<div class="clip"><div>${esc(x.label)}</div>${svPill(x.file_id + "#p", "🔁 지도 전 → 후 듣기", x.peaks)}</div>`).join("")}</div>` : ""}
+    ${full && (restC.length || restPairs.length) ? `<div class="card listen"><h2>🎧 더 들어 보기</h2>${restC.map(c => `<div class="clip">${has(c.note) ? `<div>${esc(c.note)}</div>` : ""}${svPill(c.file_id, "좋았던 순간 듣기", c.peaks)}</div>`).join("")}${restPairs.map(x => `<div class="clip"><div>${esc(x.label)}</div>${svPill(x.file_id + "#p", "🔁 지도 전 → 후 듣기", x.peaks)}</div>`).join("")}</div>` : ""}
     ${full && svMakeupOk(l.makeup, l.best) ? `<div class="card makeup"><div class="cardHead"><span class="badge mk">메이크업본</span><b>간단 음정보정 예시</b>${l.makeup.len ? `<span class="muted">${l.makeup.len}초</span>` : ""}</div><p class="muted" style="margin:4px 0 6px">음원 발매용으로 정식 보정하면 더 자연스럽고 좋아져요</p>${has(l.makeup.msg) ? `<p style="margin:0 0 8px">${esc(l.makeup.msg.trim())}</p>` : ""}${svPill(l.makeup.file_id + "#m", "메이크업 듣기", l.makeup.peaks, "mk")}</div>` : ""}
-    ${full && cheer ? `<div class="card cheer"><h2>💌 응원 메시지</h2><p class="pre" style="margin:0">${esc(cheer)}</p></div>` : ""}
-    ${mission.length || (full && song) ? `<div class="card mission"><h2>📋 다음 미션</h2>${mission.length ? svList(mission) : ""}${full && song ? `<div class="song"><div class="muted">🎵 추천 곡</div><b>${esc(song.title)}</b>${has(song.artist) ? ` <span class="muted">(${esc(song.artist)})</span>` : ""}${has(song.why) ? `<p style="margin:4px 0 0">${esc(song.why)}</p>` : ""}</div>` : ""}</div>` : ""}
+    ${(full && cheer) || mission.length || (full && song) ? `<div class="card cheer${mission.length || (full && song) ? " mission" : ""}">${full && cheer ? `<h2>💌 응원 메시지</h2><p class="pre" style="margin:0">${esc(cheer)}</p>` : ""}${mission.length || (full && song) ? `<h2${full && cheer ? ' class="mh"' : ""}>📋 다음 미션</h2>${mission.length ? svList(mission) : ""}${full && song ? `<div class="song"><div class="muted">🎵 추천 곡</div><b>${esc(song.title)}</b>${has(song.artist) ? ` <span class="muted">(${esc(song.artist)})</span>` : ""}${has(song.why) ? `<p style="margin:4px 0 0">${esc(song.why)}</p>` : ""}</div>` : ""}` : ""}</div>` : ""}
     ${more && m === "detail" ? `<div class="card more">${more}</div>` : more && m === "normal" ? `<details class="card more"><summary>더 들여다보기</summary>${more}</details>` : ""}
     ${full && l.full && typeof l.full.file_id === "string" && Array.isArray(l.full.segs) && l.full.segs.length ? `<details class="card more fullrec" data-fid="${esc(l.full.file_id)}"><summary>📝 레슨 전체 기록 · 전사본과 녹음</summary><p class="muted" style="margin:0 0 6px">AI가 받아쓴 글이라 틀린 곳이 있을 수 있어요 · 말풍선을 누르면 아래 재생바로 그 자리부터 들려요${l.full.cut ? " · 길어서 앞부분만 실었어요" : ""}</p><div class="trs">${l.full.segs.filter(Array.isArray).map(([t, w, tx]) => { const k = ({ t: "t", s: "s", g: "g" })[w] || "x", tt = Math.max(0, +t || 0);
       return `<div class="fseg ${k === "s" ? "right" : "left"}"><div class="fbub fb-${k}" data-ft="${tt}"><span class="who">${({ t: "선생님", s: "나", g: "🎵 노래" })[k] || "·"}</span><span class="tm">${Math.floor(tt / 60)}:${String(Math.floor(tt % 60)).padStart(2, "0")}</span><span class="tx">${esc(tx)}</span></div></div>`; }).join("")}</div></details>` : ""}`;
@@ -3182,6 +3195,7 @@ async function openLessonInner(sid, i, backTo) {
     if (!review.reviewed_at && !review.feedback && ai.feedback_text) review.feedback = ai.feedback_text;
   }
   cur = { sid, st, folder: l, files, summary, segs, cands, clips, samples, sampleFiles, review, reviewId: reviewF?.id, clipUrls: {}, ai, rowIndex: i, back: goBack, spkSaved, teacherPts, ana: d.ana, voice, best: d.best, note: d.note, trial: d.trial };
+  if (cur.review && cur.review.cheer == null && typeof lessonCheer === "function") { try { const f = cheerFacts(cur), c0 = lessonCheer(2, "", f) || lessonCheer(0, "", f); if (c0) cur.review.cheer = c0; } catch {} }   // (10/29 11:06 사용자) 응원이 비면 그날 레슨으로 기본 문장(선생님이 고침·지움)
   if (cur.note) cur.kakao = kakaoText(st, cur.note, LS.get("vn_tpl_" + sid) ?? 0);
 
   const ls = summary.lesson || {};
@@ -4468,7 +4482,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-29-1130-range";
+const BUILD = "2026-10-29-1140-inline";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
