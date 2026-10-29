@@ -622,6 +622,7 @@ async function loadAttendance() {
   if (a) { Object.defineProperty(a, "_db", { value: db, enumerable: false }); Object.defineProperty(a, "_decId", { value: df?.id || null, enumerable: false, writable: true }); }
   return a;
 }
+const ATT_START = "2026-10-23";   // 녹음을 모으기 시작한 날(서버 출석 계산과 같은 기준)
 const attOf = (sid) => att?.students?.[sid] || null;
 const attWhen = (iso) => { const d = new Date(iso); return isNaN(d) ? "" : `${d.getMonth() + 1}/${d.getDate()}(${"일월화수목금토"[d.getDay()]}) ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
 const attLocal = () => LS.get("vn_att_dec") || {};   // 이 폰에서 방금 고른 것(수집 반영 전까지 목록에서 숨김)
@@ -636,6 +637,7 @@ function attTodos() {
     const st = cfg.students[sid]; if (!st || isTeacher(st)) continue;
     for (const q of s.queue || []) {
       const key = q.event_id || q.file_id, k = ATT_KIND[q.kind]; if (!key || !k || loc[key]) continue;
+      if (String(q.at || q.time || "").slice(0, 10) < ATT_START) continue;   // 녹음 앱 쓰기 전 레슨은 확인 대상 아님(10/29 사용자)
       out.push({ k: "att", sid, key, q, t: `❓ ${st.name} · ${attWhen(q.at || q.time || "")} ${k.t}`, c: "확인 필요" });
     }
   }
@@ -690,7 +692,7 @@ function openCal(ym, sel) {   // 선생님 '레슨 캘린더': 전체 수강생 
   const by = {};
   for (const [sid, s] of Object.entries(att?.students || {})) {
     const st = cfg.students[sid]; if (!st || isTeacher(st)) continue;
-    (s.days || []).forEach(d => (by[d.date] ||= []).push({ ...d, sid, name: st.name, q: (s.queue || []).find(q => q.event_id === d.event_id) }));
+    (s.days || []).filter(d => d.date >= ATT_START || d.s === "done").forEach(d => (by[d.date] ||= []).push({ ...d, sid, name: st.name, q: (s.queue || []).find(q => q.event_id === d.event_id) }));
   }
   Object.values(by).forEach(xs => xs.sort((a, b) => a.time.localeCompare(b.time)));
   const day = sel && by[sel] ? by[sel] : null, loc = attLocal();
@@ -4743,7 +4745,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-29-2250-spk";
+const BUILD = "2026-10-29-2340-old";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
