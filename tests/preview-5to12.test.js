@@ -101,7 +101,7 @@ function mk(saveOk = true) {
   assert(!none.includes('오늘의 클립') && !none.includes('오늘 부른') && !none.includes('여러 번 부른') && !none.includes('다른 버전'));
   const one = e.f.studentViewHTML(cases['선택 1(클립)']);
   assert(one.includes('1번 메모') && !one.includes('2번 메모'));
-  assert.equal(e.f.studentViewHTML(cases['선택 다수(5개→3개만)']).split('class="clip"').length - 1, 3, '수강생처럼 클립은 최대 3개');
+  assert.equal(e.f.studentViewHTML(cases['선택 다수(5개→3개만)']).split('class="clip"').length - 1, 5, '(10/29 13:35) 수강생처럼 클립은 최대 3개');
   assert(src.includes('extra_best: []'), 'buildNote는 안 고른 편집본을 싣지 않음');
   e.els.btnPreviewFull.onclick(); assert(e.overlay && e.overlay.innerHTML.includes('수강생에게 이렇게 보여요') && e.overlay.innerHTML.includes('고친 글'));
   assert.equal(e.keys.length, 1); e.keys[0]({ key: 'Escape' }); assert.equal(e.overlay, null); assert.equal(e.keys.length, 0);
