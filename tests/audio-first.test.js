@@ -15,7 +15,7 @@ assert.ok(h.includes("선생님이 발견한 오늘의 순간"), "클립 메모�
 assert.ok(!lessonHtml({ ...L, highlight: "좋았던 브릿지" }, null, "normal").includes("선생님이 발견한 오늘의 순간"), "같은 문장은 한 번만");
 assert.ok(h.includes("좋았던 브릿지") && h.includes('data-lp="K1"') && i('data-lp="K1"') > i("더 들어 보기"), "안 붙은 클립은 더 들어 보기");
 // 글 속 시각 → ▶ 버튼(초), 범위 양끝 모두, 시:분:초 같은 3단은 건드리지 않음
-assert.ok(h.includes('data-ftc="504"') && h.includes("▶ 8:24") && h.includes('data-ftc="551"') && h.includes('data-ftc="721"'));
+assert.ok(h.includes('data-lps="LISTEN" data-t0="504"') && h.includes("좋았던 순간 · 8:24") && !h.includes('data-ftc="504"') && h.includes('data-ftc="551"') && h.includes('data-ftc="721"'), "(10/29 12:42) '· 8:24' 줄은 같은 둥근 버튼(레슨 녹음 구간), 범위 표기는 ▶ 그대로");
 assert.ok(!h.includes('data-ftc="630"') && h.includes("10:30:20"), "3단 숫자는 시각 아님");
 assert.ok(!lessonHtml({ ...L, full: null }, null, "normal").includes("data-ftc"), "레슨 녹음 없으면 버튼 없음");
 // 지도 전→후: 안 붙었으면 더 들어 보기, 심플에선 숨김, 재생 ID 접미사 #p
