@@ -1489,9 +1489,10 @@ function pvHold(el) {
     if ((e?.type === "touchcancel" || e?.type === "touchend") && was) {   // 손 떼거나 폰이 터치를 끊어도 바로 접지 않음: 커진 채 3초 기다렸다 접힘(10/29 11:47 사용자) · 그 사이 다시 대면 이어서 넘김 · 카드 밖을 누르면 바로 접힘
       if (e.type === "touchend") e.preventDefault?.();
       el._pvStay = { fl, dy, moved }; h = null;
-      const fin = () => { document.removeEventListener("touchstart", out, true); clearTimeout(el._pvWaitT); if (el._pvStay) { const st = el._pvStay; el._pvStay = null; h = { on: true, moved: st.moved, fl: st.fl, dy: st.dy, t: null }; end({ type: "finish" }); } };
+      const fin = () => { document.removeEventListener("touchstart", out, true); clearTimeout(el._pvWaitT); el.style.transition = ""; if (el._pvStay) { const st = el._pvStay; el._pvStay = null; h = { on: true, moved: st.moved, fl: st.fl, dy: st.dy, t: null }; end({ type: "finish" }); } };
       const out = (ev) => { if (!inside(ev.target)) fin(); };
       el._pvOut = out; clearTimeout(el._pvWaitT); el._pvWaitT = setTimeout(fin, PV_WAIT_MS);
+      try { const H0 = el.getBoundingClientRect().height, Hc = pvFit(el, PV_ROWS.closed); if (H0 > Hc + 10) { el.style.transition = `height ${PV_WAIT_MS}ms linear`; void el.offsetHeight; el.style.height = Math.round(H0 - Math.min(48, (H0 - Hc) * 0.25)) + "px"; } } catch {}   // (10/29 12:01 사용자) 기다리는 3초 동안 아래쪽부터 아주 천천히 줄어듦 → 3초가 되면 보통 속도로 원래 크기
       document.addEventListener("touchstart", out, true); return;
     }
     h = null; el.classList.remove("pvHolding");
@@ -1512,7 +1513,7 @@ function pvHold(el) {
     if (e.touches.length !== 1) return;
     if (!closed()) { if (el._pvNoSel === "up") el._pvNoSel = null; return; }   // 수정 모드에서 '새로' 누름 → 이제부터 선택 허용
     const y = e.touches[0].clientY, x = e.touches[0].clientX;
-    if (el._pvStay) { const st = el._pvStay; el._pvStay = null; clearTimeout(el._pvWaitT); if (el._pvOut) document.removeEventListener("touchstart", el._pvOut, true); el.readOnly = true; h = { y, x, on: true, moved: st.moved, fl: st.fl, dy: st.dy, t: null, res: Date.now(), mv: false }; return; }   // 끊긴 뒤 다시 댐 → 바로 이어서
+    if (el._pvStay) { const st = el._pvStay; el._pvStay = null; clearTimeout(el._pvWaitT); if (el._pvOut) document.removeEventListener("touchstart", el._pvOut, true); el.style.transition = ""; el.style.height = pvFit(el, PV_ROWS.open) + "px"; el.readOnly = true; h = { y, x, on: true, moved: st.moved, fl: st.fl, dy: st.dy, t: null, res: Date.now(), mv: false }; return; }   // 끊긴 뒤 다시 댐 → 바로 이어서
     el.readOnly = true;   // 누르고 있는 동안엔 자판·수정 모드가 뜨지 않게(안드로이드는 길게 누르면 칸에 포커스를 줌)
     if (tgt !== el) { e.preventDefault(); cancelAnimationFrame?.(el._pvFling); }   // (10/29 11:30 사용자) 폰 자체의 '길게 누름'(두 번째 진동·선택)을 아예 시작 안 시킴 → 화면 스크롤은 아래에서 직접
     h = { y, x, sy: y, on: false, moved: false, t: setTimeout(() => { if (!h) return; h.on = true; el.classList.add("pvHolding"); try { navigator.vibrate?.(12); } catch {}
@@ -4530,7 +4531,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-29-1255-eta";
+const BUILD = "2026-10-29-1305-ease";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
