@@ -69,8 +69,8 @@
   .song { margin-top:10px; padding:10px 12px; border-radius:12px; background:#1b1e23; border:1px solid var(--line); }
   .cheer { border-color:#b98ad6; }
   .wave { position:relative; height:56px; margin:4px 0 8px; cursor:pointer; touch-action:manipulation; }
-  .aud { display:flex; align-items:center; gap:12px; background:#11141a; border-radius:16px; padding:10px 12px; } .aud .wave { flex:1; min-width:0; margin:0; height:48px; }
-  .rp { flex:none; width:60px; height:60px; min-height:60px; padding:0; border-radius:50%; font-size:1.5rem; } .makeup .rp { background:#9b5cff; color:#fff; }
+  .aud { display:flex; align-items:center; gap:10px; background:#11141a; border-radius:14px; padding:7px 10px; } .aud .wave { flex:1; min-width:0; margin:0; height:28px; } .aud .flat { flex:1; min-width:0; height:2px; background:#3a414b; border-radius:1px; }
+  .rp { flex:none; width:48px; height:40px; min-height:40px; padding:0; border-radius:10px; font-size:1.05rem; }   /* 10/29 사용자: 선생님 화면 버튼처럼 둥근 네모·낮게 */ .makeup .rp { background:#9b5cff; color:#fff; }
   .tm { text-align:right; margin:4px 2px 0; }
   .wave svg { position:absolute; inset:0; width:100%; height:100%; } .wave .on { position:absolute; inset:0; clip-path:inset(0 100% 0 0); }
   .story-item { border-top:1px solid var(--line); padding:12px 0; } .story-item .when { font-weight:700; } .story-item p { margin:4px 0 8px; }
@@ -209,7 +209,8 @@ function waveSvg(pk, color) {
 }
 function player(id, label, peaks) {
   const pk = Array.isArray(peaks) && peaks.length >= 20 && peaks.length <= 400 ? peaks : null;
-  if (!pk) return `<button class="play" data-au="${esc(id)}">▶ ${esc(label)}</button><audio class="hidden" id="au_${esc(id)}" controls></audio>`;
+  // (10/29) 파형을 못 실은 예전 노트도 같은 모양(재생 버튼 + 가는 선) — 가짜 파형은 그리지 않음
+  if (!pk) return `<div class="aud"><button class="rp" data-au="${esc(id)}" data-rp="1" aria-label="${esc(label)}">▶</button><i class="flat" aria-hidden="true"></i></div><div class="muted tm" data-tm="${esc(id)}"></div><audio class="hidden" id="au_${esc(id)}"></audio>`;
   // 시안 모양: 동그란 재생 버튼 + 파형 한 줄, 아래에 시간. 버튼 = 재생/멈춤, 파형을 누르면 그 자리부터
   return `<div class="aud"><button class="rp" data-au="${esc(id)}" data-rp="1" aria-label="${esc(label)}">▶</button><div class="wave" data-wv="${esc(id)}" role="presentation">${waveSvg(pk, "#5b6573")}<div class="on">${waveSvg(pk, "#9cc3ff")}</div></div></div>
     <div class="muted tm" data-tm="${esc(id)}"></div><audio class="hidden" id="au_${esc(id)}"></audio>`;
@@ -311,10 +312,10 @@ function lessonHtml(l, prev, mode = "normal") {
   return `<button class="ghost" id="back">← 전체 노트</button>
     <h2 style="margin:14px 0 4px">${md(l.date)} 레슨</h2>${modeBar(m)}
     ${l.best?.file_id ? `<div class="card bestTop"><div class="cardHead"><span class="badge">베스트</span><b>${l.best.edited ? "오늘의 베스트 편집본" : "오늘의 베스트 가창"}</b>${l.best.len ? `<span class="muted">${l.best.len}초</span>` : ""}</div><p class="muted" style="margin:4px 0 8px">${l.best.edited ? (l.best.joined === true ? "오늘 잘한 부분을 이어 붙였어요" : l.best.joined === false ? "오늘 가장 좋았던 한 번을 골랐어요" : "여러 번 부른 것 중 좋은 부분을 이어 붙였어요") : "오늘 부른 가창이에요"}</p>${player(l.best.file_id, "듣기", l.best.peaks)}</div>` : ""}
-    ${full && clips.length ? `<div class="card"><h2>🎧 오늘 좋았던 순간</h2>${clips.map(c => `<div class="clip">${has(c.note) ? `<div>${esc(c.note)}</div>` : ""}${player(c.file_id, c.label || "듣기")}</div>`).join("")}</div>` : ""}
+    ${full && clips.length ? `<div class="card"><h2>🎧 오늘 좋았던 순간</h2>${clips.map(c => `<div class="clip">${has(c.note) ? `<div>${esc(c.note)}</div>` : ""}${player(c.file_id, c.label || "듣기", c.peaks)}</div>`).join("")}</div>` : ""}
     ${full && moment ? `<div class="card moment" role="region" aria-label="선생님이 발견한 오늘의 순간"><div class="muted">🔎 선생님이 발견한 오늘의 순간</div><p class="big">${esc(moment)}</p></div>` : ""}
     ${has(l.feedback) ? `<div class="card"><h2>💬 선생님 한마디</h2><div class="pre">${tchip(esc(l.feedback))}</div></div>` : ""}
-    ${points.length || (full && pairs.length) ? `<div class="card"><h2>⭐ 오늘의 핵심 포인트</h2>${points.length ? listHtml(points) : ""}${full && pairs.length ? `<div class="pairs"><div class="muted" style="margin:10px 0 4px">🔁 지도 전 → 후, 달라진 걸 들어 보세요</div>${pairs.map(x => `<div class="clip"><div>${esc(x.label)}</div>${player(x.file_id + "#p", "전→후 듣기")}</div>`).join("")}</div>` : ""}</div>` : ""}
+    ${points.length || (full && pairs.length) ? `<div class="card"><h2>⭐ 오늘의 핵심 포인트</h2>${points.length ? listHtml(points) : ""}${full && pairs.length ? `<div class="pairs"><div class="muted" style="margin:10px 0 4px">🔁 지도 전 → 후, 달라진 걸 들어 보세요</div>${pairs.map(x => `<div class="clip"><div>${esc(x.label)}</div>${player(x.file_id + "#p", "전→후 듣기", x.peaks)}</div>`).join("")}</div>` : ""}</div>` : ""}
     ${practice.length || (full && song) ? `<div class="card"><h2>📋 다음 미션</h2>${practice.length ? listHtml(practice) : ""}${full && song ? `<div class="song"><div class="muted">🎵 추천 곡</div><b>${esc(song.title)}</b>${has(song.artist) ? ` <span class="muted">(${esc(song.artist)})</span>` : ""}${has(song.why) ? `<p style="margin:4px 0 0">${esc(song.why)}</p>` : ""}</div>` : ""}</div>` : ""}
     ${full && makeupOk(l.makeup, l.best) ? `<div class="card makeup"><div class="cardHead"><span class="badge mk">메이크업본</span><b>간단 음정보정 예시</b>${l.makeup.len ? `<span class="muted">${l.makeup.len}초</span>` : ""}</div><p class="muted" style="margin:4px 0 6px">음원 발매용으로 정식 보정하면 더 자연스럽고 좋아져요</p>${has(l.makeup.msg) ? `<p style="margin:0 0 8px">${esc(l.makeup.msg.trim())}</p>` : ""}${player(l.makeup.file_id + "#m", "메이크업 듣기", l.makeup.peaks)}</div>` : ""}
     ${full && cheer ? `<div class="card cheer"><h2>💌 응원 메시지</h2><p class="pre" style="margin:0">${esc(cheer)}</p></div>` : ""}
