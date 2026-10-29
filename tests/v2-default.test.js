@@ -39,7 +39,7 @@ for (const [name, s, fn] of [["student", stu, "lessonHtml"], ["teacher-preview",
   assert.ok(f.includes("간단 음정보정 예시") && f.includes("음원 발매용으로 정식 보정하면 더 자연스럽고 좋아져요"), name);
   assert.ok(!f.includes("보컬 메이크업 버전"), name);
   const iMk = f.indexOf('class="card makeup"'), iMission = f.indexOf("📋 다음 미션"), iCheer = f.indexOf('class="card cheer"');
-  assert.ok(iMission < iMk && iMk < iCheer, name + " 메이크업 위치");
+  assert.ok(iMk < iCheer && iCheer < iMission, name + " 메이크업 → 응원 → 다음 미션(10/29 10:33 사용자)");
   assert.ok(/\$\{full && (sv)?[mM]akeupOk\(/.test(f), name + " 심플에선 메이크업 숨김");
 }
 
