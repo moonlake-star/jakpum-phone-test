@@ -1444,7 +1444,7 @@ function openStudentView(mode = "normal") {
   d.onclick = (e) => {
     const au = e.target?.closest?.("[data-svau]"); if (au && typeof svPlay === "function") return svPlay(au);   // (10/29 사용자) 미리보기도 실제로 눌러서 들음
     const tt = e.target?.closest?.("[data-ftc], [data-ft]");
-    if (tt && typeof playAt === "function") { const t = +(tt.dataset.ftc ?? tt.dataset.ft); document.querySelectorAll("#pvFull .fbub.now").forEach(x => x.classList.remove("now")); tt.classList?.add("now");
+    if (tt && typeof playAt === "function") { const t = +(tt.dataset.ftc ?? tt.dataset.ft); if (typeof full !== "undefined" && typeof mediaUnlock === "function") mediaUnlock(full); document.querySelectorAll("#pvFull .fbub.now").forEach(x => x.classList.remove("now")); tt.classList?.add("now");
       return playAt(Math.max(0, t - 2)).catch(err => toast(err.message)); }   // 글 속 ▶시각·전사 말풍선 → 화면 아래 재생바(레슨 녹음)
     const b = e.target?.closest?.("[data-mode]"); if (!b) return;   // 심플/보통/자세히: 수강생 화면과 같은 방식으로 다시 그림
     const body = d.querySelector("#pvFullBody"); if (body) body.innerHTML = svLessonHtml(buildNote(), null, b.dataset.mode); if (typeof svPaint === "function") svPaint(); };
@@ -1464,19 +1464,24 @@ function svPaint() {
   document.querySelectorAll("#pvFull [data-svau]").forEach(b => { b.textContent = on && b.dataset.svau === svCur ? "❚❚" : "▶"; });
   document.querySelectorAll("#pvFull [data-svt]").forEach(x => { x.textContent = svCur && x.dataset.svt === svCur && player.duration ? `${fmt(player.currentTime)} / ${fmt(player.duration)}` : ""; });
 }
+// (10/29 09:30 사용자: 미리보기 재생 안 됨) 갤럭시 크롬은 누른 뒤 몇 초 넘게 파일을 받으면 재생을 막음(NotAllowedError).
+// 누르는 그 순간 같은 재생기로 아주 짧은 무음을 먼저 틀어 '재생 허락'을 받아 두고, 파일이 오면 이어서 재생
+const SILENT_WAV = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=";
+function mediaUnlock(a) { try { if (!a || a._unlocked) return; a._unlocked = true; const old = a.src; if (!old) { a.src = SILENT_WAV; const p = a.play(); if (p?.catch) p.catch(() => {}); } } catch {} }
 async function svPlay(b) {
   const key = b.dataset.svau, id = key.replace(/#[bsmp]$/, "");
   if (svCur === key && !player.paused) { player.pause(); return svPaint(); }
   try {
     if (!svWired) { svWired = true; for (const ev of ["play", "pause", "timeupdate", "ended"]) player.addEventListener(ev, () => { if (document.getElementById("pvFull")) svPaint(); }); }
     if (svCur !== key) {
+      if (!cur.clipUrls[id]) { try { player.pause(); player.src = SILENT_WAV; const p0 = player.play(); if (p0?.catch) p0.catch(() => {}); } catch {} }   // 허락 먼저(위 설명)
       b.textContent = "…"; try { tpDetach(); } catch {} try { hlQueueStop(); } catch {}
       cur.clipUrls[id] ??= URL.createObjectURL(await readBlob(id));
       if (!document.getElementById("pvFull")) return;
       svCur = key; player.src = cur.clipUrls[id];
     }
     pauseOthers(player); await player.play();
-  } catch (e) { toast("소리를 불러오지 못했어요: " + e.message); }
+  } catch (e) { toast(e?.name === "NotAllowedError" ? "폰이 자동 재생을 막았어요 · ▶를 한 번 더 눌러 주세요" : "소리를 불러오지 못했어요: " + e.message); }
   svPaint();
 }
 function wireFeedbackPreview(me) {
@@ -4291,7 +4296,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-29-0935-fullrun";
+const BUILD = "2026-10-29-0940-svunlock";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
