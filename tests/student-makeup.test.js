@@ -2,18 +2,18 @@
 const fs = require("fs"), assert = require("assert");
 const src = fs.readFileSync(__dirname + "/../student/index.html", "utf8");
 const pick = (re) => { const m = src.match(re); assert.ok(m, "코드 조각 못 찾음: " + re); return m[0]; };
-const body = [pick(/const esc = [^\n]*\n/), pick(/const md = [^\n]*\n/), pick(/function player\([\s\S]*?\n}\n/), pick(/const MAX_CLIPS[^\n]*\n/),
+const body = [pick(/const esc = [^\n]*\n/), pick(/const md = [^\n]*\n/), pick(/function player\([\s\S]*?\n}\n/), pick(/function waveSvg\([\s\S]*?\n}\n/), pick(/function pill\([\s\S]*?\n}\n/), pick(/const MAX_CLIPS[^\n]*\n/),
   pick(/const listHtml[^\n]*\n/), pick(/const sidOk = [^\n]*\n/), pick(/const makeupOk = [^\n]*\n/), pick(/function lessonHtml\([\s\S]*?\n}\n/)].join("\n");
 const lessonHtml = new Function(body + "; return lessonHtml;")();
 const base = { id: "L2", date: "2026-10-26", feedback: "한마디", best: { file_id: "B2", len: 40 }, clips: [], extra_best: [] };
 const MK = { file_id: "M2", len: 38, source_file_id: "B2" };
-const au = (h) => (h.match(/data-au="([^"]*)"/g) || []).map(x => x.slice(9, -1));
+const au = (h) => [...h.matchAll(/data-(?:au|lp)="([^"]*)"/g)].map(x => x[1]);
 const cardCount = (h) => (h.match(/class="card makeup"/g) || []).length;
 
 // 정상: best 카드와 구분된 메이크업 카드 1개, 플레이어 id 서로 다름
 let h = lessonHtml({ ...base, makeup: MK }, null);
 assert.strictEqual(cardCount(h), 1); assert.deepStrictEqual(au(h), ["B2", "M2#m"]);
-assert.ok(h.indexOf('data-au="B2"') < h.indexOf('data-au="M2#m"') && h.includes("메이크업"));
+assert.ok(h.indexOf('data-lp="B2"') < h.indexOf('data-lp="M2#m"') && h.includes("메이크업"));
 // 비노출: 없음/null/빈 ID/ID 누락/원본 불일치/원본 누락/베스트와 같은 파일
 [undefined, null, {}, { ...MK, file_id: "" }, { ...MK, file_id: "  " }, { ...MK, file_id: 5 }, { ...MK, source_file_id: "OLD" }, { ...MK, source_file_id: undefined },
   { file_id: "B2", source_file_id: "B2" }, "M2", []].forEach((m, i) => {
