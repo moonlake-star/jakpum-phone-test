@@ -208,6 +208,7 @@
   #pvFull .letter .sub { margin:14px 0 6px; font-size:.85rem; font-weight:700; color:#9cc3ff; letter-spacing:.02em; } #pvFull .letter .pts + .pre { margin-top:14px; } #pvFull .memo { font-size:.86rem; color:var(--muted); }
   #pvFull .letter .gl { display:flex; flex-direction:column; align-items:flex-start; gap:4px; margin:2px 0 10px; } #pvFull .letter .gl .pre { width:100%; }
   #pvFull .card.cheer.mission h2.mh { margin-top:16px; padding-top:14px; border-top:1px solid rgba(255,170,90,.22); }
+  #pvFull .song .yt { display:inline-flex; align-items:center; gap:6px; margin-top:8px; min-height:40px; padding:0 16px; border-radius:999px; background:linear-gradient(135deg, rgba(255,80,80,.22), rgba(255,80,80,.08)); box-shadow:inset 0 0 0 1px rgba(255,110,110,.35); color:#ffb3b3; font-weight:700; font-size:.9rem; text-decoration:none; } #pvFull .song .yt.find { background:rgba(255,255,255,.05); box-shadow:inset 0 0 0 1px var(--line); color:var(--muted); }
   #pvFull .card.mission { background:linear-gradient(180deg, rgba(255,170,90,.07), transparent 70%), var(--card); border-color:rgba(255,170,90,.28); } #pvFull .card.mission h2 { color:#ffb37a; }
   #pvFull .best { margin-top:12px; padding-top:12px; border-top:1px solid var(--line); }
   #pvFull ol.pts { list-style:none; margin:4px 0 0; padding:0; display:flex; flex-direction:column; gap:14px; } #pvFull ol.pts li { display:flex; flex-direction:column; align-items:flex-start; gap:6px; } #pvFull ol.pts .pt { display:flex; gap:8px; } #pvFull ol.pts .pt b { color:#9cc3ff; flex:none; } #pvFull .cap { font-size:.82rem; color:var(--muted); }
@@ -1006,7 +1007,7 @@ function buildNote() {
   return { lesson_id: cur.folder.id, date: cur.folder.name.slice(0, 10), title: cur.folder.name,
     feedback: $("fb").value, points: (rv.points || []).filter(Boolean), practice: noMission ? [] : (rv.practice || []).filter(Boolean), no_mission: noMission,
     best: bestNote(bp), makeup: mk ? { file_id: mk.file_id, len: mk.len, source_file_id: mk.source_file_id, msg: (rv.makeup_msg || "").trim() } : null, extra_best: [],
-    cheer: (rv.cheer || "").trim(), song: rv.song?.title ? { title: rv.song.title, artist: rv.song.artist || "", why: rv.song.why || "" } : null,   /* 고르지 않은 편집본을 '다른 버전'으로 몰래 싣지 않음 */
+    cheer: (rv.cheer || "").trim(), song: rv.song?.title ? { title: rv.song.title, artist: rv.song.artist || "", why: rv.song.why || "", ...(rv.song.url ? { url: rv.song.url } : {}) } : null,   /* 고르지 않은 편집본을 '다른 버전'으로 몰래 싣지 않음 */
     clips, highlight: clips[0]?.note || (rv.points || []).find(Boolean) || "", published_at: new Date().toISOString(),
     ...(typeof fullForNote === "function" && fullForNote() ? { full: fullForNote() } : {}),
     ...(typeof pairsForNote === "function" && pairsForNote().length ? { pairs: pairsForNote() } : {}),
@@ -1335,6 +1336,7 @@ function feedbackPreviewHTML(note, rv, disabled, open = false) {
             <input id="pvSongT" aria-label="추천 곡 제목" placeholder="곡 제목" value="${esc(song.title || "")}" style="width:100%;margin:3px 0"${disabled}>
             <input id="pvSongA" aria-label="가수" placeholder="가수" value="${esc(song.artist || "")}" style="width:100%;margin:3px 0"${disabled}>
             <input id="pvSongW" aria-label="추천 이유" placeholder="한 줄 이유(예: 지금 톤과 잘 어울려요)" value="${esc(song.why || "")}" style="width:100%;margin:3px 0"${disabled}>
+            <input id="pvSongU" aria-label="유튜브 주소" type="url" inputmode="url" placeholder="유튜브 주소(선택) · 예: https://youtu.be/…" value="${esc(song.url || "")}" style="width:100%;margin:3px 0"${disabled}>
             <button type="button" class="small" data-pvsave="pvSong"${disabled}>추천 곡 저장</button></details></div></section>
       <section class="pvCard" data-v2="cheer" style="--pv:#ff5c8a" aria-label="5 응원 메시지"><h4>${num()}응원 메시지<button type="button" class="small ghost pvFold" data-pvfold="pvCheer">접기</button></h4>
         ${pvEdHTML("pvCheer", "응원 메시지", rv.cheer || "", disabled, "예: 오늘 정말 잘하셨어요! 꾸준히 하시면 더 멋진 목소리가 될 거예요 😊")}
@@ -1433,7 +1435,9 @@ function pvWireCards(me) {
   for (const id of Object.keys(PV_EDS)) { const el = $(id); if (!el) continue;
     el.onfocus = () => { if (el.readOnly) return; pvSetH(el, true); }; el.onpointerdown = null; }   // (10/29 사용자) 손가락을 대는 순간이 아니라 톡 눌렀다 뗄 때(포커스)만 펼침 — 끌어서 스크롤할 땐 그대로(긴 글은 칸 안에서 넘어감)
   q("[data-pvsave]").forEach(b => b.onclick = async () => { if (cur !== me || me.sched?.busy) return; const id = b.dataset.pvsave;
-    if (id === "pvSong") { const v = (k) => ($(k)?.value || "").trim(); me.review.song = v("pvSongT") ? { title: v("pvSongT"), artist: v("pvSongA"), why: v("pvSongW") } : null;
+    if (id === "pvSong") { const v = (k) => ($(k)?.value || "").trim(); const u = v("pvSongU"), ytOk = typeof svYt === "function" ? svYt(u) : u;
+      if (u && !ytOk) return toast("유튜브 주소가 아니에요 · youtube.com 이나 youtu.be 주소를 붙여 넣어 주세요");   // (10/29 11:36 사용자) 유튜브만
+      me.review.song = v("pvSongT") ? { title: v("pvSongT"), artist: v("pvSongA"), why: v("pvSongW"), ...(ytOk ? { url: ytOk } : {}) } : null;
       return save(me.review.song ? "추천 곡을 저장했어요. ‘검수 저장’ 때 수강생 노트에 반영돼요." : "추천 곡을 비웠어요."); }
     const el = $(id); if (!el || !PV_EDS[id]) return; PV_EDS[id].set(me, el.value);
     await save("저장했어요. ‘검수 저장’을 누르면 수강생 노트에 반영돼요."); });
@@ -1538,6 +1542,7 @@ function pvCount(el) { if (!el || typeof document === "undefined" || !document.q
 const SV_MAX_CLIPS = 3;
 const svMd = (d) => d ? `${+d.slice(5, 7)}월 ${+d.slice(8, 10)}일` : "";
 const svList = (a) => `<ul>${a.map(x => `<li>${esc(x)}</li>`).join("")}</ul>`;
+const svYt = (u) => { const q = String(u || "").trim().match(/^https:\/\/(?:(?:www|m|music)\.)?(?:youtube\.com\/(?:watch\?(?:[^#]*&)?v=|shorts\/|live\/)|youtu\.be\/)([A-Za-z0-9_-]{11})(?![A-Za-z0-9_-])/); return q ? "https://www.youtube.com/watch?v=" + q[1] : ""; };
 const svPlayer = (id, label, peaks) => { const pk = Array.isArray(peaks) && peaks.length >= 20 && peaks.length <= 400 ? peaks : null, sv = (c) => `<svg viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true">${pk.map((v, i) => { const w = 100 / pk.length, h = Math.max(1.5, (Math.min(99, Math.max(0, +v || 0)) / 99) * 36); return `<rect x="${(i * w + w * 0.18).toFixed(2)}" y="${((40 - h) / 2).toFixed(2)}" width="${(w * 0.64).toFixed(2)}" height="${h.toFixed(2)}" fill="${c}"/>`; }).join("")}</svg>`; return `<div class="aud"><button type="button" class="rp" data-svau="${esc(id)}" aria-label="${esc(label)}">▶</button><div class="wave" data-svwave="${esc(id)}">${pk ? sv("#5b6573") + `<div class="on">${sv("#9cc3ff")}</div>` : `<i class="flat"></i>`}</div></div><div class="muted" style="font-size:.8rem;text-align:right">${esc(label)} <span data-svt="${esc(id)}"></span></div>`; };   // (10/29) 실제 소리 파형(받기 전엔 가는 선 — 가짜 파형 없음)
 const svPill = (id, label, peaks, cls) => { const pk = Array.isArray(peaks) && peaks.length >= 20 && peaks.length <= 400 ? peaks : null, sv = (c) => `<svg viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true">${pk.map((v, i) => { const w = 100 / pk.length, h = Math.max(1.5, (Math.min(99, Math.max(0, +v || 0)) / 99) * 36); return `<rect x="${(i * w + w * 0.18).toFixed(2)}" y="${((40 - h) / 2).toFixed(2)}" width="${(w * 0.64).toFixed(2)}" height="${h.toFixed(2)}" fill="${c}"/>`; }).join("")}</svg>`; return `<button type="button" class="lp${cls ? " " + cls : ""}" data-svau="${esc(id)}" aria-label="${esc(label)}"><span class="ic" aria-hidden="true">▶</span><span class="lab">${esc(label)}</span><span class="wv" data-svwave="${esc(id)}">${pk ? sv("#5b6573") + `<span class="on">${sv(/\bmk\b/.test(cls || "") ? "#c9a6ff" : "#9cc3ff")}</span>` : `<i class="flat"></i>`}</span><span class="tm" data-svt="${esc(id)}"></span></button>`; };   // (10/29 확정) 수강생 화면과 같은 둥근 듣기 버튼
 const svSidOk = (x) => typeof x === "string" && x.trim() !== "";
@@ -1553,6 +1558,7 @@ function svLessonHtml(l, prev, mode = "normal") {
   const extras = (l.extra_best || []).filter(x => x?.file_id);
   const compare = l.best?.file_id && prev?.best?.file_id;
   const song = l.song && has(l.song.title) ? l.song : null, cheer = has(l.cheer) ? l.cheer.trim() : "";
+  const yt = (u) => { const q = String(u || "").trim().match(/^https:\/\/(?:(?:www|m|music)\.)?(?:youtube\.com\/(?:watch\?(?:[^#]*&)?v=|shorts\/|live\/)|youtu\.be\/)([A-Za-z0-9_-]{11})(?![A-Za-z0-9_-])/); return q ? "https://www.youtube.com/watch?v=" + q[1] : ""; };   // (10/29 11:36 사용자) 추천 곡 유튜브 주소 — 유튜브 주소만 허용(다른 사이트·이상한 값은 버튼 없이 검색 링크)
   const pairs = (l.pairs || []).filter(x => x && typeof x.file_id === "string" && x.file_id).slice(0, 3);   // 지도 전→후(2026-10-29)
   const tfid = l.full && typeof l.full.file_id === "string" ? l.full.file_id : "";   // 글 속 '8:24' → ▶ 버튼(레슨 녹음 그 자리, 아래 재생바)
   const tchip = (h) => tfid ? h.replace(/(^|[\s·(~])(\d{1,2}):([0-5]\d)(?![\d:])/g, (m0, pre, mm, ss) => `${pre}<button type="button" class="tchip" data-ftc="${+mm * 60 + +ss}" data-fid="${esc(tfid)}">▶ ${mm}:${ss}</button>`) : h;
@@ -1598,7 +1604,7 @@ function svLessonHtml(l, prev, mode = "normal") {
     ${!ptsIn && points.length ? `<div class="card"><h2>⭐ 오늘의 핵심 포인트</h2>${ptsHtml(points)}</div>` : ""}
     ${full && (restC.length || restPairs.length) ? `<div class="card listen"><h2>🎧 더 들어 보기</h2>${restC.map(c => `<div class="clip">${has(c.note) ? `<div>${esc(c.note)}</div>` : ""}${svPill(c.file_id, "좋았던 순간 듣기", c.peaks)}</div>`).join("")}${restPairs.map(x => `<div class="clip"><div>${esc(x.label)}</div>${svPill(x.file_id + "#p", "🔁 지도 전 → 후 듣기", x.peaks)}</div>`).join("")}</div>` : ""}
     ${full && svMakeupOk(l.makeup, l.best) ? `<div class="card makeup"><div class="cardHead"><span class="badge mk">메이크업본</span><b>간단 음정보정 예시</b>${l.makeup.len ? `<span class="muted">${l.makeup.len}초</span>` : ""}</div><p class="muted" style="margin:4px 0 6px">음원 발매용으로 정식 보정하면 더 자연스럽고 좋아져요</p>${has(l.makeup.msg) ? `<p style="margin:0 0 8px">${esc(l.makeup.msg.trim())}</p>` : ""}${svPill(l.makeup.file_id + "#m", "메이크업 듣기", l.makeup.peaks, "mk")}</div>` : ""}
-    ${(full && cheer) || mission.length || (full && song) ? `<div class="card cheer${mission.length || (full && song) ? " mission" : ""}">${full && cheer ? `<h2>💌 응원 메시지</h2><p class="pre" style="margin:0">${esc(cheer)}</p>` : ""}${mission.length || (full && song) ? `<h2${full && cheer ? ' class="mh"' : ""}>📋 다음 미션</h2>${mission.length ? svList(mission) : ""}${full && song ? `<div class="song"><div class="muted">🎵 추천 곡</div><b>${esc(song.title)}</b>${has(song.artist) ? ` <span class="muted">(${esc(song.artist)})</span>` : ""}${has(song.why) ? `<p style="margin:4px 0 0">${esc(song.why)}</p>` : ""}</div>` : ""}` : ""}</div>` : ""}
+    ${(full && cheer) || mission.length || (full && song) ? `<div class="card cheer${mission.length || (full && song) ? " mission" : ""}">${full && cheer ? `<h2>💌 응원 메시지</h2><p class="pre" style="margin:0">${esc(cheer)}</p>` : ""}${mission.length || (full && song) ? `<h2${full && cheer ? ' class="mh"' : ""}>📋 다음 미션</h2>${mission.length ? svList(mission) : ""}${full && song ? `<div class="song"><div class="muted">🎵 추천 곡</div><b>${esc(song.title)}</b>${has(song.artist) ? ` <span class="muted">(${esc(song.artist)})</span>` : ""}${has(song.why) ? `<p style="margin:4px 0 0">${esc(song.why)}</p>` : ""}${yt(song.url) ? `<a class="yt" href="${esc(yt(song.url))}" target="_blank" rel="noopener noreferrer">▶ 유튜브에서 듣기</a>` : `<a class="yt find" href="https://www.youtube.com/results?search_query=${encodeURIComponent((song.title + " " + (song.artist || "")).trim())}" target="_blank" rel="noopener noreferrer">🔎 유튜브에서 찾아 듣기</a>`}</div>` : ""}` : ""}</div>` : ""}
     ${more && m === "detail" ? `<div class="card more">${more}</div>` : more && m === "normal" ? `<details class="card more"><summary>더 들여다보기</summary>${more}</details>` : ""}
     ${full && l.full && typeof l.full.file_id === "string" && Array.isArray(l.full.segs) && l.full.segs.length ? `<details class="card more fullrec" data-fid="${esc(l.full.file_id)}"><summary>📝 레슨 전체 기록 · 전사본과 녹음</summary><p class="muted" style="margin:0 0 6px">AI가 받아쓴 글이라 틀린 곳이 있을 수 있어요 · 말풍선을 누르면 아래 재생바로 그 자리부터 들려요${l.full.cut ? " · 길어서 앞부분만 실었어요" : ""}</p><div class="trs">${l.full.segs.filter(Array.isArray).map(([t, w, tx]) => { const k = ({ t: "t", s: "s", g: "g" })[w] || "x", tt = Math.max(0, +t || 0);
       return `<div class="fseg ${k === "s" ? "right" : "left"}"><div class="fbub fb-${k}" data-ft="${tt}"><span class="who">${({ t: "선생님", s: "나", g: "🎵 노래" })[k] || "·"}</span><span class="tm">${Math.floor(tt / 60)}:${String(Math.floor(tt % 60)).padStart(2, "0")}</span><span class="tx">${esc(tx)}</span></div></div>`; }).join("")}</div></details>` : ""}`;
@@ -4519,7 +4525,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-29-1235-onebuzz";
+const BUILD = "2026-10-29-1245-songurl";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
