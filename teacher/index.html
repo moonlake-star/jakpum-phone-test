@@ -182,14 +182,14 @@
   .pvSongRow { display:flex; align-items:center; gap:10px; } .pvSongRow .art { flex:none; width:40px; height:40px; border-radius:10px; background:linear-gradient(135deg,#ff8a3d,#ff5c8a); display:flex; align-items:center; justify-content:center; }
   @media (prefers-reduced-motion: reduce) { .pvEd { transition:none; } .pvStrip { scroll-behavior:auto; } }
   .pvDots { display:flex; justify-content:center; gap:6px; margin:2px 0 6px; } .pvDots i { width:8px; height:8px; border-radius:4px; background:#3a414b; transition:width .2s, background .2s; } .pvDots i.on { width:22px; background:var(--accent); }
-  #pvFull .aud { display:flex; align-items:center; gap:12px; background:#11141a; border-radius:16px; padding:10px 12px; } #pvFull .aud svg { flex:1; height:44px; min-width:0; }
+  #pvFull .aud { display:flex; align-items:center; gap:10px; background:#11141a; border-radius:14px; padding:7px 10px; } #pvFull .wave { position:relative; flex:1; min-width:0; height:28px; cursor:pointer; } #pvFull .wave svg { position:absolute; inset:0; width:100%; height:100%; } #pvFull .wave .on { position:absolute; inset:0; clip-path:inset(0 100% 0 0); } #pvFull .wave .flat { position:absolute; left:0; right:0; top:50%; height:2px; margin-top:-1px; background:#3a414b; border-radius:1px; }
   body.pvOpen #mini { z-index:95; } body.pvOpen.miniOn #pvFull { padding-bottom:150px; }
   #pvFull .rp { border:0; cursor:pointer; } #pvFull .tchip { cursor:pointer; }
   #pvFull .fseg { display:flex; margin:6px 0; } #pvFull .fseg.right { justify-content:flex-end; } #pvFull .fbub { max-width:86%; padding:8px 12px; border-radius:14px; cursor:pointer; border:2px solid transparent; }
   #pvFull .fb-t { background:#1f3050; } #pvFull .fb-s { background:#3d2c17; } #pvFull .fb-g { background:#31224a; } #pvFull .fb-x { background:#2a2f37; } #pvFull .fbub .tm { color:var(--muted); font-size:.76rem; margin-left:6px; } #pvFull .fbub .tx { display:block; } #pvFull .fbub.now { border-color:var(--now); }
   #pvFull .trs { max-height:70vh; overflow-y:auto; }
   #pvFull .tchip { display:inline-flex; align-items:center; min-height:32px; padding:0 10px; border-radius:14px; background:#1d2b40; color:#9cc3ff; border:1.5px solid #3a5a8a; font-size:.88rem; font-weight:700; } #pvFull .bestTop { border:2px solid var(--accent); }
-  #pvFull .rp { flex:none; width:56px; height:56px; border-radius:50%; background:var(--accent); color:var(--on-accent); display:flex; align-items:center; justify-content:center; font-size:1.4rem; } #pvFull .makeup .rp { background:#9b5cff; color:#fff; }
+  #pvFull .rp { flex:none; width:46px; height:38px; min-height:38px; padding:0; border-radius:10px; background:var(--accent); color:var(--on-accent); display:flex; align-items:center; justify-content:center; font-size:1rem; }   /* 10/29 사용자: 선생님 화면 재생 버튼처럼(둥근 네모·낮게) */ #pvFull .makeup .rp { background:#9b5cff; color:#fff; }
   #pvFull .card h2 { font-size:1.12rem; margin:0 0 8px; } #pvFull ul { padding-left:1.2em; margin:6px 0; }
   #pvFull .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:14px; margin:10px 0; }
   #pvFull .pre { white-space:pre-wrap; line-height:1.6; } #pvFull .ab { display:grid; grid-template-columns:1fr 1fr; gap:8px; } #pvFull .clip { margin:10px 0; }
@@ -1019,6 +1019,7 @@ async function publishNote() {
   if (cur.st.consent_withdrawn) throw new Error("동의 철회된 수강생이라 게시하지 않았어요");
   const note = buildNote(), ex = cur.files.find(f => f.name === NOTE);
   if (typeof notePeaks === "function") for (const k of ["best", "makeup"]) if (note[k]?.file_id) { const pk = await notePeaks(note[k].file_id); if (pk) note[k].peaks = pk; }   // 수강생 화면 파형(못 구하면 없이 공개)
+  if (typeof notePeaks === "function") for (const c of [...(note.clips || []), ...(note.pairs || [])]) if (c?.file_id) { const pk = await notePeaks(c.file_id); if (pk) c.peaks = pk; }   // (10/29) 좋았던 순간·전→후도 실제 파형
   for (const id of noteFileIds(note)) await openLink(id);              // 먼저 열어 둬야 수강생이 바로 들을 수 있음
   await portal("t_note", { sid: cur.sid, lesson_id: note.lesson_id, date: note.date, published_at: note.published_at, note });
   const id = await writeJSON(cur.folder.id, NOTE, note, ex?.id);         // 선생님 앱용 사본(읽음은 시트에 있음)
@@ -1394,7 +1395,7 @@ function pvCount(el) { if (!el || typeof document === "undefined" || !document.q
 const SV_MAX_CLIPS = 3;
 const svMd = (d) => d ? `${+d.slice(5, 7)}월 ${+d.slice(8, 10)}일` : "";
 const svList = (a) => `<ul>${a.map(x => `<li>${esc(x)}</li>`).join("")}</ul>`;
-const svPlayer = (id, label) => `<div class="aud"><button type="button" class="rp" data-svau="${esc(id)}" aria-label="${esc(label)}">▶</button><svg viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true">${Array.from({ length: 50 }, (_, i) => { const h = 8 + 26 * Math.abs(Math.sin(i / 2.7) * Math.sin(i / 7.3)); return `<rect x="${i * 2 + .4}" y="${((40 - h) / 2).toFixed(1)}" width="1.2" height="${h.toFixed(1)}" fill="#5b6573"/>`; }).join("")}</svg></div><div class="muted" style="font-size:.8rem;text-align:right">${esc(label)} <span data-svt="${esc(id)}"></span></div>`;   // (10/29) 미리보기에서도 눌러서 들음
+const svPlayer = (id, label, peaks) => { const pk = Array.isArray(peaks) && peaks.length >= 20 && peaks.length <= 400 ? peaks : null, sv = (c) => `<svg viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true">${pk.map((v, i) => { const w = 100 / pk.length, h = Math.max(1.5, (Math.min(99, Math.max(0, +v || 0)) / 99) * 36); return `<rect x="${(i * w + w * 0.18).toFixed(2)}" y="${((40 - h) / 2).toFixed(2)}" width="${(w * 0.64).toFixed(2)}" height="${h.toFixed(2)}" fill="${c}"/>`; }).join("")}</svg>`; return `<div class="aud"><button type="button" class="rp" data-svau="${esc(id)}" aria-label="${esc(label)}">▶</button><div class="wave" data-svwave="${esc(id)}">${pk ? sv("#5b6573") + `<div class="on">${sv("#9cc3ff")}</div>` : `<i class="flat"></i>`}</div></div><div class="muted" style="font-size:.8rem;text-align:right">${esc(label)} <span data-svt="${esc(id)}"></span></div>`; };   // (10/29) 실제 소리 파형(받기 전엔 가는 선 — 가짜 파형 없음)
 const svSidOk = (x) => typeof x === "string" && x.trim() !== "";
 const svMakeupOk = (m, best) => !!m && svSidOk(m.file_id) && svSidOk(m.source_file_id) && m.file_id !== best?.file_id && (!best?.file_id || m.source_file_id === best.file_id);   // 학생 화면 makeupOk와 동일 규칙
 function svLessonHtml(l, prev, mode = "normal") {
@@ -1417,13 +1418,13 @@ function svLessonHtml(l, prev, mode = "normal") {
     extras.length ? `<h3>🎵 다른 버전</h3>${extras.map(x => svPlayer(x.file_id, x.kind_ko || "듣기")).join("")}` : "",
   ].filter(Boolean).join("");
   return `<h2 style="margin:14px 0 4px">${svMd(l.date)} 레슨</h2>${svModeBar(m)}
-    ${l.best?.file_id ? `<div class="card bestTop"><div class="cardHead"><span class="badge">베스트</span><b>${l.best.edited ? "오늘의 베스트 편집본" : "오늘의 베스트 가창"}</b>${l.best.len ? `<span class="muted">${l.best.len}초</span>` : ""}</div><p class="muted" style="margin:4px 0 8px">${l.best.edited ? (l.best.joined === true ? "오늘 잘한 부분을 이어 붙였어요" : l.best.joined === false ? "오늘 가장 좋았던 한 번을 골랐어요" : "여러 번 부른 것 중 좋은 부분을 이어 붙였어요") : "오늘 부른 가창이에요"}</p>${svPlayer(l.best.file_id, "듣기")}</div>` : ""}
-    ${full && clips.length ? `<div class="card"><h2>🎧 오늘 좋았던 순간</h2>${clips.map(c => `<div class="clip">${has(c.note) ? `<div>${esc(c.note)}</div>` : ""}${svPlayer(c.file_id, c.label || "듣기")}</div>`).join("")}</div>` : ""}
+    ${l.best?.file_id ? `<div class="card bestTop"><div class="cardHead"><span class="badge">베스트</span><b>${l.best.edited ? "오늘의 베스트 편집본" : "오늘의 베스트 가창"}</b>${l.best.len ? `<span class="muted">${l.best.len}초</span>` : ""}</div><p class="muted" style="margin:4px 0 8px">${l.best.edited ? (l.best.joined === true ? "오늘 잘한 부분을 이어 붙였어요" : l.best.joined === false ? "오늘 가장 좋았던 한 번을 골랐어요" : "여러 번 부른 것 중 좋은 부분을 이어 붙였어요") : "오늘 부른 가창이에요"}</p>${svPlayer(l.best.file_id, "듣기", l.best.peaks)}</div>` : ""}
+    ${full && clips.length ? `<div class="card"><h2>🎧 오늘 좋았던 순간</h2>${clips.map(c => `<div class="clip">${has(c.note) ? `<div>${esc(c.note)}</div>` : ""}${svPlayer(c.file_id, c.label || "듣기", c.peaks)}</div>`).join("")}</div>` : ""}
     ${full && moment ? `<div class="card moment" role="region" aria-label="선생님이 발견한 오늘의 순간"><div class="muted">🔎 선생님이 발견한 오늘의 순간</div><p class="big">${esc(moment)}</p></div>` : ""}
     ${has(l.feedback) ? `<div class="card"><h2>💬 선생님 한마디</h2><div class="pre">${tchip(esc(l.feedback))}</div></div>` : ""}
-    ${points.length || (full && pairs.length) ? `<div class="card"><h2>⭐ 오늘의 핵심 포인트</h2>${points.length ? svList(points) : ""}${full && pairs.length ? `<div class="pairs"><div class="muted" style="margin:10px 0 4px">🔁 지도 전 → 후, 달라진 걸 들어 보세요</div>${pairs.map(x => `<div class="clip"><div>${esc(x.label)}</div>${svPlayer(x.file_id + "#p", "전→후 듣기")}</div>`).join("")}</div>` : ""}</div>` : ""}
+    ${points.length || (full && pairs.length) ? `<div class="card"><h2>⭐ 오늘의 핵심 포인트</h2>${points.length ? svList(points) : ""}${full && pairs.length ? `<div class="pairs"><div class="muted" style="margin:10px 0 4px">🔁 지도 전 → 후, 달라진 걸 들어 보세요</div>${pairs.map(x => `<div class="clip"><div>${esc(x.label)}</div>${svPlayer(x.file_id + "#p", "전→후 듣기", x.peaks)}</div>`).join("")}</div>` : ""}</div>` : ""}
     ${practice.length || (full && song) ? `<div class="card"><h2>📋 다음 미션</h2>${practice.length ? svList(practice) : ""}${full && song ? `<div class="song"><div class="muted">🎵 추천 곡</div><b>${esc(song.title)}</b>${has(song.artist) ? ` <span class="muted">(${esc(song.artist)})</span>` : ""}${has(song.why) ? `<p style="margin:4px 0 0">${esc(song.why)}</p>` : ""}</div>` : ""}</div>` : ""}
-    ${full && svMakeupOk(l.makeup, l.best) ? `<div class="card makeup"><div class="cardHead"><span class="badge mk">메이크업본</span><b>간단 음정보정 예시</b>${l.makeup.len ? `<span class="muted">${l.makeup.len}초</span>` : ""}</div><p class="muted" style="margin:4px 0 6px">음원 발매용으로 정식 보정하면 더 자연스럽고 좋아져요</p>${has(l.makeup.msg) ? `<p style="margin:0 0 8px">${esc(l.makeup.msg.trim())}</p>` : ""}${svPlayer(l.makeup.file_id + "#m", "메이크업 듣기")}</div>` : ""}
+    ${full && svMakeupOk(l.makeup, l.best) ? `<div class="card makeup"><div class="cardHead"><span class="badge mk">메이크업본</span><b>간단 음정보정 예시</b>${l.makeup.len ? `<span class="muted">${l.makeup.len}초</span>` : ""}</div><p class="muted" style="margin:4px 0 6px">음원 발매용으로 정식 보정하면 더 자연스럽고 좋아져요</p>${has(l.makeup.msg) ? `<p style="margin:0 0 8px">${esc(l.makeup.msg.trim())}</p>` : ""}${svPlayer(l.makeup.file_id + "#m", "메이크업 듣기", l.makeup.peaks)}</div>` : ""}
     ${full && cheer ? `<div class="card cheer"><h2>💌 응원 메시지</h2><p class="pre" style="margin:0">${esc(cheer)}</p></div>` : ""}
     ${more && m === "detail" ? `<div class="card more">${more}</div>` : more && m === "normal" ? `<details class="card more"><summary>더 들여다보기</summary>${more}</details>` : ""}
     ${full && l.full && typeof l.full.file_id === "string" && Array.isArray(l.full.segs) && l.full.segs.length ? `<details class="card more fullrec" data-fid="${esc(l.full.file_id)}"><summary>📝 레슨 전체 기록 · 전사본과 녹음</summary><p class="muted" style="margin:0 0 6px">AI가 받아쓴 글이라 틀린 곳이 있을 수 있어요 · 말풍선을 누르면 아래 재생바로 그 자리부터 들려요${l.full.cut ? " · 길어서 앞부분만 실었어요" : ""}</p><div class="trs">${l.full.segs.filter(Array.isArray).map(([t, w, tx]) => { const k = ({ t: "t", s: "s", g: "g" })[w] || "x", tt = Math.max(0, +t || 0);
@@ -1443,12 +1444,14 @@ function openStudentView(mode = "normal") {
   if (document.body?.classList) document.body.classList.add("pvOpen");   // 레슨 녹음 재생바(#mini)가 미리보기 위로 올라오게
   d.onclick = (e) => {
     const au = e.target?.closest?.("[data-svau]"); if (au && typeof svPlay === "function") return svPlay(au);   // (10/29 사용자) 미리보기도 실제로 눌러서 들음
+    const wv = e.target?.closest?.("[data-svwave]"); if (wv && typeof svSeek === "function") { const r = wv.getBoundingClientRect(); return svSeek(wv.parentElement.querySelector("[data-svau]"), Math.min(1, Math.max(0, (e.clientX - r.left) / (r.width || 1)))); }   // (10/29 사용자) 미리보기도 실제로 눌러서 들음
     const tt = e.target?.closest?.("[data-ftc], [data-ft]");
     if (tt && typeof playAt === "function") { const t = +(tt.dataset.ftc ?? tt.dataset.ft); if (typeof full !== "undefined" && typeof mediaUnlock === "function") mediaUnlock(full); document.querySelectorAll("#pvFull .fbub.now").forEach(x => x.classList.remove("now")); tt.classList?.add("now");
       return playAt(Math.max(0, t - 2)).catch(err => toast(err.message)); }   // 글 속 ▶시각·전사 말풍선 → 화면 아래 재생바(레슨 녹음)
     const b = e.target?.closest?.("[data-mode]"); if (!b) return;   // 심플/보통/자세히: 수강생 화면과 같은 방식으로 다시 그림
-    const body = d.querySelector("#pvFullBody"); if (body) body.innerHTML = svLessonHtml(buildNote(), null, b.dataset.mode); if (typeof svPaint === "function") svPaint(); };
+    const body = d.querySelector("#pvFullBody"); if (body) body.innerHTML = svLessonHtml(buildNote(), null, b.dataset.mode); if (typeof svWaves === "function") svWaves(); if (typeof svPaint === "function") svPaint(); };
   d._esc = (e) => { if (e.key === "Escape") closeStudentView(); }; document.addEventListener("keydown", d._esc);
+  if (typeof svWaves === "function") svWaves();
 }
 function closeStudentView() {
   const d = document.getElementById("pvFull"); if (!d) return;
@@ -1463,6 +1466,24 @@ function svPaint() {
   const on = svCur && typeof player !== "undefined" && !player.paused;
   document.querySelectorAll("#pvFull [data-svau]").forEach(b => { b.textContent = on && b.dataset.svau === svCur ? "❚❚" : "▶"; });
   document.querySelectorAll("#pvFull [data-svt]").forEach(x => { x.textContent = svCur && x.dataset.svt === svCur && player.duration ? `${fmt(player.currentTime)} / ${fmt(player.duration)}` : ""; });
+  document.querySelectorAll("#pvFull [data-svwave] .on").forEach(o => { const k = o.parentElement.dataset.svwave, fr = svCur === k && player.duration ? player.currentTime / player.duration : 0; o.style.clipPath = `inset(0 ${(100 - fr * 100).toFixed(1)}% 0 0)`; });   // 들은 만큼 밝게
+}
+// (10/29 사용자) 미리보기 파형 = 실제 소리. 이미 받은 파형은 바로, 아니면 파일을 받아 계산(받은 파일은 재생에도 그대로 씀)
+function svWaves() {
+  if (typeof document === "undefined" || !document.querySelectorAll) return;
+  const me = cur;
+  document.querySelectorAll("#pvFull [data-svwave]").forEach(el => {
+    if (el.querySelector("svg")) return;
+    const key = el.dataset.svwave, id = key.replace(/#[bsmp]$/, "");
+    const put = (pk) => { if (!pk || !el.isConnected) return; const t = document.createElement("div"); t.innerHTML = svPlayer(key, "", pk); const w = t.querySelector(".wave"); if (w) { el.innerHTML = w.innerHTML; svPaint(); } };
+    if (wavePeaks[id]) return put(wavePeaks[id]);
+    readBlob(id).then(async bl => { if (cur !== me) return; me.clipUrls[id] ??= URL.createObjectURL(bl); const pk = await peaksOf(bl); if (pk) { wavePeaks[id] = pk; put(pk); } }).catch(() => {});
+  });
+}
+async function svSeek(b, fr) {
+  if (!b) return;
+  if (svCur !== b.dataset.svau || player.paused) await svPlay(b);
+  if (svCur === b.dataset.svau && player.duration) { player.currentTime = fr * player.duration; svPaint(); }
 }
 // (10/29 09:30 사용자: 미리보기 재생 안 됨) 갤럭시 크롬은 누른 뒤 몇 초 넘게 파일을 받으면 재생을 막음(NotAllowedError).
 // 누르는 그 순간 같은 재생기로 아주 짧은 무음을 먼저 틀어 '재생 허락'을 받아 두고, 파일이 오면 이어서 재생
@@ -4296,7 +4317,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-29-0940-svunlock";
+const BUILD = "2026-10-29-1000-realwave";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
