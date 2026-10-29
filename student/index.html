@@ -222,7 +222,10 @@ function timeline() {
 }
 
 // 녹음은 선생님이 게시할 때 '링크가 있는 사람 보기'로 열린 파일을 구글 드라이브에서 바로 재생(v2, 스크립트를 거치지 않음)
-const audioUrl = async (id) => audioCache[id] ||= `https://drive.google.com/uc?export=download&id=${encodeURIComponent(id)}`;
+// 2026-10-29: 폰·크롬에서 uc?export=download 주소를 <audio>가 못 읽음(오류 4) → 선생님이 넣은 '재생용 키'가 있으면 드라이브 API(부분 받기·바로 재생)로
+const akey = () => { for (const l of (typeof data !== "undefined" && data?.lessons) || []) if (/^[A-Za-z0-9_-]{30,60}$/.test(l?.audio_key || "")) return l.audio_key; return ""; };
+const driveUrl = (id) => { const k = akey(); return k ? `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(id)}?alt=media&key=${k}` : `https://drive.google.com/uc?export=download&id=${encodeURIComponent(id)}`; };
+const audioUrl = async (id) => audioCache[id] ||= driveUrl(id);
 document.addEventListener("play", (e) => document.querySelectorAll("audio").forEach(a => a !== e.target && a.pause()), true);   // 한 번에 하나만
 // 파형(선생님 앱이 공개할 때 함께 실은 막대 높이 0~99). 없으면 기존처럼 버튼만. 파형을 누르면 그 자리부터.
 function waveSvg(pk, color) {
@@ -320,7 +323,7 @@ function wirePlayers() {
       const lab = document.getElementById("fbLab"), base = (label || "레슨 녹음") + (r ? ` · ${mm(r[0])}~${mm(r[1])}` : ""); lab.textContent = "⏳ 불러오는 중… · " + base;   // (10/29 11:00 사용자) 불러오는 중 표시 + 노란 칸
       au.addEventListener("playing", () => { lab.textContent = base; }, { once: true });
       // (10/29 14:02 실사용 버그: 불러오는 중에서 멈춤) 녹음을 받은 뒤에 재생을 시작하면 폰이 '누른 직후가 아님'으로 막음 → 누르는 순간 바로 재생 시작, 위치는 준비되면 맞춤
-      if (au.dataset.fid !== fid) { au.dataset.fid = fid; au.src = audioCache[fid] || `https://drive.google.com/uc?export=download&id=${encodeURIComponent(fid)}`; audioCache[fid] = au.src; }
+      if (au.dataset.fid !== fid) { au.dataset.fid = fid; au.src = audioCache[fid] || driveUrl(fid); audioCache[fid] = au.src; }
       const tgt = Math.max(0, t - 2), place = () => { try { if (Math.abs(au.currentTime - tgt) > 1) au.currentTime = tgt; } catch {} };
       bar._tgt = tgt; if (!au._tgtWired) { au._tgtWired = true; for (const ev of ["timeupdate", "progress", "canplay"]) au.addEventListener(ev, () => {   // 아직 그 자리까지 못 받았으면 받히는 대로 다시 맞춤
         const g = bar._tgt; if (g == null) return; if (Math.abs(au.currentTime - g) <= 1) { bar._tgt = null; return; }
@@ -331,7 +334,7 @@ function wirePlayers() {
       au.addEventListener("playing", () => { clearTimeout(bar._slow); place(); }, { once: true }); } catch {} };
     bubs.forEach(el => el.onclick = () => go(+el.dataset.ft, (el.querySelector(".who")?.textContent || "") + " · " + (el.querySelector(".tx")?.textContent || "").slice(0, 24), true));
     chips.forEach(c => c.onclick = () => go(+c.dataset.ftc, "선생님 한마디"));   // 글 속 시각 ▶
-    document.getElementById("fbPlay").onclick = () => { if (!au.getAttribute("src")) { au.dataset.fid = fid; au.src = `https://drive.google.com/uc?export=download&id=${encodeURIComponent(fid)}`; } if (au.paused) au.play().catch(() => {}); else au.pause(); };   // 누르는 순간 재생(폰 자동재생 막힘 방지)
+    document.getElementById("fbPlay").onclick = () => { if (!au.getAttribute("src")) { au.dataset.fid = fid; au.src = audioCache[fid] ||= driveUrl(fid); } if (au.paused) au.play().catch(() => {}); else au.pause(); };   // 누르는 순간 재생(폰 자동재생 막힘 방지)
     bar.querySelectorAll("[data-fb]").forEach(b => b.onclick = () => { au.currentTime = Math.max(0, Math.min(au.duration || 1e9, au.currentTime + +b.dataset.fb)); });
     const sk = document.getElementById("fbSeek"); sk.oninput = () => { bar._drag = true; }; sk.onchange = () => { bar._drag = false; if (au.duration) { au.currentTime = sk.value / 1000 * au.duration; au.play().catch(() => {}); } };
     document.getElementById("fbX").onclick = () => { au.pause(); bar.classList.remove("on"); document.body.classList.remove("fbOn"); }; }
