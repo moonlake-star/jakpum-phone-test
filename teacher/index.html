@@ -194,7 +194,7 @@
   @media (prefers-reduced-motion: reduce) { .pvEd { transition:none; } .pvStrip { scroll-behavior:auto; } }
   .pvDots { display:flex; justify-content:center; gap:6px; margin:2px 0 6px; } .pvDots i { width:8px; height:8px; border-radius:4px; background:#3a414b; transition:width .2s, background .2s; } .pvDots i.on { width:22px; background:var(--accent); }
   #pvFull .aud { display:flex; align-items:center; gap:10px; background:#11141a; border-radius:14px; padding:7px 10px; } #pvFull .wave { position:relative; flex:1; min-width:0; height:28px; cursor:pointer; } #pvFull .wave svg { position:absolute; inset:0; width:100%; height:100%; } #pvFull .wave .on { position:absolute; inset:0; clip-path:inset(0 100% 0 0); } #pvFull .wave .flat { position:absolute; left:0; right:0; top:50%; height:2px; margin-top:-1px; background:#3a414b; border-radius:1px; }
-  body.pvOpen #mini { z-index:95; } body.pvOpen.miniOn #pvFull { padding-bottom:150px; }
+  body.pvOpen #mini { z-index:95; } body.pvOpen #busy, body.pvOpen #pop { z-index:99; } body.pvOpen.miniOn #pvFull { padding-bottom:150px; }
   #pvFull .rp { border:0; cursor:pointer; }
   #pvFull .lp { display:inline-flex; align-items:center; gap:10px; max-width:100%; min-height:46px; margin:2px 0; padding:0 18px 0 5px; border-radius:999px; border:0; background:linear-gradient(135deg, rgba(156,195,255,.16), rgba(156,195,255,.06)); box-shadow:inset 0 0 0 1px rgba(156,195,255,.14); color:#9cc3ff; font-size:.9rem; font-weight:600; overflow:hidden; box-sizing:border-box; cursor:pointer; transition:width 300ms cubic-bezier(.3,.7,.2,1), background 300ms ease, padding 300ms ease; }
   #pvFull .lp .ic { flex:none; width:36px; height:36px; border-radius:50%; background:radial-gradient(circle at 35% 30%, #c4dcff, #9cc3ff 70%); color:#10141a; display:flex; align-items:center; justify-content:center; font-size:.8rem; box-shadow:0 2px 10px rgba(156,195,255,.35); }
@@ -1063,6 +1063,18 @@ function pointSndHTML(rv, disabled) {
     <select data-pvsnd="${i}" aria-label="${i + 1}번 포인트에 붙일 소리"${disabled}><option value="none"${plan[i] ? "" : " selected"}>소리 없음</option>${ch.map(c => `<option value="${esc(c.key)}"${plan[i]?.key === c.key ? " selected" : ""}>${esc(c.pick)}${plan[i]?.key === c.key && plan[i].auto ? " (자동 추천)" : ""}</option>`).join("")}</select>
     <button type="button" class="small ghost pvSndPlay" data-pvsndplay="${i}" aria-label="${i + 1}번 포인트에 고른 소리 들어 보기">▶ 듣기</button></label>`).join("")}</details>`;   // (10/29 사용자) 고르기 전에 들어 보고 판단
 }
+function chipRanges() {   // 좋았던 순간 후보·AI 포인트의 [시작, 끝] — 수강생 화면 재생바에도 실어 보냄
+  const out = []; try { for (const c of (typeof allCands === "function" ? allCands() : [])) if (Number.isFinite(+c.start) && +c.end > +c.start) out.push([+c.start, +c.end]); } catch {}
+  for (const p of (cur?.ai?.points || [])) if (p && Number.isFinite(+p.start) && +p.end > +p.start) out.push([+p.start, +p.end]);
+  return out.slice(0, 30).map(([a, b]) => [Math.round(a * 10) / 10, Math.round(b * 10) / 10]);
+}
+function rangeAt(t, rng, starts, segOnly) {   // (10/29 11:00 사용자) 글 속 ▶시각·말풍선이 녹음의 어디부터 어디까지인지(재생바 노란 칸)
+  t = +t || 0; let best = null;
+  if (!segOnly) for (const r of rng || []) { const a = +r[0], b = +r[1]; if (Number.isFinite(a) && b > a && t >= a - 3 && t <= b && (!best || Math.abs(a - t) < Math.abs(best[0] - t))) best = [a, b]; }
+  if (best) return [Math.min(best[0], t), best[1]];
+  const nx = (starts || []).map(Number).filter(x => x > t + 1).sort((x, y) => x - y)[0];
+  return [t, Math.round(Math.min(t + 30, Math.max(t + 5, nx ?? t + 15)) * 10) / 10];
+}
 const FULL_MAX = 38000;
 function fullForNote() {
   const f = (cur?.files || []).find(x => x.name === "듣기용.mp3"); if (!f || !(cur.segs || []).length) return null;
@@ -1075,7 +1087,7 @@ function fullForNote() {
     else { out.push([t, w, tx]); n += tx.length + 14; }
     if (n > FULL_MAX) { cut = true; out.pop(); break; }
   }
-  return out.length ? { file_id: f.id, len: Math.round(+cur.summary?.duration_sec || 0), segs: out, cut } : null;
+  return out.length ? { file_id: f.id, len: Math.round(+cur.summary?.duration_sec || 0), segs: out, cut, ...(typeof chipRanges === "function" && chipRanges().length ? { rng: chipRanges() } : {}) } : null;
 }
 // 게시한 녹음만 '링크가 있는 사람 보기'로 연다(사용자 결정 2026-10-26). 링크(ID)는 승인된 본인 노트에만 실림.
 const noteFileIds = (n) => [n.best?.file_id, n.makeup?.file_id, n.full?.file_id, ...(n.pairs || []).map(x => x?.file_id), ...(n.extra_best || []).map(x => x?.file_id), ...(n.clips || []).map(x => x.file_id), ...(n.point_snd || []).map(x => x?.file_id)].filter(Boolean);
@@ -1577,7 +1589,8 @@ function openStudentView(mode = "normal") {
     const au = e.target?.closest?.("[data-svau]"); if (au && typeof svPlay === "function") return svPlay(au);   // (10/29 사용자) 미리보기도 실제로 눌러서 들음
     const wv = e.target?.closest?.("[data-svwave]"); if (wv && typeof svSeek === "function") { const r = wv.getBoundingClientRect(); return svSeek(wv.closest("[data-svau]") || wv.parentElement.querySelector("[data-svau]"), Math.min(1, Math.max(0, (e.clientX - r.left) / (r.width || 1)))); }   // (10/29 사용자) 미리보기도 실제로 눌러서 들음
     const tt = e.target?.closest?.("[data-ftc], [data-ft]");
-    if (tt && typeof playAt === "function") { const t = +(tt.dataset.ftc ?? tt.dataset.ft); if (typeof full !== "undefined" && typeof mediaUnlock === "function") mediaUnlock(full); document.querySelectorAll("#pvFull .fbub.now").forEach(x => x.classList.remove("now")); tt.classList?.add("now");
+    if (tt && typeof playAt === "function") { const t = +(tt.dataset.ftc ?? tt.dataset.ft);
+      if (typeof miniMarks === "function" && typeof rangeAt === "function") { try { const r = rangeAt(t, chipRanges(), (cur.segs || []).map(g => +g.start), tt.dataset.ftc == null); miniMarks([{ start: r[0], end: r[1] }], 0); miniLabel(`${tt.dataset.ftc != null ? "선생님 한마디" : "전사본"} · ${fmt(r[0])}~${fmt(r[1])} (노란 칸)`); } catch {} } if (typeof full !== "undefined" && typeof mediaUnlock === "function") mediaUnlock(full); document.querySelectorAll("#pvFull .fbub.now").forEach(x => x.classList.remove("now")); tt.classList?.add("now");
       return playAt(Math.max(0, t - 2)).catch(err => toast(err.message)); }   // 글 속 ▶시각·전사 말풍선 → 화면 아래 재생바(레슨 녹음)
     const b = e.target?.closest?.("[data-mode]"); if (!b) return;   // 심플/보통/자세히: 수강생 화면과 같은 방식으로 다시 그림
     const body = d.querySelector("#pvFullBody"); if (body) body.innerHTML = svLessonHtml(buildNote(), null, b.dataset.mode); if (typeof svWaves === "function") svWaves(); if (typeof svPaint === "function") svPaint(); };
@@ -4455,7 +4468,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-29-1120-soft";
+const BUILD = "2026-10-29-1130-range";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();

@@ -52,6 +52,8 @@
   .bestTop { border:2px solid var(--accent); }
   #fullBar { position:fixed; left:0; right:0; bottom:0; z-index:40; max-width:760px; margin:0 auto; background:#22262c; border-top:1px solid #363c45; box-shadow:0 -4px 14px rgba(0,0,0,.4);
     padding:8px 12px calc(8px + env(safe-area-inset-bottom)); display:flex; flex-direction:column; gap:4px; transform:translateY(110%); transition:transform .25s ease; }
+  #fullBar .fbSeekBox { position:relative; } #fullBar .fbSeekBox input { width:100%; } #fullBar .fbMarks { position:absolute; left:8px; right:8px; top:50%; height:20px; transform:translateY(-50%); pointer-events:none; }
+  #fullBar .fbMarks span { position:absolute; top:0; bottom:0; border-left:2px solid #ffd27a; border-right:2px solid #ffd27a; background:rgba(255,210,122,.28); border-radius:3px; }
   #fullBar.on { transform:none; } body.fbOn { padding-bottom:140px; }
   #fullBar .r { display:flex; gap:6px; align-items:center; } #fullBar .lab { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#a9b1bc; font-size:.9rem; }
   #fullBar button { min-height:42px; min-width:48px; border-radius:12px; border:1.5px solid #465062; background:#1b1f26; color:#eceff3; font:700 1rem system-ui; }
@@ -260,13 +262,20 @@ function player(id, label, peaks) {
   return `<div class="aud"><button class="rp" data-au="${esc(id)}" data-rp="1" aria-label="${esc(label)}">▶</button><div class="wave" data-wv="${esc(id)}" role="presentation">${waveSvg(pk, "#5b6573")}<div class="on">${waveSvg(pk, "#9cc3ff")}</div></div></div>
     <div class="muted tm" data-tm="${esc(id)}"></div><audio class="hidden" id="au_${esc(id)}"></audio>`;
 }
+function rangeAt(t, rng, starts, segOnly) {   // (10/29 11:00 사용자) 글 속 ▶시각·말풍선이 녹음의 어디부터 어디까지인지(재생바 노란 칸)
+  t = +t || 0; let best = null;
+  if (!segOnly) for (const r of rng || []) { const a = +r[0], b = +r[1]; if (Number.isFinite(a) && b > a && t >= a - 3 && t <= b && (!best || Math.abs(a - t) < Math.abs(best[0] - t))) best = [a, b]; }
+  if (best) return [Math.min(best[0], t), best[1]];
+  const nx = (starts || []).map(Number).filter(x => x > t + 1).sort((x, y) => x - y)[0];
+  return [t, Math.round(Math.min(t + 30, Math.max(t + 5, nx ?? t + 15)) * 10) / 10];
+}
 function wirePlayers() {
   { const box = document.querySelector(".fullrec[data-fid]"), chips = [...document.querySelectorAll("[data-ftc][data-fid]")]; if (box || chips.length) {   // 레슨 전체 기록: 말풍선 누르면 화면 아래 재생바(그 자리 2초 앞부터)
     let bar = document.getElementById("fullBar");
     if (!bar) { bar = document.createElement("div"); bar.id = "fullBar"; bar.setAttribute("role", "region"); bar.setAttribute("aria-label", "레슨 녹음 재생");
       bar.innerHTML = `<div class="r"><span class="lab" id="fbLab"></span><button type="button" id="fbX" aria-label="닫기">✕</button></div>
         <div class="r"><button type="button" data-fb="-5">-5</button><button type="button" id="fbPlay">▶</button><button type="button" data-fb="5">+5</button><span class="t" id="fbT">0:00</span></div>
-        <input type="range" id="fbSeek" min="0" max="1000" value="0" aria-label="재생 위치"><audio id="fullAu" preload="none"></audio>`;
+        <div class="fbSeekBox"><input type="range" id="fbSeek" min="0" max="1000" value="0" aria-label="재생 위치"><div class="fbMarks" id="fbMarks" aria-hidden="true"></div></div><audio id="fullAu" preload="none"></audio>`;
       document.body.appendChild(bar); }
     const au = document.getElementById("fullAu"), fid = box ? box.dataset.fid : chips[0].dataset.fid, mm = (x) => `${Math.floor((x || 0) / 60)}:${String(Math.floor((x || 0) % 60)).padStart(2, "0")}`;
     const bubs = box ? [...box.querySelectorAll("[data-ft]")] : [];
@@ -276,11 +285,17 @@ function wirePlayers() {
     for (const ev of ["play", "pause", "timeupdate", "loadedmetadata", "ended"]) au.addEventListener(ev, paint);
     au.onerror = () => { document.getElementById("fbLab").textContent = "녹음을 불러오지 못했어요. 선생님께 알려 주세요"; };
     const load = async () => { if (au.dataset.fid !== fid) { au.dataset.fid = fid; au.src = await audioUrl(fid); } };
-    const go = async (t, label) => { try { bar.classList.add("on"); document.body.classList.add("fbOn"); document.getElementById("fbLab").textContent = label || "레슨 녹음";
+    const full = (typeof data !== "undefined" && (data.lessons || []).find(x => x?.full?.file_id === fid)?.full) || {}, starts = (full.segs || []).map(x => Array.isArray(x) ? +x[0] : NaN);
+    const marks = (r) => { const el = document.getElementById("fbMarks"), L = au.duration || +full.len || 0; if (!el) return; el.innerHTML = r && L ? `<span style="left:${(r[0] / L * 100).toFixed(2)}%;width:${Math.max(1.2, (r[1] - r[0]) / L * 100).toFixed(2)}%"></span>` : ""; };
+    au.addEventListener("loadedmetadata", () => marks(bar._rng));
+    const go = async (t, label, segOnly) => { try { bar.classList.add("on"); document.body.classList.add("fbOn");
+      const r = rangeAt(t, full.rng, starts, segOnly); bar._rng = r; marks(r);
+      const lab = document.getElementById("fbLab"), base = (label || "레슨 녹음") + ` · ${mm(r[0])}~${mm(r[1])}`; lab.textContent = "⏳ 불러오는 중… · " + base;   // (10/29 11:00 사용자) 불러오는 중 표시 + 노란 칸
+      au.addEventListener("playing", () => { lab.textContent = base; }, { once: true });
       await load(); const seek = () => { au.currentTime = Math.max(0, t - 2); au.play().catch(() => {}); };
       if (au.readyState >= 1) seek(); else au.addEventListener("loadedmetadata", seek, { once: true }); } catch {} };
-    bubs.forEach(el => el.onclick = () => go(+el.dataset.ft, (el.querySelector(".who")?.textContent || "") + " " + (el.querySelector(".tm")?.textContent || "") + " · " + (el.querySelector(".tx")?.textContent || "").slice(0, 30)));
-    chips.forEach(c => c.onclick = () => go(+c.dataset.ftc, "선생님 한마디 · " + c.textContent.replace("▶ ", "") + " 부분"));   // 글 속 시각 ▶
+    bubs.forEach(el => el.onclick = () => go(+el.dataset.ft, (el.querySelector(".who")?.textContent || "") + " · " + (el.querySelector(".tx")?.textContent || "").slice(0, 24), true));
+    chips.forEach(c => c.onclick = () => go(+c.dataset.ftc, "선생님 한마디"));   // 글 속 시각 ▶
     document.getElementById("fbPlay").onclick = async () => { await load(); if (au.paused) au.play().catch(() => {}); else au.pause(); };
     bar.querySelectorAll("[data-fb]").forEach(b => b.onclick = () => { au.currentTime = Math.max(0, Math.min(au.duration || 1e9, au.currentTime + +b.dataset.fb)); });
     const sk = document.getElementById("fbSeek"); sk.oninput = () => { bar._drag = true; }; sk.onchange = () => { bar._drag = false; if (au.duration) { au.currentTime = sk.value / 1000 * au.duration; au.play().catch(() => {}); } };
