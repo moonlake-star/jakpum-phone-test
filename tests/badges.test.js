@@ -5,7 +5,8 @@ const L = (d, extra) => ({ type: 'lesson', date: d, ...(extra || {}) });
 
 // 칭호: 레슨 누적만, 하락 없음, 5단계
 assert.deepStrictEqual(B.TITLE_STEPS.map((t) => t.name), ['새싹 가수', '연습하는 가수', '노래하는 사람', '무대 위 가수', '작품 가수']);
-assert.strictEqual(B.PROVISIONAL, true, '임계값은 가정값 표시');
+assert.strictEqual(B.PROVISIONAL, false, '임계값 4/12/24/48 사용자 확정(10/29)');
+assert.deepStrictEqual(B.TITLE_STEPS.map((x) => x.min), [0, 4, 12, 24, 48]);
 assert.strictEqual(B.titleFor(0).title.name, '새싹 가수');
 assert.strictEqual(B.titleFor(4).title.name, '연습하는 가수');
 assert.strictEqual(B.titleFor(3).remaining, 1);
@@ -24,7 +25,9 @@ let r = B.evaluate(B.DEMO);
 const got = (id) => r.badges.find((b) => b.id === id);
 assert.strictEqual(got('first_lesson').date, '2026-09-07');
 assert.strictEqual(got('four_done').date, '2026-09-28');
-assert.strictEqual(got('streak5').date, '2026-10-05');
+assert.strictEqual(got('pkg_streak3').earned, false);
+assert.deepStrictEqual({ ...got('pkg_streak3').progress }, { have: 1, need: 3, unit: '번' }, '개근=묶음 완주(주 단위 아님)');
+assert.ok(!B.CATALOG.some((b) => b.id === 'streak5'));
 assert.strictEqual(got('first_mission').earned, true);
 assert.strictEqual(got('missions5').earned, false);
 assert.deepStrictEqual({ ...got('missions5').progress }, { have: 2, need: 5, unit: '회' });
@@ -39,8 +42,8 @@ assert.ok(r.badges.every((b) => !b.earned) && r.summary.lessons === 0 && r.recen
 // 영구 유지: 이벤트가 사라져도 kept의 배지·최고 연속·칭호는 남음
 const first = B.evaluate(B.DEMO);
 r = B.evaluate({ events: [L('2026-10-12')], awards: [], kept: first.nextKept });
-assert.strictEqual(r.badges.find((b) => b.id === 'streak5').earned, true);
-assert.strictEqual(r.bestStreak, 5);
+assert.strictEqual(r.badges.find((b) => b.id === 'four_done').earned, true);
+assert.strictEqual(r.bestStreak, 1);
 assert.strictEqual(r.title.title.name, '연습하는 가수');
 
 // 선생님 수여: 6종 이상, 코멘트·클립·근거, 녹음 없으면 빈 상태, 자동 배지는 수여 불가
@@ -76,3 +79,8 @@ for (const f of ['teacher/index.html', 'student/index.html', 'index.html', 'home
   assert.ok(!/badges\//.test(fs.readFileSync(__dirname + '/../' + f, 'utf8')), f + '가 badges를 불러오면 안 됨');
 }
 console.log('badges ok');
+
+// 12회(3묶음) → 3번 연속 완주, 날짜 = 12번째 레슨
+{ const ev = Array.from({ length: 12 }, (_, i) => ({ type: 'lesson', date: '2026-' + String(9 + Math.floor(i / 4)).padStart(2, '0') + '-' + String(1 + (i % 4) * 7).padStart(2, '0') }));
+  const q = B.evaluate({ events: ev }); const b = q.badges.find((x) => x.id === 'pkg_streak3'); assert.ok(b.earned && b.date === ev[11].date); assert.strictEqual(q.title.title.name, '노래하는 사람'); }
+console.log('badges decisions ok');

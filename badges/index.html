@@ -73,7 +73,7 @@ function renderJourney(r) {
   const t = r.title, nb = r.nextBadge;
   document.getElementById('vJourney').innerHTML =
     '<div class="card"><div class="muted">현재 칭호</div><div class="big">' + t.title.icon + ' ' + esc(t.title.name) + '</div>' +
-    '<p>누적 레슨 <b>' + r.summary.lessons + '회</b> · 미션 해 옴 <b>' + r.summary.missions + '회</b> · 최고 연속 <b>' + r.bestStreak + '주</b></p>' +
+    '<p>누적 레슨 <b>' + r.summary.lessons + '회</b> · 미션 해 옴 <b>' + r.summary.missions + '회</b> · 연속 완주 <b>' + r.bestStreak + '번</b></p>' +
     (t.next ? '<div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + Math.round(t.progress * 100) + '"><i style="width:' + Math.round(t.progress * 100) + '%"></i></div>' +
       '<p class="muted">다음 칭호 ' + t.next.icon + ' ' + esc(t.next.name) + '까지 레슨 ' + t.remaining + '회</p>' : '<p class="muted">가장 높은 칭호예요. 칭호는 내려가지 않아요.</p>') + '</div>' +
     (nb ? '<div class="card"><div class="muted">다음에 얻을 수 있는 배지</div>' + medal(nb) + '</div>' : '') +
