@@ -1014,31 +1014,43 @@ function sndSim(a, b) {
 const sndTimes = (x) => [...String(x || "").matchAll(/(\d{1,2}):([0-5]\d)(?![\d:])/g)].map(m => +m[1] * 60 + +m[2]);
 function pointSndChoices() {
   const rv = cur?.review || {}, out = [];
-  try { for (const c of (typeof sendList === "function" ? sendList() : [])) { const f = (cur.clips || []).find(x => x.name.startsWith(c.id)); if (f) { const nt = rv.notes?.[c.id] || c.note || ""; out.push({ key: "clip:" + c.id, kind: "clip", file_id: f.id, label: "좋았던 순간 듣기", pick: `좋았던 순간 ${fmt(c.start)}${nt ? " · " + (nt.length > 16 ? nt.slice(0, 16) + "…" : nt) : ""}`, text: nt, t: +c.start || 0 }); } } } catch {}
+  try { for (const c of (typeof sendList === "function" ? sendList() : [])) { const f = (cur.clips || []).find(x => x.name.startsWith(c.id)); if (f) { const nt = rv.notes?.[c.id] || c.note || ""; out.push({ key: "clip:" + c.id, kind: "clip", file_id: f.id, label: "좋았던 순간 듣기", pick: `좋았던 순간 ${fmt(c.start)}${nt ? " · " + (nt.length > 16 ? nt.slice(0, 16) + "…" : nt) : ""}`, text: nt, t: +c.start || 0, a0: +c.start || 0, a1: +(c.end ?? (+c.start + 15)) }); } } } catch {}
   const co = cur?.ana?.coaching || cur?.ai?.coaching || [];
   for (const p of (cur?.pairs || []).filter(p => p?.file_id && (rv.pairSend || []).includes(p.id)).slice(0, 3)) { const k = co.find(x => x.id === p.id) || {}, t = k.instruction_t ?? k.before?.t0;
-    out.push({ key: "pair:" + p.id, kind: "pair", file_id: p.file_id, label: "🔁 지도 전 → 후 듣기", pick: `지도 전→후 · ${String(k.issue || "").slice(0, 22)}`, text: [k.issue, k.instruction].filter(Boolean).join(" "), t: t == null ? null : +t }); }
+    out.push({ key: "pair:" + p.id, kind: "pair", file_id: p.file_id, label: "🔁 지도 전 → 후 듣기", pick: `지도 전→후 · ${String(k.issue || "").slice(0, 22)}`, text: [k.issue, k.instruction].filter(Boolean).join(" "), t: t == null ? null : +t,
+      ...(() => { const ts = [k.found_t, k.instruction_t, k.before?.t0, k.before?.t1, k.after?.t0, k.after?.t1].map(Number).filter(Number.isFinite); return ts.length ? { a0: Math.min(...ts), a1: Math.max(...ts) } : {}; })() }); }
   return out;
 }
-function pointSndPlan(points, choices, manual) {
-  manual = manual || {}; const plan = points.map(() => null), used = new Set(), sc = [];
+// (10/29 10:47 사용자: 선생님이 매번 들어 보고 고르지 않게) AI가 포인트를 쓸 때 적은 레슨 시각(start~end)과 겹치는 소리를 먼저 붙임. 시각이 있는데 안 겹치면 글이 꽤 비슷할 때만
+function pointTimes(points) {
+  const ap = (typeof cur !== "undefined" && cur?.ai?.points || []).filter(x => x && typeof x === "object" && Number.isFinite(+x.start));
+  return points.map(t => { let b = null, bv = 0.5; for (const a of ap) { const v = String(a.text || "").trim() === String(t).trim() ? 1 : sndSim(t, a.text); if (v >= bv) { bv = v; b = a; } }
+    return b ? { start: +b.start, end: Number.isFinite(+b.end) ? +b.end : +b.start + 20 } : null; });
+}
+function pointSndPlan(points, choices, manual, ptimes) {
+  manual = manual || {}; ptimes = ptimes || []; const plan = points.map(() => null), used = new Set(), sc = [];
   points.forEach((_, i) => { const m = manual[i], c = m && m !== "none" && choices.find(x => x.key === m); if (c && !used.has(c.key)) { plan[i] = { ...c, auto: false }; used.add(c.key); } });
-  points.forEach((pt, i) => { if (plan[i] || manual[i] === "none") return; for (const c of choices) { if (used.has(c.key)) continue; let v = sndSim(pt, c.text); if (c.t != null && sndTimes(pt).some(t => Math.abs(t - c.t) <= 20)) v += 1; if (v >= 0.3) sc.push([v, i, c]); } });
+  points.forEach((pt, i) => { if (plan[i] || manual[i] === "none") return; for (const c of choices) { if (used.has(c.key)) continue; let v = sndSim(pt, c.text); if (c.t != null && sndTimes(pt).some(t => Math.abs(t - c.t) <= 20)) v += 1;
+    const pt_ = ptimes[i], hit = pt_ && c.a0 != null && c.a0 <= pt_.end + 15 && (c.a1 ?? c.a0) >= pt_.start - 15; if (hit) v += 2;
+    if (v >= (pt_ && !hit ? 0.45 : 0.3)) sc.push([v, i, c]); } });
   sc.sort((a, b) => b[0] - a[0]);
   for (const [, i, c] of sc) if (!plan[i] && !used.has(c.key)) { plan[i] = { ...c, auto: true }; used.add(c.key); }
   return plan;
 }
 function pointSndForNote(points) {
-  return pointSndPlan(points, pointSndChoices(), cur?.review?.point_snd).map((c, i) => c && { p: i, kind: c.kind, file_id: c.file_id, label: c.label }).filter(Boolean);
+  return pointSndPlan(points, pointSndChoices(), cur?.review?.point_snd, pointTimes(points)).map((c, i) => c && { p: i, kind: c.kind, file_id: c.file_id, label: c.label }).filter(Boolean);
 }
 function pointSndHTML(rv, disabled) {
   const pts = (rv?.points || []).filter(Boolean); if (!pts.length) return "";
   const ch = pointSndChoices();
   if (!ch.length) return `<p class="muted pvSnd" style="margin:6px 0 0">🎧 포인트에 붙일 소리 없음 · 아래 ‘좋았던 순간’이나 ‘지도 전→후’를 보내기로 고르면 여기서 포인트에 붙일 수 있어요</p>`;
-  const plan = pointSndPlan(pts, ch, rv.point_snd);
-  return `<div class="pvSnd"><div class="muted" style="margin:6px 0 2px">🎧 포인트에 소리 붙이기 · 수강생은 그 포인트 바로 아래에서 들어요</div>${pts.map((t, i) => `<label class="pvSndRow"><span>${i + 1}. ${esc(t.length > 24 ? t.slice(0, 24) + "…" : t)}</span>
+  const plan = pointSndPlan(pts, ch, rv.point_snd, pointTimes(pts)), anyManual = Object.keys(rv.point_snd || {}).length > 0;
+  const sum = pts.map((_, i) => `${i + 1} ${plan[i] ? (plan[i].kind === "pair" ? "지도 전→후" : "좋았던 순간") : "글만"}`).join(" · ");
+  const open = typeof cur !== "undefined" && cur?.sched?.sndOpen;
+  return `<details class="pvSnd" id="pvSndBox"${open ? " open" : ""}><summary class="muted">🎧 소리 ${anyManual ? "연결" : "자동 연결"} · ${esc(sum)} <span style="color:var(--accent)">바꾸기</span></summary>
+    <div class="muted" style="margin:4px 0 2px;font-size:.82rem">AI가 포인트를 쓴 레슨 시각에 맞는 소리를 붙였어요 · 따로 안 고쳐도 돼요 · 👀 미리보기에서 들어 볼 수 있어요</div>${pts.map((t, i) => `<label class="pvSndRow"><span>${i + 1}. ${esc(t.length > 24 ? t.slice(0, 24) + "…" : t)}</span>
     <select data-pvsnd="${i}" aria-label="${i + 1}번 포인트에 붙일 소리"${disabled}><option value="none"${plan[i] ? "" : " selected"}>소리 없음</option>${ch.map(c => `<option value="${esc(c.key)}"${plan[i]?.key === c.key ? " selected" : ""}>${esc(c.pick)}${plan[i]?.key === c.key && plan[i].auto ? " (자동 추천)" : ""}</option>`).join("")}</select>
-    <button type="button" class="small ghost pvSndPlay" data-pvsndplay="${i}" aria-label="${i + 1}번 포인트에 고른 소리 들어 보기">▶ 듣기</button></label>`).join("")}</div>`;   // (10/29 사용자) 고르기 전에 들어 보고 판단
+    <button type="button" class="small ghost pvSndPlay" data-pvsndplay="${i}" aria-label="${i + 1}번 포인트에 고른 소리 들어 보기">▶ 듣기</button></label>`).join("")}</details>`;   // (10/29 사용자) 고르기 전에 들어 보고 판단
 }
 const FULL_MAX = 38000;
 function fullForNote() {
@@ -1383,6 +1395,7 @@ function pickCheer(kind, now, name) {   // 같은 종류 안에서 지금 칸에
   return pool[Math.floor(Math.random() * pool.length)] || fill(set[0]);
 }
 function pvWireCards(me) {
+  const sb = document.getElementById?.("pvSndBox"); if (sb) sb.ontoggle = () => { (me.sched ??= { busy: false, pick: {} }).sndOpen = sb.open; };
   document.querySelectorAll("[data-pvsndplay]").forEach(b => b.onclick = (e) => { e.preventDefault(); if (cur !== me) return; const v = document.querySelector(`[data-pvsnd="${b.dataset.pvsndplay}"]`)?.value, c = pointSndChoices().find(x => x.key === v);
     if (!c) return toast("‘소리 없음’을 골랐어요 · 위 칸에서 소리를 고르면 들어 볼 수 있어요"); playShared(b, c.file_id); });
   document.querySelectorAll("[data-pvsnd]").forEach(x => x.onchange = () => { if (cur !== me) return; (me.review.point_snd ??= {})[x.dataset.pvsnd] = x.value; if (typeof paintDeliver === "function") paintDeliver(); });   // 포인트에 소리 붙이기(선생님이 고른 게 우선)
@@ -4423,7 +4436,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-29-1050-hold";
+const BUILD = "2026-10-29-1100-autosnd";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
