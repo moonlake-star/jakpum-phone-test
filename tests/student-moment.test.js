@@ -2,20 +2,20 @@
 const fs = require("fs"), assert = require("assert");
 const src = fs.readFileSync(__dirname + "/../student/index.html", "utf8");
 const pick = (re) => { const m = src.match(re); assert.ok(m, "코드 조각 못 찾음: " + re); return m[0]; };
-const body = [pick(/const esc = [^\n]*\n/), pick(/const md = [^\n]*\n/), pick(/function player\([\s\S]*?\n}\n/),
+const body = [pick(/const esc = [^\n]*\n/), pick(/const md = [^\n]*\n/), pick(/function player\([\s\S]*?\n}\n/), pick(/function waveSvg\([\s\S]*?\n}\n/), pick(/function pill\([\s\S]*?\n}\n/),
   pick(/const MAX_CLIPS[^\n]*\n/), pick(/const listHtml[^\n]*\n/), pick(/const sidOk = [^\n]*\n/), pick(/const makeupOk = [^\n]*\n/), pick(/function lessonHtml\([\s\S]*?\n}\n/)].join("\n");
 const lessonHtml = new Function(body + "; return lessonHtml;")();
 const split = (h) => { const i = h.indexOf("<details"); return i < 0 ? [h, ""] : [h.slice(0, i), h.slice(i)]; };
-const audios = (h) => (h.match(/data-au="/g) || []).length;
+const audios = (h) => (h.match(/data-(?:au|lp)="/g) || []).length;
 const base = { id: "L2", date: "2026-10-26", feedback: "오늘 숨 쉬는 자리가 안정됐어요.", highlight: "두 번째 줄 끝음을 끝까지 붙잡고 있었어요.",
   practice: ["하루 한 번 허밍", "둘째 줄만 천천히"], points: ["숨", "끝음"], best: { file_id: "B2", len: 40 }, clips: [], extra_best: [] };
 const prev = { id: "L1", date: "2026-10-19", best: { file_id: "B1", len: 35 } };
 const INTERNAL = ["lesson_tone", "weekly_mission", "evidence", "confidence", "condition_guard", "needs_teacher_check", "낙심", "challenging"];
 (() => {
-  // 1. 좋았던 날(10/29 사용자: 들을 거리 먼저): 첫 화면 = 베스트 → 순간 → 한마디 → 핵심 포인트 → 다음 미션(전부), 비교는 접힘
+  // 1. 좋았던 날(10/29 09:54 확정): 첫 화면 = 한마디(+베스트 듣기) → 순간 → 핵심 포인트 → 다음 미션(전부), 비교는 접힘
   const [top, more] = split(lessonHtml(base, null));
-  const iM = top.indexOf("선생님이 발견한 오늘의 순간"), iA = top.indexOf('data-au="B2"'), iF = top.indexOf("선생님 한마디"), iK = top.indexOf("오늘의 핵심 포인트"), iP = top.indexOf("다음 미션");
-  assert.ok(iA >= 0 && iA < iM && iM < iF && iF < iK && iK < iP, "순서: 베스트 오디오 → 순간 → 한마디 → 핵심 포인트 → 미션");
+  const iM = top.indexOf("선생님이 발견한 오늘의 순간"), iA = top.indexOf('data-lp="B2"'), iF = top.indexOf("선생님 한마디"), iK = top.indexOf("오늘의 핵심 포인트"), iP = top.indexOf("다음 미션");
+  assert.ok(iF >= 0 && iF < iA && iA < iM && iM < iK && iK < iP, "순서: 한마디(+베스트) → 순간 → 핵심 포인트 → 미션");
   assert.strictEqual(audios(top), 1);
   assert.ok(top.includes("하루 한 번 허밍") && top.includes("둘째 줄만 천천히"), "미션은 첫 화면에 모두");
   assert.ok(top.includes("숨") && top.includes("끝음"), "핵심 포인트는 첫 화면");
@@ -38,7 +38,7 @@ const INTERNAL = ["lesson_tone", "weekly_mission", "evidence", "confidence", "co
   [[0, 0], [3, 3], [5, 3]].forEach(([n, want]) => {
     const clips = Array.from({ length: n }, (_, i) => ({ file_id: "K" + i, label: "구간" + i }));
     const [t, m] = split(lessonHtml({ ...base, clips }, null));
-    assert.strictEqual(audios(t), 1 + want); assert.strictEqual(t.includes("오늘 좋았던 순간"), want > 0); assert.ok(!m.includes("오늘의 클립"));
+    assert.strictEqual(audios(t), 1 + want); assert.strictEqual(t.includes("더 들어 보기"), want > 0); assert.ok(!m.includes("오늘의 클립"));
   });
   // 6. 비교: 둘 다 있을 때만, 상세 안에서만
   const [t6, m6] = split(lessonHtml(base, prev));
@@ -64,7 +64,7 @@ const INTERNAL = ["lesson_tone", "weekly_mission", "evidence", "confidence", "co
   const nor = lessonHtml(rich, prev, "normal");
   assert.ok(nor.includes("응원 메시지") && nor.includes("가짜 노래") && nor.includes("(홍길동)") && nor.includes("<details"));
   const det = lessonHtml(rich, prev, "detail");
-  assert.ok(!det.includes("<details") && det.includes("오늘 좋았던 순간") && det.includes("지난번과 비교"));
+  assert.ok(!det.includes("<details") && det.includes("더 들어 보기") && det.includes("지난번과 비교"));
   assert.strictEqual(lessonHtml(rich, prev, "이상한값"), nor, "모르는 값은 보통");
   assert.ok(src.includes('LS.set("sn_mode"'), "고른 보기 방식 기억");
   console.log("student-moment ok (10 scenarios)");
