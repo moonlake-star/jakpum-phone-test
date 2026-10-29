@@ -109,7 +109,7 @@
   .calNav button { min-height:44px; min-width:52px; padding:0 10px; }
   .calLeg { display:flex; flex-wrap:wrap; gap:6px 12px; font-size:.85rem; color:var(--muted); margin-top:8px; }
   .calRow { display:flex; align-items:center; gap:8px; padding:10px 0; border-top:1px solid var(--line); }
-  .calRow .w { flex:1; } .calRow button { min-height:44px; padding:0 12px; font-size:.95rem; }
+  .calRow .w { flex:1; } .calRow.tap { cursor:pointer; } .calRow button { min-height:44px; padding:0 12px; font-size:.95rem; }
   .medalRow { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; text-align:center; font-size:.85rem; margin-top:8px; }
   .medalRow .md { width:58px; height:58px; margin:0 auto 4px; border-radius:50%; display:grid; place-items:center; font-size:1.7rem; background:radial-gradient(circle at 35% 30%,#ffe7a3,#c8912e 70%); box-shadow:0 0 0 3px #6b4d17; }
   .medalRow .off .md { background:#2b3038; box-shadow:0 0 0 3px #3a414b; filter:grayscale(1); opacity:.5; } .medalRow .off { color:var(--muted); }
@@ -248,13 +248,13 @@ function myLessons(ym) {   // '나의 레슨': 이번 달 달력 + 그 달 레�
   $("view").innerHTML = `<button class="ghost" id="back">← 전체 노트</button>${statusHtml(s, true)}
     <div class="card"><div class="calNav"><button class="ghost" id="cPrev" aria-label="지난달">‹</button><b>${+ym.slice(0, 4)}년 ${+ym.slice(5)}월</b><button class="ghost" id="cNext" aria-label="다음 달">›</button></div>
     ${calGrid(ym, by, null, false)}
-    ${mine.length ? mine.map(d => `<div class="calRow"><span class="w">${calDay(d.date)} ${esc(d.time)} · ${CAL_S[d.s]?.[0] || ""} ${CAL_S[d.s]?.[1] || ""}</span>${d.lesson_id && has.has(d.lesson_id) ? `<button class="ghost" data-nl="${esc(d.lesson_id)}">노트 보기</button>` : ""}</div>`).join("")
+    ${mine.length ? mine.map(d => `<div class="calRow${d.lesson_id && has.has(d.lesson_id) ? " tap" : ""}"${d.lesson_id && has.has(d.lesson_id) ? ` data-nl="${esc(d.lesson_id)}" role="button" tabindex="0"` : ""}><span class="w">${calDay(d.date)} ${esc(d.time)} · ${CAL_S[d.s]?.[0] || ""} ${CAL_S[d.s]?.[1] || ""}</span>${d.lesson_id && has.has(d.lesson_id) ? `<button class="ghost" data-nl="${esc(d.lesson_id)}">노트 보기</button>` : ""}</div>`).join("")
       : `<p class="muted" style="margin:10px 0 0">이 달에는 레슨 기록이 없어요.</p>`}</div>
     <div class="card"><h2 style="margin:0">🏆 나의 배지</h2><p class="muted" style="margin:2px 0 0">다른 분과 비교하지 않아요. 한 번 받은 배지는 계속 남아요.</p>
     <div class="medalRow">${S_BADGES.map(([id, ic, nm]) => `<div class="${got.has(id) ? "" : "off"}"><div class="md">${ic}</div>${esc(nm)}</div>`).join("")}</div></div>`;
   $("back").onclick = () => timeline();
   $("cPrev").onclick = () => myLessons(calShift(ym, -1)); $("cNext").onclick = () => myLessons(calShift(ym, 1));
-  document.querySelectorAll("[data-nl]").forEach(b => b.onclick = () => openLesson(b.dataset.nl));
+  document.querySelectorAll("[data-nl]").forEach(b => b.onclick = (e) => { e.stopPropagation(); openLesson(b.dataset.nl); });   // 줄 전체·버튼 모두 그날 노트로
   window.scrollTo(0, 0);
 }
 // 칭호(사용자 확정 10/29: 확인된 레슨 누적 4/12/24/48, 내려가지 않음)

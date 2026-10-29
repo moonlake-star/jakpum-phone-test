@@ -300,7 +300,7 @@
   .calNav button { min-height:44px; min-width:52px; padding:0 10px; }
   .calLeg { display:flex; flex-wrap:wrap; gap:6px 12px; font-size:.85rem; color:var(--muted); margin-top:8px; }
   .calRow { display:flex; align-items:center; gap:8px; padding:10px 0; border-top:1px solid var(--line); }
-  .calRow .w { flex:1; } .calRow button { min-height:44px; padding:0 12px; font-size:.95rem; }
+  .calRow .w { flex:1; } .calRow.tap { cursor:pointer; } .calRow button { min-height:44px; padding:0 12px; font-size:.95rem; }
   .medalRow { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; text-align:center; font-size:.85rem; margin-top:8px; }
   .medalRow .md { width:58px; height:58px; margin:0 auto 4px; border-radius:50%; display:grid; place-items:center; font-size:1.7rem; background:radial-gradient(circle at 35% 30%,#ffe7a3,#c8912e 70%); box-shadow:0 0 0 3px #6b4d17; }
   .medalRow .off .md { background:#2b3038; box-shadow:0 0 0 3px #3a414b; filter:grayscale(1); opacity:.5; } .medalRow .off { color:var(--muted); }
@@ -685,6 +685,10 @@ function calGrid(ym, byDate, sel, tap) {   // byDate[YYYY-MM-DD] = [{s}] → 칸
   return `<div class="cal">${h}</div><div class="calLeg">${["done", "makeup_done", "scheduled", "cancelled", "review"].map(s => `<span>${CAL_S[s][0]} ${CAL_S[s][1]}</span>`).join("")}</div>`;
 }
 const calDay = (iso) => { const d = new Date(iso + "T00:00:00"); return `${d.getMonth() + 1}/${d.getDate()}(${"일월화수목금토"[d.getDay()]})`; };
+function calLessonIdx(x) {   // 캘린더 한 줄 → 선생님 레슨 목록의 몇 번째(레슨 폴더 ID로 찾음)
+  const rows = cfg?.students?.[x.sid]?._rows || (LS.get("vn_list") || []).find(d => d?.sid === x.sid)?.rows || [];
+  return x.lesson_id ? rows.findIndex(r => r?.l?.id === x.lesson_id) : -1;
+}
 function openCal(ym, sel) {   // 선생님 '레슨 캘린더': 전체 수강생 한 달 + 날짜 누르면 그날 레슨·확인 필요
   goBack = () => renderList(); show("vCal");
   ym = ym || calYm(new Date());
@@ -699,11 +703,14 @@ function openCal(ym, sel) {   // 선생님 '레슨 캘린더': 전체 수강생 
   $("vCal").innerHTML = `<div class="card"><div class="calNav"><button class="ghost" id="cPrev" aria-label="지난달">‹</button><b>${+ym.slice(0, 4)}년 ${+ym.slice(5)}월 레슨</b><button class="ghost" id="cNext" aria-label="다음 달">›</button></div>
     ${att ? `<p class="muted" style="margin:6px 0 0">완료 ${cnt("done") + cnt("makeup_done")} · 예정 ${cnt("scheduled")} · 휴강 ${cnt("cancelled") + cnt("forfeit")} · 확인 중 ${cnt("review")}${att.updated_at ? ` · ${esc(attWhen(att.updated_at))} 기준` : ""}</p>` : `<p class="muted">출석 현황을 아직 못 불러왔어요(자동 수집 뒤에 생겨요).</p>`}
     ${calGrid(ym, by, sel, true)}</div>
-    ${day ? `<div class="card"><h3 style="margin:0">${calDay(sel)}</h3>${day.map((x, n) => `<div class="calRow"><span class="w">${esc(x.time)} ${esc(x.name)} · ${CAL_S[x.s]?.[0] || ""} ${CAL_S[x.s]?.[1] || ""}</span>${x.q && ATT_KIND[x.q.kind] && !loc[x.q.event_id] ? `<button data-cq="${n}">확인하기</button>` : ""}</div>`).join("")}</div>`
+    ${day ? `<div class="card"><h3 style="margin:0">${calDay(sel)}</h3>${day.map((x, n) => { const li = calLessonIdx(x); return `<div class="calRow${li >= 0 ? " tap" : ""}"${li >= 0 ? ` data-cl="${n}" role="button" tabindex="0"` : ""}><span class="w">${esc(x.time)} ${esc(x.name)} · ${CAL_S[x.s]?.[0] || ""} ${CAL_S[x.s]?.[1] || ""}</span>${x.q && ATT_KIND[x.q.kind] && !loc[x.q.event_id] ? `<button data-cq="${n}">확인하기</button>` : li >= 0 ? `<button class="ghost" data-cl="${n}">레슨 보기 ›</button>` : ""}</div>`; }).join("")}</div>`
       : `<p class="muted">날짜를 누르면 그날 레슨이 보여요.</p>`}`;
   $("cPrev").onclick = () => openCal(calShift(ym, -1)); $("cNext").onclick = () => openCal(calShift(ym, 1));
   $("vCal").querySelectorAll("[data-cd]").forEach(b => b.onclick = () => openCal(ym, b.dataset.cd));
-  $("vCal").querySelectorAll("[data-cq]").forEach(b => b.onclick = () => { const x = day[+b.dataset.cq];
+  $("vCal").querySelectorAll("[data-cl]").forEach(b => b.onclick = (e) => { e.stopPropagation();   // 그날 레슨 화면으로(10/30 사용자)
+    const x = day[+b.dataset.cl], i = calLessonIdx(x); if (i < 0) return toast("이 레슨 화면을 찾지 못했어요");
+    goBack = () => openCal(ym, sel); openLesson(x.sid, i, () => openCal(ym, sel)); });
+  $("vCal").querySelectorAll("[data-cq]").forEach(b => b.onclick = (e) => { e.stopPropagation(); const x = day[+b.dataset.cq];
     attSheet({ k: "att", sid: x.sid, key: x.q.event_id, q: x.q, t: `❓ ${x.name} · ${attWhen(x.q.at || "")} ${ATT_KIND[x.q.kind].t}`, onDone: () => openCal(ym, sel) }); });
 }
 async function pushStatuses() {   // 수강생 화면 맨 위 카드용(바뀐 사람만, 조용히)
@@ -4760,7 +4767,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-30-0115-adopt";
+const BUILD = "2026-10-30-0825-calopen";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
