@@ -83,6 +83,7 @@
   .lp.open { display:flex; width:100%; padding:5px 14px 5px 5px; background:linear-gradient(135deg, rgba(156,195,255,.10), rgba(17,20,26,.9)); }
   .lp.mk.open { background:linear-gradient(135deg, rgba(201,166,255,.12), rgba(17,20,26,.9)); }
   .lp.open .lab { display:none; } .lp.open .wv { display:block; position:relative; flex:1; min-width:0; height:28px; } .lp.open .tm { display:block; flex:none; margin:0; font-size:.78rem; color:var(--muted); font-weight:500; font-variant-numeric:tabular-nums; }
+  .lp .wv .prog { position:absolute; left:0; top:50%; height:4px; margin-top:-2px; width:0; background:#9cc3ff; border-radius:2px; } .lp.seg .wv .flat { height:4px; margin-top:-2px; }
   .lp .wv svg { position:absolute; inset:0; width:100%; height:100%; } .lp .wv .on { position:absolute; inset:0; clip-path:inset(0 100% 0 0); } .lp .wv .flat { position:absolute; left:0; right:0; top:50%; height:2px; margin-top:-1px; background:#3a414b; border-radius:1px; }
   .best { margin-top:12px; padding-top:12px; border-top:1px solid var(--line); }
   ol.pts { list-style:none; margin:4px 0 0; padding:0; display:flex; flex-direction:column; gap:14px; } ol.pts li { display:flex; flex-direction:column; align-items:flex-start; gap:6px; } ol.pts .pt { display:flex; gap:8px; } ol.pts .pt b { color:var(--accent); flex:none; }
@@ -239,9 +240,29 @@ function lpOpen(b) {
   if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
   b.style.width = w0 + "px"; void b.offsetWidth; b.style.width = b.parentElement.clientWidth + "px"; setTimeout(() => { b.style.width = ""; }, 320);
 }
-function lpClose(b) { const au = $("au_" + b.dataset.lp); if (au && !au.paused) au.pause(); if (b.classList.contains("keep")) return; b.classList.remove("open"); b.style.width = ""; }   // 베스트는 처음부터 파형을 펼쳐 둠(10/29 사용자)
+function lpClose(b) { const au = b.dataset.lps ? (window._segAu?._owner === b ? window._segAu : null) : $("au_" + b.dataset.lp); if (au && !au.paused) au.pause(); if (b.classList.contains("keep")) return; b.classList.remove("open"); b.style.width = ""; }   // 베스트는 처음부터 파형을 펼쳐 둠(10/29 사용자)
 function wirePills() {
   const mmss = (x) => `${Math.floor((x || 0) / 60)}:${String(Math.floor((x || 0) % 60)).padStart(2, "0")}`;
+  document.querySelectorAll("[data-lps]").forEach(b => {   // 레슨 녹음 구간 버튼: 하나의 숨은 재생기로 t0~t1만
+    const t0 = +b.dataset.t0 || 0, t1 = +b.dataset.t1 || t0 + 15, ic = b.querySelector(".ic"), tm = b.querySelector(".tm"), pr = b.querySelector(".prog");
+    let au = window._segAu; if (!au) { au = window._segAu = document.createElement("audio"); au.preload = "none"; au.className = "hidden"; document.body.appendChild(au); }
+    const mine = () => au._owner === b;
+    const paint = () => { if (!mine()) { ic.textContent = "▶"; return; } const c = Math.max(t0, Math.min(t1, au.currentTime || t0)); ic.textContent = au.paused ? "▶" : "❚❚";
+      tm.textContent = `${mmss(c - t0)} / ${mmss(t1 - t0)}`; if (pr) pr.style.width = ((c - t0) / Math.max(1, t1 - t0) * 100).toFixed(1) + "%"; if (!au.paused && au.currentTime >= t1) au.pause(); };
+    if (!au._wired) { au._wired = true; for (const ev of ["play", "pause", "timeupdate", "ended"]) au.addEventListener(ev, () => au._owner?._paint?.()); au.addEventListener("playing", () => au._owner?._loaded?.()); }
+    b._paint = paint; tm.textContent = `0:00 / ${mmss(t1 - t0)}`;
+    b.onclick = async () => {
+      if (!b.classList.contains("open")) { document.querySelectorAll(".lp.open").forEach(x => x !== b && lpClose(x)); lpOpen(b); }
+      else if (mine() && !au.paused) { au.pause(); return; }
+      try {
+        const fresh = !mine(); au._owner = b; b._loaded = () => paint();
+        if (au.dataset.fid !== b.dataset.lps) { au.dataset.fid = b.dataset.lps; au.src = await audioUrl(b.dataset.lps); }
+        ic.textContent = "…"; tm.textContent = "불러오는 중…";
+        const go = () => { if (fresh || au.currentTime < t0 || au.currentTime >= t1 - 0.2) au.currentTime = t0; au.play().catch(() => paint()); };
+        if (au.readyState >= 1) go(); else au.addEventListener("loadedmetadata", go, { once: true });
+      } catch { paint(); }
+    };
+  });
   document.querySelectorAll("[data-lp]").forEach(b => {
     const au = $("au_" + b.dataset.lp), ic = b.querySelector(".ic"), tm = b.querySelector(".tm"), on = b.querySelector(".on");
     if (!au) return;
@@ -390,9 +411,12 @@ function lessonHtml(l, prev, mode = "normal") {
     for (const ln of a) {
       const q = full && /^[ \t]*[·•\-]/.test(ln) ? ln.match(/(^|[\s·(])(\d{1,2}):([0-5]\d)(?![\d:~])/) : null, tt = q ? +q[2] * 60 + +q[3] : null;
       const c = tt == null ? null : clips.find(x => !atIds.has(x.file_id) && !inl.has(x.file_id) && clipT(x) != null && Math.abs(clipT(x) - tt) <= 5);
-      if (!c) { buf.push(ln); continue; }
-      flush(); inl.add(c.file_id);
-      out.push(`<div class="gl"><div class="pre">· ${tchip(esc(ln.replace(q[0], q[1]).replace(/^[ \t]*[·•\-]\s*/, "").trim()))}</div>${pill(c.file_id, "좋았던 순간 듣기", c.peaks)}</div>`);
+      if (!c && !(tt != null && tfid)) { buf.push(ln); continue; }
+      flush(); const lab = `좋았던 순간 · ${q[2]}:${q[3]}`, body = `<div class="pre">· ${tchip(esc(ln.replace(q[0], q[1]).replace(/^[ \t]*[·•\-]\s*/, "").trim()))}</div>`;
+      if (c) { inl.add(c.file_id); out.push(`<div class="gl">${body}${pill(c.file_id, lab, c.peaks)}</div>`); continue; }
+      // (10/29 12:42 사용자) 소리 조각이 없는 줄도 같은 둥근 버튼: 레슨 녹음의 그 구간만 재생(노란 칸과 같은 구간), 파형 대신 진행 막대
+      const rg = typeof rangeAt === "function" ? rangeAt(tt, l.full?.rng, (l.full?.segs || []).map(x => Array.isArray(x) ? +x[0] : NaN)) : [tt, tt + 15];
+      out.push(`<div class="gl">${body}<button type="button" class="lp seg" data-lps="${esc(tfid)}" data-t0="${rg[0]}" data-t1="${rg[1]}" aria-label="${esc(lab)}"><span class="ic" aria-hidden="true">▶</span><span class="lab">${esc(lab)}</span><span class="wv"><i class="flat"></i><i class="prog"></i></span><span class="tm"></span></button></div>`);
     }
     flush(); return out.join(""); };
   let letter = "", at = 0;
