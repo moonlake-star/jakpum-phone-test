@@ -1069,6 +1069,25 @@ function pointSndHTML(rv, disabled) {
     <select data-pvsnd="${i}" aria-label="${i + 1}번 포인트에 붙일 소리"${disabled}><option value="none"${plan[i] ? "" : " selected"}>소리 없음</option>${ch.map(c => `<option value="${esc(c.key)}"${plan[i]?.key === c.key ? " selected" : ""}>${esc(c.pick)}${plan[i]?.key === c.key && plan[i].auto ? " (자동 추천)" : ""}</option>`).join("")}</select>
     <button type="button" class="small ghost pvSndPlay" data-pvsndplay="${i}" aria-label="${i + 1}번 포인트에 고른 소리 들어 보기">▶ 듣기</button></label>`).join("")}</details>`;   // (10/29 사용자) 고르기 전에 들어 보고 판단
 }
+function waveSvg(pk, color) {
+  const n = pk.length, w = 100 / n;
+  return `<svg viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true">${pk.map((v, i) => { const h = Math.max(1.5, (Math.min(99, Math.max(0, +v || 0)) / 99) * 36);
+    return `<rect x="${(i * w + w * 0.18).toFixed(2)}" y="${((40 - h) / 2).toFixed(2)}" width="${(w * 0.64).toFixed(2)}" height="${h.toFixed(2)}" fill="${color}"/>`; }).join("")}</svg>`;
+}
+// (10/29 12:58) 레슨 녹음 한 구간의 파형: 듣기용.mp3(고정 비트레이트)에서 그 구간 바이트만 받아 계산
+async function segPeaks(t0, t1) {
+  listenFile ??= (cur?.files || []).find(x => x.name === "듣기용.mp3"); if (!listenFile || !(t1 > t0)) return null;
+  const k = `${listenFile.id}@${t0}`; if (wavePeaks[k]) return wavePeaks[k];
+  try { const r = await api(`${DRIVE}/files/${listenFile.id}?alt=media`, { headers: { Range: `bytes=${Math.floor(t0 * BPS)}-${Math.floor(t1 * BPS) - 1}` } });
+    const pk = await peaksOf(await r.blob()); if (pk) wavePeaks[k] = pk; return pk; } catch { return null; }
+}
+function segTimesOf(note) {   // 수강생 화면이 '레슨 녹음 구간 버튼'으로 그릴 줄(· m:ss, 소리 조각 없음)의 [t0, t1]
+  const out = [], clips = note.clips || [], ct = (c) => { if (Number.isFinite(+c.t)) return +c.t; const q = String(c.label || "").match(/(\d{1,2}):([0-5]\d)/); return q ? +q[1] * 60 + +q[2] : null; };
+  for (const ln of String(note.feedback || "").split("\n")) { if (!/^[ \t]*[·•\-]/.test(ln)) continue; const q = ln.match(/(^|[\s·(])(\d{1,2}):([0-5]\d)(?![\d:~])/); if (!q) continue;
+    const tt = +q[2] * 60 + +q[3]; if (clips.some(c => ct(c) != null && Math.abs(ct(c) - tt) <= 5)) continue;
+    out.push(rangeAt(tt, note.full?.rng, (note.full?.segs || []).map(x => Array.isArray(x) ? +x[0] : NaN))); }
+  return out.slice(0, 6);
+}
 function chipRanges() {   // 좋았던 순간 후보·AI 포인트의 [시작, 끝] — 수강생 화면 재생바에도 실어 보냄
   const out = []; try { for (const c of (typeof allCands === "function" ? allCands() : [])) if (Number.isFinite(+c.start) && +c.end > +c.start) out.push([+c.start, +c.end]); } catch {}
   for (const p of (cur?.ai?.points || [])) if (p && Number.isFinite(+p.start) && +p.end > +p.start) out.push([+p.start, +p.end]);
@@ -1077,7 +1096,7 @@ function chipRanges() {   // 좋았던 순간 후보·AI 포인트의 [시작, �
 function rangeAt(t, rng, starts, segOnly) {   // (10/29 11:00 사용자) 글 속 ▶시각·말풍선이 녹음의 어디부터 어디까지인지(재생바 노란 칸)
   t = +t || 0; let best = null;
   if (!segOnly) for (const r of rng || []) { const a = +r[0], b = +r[1]; if (Number.isFinite(a) && b > a && t >= a - 3 && t <= b && (!best || Math.abs(a - t) < Math.abs(best[0] - t))) best = [a, b]; }
-  if (best) return [Math.min(best[0], t), best[1]];
+  if (best) return [Math.min(best[0], t), Math.min(best[1], Math.max(t, best[0]) + 45)];   // (10/29 12:58) 긴 후보 구간(2분 넘음)은 45초까지만
   const nx = (starts || []).map(Number).filter(x => x > t + 1).sort((x, y) => x - y)[0];
   return [t, Math.round(Math.min(t + 30, Math.max(t + 5, nx ?? t + 15)) * 10) / 10];
 }
@@ -1109,6 +1128,7 @@ async function publishNote() {
   if (cur.st.consent_withdrawn) throw new Error("동의 철회된 수강생이라 게시하지 않았어요");
   const note = buildNote(), ex = cur.files.find(f => f.name === NOTE);
   if (typeof notePeaks === "function") for (const k of ["best", "makeup"]) if (note[k]?.file_id) { const pk = await notePeaks(note[k].file_id); if (pk) note[k].peaks = pk; }   // 수강생 화면 파형(못 구하면 없이 공개)
+  if (note.full && typeof segTimesOf === "function") { const sp = {}; for (const [a, b] of segTimesOf(note)) { const pk = await segPeaks(a, b); if (pk) sp[String(a)] = pk; } if (Object.keys(sp).length) note.full.segpk = sp; }   // 레슨 녹음 구간 버튼 파형
   if (typeof notePeaks === "function") for (const c of [...(note.clips || []), ...(note.pairs || []), ...(note.point_snd || [])]) if (c?.file_id) { const pk = await notePeaks(c.file_id); if (pk) c.peaks = pk; }   // (10/29) 좋았던 순간·전→후도 실제 파형
   for (const id of noteFileIds(note)) await openLink(id);              // 먼저 열어 둬야 수강생이 바로 들을 수 있음
   await portal("t_note", { sid: cur.sid, lesson_id: note.lesson_id, date: note.date, published_at: note.published_at, note });
@@ -1584,6 +1604,7 @@ function svLessonHtml(l, prev, mode = "normal") {
   const memo = (id) => { const c = clips.find(x => x.file_id === id); return c && has(c.note) ? `<div class="memo">🔎 ${esc(c.note)}</div>` : ""; };
   const ptsHtml = (arr) => `<ol class="pts">${arr.map((t, i) => `<li><div class="pt"><b>${i + 1}</b><span>${tchip(esc(t))}</span></div>${psnd.filter(x => x.p === i).slice(0, 2).map(x => x.kind === "pair" ? svPill(x.file_id + "#p", "🔁 지도 전 → 후 듣기", x.peaks || peakOf(x.file_id)) + `<div class="cap">지도 전 → 지도 후 순서로 들려요</div>` : memo(x.file_id) + svPill(x.file_id, "좋았던 순간 듣기", x.peaks || peakOf(x.file_id))).join("")}</li>`).join("")}</ol>`;
   // (10/29 11:05 사용자) '좋았던 부분' 줄(· 8:24 …)에 같은 시각의 좋았던 순간 소리가 있으면 ▶시각 대신 그 줄 아래 듣기 버튼 — '더 들어 보기'와 겹치지 않게
+  const spkOk = (pk) => Array.isArray(pk) && pk.length >= 20 && pk.length <= 400;   // (10/29 12:58) 레슨 녹음 구간 파형(공개 때 실음)
   const inl = new Set(), clipT = (c) => { if (Number.isFinite(+c.t)) return +c.t; const q = String(c.label || "").match(/(\d{1,2}):([0-5]\d)/); return q ? +q[1] * 60 + +q[2] : null; };
   const txt = (a) => { const out = []; let buf = [];
     const flush = () => { const t = buf.join("\n").replace(/^\s*\n+|\n\s*$/g, ""); if (t.trim()) out.push(`<div class="pre">${tchip(esc(t))}</div>`); buf = []; };
@@ -1595,7 +1616,7 @@ function svLessonHtml(l, prev, mode = "normal") {
       if (c) { inl.add(c.file_id); out.push(`<div class="gl">${body}${svPill(c.file_id, lab, c.peaks)}</div>`); continue; }
       // (10/29 12:42 사용자) 소리 조각이 없는 줄도 같은 둥근 버튼: 레슨 녹음의 그 구간만 재생(노란 칸과 같은 구간), 파형 대신 진행 막대
       const rg = typeof rangeAt === "function" ? rangeAt(tt, l.full?.rng, (l.full?.segs || []).map(x => Array.isArray(x) ? +x[0] : NaN)) : [tt, tt + 15];
-      out.push(`<div class="gl">${body}<button type="button" class="lp seg" data-svseg="${esc(tfid)}" data-t0="${rg[0]}" data-t1="${rg[1]}" aria-label="${esc(lab)}"><span class="ic" aria-hidden="true">▶</span><span class="lab">${esc(lab)}</span><span class="wv"><i class="flat"></i><i class="prog"></i></span><span class="tm"></span></button></div>`);
+      out.push(`<div class="gl">${body}<button type="button" class="lp seg" data-svseg="${esc(tfid)}" data-t0="${rg[0]}" data-t1="${rg[1]}" aria-label="${esc(lab)}"><span class="ic" aria-hidden="true">▶</span><span class="lab">${esc(lab)}</span><span class="wv">${spkOk(l.full?.segpk?.[String(rg[0])]) && typeof waveSvg === "function" ? waveSvg(l.full.segpk[String(rg[0])], "#5b6573") + `<span class="on">${waveSvg(l.full.segpk[String(rg[0])], "#9cc3ff")}</span>` : `<i class="flat"></i><i class="prog"></i>`}</span><span class="tm"></span></button></div>`);
     }
     flush(); return out.join(""); };
   let letter = "", at = 0;
@@ -1633,7 +1654,10 @@ function openStudentView(mode = "normal") {
   if (document.body?.classList) document.body.classList.add("pvOpen");   // 레슨 녹음 재생바(#mini)가 미리보기 위로 올라오게
   d.onclick = (e) => {
     const sg = e.target?.closest?.(".lp[data-svseg]");   // (10/29 12:42) 레슨 녹음 구간 버튼: 미리보기에선 레슨 녹음 재생기로 그 구간(재생바 노란 칸)
-    if (sg && typeof playAt === "function") { const t0 = +sg.dataset.t0, t1 = +sg.dataset.t1; d.querySelectorAll(".lp.open").forEach(x => { if (x !== sg && !x.classList.contains("keep")) x.classList.remove("open"); }); sg.classList.add("open");
+    if (sg && typeof playAt === "function") { const t0 = +sg.dataset.t0, t1 = +sg.dataset.t1, wvx = e.target?.closest?.(".wv");
+      if (sg.classList.contains("open") && wvx) { const r = wvx.getBoundingClientRect(), to = t0 + Math.min(1, Math.max(0, (e.clientX - r.left) / (r.width || 1))) * (t1 - t0); svSegWatch(sg, t0, t1); return playAt(to).catch(err => toast(err.message)); }   // 막대를 누르면 그 자리부터
+      if (sg.classList.contains("open") && typeof full !== "undefined" && !full.paused) { full.pause(); return; }
+      d.querySelectorAll(".lp.open").forEach(x => { if (x !== sg && !x.classList.contains("keep")) x.classList.remove("open"); }); sg.classList.add("open");
       try { miniMarks([{ start: t0, end: t1 }], 0); miniLabel(`좋았던 순간 · ${fmt(t0)}~${fmt(t1)} (노란 칸)`); } catch {}
       if (typeof svSegWatch === "function") svSegWatch(sg, t0, t1); return playAt(t0).catch(err => toast(err.message)); }
     const lp = e.target?.closest?.(".lp[data-svau]");
@@ -1669,6 +1693,8 @@ function svPaint() {
 // (10/29 사용자) 미리보기 파형 = 실제 소리. 이미 받은 파형은 바로, 아니면 파일을 받아 계산(받은 파일은 재생에도 그대로 씀)
 function svWaves() {
   if (typeof document === "undefined" || !document.querySelectorAll) return;
+  document.querySelectorAll("#pvFull .lp[data-svseg]").forEach(b => { const w = b.querySelector(".wv"); if (!w || w.querySelector("svg")) return; const t0 = +b.dataset.t0, t1 = +b.dataset.t1;   // 레슨 녹음 구간 파형
+    segPeaks(t0, t1).then(pk => { if (pk && w.isConnected && !w.querySelector("svg")) w.innerHTML = waveSvg(pk, "#5b6573") + `<span class="on">${waveSvg(pk, "#9cc3ff")}</span>`; }).catch(() => {}); });
   const me = cur;
   document.querySelectorAll("#pvFull [data-svwave]").forEach(el => {
     if (el.querySelector("svg")) return;
@@ -1681,7 +1707,7 @@ function svWaves() {
 function svSegWatch(b, t0, t1) {   // 미리보기 구간 버튼 진행 막대·끝에서 멈춤(레슨 녹음 재생기 full 기준)
   const pr = b.querySelector(".prog"), tm = b.querySelector(".tm"), ic = b.querySelector(".ic"), my = (svSegWatch.n = (svSegWatch.n || 0) + 1);
   const tick = () => { if (svSegWatch.n !== my || !b.isConnected) return; let t = t0; try { t = chunkStart + full.currentTime; } catch {}
-    const c = Math.max(t0, Math.min(t1, t)); if (pr) pr.style.width = ((c - t0) / Math.max(1, t1 - t0) * 100).toFixed(1) + "%"; if (tm) tm.textContent = `${fmt(c - t0)} / ${fmt(t1 - t0)}`; if (ic) ic.textContent = full.paused ? "▶" : "❚❚";
+    const c = Math.max(t0, Math.min(t1, t)), fr = (c - t0) / Math.max(1, t1 - t0); if (pr) pr.style.width = (fr * 100).toFixed(1) + "%"; const on = b.querySelector(".on"); if (on) on.style.clipPath = `inset(0 ${(100 - fr * 100).toFixed(1)}% 0 0)`; if (tm) tm.textContent = `${fmt(c - t0)} / ${fmt(t1 - t0)}`; if (ic) ic.textContent = full.paused ? "▶" : "❚❚";
     if (!full.paused && t >= t1) { full.pause(); return; } requestAnimationFrame(tick); };
   requestAnimationFrame(tick);
 }
@@ -4550,7 +4576,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-29-1345-splice";
+const BUILD = "2026-10-29-1400-segwave";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();

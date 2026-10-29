@@ -244,21 +244,24 @@ function lpClose(b) { const au = b.dataset.lps ? (window._segAu?._owner === b ? 
 function wirePills() {
   const mmss = (x) => `${Math.floor((x || 0) / 60)}:${String(Math.floor((x || 0) % 60)).padStart(2, "0")}`;
   document.querySelectorAll("[data-lps]").forEach(b => {   // 레슨 녹음 구간 버튼: 하나의 숨은 재생기로 t0~t1만
-    const t0 = +b.dataset.t0 || 0, t1 = +b.dataset.t1 || t0 + 15, ic = b.querySelector(".ic"), tm = b.querySelector(".tm"), pr = b.querySelector(".prog");
+    const t0 = +b.dataset.t0 || 0, t1 = +b.dataset.t1 || t0 + 15, ic = b.querySelector(".ic"), tm = b.querySelector(".tm"), pr = b.querySelector(".prog"), on = b.querySelector(".on");
     let au = window._segAu; if (!au) { au = window._segAu = document.createElement("audio"); au.preload = "none"; au.className = "hidden"; document.body.appendChild(au); }
     const mine = () => au._owner === b;
     const paint = () => { if (!mine()) { ic.textContent = "▶"; return; } const c = Math.max(t0, Math.min(t1, au.currentTime || t0)); ic.textContent = au.paused ? "▶" : "❚❚";
-      tm.textContent = `${mmss(c - t0)} / ${mmss(t1 - t0)}`; if (pr) pr.style.width = ((c - t0) / Math.max(1, t1 - t0) * 100).toFixed(1) + "%"; if (!au.paused && au.currentTime >= t1) au.pause(); };
+      tm.textContent = `${mmss(c - t0)} / ${mmss(t1 - t0)}`; const fr = (c - t0) / Math.max(1, t1 - t0); if (pr) pr.style.width = (fr * 100).toFixed(1) + "%"; if (on) on.style.clipPath = `inset(0 ${(100 - fr * 100).toFixed(1)}% 0 0)`; if (!au.paused && au.currentTime >= t1) au.pause(); };
     if (!au._wired) { au._wired = true; for (const ev of ["play", "pause", "timeupdate", "ended"]) au.addEventListener(ev, () => au._owner?._paint?.()); au.addEventListener("playing", () => au._owner?._loaded?.()); }
     b._paint = paint; tm.textContent = `0:00 / ${mmss(t1 - t0)}`;
-    b.onclick = async () => {
+    b.onclick = async (e) => {
+      let seekTo = null;
       if (!b.classList.contains("open")) { document.querySelectorAll(".lp.open").forEach(x => x !== b && lpClose(x)); lpOpen(b); }
+      else if (e?.target?.closest?.(".wv")) { const r = b.querySelector(".wv").getBoundingClientRect(); seekTo = t0 + Math.min(1, Math.max(0, (e.clientX - r.left) / (r.width || 1))) * (t1 - t0);   // (10/29 12:58 사용자) 막대를 누르면 그 자리부터(맨 앞으로 가지 않게)
+        if (mine() && au.readyState >= 1) { au.currentTime = seekTo; if (au.paused) au.play().catch(() => {}); paint(); return; } }
       else if (mine() && !au.paused) { au.pause(); return; }
       try {
-        const fresh = !mine(); au._owner = b; b._loaded = () => paint();
+        const fresh = !mine() && seekTo == null; au._owner = b; b._loaded = () => paint();
         if (au.dataset.fid !== b.dataset.lps) { au.dataset.fid = b.dataset.lps; au.src = await audioUrl(b.dataset.lps); }
         ic.textContent = "…"; tm.textContent = "불러오는 중…";
-        const go = () => { if (fresh || au.currentTime < t0 || au.currentTime >= t1 - 0.2) au.currentTime = t0; au.play().catch(() => paint()); };
+        const go = () => { if (seekTo != null) au.currentTime = seekTo; else if (fresh || au.currentTime < t0 || au.currentTime >= t1 - 0.2) au.currentTime = t0; au.play().catch(() => paint()); };
         if (au.readyState >= 1) go(); else au.addEventListener("loadedmetadata", go, { once: true });
       } catch { paint(); }
     };
@@ -289,7 +292,7 @@ function player(id, label, peaks) {
 function rangeAt(t, rng, starts, segOnly) {   // (10/29 11:00 사용자) 글 속 ▶시각·말풍선이 녹음의 어디부터 어디까지인지(재생바 노란 칸)
   t = +t || 0; let best = null;
   if (!segOnly) for (const r of rng || []) { const a = +r[0], b = +r[1]; if (Number.isFinite(a) && b > a && t >= a - 3 && t <= b && (!best || Math.abs(a - t) < Math.abs(best[0] - t))) best = [a, b]; }
-  if (best) return [Math.min(best[0], t), best[1]];
+  if (best) return [Math.min(best[0], t), Math.min(best[1], Math.max(t, best[0]) + 45)];   // (10/29 12:58) 긴 후보 구간(2분 넘음)은 45초까지만
   const nx = (starts || []).map(Number).filter(x => x > t + 1).sort((x, y) => x - y)[0];
   return [t, Math.round(Math.min(t + 30, Math.max(t + 5, nx ?? t + 15)) * 10) / 10];
 }
@@ -405,6 +408,7 @@ function lessonHtml(l, prev, mode = "normal") {
   const memo = (id) => { const c = clips.find(x => x.file_id === id); return c && has(c.note) ? `<div class="memo">🔎 ${esc(c.note)}</div>` : ""; };
   const ptsHtml = (arr) => `<ol class="pts">${arr.map((t, i) => `<li><div class="pt"><b>${i + 1}</b><span>${tchip(esc(t))}</span></div>${psnd.filter(x => x.p === i).slice(0, 2).map(x => x.kind === "pair" ? pill(x.file_id + "#p", "🔁 지도 전 → 후 듣기", x.peaks || peakOf(x.file_id)) + `<div class="cap">지도 전 → 지도 후 순서로 들려요</div>` : memo(x.file_id) + pill(x.file_id, "좋았던 순간 듣기", x.peaks || peakOf(x.file_id))).join("")}</li>`).join("")}</ol>`;
   // (10/29 11:05 사용자) '좋았던 부분' 줄(· 8:24 …)에 같은 시각의 좋았던 순간 소리가 있으면 ▶시각 대신 그 줄 아래 듣기 버튼 — '더 들어 보기'와 겹치지 않게
+  const spkOk = (pk) => Array.isArray(pk) && pk.length >= 20 && pk.length <= 400;   // (10/29 12:58) 레슨 녹음 구간 파형(공개 때 실음)
   const inl = new Set(), clipT = (c) => { if (Number.isFinite(+c.t)) return +c.t; const q = String(c.label || "").match(/(\d{1,2}):([0-5]\d)/); return q ? +q[1] * 60 + +q[2] : null; };
   const txt = (a) => { const out = []; let buf = [];
     const flush = () => { const t = buf.join("\n").replace(/^\s*\n+|\n\s*$/g, ""); if (t.trim()) out.push(`<div class="pre">${tchip(esc(t))}</div>`); buf = []; };
@@ -416,7 +420,7 @@ function lessonHtml(l, prev, mode = "normal") {
       if (c) { inl.add(c.file_id); out.push(`<div class="gl">${body}${pill(c.file_id, lab, c.peaks)}</div>`); continue; }
       // (10/29 12:42 사용자) 소리 조각이 없는 줄도 같은 둥근 버튼: 레슨 녹음의 그 구간만 재생(노란 칸과 같은 구간), 파형 대신 진행 막대
       const rg = typeof rangeAt === "function" ? rangeAt(tt, l.full?.rng, (l.full?.segs || []).map(x => Array.isArray(x) ? +x[0] : NaN)) : [tt, tt + 15];
-      out.push(`<div class="gl">${body}<button type="button" class="lp seg" data-lps="${esc(tfid)}" data-t0="${rg[0]}" data-t1="${rg[1]}" aria-label="${esc(lab)}"><span class="ic" aria-hidden="true">▶</span><span class="lab">${esc(lab)}</span><span class="wv"><i class="flat"></i><i class="prog"></i></span><span class="tm"></span></button></div>`);
+      out.push(`<div class="gl">${body}<button type="button" class="lp seg" data-lps="${esc(tfid)}" data-t0="${rg[0]}" data-t1="${rg[1]}" aria-label="${esc(lab)}"><span class="ic" aria-hidden="true">▶</span><span class="lab">${esc(lab)}</span><span class="wv">${spkOk(l.full?.segpk?.[String(rg[0])]) && typeof waveSvg === "function" ? waveSvg(l.full.segpk[String(rg[0])], "#5b6573") + `<span class="on">${waveSvg(l.full.segpk[String(rg[0])], "#9cc3ff")}</span>` : `<i class="flat"></i><i class="prog"></i>`}</span><span class="tm"></span></button></div>`);
     }
     flush(); return out.join(""); };
   let letter = "", at = 0;
