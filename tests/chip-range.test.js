@@ -18,5 +18,5 @@ console.log("chip-range ok");
 // (10/29 12:58) 긴 후보 구간은 45초까지, 구간 버튼 막대 누르면 그 자리부터
 assert.deepStrictEqual(rangeAt(504, [[500, 640]], []), [500, 549]);
 assert.ok(s.includes("seekTo = t0 + Math.min(1, Math.max(0, (e.clientX - r.left)") && t.includes("const r = wvx.getBoundingClientRect(), to = t0 +"));
-assert.ok(t.includes("note.full.segpk = sp") && s.includes("l.full?.segpk?.[String(rg[0])]"), "구간 파형 공개 때 실음");
+
 console.log("chip-range seg ok");

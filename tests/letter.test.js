@@ -30,8 +30,8 @@ console.log("letter ok");
     full: { file_id: "F", segs: [[1, "t", "x"]] } };
   const h4 = lessonHtml(L2, null, "normal"), j = (k) => h4.indexOf(k);
   assert.ok(j("'오' 발음 좋았어요") < j('data-lp="G1"') && j('data-lp="G1"') < j("숨을 표현적으로") && j('data-lp="G2"') < j("20:00 마무리") === false || j('data-lp="G2"') < j("마무리"));
-  assert.ok(!h4.includes('data-ftc="504"') && !h4.includes('data-ftc="676"') && h4.includes('data-lps="F" data-t0="1200"') && h4.includes("좋았던 순간 · 8:24") && h4.includes("좋았던 순간 · 20:00"), "짝 있는 시각은 소리 조각 버튼, 없는 건 같은 모양의 레슨 녹음 구간 버튼(10/29 12:42)");
-  assert.ok(j("더 들어 보기") > 0 && j('data-lp="G3"') > j("더 들어 보기") && h4.split('data-lp="G1"').length === 2, "남은 소리만 더 들어 보기");
+  assert.ok(h4.includes('data-ftc="504"') && h4.includes('data-ftc="676"') && h4.includes('data-ftc="1200"') && !h4.includes('data-lp="G1"') && !h4.includes('data-lp="G2"'), "(10/29 13:22) 작은 ▶ 시각 버튼, 같은 순간 소리는 따로 안 나옴");
+  assert.ok(j("더 들어 보기") > 0 && j('data-lp="G3"') > j("더 들어 보기"), "남은 소리만 더 들어 보기");
   const h5 = lessonHtml({ ...L2, clips: L2.clips.slice(0, 2) }, null, "normal"); assert.ok(!h5.includes("더 들어 보기"), "다 들어가면 카드 없음");
   assert.ok(!lessonHtml(L2, null, "simple").includes('data-lp="G1"'), "심플은 소리 없음");
   console.log("letter inline ok"); }

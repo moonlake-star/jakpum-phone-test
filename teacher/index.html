@@ -1128,7 +1128,6 @@ async function publishNote() {
   if (cur.st.consent_withdrawn) throw new Error("동의 철회된 수강생이라 게시하지 않았어요");
   const note = buildNote(), ex = cur.files.find(f => f.name === NOTE);
   if (typeof notePeaks === "function") for (const k of ["best", "makeup"]) if (note[k]?.file_id) { const pk = await notePeaks(note[k].file_id); if (pk) note[k].peaks = pk; }   // 수강생 화면 파형(못 구하면 없이 공개)
-  if (note.full && typeof segTimesOf === "function") { const sp = {}; for (const [a, b] of segTimesOf(note)) { const pk = await segPeaks(a, b); if (pk) sp[String(a)] = pk; } if (Object.keys(sp).length) note.full.segpk = sp; }   // 레슨 녹음 구간 버튼 파형
   if (typeof notePeaks === "function") for (const c of [...(note.clips || []), ...(note.pairs || []), ...(note.point_snd || [])]) if (c?.file_id) { const pk = await notePeaks(c.file_id); if (pk) c.peaks = pk; }   // (10/29) 좋았던 순간·전→후도 실제 파형
   for (const id of noteFileIds(note)) await openLink(id);              // 먼저 열어 둬야 수강생이 바로 들을 수 있음
   await portal("t_note", { sid: cur.sid, lesson_id: note.lesson_id, date: note.date, published_at: note.published_at, note });
@@ -1611,12 +1610,8 @@ function svLessonHtml(l, prev, mode = "normal") {
     for (const ln of a) {
       const q = full && /^[ \t]*[·•\-]/.test(ln) ? ln.match(/(^|[\s·(])(\d{1,2}):([0-5]\d)(?![\d:~])/) : null, tt = q ? +q[2] * 60 + +q[3] : null;
       const c = tt == null ? null : clips.find(x => !atIds.has(x.file_id) && !inl.has(x.file_id) && clipT(x) != null && Math.abs(clipT(x) - tt) <= 5);
-      if (!c && !(tt != null && tfid)) { buf.push(ln); continue; }
-      flush(); const lab = `좋았던 순간 · ${q[2]}:${q[3]}`, body = `<div class="pre">· ${tchip(esc(ln.replace(q[0], q[1]).replace(/^[ \t]*[·•\-]\s*/, "").trim()))}</div>`;
-      if (c) { inl.add(c.file_id); out.push(`<div class="gl">${body}${svPill(c.file_id, lab, c.peaks)}</div>`); continue; }
-      // (10/29 12:42 사용자) 소리 조각이 없는 줄도 같은 둥근 버튼: 레슨 녹음의 그 구간만 재생(노란 칸과 같은 구간), 파형 대신 진행 막대
-      const rg = typeof rangeAt === "function" ? rangeAt(tt, l.full?.rng, (l.full?.segs || []).map(x => Array.isArray(x) ? +x[0] : NaN)) : [tt, tt + 15];
-      out.push(`<div class="gl">${body}<button type="button" class="lp seg" data-svseg="${esc(tfid)}" data-t0="${rg[0]}" data-t1="${rg[1]}" aria-label="${esc(lab)}"><span class="ic" aria-hidden="true">▶</span><span class="lab">${esc(lab)}</span><span class="wv">${spkOk(l.full?.segpk?.[String(rg[0])]) && typeof waveSvg === "function" ? waveSvg(l.full.segpk[String(rg[0])], "#5b6573") + `<span class="on">${waveSvg(l.full.segpk[String(rg[0])], "#9cc3ff")}</span>` : `<i class="flat"></i><i class="prog"></i>`}</span><span class="tm"></span></button></div>`);
+      if (c) inl.add(c.file_id);   // (10/29 13:22 사용자) 모든 보기에서 글 속 작은 ▶ 시각 버튼(심플과 같은 모양) — 같은 순간 소리는 '더 들어 보기'에 또 안 나옴
+      buf.push(ln);
     }
     flush(); return out.join(""); };
   let letter = "", at = 0;
@@ -4576,7 +4571,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-29-1400-segwave";
+const BUILD = "2026-10-29-1415-chips";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
