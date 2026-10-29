@@ -178,7 +178,8 @@
   .pvAudio button { flex:none; width:44px; height:44px; min-height:44px; padding:0; border-radius:50%; background:var(--pv, var(--accent)); color:#fff; font-size:1.1rem; }
   .pvAudio svg { flex:1; height:34px; min-width:0; }
   .pvCard { position:relative; will-change:transform; } .pvCard.pvLift { z-index:40; box-shadow:0 12px 40px rgba(0,0,0,.55); }   /* (10/29 11:16) 길게 누르는 중 터치가 끊기지 않게 미리 층을 만들어 둠 */
-  .pvEdWrap { position:relative; } .pvEdWrap .pvEdit { position:absolute; right:6px; bottom:6px; width:38px; height:38px; min-height:38px; padding:0; border-radius:50%; background:#2a303a; color:var(--fg); border:1px solid var(--line); box-shadow:0 2px 8px rgba(0,0,0,.35); font-size:1rem; }
+  .pvEdWrap { position:relative; }
+  .pvShield { position:absolute; inset:0; z-index:1; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; touch-action:pan-y; cursor:text; } .pvCard.open .pvShield { display:none; } .pvEdWrap .pvEdit { z-index:2; } .pvEdWrap .pvEdit { position:absolute; right:6px; bottom:6px; width:38px; height:38px; min-height:38px; padding:0; border-radius:50%; background:#2a303a; color:var(--fg); border:1px solid var(--line); box-shadow:0 2px 8px rgba(0,0,0,.35); font-size:1rem; }
   .pvCard.open .pvEdWrap .pvEdit { display:none; }
   .pvEd, #previewFeedback { box-sizing:border-box; width:100%; min-height:0; line-height:24px; padding:8px 10px; border:1px solid transparent; border-radius:12px; background:#11141a; color:var(--fg); overflow-y:auto; resize:none; transition:height 250ms ease, border-color .2s; }
   .pvCard.open .pvEd, .pvCard.open #previewFeedback { border-color:var(--line); background:#0f1216; }
@@ -1464,6 +1465,10 @@ const PV_HOLD_MS = 170, PV_MOVE = 8;   // (10/29 08:55 사용자) 0.17초 · 누
 function pvHold(el) {
   if (!el || el._pvHold || !el.addEventListener) return; el._pvHold = true;
   let h = null;
+  // (10/29 11:21 사용자) 계속 누르고 있으면 폰이 글 칸의 글자 선택을 시작함 → 접힌 동안엔 글 칸 위에 글자 없는 투명 덮개를 깔고 그걸로 받음(선택·메뉴가 생길 글자가 없음)
+  let tgt = el; const wrap = el.parentElement;
+  if (wrap?.classList?.contains("pvEdWrap") && typeof document !== "undefined" && document.createElement) { const sh = document.createElement("div"); sh.className = "pvShield"; sh.setAttribute("aria-hidden", "true"); wrap.insertBefore(sh, el.nextSibling); tgt = sh; }
+  const inside = (n) => el.contains(n) || tgt.contains(n);
   const card = () => el.closest?.(".pvCard"), closed = () => !card()?.classList.contains("open");
   const openNoSel = () => {   // 펼치고 커서만(선택 없이) 끝에
     el._pvNoSel = "down"; el.focus();
@@ -1472,11 +1477,11 @@ function pvHold(el) {
   };
   const end = (e) => {
     if (!h) { if (el._pvNoSel === "down") el._pvNoSel = "up"; el.readOnly = false; return; }
-    if (!h.on) { clearTimeout(h.t); h = null; el.readOnly = false; return; }   // 제자리에서 톡 눌렀다 뗌 = 수정 모드(브라우저가 그 자리에 커서·자판)
+    if (!h.on) { clearTimeout(h.t); h = null; el.readOnly = false; if (tgt !== el && e?.type === "touchend") { e.preventDefault?.(); if (!el.disabled) { const top = el.scrollTop; try { el.focus({ preventScroll: true }); } catch { el.focus(); } el.scrollTop = top; setTimeout(() => { el.scrollTop = top; }, 300); } } return; }   // 보던 줄 그대로 수정 모드   // 제자리에서 톡 눌렀다 뗌 = 수정 모드(브라우저가 그 자리에 커서·자판)
     clearTimeout(h.t); const was = h.on, moved = h.moved, fl = h.fl, dy = h.dy || 0;
     if (e?.type === "touchcancel" && was) {   // (10/29 11:16) 폰이 터치를 끊어도 접지 않음: 커진 채 가운데에 두고, 다시 대면 이어서 넘김 · 카드 밖을 누르면 접힘
       el._pvStay = { fl, dy, moved }; h = null;
-      const out = (ev) => { if (el.contains(ev.target)) return; document.removeEventListener("touchstart", out, true); if (el._pvStay) { const st = el._pvStay; el._pvStay = null; h = { on: true, moved: st.moved, fl: st.fl, dy: st.dy, t: null }; end({ type: "touchend" }); } };
+      const out = (ev) => { if (inside(ev.target)) return; document.removeEventListener("touchstart", out, true); if (el._pvStay) { const st = el._pvStay; el._pvStay = null; h = { on: true, moved: st.moved, fl: st.fl, dy: st.dy, t: null }; end({ type: "touchend" }); } };
       document.addEventListener("touchstart", out, true); return;
     }
     h = null; el.classList.remove("pvHolding");
@@ -1493,7 +1498,7 @@ function pvHold(el) {
     if (document.activeElement === el) el.blur();
     setTimeout(() => { if (!h) el.readOnly = false; }, 350);
   };
-  el.addEventListener("touchstart", (e) => {
+  tgt.addEventListener("touchstart", (e) => {
     if (e.touches.length !== 1) return;
     if (!closed()) { if (el._pvNoSel === "up") el._pvNoSel = null; return; }   // 수정 모드에서 '새로' 누름 → 이제부터 선택 허용
     const y = e.touches[0].clientY, x = e.touches[0].clientX;
@@ -1506,13 +1511,14 @@ function pvHold(el) {
         fl.style.transition = "transform 250ms ease, box-shadow 250ms ease"; fl.classList.add("pvLift"); if (Math.abs(dy) > 8) { fl.style.transform = `translateY(${-dy}px)`; h.dy = dy; } } catch {}   // 위치(transform)와 그림자만 — 배치가 바뀌는 스타일은 누르기 전부터 고정(CSS)
     }, PV_HOLD_MS) };   // 누르는 동안 칸을 키워 글을 더 보여 줌(애니메이션은 CSS height 250ms)
   }, { passive: true });
-  el.addEventListener("touchmove", (e) => {
+  tgt.addEventListener("touchmove", (e) => {
     if (!h) return; const t = e.touches[0];
     if (!h.on) { if (Math.hypot(t.clientX - h.x, t.clientY - h.y) > PV_MOVE) { clearTimeout(h.t); h = null; el.readOnly = false; } return; }   // 길게 누르기 전에 움직이면 화면 스크롤
     e.preventDefault(); if (Math.abs(t.clientY - h.y) > 0) h.moved = true;
     el.scrollTop += h.y - t.clientY; h.y = t.clientY; pvMore(el);
   }, { passive: false });
-  el.addEventListener("touchend", end, { passive: false }); el.addEventListener("touchcancel", end);
+  tgt.addEventListener("touchend", end, { passive: false }); tgt.addEventListener("touchcancel", end);
+  if (tgt !== el) { tgt.addEventListener("contextmenu", (e) => e.preventDefault()); tgt.addEventListener("click", () => { if (!el.disabled) { el.readOnly = false; el.focus(); } }); }   // 마우스 클릭도 수정
   const noSel = () => closed() || !!el._pvNoSel;
   el.addEventListener("contextmenu", (e) => { if (noSel()) e.preventDefault(); });
   el.addEventListener("selectstart", (e) => { if (noSel()) e.preventDefault(); });
@@ -4494,7 +4500,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-29-1205-nomark";
+const BUILD = "2026-10-29-1215-shield";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
