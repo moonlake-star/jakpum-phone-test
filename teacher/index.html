@@ -1472,8 +1472,10 @@ function pvHold(el) {
   const end = (e) => {
     if (!h) { if (el._pvNoSel === "down") el._pvNoSel = "up"; el.readOnly = false; return; }
     if (!h.on) { clearTimeout(h.t); h = null; el.readOnly = false; return; }   // 제자리에서 톡 눌렀다 뗌 = 수정 모드(브라우저가 그 자리에 커서·자판)
-    clearTimeout(h.t); const was = h.on, moved = h.moved; h = null; el.classList.remove("pvHolding");
-    if (el.style.transform) { el.style.transform = ""; setTimeout(() => { if (!h) { el.style.zIndex = ""; el.style.position = ""; el.style.transition = ""; } }, 260); }   // 제자리로
+    clearTimeout(h.t); const was = h.on, moved = h.moved, fl = h.fl, dy = h.dy || 0; h = null; el.classList.remove("pvHolding");
+    if (fl) {   // (10/29 11:11 사용자) 손 떼도 아래로 내려가지 않게: 띄운 만큼 화면을 그 자리에서 바로 굴려(손을 뗀 뒤라 터치가 안 끊김) 카드가 보이던 자리에 그대로
+      fl.style.transition = "box-shadow 250ms ease"; fl.style.transform = ""; if (dy) { try { window.scrollBy({ top: dy, behavior: "instant" }); } catch { window.scrollBy(0, dy); } }
+      fl.style.boxShadow = ""; setTimeout(() => { if (!h) { fl.style.zIndex = ""; fl.style.position = ""; fl.style.transition = ""; } }, 260); }
     if (!was) return;
     e?.preventDefault?.();                      // 길게 누른 뒤 손 뗌: 브라우저 기본(글자 선택·메뉴) 막음
     if (moved) {                                // 칸 안에서 넘겼으면 펼치지 않고 원래 크기로 — 보던 위치는 그대로(10/29 08:58 사용자: 맨 위로 돌아가면 NG)
@@ -1492,7 +1494,8 @@ function pvHold(el) {
     h = { y, x, on: false, moved: false, t: setTimeout(() => { if (!h) return; h.on = true; el.classList.add("pvHolding"); try { navigator.vibrate?.(12); } catch {}
       const H = pvFit(el, PV_ROWS.open); el.style.height = H + "px";
       try { const r = el.getBoundingClientRect(), dy = Math.round(r.top + H / 2 - window.innerHeight / 2);   // (10/29 10:48 사용자) 화면을 굴리면 폰이 터치를 끊음 → 화면은 그대로, 칸만 가운데로 띄움
-        el.style.transition = "height 250ms, transform 250ms"; el.style.position = "relative"; el.style.zIndex = "40"; if (Math.abs(dy) > 8) el.style.transform = `translateY(${-dy}px)`; } catch {}
+        const fl = card() || el; h.fl = fl;   // (10/29 11:11 사용자) 글 칸만이 아니라 바깥 카드째로 가운데로 — 일체감
+        fl.style.transition = "transform 250ms ease, box-shadow 250ms ease"; fl.style.position = "relative"; fl.style.zIndex = "40"; fl.style.boxShadow = "0 12px 40px rgba(0,0,0,.55)"; if (Math.abs(dy) > 8) { fl.style.transform = `translateY(${-dy}px)`; h.dy = dy; } } catch {}
     }, PV_HOLD_MS) };   // 누르는 동안 칸을 키워 글을 더 보여 줌(애니메이션은 CSS height 250ms)
   }, { passive: true });
   el.addEventListener("touchmove", (e) => {
@@ -4482,7 +4485,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-29-1140-inline";
+const BUILD = "2026-10-29-1150-holdcard";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
