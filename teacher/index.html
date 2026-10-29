@@ -4242,10 +4242,31 @@ function renderSpeakers() {
       <b style="min-width:4em">화자${esc(c)}</b><span class="muted">${talk[c] ? fmt(talk[c]) + " 말함" : ""}</span>
       <select data-c="${esc(c)}">${[["","?"],["teacher","선생님"],["student","학생"],["singing","노래(학생)"],["music","음원·기타"]]
         .map(([k, n]) => `<option value="${k}" ${k === v ? "selected" : ""}>${n}</option>`).join("")}</select>
-      ${btns || `<div class="muted" style="flex-basis:100%">“${esc(sample.slice(0, 70))}”</div>`}</div>`;
+      ${btns || (() => {   // 화자 샘플 파일이 아직 없거나 못 받았을 때: 레슨 녹음의 그 말 위치를 바로 들려줌(10/29 사용자: 들어 봐야 확인 가능)
+        const sg = cur.segs.find(s => s.speaker === c && s.text.length > 8) || cur.segs.find(s => s.speaker === c);
+        return sg ? `<div class="row" style="flex-basis:100%;align-items:flex-start;flex-wrap:nowrap;margin-top:4px">
+          <button class="small ghost" data-spkt="${+sg.start}" data-spke="${+sg.end}" style="flex:none">▶ ${fmt(sg.start)}</button>
+          <span class="muted">“${esc(String(sg.text).slice(0, 70))}”</span></div>` : `<div class="muted" style="flex-basis:100%">“${esc(sample.slice(0, 70))}”</div>`; })()}</div>`;
   }).join("");
   $("spk").querySelectorAll("select").forEach(s => s.onchange = () => { cur.review.speakers[s.dataset.c] = s.value; cur.spkSaved = true; renderHighlights(); renderCands(); renderSegs(); paintSpkState(true); });
   $("spk").querySelectorAll("[data-sample]").forEach(b => b.onclick = () => playShared(b, b.dataset.sample));
+  $("spk").querySelectorAll("[data-spkt]").forEach(b => b.onclick = () => {
+    const s = +b.dataset.spkt, e = Math.min(+b.dataset.spke || s + 6, s + 8);
+    try { hlQueueStop(); hlPlay = { end: Math.max(e, s + 3), queue: null }; miniLabel(`화자 목소리 · ${fmt(s)}`); } catch {}
+    playAt(Math.max(0, s - 0.3), true, true).catch(err => toast(err.message));
+  });
+  // 레슨 처리 중(화자샘플이 막 만들어지는 때)에 연 경우 예전 목록이 남아 버튼이 안 보였음 → 한 번 다시 확인해 샘플 버튼으로 바꿈
+  if (!(cur.samples || []).length && !cur._spkRetry && cur.folder?.id) {
+    cur._spkRetry = true; const me = cur;
+    list(me.folder.id).then(async (fs) => {
+      const jf = fs.find(f => f.name === "화자샘플.json"), df = fs.find(f => f.name === "화자샘플" && f.mimeType.endsWith("folder"));
+      if (!jf || !df || cur !== me) return;
+      const [samples, files] = await Promise.all([readJSON(jf.id), list(df.id)]);
+      if (cur !== me || !Array.isArray(samples) || !samples.length) return;
+      me.samples = samples; me.sampleFiles = files; try { lessonCache.delete(me.folder.id); } catch {}
+      renderSpeakers();
+    }).catch(() => {});
+  }
 }
 function roleOf(code) { return cur.review.speakers[code] || ""; }
 function roleClass(code) {
@@ -4722,7 +4743,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-29-1930-cal";
+const BUILD = "2026-10-29-2250-spk";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
