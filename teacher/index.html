@@ -3419,19 +3419,19 @@ const RG_REQ = "전체재편집_요청_", RG_STATE = "전체재편집_상태_", 
 const RG_LABEL = { requested: "요청됨", queued: "대기 중", processing: "처리 중", succeeded: "성공", failed: "실패" };
 const RG_ACTIVE = ["requested", "queued", "processing"];
 let regenBusy = false, regenTimer = null;
-// (10/29 11:28 사용자) 예상 완료 시간. 요청→완성 보통 5~10분(서버 준비 1~2분 + 편집 3~8분, 10/28~29 실행 기준 어림)
+// (10/29 11:28 사용자) 예상 완료 시간. 10/29 11:39 실제(김미영 10/25, 전체 부르기 81초): 준비 1.5분 + 편집 9.5분 = 11분 → 보통 10~15분
 // 바로 시작(kick)이 안 되면 예약 확인(collect.yml cron, UTC) 때 시작 → 그 시각 + 10분
-const RG_ETA_MIN = 10, RG_CRON_UTC = [[1, 30], [2, 30], [7, 0], [8, 0], [9, 0], [10, 0], [10, 30], ...[11, 12].flatMap(h => [0, 15, 30, 45].map(m => [h, m])), [13, 0], [13, 15], [13, 30], [14, 0], [14, 30]];
+const RG_ETA_MIN = 13, RG_CRON_UTC = [[1, 30], [2, 30], [7, 0], [8, 0], [9, 0], [10, 0], [10, 30], ...[11, 12].flatMap(h => [0, 15, 30, 45].map(m => [h, m])), [13, 0], [13, 15], [13, 30], [14, 0], [14, 30]];
 function rgNextCron(now) {
   const d = new Date(now); for (let k = 0; k < 2; k++) for (const [h, m] of RG_CRON_UTC) { const t = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + k, h, m); if (t > now) return t; }
   return now + 3600000;
 }
 function regenEta(it, now = Date.now()) {
   const hm = (ms) => new Date(ms).toLocaleTimeString("ko-KR", { hour: "numeric", minute: "2-digit" }), s = regenStateOf(it);
-  if (s === "processing") { const b = (Date.parse(it.state?.updated_at) || now) + 8 * 60000; return now > b ? "예상보다 늦어지고 있어요 · 조금만 더 기다려 주세요" : `예상 완료 ${hm(b)} 전후 (약 ${Math.max(1, Math.round((b - now) / 60000))}분 남음)`; }
+  if (s === "processing") { const b = (Date.parse(it.state?.updated_at) || now) + 11 * 60000; return now > b ? "예상보다 늦어지고 있어요 · 조금만 더 기다려 주세요" : `예상 완료 ${hm(b)} 전후 (약 ${Math.max(1, Math.round((b - now) / 60000))}분 남음)`; }
   const req = parseInt(String(it.rid || "").slice(1, -6), 36) || now;
   if (s === "queued" || now - req > 3 * 60000) { const n = rgNextCron(now); return `서버 시작 전 · 다음 자동 확인 ${hm(n)} → 예상 완료 ${hm(n + RG_ETA_MIN * 60000)} 전후`; }
-  return `예상 완료 ${hm(req + RG_ETA_MIN * 60000)} 전후 (보통 5~10분)`;
+  return `예상 완료 ${hm(req + RG_ETA_MIN * 60000)} 전후 (보통 10~15분)`;
 }
 function regenNewId() { return "r" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
 function regenItems() { return cur?.regen?.items || []; }
@@ -3511,7 +3511,7 @@ async function regenStart() {
     if (cur !== me) return;
     if (regenActive() || regenPending()) { toast("이미 진행 중이거나 고르지 않은 새 편집본이 있어요"); renderToday(); return; }
     const rid = regenNewId(), eta = typeof regenEta === "function" ? regenEta({ rid }) : "예상 완료 약 10분 뒤";
-    if (!confirm(`기존 편집본은 보존하고 새 편집본을 만듭니다. 완료 후 듣고 채택하세요.\n\n⏱ 보통 5~10분 걸려요 · ${eta}\n\n전체 다시 편집을 요청할까요?`)) return;
+    if (!confirm(`기존 편집본은 보존하고 새 편집본을 만듭니다. 완료 후 듣고 채택하세요.\n\n⏱ 보통 10~15분 걸려요 · ${eta}\n\n전체 다시 편집을 요청할까요?`)) return;
     // (10/29 11:28 버그) 서버는 레슨 베스트 기록(me.best)의 편집본과 비교함 — 채택한 재편집 후보를 쓰는 중이면 그 ID를 보내 '바뀌었어요'로 실패했음
     const bc = me.best?.composite, base = bc?.status === "ok" ? bc.file_id || null : null;
     const body = { schema: RG_SCHEMA, req_id: rid, student_id: me.sid, lesson_folder: me.folder.id, base_file_id: base, shown_file_id: bestPicked()?.file_id || null, requested_at: new Date().toISOString() };
@@ -4530,7 +4530,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-29-1250-wait3s";
+const BUILD = "2026-10-29-1255-eta";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
