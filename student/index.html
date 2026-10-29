@@ -372,7 +372,7 @@ async function playSeries(ids, au, btn) {
 
 // 첫 화면(1층)은 '선생님이 발견한 오늘의 순간'이 주인공. 선생님이 쓴 문장만 보여주고, 앱이 칭찬·점수·변화 문구를 만들지 않음.
 // 선생님용 내부 값(lesson_tone·weekly_mission·evidence·confidence 등)은 아래에서 고른 필드 말고는 절대 그리지 않음.
-const MAX_CLIPS = 3;
+const MAX_CLIPS = 5;   // (10/29 13:35 사용자) 더 들어 보기 3~5개
 const listHtml = (a) => `<ul>${a.map(x => `<li>${esc(x)}</li>`).join("")}</ul>`;
 // 메이크업본: 선생님이 [포함]한 노트에만 존재. 파일 ID·원본(source_file_id)이 없거나 오늘 베스트와 어긋나면 그리지 않음(빈 플레이어 금지).
 const sidOk = (x) => typeof x === "string" && x.trim() !== "";
@@ -397,7 +397,7 @@ function lessonHtml(l, prev, mode = "normal") {
   const psnd = full ? (Array.isArray(l.point_snd) ? l.point_snd : []).filter(x => x && typeof x.file_id === "string" && x.file_id && Number.isInteger(x.p) && x.p >= 0 && x.p < points.length) : [];
   const atIds = new Set(psnd.map(x => x.file_id)), peakOf = (id) => (clips.find(c => c.file_id === id) || pairs.find(c => c.file_id === id) || {}).peaks;
   const restClips = clips.filter(c => !atIds.has(c.file_id)), restPairs = pairs.filter(x => !atIds.has(x.file_id));
-  const bestBlock = l.best?.file_id ? `<div class="best"><div class="cardHead"><span class="badge">베스트</span><b>${l.best.edited ? "오늘의 베스트 편집본" : "오늘의 베스트 가창"}</b>${l.best.len ? `<span class="muted">${l.best.len}초</span>` : ""}</div><p class="muted" style="margin:2px 0 8px">${l.best.edited ? (l.best.joined === true ? "오늘의 가장 좋았던 부분을 모아 이어붙여봤어요" : l.best.joined === false ? "오늘 가장 좋았던 한 번을 골랐어요" : "오늘의 가장 좋았던 부분을 모아 이어붙여봤어요") : "오늘 부른 가창이에요"}</p>${pill(l.best.file_id, "베스트 듣기", l.best.peaks, "open keep")}</div>` : "";
+  const bestBlock = l.best?.file_id ? `<div class="best"><div class="cardHead"><span class="badge">베스트</span><b>오늘의 베스트</b>${l.best.len ? `<span class="muted">${l.best.len}초</span>` : ""}</div><p class="muted" style="margin:2px 0 8px">${l.best.edited ? (l.best.joined === true ? "오늘의 가장 좋았던 부분을 모아 이어붙여봤어요" : l.best.joined === false ? "오늘 가장 좋았던 한 번을 골랐어요" : "오늘의 가장 좋았던 부분을 모아 이어붙여봤어요") : "오늘 부른 가창이에요"}</p>${pill(l.best.file_id, "베스트 듣기", l.best.peaks, "open keep")}</div>` : "";
   // (10/29 10:33 사용자 확정 시안 C) 한마디 = 편지 한 통: 글 속 '오늘 중요한 포인트' 줄 → 번호 포인트(+붙인 소리), '이번 주 연습' 줄은 글에서 빼고 응원 다음 '다음 미션' 카드로.
   // 글에 그 제목 줄이 없으면 예전처럼 따로 카드(내용이 빠지지 않게). '오늘의 순간' 문장은 그 소리 위 🔎 설명으로.
   const fbL = has(l.feedback) ? l.feedback.split("\n") : [];
@@ -423,7 +423,9 @@ function lessonHtml(l, prev, mode = "normal") {
   for (const [a, b, w] of [ptsIn ? [bP.i, bP.j, "P"] : null, bM ? [bM.i, bM.j, "M"] : null].filter(Boolean).sort((x, y) => x[0] - y[0])) {
     if (a < at) continue; letter += txt(fbL.slice(at, a)); if (w === "P") letter += `<div class="sub">오늘 중요한 포인트</div>${ptsHtml(ptsIn)}`; at = b; }
   letter += txt(fbL.slice(at));
-  const restC = restClips.filter(c => !inl.has(c.file_id));
+  const seen = new Set([...clips.map(c => c.file_id), ...pairs.map(x => x.file_id)]);
+  const moreC = full ? (Array.isArray(l.more_clips) ? l.more_clips : []).filter(c => c && typeof c.file_id === "string" && c.file_id && !seen.has(c.file_id) && seen.add(c.file_id)) : [];
+  const restC = [...restClips.filter(c => !inl.has(c.file_id)), ...moreC].slice(0, MAX_CLIPS);   // (10/29 13:35) 선생님이 고른 것 + 추천 클립으로 3~5개
   const more = [
     compare ? `<h3>🔁 지난번과 비교해 듣기</h3><p class="muted">${md(prev.date)} 베스트 ↔ ${md(l.date)} 베스트</p>
       <div class="ab"><div>${player(prev.best.file_id, md(prev.date))}</div><div>${player(l.best.file_id + "#b", md(l.date))}</div></div>` : "",
