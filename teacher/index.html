@@ -4743,7 +4743,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-29-2250-spk";
+const BUILD = "2026-10-29-2355-v2lv";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
@@ -4900,7 +4900,7 @@ $("btnPlayAll").onclick = () => {
 // V1과 다른 점 1가지: V1의 '검수 저장' = 저장+바로 공개. V2에서는 '임시저장' = 저장만(수강생 화면 그대로), 공개는 '수강생에게 전달하기' 안의 ①에서.
 const V2_KEY = "vn_ui", V2_LV = "vn_v2lv";
 function v2On() { try { return LS.get(V2_KEY) !== "v1"; } catch { return true; } }
-function v2Lv() { try { const v = LS.get(V2_LV); return ["simple", "normal", "detail"].includes(v) ? v : "normal"; } catch { return "normal"; } }
+function v2Lv() { return "normal"; }   // 10/29 사용자: 수강생 화면이 '보통' 고정이라 검토 화면도 보통 고정(심플/보통/자세히 버튼 없앰)
 function v2Apply() {
   const on = v2On(), lv = v2Lv(), B = document.body.classList;
   B.toggle("v2", on); for (const k of ["simple", "normal", "detail"]) B.toggle("v2lv-" + k, on && lv === k);
@@ -4964,14 +4964,11 @@ function v2Paint() {
   const me = cur; v2Apply(); if (!me || !v2On() || !$("v2Bar")) return;
   const lv = v2Lv(), share = v2AiShare(me), emph = (me.best?.emphasis?.terms || []).filter(e => e && e.term);
   $("v2Bar").innerHTML = `<div class="v2t"><b>강사 검토 화면</b><button type="button" class="small" id="v2Pv">👀 수강생 화면 미리보기</button></div>
-    <div class="seg" role="group" aria-label="수강생 보기 방식">${[["simple", "심플 보기"], ["normal", "보통 보기"], ["detail", "자세히 보기"]].map(([k, n]) => `<button type="button" data-v2lv="${k}" class="${k === lv ? "on" : ""}" aria-pressed="${k === lv}">${n}</button>`).join("")}</div>
-    <div class="muted" style="font-size:.8rem">수강생이 이 보기로 열었을 때 보이는 카드만 보여요(수강생은 폰에서 직접 바꿀 수 있어요)</div>
     <div class="v2stat"><b>${share == null ? "🤖 AI 초안 없음" : `🤖 AI 작성 ${share}%`}</b><span class="muted" id="v2Seen"></span><div class="v2meter"><i id="v2Meter"></i></div></div>
     ${emph.length ? `<div class="v2emph">선생님이 반복 강조: ${emph.slice(0, 6).map(e => `<span class="${e.prev ? "prev" : ""}">${esc(e.term)} ×${+e.count || 0}${e.prev ? " · 지난 레슨부터" : ""}</span>`).join("")}</div>` : ""}
     <div class="row" style="margin-top:6px;gap:6px"><button type="button" class="small ghost" id="v2AiBtn"${me.ai ? "" : " disabled"}>👁 AI 원문 다시 보기</button></div>`;
   $("v2Pv").onclick = () => openStudentView(lv);
   $("v2AiBtn").onclick = () => v2AiOpen(me);
-  $("v2Bar").querySelectorAll("[data-v2lv]").forEach(x => x.onclick = () => { LS.set(V2_LV, x.dataset.v2lv); v2Paint(); });
   v2Count(me); v2Watch(me); v2PubPaint(me);
 }
 function v2PubPaint(me) {   // 전달하기 시트 맨 위 ① 공개 — 공개 규칙은 V1의 publishOnSave(승인 전 확인 목록·동의 철회 제외) 그대로
