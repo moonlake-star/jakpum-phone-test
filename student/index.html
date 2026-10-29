@@ -223,7 +223,9 @@ function timeline() {
 
 // 녹음은 선생님이 게시할 때 '링크가 있는 사람 보기'로 열린 파일을 구글 드라이브에서 바로 재생(v2, 스크립트를 거치지 않음)
 // 2026-10-29: 폰·크롬에서 uc?export=download 주소를 <audio>가 못 읽음(오류 4) → 선생님이 넣은 '재생용 키'가 있으면 드라이브 API(부분 받기·바로 재생)로
-const akey = () => { for (const l of (typeof data !== "undefined" && data?.lessons) || []) if (/^[A-Za-z0-9_-]{30,60}$/.test(l?.audio_key || "")) return l.audio_key; return ""; };
+// 재생용 키: 비밀값 아님(구글 지도 키처럼 브라우저에 보이는 키). moonlake-star.github.io에서만 + Google Drive API만 허용으로 제한됨(2026-10-29 다른 사이트 403 확인)
+const AUDIO_KEY = "AIzaSyBGChKoCBr6yGRrnlnepGd6XA1GVKzh430";
+const akey = () => { for (const l of (typeof data !== "undefined" && data?.lessons) || []) if (/^[A-Za-z0-9_-]{30,60}$/.test(l?.audio_key || "")) return l.audio_key; return AUDIO_KEY; };
 const driveUrl = (id) => { const k = akey(); return k ? `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(id)}?alt=media&key=${k}` : `https://drive.google.com/uc?export=download&id=${encodeURIComponent(id)}`; };
 const audioUrl = async (id) => audioCache[id] ||= driveUrl(id);
 document.addEventListener("play", (e) => document.querySelectorAll("audio").forEach(a => a !== e.target && a.pause()), true);   // 한 번에 하나만
