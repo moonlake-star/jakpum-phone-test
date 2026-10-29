@@ -19,7 +19,7 @@
     { id: 'first_mission', icon: '📝', name: '첫 미션 해 옴', cat: 'mission', kind: 'auto', rule: { metric: 'missions', gte: 1 } },
     { id: 'missions5', icon: '📚', name: '미션 5회 해 옴', cat: 'mission', kind: 'auto', rule: { metric: 'missions', gte: 5 } },
     { id: 'mission_streak3', icon: '🌟', name: '미션 3주 연속', cat: 'mission', kind: 'auto', rule: { metric: 'bestMissionWeekStreak', gte: 3 } },
-    { id: 'first_reflection', icon: '💬', name: '첫 소감', cat: 'note', kind: 'auto', rule: { metric: 'reflections', gte: 1 } },
+    { id: 'first_reflection', icon: '💌', name: '첫 소감', cat: 'note', kind: 'auto', rule: { metric: 'reflections', gte: 1 } },
     { id: 'replay_note', icon: '🎧', name: '노트 다시 듣기', cat: 'note', kind: 'auto', rule: { metric: 'noteReplays', gte: 1 } },
     { id: 'high_note', icon: '🚀', name: '고음 돌파', cat: 'teacher', kind: 'teacher' },
     { id: 'first_song', icon: '🎤', name: '첫 완곡', cat: 'teacher', kind: 'teacher' },
