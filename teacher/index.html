@@ -204,6 +204,7 @@
   #pvFull .lp .lab { white-space:nowrap; } #pvFull .lp .wv, #pvFull .lp .tm { display:none; }
   #pvFull .lp.open { display:flex; width:100%; padding:5px 14px 5px 5px; background:linear-gradient(135deg, rgba(156,195,255,.10), rgba(17,20,26,.9)); } #pvFull .lp.mk.open { background:linear-gradient(135deg, rgba(201,166,255,.12), rgba(17,20,26,.9)); }
   #pvFull .lp.open .lab { display:none; } #pvFull .lp.open .wv { display:block; position:relative; flex:1; min-width:0; height:28px; } #pvFull .lp.open .tm { display:block; flex:none; font-size:.78rem; color:var(--muted); font-weight:500; font-variant-numeric:tabular-nums; }
+  #pvFull .lp .wv .prog { position:absolute; left:0; top:50%; height:4px; margin-top:-2px; width:0; background:#9cc3ff; border-radius:2px; } #pvFull .lp.seg .wv .flat { height:4px; margin-top:-2px; }
   #pvFull .lp .wv svg { position:absolute; inset:0; width:100%; height:100%; } #pvFull .lp .wv .on { position:absolute; inset:0; clip-path:inset(0 100% 0 0); } #pvFull .lp .wv .flat { position:absolute; left:0; right:0; top:50%; height:2px; margin-top:-1px; background:#3a414b; }
   #pvFull .letter .sub { margin:14px 0 6px; font-size:.85rem; font-weight:700; color:#9cc3ff; letter-spacing:.02em; } #pvFull .letter .pts + .pre { margin-top:14px; } #pvFull .memo { font-size:.86rem; color:var(--muted); }
   #pvFull .letter .gl { display:flex; flex-direction:column; align-items:flex-start; gap:4px; margin:2px 0 10px; } #pvFull .letter .gl .pre { width:100%; }
@@ -1589,9 +1590,12 @@ function svLessonHtml(l, prev, mode = "normal") {
     for (const ln of a) {
       const q = full && /^[ \t]*[·•\-]/.test(ln) ? ln.match(/(^|[\s·(])(\d{1,2}):([0-5]\d)(?![\d:~])/) : null, tt = q ? +q[2] * 60 + +q[3] : null;
       const c = tt == null ? null : clips.find(x => !atIds.has(x.file_id) && !inl.has(x.file_id) && clipT(x) != null && Math.abs(clipT(x) - tt) <= 5);
-      if (!c) { buf.push(ln); continue; }
-      flush(); inl.add(c.file_id);
-      out.push(`<div class="gl"><div class="pre">· ${tchip(esc(ln.replace(q[0], q[1]).replace(/^[ \t]*[·•\-]\s*/, "").trim()))}</div>${svPill(c.file_id, "좋았던 순간 듣기", c.peaks)}</div>`);
+      if (!c && !(tt != null && tfid)) { buf.push(ln); continue; }
+      flush(); const lab = `좋았던 순간 · ${q[2]}:${q[3]}`, body = `<div class="pre">· ${tchip(esc(ln.replace(q[0], q[1]).replace(/^[ \t]*[·•\-]\s*/, "").trim()))}</div>`;
+      if (c) { inl.add(c.file_id); out.push(`<div class="gl">${body}${svPill(c.file_id, lab, c.peaks)}</div>`); continue; }
+      // (10/29 12:42 사용자) 소리 조각이 없는 줄도 같은 둥근 버튼: 레슨 녹음의 그 구간만 재생(노란 칸과 같은 구간), 파형 대신 진행 막대
+      const rg = typeof rangeAt === "function" ? rangeAt(tt, l.full?.rng, (l.full?.segs || []).map(x => Array.isArray(x) ? +x[0] : NaN)) : [tt, tt + 15];
+      out.push(`<div class="gl">${body}<button type="button" class="lp seg" data-svseg="${esc(tfid)}" data-t0="${rg[0]}" data-t1="${rg[1]}" aria-label="${esc(lab)}"><span class="ic" aria-hidden="true">▶</span><span class="lab">${esc(lab)}</span><span class="wv"><i class="flat"></i><i class="prog"></i></span><span class="tm"></span></button></div>`);
     }
     flush(); return out.join(""); };
   let letter = "", at = 0;
@@ -1628,6 +1632,10 @@ function openStudentView(mode = "normal") {
   const close = d.querySelector("#pvFullClose"); close.onclick = closeStudentView; close.focus();
   if (document.body?.classList) document.body.classList.add("pvOpen");   // 레슨 녹음 재생바(#mini)가 미리보기 위로 올라오게
   d.onclick = (e) => {
+    const sg = e.target?.closest?.(".lp[data-svseg]");   // (10/29 12:42) 레슨 녹음 구간 버튼: 미리보기에선 레슨 녹음 재생기로 그 구간(재생바 노란 칸)
+    if (sg && typeof playAt === "function") { const t0 = +sg.dataset.t0, t1 = +sg.dataset.t1; d.querySelectorAll(".lp.open").forEach(x => { if (x !== sg && !x.classList.contains("keep")) x.classList.remove("open"); }); sg.classList.add("open");
+      try { miniMarks([{ start: t0, end: t1 }], 0); miniLabel(`좋았던 순간 · ${fmt(t0)}~${fmt(t1)} (노란 칸)`); } catch {}
+      if (typeof svSegWatch === "function") svSegWatch(sg, t0, t1); return playAt(t0).catch(err => toast(err.message)); }
     const lp = e.target?.closest?.(".lp[data-svau]");
     if (lp && typeof svPlay === "function") { if (!lp.classList.contains("open")) { d.querySelectorAll(".lp.open").forEach(x => { if (x !== lp && !x.classList.contains("keep")) { x.classList.remove("open"); x.style.width = ""; } }); const w0 = lp.offsetWidth; lp.classList.add("open"); lp.style.width = w0 + "px"; void lp.offsetWidth; lp.style.width = lp.parentElement.clientWidth + "px"; setTimeout(() => { lp.style.width = ""; }, 320); return svPlay(lp); }
       const w = e.target.closest("[data-svwave]"); if (w && svCur === lp.dataset.svau && typeof svSeek === "function") { const r = w.getBoundingClientRect(); return svSeek(lp, Math.min(1, Math.max(0, (e.clientX - r.left) / (r.width || 1)))); } return svPlay(lp); }   // (10/29 확정) 누르면 펼쳐지며 재생, 펼친 파형을 누르면 그 자리부터
@@ -1669,6 +1677,13 @@ function svWaves() {
     if (wavePeaks[id]) return put(wavePeaks[id]);
     readBlob(id).then(async bl => { if (cur !== me) return; me.clipUrls[id] ??= URL.createObjectURL(bl); const pk = await peaksOf(bl); if (pk) { wavePeaks[id] = pk; put(pk); } }).catch(() => {});
   });
+}
+function svSegWatch(b, t0, t1) {   // 미리보기 구간 버튼 진행 막대·끝에서 멈춤(레슨 녹음 재생기 full 기준)
+  const pr = b.querySelector(".prog"), tm = b.querySelector(".tm"), ic = b.querySelector(".ic"), my = (svSegWatch.n = (svSegWatch.n || 0) + 1);
+  const tick = () => { if (svSegWatch.n !== my || !b.isConnected) return; let t = t0; try { t = chunkStart + full.currentTime; } catch {}
+    const c = Math.max(t0, Math.min(t1, t)); if (pr) pr.style.width = ((c - t0) / Math.max(1, t1 - t0) * 100).toFixed(1) + "%"; if (tm) tm.textContent = `${fmt(c - t0)} / ${fmt(t1 - t0)}`; if (ic) ic.textContent = full.paused ? "▶" : "❚❚";
+    if (!full.paused && t >= t1) { full.pause(); return; } requestAnimationFrame(tick); };
+  requestAnimationFrame(tick);
 }
 async function svSeek(b, fr) {
   if (!b) return;
@@ -4535,7 +4550,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-29-1315-tptime";
+const BUILD = "2026-10-29-1330-uniform";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
