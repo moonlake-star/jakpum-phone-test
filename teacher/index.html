@@ -194,7 +194,7 @@
   #pvFull .lp .wv svg { position:absolute; inset:0; width:100%; height:100%; } #pvFull .lp .wv .on { position:absolute; inset:0; clip-path:inset(0 100% 0 0); } #pvFull .lp .wv .flat { position:absolute; left:0; right:0; top:50%; height:2px; margin-top:-1px; background:#3a414b; }
   #pvFull .best { margin-top:12px; padding-top:12px; border-top:1px solid var(--line); }
   #pvFull ol.pts { list-style:none; margin:4px 0 0; padding:0; display:flex; flex-direction:column; gap:14px; } #pvFull ol.pts li { display:flex; flex-direction:column; align-items:flex-start; gap:6px; } #pvFull ol.pts .pt { display:flex; gap:8px; } #pvFull ol.pts .pt b { color:#9cc3ff; flex:none; } #pvFull .cap { font-size:.82rem; color:var(--muted); }
-  .pvSnd { margin-top:6px; } .pvSndRow { display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; margin:4px 0; font-size:.88rem; } .pvSndRow select { flex:1; min-width:150px; min-height:36px; }
+  .pvSnd { margin-top:6px; } .pvSndRow { display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; margin:4px 0; font-size:.88rem; } .pvSndRow select { flex:1; min-width:150px; min-height:36px; } .pvSndRow > span { flex-basis:100%; } .pvSndRow .pvSndPlay { flex:none; min-height:36px; }
   @media (prefers-reduced-motion: reduce) { #pvFull .lp { transition:none; } } #pvFull .tchip { cursor:pointer; }
   #pvFull .fseg { display:flex; margin:6px 0; } #pvFull .fseg.right { justify-content:flex-end; } #pvFull .fbub { max-width:86%; padding:8px 12px; border-radius:14px; cursor:pointer; border:2px solid transparent; }
   #pvFull .fb-t { background:#1f3050; } #pvFull .fb-s { background:#3d2c17; } #pvFull .fb-g { background:#31224a; } #pvFull .fb-x { background:#2a2f37; } #pvFull .fbub .tm { color:var(--muted); font-size:.76rem; margin-left:6px; } #pvFull .fbub .tx { display:block; } #pvFull .fbub.now { border-color:var(--now); }
@@ -1012,7 +1012,7 @@ function sndSim(a, b) {
 const sndTimes = (x) => [...String(x || "").matchAll(/(\d{1,2}):([0-5]\d)(?![\d:])/g)].map(m => +m[1] * 60 + +m[2]);
 function pointSndChoices() {
   const rv = cur?.review || {}, out = [];
-  try { for (const c of (typeof sendList === "function" ? sendList() : [])) { const f = (cur.clips || []).find(x => x.name.startsWith(c.id)); if (f) out.push({ key: "clip:" + c.id, kind: "clip", file_id: f.id, label: "좋았던 순간 듣기", pick: `좋았던 순간 ${fmt(c.start)}`, text: rv.notes?.[c.id] || c.note || "", t: +c.start || 0 }); } } catch {}
+  try { for (const c of (typeof sendList === "function" ? sendList() : [])) { const f = (cur.clips || []).find(x => x.name.startsWith(c.id)); if (f) { const nt = rv.notes?.[c.id] || c.note || ""; out.push({ key: "clip:" + c.id, kind: "clip", file_id: f.id, label: "좋았던 순간 듣기", pick: `좋았던 순간 ${fmt(c.start)}${nt ? " · " + (nt.length > 16 ? nt.slice(0, 16) + "…" : nt) : ""}`, text: nt, t: +c.start || 0 }); } } } catch {}
   const co = cur?.ana?.coaching || cur?.ai?.coaching || [];
   for (const p of (cur?.pairs || []).filter(p => p?.file_id && (rv.pairSend || []).includes(p.id)).slice(0, 3)) { const k = co.find(x => x.id === p.id) || {}, t = k.instruction_t ?? k.before?.t0;
     out.push({ key: "pair:" + p.id, kind: "pair", file_id: p.file_id, label: "🔁 지도 전 → 후 듣기", pick: `지도 전→후 · ${String(k.issue || "").slice(0, 22)}`, text: [k.issue, k.instruction].filter(Boolean).join(" "), t: t == null ? null : +t }); }
@@ -1035,7 +1035,8 @@ function pointSndHTML(rv, disabled) {
   if (!ch.length) return `<p class="muted pvSnd" style="margin:6px 0 0">🎧 포인트에 붙일 소리 없음 · 아래 ‘좋았던 순간’이나 ‘지도 전→후’를 보내기로 고르면 여기서 포인트에 붙일 수 있어요</p>`;
   const plan = pointSndPlan(pts, ch, rv.point_snd);
   return `<div class="pvSnd"><div class="muted" style="margin:6px 0 2px">🎧 포인트에 소리 붙이기 · 수강생은 그 포인트 바로 아래에서 들어요</div>${pts.map((t, i) => `<label class="pvSndRow"><span>${i + 1}. ${esc(t.length > 24 ? t.slice(0, 24) + "…" : t)}</span>
-    <select data-pvsnd="${i}" aria-label="${i + 1}번 포인트에 붙일 소리"${disabled}><option value="none"${plan[i] ? "" : " selected"}>소리 없음</option>${ch.map(c => `<option value="${esc(c.key)}"${plan[i]?.key === c.key ? " selected" : ""}>${esc(c.pick)}${plan[i]?.key === c.key && plan[i].auto ? " (자동 추천)" : ""}</option>`).join("")}</select></label>`).join("")}</div>`;
+    <select data-pvsnd="${i}" aria-label="${i + 1}번 포인트에 붙일 소리"${disabled}><option value="none"${plan[i] ? "" : " selected"}>소리 없음</option>${ch.map(c => `<option value="${esc(c.key)}"${plan[i]?.key === c.key ? " selected" : ""}>${esc(c.pick)}${plan[i]?.key === c.key && plan[i].auto ? " (자동 추천)" : ""}</option>`).join("")}</select>
+    <button type="button" class="small ghost pvSndPlay" data-pvsndplay="${i}" aria-label="${i + 1}번 포인트에 고른 소리 들어 보기">▶ 듣기</button></label>`).join("")}</div>`;   // (10/29 사용자) 고르기 전에 들어 보고 판단
 }
 const FULL_MAX = 38000;
 function fullForNote() {
@@ -1296,7 +1297,8 @@ function feedbackPreviewHTML(note, rv, disabled, open = false) {
             <button type="button" class="small" data-pvsave="pvSong"${disabled}>추천 곡 저장</button></details></div></section>
       <section class="pvCard" data-v2="cheer" style="--pv:#ff5c8a" aria-label="5 응원 메시지"><h4>${num()}응원 메시지<button type="button" class="small ghost pvFold" data-pvfold="pvCheer">접기</button></h4>
         ${pvEdHTML("pvCheer", "응원 메시지", rv.cheer || "", disabled, "예: 오늘 정말 잘하셨어요! 꾸준히 하시면 더 멋진 목소리가 될 거예요 😊")}
-        <div class="pvChips">${CHEER.map(([k, v]) => `<button type="button" data-pvcheer="${v}"${disabled}>🎲 ${k}</button>`).join("")}</div></section>
+        <div class="pvChips">${typeof cur !== "undefined" && typeof cur?.ai?.cheer === "string" && cur.ai.cheer.trim() ? `<button type="button" data-pvcheer="ai"${disabled}>✨ AI 초안</button>` : ""}${CHEER.map(([k, v]) => `<button type="button" data-pvcheer="${v}"${disabled}>🎲 ${k}</button>`).join("")}</div>
+        <p class="muted" style="margin:4px 0 0;font-size:.82rem">🎲는 오늘 레슨 내용(좋았던 구절·나아진 부분·포인트·미션)으로 만들어요 · 누를 때마다 다른 문장</p></section>
     </div>
     <p class="muted" id="previewSaveMsg" role="status" style="margin:4px 0">고친 문구는 선생님 글투를 익히는 데도 참고해요. 포인트·미션을 고치면 카톡 문구도 같이 바뀌어요.</p></div>`;
 }
@@ -1350,12 +1352,37 @@ const CHEER_SETS = [
     "다음 주엔 오늘보다 한 걸음 더! 같이 해 봐요 😄",
   ],
 ];
+// (10/29 사용자: 응원이 너무 일반적) 그날 레슨 사실로 만드는 응원. 사실이 없으면 기존 문구(pickCheer)
+function cheerFacts(me) {
+  const cut = (x, n) => { x = String(x || "").replace(/\s+/g, " ").replace(/^[\s'"‘’“”]+|[\s.,!?~'"‘’“”]+$/g, "").trim(); if (x.length <= n) return x; const k = x.lastIndexOf(" ", n); return k > n * 0.5 ? x.slice(0, k) : ""; };
+  const roles = me?.review?.speakers || {}, segs = me?.segs || [];
+  const sung = (a, b) => cut(segs.filter(g => g.end > a && g.start < b && roles[g.speaker] !== "teacher").map(g => g.text).join(" "), 20);
+  let lyric = ""; try { const c = (typeof sendList === "function" ? sendList() : [])[0]; if (c) lyric = sung(+c.start || 0, (+c.end || +c.start + 15)); } catch {}
+  const co = me?.ana?.coaching || me?.ai?.coaching || [], up = co.find(k => k && (k.change === "improved" || k.change === "partly"));
+  const pts = (me?.review?.points || []).filter(Boolean), pr = (me?.review?.practice || []).filter(Boolean);
+  return { n: me?.st?.name || "", lyric, upLyric: cut(up?.after?.lyric, 20), upIssue: cut(up?.issue, 26), point: cut(pts[0], 30), mission: cut(pr[0], 30) };
+}
+function lessonCheer(kind, now, f) {
+  f = f || {}; const nm = f.n ? f.n + "님, " : "";
+  const T = [
+    [f.lyric && `${nm}오늘 ‘${f.lyric}’ 부르실 때 정말 좋았어요. 그 느낌 그대로 기억해 두세요 😊`, f.lyric && `오늘 ‘${f.lyric}’ 부분, 듣는 저도 기분이 좋았어요. 자신감 가지셔도 돼요!`,
+     f.point && `${nm}오늘 ‘${f.point}’ 같이 잡아 봤는데 금방 따라오셨어요. 정말 잘하셨어요 👏`, f.upIssue && `오늘 어려워하던 ‘${f.upIssue}’ 부분도 끝까지 해내셨어요. 정말 수고 많으셨어요 😄`],
+    [f.upLyric && `지도하고 나서 ‘${f.upLyric}’ 부분이 확실히 달라졌어요. 이 흐름 그대로 가 봐요 🎵`, f.upIssue && `${nm}오늘 ‘${f.upIssue}’ 부분, 레슨 끝날 즈음엔 훨씬 좋아졌어요. 확실히 늘고 계세요 👍`,
+     f.lyric && `오늘 ‘${f.lyric}’ 부를 때 소리가 한결 편안했어요. 연습하신 게 소리로 나오고 있어요!`],
+    [f.mission && `이번 주엔 ‘${f.mission}’ 이것만 챙겨 보세요. 조금씩만 해도 충분해요, 늘 응원할게요 💪`, f.point && `‘${f.point}’ 하나만 기억하고 연습해 보세요. 다음 레슨 때 같이 들어 볼게요 😊`,
+     f.lyric && `${nm}‘${f.lyric}’ 오늘 느낌 그대로 한 주 동안 가끔 불러 보세요. 다음 레슨이 기대돼요 😄`],
+  ][kind] || [];
+  const pool = T.filter(Boolean).filter(t => t !== String(now || "").trim());
+  return pool.length ? pool[Math.floor(Math.random() * pool.length)] : "";
+}
 function pickCheer(kind, now, name) {   // 같은 종류 안에서 지금 칸에 있는 것과 다른 문구를 무작위로
   const set = CHEER_SETS[kind] || CHEER_SETS[0], fill = (t) => t.replaceAll("{n}", name || "");
   const pool = set.map(fill).filter(t => t !== String(now || "").trim());
   return pool[Math.floor(Math.random() * pool.length)] || fill(set[0]);
 }
 function pvWireCards(me) {
+  document.querySelectorAll("[data-pvsndplay]").forEach(b => b.onclick = (e) => { e.preventDefault(); if (cur !== me) return; const v = document.querySelector(`[data-pvsnd="${b.dataset.pvsndplay}"]`)?.value, c = pointSndChoices().find(x => x.key === v);
+    if (!c) return toast("‘소리 없음’을 골랐어요 · 위 칸에서 소리를 고르면 들어 볼 수 있어요"); playShared(b, c.file_id); });
   document.querySelectorAll("[data-pvsnd]").forEach(x => x.onchange = () => { if (cur !== me) return; (me.review.point_snd ??= {})[x.dataset.pvsnd] = x.value; if (typeof paintDeliver === "function") paintDeliver(); });   // 포인트에 소리 붙이기(선생님이 고른 게 우선)
   const q = (sel) => (typeof document !== "undefined" && document.querySelectorAll) ? [...document.querySelectorAll(sel)] : [];
   const save = async (msg) => { if (typeof markDirty === "function") markDirty(); const ok = await saveReview(true); if (cur !== me) return;
@@ -1370,7 +1397,7 @@ function pvWireCards(me) {
     await save("저장했어요. ‘검수 저장’을 누르면 수강생 노트에 반영돼요."); });
   q("[data-pvcancel]").forEach(b => b.onclick = () => { const id = b.dataset.pvcancel, el = $(id); if (!el || !PV_EDS[id]) return; el.value = PV_EDS[id].get(me.review); pvSetH(el, false); });
   q("[data-pvopen]").forEach(b => b.onclick = () => { const el = $(b.dataset.pvopen); if (!el) return; el.focus(); if (el.id !== "previewFeedback") pvSetH(el, true); });
-  q("[data-pvcheer]").forEach(b => b.onclick = () => { const el = $("pvCheer"); if (!el) return; el.value = pickCheer(+b.dataset.pvcheer, el.value, me.st?.name); pvSetH(el, true); el.focus(); });
+  q("[data-pvcheer]").forEach(b => b.onclick = () => { const el = $("pvCheer"); if (!el) return; el.value = b.dataset.pvcheer === "ai" ? String(me.ai?.cheer || "").trim() : (typeof lessonCheer === "function" ? lessonCheer(+b.dataset.pvcheer, el.value, cheerFacts(me)) : "") || pickCheer(+b.dataset.pvcheer, el.value, me.st?.name); pvSetH(el, true); el.focus(); });
   for (const id of ["previewFeedback", ...Object.keys(PV_EDS)]) { const el = $(id); if (el && el.addEventListener) { if (typeof pvHold === "function") pvHold(el);
     el.addEventListener("input", () => { pvCount(el); const op = !!el.closest?.(".pvCard")?.classList.contains("open"); el.style.height = pvFit(el, op ? PV_ROWS.open : PV_ROWS.closed) + "px"; });
     pvCount(el); if (typeof requestAnimationFrame === "function") requestAnimationFrame(() => { const op = !!el.closest?.(".pvCard")?.classList.contains("open"); el.style.height = pvFit(el, op ? PV_ROWS.open : PV_ROWS.closed) + "px"; }); } }
@@ -3088,6 +3115,7 @@ async function openLessonInner(sid, i, backTo) {
     if (!Object.keys(review.decisions).length)
       for (const g of ai.good || []) { review.decisions[g.candidate_id] = "send"; if (g.note) review.notes[g.candidate_id] = g.note; }
     if (!(review.points || []).some(Boolean)) review.points = (ai.points || []).map(x => x.text || x).slice(0, 3);
+    if (review.cheer == null && typeof ai.cheer === "string" && ai.cheer.trim()) review.cheer = ai.cheer.trim();   // (10/29 사용자) 응원도 그날 레슨으로 만든 AI 초안(선생님이 고침·지움)
     if (!(review.practice || []).some(Boolean)) review.practice = (ai.practice || []).slice(0, 2);
     if (!review.reviewed_at && !review.feedback && ai.feedback_text) review.feedback = ai.feedback_text;
   }
@@ -4372,7 +4400,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-29-1020-bestopen";
+const BUILD = "2026-10-29-1045-cheer";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
