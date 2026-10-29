@@ -42,3 +42,13 @@ console.log("letter ok");
   const t = fs.readFileSync(__dirname + "/../teacher/index.html", "utf8");
   assert.ok(t.includes('if (cur.review && cur.review.cheer == null && typeof lessonCheer === "function")'), "비어 있으면 레슨 기반 기본 응원");
   console.log("letter cheer ok"); }
+// (10/29 13:35) 더 들어 보기 3~5개: 선생님이 고른 것 + 추천 클립(more_clips), 중복·글에 들어간 것 제외, 최대 5개 · 제목 '오늘의 베스트'
+{ const M = (n) => ({ file_id: "X" + n, label: n + ":00 구간", note: "추천 " + n });
+  const h6 = lessonHtml({ ...L, point_snd: [], clips: [{ file_id: "K1", note: "숨" }], more_clips: [M(1), M(2), { file_id: "K1" }, M(3), M(4), M(5), M(6)] }, null, "normal");
+  const n = (h6.match(/data-lp="(K1|X\d)"/g) || []).length;
+  assert.strictEqual(n, 5, "최대 5개, 중복 없음: " + n);
+  assert.ok(!lessonHtml({ ...L, more_clips: [M(1)] }, null, "simple").includes('data-lp="X1"'), "심플엔 없음");
+  assert.ok(h6.includes("<b>오늘의 베스트</b>") && !h6.includes("오늘의 베스트 편집본"));
+  const t = fs.readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  assert.ok(t.includes("more_clips: moreClipsForNote(clips)") && t.includes('rv.decisions?.[c.id] !== "drop"') && t.includes("...(n.more_clips || []).map(x => x?.file_id)"), "선생님이 뺀 건 제외, 공개 때 링크 열기");
+  console.log("letter more ok"); }

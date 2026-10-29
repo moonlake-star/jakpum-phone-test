@@ -35,7 +35,7 @@ const INTERNAL = ["lesson_tone", "weekly_mission", "evidence", "confidence", "co
   // 4. 오디오 없음이어도 순간/한마디는 정상
   assert.ok(lessonHtml({ ...base, best: null }, prev).includes("두 번째 줄 끝음"));
   // 5. 클립 0 / 3 / 5개 → 최대 3개, 첫 화면 '오늘 좋았던 순간'(10/29: 접힌 곳에서 꺼냄)
-  [[0, 0], [3, 3], [5, 3]].forEach(([n, want]) => {
+  [[0, 0], [3, 3], [5, 5], [7, 5]].forEach(([n, want]) => {
     const clips = Array.from({ length: n }, (_, i) => ({ file_id: "K" + i, label: "구간" + i }));
     const [t, m] = split(lessonHtml({ ...base, clips }, null));
     assert.strictEqual(audios(t), 1 + want); assert.strictEqual(t.includes("더 들어 보기"), want > 0); assert.ok(!m.includes("오늘의 클립"));

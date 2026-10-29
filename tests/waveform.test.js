@@ -34,7 +34,7 @@ console.log('waveform ok');
   A((a.match(/<rect /g) || []).length === 240 && a.includes('data-svwave="C1"') && a.includes('class="on"'));
   A(!b.includes('<rect') && b.includes('class="flat"'), '파형 받기 전엔 가짜 파형 없음');
   A(!/Math\.sin/.test(t3.match(/const svPlayer[^\n]*\n/)[0]));
-  A(/note\.clips \|\| \[\]\), \.\.\.\(note\.pairs \|\| \[\]\), \.\.\.\(note\.point_snd \|\| \[\]\)\]\) if \(c\?\.file_id\) \{ const pk = await notePeaks\(c\.file_id\); if \(pk\) c\.peaks = pk;/.test(t3));
+  A(/note\.clips \|\| \[\]\), \.\.\.\(note\.pairs \|\| \[\]\), \.\.\.\(note\.point_snd \|\| \[\]\), \.\.\.\(note\.more_clips \|\| \[\]\)\]\) if \(c\?\.file_id\) \{ const pk = await notePeaks\(c\.file_id\); if \(pk\) c\.peaks = pk;/.test(t3));
   A(/"좋았던 순간 듣기", c\.peaks\)/.test(s3) && /"🔁 지도 전 → 후 듣기", x\.peaks\)/.test(s3));
   A(/function svWaves\(/.test(t3) && /svWaves\(\);\n\}/.test(t3), '미리보기 열면 파형 채움');
   A(/\.rp \{[^}]*border-radius:10px/.test(s3) && /#pvFull \.rp \{[^}]*border-radius:10px/.test(t3));
