@@ -25,3 +25,20 @@ console.log('waveform ok');
   require('assert')(/\.tpSeek"\)\.onchange = \(e\) => \{[^]*?player\.currentTime = player\.duration \* value \/ 1000; if \(player\.paused\) \{ pauseOthers\(player\); await player\.play\(\);/.test(t2), '파형 탭 → 재생');
   require('assert')(/if \(!peaks\) \{ g\.fillStyle = "#3a414b"; g\.fillRect\(0, h \/ 2 - 1, w, 2\); return; \}/.test(t2), '받기 전엔 가짜 파형 없음');
   console.log('waveform tap ok'); }
+// (10/29 사용자) 미리보기·수강생: 실제 소리 파형, 받기 전·없을 땐 가는 선(가짜 파형 없음), 좋았던 순간·전→후도 파형 싣기, 버튼은 둥근 네모
+{ const fs3 = require('fs'), A = require('assert'), t3 = fs3.readFileSync(__dirname + '/../teacher/index.html', 'utf8'), s3 = fs3.readFileSync(__dirname + '/../student/index.html', 'utf8');
+  const esc3 = x => String(x ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('"', '&quot;');
+  const svP = new Function('esc', t3.match(/const svPlayer[^\n]*\n/)[0] + 'return svPlayer;')(esc3);
+  const pk3 = Array.from({ length: 120 }, (_, i) => i % 100);
+  const a = svP('C1', '듣기', pk3), b = svP('C1', '듣기');
+  A((a.match(/<rect /g) || []).length === 240 && a.includes('data-svwave="C1"') && a.includes('class="on"'));
+  A(!b.includes('<rect') && b.includes('class="flat"'), '파형 받기 전엔 가짜 파형 없음');
+  A(!/Math\.sin/.test(t3.match(/const svPlayer[^\n]*\n/)[0]));
+  A(/note\.clips \|\| \[\]\), \.\.\.\(note\.pairs \|\| \[\]\)\]\) if \(c\?\.file_id\) \{ const pk = await notePeaks\(c\.file_id\); if \(pk\) c\.peaks = pk;/.test(t3));
+  A(/c\.label \|\| "듣기", c\.peaks\)/.test(s3) && /"전→후 듣기", x\.peaks\)/.test(s3));
+  A(/function svWaves\(/.test(t3) && /svWaves\(\);\n\}/.test(t3), '미리보기 열면 파형 채움');
+  A(/\.rp \{[^}]*border-radius:10px/.test(s3) && /#pvFull \.rp \{[^}]*border-radius:10px/.test(t3));
+  A(/\.aud \.wave \{[^}]*height:28px/.test(s3) && /#pvFull \.wave \{[^}]*height:28px/.test(t3));
+  const sp = new Function('esc', grab(s3, 'waveSvg') + grab(s3, 'player') + 'return player;')(esc3)('B1', '듣기');
+  A(sp.includes('class="rp"') && sp.includes('class="flat"') && !sp.includes('<rect'), '예전 노트: 버튼 + 가는 선');
+  console.log('waveform real ok'); }
