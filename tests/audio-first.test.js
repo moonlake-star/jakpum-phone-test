@@ -2,23 +2,29 @@
 const fs = require("fs"), assert = require("assert");
 const src = fs.readFileSync(__dirname + "/../teacher/index.html", "utf8"), stu = fs.readFileSync(__dirname + "/../student/index.html", "utf8");
 const grab = (s, re) => { const m = s.match(re); assert.ok(m, "없음 " + re); return m[0]; };
-const body = [grab(stu, /const esc = [^\n]*\n/), grab(stu, /const md = [^\n]*\n/), grab(stu, /function player\([\s\S]*?\n}\n/), grab(stu, /const MAX_CLIPS[^\n]*\n/),
+const body = [grab(stu, /const esc = [^\n]*\n/), grab(stu, /const md = [^\n]*\n/), grab(stu, /function player\([\s\S]*?\n}\n/), grab(stu, /function waveSvg\([\s\S]*?\n}\n/), grab(stu, /function pill\([\s\S]*?\n}\n/), grab(stu, /const MAX_CLIPS[^\n]*\n/),
   grab(stu, /const listHtml[^\n]*\n/), grab(stu, /const sidOk = [^\n]*\n/), grab(stu, /const makeupOk = [^\n]*\n/), grab(stu, /function lessonHtml\([\s\S]*?\n}\n/)].join("\n");
 const lessonHtml = new Function(body + "; return lessonHtml;")();
 const L = { id: "L", date: "2026-10-25", feedback: "오늘 좋았던 부분\n· 8:24 '오' 발음\n· 9:11~12:01 구간\n비율 10:30:20 은 아님", points: ["호흡"], practice: ["숨 5번"], clips: [{ file_id: "K1", label: "1:00 구간", note: "좋았던 브릿지" }], extra_best: [],
   best: { file_id: "B", len: 30, edited: true, joined: true }, highlight: "후렴 호흡", full: { file_id: "LISTEN", segs: [[1, "t", "안녕"]] }, pairs: [{ file_id: "P1", label: "첫 소절 톤" }] };
 let h = lessonHtml(L, null, "normal");
-// 순서: 베스트 → 좋았던 순간(클립) → 오늘의 순간 → 한마디 → 핵심 포인트(전→후)
+// (10/29 09:54 확정) 순서: 한마디(+베스트 듣기) → 오늘의 순간 → 핵심 포인트 → 미션 → 더 들어 보기(포인트에 안 붙은 소리)
 const i = (k) => h.indexOf(k);
-assert.ok(i('class="card bestTop"') < i("오늘 좋았던 순간") && i("오늘 좋았던 순간") < i("선생님이 발견한 오늘의 순간") && i("선생님이 발견한 오늘의 순간") < i("선생님 한마디") && i("선생님 한마디") < i("오늘의 핵심 포인트"));
-assert.ok(h.includes("좋았던 브릿지") && h.includes('data-au="K1"'), "클립이 첫 화면");
+assert.ok(i("선생님 한마디") < i('data-lp="B"') && i('data-lp="B"') < i("선생님이 발견한 오늘의 순간") && i("선생님이 발견한 오늘의 순간") < i("오늘의 핵심 포인트") && i("오늘의 핵심 포인트") < i("다음 미션") && i("다음 미션") < i("더 들어 보기"));
+assert.ok(h.includes("좋았던 브릿지") && h.includes('data-lp="K1"') && i('data-lp="K1"') > i("더 들어 보기"), "안 붙은 클립은 더 들어 보기");
 // 글 속 시각 → ▶ 버튼(초), 범위 양끝 모두, 시:분:초 같은 3단은 건드리지 않음
 assert.ok(h.includes('data-ftc="504"') && h.includes("▶ 8:24") && h.includes('data-ftc="551"') && h.includes('data-ftc="721"'));
 assert.ok(!h.includes('data-ftc="630"') && h.includes("10:30:20"), "3단 숫자는 시각 아님");
 assert.ok(!lessonHtml({ ...L, full: null }, null, "normal").includes("data-ftc"), "레슨 녹음 없으면 버튼 없음");
-// 지도 전→후: 핵심 포인트 카드 안, 심플에선 숨김, 재생 ID 접미사 #p
-assert.ok(h.includes("지도 전 → 후") && h.includes('data-au="P1#p"') && h.includes("첫 소절 톤"));
-assert.ok(!lessonHtml(L, null, "simple").includes("P1#p") && !lessonHtml(L, null, "simple").includes("오늘 좋았던 순간"));
+// 지도 전→후: 안 붙었으면 더 들어 보기, 심플에선 숨김, 재생 ID 접미사 #p
+assert.ok(h.includes("지도 전 → 후") && h.includes('data-lp="P1#p"') && h.includes("첫 소절 톤"));
+assert.ok(!lessonHtml(L, null, "simple").includes("P1#p") && !lessonHtml(L, null, "simple").includes("더 들어 보기"));
+// 포인트에 붙인 소리: 그 포인트 바로 아래(미션 앞), 더 들어 보기에서는 빠짐, 잘못된 번호는 무시
+{ const h2 = lessonHtml({ ...L, point_snd: [{ p: 0, kind: "pair", file_id: "P1" }, { p: 0, kind: "clip", file_id: "K1" }, { p: 5, kind: "clip", file_id: "ZZ" }, { p: "0", kind: "clip", file_id: "YY" }] }, null, "normal");
+  const j = (k) => h2.indexOf(k);
+  assert.ok(j("오늘의 핵심 포인트") < j('data-lp="P1#p"') && j('data-lp="P1#p"') < j("다음 미션") && j('data-lp="K1"') < j("다음 미션"));
+  assert.ok(!h2.includes("더 들어 보기") && !h2.includes("ZZ") && !h2.includes("YY"), "다 붙으면 더 들어 보기 없음");
+  assert.ok(!lessonHtml({ ...L, point_snd: [{ p: 0, kind: "pair", file_id: "P1" }] }, null, "simple").includes("P1#p")); }
 assert.ok(stu.includes('replace(/#[bsmp]$/, "")'));
 assert.ok(stu.includes('chips.forEach(c => c.onclick = () => go(+c.dataset.ftc'), "▶ 시각은 아래 재생바");
 // 선생님 쪽: 지도 전→후는 '카톡에 같이 보내기'(pairSend) 고른 것만, 공개 때 링크 열고 지문에 포함
