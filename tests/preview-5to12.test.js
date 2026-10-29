@@ -2,7 +2,7 @@
 const fs = require('fs'), assert = require('assert');
 const src = fs.readFileSync(__dirname + '/../teacher/index.html', 'utf8');
 const grab = name => src.match(new RegExp('(?:async )?function '+name+'\\([^]*?\\n}\\n'))[0];
-const consts = ['PV_ROWS','pvH','SV_MAX_CLIPS','svMd','svList','svPlayer','svSidOk','svMakeupOk'].map(n => src.match(new RegExp('const ' + n + '[^\\n]*\\n'))[0]).join('');
+const consts = ['PV_ROWS','pvH','SV_MAX_CLIPS','svMd','svList','svPlayer','svPill','svSidOk','svMakeupOk'].map(n => src.match(new RegExp('const ' + n + '[^\\n]*\\n'))[0]).join('');
 const code = consts + ['pvSetOpen','openStudentView','closeStudentView','studentViewHTML','svLessonHtml','updateFeedbackDraft','feedbackPreviewHTML','wireFeedbackPreview'].map(grab).join('\n');
 const esc = x => String(x).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
 function mk(saveOk = true) {
@@ -73,8 +73,8 @@ function mk(saveOk = true) {
   const ssrc = fs.readFileSync(__dirname + '/../student/index.html', 'utf8');
   const sGrab = n => ssrc.match(new RegExp('function ' + n + '\\([^]*?\\n}\\n'))[0];
   const sMd = ssrc.match(/const md = [^\n]*\n/)[0], sList = ssrc.match(/const listHtml = [^\n]*\n/)[0], sMax = ssrc.match(/const MAX_CLIPS[^\n]*\n/)[0];
-  const stuLesson = new Function('esc', 'player', sMd + sList + sMax + ssrc.match(/const sidOk = [^\n]*\n/)[0] + ssrc.match(/const makeupOk = [^\n]*\n/)[0] + sGrab('lessonHtml').replace('<button class="ghost" id="back">← 전체 노트</button>', '') + ';return lessonHtml;')(
-    esc, new Function('esc', src.match(/const svPlayer[^\n]*\n/)[0] + 'return svPlayer;')(esc));   // 재생 자리만 선생님 미리보기 자리표시로 같게
+  const stuLesson = new Function('esc', 'player', 'pill', sMd + sList + sMax + ssrc.match(/const sidOk = [^\n]*\n/)[0] + ssrc.match(/const makeupOk = [^\n]*\n/)[0] + sGrab('lessonHtml').replace('<button class="ghost" id="back">← 전체 노트</button>', '') + ';return lessonHtml;')(
+    esc, new Function('esc', src.match(/const svPlayer[^\n]*\n/)[0] + 'return svPlayer;')(esc), new Function('esc', src.match(/const svPill[^\n]*\n/)[0] + 'return svPill;')(esc));   // 재생 자리만 선생님 미리보기 자리표시로 같게
   const norm = h => h.replace(/\s+/g, ' ').trim();
   const base = { date: '2026-10-28', feedback: '잘했어요\n둘째 줄 <b>', points: ['호흡', '', '음정'], practice: ['음정 한 가지', '호흡 둘째'], no_mission: false, highlight: '후렴 호흡이 좋았어요', extra_best: [] };
   const A = n => ({ file_id: 'f' + n, label: n + '구간', note: n + '번 메모' });
@@ -100,7 +100,7 @@ function mk(saveOk = true) {
   const none = e.f.studentViewHTML(cases['선택 0(기본 미선택)']);
   assert(!none.includes('오늘의 클립') && !none.includes('오늘 부른') && !none.includes('여러 번 부른') && !none.includes('다른 버전'));
   const one = e.f.studentViewHTML(cases['선택 1(클립)']);
-  assert(one.includes('1구간') && !one.includes('2구간'));
+  assert(one.includes('1번 메모') && !one.includes('2번 메모'));
   assert.equal(e.f.studentViewHTML(cases['선택 다수(5개→3개만)']).split('class="clip"').length - 1, 3, '수강생처럼 클립은 최대 3개');
   assert(src.includes('extra_best: []'), 'buildNote는 안 고른 편집본을 싣지 않음');
   e.els.btnPreviewFull.onclick(); assert(e.overlay && e.overlay.innerHTML.includes('수강생에게 이렇게 보여요') && e.overlay.innerHTML.includes('고친 글'));
