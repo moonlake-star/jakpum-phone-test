@@ -223,7 +223,7 @@ function waveSvg(pk, color) {
 }
 // (10/29 확정 시안) 둥근 듣기 버튼: 접힌 알약 → 누르면 그 줄 폭만큼 펼쳐지며 실제 파형(공개 때 실은 값, 없으면 가는 선) + 재생
 function pill(id, label, peaks, cls) {
-  const pk = Array.isArray(peaks) && peaks.length >= 20 && peaks.length <= 400 ? peaks : null, hot = cls === "mk" ? "#c9a6ff" : "#9cc3ff";
+  const pk = Array.isArray(peaks) && peaks.length >= 20 && peaks.length <= 400 ? peaks : null, hot = /\bmk\b/.test(cls || "") ? "#c9a6ff" : "#9cc3ff";
   return `<button type="button" class="lp${cls ? " " + cls : ""}" data-lp="${esc(id)}" aria-label="${esc(label)}"><span class="ic" aria-hidden="true">▶</span><span class="lab">${esc(label)}</span><span class="wv">${pk ? waveSvg(pk, "#5b6573") + `<span class="on">${waveSvg(pk, hot)}</span>` : `<i class="flat"></i>`}</span><span class="tm"></span></button><audio class="hidden" id="au_${esc(id)}"></audio>`;
 }
 function lpOpen(b) {
@@ -231,7 +231,7 @@ function lpOpen(b) {
   if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
   b.style.width = w0 + "px"; void b.offsetWidth; b.style.width = b.parentElement.clientWidth + "px"; setTimeout(() => { b.style.width = ""; }, 320);
 }
-function lpClose(b) { const au = $("au_" + b.dataset.lp); if (au && !au.paused) au.pause(); b.classList.remove("open"); b.style.width = ""; }
+function lpClose(b) { const au = $("au_" + b.dataset.lp); if (au && !au.paused) au.pause(); if (b.classList.contains("keep")) return; b.classList.remove("open"); b.style.width = ""; }   // 베스트는 처음부터 파형을 펼쳐 둠(10/29 사용자)
 function wirePills() {
   const mmss = (x) => `${Math.floor((x || 0) / 60)}:${String(Math.floor((x || 0) % 60)).padStart(2, "0")}`;
   document.querySelectorAll("[data-lp]").forEach(b => {
@@ -351,7 +351,7 @@ function lessonHtml(l, prev, mode = "normal") {
   const psnd = full ? (Array.isArray(l.point_snd) ? l.point_snd : []).filter(x => x && typeof x.file_id === "string" && x.file_id && Number.isInteger(x.p) && x.p >= 0 && x.p < points.length) : [];
   const atIds = new Set(psnd.map(x => x.file_id)), peakOf = (id) => (clips.find(c => c.file_id === id) || pairs.find(c => c.file_id === id) || {}).peaks;
   const restClips = clips.filter(c => !atIds.has(c.file_id)), restPairs = pairs.filter(x => !atIds.has(x.file_id));
-  const bestBlock = l.best?.file_id ? `<div class="best"><div class="cardHead"><span class="badge">베스트</span><b>${l.best.edited ? "오늘의 베스트 편집본" : "오늘의 베스트 가창"}</b>${l.best.len ? `<span class="muted">${l.best.len}초</span>` : ""}</div><p class="muted" style="margin:2px 0 8px">${l.best.edited ? (l.best.joined === true ? "오늘 잘한 부분을 이어 붙였어요" : l.best.joined === false ? "오늘 가장 좋았던 한 번을 골랐어요" : "여러 번 부른 것 중 좋은 부분을 이어 붙였어요") : "오늘 부른 가창이에요"}</p>${pill(l.best.file_id, "베스트 듣기", l.best.peaks)}</div>` : "";
+  const bestBlock = l.best?.file_id ? `<div class="best"><div class="cardHead"><span class="badge">베스트</span><b>${l.best.edited ? "오늘의 베스트 편집본" : "오늘의 베스트 가창"}</b>${l.best.len ? `<span class="muted">${l.best.len}초</span>` : ""}</div><p class="muted" style="margin:2px 0 8px">${l.best.edited ? (l.best.joined === true ? "오늘의 가장 좋았던 부분을 모아 이어붙여봤어요" : l.best.joined === false ? "오늘 가장 좋았던 한 번을 골랐어요" : "오늘의 가장 좋았던 부분을 모아 이어붙여봤어요") : "오늘 부른 가창이에요"}</p>${pill(l.best.file_id, "베스트 듣기", l.best.peaks, "open keep")}</div>` : "";
   const more = [
     compare ? `<h3>🔁 지난번과 비교해 듣기</h3><p class="muted">${md(prev.date)} 베스트 ↔ ${md(l.date)} 베스트</p>
       <div class="ab"><div>${player(prev.best.file_id, md(prev.date))}</div><div>${player(l.best.file_id + "#b", md(l.date))}</div></div>` : "",
