@@ -1614,7 +1614,8 @@ function openStudentView(mode = "normal") {
     const wv = e.target?.closest?.("[data-svwave]"); if (wv && typeof svSeek === "function") { const r = wv.getBoundingClientRect(); return svSeek(wv.closest("[data-svau]") || wv.parentElement.querySelector("[data-svau]"), Math.min(1, Math.max(0, (e.clientX - r.left) / (r.width || 1)))); }   // (10/29 사용자) 미리보기도 실제로 눌러서 들음
     const tt = e.target?.closest?.("[data-ftc], [data-ft]");
     if (tt && typeof playAt === "function") { const t = +(tt.dataset.ftc ?? tt.dataset.ft);
-      if (typeof miniMarks === "function" && typeof rangeAt === "function") { try { const r = rangeAt(t, chipRanges(), (cur.segs || []).map(g => +g.start), tt.dataset.ftc == null); miniMarks([{ start: r[0], end: r[1] }], 0); miniLabel(`${tt.dataset.ftc != null ? "선생님 한마디" : "전사본"} · ${fmt(r[0])}~${fmt(r[1])} (노란 칸)`); } catch {} } if (typeof full !== "undefined" && typeof mediaUnlock === "function") mediaUnlock(full); document.querySelectorAll("#pvFull .fbub.now").forEach(x => x.classList.remove("now")); tt.classList?.add("now");
+      if (typeof miniMarks === "function" && typeof rangeAt === "function") { try { if (tt.dataset.ftc == null) { miniMarks([]); miniLabel(`전사본 · ${fmt(t)}`); }   // (10/29 11:19 사용자) 전사본 말풍선은 노란 칸 없음
+        else { const r = rangeAt(t, chipRanges(), (cur.segs || []).map(g => +g.start)); miniMarks([{ start: r[0], end: r[1] }], 0); miniLabel(`선생님 한마디 · ${fmt(r[0])}~${fmt(r[1])} (노란 칸)`); } } catch {} } if (typeof full !== "undefined" && typeof mediaUnlock === "function") mediaUnlock(full); document.querySelectorAll("#pvFull .fbub.now").forEach(x => x.classList.remove("now")); tt.classList?.add("now");
       return playAt(Math.max(0, t - 2)).catch(err => toast(err.message)); }   // 글 속 ▶시각·전사 말풍선 → 화면 아래 재생바(레슨 녹음)
     const b = e.target?.closest?.("[data-mode]"); if (!b) return;   // 심플/보통/자세히: 수강생 화면과 같은 방식으로 다시 그림
     const body = d.querySelector("#pvFullBody"); if (body) body.innerHTML = svLessonHtml(buildNote(), null, b.dataset.mode); if (typeof svWaves === "function") svWaves(); if (typeof svPaint === "function") svPaint(); };
@@ -4493,7 +4494,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-29-1200-holdsafe";
+const BUILD = "2026-10-29-1205-nomark";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();

@@ -13,4 +13,5 @@ assert.deepStrictEqual(rangeAt(800, [], []), [800, 815]);
 assert.ok(s.includes('lab.textContent = "⏳ 불러오는 중… · " + base') && s.includes('id="fbMarks"'));
 assert.ok(t.includes("body.pvOpen #busy, body.pvOpen #pop { z-index:99; }"), "미리보기 위에도 불러오는 중");
 assert.ok(/miniMarks\(\[\{ start: r\[0\], end: r\[1\] \}\], 0\)/.test(t) && t.includes("rng: chipRanges()"));
+assert.ok(s.includes("const r = segOnly ? null : rangeAt(t, full.rng, starts)") && t.includes("if (tt.dataset.ftc == null) { miniMarks([]);"), "말풍선은 노란 칸 없음");
 console.log("chip-range ok");
