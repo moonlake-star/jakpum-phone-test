@@ -1391,7 +1391,7 @@ function pvWireCards(me) {
     if (typeof renderPoints === "function") { try { renderPoints(); } catch {} } paintDeliver();
     const m = $("previewSaveMsg"); if (m) m.textContent = ok ? msg : "저장하지 못했어요. 다시 눌러 주세요."; };
   for (const id of Object.keys(PV_EDS)) { const el = $(id); if (!el) continue;
-    el.onfocus = () => pvSetH(el, true); el.onpointerdown = null; }   // (10/29 사용자) 손가락을 대는 순간이 아니라 톡 눌렀다 뗄 때(포커스)만 펼침 — 끌어서 스크롤할 땐 그대로(긴 글은 칸 안에서 넘어감)
+    el.onfocus = () => { if (el.readOnly) return; pvSetH(el, true); }; el.onpointerdown = null; }   // (10/29 사용자) 손가락을 대는 순간이 아니라 톡 눌렀다 뗄 때(포커스)만 펼침 — 끌어서 스크롤할 땐 그대로(긴 글은 칸 안에서 넘어감)
   q("[data-pvsave]").forEach(b => b.onclick = async () => { if (cur !== me || me.sched?.busy) return; const id = b.dataset.pvsave;
     if (id === "pvSong") { const v = (k) => ($(k)?.value || "").trim(); me.review.song = v("pvSongT") ? { title: v("pvSongT"), artist: v("pvSongA"), why: v("pvSongW") } : null;
       return save(me.review.song ? "추천 곡을 저장했어요. ‘검수 저장’ 때 수강생 노트에 반영돼요." : "추천 곡을 비웠어요."); }
@@ -1432,7 +1432,8 @@ function pvHold(el) {
     setTimeout(() => { if (el._pvNoSel) { try { const k = el.selectionEnd; el.setSelectionRange(k, k); } catch {} } }, 50);
   };
   const end = (e) => {
-    if (!h) { if (el._pvNoSel === "down") el._pvNoSel = "up"; return; }
+    if (!h) { if (el._pvNoSel === "down") el._pvNoSel = "up"; el.readOnly = false; return; }
+    if (!h.on) { clearTimeout(h.t); h = null; el.readOnly = false; return; }   // 제자리에서 톡 눌렀다 뗌 = 수정 모드(브라우저가 그 자리에 커서·자판)
     clearTimeout(h.t); const was = h.on, moved = h.moved; h = null; el.classList.remove("pvHolding");
     if (!was) return;
     e?.preventDefault?.();                      // 길게 누른 뒤 손 뗌: 브라우저 기본(글자 선택·메뉴) 막음
@@ -1440,18 +1441,23 @@ function pvHold(el) {
       const top = el.scrollTop; el.style.height = pvFit(el, PV_ROWS.closed) + "px"; el.scrollTop = top;
       setTimeout(() => { el.scrollTop = top; pvMore(el); }, 300);
     }
-    else { openNoSel(); el._pvNoSel = "up"; }   // 움직이지 않고 길게 눌렀다 떼면 = 수정 모드(선택 없이)
+    else { el.style.height = pvFit(el, PV_ROWS.closed) + "px"; setTimeout(() => pvMore(el), 300); }   // (10/29 10:43 사용자) 길게 눌렀다 떼면 수정 모드 아님 — 원래 크기로만
+    if (document.activeElement === el) el.blur();
+    setTimeout(() => { if (!h) el.readOnly = false; }, 350);
   };
   el.addEventListener("touchstart", (e) => {
     if (e.touches.length !== 1) return;
     if (!closed()) { if (el._pvNoSel === "up") el._pvNoSel = null; return; }   // 수정 모드에서 '새로' 누름 → 이제부터 선택 허용
     const y = e.touches[0].clientY, x = e.touches[0].clientX;
+    el.readOnly = true;   // 누르고 있는 동안엔 자판·수정 모드가 뜨지 않게(안드로이드는 길게 누르면 칸에 포커스를 줌)
     h = { y, x, on: false, moved: false, t: setTimeout(() => { if (!h) return; h.on = true; el.classList.add("pvHolding"); try { navigator.vibrate?.(12); } catch {}
-      el.style.height = pvFit(el, PV_ROWS.open) + "px"; }, PV_HOLD_MS) };   // 누르는 동안 칸을 키워 글을 더 보여 줌(애니메이션은 CSS height 250ms)
+      const H = pvFit(el, PV_ROWS.open); el.style.height = H + "px";
+      try { const r = el.getBoundingClientRect(), dy = r.top + H / 2 - window.innerHeight / 2; if (Math.abs(dy) > 8) { window.scrollBy({ top: dy, behavior: "smooth" }); } } catch {}   // (10/29 10:43 사용자) 커진 칸을 화면 가운데로
+    }, PV_HOLD_MS) };   // 누르는 동안 칸을 키워 글을 더 보여 줌(애니메이션은 CSS height 250ms)
   }, { passive: true });
   el.addEventListener("touchmove", (e) => {
     if (!h) return; const t = e.touches[0];
-    if (!h.on) { if (Math.hypot(t.clientX - h.x, t.clientY - h.y) > PV_MOVE) { clearTimeout(h.t); h = null; } return; }   // 길게 누르기 전에 움직이면 화면 스크롤
+    if (!h.on) { if (Math.hypot(t.clientX - h.x, t.clientY - h.y) > PV_MOVE) { clearTimeout(h.t); h = null; el.readOnly = false; } return; }   // 길게 누르기 전에 움직이면 화면 스크롤
     e.preventDefault(); if (Math.abs(t.clientY - h.y) > 0) h.moved = true;
     el.scrollTop += h.y - t.clientY; h.y = t.clientY; pvMore(el);
   }, { passive: false });
@@ -1461,6 +1467,7 @@ function pvHold(el) {
   el.addEventListener("selectstart", (e) => { if (noSel()) e.preventDefault(); });
   el.addEventListener("select", () => { if (el._pvNoSel) { try { const k = el.selectionEnd; el.setSelectionRange(k, k); } catch {} } });
   el.addEventListener("blur", () => { el._pvNoSel = null; });
+  el.addEventListener("mousedown", () => { el.readOnly = false; });   // 마우스·펜은 예전처럼
 }
 function pvCount(el) { if (!el || typeof document === "undefined" || !document.querySelector) return; pvMore(el); if (typeof setTimeout === "function") setTimeout(() => pvMore(el), 300);   // 접힘 애니메이션(250ms) 뒤 다시
   const c = document.querySelector(`[data-pvcnt="${el.id}"]`);
@@ -1609,7 +1616,7 @@ function wireFeedbackPreview(me) {
   const sc = () => (me.sched ??= { busy: false, pick: {} });
   const setOpen = (open) => { sc().pvExpanded = open; pvSetOpen(field, open); };
   const expand = () => { if (cur !== me || sc().pvExpanded) return; sc().pvBase ??= me.review.feedback ?? ""; setOpen(true); };   // 터치(포커스)하면 12줄. 커서·선택 위치는 건드리지 않음
-  field.onfocus = expand; field.onpointerdown = null;   // 스크롤하려고 댄 손가락으로는 펼치지 않음(포커스 = 톡 누름일 때만)
+  field.onfocus = () => { if (!field.readOnly) expand(); }; field.onpointerdown = null;   // 스크롤하려고 댄 손가락으로는 펼치지 않음(포커스 = 톡 누름일 때만)
   field.oninput = () => { if (cur === me) { expand(); updateFeedbackDraft(field.value, true); } };
   field.onchange = () => { if (cur === me && !me.sched?.busy) { me.sched.pvOpen = true; paintDeliver(); } };   // 다 고치고 나오면 미션 칸·경고를 새로 보여 줌
   const tg = $("btnPreviewToggle"), cancel = $("btnPreviewCancel"), full = $("btnPreviewFull");
@@ -4416,7 +4423,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-29-1100-letter";
+const BUILD = "2026-10-29-1050-hold";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
