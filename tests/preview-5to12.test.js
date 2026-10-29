@@ -91,7 +91,7 @@ function mk(saveOk = true) {
     '글 없음': { ...base, feedback: '', highlight: '', points: [], practice: [], best: null, clips: [] },
   };
   cases['추천곡·응원·메이크업 문구'] = { ...base, best: { file_id: 'b1', kind_ko: '편집본', len: 42, edited: true }, makeup: { file_id: 'm1', source_file_id: 'b1', len: 40, msg: '보정 <b>버전' }, cheer: '힘내요 😊', song: { title: '가짜 곡', artist: '홍길동', why: '톤' }, clips: [A(1)] };
-  for (const mode of ['simple', 'normal', 'detail'])
+  for (const mode of ['normal'])   // 10/29 17:28 사용자: 보기 방식 버튼 없앰 → 수강생·미리보기 모두 보통 고정
     for (const [name, note] of Object.entries(cases)) {
       const body = e.f.studentViewHTML(note, mode).match(/<div id="pvFullBody">([^]*)<\/div><\/div>\s*$/)[1];
       assert.equal(norm(body), norm(stuLesson(note, null, mode)), '학생 화면과 다름: ' + mode + ' ' + name);
