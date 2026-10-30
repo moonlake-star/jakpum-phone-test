@@ -1784,6 +1784,7 @@ function pvWireCards(me) {
   q("[data-pvopen]").forEach(b => b.onclick = () => { const el = $(b.dataset.pvopen); if (!el) return; el.focus(); if (el.id !== "previewFeedback") pvSetH(el, true); });
   q("[data-pvcheer]").forEach(b => b.onclick = () => { const el = $("pvCheer"); if (!el) return; el.value = b.dataset.pvcheer === "ai" ? String(me.ai?.cheer || "").trim() : (typeof lessonCheer === "function" ? lessonCheer(+b.dataset.pvcheer, el.value, cheerFacts(me)) : "") || pickCheer(+b.dataset.pvcheer, el.value, me.st?.name); pvSetH(el, true); el.focus(); });
   for (const id of ["previewFeedback", ...Object.keys(PV_EDS)]) { const el = $(id); if (el && el.addEventListener) { if (typeof pvHold === "function") pvHold(el);
+    el.addEventListener("focus", () => pvLift(el));   // (10/30 19:27 사용자) 고치기 들어가면 칸을 화면 위로 올려 키보드에 안 가리게
     el.addEventListener("input", () => { pvCount(el); const op = !!el.closest?.(".pvCard")?.classList.contains("open"); el.style.height = pvFit(el, op ? PV_ROWS.open : PV_ROWS.closed) + "px"; });
     pvCount(el); if (typeof requestAnimationFrame === "function") requestAnimationFrame(() => { const op = !!el.closest?.(".pvCard")?.classList.contains("open"); el.style.height = pvFit(el, op ? PV_ROWS.open : PV_ROWS.closed) + "px"; }); } }
   q("[data-pvfold]").forEach(b => b.onclick = () => { const el = $(b.dataset.pvfold); if (el) { el.blur?.(); pvSetH(el, false); } });
@@ -1793,6 +1794,14 @@ function pvWireCards(me) {
     const box = $("todayCard"), btn = box && box.querySelector('.tp [data-tp="play"]');
     if (!btn) return toast("위 ‘오늘의 베스트’에서 들어 주세요");
     box.scrollIntoView({ behavior: "smooth", block: "center" }); btn.click(); });
+}
+// 고치는 칸을 화면 맨 위 근처로: 키보드가 올라오는 동안(화면 높이가 바뀌는 동안) 두어 번 다시 맞춤
+function pvLift(el) {
+  if (typeof window === "undefined" || !el?.closest) return;
+  const card = el.closest(".pvCard") || el, go = () => { const r = card.getBoundingClientRect?.(); if (!r) return; const top = (window.visualViewport?.offsetTop || 0) + 8;
+    if (Math.abs(r.top - top) > 4) window.scrollBy({ top: r.top - top, behavior: "smooth" }); };
+  [60, 350, 700].forEach(ms => setTimeout(go, ms));
+  const vv = window.visualViewport; if (vv) { const on = () => { go(); vv.removeEventListener("resize", on); }; vv.addEventListener("resize", on); setTimeout(() => vv.removeEventListener("resize", on), 1500); }
 }
 function pvSetH(el, open) { if (el && el.style) el.style.height = pvFit(el, open ? PV_ROWS.open : PV_ROWS.closed) + "px"; el?.closest?.(".pvCard")?.classList.toggle("open", !!open); pvCount(el); }
 function pvMore(el) {   // 접힌 칸에서 안 보이는 줄 수(대략, 줄높이 24px) → 'N줄 더' 표시와 아래 흐림
@@ -5085,7 +5094,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-30-1900-sid";
+const BUILD = "2026-10-30-1935-lift";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
