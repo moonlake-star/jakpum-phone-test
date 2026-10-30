@@ -330,7 +330,7 @@
 </head>
 <body>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@700&display=swap">
-<script src="../brand.js?v=20261030-1420"></script>
+<script src="../brand.js?v=20261030-1530"></script>
 <script>try { Brand.splash("teacher"); } catch {}</script>
 <main>
   <header><button id="btnBack" class="ghost small hidden">← 뒤로</button><h1><span class="brMark" aria-hidden="true"></span>작품 보컬노트</h1><button id="btnUi" class="ghost small" type="button" title="화면 방식 바꾸기">V1 화면</button></header>
@@ -3555,7 +3555,8 @@ function busy(on, msg = "불러오는 중…") {
   let el = document.getElementById("busy");
   if (!el) { el = document.createElement("div"); el.id = "busy"; el.setAttribute("role", "status"); document.body.appendChild(el); }
   busyN = Math.max(0, busyN + (on ? 1 : -1));
-  try { Brand.loading(on); } catch {}   // (10/30 사용자) 1초 넘게 걸리면 작은 로고 + "오늘의 작품을 불러오고 있어요…"
+  // (10/30 15:24 사용자) 불러오기 표시는 로고 화면 하나로 통일 — 문구는 "오늘의 작품을 불러오고 있어요…"(따로 정한 문구가 있으면 그 문구)
+  if (typeof Brand !== "undefined" && Brand.loading) { try { Brand.loading(on, msg === "불러오는 중…" ? "" : msg.replace(/…$/, "") + "…", 0); } catch {} el.classList.remove("on"); return; }
   if (on) { el.textContent = "⏳ " + msg; clearTimeout(busyT); busyT = setTimeout(() => { busyN = 0; el.classList.remove("on"); }, 15000); }
   el.classList.toggle("on", busyN > 0);
 }
@@ -5046,7 +5047,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-30-1515-fix";
+const BUILD = "2026-10-30-1530-load";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
