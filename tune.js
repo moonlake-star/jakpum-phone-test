@@ -230,9 +230,10 @@
     const canEdit = typeof o.onNote === "function";
     if (canEdit) el.addEventListener("contextmenu", (e) => e.preventDefault());
     el.addEventListener("pointerdown", (e) => { drag = { x: e.clientX, y: e.clientY, t: +getT() || 0, id: e.pointerId, moved: false };
-      if (canEdit && typeof o.onAdd === "function") { const d0 = drag; d0.lp = setTimeout(() => { if (drag !== d0 || d0.moved) return; d0.long = true;   // 길게 누르기 = 그 자리에 새 주석
-        const r = el.getBoundingClientRect(), hn = hitNote(st, e.clientX - r.left, e.clientY - r.top); if (ctl && !o.paused()) o.play();
-        if (hn) { if (!hn.del) o.onNote(hn.n); return; }   // 말풍선 위 꾹 = 그 주석 고치기
+      if (canEdit && typeof o.onAdd === "function") { const d0 = drag; d0.lp = setTimeout(() => { if (drag !== d0 || d0.moved) return;   // 빈 곳 길게 누르기 = 그 자리에 새 주석
+        const r = el.getBoundingClientRect(), hn = hitNote(st, e.clientX - r.left, e.clientY - r.top);
+        if (hn) return;   // (10/30 16:34 사용자) 말풍선은 '눌렀다 떼면' 고치기 — 누른 채 옆으로 밀면 화면 이동
+        d0.long = true; if (ctl && !o.paused()) o.play();
         const tt = timeAt(st, e.clientX - r.left); if (tt != null) o.onAdd(tt); }, 300); } });
     el.addEventListener("pointermove", (e) => {
       if (!drag || drag.id !== e.pointerId) return;
@@ -311,9 +312,10 @@
       if (pts.size === 2) { const [p1, p2] = [...pts.values()]; drag = null; preview = null;
         pinch = { d: Math.hypot(p1.a - p2.a, p1.b - p2.b), xz: st.xz, yz: st.yz }; return; }
       if (pts.size === 1) { drag = { a: along(e), b: across(e), t: +getT() || 0, id: e.pointerId, mode: null, yc: st.yc, cx: e.clientX, cy: e.clientY };
-        if (typeof o.onAdd === "function") { const d0 = drag; d0.lp = setTimeout(() => { if (drag !== d0 || d0.mode) return; d0.long = true;
-          const r = cvEl.getBoundingClientRect(), hn = typeof o.onNote === "function" ? hitNote(st, d0.cx - r.left, d0.cy - r.top) : null; pauseNow();
-          if (hn) { if (!hn.del) o.onNote(hn.n); return; }
+        if (typeof o.onAdd === "function") { const d0 = drag; d0.lp = setTimeout(() => { if (drag !== d0 || d0.mode) return;
+          const r = cvEl.getBoundingClientRect(), hn = typeof o.onNote === "function" ? hitNote(st, d0.cx - r.left, d0.cy - r.top) : null;
+          if (hn) return;   // 말풍선: 눌렀다 떼면 고치기, 누른 채 밀면 이동
+          d0.long = true; pauseNow();
           const tt = timeAt(st, d0.cx - r.left); if (tt != null) o.onAdd(tt); }, 300); } }
     });
     cvEl.addEventListener("pointermove", (e) => {
