@@ -2004,9 +2004,9 @@ function svTuneOk(l) { return typeof Tune !== "undefined" && svMakeupOk(l.makeup
 function svTuneHtml(l) {
   return `<div class="svMkBox">${svSidOk(l.makeup.msg) ? `<p style="margin:2px 0 6px">${esc(l.makeup.msg.trim())}</p>` : ""}
     <div class="svAb" role="group" aria-label="원음·보정본"><button type="button" data-svab="o" class="on" aria-pressed="true">원음</button><button type="button" data-svab="p" aria-pressed="false">✨ 보정본</button></div>
-    <canvas class="tune" id="svTune" aria-label="음정선 — 톡 누르면 그 자리부터, 좌우로 밀면 앞뒤로"></canvas>${Tune.legend(true)}
+    <div class="tuneWrap mkDockWrap"><canvas class="tune sm" id="svTune" aria-label="음정선 — 누르면 크게 보기"></canvas><span class="tuneDim" aria-hidden="true"></span><span class="tuneHint" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1a1307" stroke-width="2.8" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>전체화면으로 크게 보기</span></div>${Tune.legend(true)}
     <div class="svTnote">✨ 보정본은 자동으로 음정을 맞춘 예시라 정확하지 않을 수 있어요. 정식 음원은 전문 엔지니어가 한 음 한 음 더 정밀하게 다듬어요 · 내가 실제로 부른 소리는 ‘원음’이에요</div>
-    <div class="svMkCtl"><button type="button" class="rp" data-svmkp aria-label="듣기">▶</button><span class="muted" data-svmkt style="font-size:.85rem"></span></div></div>`;
+    <div class="svMkCtl hidden"><button type="button" class="rp" data-svmkp aria-label="듣기">▶</button><span class="muted" data-svmkt style="font-size:.85rem"></span></div></div>`;
 }
 let svMk = null;   // { mode, keys:{o,p}, lv }
 function svTuneWire(l) {
@@ -2030,8 +2030,8 @@ function svTuneWire(l) {
   readBlob(l.makeup.curve_id, true).then(b => b.text()).then(s => { const cv = JSON.parse(s); if (!cv?.pts || !el.isConnected) return;
     Tune.wire(el, cv, () => (mine() ? player.currentTime || 0 : 0), () => (svMk.mode === "p" ? lv : 0), async (tt, still) => {
       try { await load(svMk.mode); player.currentTime = tt; if (still) player.pause(); else if (player.paused) { pauseOthers(player); await player.play(); } } catch {} paint(); },
-      { title: "오늘의 베스트", play, paused: () => !mine() || player.paused, mode: () => svMk.mode, setMode: (m) => swap(m), lvDef: lv, notes: () => notes, tip: "강사님의 섬세한 피드백을 하나씩 체크해서 연습에 적용해 보세요", tipKey: "pv_" + l.makeup.file_id });
-  }).catch(() => { el.nextElementSibling?.classList?.contains("tuneLeg") && el.nextElementSibling.remove(); el.remove(); });
+      { title: "오늘의 베스트", tapFull: true, play, paused: () => !mine() || player.paused, mode: () => svMk.mode, setMode: (m) => swap(m), lvDef: lv, notes: () => notes, tip: "강사님의 섬세한 피드백을 하나씩 체크해서 연습에 적용해 보세요", tipKey: "pv_" + l.makeup.file_id });
+  }).catch(() => { const w = el.closest(".tuneWrap") || el; w.nextElementSibling?.classList?.contains("tuneLeg") && w.nextElementSibling.remove(); w.remove(); box.querySelector(".svMkCtl")?.classList.remove("hidden"); });   // 못 받으면 재생 줄
   paint();
 }
 function svLessonHtml(l, prev, mode = "normal") {
@@ -5270,7 +5270,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-30-2125-yellow";
+const BUILD = "2026-10-30-2132-tapfull";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
