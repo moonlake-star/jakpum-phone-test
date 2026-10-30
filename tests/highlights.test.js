@@ -33,4 +33,11 @@ const h2 = computeHighlights(cands, segs, role, [best[1], best[0]]);
 assert.strictEqual(h2[0].cand, "C006"); assert.ok(h2[0].isBest);
 // 칭찬이 없는 레슨 → 0개(억지로 채우지 않음)
 assert.deepStrictEqual(computeHighlights([], segs, role, []), []);
+// (10/30 사용자) 수강생이 빠르게 말한 구간(대화) 뒤 '맞아요'는 하이라이트가 아님
+const talkSegs = [S(1470, 1486, "A", "자 그럼 한번 맞춰 볼게요 이번엔 끝까지"),
+  S(1488.5, 1510.1, "B", "여기 이 부분에서 체크해 드릴게요 처음부터 끝까지 선생님 이거 톤 어떤 것 같아요 원래 들은 그거는 좀 밝게 했거든요"),
+  S(1511.2, 1519.7, "A", "그 톤도 될 것 같아요 맞아요")];
+assert.deepStrictEqual(computeHighlights([{ id: "C9", score: 1, cues: [cue(1511.3, "맞아요")] }], talkSegs, role, []), []);
+const sungSegs = [talkSegs[0], S(1488.5, 1510.1, "B", "푸른 들판 너머로 노래가 흘러가네요"), talkSegs[2]];
+assert.strictEqual(computeHighlights([{ id: "C9", score: 1, cues: [cue(1511.3, "맞아요")] }], sungSegs, role, []).length, 1, "같은 자리라도 노래면 하이라이트");
 console.log("highlights ok");

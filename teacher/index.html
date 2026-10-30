@@ -81,6 +81,14 @@
   .hl { border:1px solid var(--line); border-radius:12px; padding:8px 10px; margin:6px 0; }
   .hl.on { border-color:var(--now); }
   .hl .hlq { color:var(--fg); font-size:.95rem; }
+  /* (10/30 사용자) ▶를 누르면 옆으로 펼쳐지며 파형 — 길이·위치가 보이게 */
+  .hlWave { display:none; align-items:center; gap:8px; margin-top:6px; } .hlWave.open { display:flex; }
+  .hlWave canvas { flex:1; min-width:0; height:36px; cursor:pointer; transform-origin:left center; } .hlWave.open canvas { animation:wvGrow 300ms cubic-bezier(.3,.7,.2,1); }
+  .hlWave .hlT, .sglTp .tpTime { flex:none; font-size:.8rem; color:var(--muted); font-variant-numeric:tabular-nums; }
+  .sglTp { display:flex; align-items:center; gap:8px; flex:1; min-width:0; margin:0; } .sglTp .tpWaveBox { display:none; flex:1; min-width:0; height:40px; margin:0; transform-origin:left center; }
+  .sglTp.open .tpWaveBox { display:block; animation:wvGrow 300ms cubic-bezier(.3,.7,.2,1); } .sglTp .sglLab { flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; } .sglTp.open .sglLab { display:none; }
+  @keyframes wvGrow { from { transform:scaleX(0); opacity:0; } to { transform:scaleX(1); opacity:1; } }
+  @media (prefers-reduced-motion: reduce) { .hlWave.open canvas, .sglTp.open .tpWaveBox { animation:none; } }
   .bub.hlband { box-shadow:inset 4px 0 0 var(--now); }
   .bub.hlon { background:var(--chip); }
   .bub .hltag, .bub .cptag { font-size:.75rem; margin-left:6px; color:var(--now); }
@@ -3718,10 +3726,12 @@ function renderBest() {
     const whyShort = comp?.status === "none" && /두 번 이상/.test(comp.why || "") ? "같은 부분을 두 번 이상 부른 테이크가 없어 이어 붙일 수 없었어요" : why;
     return `<div class="bestbox"><b>🎵 오늘의 베스트 편집본</b> <span class="chip todo">편집본 없음</span>
       <p role="status" class="muted" style="margin:6px 0 0">${whyShort}. 다음 자동 처리 때 다시 시도해요. 학생에게 자동으로 보내지 않아요.${singles.length ? " 아래 <b>가장 좋았던 한 번</b>을 들어 보고 골라 주시면 그걸 오늘의 베스트로 써요." : " 아래 추천 클립에서 골라 보내 주세요."}</p>
-      ${singles.map((x, i) => `<div class="row" style="gap:8px;align-items:center;margin-top:8px;flex-wrap:nowrap">
-        <button type="button" class="small ghost" data-sglplay="${esc(x.file_id)}" style="flex:none">▶ 듣기</button>
-        <span style="flex:1;min-width:0">${i === 0 ? "⭐ " : ""}${esc(x.kind_ko || "한 번 부른 것")} · ${Math.round(+x.len || 0)}초${x.praise?.text ? ` <span class="muted">· 선생님 “${esc(String(x.praise.text).slice(0, 20))}”</span>` : ""}</span>
-        <button type="button" class="small" data-sglpick="${esc(x.file_id)}" style="flex:none">이걸로</button></div>`).join("")}
+      ${singles.map((x, i) => `<div style="margin-top:8px"><div class="row" style="gap:8px;align-items:center;flex-wrap:nowrap">
+        <div class="tp sglTp" data-sgltp="${esc(x.file_id)}" data-len="${+x.len || 0}"><button type="button" class="small" data-tp="play" aria-label="${i + 1}번 후보 듣기" style="flex:none">▶</button>
+          <span class="sglLab">${i === 0 ? "⭐ " : ""}${esc(x.kind_ko || "한 번 부른 것")}</span>
+          <div class="tpWaveBox"><canvas class="tpWave" aria-hidden="true"></canvas><input type="range" class="tpSeek" min="0" max="1000" value="0" aria-label="재생 위치"></div><span class="tpTime"></span></div>
+        <button type="button" class="small" data-sglpick="${esc(x.file_id)}" style="flex:none">이걸로</button></div>
+        ${x.praise?.text ? `<div class="muted" style="font-size:.8rem;margin:2px 0 0 4px">선생님 “${esc(String(x.praise.text).slice(0, 20))}”</div>` : ""}</div>`).join("")}
       <p class="muted" style="margin:8px 0 0;font-size:.8rem">고르기 전엔 학생에게 아무것도 보내지 않아요.</p></div>`;
   }
   const o = opts[0];
@@ -3996,7 +4006,13 @@ function wireIncl(o) {
   });
 }
 function wireBest() {
-  (document.querySelectorAll?.("#todayCard [data-sglplay]") || []).forEach(b => b.onclick = () => playShared(b, b.dataset.sglplay));
+  (document.querySelectorAll?.("#todayCard .sglTp") || []).forEach(r => {   // (10/30 사용자) ▶ → 옆으로 펼쳐지며 파형·길이(공용 재생바와 같은 player)
+    tpWire(r, r.dataset.sgltp, false, null, +r.dataset.len);
+    r.querySelector('[data-tp="play"]')?.addEventListener("click", () => {
+      document.querySelectorAll("#todayCard .sglTp.open").forEach(x => { if (x !== r) x.classList.remove("open"); });
+      r.classList.add("open"); if (typeof requestAnimationFrame === "function") requestAnimationFrame(() => drawWave(r.querySelector(".tpWave"), wavePeaks[r.dataset.sgltp], 0));
+    });
+  });
   (document.querySelectorAll?.("#todayCard [data-sglpick]") || []).forEach(b => b.onclick = () => bestSinglePick(b.dataset.sglpick).catch(e => toast(e.message)));
   const rs = typeof document.getElementById === "function" ? document.getElementById("sglReset") : null; if (rs) rs.onclick = () => bestSinglePick(null).catch(e => toast(e.message));
   const o = bestPicked(); if (!o) return;
@@ -4555,9 +4571,11 @@ function praiseRank(t) { for (const [re, v] of HL_RANK) if (re.test(t || "")) re
 function computeHighlights(cands, segs, roleFn, bestOpts) {
   const isT = (x) => roleFn(x.speaker) === "teacher";
   const segAt = (t) => segs.findIndex(x => x.start - 0.3 <= t && t <= x.end + 0.3);
-  const singBefore = (i) => {          // 칭찬 말 앞, 선생님의 긴 말(1.5초+)이 끼기 전까지 = 노래 구간
+  const fastTalk = (x) => { const r = roleFn(x.speaker), L = x.end - x.start; if (r === "singing" || r === "music" || L < 1) return false;   // (10/30 사용자) 말하는 구간 제외
+    return ((x.text || "").match(/[가-힣A-Za-z]/g) || []).length / L >= 2.0; };   // 글자/초: 노래(가사) 0.6~1.2, 말 2.5~6 (10/29 실측)
+  const singBefore = (i) => {          // 칭찬 말 앞, 선생님의 긴 말(1.5초+)이나 빠른 말(대화)이 끼기 전까지 = 노래 구간
     let k = i - 1;
-    while (k >= 0 && !(isT(segs[k]) && segs[k].end - segs[k].start >= 1.5 && (segs[k].text || "").length >= 4)) k--;
+    while (k >= 0 && !(isT(segs[k]) && segs[k].end - segs[k].start >= 1.5 && (segs[k].text || "").length >= 4) && !fastTalk(segs[k])) k--;
     return k + 1 < i ? Math.max(segs[k + 1].start, segs[i].start - HL_SING_MAX) : null;
   };
   const praiseEnd = (x) => Math.min(x.end, x.start + HL_PRAISE_MAX);
@@ -4610,6 +4628,7 @@ function renderHighlights() {
       <button class="small" data-hlplay="${k}" aria-label="하이라이트 ${h.n} 듣기">▶</button>
       <div style="flex:1;min-width:0"><b>${h.isBest ? "🎵 " : ""}${h.n}. ${fmt(h.start)} ~ ${fmt(h.end)}</b> <span class="muted" style="white-space:nowrap">${Math.round(h.end - h.start)}초${h.isBest ? (p?.isComposite ? " · 베스트 편집본의 기준 테이크" : " · 오늘의 베스트") : ""}</span>
         <div class="hlq">“${esc(h.praise)}”</div></div></div>
+      <div class="hlWave${hlWaveK === k ? " open" : ""}" data-hlwave="${k}"><canvas aria-label="하이라이트 ${h.n} 재생 위치 — 누르면 그 자리부터"></canvas><span class="hlT"></span></div>
       ${h.cand ? pick2HTML("h_" + h.cand, d, `하이라이트 ${h.n} 수강생에게 보낼지`) + memoHTML(h.cand, d, rv.notes?.[h.cand] ?? c?.note ?? "") : ""}
     </div>`;
   }).join("") || `<p class="muted">선생님 칭찬 바로 앞 노래 구간을 찾지 못했어요 — 아래 ‘다른 후보’에서 골라 주세요.</p>`;
@@ -4628,10 +4647,13 @@ function renderHighlights() {
     if (hlCur === k && hlPlay && hlPlay.k === k) { if (full.paused) full.play().catch(e => toast(e.message)); else full.pause(); return; }
     hlQueueStop(); hlGo(k); });
   paintHlBtns();
-  wirePick2(hs, (id, v) => {
-    renderHighlights(); renderCands(); syncGood();
-    if (v === "send") { const k = hlList.findIndex(h => h.cand === id); if (k >= 0) { hlQueueStop(); hlGo(k); } }   // 포함하면 바로 그 구간 재생(2026-10-27 사용자)
-  });
+  hs.querySelectorAll("[data-hlwave] canvas").forEach(cv => cv.onclick = (e) => {   // 파형을 누르면 그 자리부터
+    const k = +cv.parentElement.dataset.hlwave, h = hlList[k]; if (!h) return;
+    const r = cv.getBoundingClientRect(), fr = Math.min(1, Math.max(0, (e.clientX - r.left) / (r.width || 1)));
+    hlQueueStop(); hlPlay = { k, end: h.end, queue: null }; hlCur = k; hlMark(k); miniMarks([h], 0);
+    playAt(h.start + fr * (h.end - h.start), true, false).catch(x => toast(x.message)); });
+  if (hlWaveK >= 0) hlWaveOpen(hlWaveK);
+  wirePick2(hs, () => { renderHighlights(); renderCands(); syncGood(); });   // (10/30 사용자) 포함·제외를 누르면 재생은 멈춤(자동 재생 안 함)
   hs.querySelectorAll(".cnote").forEach(i => { i.oninput = () => { (cur.review.notes ??= {})[i.dataset.c] = i.value.trim(); }; i.onchange = syncGood; });
   wireStab(hs);
   hs.querySelectorAll("[data-mk]").forEach(b => b.onclick = () => {
@@ -4670,8 +4692,25 @@ function hlMark(k) {
   cur.segs.forEach((x, i) => { if (hlIn(x, h)) { const el = segs.querySelector(`.bub[data-i="${i}"]`); if (el) { el.classList.add("hlon"); first ??= el; } } });
   return first;
 }
+var hlWaveK = -1;
+function hlWaveOpen(k) {   // 이 하이라이트 파형만 펼침. 파형 = 듣기용.mp3에서 그 구간만 받아 계산(segPeaks, 구간 크기만큼만 받음)
+  const hs = $("hls"); if (!hs) return; hlWaveK = k;
+  hs.querySelectorAll(".hlWave.open").forEach(x => { if (+x.dataset.hlwave !== k) x.classList.remove("open"); });
+  const el = hs.querySelector(`.hlWave[data-hlwave="${k}"]`), h = hlList[k]; if (!el || !h) return;
+  el.classList.add("open"); hlWavePaint();
+  if (!h._pk && typeof segPeaks === "function") segPeaks(h.start, h.end).then(pk => { if (pk) { h._pk = pk; hlWavePaint(); } }).catch(() => {});
+}
+function hlWavePaint() {
+  const hs = typeof $ === "function" && $("hls"), el = hs && hs.querySelector?.(".hlWave.open"); if (!el) return;
+  const k = +el.dataset.hlwave, h = hlList[k]; if (!h) return;
+  const L = Math.max(0.1, h.end - h.start), on = hlPlay && hlPlay.k === k, t = on ? Math.min(L, Math.max(0, hlNow() - h.start)) : 0;
+  drawWave(el.querySelector("canvas"), h._pk || null, t / L);
+  const tm = el.querySelector(".hlT"); if (tm) tm.textContent = `${fmt(t)} / ${fmt(L)}`;
+}
+if (typeof full !== "undefined" && typeof full.addEventListener === "function") full.addEventListener("timeupdate", () => hlWavePaint());
 function hlGo(k, queue) {
   const h = hlList[k]; if (!h) return;
+  hlWaveOpen(k);
   const wrap = $("segWrap"); if (wrap && !wrap.open) { wrap._forced = true; wrap.open = true; }   // 전사본을 펼침(접기 저장값은 안 바꿈)
   hlMark(k);   // 전사본에 표시만 — 화면은 움직이지 않음(2026-10-27 22:04 사용자: 자동 스크롤 끔)
   hlPlay = { k, end: h.end, queue: queue || null }; hlCur = k;
@@ -4777,6 +4816,7 @@ function memoHTML(id, d, memo) {
 function wirePick2(root, after) {
   root.querySelectorAll(".pick2 label").forEach(l => l.onclick = (e) => {
     const r = l.querySelector("input"); if (!r) return; e.preventDefault();
+    try { if (typeof hlQueueStop === "function") hlQueueStop(); full.pause(); player.pause(); } catch {}   // (10/30 사용자) 포함·제외를 누르면 듣던 소리는 멈춤
     const id = r.name.slice(2), was = cur.review.decisions?.[id], same = r.value === "send" ? was === "send" : (was === "keep" || was === "drop");
     const bumped = setDecision(cur.review, id, same ? null : r.value, allCands().map(c => c.id));
     if (bumped) toast(`포함은 최대 ${MAX_GOOD}개 — 가장 먼저 고른 ${bumped}은 ‘제외’로 바꿨어요`);
@@ -4924,7 +4964,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-30-1000-single3";
+const BUILD = "2026-10-30-1030-wave";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
