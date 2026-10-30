@@ -169,7 +169,9 @@
       if (a[0] === "p") { d.t0 = Math.max(0, Math.round((d.t0 + v) * 100) / 100); d.t1 = d.t0; } else if (a[0] === "s") d.t0 = Math.max(0, Math.min(d.t1 - 0.15, Math.round((d.t0 + v) * 100) / 100)); else d.t1 = Math.max(d.t0 + 0.15, Math.round((d.t1 + v) * 100) / 100);
       paint(); V && V.focus(a[0] === "e" ? d.t1 : d.t0); });   // 바꾼 쪽 자리로 그래프가 따라감
     const close = () => { el.remove(); V && V.done(); if (lastView === V) lastView = null; };
-    el.onclick = (e) => { if (e.target === el) close(); };
+    // (10/31 08:09 버그) 위 칸을 톡 하면 창이 뜬 직후 같은 손가락의 'click'이 창 바깥(어두운 곳)에 떨어져 바로 닫혔음 → 뜬 뒤 0.45초 안의 바깥 클릭은 무시
+    const openedAt = performance.now();
+    el.onclick = (e) => { if (e.target === el && performance.now() - openedAt > 450) close(); };
     el.querySelector(".tsCancel").onclick = close;
     el.querySelector(".tsClr") && (el.querySelector(".tsClr").onclick = () => { const ta = el.querySelector(".tsTx"); ta.value = ""; ta.focus(); });
     // (10/30 17:38 사용자 시안 승인) 삭제 = 확인 팝업('다음부터 묻지 않기' 체크하면 이 폰에선 바로 삭제)
