@@ -81,6 +81,10 @@
   .hl { border:1px solid var(--line); border-radius:12px; padding:8px 10px; margin:6px 0; }
   .hl.on { border-color:var(--now); }
   .hl .hlq { color:var(--fg); font-size:.95rem; }
+  /* (10/30 사용자) 튠 화면(음정선) · 보정 끔/켬 */
+  .tune { display:block; width:100%; height:170px; border-radius:12px; background:#11141a; margin:6px 0 2px; cursor:pointer; } .tune.sm { height:120px; }
+  .tuneLeg { display:flex; gap:12px; font-size:.78rem; color:var(--muted); margin:2px 2px 4px; flex-wrap:wrap; } .tuneLeg i { display:inline-block; width:16px; height:3px; border-radius:2px; vertical-align:middle; margin-right:4px; }
+  .abSw { display:flex; border:1px solid var(--line); border-radius:12px; overflow:hidden; margin:8px 0; } .abSw button { flex:1; border:0; border-radius:0; background:#11141a; color:var(--muted); font-weight:800; min-height:42px; margin:0; } .abSw button.on { background:var(--accent); color:#10141a; }
   /* (10/30 사용자) ▶를 누르면 옆으로 펼쳐지며 파형 — 길이·위치가 보이게 */
   .hlWave { display:none; align-items:center; gap:8px; margin-top:6px; } .hlWave.open { display:flex; }
   .hlWave canvas { flex:1; min-width:0; height:36px; cursor:pointer; transform-origin:left center; } .hlWave.open canvas { animation:wvGrow 300ms cubic-bezier(.3,.7,.2,1); }
@@ -449,6 +453,7 @@
 <div id="v2Shade" class="v2only"></div>
 <div id="toast"></div>
 <script src="../lesson-replies.js"></script>
+<script src="../tune.js"></script>
 
 <script>
 // ── 설정 ────────────────────────────────────────────────
@@ -1292,7 +1297,7 @@ function buildNote() {
   const noMission = rv.no_mission === true;
   return { lesson_id: cur.folder.id, date: cur.folder.name.slice(0, 10), title: cur.folder.name,
     feedback: $("fb").value, points: (rv.points || []).filter(Boolean), practice: noMission ? [] : (rv.practice || []).filter(Boolean), no_mission: noMission,
-    best: bestNote(bp), makeup: mk ? { file_id: mk.file_id, len: mk.len, source_file_id: mk.source_file_id, msg: (rv.makeup_msg || "").trim() } : null, extra_best: [],
+    best: bestNote(bp), makeup: mk ? { file_id: mk.file_id, len: mk.len, source_file_id: mk.source_file_id, msg: (rv.makeup_msg || "").trim(), ...(typeof mkSideFiles === "function" ? mkSideFiles(bestPicked()) : {}) } : null, extra_best: [],
     cheer: (rv.cheer || "").trim(), song: rv.song?.title ? { title: rv.song.title, artist: rv.song.artist || "", why: rv.song.why || "", ...(rv.song.url ? { url: rv.song.url } : {}) } : null,   /* 고르지 않은 편집본을 '다른 버전'으로 몰래 싣지 않음 */
     ...(/^[A-Za-z0-9_-]{30,60}$/.test((typeof cfg !== "undefined" && cfg?.student_audio_key) || "") ? { audio_key: cfg.student_audio_key } : {}),   // 수강생 재생용(드라이브 API 키, 주소 제한)
     clips, highlight: clips[0]?.note || (rv.points || []).find(Boolean) || "", published_at: new Date().toISOString(),
@@ -1414,7 +1419,7 @@ function fullForNote() {
   return out.length ? { file_id: f.id, len: Math.round(+cur.summary?.duration_sec || 0), segs: out, cut, ...(typeof chipRanges === "function" && chipRanges().length ? { rng: chipRanges() } : {}) } : null;
 }
 // 게시한 녹음만 '링크가 있는 사람 보기'로 연다(사용자 결정 2026-10-26). 링크(ID)는 승인된 본인 노트에만 실림.
-const noteFileIds = (n) => [n.best?.file_id, n.makeup?.file_id, n.full?.file_id, ...(n.pairs || []).map(x => x?.file_id), ...(n.extra_best || []).map(x => x?.file_id), ...(n.clips || []).map(x => x.file_id), ...(n.point_snd || []).map(x => x?.file_id), ...(n.more_clips || []).map(x => x?.file_id)].filter(Boolean);
+const noteFileIds = (n) => [n.best?.file_id, n.makeup?.file_id, n.makeup?.before_id, n.makeup?.curve_id, n.full?.file_id, ...(n.pairs || []).map(x => x?.file_id), ...(n.extra_best || []).map(x => x?.file_id), ...(n.clips || []).map(x => x.file_id), ...(n.point_snd || []).map(x => x?.file_id), ...(n.more_clips || []).map(x => x?.file_id)].filter(Boolean);
 async function openLink(fileId) {
   await api(`${DRIVE}/files/${fileId}/permissions?sendNotificationEmail=false&fields=id`, { method: "POST",
     headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "anyone", role: "reader" }) });
@@ -3395,7 +3400,10 @@ async function openMkJob(j, backTo) {
     <p class="muted">${r.status === "done" ? `완성 ${r.render_count || 1}번째 · 길이 ${fmt(meas.duration_sec || 0)} · 최종 ${meas.mix_lufs_out ?? "?"} LUFS${pi.key ? ` · 키 ${esc(pi.key.name)}${pi.key_auto ? "(자동 인식)" : ""}` : ""}` :
       `실패: ${esc(r.error || "")}`}</p></div>`;
   if (r.status === "done" && (by("vocal_dry.mp3") || hasP)) {
+    const curveF = by("pitch_curve.json"), tuneOk = hasP && curveF && typeof Tune !== "undefined";
     body += `<div class="card"><h3 style="margin-top:0">바로 듣고 조절</h3>
+      ${tuneOk ? `<canvas class="tune" id="mkTune" aria-label="음정선 — 톡 누르면 그 자리부터, 좌우로 밀면 앞뒤로"></canvas>${Tune.legend(true)}`
+        : hasP ? `<p class="muted" style="margin:4px 0">🎼 튠 화면(음정선)은 새로 만든 메이크업본부터 보여요 · 예전 것은 서버가 차례로 다시 만드는 중</p>` : ""}
       <div class="row" style="margin-top:8px;flex-wrap:nowrap"><span class="muted" id="mkPos" style="min-width:6em">0:00 / -:--</span>
         <input type="range" id="mkSeek" min="0" max="1000" value="0" style="flex:1"></div>
       <div class="row" style="justify-content:center;gap:6px;margin:6px 0;flex-wrap:nowrap">
@@ -3405,9 +3413,11 @@ async function openMkJob(j, backTo) {
       <p class="muted" id="mkT" style="margin:0 0 6px;text-align:center">▶를 누르면 불러와서 재생해요</p>
       ${hasB ? `<label style="display:flex;gap:8px;align-items:center;margin:8px 0 2px"><input type="checkbox" id="mkRawSw" style="width:1.2em;height:1.2em"> 생 원본 (처리 전)</label>
         <p class="muted" id="mkRawHint" style="margin:0 0 6px">켜면 아무 처리 안 한 소리(같은 크기로 맞춤). 보컬·MR 크기만 적용돼요.</p>` : ""}
-      ${hasP ? `<div class="mkFx" style="margin-top:6px">음정 보정 <b id="mkPitchT"></b> <span class="muted">${pi.key ? `(${esc(pi.key.name)} 스케일)` : ""}</span>
+      ${hasP ? `<div class="mkFx" style="margin-top:6px">음정 보정 <span class="muted">${pi.key ? `(${esc(pi.key.name)} 스케일)` : ""}</span>
+        <div class="abSw" id="mkAb" role="group" aria-label="음정 보정 끔·켬"><button type="button" data-ab="0">보정 끔</button><button type="button" data-ab="1">보정 켬</button></div>
+        <details id="mkLvBox"><summary class="muted">보정 세기 (자세히) · 지금 <b id="mkPitchT"></b></summary>
         <input type="range" id="mkPitch" min="0" max="3" step="1" value="${r.pitch_level != null ? +r.pitch_level : 2}" style="width:100%">
-        <div class="row muted" style="justify-content:space-between;font-size:.8rem"><span>끔</span><span>약</span><span>중</span><span>강</span></div>
+        <div class="row muted" style="justify-content:space-between;font-size:.8rem"><span>끔</span><span>약</span><span>중</span><span>강</span></div></details>
         <div class="row" style="margin-top:4px"><label class="muted">키</label><select id="mkKey" style="flex:1">${keyOptions(pi.key, false)}</select></div>
         <p class="muted" style="margin:2px 0 0">키를 바꾸면 ‘완성본 다시 만들기’ 때 그 키로 다시 보정해요(자동 인식 후보: ${esc((pi.key_candidates || []).join(", "))}).</p>${boundBox}</div>`
         : `<p class="muted">음정 보정은 ‘이 설정으로 완성본 다시 만들기’를 한 번 하면 생겨요.</p>`}
@@ -3461,7 +3471,15 @@ async function openMkJob(j, backTo) {
     if (mkRaw && !mkTracks.bv?.buf && !mkTracks.before?.buf) { $("mkT").textContent = "생 원본 불러오는 중…"; await ensure(beforeSet()); playLabel(); }
     if (mkRaw && !by("before_vocal.mp3")) $("mkRawHint").textContent = "이 작업의 생 원본은 한 덩어리라 보컬·MR 크기도 적용되지 않아요.";
     mkApply(); };
-  if ($("mkPitch")) $("mkPitch").oninput = async () => { abLabel(); mkApply(); await ensure(stage(lvNow())); mkApply(); };
+  const abPaint = () => document.querySelectorAll("#mkAb [data-ab]").forEach(b => { const on = (lvNow() > 0) === (b.dataset.ab === "1"); b.classList.toggle("on", on); b.setAttribute("aria-pressed", String(on)); });
+  if ($("mkPitch")) $("mkPitch").oninput = async () => { abLabel(); abPaint(); mkApply(); await ensure(stage(lvNow())); mkApply(); };
+  let lvOn = lvNow() || 2;   // (10/30 사용자) 끔/켬 한 번에 — 켬은 마지막 세기(기본 '중'), 재생 중 같은 자리에서 바로 바뀜
+  document.querySelectorAll("#mkAb [data-ab]").forEach(b => b.onclick = () => { const el = $("mkPitch"); if (!el) return;
+    if (lvNow() > 0) lvOn = lvNow(); el.value = b.dataset.ab === "1" ? String(lvOn) : "0"; el.oninput(); });
+  abPaint();
+  if (tuneOk) readBlob(curveF.id, true).then(b => b.text()).then(s => { const cv = JSON.parse(s); if (!cv?.pts || !$("mkTune")) return;
+    Tune.wire($("mkTune"), cv, () => mkNow(), () => (mkRaw ? 0 : lvNow()), (t) => { if (!mkPlaying) { mkOffset = Math.max(0, Math.min(t, mkDurS ? mkDurS - 0.05 : t)); $("mkPP").click(); } else mkSeekTo(t); });
+  }).catch(() => { const c = $("mkTune"); if (c) c.replaceWith(Object.assign(document.createElement("p"), { className: "muted", textContent: "음정선을 불러오지 못했어요" })); });
   // 슬라이더가 기본값에 닿으면 짧고 약한 진동(안드로이드). 기본값: 보컬 0dB · 리버브 15% · MR 0dB · 음정 '중'
   const DEF = { mkVol: 0, mkRev: 15, mkMr: 0, mkPitch: 2 };
   for (const [id, d] of Object.entries(DEF)) { const el = $(id); if (!el) continue; let prev = +el.value;
@@ -3658,6 +3676,12 @@ function bestSourceTakes() {   // 하이라이트 기준 테이크 등 내부용
 }
 function bestPicked() { return bestOptions()[0] || null; }   // 화면에 보여 줄 편집본. 학생에게 보낼지는 bestForNote()
 // 메이크업본: 끝난 작업(done)의 mix.mp3 실물이 있고, 그 작업이 '지금 이 편집본'으로 만든 것일 때만 있다고 봄
+function mkCurveFile(o) { const job = o?.file_id ? bestMakeupJob(o) : null; return job?.req?.status === "done" ? (job.files || []).find(x => x.name === "pitch_curve.json") || null : null; }
+function mkSideFiles(o) {   // 수강생 노트용: 원음(보정 전, 같은 크기) · 음정선
+  const job = o?.file_id ? bestMakeupJob(o) : null, fs = (job?.req?.status === "done" && job.files) || [];
+  const b = fs.find(x => x.name === "before.mp3"), c = fs.find(x => x.name === "pitch_curve.json");
+  return { ...(b ? { before_id: b.id } : {}), ...(c ? { curve_id: c.id, curve_lv: +(job.req.pitch_level ?? 2) } : {}) };
+}
 function bestMakeupAudio(o) {
   const job = o?.file_id ? bestMakeupJob(o) : null;
   if (!job || job.req.status !== "done" || job.req.best_file_id !== o.file_id) return null;
@@ -3756,7 +3780,7 @@ function renderBest() {
   // (B안 10/28 23:24 사용자) 파형 2개 위아래(원본·메이크업, 각각 보내기 체크) + 가운데 재생 줄 하나. 파형을 누르면 그 버전·그 자리부터
   return `<div class="bestbox abPair"><span class="sr-only">오늘의 베스트 편집본 ${Math.round(o.len)}초</span>
     <div class="abRow" data-abrow="orig"><div class="row abHead"><b>${o.singlePicked ? "가장 좋았던 한 번" : "원본 편집본"}</b>${o.singlePicked ? `<button type="button" class="small ghost" id="sglReset">다른 걸로</button>` : ""}<span class="muted" style="font-size:.85rem">${Math.round(o.len)}초</span>${chk("best")}</div>${waveOnly(seamStrip(o, "strip"))}</div>
-    ${ms === "ready" ? `<div class="abRow" data-abrow="mk"><div class="row abHead"><b>✨ 메이크업본</b>${chk("makeup")}</div><div class="muted" style="font-size:.8rem;margin:-2px 0 2px">간단 음정보정 예시 · 음원 발매용 정식 보정은 더 자연스러워요</div>${waveOnly()}</div>`
+    ${ms === "ready" ? `<div class="abRow" data-abrow="mk"><div class="row abHead"><b>✨ 메이크업본</b>${chk("makeup")}</div><div class="muted" style="font-size:.8rem;margin:-2px 0 2px">간단 음정보정 예시 · 음원 발매용 정식 보정은 더 자연스러워요</div>${waveOnly()}${typeof mkCurveFile === "function" && mkCurveFile(o) && typeof Tune !== "undefined" ? `<canvas class="tune sm" id="mkTuneToday" aria-label="음정선 — 톡 누르면 그 자리부터"></canvas>${Tune.legend(true)}` : ""}</div>`
       : `<div class="row abHead" style="margin-top:6px"><button type="button" id="bestMakeup" class="small ghost mkMake">🪄 ${ms === "none" ? "메이크업본 만들기" : bestMakeupLabel(o)}</button></div>${makeupBoxHTML(o)}`}
     <div class="row" style="justify-content:space-between;margin-top:4px"><span class="tpTime muted abTime">0:00 / 0:00</span><span class="muted" style="font-size:.8rem">파형을 누르면 그 자리부터</span></div>
     <div class="row tpBtns" style="margin-top:4px;gap:4px;flex-wrap:nowrap;display:grid;grid-template-columns:${ms === "ready" ? "1fr 1fr 1.1fr 1fr 1fr 1.1fr" : "1fr 1fr 1.1fr 1fr 1fr"}">
@@ -4028,6 +4052,11 @@ function wireBest() {
   };
   const job = bestMakeupJob(o), m = makeupState(o) === "ready" ? bestMakeupAudio(o) : null, mroot = box?.querySelector('[data-abrow="mk"] .tp');
   if (m && mroot) tpWire(mroot, m.file_id, false, timeEl);   // 같은 player 하나 → 두 음원이 겹쳐 나지 않음
+  { const cf = m && mkCurveFile(o), el = typeof document.getElementById === "function" ? document.getElementById("mkTuneToday") : null;   // (10/30 사용자) 피드백 화면에도 튠 화면
+    if (cf && el && typeof Tune !== "undefined") readBlob(cf.id, true).then(b => b.text()).then(s => { const cv = JSON.parse(s); if (!cv?.pts) return;
+      Tune.wire(el, cv, () => (tpFile === m.file_id ? player.currentTime : 0), () => +(job?.req?.pitch_level ?? 2), async (t) => {
+        try { if (tpFile !== m.file_id && !(await tpLoad(mroot, m.file_id))) return; player.currentTime = t; if (player.paused) { pauseOthers(player); await player.play(); } tpPaint(); } catch (e) { toast(e.message); } });
+    }).catch(() => {}); }
   const pairs = [[broot, o.file_id], ...(m && mroot ? [[mroot, m.file_id]] : [])];
   // 파형 미리 그리기: 녹음을 받아 둔 적이 있으면 바로, 아니면 받아서(편집본·메이크업 각 한 번, 레슨 화면에 있는 동안 다시 받지 않음)
   if (typeof wavePeaks !== "undefined") for (const [r, id] of pairs) {
@@ -4981,7 +5010,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-30-1045-jump";
+const BUILD = "2026-10-30-1200-tune";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
