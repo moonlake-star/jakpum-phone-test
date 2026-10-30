@@ -7,7 +7,7 @@ assert.strictEqual(T.col(cv, 2), 3); assert.strictEqual(T.col(cv, 0), 0); assert
 const r = T.range({ pts: Array.from({ length: 100 }, (_, i) => [i / 25, 6000 + i * 10]) });
 assert.ok(r[0] < 6000 && r[1] > 6990 && r[0] % 50 === 0);
 const st = fs.readFileSync(__dirname + "/../student/index.html", "utf8"), te = fs.readFileSync(__dirname + "/../teacher/index.html", "utf8");
-assert.ok(st.includes('<script src="../tune.js"></script>') && te.includes('<script src="../tune.js"></script>'));
+assert.ok(st.includes('<script src="../tune.js?v=') && te.includes('<script src="../tune.js?v='));
 assert.ok(st.includes("정확하지 않을 수 있어요. 정식 음원은 전문 엔지니어가 한 음 한 음 더 정밀하게 다듬어요"), "보정본엔 항상 안내(10/30 13:35 사용자 문구)");
 assert.ok(/data-ab="o" class="on" aria-pressed="true">원음/.test(st), "수강생은 원음이 먼저");
 assert.ok(/n\.makeup\?\.before_id, n\.makeup\?\.curve_id/.test(te), "원음·음정선도 게시 때 링크 열림");
@@ -25,4 +25,8 @@ assert.ok(tr[0].title.includes("2회차") && tr[1].curve === "C3");
 const jump = { levels: [2], pts: Array.from({ length: 200 }, (_, i) => [i / 25, i < 100 ? 6500 : 7400, i < 100 ? 6500 : 7400]) };
 const f = T.fitAt(jump, 4, 2); assert.ok(f[0] <= 6500 && f[1] >= 7400, "지금 앞뒤 음이 모두 들어감");
 assert.strictEqual(T.semiLabel(-51), "↓ 0.5반음 내림"); assert.strictEqual(T.semiLabel(22), "↑ 0.2반음 올림"); assert.strictEqual(T.semiLabel(100), "↑ 1반음 올림");
+const blip = { levels: [2], pts: Array.from({ length: 200 }, (_, i) => [i / 25, i >= 120 && i < 124 ? 7600 : 6500, 6500]) };
+assert.ok(T.fitAt(blip, 4, 2)[1] >= 7600, "0.16초짜리 짧은 도약음도 화면 안");
+const spike = { levels: [2], pts: Array.from({ length: 200 }, (_, i) => [i / 25, i === 120 ? 9000 : 6500, 6500]) };
+assert.ok(T.fitAt(spike, 4, 2)[1] < 7000, "혼자 튄 한 점은 무시");
 console.log("tune-view ok");
