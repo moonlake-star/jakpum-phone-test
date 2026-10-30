@@ -1827,13 +1827,20 @@ function tsWire(el) {
   const paintChips = () => { const ts = tsTimes(el.value), editing = document.activeElement === el;
     chips.hidden = editing || !ts.length;
     chips.innerHTML = ts.map(x => `<button type="button" class="tsChip" data-tschip="${x.s}" data-lab="${esc(x.lab)}">▶ ${esc(x.lab)}</button>`).join(""); };
-  const onCaret = () => { if (document.activeElement !== el) return; show(tsLineTime(el)); };
+  // (10/30 20:13 사용자) 고치는 중엔 막대를 글 칸 '위'로 — 아래에 두면 키보드에 가림. 읽을 땐 다시 칩 아래로
+  const top = el.closest?.(".pvEdWrap") || el;
+  const place = (editing) => { if (editing) { if (bar.nextElementSibling !== top) top.insertAdjacentElement("beforebegin", bar); } else if (bar.previousElementSibling !== chips) chips.insertAdjacentElement("afterend", bar); };
+  const onCaret = () => { if (document.activeElement !== el) return; place(true); show(tsLineTime(el)); };
   ["keyup", "click", "input", "select"].forEach(ev => el.addEventListener(ev, onCaret));
-  el.addEventListener("focus", () => { paintChips(); setTimeout(onCaret, 30); });
-  el.addEventListener("blur", () => setTimeout(() => { if (document.activeElement !== el && !bar.contains(document.activeElement)) { paintChips(); if (!bar._chip) show(null); } }, 150));
+  // 키보드가 올라온 뒤 글 칸 높이를 남은 화면에 맞춤(커서 줄이 키보드 밑으로 숨지 않게)
+  const fit = () => { const vv = window.visualViewport; if (document.activeElement !== el || !vv || !el.getBoundingClientRect) return;
+    const avail = vv.height + vv.offsetTop - el.getBoundingClientRect().top - 12; if (avail > 120) el.style.height = Math.min(el.scrollHeight + 4, avail) + "px"; };
+  window.visualViewport?.addEventListener("resize", fit);
+  el.addEventListener("focus", () => { paintChips(); setTimeout(onCaret, 30); [450, 900].forEach(ms => setTimeout(fit, ms)); });
+  el.addEventListener("blur", () => setTimeout(() => { if (document.activeElement !== el && !bar.contains(document.activeElement)) { place(false); paintChips(); if (!bar._chip) show(null); } }, 150));
   el.addEventListener("input", paintChips);
   chips.addEventListener("click", (e) => { const b = e.target.closest?.("[data-tschip]"); if (!b) return; const x = { s: +b.dataset.tschip, lab: b.dataset.lab };
-    bar._chip = true; show(x); const pb = bar.querySelector(".tsPlay"); if (pb && typeof jumpPlay === "function") jumpPlay(pb, x.s); });
+    bar._chip = true; place(false); show(x); const pb = bar.querySelector(".tsPlay"); if (pb && typeof jumpPlay === "function") jumpPlay(pb, x.s); });
   bar.addEventListener("pointerdown", (e) => { if (e.target.closest?.(".tsPlay")) e.preventDefault(); });   // 누르는 동안 글 칸 커서(키보드) 유지
   bar.addEventListener("click", (e) => { const b = e.target.closest?.(".tsPlay"); if (b && typeof jumpPlay === "function") jumpPlay(b, +b.dataset.tsplay); });
   paintChips();
@@ -5137,7 +5144,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-30-2010-tstime";
+const BUILD = "2026-10-30-2016-tstop";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
