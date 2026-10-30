@@ -464,7 +464,7 @@
 <div id="v2Shade" class="v2only"></div>
 <div id="toast"></div>
 <script src="../lesson-replies.js"></script>
-<script src="../tune.js?v=20261030-1750"></script>
+<script src="../tune.js?v=20261030-1752"></script>
 
 <script>
 // ── 설정 ────────────────────────────────────────────────
@@ -3711,7 +3711,7 @@ async function tnSave(job, c) {   // 메이크업 폴더의 주석 기록(JSON)�
 function tnPublic(job) {   // 수강생 노트에 싣는 것: ✓확인한 주석만, 시간·글만
   const c = job && tnCache[job.folder?.id]; if (!c) return null;
   return c.doc.notes.filter(n => n && n.status === "ok" && String(n.text || "").trim() && Number.isFinite(+n.t0) && +n.t1 >= +n.t0)
-    .slice(0, 12).map(n => ({ t0: Math.round(+n.t0 * 10) / 10, t1: Math.round(+n.t1 * 10) / 10, text: String(n.text).trim().slice(0, 80) }));
+    .slice(0, 12).map(n => ({ t0: Math.round(+n.t0 * 100) / 100, t1: Math.round(+n.t1 * 100) / 100, text: String(n.text).trim().slice(0, 80) }));
 }
 function tnSumHTML(c) { if (!c) return ""; const ns = c.doc.notes, d = ns.filter(n => n.status !== "ok").length, ok = ns.length - d;
   return `<span class="chip">AI 초안 ${d}</span> <span class="chip">확인 ${ok}</span> · 초안은 수강생에게 안 보여요 · 그래프를 눌러 크게 본 뒤 칸을 누르면 고치기, 빈 곳을 길게 누르면 추가`; }
@@ -5076,7 +5076,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-30-1750-point";
+const BUILD = "2026-10-30-1752-step";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
