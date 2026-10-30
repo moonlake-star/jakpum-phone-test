@@ -246,7 +246,7 @@
       else if (nowL - lb.seen > 200) lb.a = Math.max(0, lb.a - dtl / 150); }   // 0.2초 안에 다시 나오면 그대로 유지(깜빡임 방지)
     const dL = st ? lb.d : d;
     if (dL != null && (st ? lb.a > 0.01 : Math.abs(dL) >= 5)) { const d = dL; g.save(); g.globalAlpha = st ? lb.a : 1;   // 지금 위치: 수강생 기준 현상(↑높게/↓낮게). 선생님은 아래에 작게 보정량
-      const s = sangLabel(d), sub = st && st.teacher ? "보정: " + semiLabel(d).slice(2) : "";
+      const s = sangLabel(d), sub = st && st.teacher && k ? "보정: " + semiLabel(d).slice(2) : "";   // (10/30 17:33 사용자) 원음으로 들을 땐 '보정: …' 안 띄움
       g.font = (full ? "bold 15px" : "bold 11px") + " system-ui, sans-serif";
       const g2 = (full ? "12px" : "9.5px") + " system-ui, sans-serif", tw1 = g.measureText(s.txt).width; g.font = g2; const tw2 = sub ? g.measureText(sub).width : 0;
       const tw = Math.max(tw1, tw2), x0 = Math.min(w - tw - 8, Math.round(xs(t)) + 6), bh1 = full ? 22 : 16, bh2 = sub ? (full ? 16 : 12) : 0;
