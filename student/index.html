@@ -84,6 +84,9 @@
   .tuneLeg { display:flex; gap:12px; font-size:.8rem; color:var(--muted); margin:2px 2px 4px; flex-wrap:wrap; } .tuneLeg i { display:inline-block; width:16px; height:3px; border-radius:2px; vertical-align:middle; margin-right:4px; }
   .abSw { display:flex; border:1px solid #363c45; border-radius:12px; overflow:hidden; margin:8px 0 4px; } .abSw button { flex:1; border:0; border-radius:0; background:#11141a; color:var(--muted); font-weight:800; min-height:44px; margin:0; font-size:1rem; } .abSw button.on { background:#c9a6ff; color:#10141a; }
   .abSw button[data-ab="o"].on { background:var(--accent); }
+  .tuneDim { position:absolute; inset:0; background:rgba(8,10,13,.55); border-radius:12px; pointer-events:none; }
+  .tuneHint { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); display:flex; align-items:center; gap:9px; white-space:nowrap; padding:13px 22px; border-radius:30px; background:linear-gradient(135deg,#ffe08f,#e0a73c); color:#1a1307; font-weight:900; font-size:1.02rem; border:2px solid #fff3cf; box-shadow:0 0 0 6px rgba(255,210,122,.22),0 8px 26px rgba(0,0,0,.55); pointer-events:none; }
+  .mkDockWrap { margin-top:6px; } .mkDockWrap .tune.sm { height:230px; margin:0; }
   .tnote { font-size:.82rem; color:#ffd27a; margin:2px 0 6px; }
   .mkCtl { display:flex; align-items:center; gap:10px; } .mkCtl input[type=range] { flex:1; } .mkCtl .tm2 { font-size:.8rem; color:var(--muted); font-variant-numeric:tabular-nums; min-width:5.6em; text-align:right; }
   .alb .seg3 { display:flex; border:1px solid #363c45; border-radius:12px; overflow:hidden; margin:8px 0; } .alb .seg3 button { flex:1; border:0; border-radius:0; margin:0; min-height:40px; background:#11141a; color:var(--muted); font-weight:700; font-size:.9rem; } .alb .seg3 button.on { background:var(--accent); color:var(--on-accent); }
@@ -463,9 +466,9 @@ function tnOk(a) { return Array.isArray(a) ? a.filter(n => n && Number.isFinite(
 function mkBoxHtml(mk, best) {
   return `<div class="mkBox" data-mkbox="${esc(mk.file_id)}">
     <div class="abSw" role="group" aria-label="원음·보정본"><button type="button" data-ab="o" class="on" aria-pressed="true">원음</button><button type="button" data-ab="p" aria-pressed="false">✨ 보정본</button></div>
-    ${sidOk(mk.curve_id) && typeof Tune !== "undefined" ? `<canvas class="tune" aria-label="음정선 — 톡 누르면 그 자리부터, 좌우로 밀면 앞뒤로"></canvas>${Tune.legend(true)}` : ""}
+    ${sidOk(mk.curve_id) && typeof Tune !== "undefined" ? `<div class="tuneWrap mkDockWrap"><canvas class="tune sm" aria-label="음정선 — 누르면 크게 보기"></canvas><span class="tuneDim" aria-hidden="true"></span><span class="tuneHint" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1a1307" stroke-width="2.8" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>전체화면으로 크게 보기</span></div>${Tune.legend(true)}` : ""}
     <div class="tnote">✨ 보정본은 자동으로 음정을 맞춘 예시라 정확하지 않을 수 있어요. 정식 음원은 전문 엔지니어가 한 음 한 음 더 정밀하게 다듬어요 · 내가 실제로 부른 소리는 ‘원음’이에요</div>
-    <div class="mkCtl"><button type="button" class="rp" data-mkp aria-label="듣기">▶</button><input type="range" min="0" max="1000" value="0" data-mks aria-label="재생 위치"><span class="tm2" data-mkt></span></div>
+    <div class="mkCtl${sidOk(mk.curve_id) && typeof Tune !== "undefined" ? " hidden" : ""}"><button type="button" class="rp" data-mkp aria-label="듣기">▶</button><input type="range" min="0" max="1000" value="0" data-mks aria-label="재생 위치"><span class="tm2" data-mkt></span></div>
     <audio class="hidden" data-mka="p" preload="none"></audio><audio class="hidden" data-mka="o" preload="none"></audio></div>`;
 }
 // 두 음원(보정본 p · 원음 o)을 한 자리에서 바꿔 듣는 작은 재생기. 바꿀 때 지금 위치·재생 상태 그대로.
@@ -495,12 +498,12 @@ function wireMkBoxes() {
     sk.oninput = () => { sk._drag = true; }; sk.onchange = async () => { sk._drag = false; const a = D.act(); if (!a.getAttribute("src")) await D.play(src).catch(() => {}); if (a.duration) a.currentTime = sk.value / 1000 * a.duration; };
     box.querySelectorAll("[data-ab]").forEach(b => b.onclick = () => D.swap(b.dataset.ab, src).then(paint).catch(() => {}));
     const cvEl = box.querySelector("canvas.tune");
-    if (cvEl && sidOk(mk.curve_id) && typeof Tune !== "undefined") Tune.load(driveUrl(mk.curve_id)).then(cv => { if (!cv) return cvEl.remove();
+    if (cvEl && sidOk(mk.curve_id) && typeof Tune !== "undefined") Tune.load(driveUrl(mk.curve_id)).then(cv => { if (!cv) { (cvEl.closest(".tuneWrap") || cvEl).remove(); box.querySelector(".mkCtl")?.classList.remove("hidden"); return; }
       Tune.wire(cvEl, cv, () => D.act().currentTime || 0, () => (D.mode() === "p" ? +(mk.curve_lv ?? 2) : 0), async (t, still) => {
         const a = D.act(); try { if (!a.getAttribute("src")) { if (still) a.src = await audioUrl(D.mode() === "p" ? src.p : src.o); else await D.play(src); }
           const go = () => { a.currentTime = t; if (still) a.pause(); else if (a.paused) a.play().catch(() => {}); }; if (a.readyState >= 1) go(); else a.addEventListener("loadedmetadata", go, { once: true }); } catch {} },
-        { title: "오늘의 베스트", play: () => btn.click(), paused: () => D.act().paused, mode: () => D.mode(), setMode: (m) => D.swap(m, src).then(paint).catch(() => {}), lvDef: +(mk.curve_lv ?? 2), notes: () => tnOk(mk.tune_notes), tip: "강사님의 섬세한 피드백을 하나씩 체크해서 연습에 적용해 보세요", tipKey: mk.file_id });
-    }).catch(() => { cvEl.nextElementSibling?.classList?.contains("tuneLeg") && cvEl.nextElementSibling.remove(); cvEl.remove(); });
+        { title: "오늘의 베스트", tapFull: true, play: () => btn.click(), paused: () => D.act().paused, mode: () => D.mode(), setMode: (m) => D.swap(m, src).then(paint).catch(() => {}), lvDef: +(mk.curve_lv ?? 2), notes: () => tnOk(mk.tune_notes), tip: "강사님의 섬세한 피드백을 하나씩 체크해서 연습에 적용해 보세요", tipKey: mk.file_id });
+    }).catch(() => { const w = cvEl.closest(".tuneWrap") || cvEl; w.nextElementSibling?.classList?.contains("tuneLeg") && w.nextElementSibling.remove(); w.remove(); box.querySelector(".mkCtl")?.classList.remove("hidden"); });   // 음정선을 못 받으면 예전 재생 줄
   });
 }
 // ── (10/30 사용자) 나의 베스트 모아듣기: 선생님이 포함한 베스트·메이크업본만, 레슨 날짜순(성장) · 원음만 · 보정본만 ──
