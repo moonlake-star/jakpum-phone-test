@@ -83,8 +83,8 @@
       else { g.fillStyle = "#11131a"; g.strokeStyle = `rgb(${c})`; g.lineWidth = 2; g.beginPath(); g.arc(a, s.y, R * 0.8, 0, Math.PI * 2); g.fill(); g.stroke(); }   // 소리 없는 곳 = 가까운 음 높이에 속 빈 점
       dots.set(n, { x: a, y: s.y, c, r: R + 3 }); }
     g.restore();
-    const fs = full ? 14 : 11.5, lh = fs + 5, pad = full ? 9 : 7, nr = full ? 11 : 9, xr = st.teacher && !st.noX ? (full ? 12 : 10) : 0;
-    const maxL = full ? 2 : 1, sh = pad * 2 + (fs - 1) + 4 + maxL * lh, x = L + 4, bw = w - L - 8, gap = 6, bot = T + H - 6;
+    const stu = !st.teacher, fs = full ? (stu ? 17 : 14) : (stu ? 13.5 : 11.5), lh = fs + 5, pad = full ? 9 : 7, nr = full ? 11 : 9, xr = st.teacher && !st.noX ? (full ? 12 : 10) : 0;
+    const maxL = full ? 2 : 1, sh = pad * 2 + (stu ? 2 : (fs - 1) + 4) + maxL * lh, x = L + 4, bw = w - L - 8, gap = 6, bot = T + H - 6;
     const fmtT = (s) => `${Math.floor(s / 60)}:${(s % 60).toFixed(1).padStart(4, "0")}`;
     for (const n of [...dots.keys()].sort((a, b) => shown.includes(a) - shown.includes(b))) { const dt = dots.get(n); const c = colOf(n);   // 모든 주석 점에 고정 번호(칸에 없는 건 회색)   // 음정선 위 번호 점(칸 아래에 깔리게 먼저)
       const k2 = kf(n), fa = (st.fin[k2] != null ? Math.min(1, (now - st.fin[k2]) / 150) : 1) * (st.fout[k2] != null ? Math.max(0, 1 - (now - st.fout[k2]) / 150) : 1);
@@ -107,10 +107,10 @@
       g.fillStyle = "#10201a"; g.font = `900 ${full ? 13 : 11}px system-ui, sans-serif`; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(String(num), x + pad + nr, y + pad + nr + 0.5); g.textAlign = "left";
       const tx0 = x + pad + nr * 2 + 8, tmax = bw - (tx0 - x) - pad - (xr ? xr * 2 + 6 : 0);
       const tag = (st.teacher ? (ok ? "✓ 확인" : "AI 초안" + (SRC[n.src] ? " · " + SRC[n.src] : "")) : "🎤 선생님 한마디") + " · " + fmtT(+n.t0);
-      g.textBaseline = "top"; g.font = `bold ${fs - 2}px system-ui, sans-serif`; g.fillStyle = `rgb(${c})`; g.fillText(tag, tx0, y + pad);
+      g.textBaseline = "top"; if (!stu) { g.font = `bold ${fs - 2}px system-ui, sans-serif`; g.fillStyle = `rgb(${c})`; g.fillText(tag, tx0, y + pad); }
       g.font = `${fs}px system-ui, sans-serif`; let lines = wrapTxt(g, n.text || "", tmax);
       if (lines.length > maxL) { const keep = lines.slice(0, maxL); let l2 = keep[maxL - 1]; while (l2 && g.measureText(l2 + "…").width > tmax) l2 = l2.slice(0, -1); keep[maxL - 1] = l2 + "…"; lines = keep; }   // 작은 화면 1줄·전체화면 2줄, 넘으면 … (눌러서 전체 보기)
-      g.fillStyle = "#f1f1f1"; lines.forEach((s2, j) => g.fillText(s2, tx0, y + pad + fs + 2 + j * lh)); g.textBaseline = "middle";
+      g.fillStyle = "#f1f1f1"; const ty0 = stu ? y + pad + 3 + (lines.length < maxL ? (maxL - lines.length) * lh / 2 : 0) : y + pad + fs + 2; lines.forEach((s2, j) => g.fillText(s2, tx0, ty0 + j * lh)); g.textBaseline = "middle";
       let xx = null; if (xr) { xx = { cx: x + bw - xr - 6, cy: y + xr + 6, r: xr };
         g.fillStyle = "#3a2a2a"; g.beginPath(); g.arc(xx.cx, xx.cy, xr, 0, Math.PI * 2); g.fill(); g.strokeStyle = "#ff9a9a"; g.lineWidth = 1.2; g.stroke();
         const q = xr * 0.42; g.lineWidth = 2; g.beginPath(); g.moveTo(xx.cx - q, xx.cy - q); g.lineTo(xx.cx + q, xx.cy + q); g.moveTo(xx.cx + q, xx.cy - q); g.lineTo(xx.cx - q, xx.cy + q); g.stroke(); }
