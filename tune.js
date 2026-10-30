@@ -42,7 +42,7 @@
   const SRC = { lesson: "이번 레슨", habit: "선생님 강조", knowledge: "보컬 지식", teacher: "선생님" };
   function wrapTxt(g, s, maxW) { const out = []; let line = ""; for (const ch of String(s)) { if (ch === "\n") { out.push(line); line = ""; continue; } if (g.measureText(line + ch).width > maxW && line) { out.push(line); line = ch.trim() ? ch : ""; } else line += ch; } if (line) out.push(line); return out.slice(0, 4); }
   function rr(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
-  function drawNotes(g, st, t, xs, L, w, T, H, full, top) {
+  function drawNotes(g, st, t, xs, L, w, T, H, full, top, occ) {
     const all = typeof st.notes === "function" ? (st.notes() || []) : [], hits = []; st.hits = hits;
     if (!all.length) return;
     for (const n of all) { const a = xs(+n.t0), b = xs(+n.t1); if (b < L - 8 || a > w + 8) continue;   // 구간 표시(짧으면 한 점)
@@ -51,13 +51,22 @@
         g.fillStyle = ok ? "#7fd99a" : "#ffd27a"; g.beginPath(); g.moveTo(X, T + H - 2); g.lineTo(X - 5, T + H - 9); g.lineTo(X + 5, T + H - 9); g.closePath(); g.fill(); continue; } g.fillStyle = ok ? "rgba(127,217,154,.08)" : "rgba(255,210,122,.09)"; g.fillRect(Math.max(L, a), T, Math.max(2, Math.min(w, b) - Math.max(L, a)), H);
       g.strokeStyle = ok ? "rgba(127,217,154,.5)" : "rgba(255,210,122,.5)"; g.lineWidth = 1; g.setLineDash([3, 3]); g.beginPath(); for (const x of [a, b]) if (x >= L && x <= w) { g.moveTo(Math.round(x) + 0.5, T); g.lineTo(Math.round(x) + 0.5, T + H); } g.stroke(); g.setLineDash([]); }
     const act = all.filter(n => t >= +n.t0 - 0.3 && t <= Math.max(+n.t1, +n.t0 + 0.5) + 1.5).sort((a, b) => a.t0 - b.t0).slice(0, 2);
-    const fs = full ? 14 : 11, lh = fs + 5, maxW = full ? 260 : 170, pad = full ? 9 : 7; let y = top + 4;
-    for (const n of act) { const ok = n.status === "ok";
-      g.font = `${fs}px system-ui, sans-serif`; const lines = wrapTxt(g, n.text || "", maxW);
+    const fs = full ? 14 : 11, lh = fs + 5, maxW = full ? 260 : 170, pad = full ? 9 : 7;
+    const ms = act.map(n => { const ok = n.status === "ok"; g.font = `${fs}px system-ui, sans-serif`; const lines = wrapTxt(g, n.text || "", maxW);
+      return { n, ok, lines, bh: pad * 2 + (fs - 2 + 4) + lines.length * lh }; });
+    // (10/30 16:30 사용자 시안 승인) 음정선을 피해 위·아래 중 더 넓게 빈 쪽에. 같은 말풍선 묶음이 떠 있는 동안은 자리 고정
+    const need = ms.reduce((s, m) => s + m.bh + 6, 0), bot = T + H - 6, key = act.map(n => n.id || n.t0 + ":" + n.text).join("|");
+    let y;
+    if (st.nPl && st.nPl.key === key && st.nPl.H === H) y = st.nPl.y;
+    else { const upFree = occ ? occ[0] - 10 - (top + 4) : 1e9, dnFree = occ ? bot - (occ[1] + 12) : -1;
+      y = !occ || upFree >= dnFree ? top + 4 : Math.max(top + 4, Math.min(occ[1] + 12, bot - need));
+      if (key) st.nPl = { key, y, H }; }
+    for (const m of ms) { const { n, ok, lines, bh } = m;
+      g.font = `${fs}px system-ui, sans-serif`;
       const tag = st.teacher ? (ok ? "✓ 확인" : "AI 초안 · " + (SRC[n.src] || "AI")) : "🎤 선생님 한마디";
       g.font = `bold ${fs - 2}px system-ui, sans-serif`; const tw = g.measureText(tag).width; g.font = `${fs}px system-ui, sans-serif`;
       const xr = st.teacher ? (full ? 13 : 11) : 0, xPad = xr ? xr * 2 + 6 : 0;   // 선생님: 오른쪽 위 ✕ = 바로 삭제(10/30 16:26 사용자)
-      const bw = Math.min(maxW, Math.max(tw, ...lines.map(s => g.measureText(s).width))) + pad * 2 + xPad, bh = pad * 2 + (fs - 2 + 4) + lines.length * lh;
+      const bw = Math.min(maxW, Math.max(tw, ...lines.map(s => g.measureText(s).width))) + pad * 2 + xPad;
       const x = Math.max(L + 2, Math.min(w - bw - 4, xs(+n.t0) - 10));
       if (y + bh > T + H - 6) break;
       g.fillStyle = "rgba(30,34,42,.94)"; rr(g, x, y, bw, bh, 10); g.fill();
@@ -190,7 +199,8 @@
       g.font = (full ? "bold 15px" : "bold 11px") + " system-ui, sans-serif"; g.fillStyle = s.c; g.fillText(s.txt, x0, T + 4 + bh1 / 2);
       if (sub) { g.font = g2; g.fillStyle = "#a9b1bc"; g.fillText(sub, x0, T + 4 + bh1 + bh2 / 2 - 2); }
     }
-    if (st) drawNotes(g, st, t, xs, L, w, T, H, full, tagB);
+    if (st) { let oy0 = 1e9, oy1 = -1e9; for (const p of vis) { for (const kk of [1, k]) { if (!kk || p[kk] == null) continue; const Y = y(p[kk]); if (Y < oy0) oy0 = Y; if (Y > oy1) oy1 = Y; } }   // 지금 화면의 음정선 높이 범위
+      drawNotes(g, st, t, xs, L, w, T, H, full, tagB, oy0 <= oy1 ? [oy0, oy1] : null); }
   }
   // 붙이기: getT()=지금 초, getLv()=보여 줄 보정 단계(0이면 원음만), seek(초). 화면에서 빠지면 저절로 멈춤.
   // 확대/전체 버튼: el 바로 앞에 붙임(Tune.controls). 기본 = 확대.
