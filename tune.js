@@ -56,12 +56,17 @@
         const seg = (vis || []).filter(p => p[1] != null && p[0] >= +n.t0 && p[0] <= +n.t1);
         for (const [wd, al] of [[12, 0.28], [3.2, 1]]) { g.strokeStyle = `rgba(${c},${al})`; g.lineWidth = wd; g.lineCap = "round"; g.lineJoin = "round"; g.beginPath(); let prev = null;
           for (const p of seg) { const X = xs(p[0]), Y = yf(p[1]); if (prev != null && p[0] - prev < 0.13) g.lineTo(X, Y); else g.moveTo(X, Y); prev = p[0]; } g.stroke(); }
-        const e = pAt(+n.t1); if (e) { g.fillStyle = "#11131a"; g.strokeStyle = `rgb(${c})`; g.lineWidth = 2; g.beginPath(); g.arc(b, e.y, full ? 6 : 4.5, 0, Math.PI * 2); g.fill(); g.stroke(); } }
+        // (10/30 16:48 사용자 시안 승인) 구간 = 음정선 바로 위 ├──┤ 괄호, 말풍선 화살표가 괄호 가운데를 가리킴
+        let top = 1e9; for (const p of seg) { const Y = yf(p[1]); if (Y < top) top = Y; } if (top > 1e8) { const s0 = pAt(+n.t0); top = s0 ? s0.y : T + H / 2; }
+        const yb = Math.max(T + 6, top - (full ? 14 : 10)), tk = full ? 5 : 4, xa = Math.max(L, a), xb = Math.min(w, b);
+        g.strokeStyle = `rgb(${c})`; g.lineWidth = ed ? 2.6 : 2; g.lineCap = "butt"; g.beginPath(); g.moveTo(xa, yb); g.lineTo(xb, yb);
+        if (a >= L) { g.moveTo(a, yb - tk); g.lineTo(a, yb + tk); } if (b <= w) { g.moveTo(b, yb - tk); g.lineTo(b, yb + tk); } g.stroke();
+        dots.set(n, { x: (xa + xb) / 2, y: yb, c, r: 2 }); continue; }
       const s = pAt(+n.t0); if (!s) continue; const R = (full ? 7 : 5) * (ed ? 1.3 : 1);   // 시작 점 = 그 시간에 부른 음 위
       g.fillStyle = `rgba(${c},.22)`; g.beginPath(); g.arc(a, s.y, R * 1.9, 0, Math.PI * 2); g.fill();
       if (s.on) { g.fillStyle = `rgb(${c})`; g.beginPath(); g.arc(a, s.y, R, 0, Math.PI * 2); g.fill(); }
       else { g.fillStyle = "#11131a"; g.strokeStyle = `rgb(${c})`; g.lineWidth = 2; g.beginPath(); g.arc(a, s.y, R * 0.8, 0, Math.PI * 2); g.fill(); g.stroke(); }   // 소리 없는 곳 = 가까운 음 높이에 속 빈 점
-      dots.set(n, { x: a, y: s.y, c }); }
+      dots.set(n, { x: a, y: s.y, c, r: R + 3 }); }
     g.restore();
     const act = all.filter(n => t >= +n.t0 - 0.3 && t <= Math.max(+n.t1, +n.t0 + 0.5) + 1.5).sort((a, b) => a.t0 - b.t0).slice(0, 2);
     const fs = full ? 14 : 11, lh = fs + 5, maxW = full ? 260 : 170, pad = full ? 9 : 7;
@@ -82,7 +87,11 @@
       const bw = Math.min(maxW, Math.max(tw, ...lines.map(s => g.measureText(s).width))) + pad * 2 + xPad;
       const x = Math.max(L + 2, Math.min(w - bw - 4, xs(+n.t0) - 10));
       if (y + bh > T + H - 6) break;
-      const dt = dots.get(n); if (dt) { const ey = dt.y < y ? y : y + bh; g.strokeStyle = `rgba(${dt.c},.8)`; g.lineWidth = 1.2; g.setLineDash([3, 3]); g.beginPath(); g.moveTo(dt.x, dt.y + (dt.y < y ? 6 : -6)); g.lineTo(Math.max(x + 12, Math.min(x + bw - 12, dt.x)), ey); g.stroke(); g.setLineDash([]); }   // 점 ↔ 말풍선 점선
+      const dt = dots.get(n); if (dt) {   // 말풍선 → 가리키는 자리 화살표
+        const up = dt.y < y, sx = Math.max(x + 14, Math.min(x + bw - 14, dt.x)), sy = up ? y : y + bh, tx = dt.x, ty = dt.y + (up ? dt.r : -dt.r);
+        if (Math.abs(sy - ty) > 8) { const ang = Math.atan2(ty - sy, tx - sx), hl = full ? 9 : 7;
+          g.strokeStyle = `rgb(${dt.c})`; g.fillStyle = `rgb(${dt.c})`; g.lineWidth = 1.6; g.beginPath(); g.moveTo(sx, sy); g.lineTo(tx - Math.cos(ang) * hl * 0.6, ty - Math.sin(ang) * hl * 0.6); g.stroke();
+          g.beginPath(); g.moveTo(tx, ty); g.lineTo(tx - Math.cos(ang - 0.45) * hl, ty - Math.sin(ang - 0.45) * hl); g.lineTo(tx - Math.cos(ang + 0.45) * hl, ty - Math.sin(ang + 0.45) * hl); g.closePath(); g.fill(); } }
       g.fillStyle = "rgba(30,34,42,.94)"; rr(g, x, y, bw, bh, 10); g.fill();
       g.strokeStyle = ok ? "#7fd99a" : "#ffd27a"; g.lineWidth = 1.5; if (!ok) g.setLineDash([4, 3]); rr(g, x, y, bw, bh, 10); g.stroke(); g.setLineDash([]);
       g.textBaseline = "top"; g.font = `bold ${fs - 2}px system-ui, sans-serif`; g.fillStyle = ok ? "#7fd99a" : "#ffd27a"; g.fillText(tag, x + pad, y + pad);
