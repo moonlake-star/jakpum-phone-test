@@ -88,6 +88,8 @@
   /* (10/30 18:22 사용자 시안 승인) 그래프 가운데 금색 큰 버튼 · 그래프는 반쯤 어둡게(누르는 곳은 그래프 전체) */
   .tsChips { display:flex; gap:6px; flex-wrap:wrap; margin:6px 0 2px; } .tsChips[hidden] { display:none; }
   .tsChip { min-height:34px; padding:0 12px; margin:0; border-radius:17px; border:1.5px solid #9cc3ff; background:transparent; color:#9cc3ff; font-weight:800; font-size:.88rem; }
+  .tsMir { position:absolute; left:0; top:0; right:0; z-index:1; pointer-events:none; overflow:hidden; box-sizing:border-box; border:1px solid transparent; padding:8px 10px; line-height:24px; white-space:pre-wrap; overflow-wrap:break-word; word-break:normal; color:transparent; }
+  .tsMir mark { color:#ffd27a; background:rgba(255,210,122,.17); border-radius:9px; box-shadow:0 0 0 2px rgba(255,210,122,.17), 0 0 0 3px rgba(255,210,122,.55); }
   .tsBar { margin:8px 0 4px; border:1.5px solid #ffd27a; border-radius:14px; background:#1b1e24; padding:9px 10px; } .tsBar[hidden] { display:none; }
   .tsRow { display:flex; align-items:center; gap:10px; } .tsPlay { min-height:40px; padding:0 14px; margin:0; border-radius:20px; border:0; background:#ffd27a; color:#1a1307; font-weight:900; font-size:.95rem; }
   .tsQ { margin-top:7px; font-size:.88rem; line-height:1.55; color:#cfd3da; } .tsQ b { margin-right:4px; } .tsQ .tT { color:#9cc3ff; } .tsQ .tS { color:#7fd99a; }
@@ -1843,7 +1845,20 @@ function tsWire(el) {
     bar._chip = true; place(false); show(x); const pb = bar.querySelector(".tsPlay"); if (pb && typeof jumpPlay === "function") jumpPlay(pb, x.s); });
   bar.addEventListener("pointerdown", (e) => { if (e.target.closest?.(".tsPlay")) e.preventDefault(); });   // 누르는 동안 글 칸 커서(키보드) 유지
   bar.addEventListener("click", (e) => { const b = e.target.closest?.(".tsPlay"); if (b && typeof jumpPlay === "function") jumpPlay(b, +b.dataset.tsplay); });
-  paintChips();
+  paintChips(); tsMirror(el);
+}
+// (10/30 20:18 사용자 B안) 글 칸 속 시각(11:15)을 금색 알약으로 — 글 칸 위에 같은 글자 배치의 투명 거울을 겹쳐 시각만 칠함(글자 자리는 그대로)
+function tsMirror(el) {
+  const wrap = el.closest?.(".pvEdWrap"); if (!wrap || !document.createElement || el._tsMir) return;
+  const m = document.createElement("div"); m.className = "tsMir"; m.setAttribute("aria-hidden", "true"); const inner = document.createElement("div"); m.appendChild(inner); wrap.appendChild(m); el._tsMir = m;
+  const paint = () => { inner.innerHTML = esc(el.value || "").replace(TS_RE, "<mark>$&</mark>") + "\n"; sync(); };
+  const sync = () => { const cs = getComputedStyle(el); m.style.font = cs.font; m.style.letterSpacing = cs.letterSpacing; m.style.paddingLeft = cs.paddingLeft; m.style.paddingRight = cs.paddingRight; m.style.paddingTop = cs.paddingTop;
+    m.style.top = el.offsetTop + "px"; m.style.left = el.offsetLeft + "px"; m.style.width = el.clientWidth + (parseFloat(cs.borderLeftWidth) || 0) * 2 + "px"; m.style.right = "auto"; m.style.height = el.offsetHeight + "px";
+    inner.style.transform = `translateY(${-el.scrollTop}px)`; const mk = cs.webkitMaskImage || cs.maskImage || "none"; m.style.webkitMaskImage = m.style.maskImage = mk; };
+  el.addEventListener("input", paint); el.addEventListener("scroll", sync); el.addEventListener("transitionend", sync); el.addEventListener("focus", () => setTimeout(sync, 0)); el.addEventListener("blur", () => setTimeout(sync, 300));
+  if (typeof ResizeObserver === "function") new ResizeObserver(sync).observe(el);
+  let n = 0; const tick = () => { sync(); if (++n < 20) requestAnimationFrame(tick); }; el.addEventListener("pointerdown", () => { n = 0; requestAnimationFrame(tick); });
+  paint();
 }
 // 고치는 칸을 화면 맨 위 근처로: 키보드가 올라오는 동안(화면 높이가 바뀌는 동안) 두어 번 다시 맞춤
 function pvLift(el) {
@@ -5144,7 +5159,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-30-2016-tstop";
+const BUILD = "2026-10-30-2025-tspill";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
