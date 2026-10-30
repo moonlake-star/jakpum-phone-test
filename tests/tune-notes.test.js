@@ -27,4 +27,8 @@ const tj = fs.readFileSync(path.join(__dirname, "..", "tune.js"), "utf8");
 assert.ok((tj.match(/}, 300\); }/g) || []).length >= 2, "꾹 = 0.3초(작은 화면·전체화면)");
 assert.ok(tj.includes('class="tsClr">전체 지우기'), "고치는 창 = AI 글 그대로 + 전체 지우기");
 assert.ok(html.includes("onDelNote:"), "말풍선 ✕ = 바로 삭제(되돌리기)");
+const tnKeepAi = new Function(grab("tnKeepAi") + "; return tnKeepAi;")(), tnRemove = new Function(grab("tnRemove") + "; return tnRemove;")();
+{ const n = { id: "a1", text: "AI 글", src: "knowledge", status: "draft" }; tnKeepAi(n); assert.strictEqual(n.ai_text, "AI 글"); n.text = "고친 글"; tnKeepAi(n); assert.strictEqual(n.ai_text, "AI 글", "처음 AI 글만 남김");
+  const c = { doc: { notes: [n, { id: "t1", text: "직접", src: "teacher" }] } }; tnRemove(c, n); tnRemove(c, c.doc.notes[0]);
+  assert.strictEqual(c.doc.notes.length, 0); assert.deepStrictEqual(c.doc.deleted.map(d => d.text), ["AI 글"], "지운 AI 초안만 기록(선생님 글은 기록 안 함)"); }
 console.log("tune-notes OK");
