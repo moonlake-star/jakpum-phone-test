@@ -49,9 +49,25 @@
     // (10/30 16:42 사용자 시안 승인) 세로 줄 대신 음정선 위 점 · 구간은 그 구간 음정선이 빛나게
     const pAt = (tt) => { let best = null, bd = 1e9; for (const p of vis || []) { if (p[1] == null) continue; const dd = Math.abs(p[0] - tt); if (dd < bd) { bd = dd; best = p; } } return best ? { y: yf(best[1]), on: bd < 0.1 } : null; };
     const dots = new Map();
+    // (10/30 16:57 사용자 시안 승인) 동시에 최대 2개 · 그래프 아래 2층 칸 고정 · 점선 화살표가 번호 점을 따라감
+    const kf = (n) => n.id || n.t0 + ":" + n.text, endT = (n) => Math.max(+n.t1, +n.t0 + 0.5);
+    const near = all.filter(n => t >= +n.t0 - 1.5 && t <= endT(n) + 1.5)   // (10/30 17:10 사용자) 1.5초 미리.sort((a, b) => Math.abs(t - a.t0) - Math.abs(t - b.t0));
+    const want = near.slice(0, 2), wk = new Set(want.map(kf));
+    let sl = st.slots || [null, null];   // [위 칸, 아래 칸] — 서로 자리를 바꾸지 않음
+    const now = performance.now(); st.fin = st.fin || {}; st.fout = st.fout || {};   // 0.3초 페이드 인·아웃
+    sl = sl.map(k => { if (!k) return null; if (wk.has(k)) { delete st.fout[k]; return k; }
+      if (st.fout[k] == null) st.fout[k] = now; if (now - st.fout[k] < 150) return k; delete st.fout[k]; delete st.fin[k]; return null; });
+    for (const n of want.slice().sort((a, b) => a.t0 - b.t0)) { const k = kf(n); if (sl.includes(k)) continue;   // 새 주석은 아래 칸으로, 아래에 있던 건 위 칸으로 한 칸 올라감(자막처럼)
+      if (!sl[1]) { sl[1] = k; st.fin[k] = now; } else if (!sl[0]) { sl[0] = sl[1]; sl[1] = k; st.fin[k] = now; } }
+    st.slots = sl;
+    const byK = new Map(all.map(n => [kf(n), n])), shown = sl.map(k => (k ? byK.get(k) : null));
+    const order = shown.filter(Boolean).sort((a, b) => a.t0 - b.t0), numOf = (n) => order.indexOf(n) + 1;
+    st.ncol = st.ncol || {}; for (const k of Object.keys(st.ncol)) if (!sl.includes(k)) delete st.ncol[k];   // (10/30 17:18 사용자) 칸마다 다른 색 — 들어올 때 정해서 칸을 옮겨도 그대로
+    for (const k of sl) if (k && st.ncol[k] == null) { const used = sl.filter(x => x && x !== k).map(x => st.ncol[x]); st.ncol[k] = used.includes(0) ? 1 : 0; }
+    const PAL = ["111,224,176", "196,163,255"], colOf = (n) => { const k = kf(n); return st.ncol[k] != null ? PAL[st.ncol[k]] : "150,158,170"; };
     g.save(); g.beginPath(); g.rect(L, T, w - L, H); g.clip();
     for (const n of all) { const a = xs(+n.t0), b = xs(+n.t1); if (b < L - 8 || a > w + 8) continue;
-      const ok = n.status === "ok", c = ok ? "127,217,154" : "255,210,122", ed = st.editing && (st.editing.n === n || (st.editing.d.t0 === n.t0 && st.editing.d.t1 === n.t1));
+      const ok = n.status === "ok", c = colOf(n), ed = st.editing && (st.editing.n === n || (st.editing.d.t0 === n.t0 && st.editing.d.t1 === n.t1));
       if (+n.t1 - +n.t0 >= 0.35) {   // 구간: 그 구간 음정선을 두껍게 빛나게
         const seg = (vis || []).filter(p => p[1] != null && p[0] >= +n.t0 && p[0] <= +n.t1);
         for (const [wd, al] of [[12, 0.28], [3.2, 1]]) { g.strokeStyle = `rgba(${c},${al})`; g.lineWidth = wd; g.lineCap = "round"; g.lineJoin = "round"; g.beginPath(); let prev = null;
@@ -68,29 +84,16 @@
       else { g.fillStyle = "#11131a"; g.strokeStyle = `rgb(${c})`; g.lineWidth = 2; g.beginPath(); g.arc(a, s.y, R * 0.8, 0, Math.PI * 2); g.fill(); g.stroke(); }   // 소리 없는 곳 = 가까운 음 높이에 속 빈 점
       dots.set(n, { x: a, y: s.y, c, r: R + 3 }); }
     g.restore();
-    // (10/30 16:57 사용자 시안 승인) 동시에 최대 2개 · 그래프 아래 2층 칸 고정 · 점선 화살표가 번호 점을 따라감
-    const kf = (n) => n.id || n.t0 + ":" + n.text, endT = (n) => Math.max(+n.t1, +n.t0 + 0.5);
-    const near = all.filter(n => t >= +n.t0 - 1.5 && t <= endT(n) + 1.5)   // (10/30 17:10 사용자) 1.5초 미리.sort((a, b) => Math.abs(t - a.t0) - Math.abs(t - b.t0));
-    const want = near.slice(0, 2), wk = new Set(want.map(kf));
-    let sl = st.slots || [null, null];   // [위 칸, 아래 칸] — 서로 자리를 바꾸지 않음
-    const now = performance.now(); st.fin = st.fin || {}; st.fout = st.fout || {};   // 0.3초 페이드 인·아웃
-    sl = sl.map(k => { if (!k) return null; if (wk.has(k)) { delete st.fout[k]; return k; }
-      if (st.fout[k] == null) st.fout[k] = now; if (now - st.fout[k] < 300) return k; delete st.fout[k]; delete st.fin[k]; return null; });
-    for (const n of want.slice().sort((a, b) => a.t0 - b.t0)) { const k = kf(n); if (sl.includes(k)) continue;   // 새 주석은 아래 칸으로, 아래에 있던 건 위 칸으로 한 칸 올라감(자막처럼)
-      if (!sl[1]) { sl[1] = k; st.fin[k] = now; } else if (!sl[0]) { sl[0] = sl[1]; sl[1] = k; st.fin[k] = now; } }
-    st.slots = sl;
-    const byK = new Map(all.map(n => [kf(n), n])), shown = sl.map(k => (k ? byK.get(k) : null));
-    const order = shown.filter(Boolean).sort((a, b) => a.t0 - b.t0), numOf = (n) => order.indexOf(n) + 1;
     const fs = full ? 14 : 11.5, lh = fs + 5, pad = full ? 9 : 7, nr = full ? 11 : 9, xr = st.teacher ? (full ? 12 : 10) : 0;
     const maxL = full ? 2 : 1, sh = pad * 2 + (fs - 1) + 4 + maxL * lh, x = L + 4, bw = w - L - 8, gap = 6, bot = T + H - 6;
     const fmtT = (s) => `${Math.floor(s / 60)}:${(s % 60).toFixed(1).padStart(4, "0")}`;
-    for (const n of order) { const dt = dots.get(n); if (!dt) continue; const c = n.status === "ok" ? "127,217,154" : "255,210,122";   // 음정선 위 번호 점(칸 아래에 깔리게 먼저)
-      const k2 = kf(n), fa = (st.fin[k2] != null ? Math.min(1, (now - st.fin[k2]) / 300) : 1) * (st.fout[k2] != null ? Math.max(0, 1 - (now - st.fout[k2]) / 300) : 1);
+    for (const n of order) { const dt = dots.get(n); if (!dt) continue; const c = colOf(n);   // 음정선 위 번호 점(칸 아래에 깔리게 먼저)
+      const k2 = kf(n), fa = (st.fin[k2] != null ? Math.min(1, (now - st.fin[k2]) / 150) : 1) * (st.fout[k2] != null ? Math.max(0, 1 - (now - st.fout[k2]) / 150) : 1);
       g.save(); g.globalAlpha = (t > endT(n) + 0.15 ? 0.55 : 1) * fa; g.fillStyle = `rgb(${c})`; g.beginPath(); g.arc(dt.x, dt.y, nr, 0, Math.PI * 2); g.fill();
       g.fillStyle = "#10201a"; g.font = `900 ${full ? 12 : 10}px system-ui, sans-serif`; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(String(numOf(n)), dt.x, dt.y + 0.5); g.restore(); }
     shown.forEach((n, i) => { if (!n) return;
-      const k = kf(n), fi = st.fin[k] != null ? Math.min(1, (now - st.fin[k]) / 300) : 1, fo = st.fout[k] != null ? Math.max(0, 1 - (now - st.fout[k]) / 300) : 1;
-      const ok = n.status === "ok", c = ok ? "127,217,154" : "255,210,122", past = t > endT(n) + 0.15, al = (past ? 0.55 : 1) * fi * fo, num = numOf(n);
+      const k = kf(n), fi = st.fin[k] != null ? Math.min(1, (now - st.fin[k]) / 150) : 1, fo = st.fout[k] != null ? Math.max(0, 1 - (now - st.fout[k]) / 150) : 1;
+      const ok = n.status === "ok", c = colOf(n), past = t > endT(n) + 0.15, al = (past ? 0.55 : 1) * fi * fo, num = numOf(n);
       const y = i === 1 ? bot - sh : bot - sh * 2 - gap;
       g.save(); g.globalAlpha = al;
       const dt = dots.get(n); if (dt) {   // 칸 → 번호 점 점선 화살표
@@ -238,7 +241,12 @@
     g.fillStyle = "#ffd27a"; g.fillRect(Math.round(xs(t)) - 1, 2, 2.5, h - 4);
     const kL = k || col(cv, (st && st.lvDef) || 2) || col(cv, (cv.levels || [])[0]), d = delta(cv, kL, t);   // 원음으로 들을 때도 '어떻게 불렀나'는 보여 줌
     let tagB = T + 8 + (full ? 22 : 16) + (st && st.teacher ? (full ? 16 : 12) : 0);   // 말풍선 자리 고정: '높게/낮게' 표시가 떴다 사라져도 말풍선은 안 움직임(10/30 16:18 사용자)
-    if (d != null && Math.abs(d) >= 5) {   // 지금 위치: 수강생 기준 현상(↑높게/↓낮게). 선생님은 아래에 작게 보정량
+    const lb = st ? (st.lab = st.lab || { a: 0, d: null, seen: 0, at: 0 }) : { a: 1, d, seen: 0, at: 0 }, nowL = performance.now();   // (10/30 17:18 사용자) 0.15초 페이드
+    if (st) { const dtl = Math.min(100, nowL - (lb.at || nowL)); lb.at = nowL;
+      if (d != null && Math.abs(d) >= 5) { lb.d = d; lb.seen = nowL; lb.a = Math.min(1, lb.a + dtl / 150); }
+      else if (nowL - lb.seen > 200) lb.a = Math.max(0, lb.a - dtl / 150); }   // 0.2초 안에 다시 나오면 그대로 유지(깜빡임 방지)
+    const dL = st ? lb.d : d;
+    if (dL != null && (st ? lb.a > 0.01 : Math.abs(dL) >= 5)) { const d = dL; g.save(); g.globalAlpha = st ? lb.a : 1;   // 지금 위치: 수강생 기준 현상(↑높게/↓낮게). 선생님은 아래에 작게 보정량
       const s = sangLabel(d), sub = st && st.teacher ? "보정: " + semiLabel(d).slice(2) : "";
       g.font = (full ? "bold 15px" : "bold 11px") + " system-ui, sans-serif";
       const g2 = (full ? "12px" : "9.5px") + " system-ui, sans-serif", tw1 = g.measureText(s.txt).width; g.font = g2; const tw2 = sub ? g.measureText(sub).width : 0;
@@ -246,7 +254,7 @@
       g.fillStyle = "rgba(17,20,26,.85)"; g.fillRect(x0 - 3, T + 4, tw + 6, bh1 + bh2);
       g.font = (full ? "bold 15px" : "bold 11px") + " system-ui, sans-serif"; g.fillStyle = s.c; g.fillText(s.txt, x0, T + 4 + bh1 / 2);
       if (sub) { g.font = g2; g.fillStyle = "#a9b1bc"; g.fillText(sub, x0, T + 4 + bh1 + bh2 / 2 - 2); }
-    }
+      g.restore(); }
     if (st) { let oy0 = 1e9, oy1 = -1e9; for (const p of vis) { for (const kk of [1, k]) { if (!kk || p[kk] == null) continue; const Y = y(p[kk]); if (Y < oy0) oy0 = Y; if (Y > oy1) oy1 = Y; } }   // 지금 화면의 음정선 높이 범위
       drawNotes(g, st, t, xs, L, w, T, H, full, tagB, oy0 <= oy1 ? [oy0, oy1] : null, vis, y); }
   }
@@ -333,16 +341,7 @@
     G.addEventListener("resize", layout); G.addEventListener("orientationchange", layout);
     try { history.pushState(Object.assign({}, history.state || {}, { tuneFs: true }), ""); } catch {}
     const bye = wrap.querySelector(".tfBye"); setTimeout(() => bye && bye.classList.add("go"), 450);
-    // (10/30 17:09 사용자 시안 승인) 세로로 열면 2초 '폰을 가로로 돌려 보세요' — 하루 3번까지, 톡/회전하면 바로 닫힘
-    if (G.innerHeight > G.innerWidth) { let n = 0; const day = new Date().toISOString().slice(0, 10), key = "tune_rot_" + day;
-      try { n = +(localStorage.getItem(key) || 0); } catch {}
-      if (n < 3) { try { localStorage.setItem(key, String(n + 1)); } catch {}
-        const rp = document.createElement("div"); rp.className = "tfRot"; rp.setAttribute("role", "status");
-        rp.innerHTML = `<div class="rpBox"><div class="rpIc" aria-hidden="true"><i></i><span>↻</span></div><b>폰을 가로로 돌려 보세요</b><p>가로화면이 더 확인하기 편해요</p><div class="rpBar"><i></i></div></div>`;
-        const shut = () => { if (!rp.isConnected) return; rp.classList.add("out"); setTimeout(() => rp.remove(), 300); G.removeEventListener("resize", onRs); };
-        const onRs = () => { if (G.innerWidth > G.innerHeight) shut(); };
-        rp.addEventListener("pointerdown", (e) => { e.stopPropagation(); shut(); });
-        setTimeout(() => { if (!wrap.isConnected) return; wrap.appendChild(rp); G.addEventListener("resize", onRs); setTimeout(shut, 2000); }, 400); } }
+    // (10/30 17:18 사용자) 가로 회전 안내는 없앰 — 주석 2층은 세로가 더 편함
     const done = () => { G.removeEventListener("resize", layout); G.removeEventListener("orientationchange", layout); wrap.remove(); if (fsClose === done) fsClose = null; };
     fsClose = done;
     const close = () => { done(); try { if (history.state && history.state.tuneFs) { skipPop = true; history.back(); } } catch {} };
