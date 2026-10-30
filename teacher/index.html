@@ -455,7 +455,7 @@
 <div id="v2Shade" class="v2only"></div>
 <div id="toast"></div>
 <script src="../lesson-replies.js"></script>
-<script src="../tune.js?v=20261030-1345"></script>
+<script src="../tune.js?v=20261030-1400"></script>
 
 <script>
 // ── 설정 ────────────────────────────────────────────────
@@ -3481,7 +3481,9 @@ async function openMkJob(j, backTo) {
     if (lvNow() > 0) lvOn = lvNow(); el.value = b.dataset.ab === "1" ? String(lvOn) : "0"; el.oninput(); });
   abPaint();
   if (tuneOk) readBlob(curveF.id, true).then(b => b.text()).then(s => { const cv = JSON.parse(s); if (!cv?.pts || !$("mkTune")) return;
-    Tune.wire($("mkTune"), cv, () => mkNow(), () => (mkRaw ? 0 : lvNow()), (t) => { if (!mkPlaying) { mkOffset = Math.max(0, Math.min(t, mkDurS ? mkDurS - 0.05 : t)); $("mkPP").click(); } else mkSeekTo(t); });
+    Tune.wire($("mkTune"), cv, () => mkNow(), () => (mkRaw ? 0 : lvNow()), (t) => { if (!mkPlaying) { mkOffset = Math.max(0, Math.min(t, mkDurS ? mkDurS - 0.05 : t)); $("mkPP").click(); } else mkSeekTo(t); },
+      { title: "메이크업 · 바로 듣고 조절", play: () => $("mkPP")?.click(), paused: () => !mkPlaying, mode: () => (lvNow() > 0 ? "p" : "o"),
+        setMode: (m) => document.querySelector(`#mkAb [data-ab="${m === "p" ? 1 : 0}"]`)?.click() });
   }).catch(() => { const c = $("mkTune"); if (c) c.replaceWith(Object.assign(document.createElement("p"), { className: "muted", textContent: "음정선을 불러오지 못했어요" })); });
   // 슬라이더가 기본값에 닿으면 짧고 약한 진동(안드로이드). 기본값: 보컬 0dB · 리버브 15% · MR 0dB · 음정 '중'
   const DEF = { mkVol: 0, mkRev: 15, mkMr: 0, mkPitch: 2 };
@@ -4062,7 +4064,9 @@ function wireBest() {
   { const cf = m && mkCurveFile(o), el = typeof document.getElementById === "function" ? document.getElementById("mkTuneToday") : null;   // (10/30 사용자) 피드백 화면에도 튠 화면
     if (cf && el && typeof Tune !== "undefined") readBlob(cf.id, true).then(b => b.text()).then(s => { const cv = JSON.parse(s); if (!cv?.pts) return;
       Tune.wire(el, cv, () => (tpFile === m.file_id || tpFile === o.file_id ? player.currentTime : 0), () => (tpFile === m.file_id ? +(job?.req?.pitch_level ?? 2) : 0), async (t) => {
-        try { const [r, id] = active(); if ((tpRoot !== r || tpFile !== id) && !(await tpLoad(r, id))) return; player.currentTime = t; if (player.paused) { pauseOthers(player); await player.play(); } tpPaint(); } catch (e) { toast(e.message); } });
+        try { const [r, id] = active(); if ((tpRoot !== r || tpFile !== id) && !(await tpLoad(r, id))) return; player.currentTime = t; if (player.paused) { pauseOthers(player); await player.play(); } tpPaint(); } catch (e) { toast(e.message); } },
+      { title: "오늘의 베스트", play: () => box?.querySelector('[data-abp="play"]')?.click(), paused: () => player.paused || !(tpFile === m.file_id || tpFile === o.file_id),
+        mode: () => (tpFile === m.file_id ? "p" : "o"), setMode: (md) => box?.querySelector(`[data-ver="${md === "p" ? "mk" : "orig"}"]`)?.click() });
     }).catch(() => {}); }
   const pairs = [[broot, o.file_id], ...(m && mroot ? [[mroot, m.file_id]] : [])];
   // 파형 미리 그리기: 녹음을 받아 둔 적이 있으면 바로, 아니면 받아서(편집본·메이크업 각 한 번, 레슨 화면에 있는 동안 다시 받지 않음)
@@ -5028,7 +5032,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-30-1350-follow";
+const BUILD = "2026-10-30-1400-tunefs";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
