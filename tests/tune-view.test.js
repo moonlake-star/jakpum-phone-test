@@ -30,3 +30,5 @@ assert.ok(T.fitAt(blip, 4, 2)[1] >= 7600, "0.16초짜리 짧은 도약음도 화
 const spike = { levels: [2], pts: Array.from({ length: 200 }, (_, i) => [i / 25, i === 120 ? 9000 : 6500, 6500]) };
 assert.ok(T.fitAt(spike, 4, 2)[1] < 7000, "혼자 튄 한 점은 무시");
 console.log("tune-view ok");
+{ const T2 = globalThis.Tune; const cv2 = { levels: [1, 2, 3], target: true, pts: [[0, 6600, 6600, 6600, 6600, 6600]] };
+  if (T2.tgCol(cv2) !== 5 || T2.tgCol({ levels: [1, 2, 3], pts: [] }) !== 0) throw new Error("정음 열"); console.log("tune-fs ok"); }

@@ -135,7 +135,7 @@
   <div id="view"><p class="muted">불러오는 중…</p></div>
 </main>
 <script src="../lesson-replies.js"></script>
-<script src="../tune.js?v=20261030-1345"></script>
+<script src="../tune.js?v=20261030-1400"></script>
 <script>
 // ── 설정(비밀값 아님): 수강생 로그인용 구글 클라이언트 ID, 노트 연결(Apps Script 웹 앱) 주소 ──
 const STUDENT_CLIENT_ID = "712936245254-2itl2rolhhcsq9cdqnhku4u43hpdv2mk.apps.googleusercontent.com";
@@ -489,7 +489,8 @@ function wireMkBoxes() {
     const cvEl = box.querySelector("canvas.tune");
     if (cvEl && sidOk(mk.curve_id) && typeof Tune !== "undefined") Tune.load(driveUrl(mk.curve_id)).then(cv => { if (!cv) return cvEl.remove();
       Tune.wire(cvEl, cv, () => D.act().currentTime || 0, () => (D.mode() === "p" ? +(mk.curve_lv ?? 2) : 0), async (t) => {
-        const a = D.act(); try { if (!a.getAttribute("src")) await D.play(src); a.currentTime = t; if (a.paused) await a.play(); } catch {} });
+        const a = D.act(); try { if (!a.getAttribute("src")) await D.play(src); a.currentTime = t; if (a.paused) await a.play(); } catch {} },
+        { title: "오늘의 베스트", play: () => btn.click(), paused: () => D.act().paused, mode: () => D.mode(), setMode: (m) => D.swap(m, src).then(paint).catch(() => {}) });
     }).catch(() => { cvEl.nextElementSibling?.classList?.contains("tuneLeg") && cvEl.nextElementSibling.remove(); cvEl.remove(); });
   });
 }
@@ -543,7 +544,8 @@ function wireAlbum(ls) {
     if (x.curve && typeof Tune !== "undefined") { (cvs[x.curve] ||= Tune.load(driveUrl(x.curve)).catch(() => null)).then(cv => {
       if (!cv || list[i] !== x) return; const fresh = cvEl.cloneNode(); cvEl.replaceWith(fresh); fresh.classList.remove("hidden"); $("albLeg").innerHTML = Tune.legend(true);
       document.querySelectorAll("#alb .tuneZoom").forEach(z => z.remove());
-      Tune.wire(fresh, cv, () => D.act().currentTime || 0, () => (D.mode() === "p" ? x.lv : 0), (t) => { const a = D.act(); a.currentTime = t; if (a.paused) a.play().catch(() => {}); }); }); }
+      Tune.wire(fresh, cv, () => D.act().currentTime || 0, () => (D.mode() === "p" ? x.lv : 0), (t) => { const a = D.act(); a.currentTime = t; if (a.paused) a.play().catch(() => {}); },
+        { title: x.title, play: () => $("albPP").click(), paused: () => D.act().paused, mode: () => D.mode(), ...(x.mk ? { setMode: (m) => $("albAb")?.querySelector(`[data-ab="${m}"]`)?.click() } : {}) }); }); }
     paintList();
     try { await D.play(src()); } catch {}
     try { if ("mediaSession" in navigator) { navigator.mediaSession.metadata = new MediaMetadata({ title: x.title, artist: data.name ? `${data.name}님의 보컬노트` : "보컬노트" });
