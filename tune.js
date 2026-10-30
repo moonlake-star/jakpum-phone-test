@@ -113,8 +113,8 @@
       let xx = null; if (xr) { xx = { cx: x + bw - xr - 6, cy: y + xr + 6, r: xr };
         g.fillStyle = "#3a2a2a"; g.beginPath(); g.arc(xx.cx, xx.cy, xr, 0, Math.PI * 2); g.fill(); g.strokeStyle = "#ff9a9a"; g.lineWidth = 1.2; g.stroke();
         const q = xr * 0.42; g.lineWidth = 2; g.beginPath(); g.moveTo(xx.cx - q, xx.cy - q); g.lineTo(xx.cx + q, xx.cy + q); g.moveTo(xx.cx + q, xx.cy - q); g.lineTo(xx.cx - q, xx.cy + q); g.stroke(); }
-      if (st.hold && kf(st.hold.n) === k) { const pr = Math.min(1, (now - st.hold.at) / 1000);   // (10/30 17:34 사용자 시안 승인) 꾹 누르는 동안 1초 진행 바(칸 아래 테두리)
-        g.save(); rr(g, x, y, bw, sh, 10); g.clip(); g.shadowColor = `rgba(${c},.8)`; g.shadowBlur = 8; g.fillStyle = `rgb(${c})`; g.fillRect(x, y + sh - 4, bw * pr, 4); g.restore(); }
+      if (st.hold && kf(st.hold.n) === k) { const pr = Math.min(1, (now - st.hold.at) / 1000);   // (10/30 17:34 사용자 시안 승인) 꾹 누르는 동안 1초 진행 바(칸 위쪽 테두리)
+        g.save(); rr(g, x, y, bw, sh, 10); g.clip(); g.shadowColor = `rgba(${c},.8)`; g.shadowBlur = 8; g.fillStyle = `rgb(${c})`; g.fillRect(x, y, bw * pr, 4); g.restore(); }   // (10/30 17:39 사용자) 칸 위쪽 테두리
       g.restore();
       hits.push({ x, y, w: bw, h: sh, n, xx }); });
   }
