@@ -2116,7 +2116,7 @@ function openStudentView(mode = "normal") {
       if (sg.classList.contains("open") && wvx) { const r = wvx.getBoundingClientRect(), to = t0 + Math.min(1, Math.max(0, (e.clientX - r.left) / (r.width || 1))) * (t1 - t0); svSegWatch(sg, t0, t1); return playAt(to).catch(err => toast(err.message)); }   // 막대를 누르면 그 자리부터
       if (sg.classList.contains("open") && typeof full !== "undefined" && !full.paused) { full.pause(); return; }
       d.querySelectorAll(".lp.open").forEach(x => { if (x !== sg && !x.classList.contains("keep")) x.classList.remove("open"); }); sg.classList.add("open");
-      try { miniMarks([{ start: t0, end: t1 }], 0); miniLabel(`좋았던 순간 · ${fmt(t0)}~${fmt(t1)} (노란 칸)`); } catch {}
+      try { miniMarks([{ start: t0, end: t1 }], 0); miniLabel(`좋았던 순간 · ${fmt(t0)}~${fmt(t1)} (노란 부분)`); } catch {}
       if (typeof svSegWatch === "function") svSegWatch(sg, t0, t1); return playAt(t0).catch(err => toast(err.message)); }
     const lp = e.target?.closest?.(".lp[data-svau]");
     if (lp && typeof svPlay === "function") { if (!lp.classList.contains("open")) { d.querySelectorAll(".lp.open").forEach(x => { if (x !== lp && !x.classList.contains("keep")) { x.classList.remove("open"); x.style.width = ""; } }); const w0 = lp.offsetWidth; lp.classList.add("open"); lp.style.width = w0 + "px"; void lp.offsetWidth; lp.style.width = lp.parentElement.clientWidth + "px"; setTimeout(() => { lp.style.width = ""; }, 320); return svPlay(lp); }
@@ -2126,7 +2126,7 @@ function openStudentView(mode = "normal") {
     const tt = e.target?.closest?.("[data-ftc], [data-ft]");
     if (tt && typeof playAt === "function") { const t = +(tt.dataset.ftc ?? tt.dataset.ft);
       if (typeof miniMarks === "function" && typeof rangeAt === "function") { try { if (tt.dataset.ftc == null) { miniMarks([]); miniLabel(`전사본 · ${fmt(t)}`); }   // (10/29 11:19 사용자) 전사본 말풍선은 노란 칸 없음
-        else { const r = rangeAt(t, chipRanges(), (cur.segs || []).map(g => +g.start)); miniMarks([{ start: r[0], end: r[1] }], 0); miniLabel(`선생님 한마디 · ${fmt(r[0])}~${fmt(r[1])} (노란 칸)`); } } catch {} } if (typeof full !== "undefined" && typeof mediaUnlock === "function") mediaUnlock(full); document.querySelectorAll("#pvFull .fbub.now").forEach(x => x.classList.remove("now")); tt.classList?.add("now");
+        else { const r = rangeAt(t, chipRanges(), (cur.segs || []).map(g => +g.start)); miniMarks([{ start: r[0], end: r[1] }], 0); miniLabel(`${fmt(r[0])}~${fmt(r[1])} (노란 부분)`); } } catch {} } if (typeof full !== "undefined" && typeof mediaUnlock === "function") mediaUnlock(full); document.querySelectorAll("#pvFull .fbub.now").forEach(x => x.classList.remove("now")); tt.classList?.add("now");
       return playAt(Math.max(0, t - 2)).catch(err => toast(err.message)); }   // 글 속 ▶시각·전사 말풍선 → 화면 아래 재생바(레슨 녹음)
     const b = e.target?.closest?.("[data-mode]"); if (!b) return;   // 심플/보통/자세히: 수강생 화면과 같은 방식으로 다시 그림
     const body = d.querySelector("#pvFullBody"); if (body) body.innerHTML = svLessonHtml(buildNote(), null, b.dataset.mode); if (typeof svWaves === "function") svWaves(); try { svTuneWire(buildNote()); } catch {} if (typeof svPaint === "function") svPaint(); };
@@ -3985,7 +3985,7 @@ function renderBest() {
       <button class="small ghost" data-abp="start" aria-label="처음으로 이동">⏮</button><button class="small ghost" data-abp="back" aria-label="5초 뒤로">-5</button><button class="small" data-abp="play" aria-label="재생">▶</button><button class="small ghost" data-abp="fwd" aria-label="5초 앞으로">+5</button><button class="small ghost" data-abp="end" aria-label="끝으로 이동">⏭</button>${ms === "ready" ? `<button class="small ghost" data-abp="swap" aria-label="같은 위치에서 원본·메이크업 바꾸기">⇄</button>` : ""}</div>
     <details style="margin-top:6px"><summary class="muted" style="font-size:.88rem">ℹ 자세히 · 어떻게 만들었나</summary>
       <p class="muted" style="font-size:.85rem;margin:4px 0">☑ <b>피드백에 포함</b>을 체크한 것만 수강생 노트에 실리고 ‘클립 보내기’ 때 같이 가요. 체크하지 않으면 수강생에게 안 가요(파일은 그대로 남아요).</p>
-      <div class="seamLabels">${seamStrip(o, "labels")}<p class="muted" style="font-size:.8rem;margin:2px 0">노란 칸 = 다른 테이크에서 가져와 이어 붙인 자리 · 시간을 누르면 그 바로 앞부터 들려요</p></div>
+      <div class="seamLabels">${seamStrip(o, "labels")}<p class="muted" style="font-size:.8rem;margin:2px 0">노란 부분 = 다른 테이크에서 가져와 이어 붙인 자리 · 시간을 누르면 그 바로 앞부터 들려요</p></div>
       <div class="muted bestDesc" style="font-size:.85rem">${o.base === "fullrun" ? `그날 가장 길게 이어 부른 부분(약 ${Math.round(+o.fullrun?.len || o.len)}초 — 1절이면 1절, 2절까지면 2절까지)을 바탕으로, 칭찬받은 테이크의 더 좋은 구절을 같은 자리에 바꿔 넣은 편집본이에요` : "AI가 이번 레슨 녹음에서 좋은 구간을 골라 박자에 맞춰 하나로 이어 붙인 편집본이에요"}${o.takes_used ? ` (테이크 ${o.takes_used}개 사용)` : ""}</div>
       <p role="status" class="muted" style="margin:6px 0 0;font-size:.85rem">${statusTxt}</p>
       ${segs.length ? `<p class="muted" style="font-size:.85rem;margin:4px 0">원본 레슨에서 가져온 구간 ${segs.length}곳: ${segs.map(g => `${fmt(+g.start)}~${fmt(+g.end)}`).join(" · ")}</p>` : ""}
@@ -4798,7 +4798,7 @@ function jumpPlay(b, t) {
   if (jumpCur === b && typeof full !== "undefined" && full.src) { if (full.paused) full.play().catch(e => toast(e.message)); else full.pause(); return; }
   if (typeof hlQueueStop === "function") hlQueueStop();
   jumpCur = b; jumpLock = true; paintJump();
-  try { const r = rangeAt(t, chipRanges(), (cur.segs || []).map(g => +g.start)); miniMarks([{ start: r[0], end: r[1] }], 0); miniLabel(`▶ ${fmt(r[0])}~${fmt(r[1])} (노란 칸)`); } catch {}   // (10/30 사용자) 그 구간 시작·끝을 재생바에 노랗게
+  try { const r = rangeAt(t, chipRanges(), (cur.segs || []).map(g => +g.start)); miniMarks([{ start: r[0], end: r[1] }], 0); miniLabel(`▶ ${fmt(r[0])}~${fmt(r[1])} (노란 부분)`); } catch {}   // (10/30 사용자) 그 구간 시작·끝을 재생바에 노랗게
   return playAt(Math.max(0, t - 1)).catch(e => toast(e.message)).finally(() => { jumpLock = false; paintJump(); });
 }
 async function playAt(t, keepGoing = true, follow = false) {
@@ -5270,7 +5270,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-30-2135-pvtune";
+const BUILD = "2026-10-30-2125-yellow";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
