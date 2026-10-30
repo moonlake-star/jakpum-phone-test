@@ -4,10 +4,10 @@ const src = fs.readFileSync(__dirname + "/../teacher/index.html", "utf8");
 const stu = fs.readFileSync(__dirname + "/../student/index.html", "utf8");
 const grab = (s, name) => { const m = s.match(new RegExp("function " + name + "\\([\\s\\S]*?\\n}\\n")); assert.ok(m, "함수 없음: " + name); return m[0]; };
 
-// 1) 기본은 V2, 'V1 화면' 버튼으로 전환(기기 저장값 vn_ui=v1 일 때만 V1)
+// 1) 항상 V2(10/30 사용자: V1 화면 버튼 없앰)
 const v2On = (LS) => new Function("LS", "V2_KEY", grab(src, "v2On") + "; return v2On;")(LS, "vn_ui");
 assert.strictEqual(v2On({ get: () => null })(), true);
-assert.strictEqual(v2On({ get: () => "v1" })(), false);
+assert.strictEqual(v2On({ get: () => "v1" })(), true, "10/30 사용자: V1 화면 버튼 없앰 — 예전 저장값이 v1이어도 V2");
 assert.ok(src.includes('id="btnUi"'));
 
 // 2) 임시저장 = 저장만(공개 안 함), 공개 = saveReview(false) → publishOnSave(승인 전 확인 목록·동의 철회 제외 그대로)
