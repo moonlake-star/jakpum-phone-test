@@ -42,14 +42,27 @@
   const SRC = { lesson: "이번 레슨", habit: "선생님 강조", knowledge: "보컬 지식", teacher: "선생님" };
   function wrapTxt(g, s, maxW) { const out = []; let line = ""; for (const ch of String(s)) { if (ch === "\n") { out.push(line); line = ""; continue; } if (g.measureText(line + ch).width > maxW && line) { out.push(line); line = ch.trim() ? ch : ""; } else line += ch; } if (line) out.push(line); return out.slice(0, 4); }
   function rr(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
-  function drawNotes(g, st, t, xs, L, w, T, H, full, top, occ) {
-    const all = typeof st.notes === "function" ? (st.notes() || []) : [], hits = []; st.hits = hits;
+  function drawNotes(g, st, t, xs, L, w, T, H, full, top, occ, vis, yf) {
+    let all = typeof st.notes === "function" ? (st.notes() || []) : []; const hits = []; st.hits = hits;
+    if (st.editing) { const { d, n } = st.editing; all = all.includes(n) ? all.map(x => (x === n ? { ...n, ...d } : x)) : all.concat([{ ...d, status: d.status || "ok" }]); }   // 고치는 중: 바뀐 자리로 미리 보기
     if (!all.length) return;
-    for (const n of all) { const a = xs(+n.t0), b = xs(+n.t1); if (b < L - 8 || a > w + 8) continue;   // 구간 표시(짧으면 한 점)
-      const ok = n.status === "ok";
-      if (+n.t1 - +n.t0 < 0.35) { const X = Math.round(a) + 0.5; g.strokeStyle = ok ? "rgba(127,217,154,.75)" : "rgba(255,210,122,.75)"; g.lineWidth = 1.5; g.beginPath(); g.moveTo(X, T); g.lineTo(X, T + H); g.stroke();
-        g.fillStyle = ok ? "#7fd99a" : "#ffd27a"; g.beginPath(); g.moveTo(X, T + H - 2); g.lineTo(X - 5, T + H - 9); g.lineTo(X + 5, T + H - 9); g.closePath(); g.fill(); continue; } g.fillStyle = ok ? "rgba(127,217,154,.08)" : "rgba(255,210,122,.09)"; g.fillRect(Math.max(L, a), T, Math.max(2, Math.min(w, b) - Math.max(L, a)), H);
-      g.strokeStyle = ok ? "rgba(127,217,154,.5)" : "rgba(255,210,122,.5)"; g.lineWidth = 1; g.setLineDash([3, 3]); g.beginPath(); for (const x of [a, b]) if (x >= L && x <= w) { g.moveTo(Math.round(x) + 0.5, T); g.lineTo(Math.round(x) + 0.5, T + H); } g.stroke(); g.setLineDash([]); }
+    // (10/30 16:42 사용자 시안 승인) 세로 줄 대신 음정선 위 점 · 구간은 그 구간 음정선이 빛나게
+    const pAt = (tt) => { let best = null, bd = 1e9; for (const p of vis || []) { if (p[1] == null) continue; const dd = Math.abs(p[0] - tt); if (dd < bd) { bd = dd; best = p; } } return best ? { y: yf(best[1]), on: bd < 0.1 } : null; };
+    const dots = new Map();
+    g.save(); g.beginPath(); g.rect(L, T, w - L, H); g.clip();
+    for (const n of all) { const a = xs(+n.t0), b = xs(+n.t1); if (b < L - 8 || a > w + 8) continue;
+      const ok = n.status === "ok", c = ok ? "127,217,154" : "255,210,122", ed = st.editing && (st.editing.n === n || (st.editing.d.t0 === n.t0 && st.editing.d.t1 === n.t1));
+      if (+n.t1 - +n.t0 >= 0.35) {   // 구간: 그 구간 음정선을 두껍게 빛나게
+        const seg = (vis || []).filter(p => p[1] != null && p[0] >= +n.t0 && p[0] <= +n.t1);
+        for (const [wd, al] of [[12, 0.28], [3.2, 1]]) { g.strokeStyle = `rgba(${c},${al})`; g.lineWidth = wd; g.lineCap = "round"; g.lineJoin = "round"; g.beginPath(); let prev = null;
+          for (const p of seg) { const X = xs(p[0]), Y = yf(p[1]); if (prev != null && p[0] - prev < 0.13) g.lineTo(X, Y); else g.moveTo(X, Y); prev = p[0]; } g.stroke(); }
+        const e = pAt(+n.t1); if (e) { g.fillStyle = "#11131a"; g.strokeStyle = `rgb(${c})`; g.lineWidth = 2; g.beginPath(); g.arc(b, e.y, full ? 6 : 4.5, 0, Math.PI * 2); g.fill(); g.stroke(); } }
+      const s = pAt(+n.t0); if (!s) continue; const R = (full ? 7 : 5) * (ed ? 1.3 : 1);   // 시작 점 = 그 시간에 부른 음 위
+      g.fillStyle = `rgba(${c},.22)`; g.beginPath(); g.arc(a, s.y, R * 1.9, 0, Math.PI * 2); g.fill();
+      if (s.on) { g.fillStyle = `rgb(${c})`; g.beginPath(); g.arc(a, s.y, R, 0, Math.PI * 2); g.fill(); }
+      else { g.fillStyle = "#11131a"; g.strokeStyle = `rgb(${c})`; g.lineWidth = 2; g.beginPath(); g.arc(a, s.y, R * 0.8, 0, Math.PI * 2); g.fill(); g.stroke(); }   // 소리 없는 곳 = 가까운 음 높이에 속 빈 점
+      dots.set(n, { x: a, y: s.y, c }); }
+    g.restore();
     const act = all.filter(n => t >= +n.t0 - 0.3 && t <= Math.max(+n.t1, +n.t0 + 0.5) + 1.5).sort((a, b) => a.t0 - b.t0).slice(0, 2);
     const fs = full ? 14 : 11, lh = fs + 5, maxW = full ? 260 : 170, pad = full ? 9 : 7;
     const ms = act.map(n => { const ok = n.status === "ok"; g.font = `${fs}px system-ui, sans-serif`; const lines = wrapTxt(g, n.text || "", maxW);
@@ -69,6 +82,7 @@
       const bw = Math.min(maxW, Math.max(tw, ...lines.map(s => g.measureText(s).width))) + pad * 2 + xPad;
       const x = Math.max(L + 2, Math.min(w - bw - 4, xs(+n.t0) - 10));
       if (y + bh > T + H - 6) break;
+      const dt = dots.get(n); if (dt) { const ey = dt.y < y ? y : y + bh; g.strokeStyle = `rgba(${dt.c},.8)`; g.lineWidth = 1.2; g.setLineDash([3, 3]); g.beginPath(); g.moveTo(dt.x, dt.y + (dt.y < y ? 6 : -6)); g.lineTo(Math.max(x + 12, Math.min(x + bw - 12, dt.x)), ey); g.stroke(); g.setLineDash([]); }   // 점 ↔ 말풍선 점선
       g.fillStyle = "rgba(30,34,42,.94)"; rr(g, x, y, bw, bh, 10); g.fill();
       g.strokeStyle = ok ? "#7fd99a" : "#ffd27a"; g.lineWidth = 1.5; if (!ok) g.setLineDash([4, 3]); rr(g, x, y, bw, bh, 10); g.stroke(); g.setLineDash([]);
       g.textBaseline = "top"; g.font = `bold ${fs - 2}px system-ui, sans-serif`; g.fillStyle = ok ? "#7fd99a" : "#ffd27a"; g.fillText(tag, x + pad, y + pad);
@@ -91,6 +105,16 @@
   }
   function timeAt(st, x) { const m = st.map; return m ? Math.max(0, m.t0 + (x - m.L) / Math.max(1, m.w - m.L) * m.W8) : null; }
   // 주석 고치기 시트(선생님만). onSave(새 주석) / onDelete()
+  let lastView = null;   // 마지막으로 주석을 누른 그래프(작은 화면/전체화면)
+  function mkView(st, getPrev, setPrev, getT, seek) {
+    let raf = 0;
+    return {
+      focus(tt) { cancelAnimationFrame(raf); const from = getPrev() ?? (+getT() || 0), to = Math.max(0, tt), t0 = performance.now();
+        const step = (now) => { const k = Math.min(1, (now - t0) / 300), e = 1 - Math.pow(1 - k, 3); setPrev(from + (to - from) * e); if (k < 1) raf = requestAnimationFrame(step); }; raf = requestAnimationFrame(step); },
+      edit(d, n) { st.editing = { d, n }; },
+      done() { cancelAnimationFrame(raf); st.editing = null; const tt = getPrev(); setPrev(null); if (tt != null) try { seek(tt, true); } catch {} },
+    };
+  }
   function sheet(n, o) {
     document.getElementById("tuneSheet")?.remove();
     const fmt = (x) => `${Math.floor(x / 60)}:${(x % 60).toFixed(1).padStart(4, "0")}`, isNew = !n.id;
@@ -105,10 +129,12 @@
     (document.getElementById("tuneFs") || document.body).appendChild(el);
     const spot = d.t1 - d.t0 < 0.35;
     if (spot) el.querySelector(".tsAdj").innerHTML = `<span>위치</span><button type="button" data-a="p-">−0.5초</button><button type="button" data-a="p+">+0.5초</button>`;
+    const V = lastView; V && V.edit(d, n); V && V.focus(d.t0);   // (10/30 16:41 사용자 시안 승인) 창을 열면 그래프가 그 자리로 스르륵
     const paint = () => { el.querySelector(".tsRng").textContent = spot ? fmt(d.t0) : `${fmt(d.t0)} ~ ${fmt(d.t1)}`; }; paint();
     el.querySelectorAll("[data-a]").forEach(b => b.onclick = () => { const a = b.dataset.a, v = a[1] === "+" ? 0.5 : -0.5;
-      if (a[0] === "p") { d.t0 = Math.max(0, d.t0 + v); d.t1 = d.t0; } else if (a[0] === "s") d.t0 = Math.max(0, Math.min(d.t1 - 0.3, d.t0 + v)); else d.t1 = Math.max(d.t0 + 0.3, d.t1 + v); paint(); });
-    const close = () => el.remove();
+      if (a[0] === "p") { d.t0 = Math.max(0, d.t0 + v); d.t1 = d.t0; } else if (a[0] === "s") d.t0 = Math.max(0, Math.min(d.t1 - 0.3, d.t0 + v)); else d.t1 = Math.max(d.t0 + 0.3, d.t1 + v);
+      paint(); V && V.focus(a[0] === "e" ? d.t1 : d.t0); });   // 바꾼 쪽 자리로 그래프가 따라감
+    const close = () => { el.remove(); V && V.done(); if (lastView === V) lastView = null; };
     el.onclick = (e) => { if (e.target === el) close(); };
     el.querySelector(".tsCancel").onclick = close;
     el.querySelector(".tsClr") && (el.querySelector(".tsClr").onclick = () => { const ta = el.querySelector(".tsTx"); ta.value = ""; ta.focus(); });
@@ -200,7 +226,7 @@
       if (sub) { g.font = g2; g.fillStyle = "#a9b1bc"; g.fillText(sub, x0, T + 4 + bh1 + bh2 / 2 - 2); }
     }
     if (st) { let oy0 = 1e9, oy1 = -1e9; for (const p of vis) { for (const kk of [1, k]) { if (!kk || p[kk] == null) continue; const Y = y(p[kk]); if (Y < oy0) oy0 = Y; if (Y > oy1) oy1 = Y; } }   // 지금 화면의 음정선 높이 범위
-      drawNotes(g, st, t, xs, L, w, T, H, full, tagB, oy0 <= oy1 ? [oy0, oy1] : null); }
+      drawNotes(g, st, t, xs, L, w, T, H, full, tagB, oy0 <= oy1 ? [oy0, oy1] : null, vis, y); }
   }
   // 붙이기: getT()=지금 초, getLv()=보여 줄 보정 단계(0이면 원음만), seek(초). 화면에서 빠지면 저절로 멈춤.
   // 확대/전체 버튼: el 바로 앞에 붙임(Tune.controls). 기본 = 확대.
@@ -219,6 +245,7 @@
     const o = opts || {}, ctl = typeof o.play === "function" && typeof o.paused === "function";
     bar.querySelector("[data-fs]").onclick = () => openFull(el, cv, getT, getLv, seek, o);
     let drag = null, preview = null, shown = null;
+    const view = mkView(st, () => preview, (v) => { preview = v; }, getT, seek);
     const showMid = (kind) => { mid.textContent = kind === "pause" ? "❚❚" : "▶"; mid.className = "tuneMid " + (kind === "pause" ? "stay" : "flash"); void mid.offsetWidth; mid.classList.add("go"); shown = kind; };
     const loop = () => { if (!el.isConnected) { bar.remove(); return; } draw(el, cv, preview ?? (+getT() || 0), +getLv() || 0, st);
       mid.style.visibility = st.hits && st.hits.length ? "hidden" : "";   // 말풍선이 떠 있으면 가운데 ❚❚는 숨김
@@ -234,7 +261,7 @@
         const r = el.getBoundingClientRect(), hn = hitNote(st, e.clientX - r.left, e.clientY - r.top);
         if (hn) return;   // (10/30 16:34 사용자) 말풍선은 '눌렀다 떼면' 고치기 — 누른 채 옆으로 밀면 화면 이동
         d0.long = true; if (ctl && !o.paused()) o.play();
-        const tt = timeAt(st, e.clientX - r.left); if (tt != null) o.onAdd(tt); }, 300); } });
+        const tt = timeAt(st, e.clientX - r.left); if (tt != null) { lastView = view; o.onAdd(tt); } }, 300); } });
     el.addEventListener("pointermove", (e) => {
       if (!drag || drag.id !== e.pointerId) return;
       const dx = e.clientX - drag.x; if (!drag.moved && Math.abs(dx) < 8) return; clearTimeout(drag.lp);
@@ -247,7 +274,7 @@
       if (!drag || drag.id !== e.pointerId) return;
       const d = drag; drag = null; clearTimeout(d.lp); if (d.long) return;
       if (d.moved) { const t = preview; preview = null; if (t != null) seek(t, ctl); return; }
-      if (canEdit) { const r = el.getBoundingClientRect(), hn = hitNote(st, e.clientX - r.left, e.clientY - r.top); if (hn) { if (ctl && !o.paused()) o.play(); if (hn.del) { o.onDelNote && o.onDelNote(hn.n); } else o.onNote(hn.n); return; } }
+      if (canEdit) { const r = el.getBoundingClientRect(), hn = hitNote(st, e.clientX - r.left, e.clientY - r.top); if (hn) { if (ctl && !o.paused()) o.play(); if (hn.del) { o.onDelNote && o.onDelNote(hn.n); } else { lastView = view; o.onNote(hn.n); } return; } }
       if (ctl) { const was = o.paused(); o.play(); showMid(was ? "play" : "pause"); return; }   // 톡 = 재생·멈춤
       const r = el.getBoundingClientRect(), x = e.clientX - r.left;
       if (x > 30) seek(Math.max(0, d.t - WIN * HEAD + (x - 30) / span() * WIN));   // 조작 정보가 없으면 예전처럼 그 자리부터
@@ -306,6 +333,7 @@
     const along = (e) => (rot ? e.clientY : e.clientX), across = (e) => (rot ? e.clientX : e.clientY);
     const span = () => (cvEl.clientWidth - 44) || 1, tall = () => cvEl.clientHeight || 1;
     const pts = new Map(); let drag = null, pinch = null, preview = null;
+    const view = mkView(st, () => preview, (v) => { preview = v; }, getT, seek);
     cvEl.style.touchAction = "none"; cvEl.addEventListener("contextmenu", (e) => e.preventDefault());
     cvEl.addEventListener("pointerdown", (e) => {
       pts.set(e.pointerId, { a: along(e), b: across(e) }); try { cvEl.setPointerCapture(e.pointerId); } catch {}
@@ -316,7 +344,7 @@
           const r = cvEl.getBoundingClientRect(), hn = typeof o.onNote === "function" ? hitNote(st, d0.cx - r.left, d0.cy - r.top) : null;
           if (hn) return;   // 말풍선: 눌렀다 떼면 고치기, 누른 채 밀면 이동
           d0.long = true; pauseNow();
-          const tt = timeAt(st, d0.cx - r.left); if (tt != null) o.onAdd(tt); }, 300); } }
+          const tt = timeAt(st, d0.cx - r.left); if (tt != null) { lastView = view; o.onAdd(tt); } }, 300); } }
     });
     cvEl.addEventListener("pointermove", (e) => {
       if (!pts.has(e.pointerId)) return; pts.set(e.pointerId, { a: along(e), b: across(e) });
@@ -334,7 +362,7 @@
       if (!pts.has(e.pointerId)) return; pts.delete(e.pointerId);
       if (pinch) { if (pts.size === 0) pinch = null; return; }
       if (!drag || drag.id !== e.pointerId) return; const d = drag; drag = null; clearTimeout(d.lp); if (d.long) return;
-      if (!d.mode && e.type === "pointerup" && typeof o.onNote === "function") { const r = cvEl.getBoundingClientRect(), hn = hitNote(st, e.clientX - r.left, e.clientY - r.top); if (hn) { pauseNow(); if (hn.del) { o.onDelNote && o.onDelNote(hn.n); } else o.onNote(hn.n); return; } }
+      if (!d.mode && e.type === "pointerup" && typeof o.onNote === "function") { const r = cvEl.getBoundingClientRect(), hn = hitNote(st, e.clientX - r.left, e.clientY - r.top); if (hn) { pauseNow(); if (hn.del) { o.onDelNote && o.onDelNote(hn.n); } else { lastView = view; o.onNote(hn.n); } return; } }
       if (d.mode === "time") { const t = preview; preview = null; if (t != null) seek(t, true); return; }   // 이동만, 재생은 안 함
       if (!d.mode && e.type === "pointerup") { const now = Date.now();   // 톡 = 재생/멈춤, 두 번 톡 = 원래 크기
         if (now - lastTap < 320) { resetZoom(); toggle(); lastTap = 0; } else { toggle(); lastTap = now; } }
