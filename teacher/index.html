@@ -1324,9 +1324,18 @@ function nextTpl(sid) { const key = "vn_tpl_" + sid, k = ((LS.get(key) ?? -1) + 
 const inclOk = (rv, key, id) => !!id && !(rv[key + "Include"] === false && rv[key + "IncludeId"] === id);
 function bestForNote() { const o = bestPicked(); return o && inclOk(cur.review, "best", o.file_id) ? o : null; }
 function makeupForNote() { const o = bestPicked(), m = o && bestMakeupAudio(o); return m && inclOk(cur.review, "makeup", m.file_id) ? m : null; }
+// (10/31 08:42 사용자) 오늘의 베스트와 같은 부분(레슨 녹음 시간이 겹침)인 '좋았던 순간'은 위 글에서 빼고 베스트 하나만 — 앞으로도 자동으로
+function bestSpans(o) { if (!o) return []; const ok = (a, b) => Number.isFinite(a) && Number.isFinite(b) && b > a;
+  const g = (o.segments || []).map(x => [+x?.start, +x?.end]).filter(([a, b]) => ok(a, b)); if (g.length) return g;
+  return ok(+o.start, +o.end) ? [[+o.start, +o.end]] : []; }
+function dupOfBest(a0, a1, spans) { a0 = +a0; a1 = +a1; if (!(a1 > a0) || !spans?.length) return false;
+  const ov = spans.reduce((s, [x, y]) => s + Math.max(0, Math.min(a1, y) - Math.max(a0, x)), 0), tot = spans.reduce((s, [x, y]) => s + (y - x), 0);
+  return ov >= 15 || ov >= 0.5 * Math.min(a1 - a0, tot); }   // 15초 넘게 겹치거나, 짧은 쪽의 절반 이상 겹치면 같은 소리
+function bestDupSpans() { try { return bestSpans(typeof bestForNote === "function" ? bestForNote() : null); } catch { return []; } }
 function buildNote() {
   const rv = cur.review, bp = bestForNote(), mk = makeupForNote();
-  const clips = sendList().map(c => ({ c, f: cur.clips.find(x => x.name.startsWith(c.id)) })).filter(x => x.f)
+  const bsp = typeof bestDupSpans === "function" ? bestDupSpans() : [], dupB = typeof dupOfBest === "function" ? dupOfBest : () => false;
+  const clips = sendList().filter(c => !dupB(c.start, c.end ?? (+c.start + 15), bsp)).map(c => ({ c, f: cur.clips.find(x => x.name.startsWith(c.id)) })).filter(x => x.f)
     .map(({ c, f }) => ({ file_id: f.id, label: `${fmt(c.start)} 구간`, t: Math.round(+c.start || 0), note: rv.notes?.[c.id] || c.note || "" }));
   const bestNote = (o) => o && { file_id: o.file_id, kind_ko: o.kind_ko, len: Math.round(o.len), edited: !!o.isComposite, ...(o.isComposite && typeof bestJoined === "function" && bestJoined(o) !== undefined ? { joined: bestJoined(o) } : {}) };
   // practice(이번 주 미션)와 no_mission(‘미션 없음’ 의도적 선택)을 구분해 싣는다. 미설정(둘 다 없음)은 승인 단계에서 막힘
@@ -1359,7 +1368,8 @@ function sndSim(a, b) {
 const sndTimes = (x) => [...String(x || "").matchAll(/(\d{1,2}):([0-5]\d)(?![\d:])/g)].map(m => +m[1] * 60 + +m[2]);
 function pointSndChoices() {
   const rv = cur?.review || {}, out = [];
-  try { for (const c of (typeof sendList === "function" ? sendList() : [])) { const f = (cur.clips || []).find(x => x.name.startsWith(c.id)); if (f) { const nt = rv.notes?.[c.id] || c.note || ""; out.push({ key: "clip:" + c.id, kind: "clip", file_id: f.id, label: "좋았던 순간 듣기", pick: `좋았던 순간 ${fmt(c.start)}${nt ? " · " + (nt.length > 16 ? nt.slice(0, 16) + "…" : nt) : ""}`, text: nt, t: +c.start || 0, a0: +c.start || 0, a1: +(c.end ?? (+c.start + 15)) }); } } } catch {}
+  const bsp = typeof bestDupSpans === "function" ? bestDupSpans() : [];
+  try { for (const c of (typeof sendList === "function" ? sendList() : [])) { if (dupOfBest(c.start, c.end ?? (+c.start + 15), bsp)) continue; const f = (cur.clips || []).find(x => x.name.startsWith(c.id)); if (f) { const nt = rv.notes?.[c.id] || c.note || ""; out.push({ key: "clip:" + c.id, kind: "clip", file_id: f.id, label: "좋았던 순간 듣기", pick: `좋았던 순간 ${fmt(c.start)}${nt ? " · " + (nt.length > 16 ? nt.slice(0, 16) + "…" : nt) : ""}`, text: nt, t: +c.start || 0, a0: +c.start || 0, a1: +(c.end ?? (+c.start + 15)) }); } } } catch {}
   const co = cur?.ana?.coaching || cur?.ai?.coaching || [];
   for (const p of (cur?.pairs || []).filter(p => p?.file_id && (rv.pairSend || []).includes(p.id)).slice(0, 3)) { const k = co.find(x => x.id === p.id) || {}, t = k.instruction_t ?? k.before?.t0;
     out.push({ key: "pair:" + p.id, kind: "pair", file_id: p.file_id, label: "🔁 지도 전 → 후 듣기", pick: `지도 전→후 · ${String(k.issue || "").slice(0, 22)}`, text: [k.issue, k.instruction].filter(Boolean).join(" "), t: t == null ? null : +t,
@@ -1418,11 +1428,11 @@ function segTimesOf(note) {   // 수강생 화면이 '레슨 녹음 구간 버�
 }
 // (10/29 13:35 사용자) '더 들어 보기'에 3~5개: 선생님이 보내기로 고른 클립이 적으면 칭찬 점수가 높은 후보 클립으로 채움(선생님이 '빼기'한 건 제외, 미리보기에서 확인)
 function moreClipsForNote(clips) {
-  const rv = cur?.review || {}, have = new Set((clips || []).map(c => c.file_id)), out = [];
+  const rv = cur?.review || {}, have = new Set((clips || []).map(c => c.file_id)), out = [], bsp = typeof bestDupSpans === "function" ? bestDupSpans() : [];
   try {
     const list = (typeof allCands === "function" ? allCands() : []).filter(c => rv.decisions?.[c.id] !== "send" && rv.decisions?.[c.id] !== "drop").sort((a, b) => (+b.score || 0) - (+a.score || 0));
     for (const c of list) { if ((clips || []).length + out.length >= 5) break;
-      const f = (cur.clips || []).find(x => x.name.startsWith(c.id)); if (!f || have.has(f.id)) continue;
+      const f = (cur.clips || []).find(x => x.name.startsWith(c.id)); if (!f || have.has(f.id) || dupOfBest(c.start, c.end ?? (+c.start + 15), bsp)) continue;
       const pr = (c.cues || []).find(q => q.kind === "praise");
       out.push({ file_id: f.id, label: `${fmt(c.start)} 구간`, t: Math.round(+c.start || 0), note: rv.notes?.[c.id] || c.note || (pr?.text ? `선생님 ‘${String(pr.text).slice(0, 20)}’` : "추천 클립"), auto: true }); }
   } catch {}
@@ -4959,9 +4969,10 @@ function hlFoldPaint() { const c = $("hlCard"), h = $("hlHead"); if (!c || !h) r
   const n = hlList.filter(x => cur?.review?.decisions?.[x.cand] === "send").length, s = $("hlSum"), tg = $("hlTog");
   if (s) s.textContent = fold ? (hlList.length ? `AI가 ${n}개 골라 포함` : "고를 순간이 없어요") : ""; if (tg) tg.textContent = fold ? "고치기 ▸" : "접기 ▴";
   if (!h._w) { h._w = true; const go = (e) => { if (e.target.closest?.("button") && e.target !== h) return; cur.hlEdit = !cur.hlEdit; hlFoldPaint(); }; h.onclick = go; h.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(e); } }; } }
-function hlMarkDup() { const ts = fbTimesNow(); document.querySelectorAll?.("#hls .hl[data-h]").forEach(el => { const h = hlList[+el.dataset.h]; if (!h) return;
-  const dup = ts.some(s => s >= h.start - 10 && s <= h.end + 10); el.classList.toggle("hlDup", dup); let tg = el.querySelector(".hlDupTag");
-  if (dup && !tg) { const b = el.querySelector("b"); if (b) b.insertAdjacentHTML("afterend", `<span class="hlDupTag">위 카드에 있음</span>`); } else if (!dup && tg) tg.remove(); }); }
+function hlMarkDup() { const ts = fbTimesNow(), bsp = typeof bestDupSpans === "function" ? bestDupSpans() : []; document.querySelectorAll?.("#hls .hl[data-h]").forEach(el => { const h = hlList[+el.dataset.h]; if (!h) return;
+  const bd = dupOfBest(h.start, h.end, bsp), dup = bd || ts.some(s => s >= h.start - 10 && s <= h.end + 10), lab = bd ? "오늘의 베스트와 같은 부분 · 베스트로만 들려줘요" : "위 카드에 있음";
+  el.classList.toggle("hlDup", dup); let tg = el.querySelector(".hlDupTag"); if (tg && tg.textContent !== lab) { tg.remove(); tg = null; }
+  if (dup && !tg) { const b = el.querySelector("b"); if (b) b.insertAdjacentHTML("afterend", `<span class="hlDupTag">${lab}</span>`); } else if (!dup && tg) tg.remove(); }); }
 function renderHighlights() {
   hlList = computeHighlights(cur.cands, cur.segs, roleOf, hlBestOpts());
   const p = bestPicked(), rv = cur.review;
@@ -5308,7 +5319,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-31-0832-repeat";
+const BUILD = "2026-10-31-0844-nodupbest";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
