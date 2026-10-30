@@ -3221,14 +3221,32 @@ async function openSubs(sid, box) {
 }
 
 // ── 바로 처리: 요청하자마자 서버 작업 시작 (구글 Apps Script 중계, config.kick_url) ──
-async function kick() {
+async function kick1() {
   if (!cfg?.kick_url) return false;
   try {
     const r = await fetch(cfg.kick_url, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ token }) });
     const j = await r.json().catch(() => ({})); return !!j.ok;
   } catch { return false; }
 }
-const startedMsg = (ok) => ok ? "바로 처리를 시작했어요 (보통 1~3분)" : "요청했어요. 1분 안에 처리가 시작돼요";
+// (10/31 사용자) 서버를 바로 깨우지 못하면 조용히 넘어가지 않게: 20초 뒤 한 번 더, 그래도 안 되면 화면 아래 [다시 시작]
+async function kick() {
+  let ok = await kick1();
+  if (!ok) { await new Promise(r => setTimeout(r, 20000)); ok = await kick1(); }
+  kickBar(!ok); return ok;
+}
+function kickBar(show) {
+  if (typeof document === "undefined" || !document.getElementById) return;
+  let b = document.getElementById("kickBar");
+  if (!show) { b?.remove(); return; }
+  if (!b) { b = document.createElement("div"); b.id = "kickBar"; b.setAttribute("role", "alert");
+    b.style.cssText = "position:fixed;left:12px;right:12px;bottom:84px;z-index:120;display:flex;gap:10px;align-items:center;padding:12px 14px;border-radius:14px;background:#3a2a14;border:1.5px solid #ffd27a;color:#ffe9b8;font-weight:700;box-shadow:0 6px 20px rgba(0,0,0,.5)";
+    b.innerHTML = `<span style="flex:1">⚠ 서버를 바로 깨우지 못했어요 · 요청은 저장돼 있어요</span><button type="button" class="small" style="flex:none">다시 시작</button><button type="button" class="small ghost" aria-label="닫기" style="flex:none">✕</button>`;
+    const [go, x] = b.querySelectorAll("button");
+    go.onclick = async () => { go.disabled = true; go.textContent = "시작 중…"; const ok = await kick1(); if (ok) { kickBar(false); toast("서버 처리를 시작했어요 (보통 1~3분)"); } else { go.disabled = false; go.textContent = "다시 시작"; toast("아직 연결이 안 돼요 · 다음 자동 실행 때 처리돼요"); } };
+    x.onclick = () => kickBar(false);
+    document.body.appendChild(b); }
+}
+const startedMsg = (ok) => ok ? "바로 처리를 시작했어요 (보통 1~3분)" : "요청은 저장했어요 · 서버를 바로 깨우지 못했어요(아래 [다시 시작])";
 
 // ── 보컬 메이크업 ────────────────────────────────────
 const MKREQ = "메이크업요청.json", MK_PRESETS = ["담백", "표준", "풍성"];
@@ -3480,7 +3498,7 @@ async function makeupFromLesson(cid, back) {
     job.folder = { id: jf, name: `${title}_메이크업` };
     job.reqId = await writeJSON(jf, MKREQ, req);
     showProgress(job, "서버 호출 중…");
-    kick().then(ok => { if (!job.req.progress) paintProg(job.req, ok ? "GitHub 서버 시작 기다리는 중 (보통 20초 안)" : "1분 안에 서버가 시작돼요"); });
+    kick().then(ok => { if (!job.req.progress) paintProg(job.req, ok ? "GitHub 서버 시작 기다리는 중 (보통 20초 안)" : "서버를 바로 깨우지 못했어요 · 아래 [다시 시작]"); });
   } catch (e) { stopProg(); toast(e.message); }
 }
 // 미리듣기: 보컬(원음)·보컬(울림)·MR 세 갈래를 동시에 재생하며 비율만 바로 조절
@@ -4184,7 +4202,7 @@ async function makeupFromBest(o, back) {
     job.folder = { id: jf, name: title + "_메이크업" };
     job.reqId = await writeJSON(jf, MKREQ, req);
     showProgress(job, "서버 호출 중…");
-    kick().then(ok => { if (!job.req.progress) paintProg(job.req, ok ? "서버 시작 대기 중" : "서버 시작 확인 중"); });
+    kick().then(ok => { if (!job.req.progress) paintProg(job.req, ok ? "서버 시작 대기 중" : "서버를 바로 깨우지 못했어요 · 아래 [다시 시작]"); });
   } catch (e) { stopProg(); toast(e.message); }
 }
 // 메이크업본 자동(사용자 2026-10-29 08:00: 매번 버튼 누르고 3분 넘게 기다리는 게 별로). 서버도 새 편집본이 생기면 자동 요청하고(auto_makeup.py),
@@ -5290,7 +5308,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-30-2240-bestalts";
+const BUILD = "2026-10-31-0020-kick";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
