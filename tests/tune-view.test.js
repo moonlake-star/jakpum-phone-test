@@ -21,4 +21,7 @@ const ls = [{ id: "3", date: "10-25", best: { file_id: "B3" }, makeup: { file_id
 const tr = albumTracks(ls);
 assert.deepStrictEqual(tr.map(x => [x.id, x.mk]), [["B2", null], ["B3", "M3"]], "레슨마다 한 곡, 어긋난 메이크업본(원본 다름)은 빼고 날짜순");
 assert.ok(tr[0].title.includes("2회차") && tr[1].curve === "C3");
+// (10/30 13:28) 확대해도 크게 도약한 음이 화면 밖으로 안 나감
+const jump = { levels: [2], pts: Array.from({ length: 200 }, (_, i) => [i / 25, i < 100 ? 6500 : 7400, i < 100 ? 6500 : 7400]) };
+const f = T.fitAt(jump, 4, 2); assert.ok(f[0] <= 6500 && f[1] >= 7400, "지금 앞뒤 음이 모두 들어감");
 console.log("tune-view ok");

@@ -18,6 +18,12 @@
     if (v.length < 3) return null; v.sort((a, b) => a - b); const lo = v[Math.floor(v.length * 0.1)], hi = v[Math.floor(v.length * 0.9)];
     return (lo + hi) / 2;
   }
+  function fitAt(cv, t, k) {   // [가장 낮은 음, 가장 높은 음, 가운데] — 튀는 점(위아래 2%) 제외
+    const v = []; for (const p of cv.pts || []) { if (p[0] < t - WIN * HEAD) continue; if (p[0] > t + WIN * (1 - HEAD)) break; v.push(p[1]); if (k) v.push(p[k]); }
+    if (v.length < 3) return null; v.sort((a, b) => a - b);
+    const lo = v[Math.floor(v.length * 0.02)], hi = v[Math.min(v.length - 1, Math.floor(v.length * 0.98))];
+    return [lo, hi, (lo + hi) / 2];
+  }
   function delta(cv, k, t) {   // 지금 위치의 고친 양(센트)
     if (!k) return null; let best = null;
     for (const p of cv.pts || []) { if (Math.abs(p[0] - t) < 0.06) { best = p[k] - p[1]; break; } if (p[0] > t + 0.06) break; }
@@ -30,9 +36,11 @@
     const g = el.getContext("2d"); g.setTransform(r, 0, 0, r, 0, 0); g.clearRect(0, 0, w, h);
     const k = col(cv, lv), lane = k && h > 110 ? LANE : 0, H = h - lane;
     let [lo, hi] = range(cv);
-    if (st && st.zoom) {   // 확대: 화면이 부드럽게 따라감
-      const c = centerAt(cv, t); if (c != null) st.c = st.c == null ? c : st.c + (c - st.c) * 0.08;
-      if (st.c != null) { lo = st.c - ZOOM_HALF; hi = st.c + ZOOM_HALF; }
+    if (st && st.zoom) {   // 확대: 화면 안(지금 앞뒤 8초) 음이 모두 들어오게 — 기본 ±4반음, 크게 도약하면 그만큼 넓힘(10/30 13:28 사용자)
+      const f = fitAt(cv, t, k);
+      if (f) { const tl = Math.min(f[0] - 150, f[2] - ZOOM_HALF), th = Math.max(f[1] + 150, f[2] + ZOOM_HALF);
+        if (st.lo == null) { st.lo = tl; st.hi = th; } else { st.lo += (tl - st.lo) * 0.12; st.hi += (th - st.hi) * 0.12; } }
+      if (st.lo != null) { lo = st.lo; hi = st.hi; }
     }
     const L = 30, y = (c) => H - 6 - (c - lo) / (hi - lo) * (H - 12);
     const t0 = t - WIN * HEAD, xs = (tt) => L + (tt - t0) / WIN * (w - L), sc = cv.scale;
@@ -83,11 +91,11 @@
   // 확대/전체 버튼: el 바로 앞에 붙임(Tune.controls). 기본 = 확대.
   function wire(el, cv, getT, getLv, seek) {
     if (!el || !cv) return;
-    const st = { zoom: true, c: null };
+    const st = { zoom: true, lo: null, hi: null };
     const bar = document.createElement("div"); bar.className = "tuneZoom";
     bar.innerHTML = `<button type="button" data-z="1" class="on" aria-pressed="true">🔍 확대</button><button type="button" data-z="0" aria-pressed="false">전체</button>`;
     el.parentNode && el.parentNode.insertBefore(bar, el);
-    bar.querySelectorAll("[data-z]").forEach(b => b.onclick = () => { st.zoom = b.dataset.z === "1"; st.c = null;
+    bar.querySelectorAll("[data-z]").forEach(b => b.onclick = () => { st.zoom = b.dataset.z === "1"; st.lo = st.hi = null;
       bar.querySelectorAll("[data-z]").forEach(x => { const on = x === b; x.classList.toggle("on", on); x.setAttribute("aria-pressed", String(on)); }); });
     let drag = null, preview = null;
     const loop = () => { if (!el.isConnected) { bar.remove(); return; } draw(el, cv, preview ?? (+getT() || 0), +getLv() || 0, st); requestAnimationFrame(loop); };
@@ -115,5 +123,5 @@
   const legend = (withCorr) => `<div class="tuneLeg"><span><i style="background:#ff9f5a"></i>부른 음정</span>${withCorr ? `<span><i style="background:#7fd9ff"></i>보정 후</span><span><i style="background:#ffd27a;opacity:.6"></i>고친 곳</span>` : ""}<span><i style="background:#ffd27a;width:3px;height:11px"></i>지금</span></div>`;
   const css = `.tuneZoom{display:flex;gap:6px;margin:6px 0 2px}.tuneZoom button{border:1px solid #363c45;border-radius:10px;background:#11141a;color:#a9b1bc;font-weight:700;font-size:.8rem;min-height:32px;padding:0 12px;margin:0}.tuneZoom button.on{background:#9cc3ff;color:#10141a;border-color:#9cc3ff}`;
   if (typeof document !== "undefined" && document.head) { const s = document.createElement("style"); s.textContent = css; document.head.appendChild(s); }
-  G.Tune = { draw, wire, load, legend, range, col, centerAt, delta, WIN, HEAD, ZOOM_HALF };
+  G.Tune = { draw, wire, load, legend, range, col, centerAt, fitAt, delta, WIN, HEAD, ZOOM_HALF };
 })(typeof window !== "undefined" ? window : globalThis);
