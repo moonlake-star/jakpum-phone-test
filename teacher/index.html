@@ -1474,45 +1474,58 @@ function splitSentences(text) {
   return out;
 }
 const sentKey = (s) => String(s).replace(/\s+/g, " ").trim();
-function sentClassify(s, aiFeedback) {   // → {kind:"ev"|"warn"|"plain", t}
+// 시각 인정 규칙: ①AI가 만든 구조화 근거(evidence t)와 ±2초 일치 → 확정 ②없으면 문장 맨 앞·괄호/가운뎃점 뒤의 m:ss만 녹음 시각 후보 ③오전/오후/시작 등 시계 시간 표현은 시각으로 보지 않음(애매 → 근거 확인 필요)
+const SENT_CLOCK = /(오전|오후|AM|PM|am|pm|아침|저녁|밤|새벽|시작|도착|끝나|마감)\s*\d{1,2}:[0-5]\d|\d{1,2}:[0-5]\d\s*(에\s*(시작|도착|만나|끝)|부터|까지|AM|PM|am|pm)/;
+function sentClassify(s, aiFeedback, evTimes) {   // → {kind:"ev"|"warn"|"plain", t, why}
   const m = SENT_TIME.exec(s), t = m ? +m[1] * 60 + +m[2] : null;
   const fromAi = !!aiFeedback && sentKey(aiFeedback).includes(sentKey(s));
-  if (t != null) return { kind: "ev", t, fromAi };
-  if (fromAi && !SENT_GREET.test(s) && SENT_RISK.test(s)) return { kind: "warn", t: null, fromAi };   // 시각 근거 없는 AI 음향 판단 → 선생님 확인 전 전달 불가
-  return { kind: "plain", t: null, fromAi };
+  const risk = !SENT_GREET.test(s) && SENT_RISK.test(s);
+  const clock = SENT_CLOCK.test(s);
+  const struct = t != null && !clock && Array.isArray(evTimes) && evTimes.some(x => Math.abs(+x - t) <= 2);
+  if (t != null && !clock && (!risk || struct)) return { kind: "ev", t, fromAi, struct };
+  if (fromAi && risk) return { kind: "warn", t: clock ? null : t, fromAi, why: t != null && !clock ? "시각만 적혀 있고 AI 근거 기록과 연결되지 않은 음향 판단" : "시각 근거 없는 AI 음향 판단" };   // 시각이 있어도 음향 평가가 검증된 것은 아님 → 선생님 확인 전 전달 불가
+  if (fromAi && clock) return { kind: "warn", t: null, fromAi, why: "시계 시간인지 녹음 시각인지 애매함 — 근거 확인 필요" };
+  return { kind: "plain", t: clock ? null : t, fromAi };
 }
-function sentList(feedback, aiFeedback, ok) {
-  return splitSentences(feedback).map((s, i) => { const c = sentClassify(s, aiFeedback), k = sentKey(s); return { id: i, text: s, key: k, ...c, ok: !!(ok && ok[k]) }; });
+function sentList(feedback, aiFeedback, ok, evTimes) {
+  return splitSentences(feedback).map((s, i) => { const c = sentClassify(s, aiFeedback, evTimes), k = sentKey(s); return { id: i, text: s, key: k, ...c, ok: !!(ok && ok[k]) }; });
 }
 function sentStat(list) {
   const need = list.filter(x => x.kind === "warn" && !x.ok).length;
   return { total: list.length, need, text: list.length ? (need ? `필수 확인 ${need}개 남음 · 전체 ${list.length}문장` : `필수 확인 끝 · 전체 ${list.length}문장`) : "" };
 }
-function sentBlockers(feedback, aiFeedback, ok) {
-  return sentList(feedback, aiFeedback, ok).filter(x => x.kind === "warn" && !x.ok).map(x => ({ level: "block", msg: `⚠ 근거 없는 AI 판단 문장: “${x.text.slice(0, 30)}” — ‘선생님 한마디’ 카드에서 맞아요/고치기/빼기를 해 주세요` }));
+function sentBlockers(feedback, aiFeedback, ok, evTimes) {
+  return sentList(feedback, aiFeedback, ok, evTimes).filter(x => x.kind === "warn" && !x.ok).map(x => ({ level: "block", msg: `⚠ 근거 확인이 필요한 AI 판단 문장: “${x.text.slice(0, 30)}” — ‘선생님 한마디’ 카드에서 맞아요/고치기/빼기를 해 주세요` }));
+}
+const sentEvList = (me) => (me?.ai?.evidence || []).filter(e => e && Number.isFinite(+(e.t ?? e.evidence_start))).map(e => ({ t: +(e.t ?? e.evidence_start), text: e.text || "" })).slice(0, 8);
+const sentEvTimes = (me) => sentEvList(me).map(e => e.t);
+function sentSegPick(segs, t, tol = 3) {   // t를 포함하거나 허용 오차(초) 안에 있는 전사 한 줄. 정렬 순서와 무관, 없으면 ""
+  let best = null, bd = Infinity;
+  for (const g of segs || []) {
+    const a = +g?.start, b = +g?.end, tx = String(g?.text || "").trim(); if (!tx || !Number.isFinite(a)) continue;
+    const e = Number.isFinite(b) && b >= a ? b : a, d = t < a ? a - t : t > e ? t - e : 0;
+    if (d <= tol && d < bd) { best = tx; bd = d; }
+  }
+  return best ? best.slice(0, 60) : "";
 }
 // </sent-pure>
 
 // 문장 카드 UI: 각 문장 옆에 ▶근거 시각 + 전사 한 줄 + [맞아요/고치기/빼기]. 시각은 레슨 녹음(재생바)의 절대 시각. 전사는 말한 내용 확인용이지 음정·비브라토 품질의 음향 증거가 아니다
-function sentSeg(t) {   // t 시각 이전·직후에 시작한 전사 한 줄
-  const segs = (cur?.segs || []).filter(g => String(g?.text || "").trim()); let best = null;
-  for (const g of segs) { const d = t - (+g.start || 0); if (d >= -3 && (!best || Math.abs(t - best.start) > Math.abs(d))) best = g; if (d < -3) break; }
-  return best ? String(best.text).trim().slice(0, 60) : "";
-}
+const sentSeg = (t) => sentSegPick(cur?.segs, t);
 function sentCardsHTML(me) {
-  const rv = me?.review || {}, list = sentList(rv.feedback, me?.ai?.feedback_text, rv.sent_ok);
-  if (!list.length) return "";
+  const rv = me?.review || {}, list = sentList(rv.feedback, me?.ai?.feedback_text, rv.sent_ok, sentEvTimes(me)), evs = sentEvList(me);
+  if (!list.length && !evs.length) return "";
   const st = sentStat(list), evBatch = list.some(x => x.kind === "ev" && !x.ok);
   const rows = list.map(x => {
     const warn = x.kind === "warn" && !x.ok, seg = x.t != null ? sentSeg(x.t) : "";
     const who = x.fromAi ? "🤖 AI 초안" : "✍ 선생님 글";
     const play = x.t != null ? `<button type="button" class="small ghost evd sentPlay" data-t="${x.t}" aria-label="근거 듣기 ${fmt(x.t)}">▶ ${fmt(x.t)}</button>` : "";
-    const none = x.kind === "warn" ? `<span class="muted">시각 근거 없음 — 전사로는 확인이 안 되는 음향 판단이에요. 직접 듣고 판단해 주세요</span>` : x.t == null ? `<span class="muted">확인 안 해도 돼요</span>` : "";
+    const none = x.kind === "warn" ? `<span class="muted">${esc(x.why || "시각 근거 없음")} — 전사로는 확인이 안 되는 음향 판단이에요. 직접 듣고 판단해 주세요</span>` : x.t == null ? `<span class="muted">확인 안 해도 돼요</span>` : "";
     return `<div class="sentRow${warn ? " warn" : ""}${x.ok ? " ok" : ""}" data-sk="${esc(x.key)}"><div class="sentTxt">${warn ? "⚠ " : ""}${esc(x.text)} <span class="muted">· ${who}</span></div>
-      <div class="sentEv">${play}${seg ? `<span class="muted">“${esc(seg)}”</span>` : none}</div>
+      <div class="sentEv">${play}${seg ? `<span class="muted">“${esc(seg)}”</span>` : x.t != null ? `<span class="muted">전사 근거 없음${none ? " · " : ""}</span>${none}` : none}</div>
       <div class="sentAct"><button type="button" class="small${x.ok ? " save" : ""}" data-sa="ok" aria-pressed="${x.ok}">${x.ok ? "✓ 맞아요" : "맞아요"}</button><button type="button" class="small ghost" data-sa="fix">✎ 고치기</button><button type="button" class="small ghost" data-sa="drop">빼기</button></div></div>`;
   }).join("");
-  return `<div id="pvSents" class="sentBox"><div class="sentHead"><b>문장별 근거 확인</b> <span class="muted" id="sentStat">${esc(st.text)}</span>${evBatch ? ` <button type="button" class="small ghost" data-sa="all">근거 있는 문장 모두 맞아요</button>` : ""}</div>${rows}
+  return `<div id="pvSents" class="sentBox"><div class="sentHead"><b>문장별 근거 확인</b> <span class="muted" id="sentStat">${esc(st.text)}</span>${evBatch ? ` <button type="button" class="small ghost" data-sa="all">근거 있는 문장 모두 맞아요</button>` : ""}</div>${rows}${evs.length ? `<details class="sentEvAll"><summary class="muted">AI 초안 근거 ${evs.length}개 전체 보기</summary><div class="row" style="gap:4px;flex-wrap:wrap;margin-top:4px">${evs.map(e => `<button type="button" class="small ghost evd sentPlay" data-t="${e.t}" title="${esc(e.text)}">▶ ${fmt(e.t)} ${esc(e.text.slice(0, 14))}</button>`).join("")}</div></details>` : ""}
     <p class="muted" style="margin:4px 0 0;font-size:.82rem">시각은 레슨 원본 녹음 기준이에요 · 전사는 말한 내용 확인용이며 음정·비브라토 같은 소리 품질의 증거는 아니에요 · 글을 고치면 그 문장은 다시 확인해요</p></div>`;
 }
 function sentRepaint() {
@@ -1529,7 +1542,7 @@ function sentWire(me) {
     if (b.classList.contains("sentPlay")) return jumpPlay(b, +b.dataset.t);
     const rv = me.review, field = $("previewFeedback"), act = b.dataset.sa, row = b.closest(".sentRow"), key = row?.dataset.sk;
     const redraw = () => { const n = document.createElement("div"); n.innerHTML = sentCardsHTML(me); const nx = n.firstElementChild; if (nx) { box.replaceWith(nx); sentWire(me); } else box.remove(); if (typeof v2Count === "function") v2Count(me); };
-    if (act === "all") { rv.sent_ok ??= {}; for (const x of sentList(rv.feedback, me.ai?.feedback_text, rv.sent_ok)) if (x.kind === "ev") rv.sent_ok[x.key] = true; return redraw(); }
+    if (act === "all") { rv.sent_ok ??= {}; for (const x of sentList(rv.feedback, me.ai?.feedback_text, rv.sent_ok, sentEvTimes(me))) if (x.kind === "ev") rv.sent_ok[x.key] = true; return redraw(); }
     if (!key) return;
     if (act === "ok") { rv.sent_ok ??= {}; if (rv.sent_ok[key]) delete rv.sent_ok[key]; else rv.sent_ok[key] = true; return redraw(); }
     if (act === "fix" && field) { const i = field.value.indexOf(row.querySelector(".sentTxt").textContent.replace(/^⚠ /, "").replace(/ · (🤖 AI 초안|✍ 선생님 글)$/, "").trim().slice(0, 20)); field.focus(); if (i >= 0) { try { field.setSelectionRange(i, i); } catch {} } return; }
@@ -1597,7 +1610,7 @@ function approvalBlockers(note, rv, ai) {
   if (ms === "unset") out.push({ level: "block", msg: "이번 주 미션이 ‘미설정’이에요. 연습을 적거나 ‘미션 없음’을 직접 선택해 주세요" });
   if (!missionConsistent(note)) out.push({ level: "block", msg: "피드백 문구 속 ‘이번 주 연습’과 미션 칸이 서로 달라요. 같게 맞춰 주세요" });
   if (rv?.mission_ack !== missionAckKey(rv)) for (const f of aiMissionFlags(ai)) out.push({ level: "block", ack: true, msg: f + " — 확인했다면 아래 확인 칸을 눌러 주세요" });
-  if (typeof sentBlockers === "function") out.push(...sentBlockers(note?.feedback, ai?.feedback_text, rv?.sent_ok));   // #207: 시각 근거 없는 AI 판단 문장은 확인 전 전달 불가
+  if (typeof sentBlockers === "function") out.push(...sentBlockers(note?.feedback, ai?.feedback_text, rv?.sent_ok, (ai?.evidence || []).map(e => +(e?.t ?? e?.evidence_start)).filter(Number.isFinite)));   // #207: 시각 근거 없는 AI 판단 문장은 확인 전 전달 불가
   return out;
 }
 // 서버 t_state 응답이 예약 기능을 지원하는지(없으면 구버전 → 꺼짐)
@@ -3718,8 +3731,7 @@ function paintAiNote(ai) {
   if (ai) { const ev = (ai.evidence || []).filter(e => e.t != null).slice(0, 8);
     $("aiNote").innerHTML = `<b>🤖 AI 초안${ai.first_lesson ? " · 첫 레슨" : ""}</b> <span class="muted">확인하고 고친 뒤 보내 주세요</span>` +
     (ev.length || ai.notes ? `<details style="margin-top:4px"><summary class="muted">근거 ${ev.length}개${ai.notes ? " · AI 메모" : ""} 보기</summary>` +
-      (ev.length ? `<div class="row" style="gap:4px;flex-wrap:wrap;margin-top:4px">${ev.map(e =>
-        `<button class="small ghost evd" data-t="${+e.t}" title="${esc(e.text || "")}">▶ ${fmt(+e.t)} ${esc((e.text || "").slice(0, 14))}</button>`).join("")}</div>` : "") +
+      (ev.length ? `<div class="muted" style="margin-top:4px">근거 ${ev.length}개는 아래 ‘문장별 근거 확인’ 카드 안에서 들을 수 있어요</div>` : "") +
       (ai.notes ? `<div class="muted" style="margin-top:4px">선생님께: ${esc(ai.notes)}</div>` : "") + `</details>` : ""); }
   document.querySelectorAll("#aiNote .evd").forEach(b => b.onclick = () => jumpPlay(b, +b.dataset.t));
 }
@@ -5296,7 +5308,7 @@ function v2State(me) {
 function v2DockPaint(me, done, total) {
   const all = done >= total, rv = me.review || {}, st = v2State(me), msg = $("v2DockMsg"), b = $("v2Send"); if (!msg || !b) return;
   const pub = st === "published" ? "✓ 수강생에게 공개 중" : st === "published_stale" ? "⚠ 고친 내용은 아직 수강생 화면에 반영 전 · 전달하기에서 다시 공개" : "아직 수강생에게 공개 전";
-  let ss = ""; try { ss = sentStat(sentList(rv.feedback, me.ai?.feedback_text, rv.sent_ok)).text; } catch {}
+  let ss = ""; try { ss = sentStat(sentList(rv.feedback, me.ai?.feedback_text, rv.sent_ok, sentEvTimes(me))).text; } catch {}
   msg.textContent = (all ? "" : `카드를 끝까지 한 번 훑어봐 주세요 (${done}/${total}) · `) + (ss ? ss + " · " : "") + pub + (rv.kakao_sent_at ? " · 카톡 보냄 ✓" : "");
   b.textContent = all ? "✈ 전달하기" : `↓ 다음 카드 (${done}/${total})`; b.setAttribute("aria-label", all ? "수강생에게 전달하기" : "다음 카드 보기"); b.classList.toggle("todo", !all);
 }
