@@ -347,10 +347,10 @@
       <span class="tfNote">AI 단순 보정이라 정확하지 않을 수 있어요.<br>정식 음원은 전문 엔지니어가 한 음 한 음 더 정밀하게 다듬어요.</span></div></div>`;
     document.body.appendChild(wrap);
     const box = wrap.querySelector(".tfBox"), cvEl = wrap.querySelector(".tfCv"), st = { full: true, xz: 1, yz: 1, yc: null, panAt: 0, notes: o.notes, teacher: !!o.teacher, lvDef: o.lvDef };
-    let rot = false;   // (10/30 17:43 사용자) 전체화면은 무조건 세로 배치 — 폰을 옆으로 들고 있으면 화면을 돌려 세로로
-    const layout = () => { rot = G.innerWidth > G.innerHeight; const W = rot ? G.innerHeight : G.innerWidth, H = rot ? G.innerWidth : G.innerHeight;
-      box.style.width = W + "px"; box.style.height = H + "px"; box.style.transform = `translate(-50%,-50%)${rot ? " rotate(90deg)" : ""}`;
-      box.classList.add("port"); st.win = 3; };
+    const rot = false;   // (10/30 17:51 사용자) 가로도 남김 — 세로로 들면 세로, 폰을 돌리면 가로
+    const layout = () => { const W = G.innerWidth, H = G.innerHeight, port = H > W;
+      box.style.width = W + "px"; box.style.height = H + "px"; box.style.transform = "translate(-50%,-50%)";
+      box.classList.toggle("port", port); st.win = port ? 3 : 6; };
     layout();
     try {   // 열 때: 카드 자리에서 커지며 돌아감
       const r = src.getBoundingClientRect(), W = parseFloat(box.style.width), s = Math.max(0.2, r.width / W);
@@ -363,6 +363,17 @@
     try { history.pushState(Object.assign({}, history.state || {}, { tuneFs: true }), ""); } catch {}
     const bye = wrap.querySelector(".tfBye"); setTimeout(() => bye && bye.classList.add("go"), 450);
     // (10/30 17:18 사용자) 가로 회전 안내는 없앰 — 주석 2층은 세로가 더 편함
+    // (10/30 17:51 사용자 시안 승인) 수강생: 선생님이 확인한 주석이 있으면 열 때 2.5초 안내 — 레슨마다 처음 두 번만, 톡 하면 닫힘
+    if (o.tip && (typeof o.notes === "function" ? (o.notes() || []).length : 0)) { let n = 0; const key = "tune_tip_" + String(o.tipKey || o.title || "").slice(0, 80);
+      try { n = +(localStorage.getItem(key) || 0); } catch {}
+      if (n < 2) { try { localStorage.setItem(key, String(n + 1)); } catch {}
+        const rp = document.createElement("div"); rp.className = "tfRot"; rp.setAttribute("role", "status");
+        rp.innerHTML = `<div class="rpBox"><div style="font-size:38px;margin-bottom:6px" aria-hidden="true">🎤</div><p style="font-size:15px;color:#f1f1f1;line-height:1.5;word-break:keep-all"></p><div class="rpBar"><i style="animation-duration:2.5s"></i></div></div>`;
+        rp.querySelector("p").textContent = String(o.tip);
+        const shut = () => { if (!rp.isConnected) return; rp.classList.add("out"); setTimeout(() => rp.remove(), 300); };
+        rp.addEventListener("pointerdown", (e) => { e.stopPropagation(); shut(); });
+        bye && bye.remove();   // 안내가 겹치지 않게 '닫을 때는…'은 이번엔 생략
+        setTimeout(() => { if (!wrap.isConnected) return; wrap.appendChild(rp); setTimeout(shut, 2500); }, 400); } }
     const done = () => { G.removeEventListener("resize", layout); G.removeEventListener("orientationchange", layout); wrap.remove(); if (fsClose === done) fsClose = null; };
     fsClose = done;
     const close = () => { done(); try { if (history.state && history.state.tuneFs) { skipPop = true; history.back(); } } catch {} };
