@@ -178,6 +178,10 @@
   .pvHead b { font-size:1.08rem; } .pvFullBtn { min-height:40px; padding:0 12px; font-size:.9rem; border-radius:10px; }
   .pvStrip { display:flex; flex-direction:column; gap:10px; padding:4px 0 8px; }   /* 10/28 22:24 사용자: 옆으로 넘기기 별로 → 위아래로 */
   .pvStrip::-webkit-scrollbar { display:none; }
+  .sentBox { margin:8px 0; } .sentHead { display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-bottom:4px; }
+  .sentRow { border:1px solid #d9dee8; border-radius:10px; padding:8px; margin:6px 0; } .sentRow.warn { border:2px solid #f2b705; background:#fff9e0; } .sentRow.ok { border-color:#2fbf71; }
+  .sentEv { display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin:4px 0; } .sentAct { display:flex; gap:6px; flex-wrap:wrap; } .sentAct button, .sentPlay { min-height:44px; }
+  .sentPlay[data-jumpon] { background:#ffe27a; }
   .pvCard { flex:none; width:100%; background:#1b1f26; border:1.5px solid var(--line); border-radius:16px; padding:12px; display:flex; flex-direction:column; gap:8px; transition:border-color .2s; }
   .pvCard.open, .pvCard:focus-within { border-color:var(--pv, var(--accent)); box-shadow:0 0 0 1px var(--pv, var(--accent)) inset; }
   .pvCard h4 { margin:0; font-size:1.02rem; display:flex; align-items:center; gap:8px; } .pvCard h4 .len { margin-left:auto; color:var(--muted); font-weight:600; font-size:.9rem; }
@@ -1443,6 +1447,99 @@ async function paintSeen() {   // 읽음 여부는 시트에서
 // ── 예약 공개(#70 B-2): 승인 → (다음날 18:00 KST 기본) 예약 / 시간 변경 / 취소 / 즉시 공개 ──
 // '공개'는 수강생 페이지에 노트가 보이는 것뿐이다. 카톡 발송은 선생님이 직접 하며(rv.kakao_sent_at) 서버 예약과 서로 독립이다.
 // 서버(수강생노트.gs의 t_schedule/t_unschedule, 백엔드 PR #73)가 없거나 구버전이면 예약 기능은 꺼진다(fail closed). 예약 버튼이 즉시 게시로 바뀌는 일은 없다.
+// <sent-pure>
+// ── 문장별 근거 확인(#207 시안①, 수강생 화면 변경 없음) ──
+// 분리: 강사 글의 줄바꿈·글머리(·, -)를 먼저 따르고, 한 줄이 길 때만 마침표 뒤에서 보조 분리. 시각(8:24)·숫자 소수점·따옴표/괄호 안 마침표는 자르지 않는다.
+const SENT_HEAD = /^(오늘 중요한 포인트|이번 주 연습|오늘의 핵심 포인트|다음 미션)$/;
+const SENT_TIME = /(?:^|[\s·(~])(\d{1,2}):([0-5]\d)(?![\d:])/;
+const SENT_RISK = /(음정|비브라토|발성|호흡|고음|저음|떨림|떨려|흔들|안정|톤|성량|공명|리듬|박자|음이탈)/;
+const SENT_GREET = /^(안녕|수고|고생|오늘도|감사|응원|파이팅|화이팅|다음 시간|다음에|또 만나|힘내)/;
+const SENT_OPEN = "([「『“‘", SENT_CLOSE = ")]」』”’";
+function splitSentences(text) {
+  const out = [];
+  for (const raw of String(text || "").split("\n")) {
+    const line = raw.replace(/^[ \t]*[·•\-]\s*/, "").trim();
+    if (!line || SENT_HEAD.test(line)) continue;
+    if (line.length <= 60) { out.push(line); continue; }
+    let buf = "", depth = 0, q = null;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i]; buf += ch;
+      if (SENT_OPEN.includes(ch)) depth++;
+      else if (SENT_CLOSE.includes(ch)) depth = Math.max(0, depth - 1);
+      else if (ch === '"' || ch === "'") { if (q === null) { q = ch; depth++; } else if (q === ch) { q = null; depth = Math.max(0, depth - 1); } }
+      if ((ch === "." || ch === "!" || ch === "?" || ch === "。") && depth === 0 && !/\d/.test(line[i - 1] || "") && /\s/.test(line[i + 1] || "") && buf.trim().length >= 8) { out.push(buf.trim()); buf = ""; }
+    }
+    if (buf.trim()) { if (out.length && buf.trim().length < 8) out[out.length - 1] += " " + buf.trim(); else out.push(buf.trim()); }
+  }
+  return out;
+}
+const sentKey = (s) => String(s).replace(/\s+/g, " ").trim();
+function sentClassify(s, aiFeedback) {   // → {kind:"ev"|"warn"|"plain", t}
+  const m = SENT_TIME.exec(s), t = m ? +m[1] * 60 + +m[2] : null;
+  const fromAi = !!aiFeedback && sentKey(aiFeedback).includes(sentKey(s));
+  if (t != null) return { kind: "ev", t, fromAi };
+  if (fromAi && !SENT_GREET.test(s) && SENT_RISK.test(s)) return { kind: "warn", t: null, fromAi };   // 시각 근거 없는 AI 음향 판단 → 선생님 확인 전 전달 불가
+  return { kind: "plain", t: null, fromAi };
+}
+function sentList(feedback, aiFeedback, ok) {
+  return splitSentences(feedback).map((s, i) => { const c = sentClassify(s, aiFeedback), k = sentKey(s); return { id: i, text: s, key: k, ...c, ok: !!(ok && ok[k]) }; });
+}
+function sentStat(list) {
+  const need = list.filter(x => x.kind === "warn" && !x.ok).length;
+  return { total: list.length, need, text: list.length ? (need ? `필수 확인 ${need}개 남음 · 전체 ${list.length}문장` : `필수 확인 끝 · 전체 ${list.length}문장`) : "" };
+}
+function sentBlockers(feedback, aiFeedback, ok) {
+  return sentList(feedback, aiFeedback, ok).filter(x => x.kind === "warn" && !x.ok).map(x => ({ level: "block", msg: `⚠ 근거 없는 AI 판단 문장: “${x.text.slice(0, 30)}” — ‘선생님 한마디’ 카드에서 맞아요/고치기/빼기를 해 주세요` }));
+}
+// </sent-pure>
+
+// 문장 카드 UI: 각 문장 옆에 ▶근거 시각 + 전사 한 줄 + [맞아요/고치기/빼기]. 시각은 레슨 녹음(재생바)의 절대 시각. 전사는 말한 내용 확인용이지 음정·비브라토 품질의 음향 증거가 아니다
+function sentSeg(t) {   // t 시각 이전·직후에 시작한 전사 한 줄
+  const segs = (cur?.segs || []).filter(g => String(g?.text || "").trim()); let best = null;
+  for (const g of segs) { const d = t - (+g.start || 0); if (d >= -3 && (!best || Math.abs(t - best.start) > Math.abs(d))) best = g; if (d < -3) break; }
+  return best ? String(best.text).trim().slice(0, 60) : "";
+}
+function sentCardsHTML(me) {
+  const rv = me?.review || {}, list = sentList(rv.feedback, me?.ai?.feedback_text, rv.sent_ok);
+  if (!list.length) return "";
+  const st = sentStat(list), evBatch = list.some(x => x.kind === "ev" && !x.ok);
+  const rows = list.map(x => {
+    const warn = x.kind === "warn" && !x.ok, seg = x.t != null ? sentSeg(x.t) : "";
+    const who = x.fromAi ? "🤖 AI 초안" : "✍ 선생님 글";
+    const play = x.t != null ? `<button type="button" class="small ghost evd sentPlay" data-t="${x.t}" aria-label="근거 듣기 ${fmt(x.t)}">▶ ${fmt(x.t)}</button>` : "";
+    const none = x.kind === "warn" ? `<span class="muted">시각 근거 없음 — 전사로는 확인이 안 되는 음향 판단이에요. 직접 듣고 판단해 주세요</span>` : x.t == null ? `<span class="muted">확인 안 해도 돼요</span>` : "";
+    return `<div class="sentRow${warn ? " warn" : ""}${x.ok ? " ok" : ""}" data-sk="${esc(x.key)}"><div class="sentTxt">${warn ? "⚠ " : ""}${esc(x.text)} <span class="muted">· ${who}</span></div>
+      <div class="sentEv">${play}${seg ? `<span class="muted">“${esc(seg)}”</span>` : none}</div>
+      <div class="sentAct"><button type="button" class="small${x.ok ? " save" : ""}" data-sa="ok" aria-pressed="${x.ok}">${x.ok ? "✓ 맞아요" : "맞아요"}</button><button type="button" class="small ghost" data-sa="fix">✎ 고치기</button><button type="button" class="small ghost" data-sa="drop">빼기</button></div></div>`;
+  }).join("");
+  return `<div id="pvSents" class="sentBox"><div class="sentHead"><b>문장별 근거 확인</b> <span class="muted" id="sentStat">${esc(st.text)}</span>${evBatch ? ` <button type="button" class="small ghost" data-sa="all">근거 있는 문장 모두 맞아요</button>` : ""}</div>${rows}
+    <p class="muted" style="margin:4px 0 0;font-size:.82rem">시각은 레슨 원본 녹음 기준이에요 · 전사는 말한 내용 확인용이며 음정·비브라토 같은 소리 품질의 증거는 아니에요 · 글을 고치면 그 문장은 다시 확인해요</p></div>`;
+}
+function sentRepaint() {
+  const el = $("pvSents"); if (!el || !cur) return;
+  const keep = document.activeElement?.closest?.("#pvSents"), t = document.createElement("div"); t.innerHTML = sentCardsHTML(cur);
+  const nx = t.firstElementChild; if (!nx) { el.remove(); return; }
+  if (keep) { const st = $("sentStat"), n = nx.querySelector("#sentStat"); if (st && n) st.textContent = n.textContent; return; }   // 누르는 도중에는 통째로 다시 그리지 않음
+  el.replaceWith(nx);
+}
+function sentWire(me) {
+  const box = $("pvSents"); if (!box) return;
+  box.onclick = (e) => {
+    const b = e.target?.closest?.("[data-sa], .sentPlay"); if (!b || cur !== me) return;
+    if (b.classList.contains("sentPlay")) return jumpPlay(b, +b.dataset.t);
+    const rv = me.review, field = $("previewFeedback"), act = b.dataset.sa, row = b.closest(".sentRow"), key = row?.dataset.sk;
+    const redraw = () => { const n = document.createElement("div"); n.innerHTML = sentCardsHTML(me); const nx = n.firstElementChild; if (nx) { box.replaceWith(nx); sentWire(me); } else box.remove(); if (typeof v2Count === "function") v2Count(me); };
+    if (act === "all") { rv.sent_ok ??= {}; for (const x of sentList(rv.feedback, me.ai?.feedback_text, rv.sent_ok)) if (x.kind === "ev") rv.sent_ok[x.key] = true; return redraw(); }
+    if (!key) return;
+    if (act === "ok") { rv.sent_ok ??= {}; if (rv.sent_ok[key]) delete rv.sent_ok[key]; else rv.sent_ok[key] = true; return redraw(); }
+    if (act === "fix" && field) { const i = field.value.indexOf(row.querySelector(".sentTxt").textContent.replace(/^⚠ /, "").replace(/ · (🤖 AI 초안|✍ 선생님 글)$/, "").trim().slice(0, 20)); field.focus(); if (i >= 0) { try { field.setSelectionRange(i, i); } catch {} } return; }
+    if (act === "drop" && field) {
+      const lines = field.value.split("\n"), j = lines.findIndex(l => sentKey(l.replace(/^[ \t]*[·•\-]\s*/, "")) === key);
+      let v; if (j >= 0) { lines.splice(j, 1); v = lines.join("\n"); } else { const at = field.value.indexOf(key); if (at < 0) { toast("글에서 이 문장을 찾지 못했어요 · 글 전체로 고쳐 주세요"); return; } v = field.value.slice(0, at) + field.value.slice(at + key.length).replace(/^[ \t]+/, ""); }
+      field.value = v; updateFeedbackDraft(v, true); if (rv.sent_ok) delete rv.sent_ok[key]; return redraw();
+    }
+  };
+}
 // <sched-pure>
 const SCHED_HHMM = "18:00", HHMM_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const pad2 = (n) => String(n).padStart(2, "0");
@@ -1500,6 +1597,7 @@ function approvalBlockers(note, rv, ai) {
   if (ms === "unset") out.push({ level: "block", msg: "이번 주 미션이 ‘미설정’이에요. 연습을 적거나 ‘미션 없음’을 직접 선택해 주세요" });
   if (!missionConsistent(note)) out.push({ level: "block", msg: "피드백 문구 속 ‘이번 주 연습’과 미션 칸이 서로 달라요. 같게 맞춰 주세요" });
   if (rv?.mission_ack !== missionAckKey(rv)) for (const f of aiMissionFlags(ai)) out.push({ level: "block", ack: true, msg: f + " — 확인했다면 아래 확인 칸을 눌러 주세요" });
+  if (typeof sentBlockers === "function") out.push(...sentBlockers(note?.feedback, ai?.feedback_text, rv?.sent_ok));   // #207: 시각 근거 없는 AI 판단 문장은 확인 전 전달 불가
   return out;
 }
 // 서버 t_state 응답이 예약 기능을 지원하는지(없으면 구버전 → 꺼짐)
@@ -1598,6 +1696,7 @@ function updateFeedbackDraft(value, fromPreview = false) {
   for (const id of ["btnSched", "btnNow"]) { const b = $(id); if (b) b.disabled = true; }
   const status = $("previewSaveMsg"); if (status) status.textContent = "수정 중 · ‘검수 저장’을 누르면 수강생 노트에 반영돼요";
   if (!fromPreview) paintDeliver();
+  if (typeof sentRepaint === "function") { clearTimeout(sentRepaint.tm); sentRepaint.tm = setTimeout(() => { sentRepaint(); if (typeof sentWire === "function" && cur) sentWire(cur); if (typeof v2Count === "function" && cur) v2Count(cur); }, 400); }
 }
 // 수강생 미리보기 글칸 높이: 접힘 5줄 / 펼침 12줄 (CSS: 줄높이 24px + 위아래 패딩 16px + 테두리 2px)
 const PV_ROWS = { closed: 5, open: 12 }, PV_MS = 250;
@@ -1643,6 +1742,7 @@ function feedbackPreviewHTML(note, rv, disabled, open = false) {
         ${note.best ? "" : `<p class="muted" style="margin:0">베스트는 아직 포함 안 함 · 위 ‘오늘의 베스트’에서 포함을 켜면 같이 보여요</p>`}
         <div class="pvEdWrap"><textarea id="previewFeedback" aria-label="수강생 피드백 미리보기 수정" rows="${open ? PV_ROWS.open : PV_ROWS.closed}" style="height:${pvH(open ? PV_ROWS.open : PV_ROWS.closed)}px;margin:0"${disabled}>${esc(note.feedback)}</textarea>
           <button type="button" class="pvEdit" data-pvopen="previewFeedback" aria-label="선생님 한마디 고치기"${disabled}>✎</button></div><div class="pvMore" data-pvmore="previewFeedback" hidden></div>
+        ${typeof sentCardsHTML === "function" && typeof cur !== "undefined" && cur ? sentCardsHTML(cur) : ""}
         <div class="pvAct"><span class="cnt" data-pvcnt="previewFeedback"></span><button type="button" class="small ghost" id="btnPreviewCancel"${disabled} title="저장하지 않은 고침을 버리고 마지막 저장 글로">취소</button><button type="button" class="small save" id="btnPreviewSave"${disabled}>수정 내용 저장</button></div></section>
       ${note.makeup ? `<section class="pvCard" data-v2="makeup" style="--pv:#9b5cff" aria-label="2 메이크업본 설명"><h4>${num()}메이크업본 설명<button type="button" class="small ghost pvFold" data-pvfold="pvMakeup">접기</button></h4>
         ${pvEdHTML("pvMakeup", "메이크업본 설명", rv.makeup_msg || "", disabled, "예: 음정과 호흡을 자연스럽게 정리한 버전이에요. 원본과 비교해서 들어보세요.")}</section>` : ""}
@@ -2045,6 +2145,7 @@ function wireFeedbackPreview(me) {
   if (tg) tg.onclick = () => { if (cur === me) { if (!sc().pvExpanded) sc().pvBase ??= me.review.feedback ?? ""; setOpen(!sc().pvExpanded); } };
   if (full) full.onclick = () => { if (cur === me) openStudentView(); };
   if (typeof pvWireCards === "function") pvWireCards(me);
+  if (typeof sentWire === "function") sentWire(me);
   if (cancel) cancel.onclick = () => {   // 저장하지 않은 고침을 마지막 저장본(또는 펼치기 전 글)으로 되돌리고 접음
     if (cur !== me || me.sched?.busy) return;
     if (sc().pvBase !== undefined) { field.value = sc().pvBase; updateFeedbackDraft(sc().pvBase, true); }
@@ -5195,7 +5296,8 @@ function v2State(me) {
 function v2DockPaint(me, done, total) {
   const all = done >= total, rv = me.review || {}, st = v2State(me), msg = $("v2DockMsg"), b = $("v2Send"); if (!msg || !b) return;
   const pub = st === "published" ? "✓ 수강생에게 공개 중" : st === "published_stale" ? "⚠ 고친 내용은 아직 수강생 화면에 반영 전 · 전달하기에서 다시 공개" : "아직 수강생에게 공개 전";
-  msg.textContent = (all ? "" : `카드를 끝까지 한 번 훑어봐 주세요 (${done}/${total}) · `) + pub + (rv.kakao_sent_at ? " · 카톡 보냄 ✓" : "");
+  let ss = ""; try { ss = sentStat(sentList(rv.feedback, me.ai?.feedback_text, rv.sent_ok)).text; } catch {}
+  msg.textContent = (all ? "" : `카드를 끝까지 한 번 훑어봐 주세요 (${done}/${total}) · `) + (ss ? ss + " · " : "") + pub + (rv.kakao_sent_at ? " · 카톡 보냄 ✓" : "");
   b.textContent = all ? "✈ 전달하기" : `↓ 다음 카드 (${done}/${total})`; b.setAttribute("aria-label", all ? "수강생에게 전달하기" : "다음 카드 보기"); b.classList.toggle("todo", !all);
 }
 function v2Paint() {
