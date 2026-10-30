@@ -114,7 +114,7 @@
       let xx = null; if (xr) { xx = { cx: x + bw - xr - 6, cy: y + xr + 6, r: xr };
         g.fillStyle = "#3a2a2a"; g.beginPath(); g.arc(xx.cx, xx.cy, xr, 0, Math.PI * 2); g.fill(); g.strokeStyle = "#ff9a9a"; g.lineWidth = 1.2; g.stroke();
         const q = xr * 0.42; g.lineWidth = 2; g.beginPath(); g.moveTo(xx.cx - q, xx.cy - q); g.lineTo(xx.cx + q, xx.cy + q); g.moveTo(xx.cx + q, xx.cy - q); g.lineTo(xx.cx - q, xx.cy + q); g.stroke(); }
-      if (st.hold && kf(st.hold.n) === k) { const pr = Math.min(1, (now - st.hold.at) / 1000);   // (10/30 17:34 사용자 시안 승인) 꾹 누르는 동안 1초 진행 바(칸 위쪽 테두리)
+      if (st.hold && kf(st.hold.n) === k) { const pr = Math.min(1, (now - st.hold.at) / 600);   // (10/30 17:34 사용자 시안 승인) 꾹 누르는 동안 1초 진행 바(칸 위쪽 테두리)
         g.save(); rr(g, x, y, bw, sh, 10); g.clip(); g.shadowColor = `rgba(${c},.8)`; g.shadowBlur = 8; g.fillStyle = `rgb(${c})`; g.fillRect(x, y, bw * pr, 4); g.restore(); }   // (10/30 17:39 사용자) 칸 위쪽 테두리
       g.restore();
       hits.push({ x, y, w: bw, h: sh, n, xx }); });
@@ -309,9 +309,9 @@
     const canEdit = typeof o.onNote === "function";
     if (canEdit) el.addEventListener("contextmenu", (e) => e.preventDefault());
     el.addEventListener("pointerdown", (e) => { drag = { x: e.clientX, y: e.clientY, t: +getT() || 0, id: e.pointerId, moved: false };
-      if (canEdit) { const d0 = drag, r0 = el.getBoundingClientRect(), h0 = hitNote(st, e.clientX - r0.left, e.clientY - r0.top);
+      if (canEdit) { const d0 = drag, r0 = el.getBoundingClientRect(), h0 = hitNote(st, e.clientX - r0.left, e.clientY - r0.top); d0.h0 = h0;
         // (10/30 16:58 사용자) 주석 칸: 톡 하고 떼도, 0.6초 꾹 눌러도 고치기 · 누른 채 좌우로 밀면 화면 이동 / 빈 곳 0.3초 꾹 = 새 주석
-        if (h0) { if (!h0.del) { st.hold = { n: h0.n, at: performance.now() }; d0.lp = setTimeout(() => { st.hold = null; if (drag !== d0 || d0.moved) return; d0.long = true; if (ctl && !o.paused()) o.play(); lastView = view; o.onNote(h0.n); }, 1000); } }
+        if (h0) { if (!h0.del) { st.hold = { n: h0.n, at: performance.now() }; d0.lp = setTimeout(() => { st.hold = null; if (drag !== d0 || d0.moved) return; d0.long = true; if (ctl && !o.paused()) o.play(); lastView = view; o.onNote(h0.n); }, 600); } }
         else if (typeof o.onAdd === "function") d0.lp = setTimeout(() => { if (drag !== d0 || d0.moved) return;
           d0.long = true; if (ctl && !o.paused()) o.play();
           const tt = timeAt(st, e.clientX - r0.left); if (tt != null) { lastView = view; o.onAdd(tt); } }, 300); } });
@@ -327,7 +327,7 @@
       if (!drag || drag.id !== e.pointerId) return;
       const d = drag; drag = null; clearTimeout(d.lp); st.hold = null; if (d.long) return;
       if (d.moved) { const t = preview; preview = null; if (t != null) seek(t, ctl); return; }
-      if (canEdit) { const r = el.getBoundingClientRect(), hn = hitNote(st, e.clientX - r.left, e.clientY - r.top); if (hn) { if (ctl && !o.paused()) o.play(); if (hn.del) { o.onDelNote && o.onDelNote(hn.n); } else { lastView = view; o.onNote(hn.n); } return; } }
+      if (canEdit) { const r = el.getBoundingClientRect(), hn = d.h0 || hitNote(st, e.clientX - r.left, e.clientY - r.top); if (hn) { if (ctl && !o.paused()) o.play(); if (hn.del) { o.onDelNote && o.onDelNote(hn.n); } else { lastView = view; o.onNote(hn.n); } return; } }
       if (ctl) { const was = o.paused(); o.play(); showMid(was ? "play" : "pause"); return; }   // 톡 = 재생·멈춤
       const r = el.getBoundingClientRect(), x = e.clientX - r.left;
       if (x > 30) seek(Math.max(0, d.t - WIN * HEAD + (x - 30) / span() * WIN));   // 조작 정보가 없으면 예전처럼 그 자리부터
@@ -340,8 +340,8 @@
     const wrap = document.createElement("div"); wrap.id = "tuneFs"; wrap.setAttribute("role", "dialog"); wrap.setAttribute("aria-label", "음정선 전체화면");
     const hasAb = typeof o.setMode === "function";
     wrap.innerHTML = `<div class="tfBox"><div class="tfTop"><b class="tfTitle">${String(o.title || "음정선").replace(/[<>&]/g, "")}</b><span class="tfTime"></span>
-      <button type="button" class="tfX tfXp" aria-label="닫기">✕</button><span class="tfBr"></span><span class="tfLeg"><span><i style="background:rgba(127,217,154,.6);height:8px"></i>정음</span><span><i style="background:#ff9f5a"></i>부른 음</span><span><i style="background:#7fd9ff"></i>보정 후</span><span class="tfLegC"><i style="background:#ffd27a;opacity:.6"></i>고친 곳</span></span>
-      <button type="button" class="tfX" aria-label="닫기">✕</button></div>
+      <button type="button" class="tfX tfXp" aria-label="닫기"><i>✕</i>닫기</button><span class="tfBr"></span><span class="tfLeg"><span><i style="background:rgba(127,217,154,.6);height:8px"></i>정음</span><span><i style="background:#ff9f5a"></i>부른 음</span><span><i style="background:#7fd9ff"></i>보정 후</span><span class="tfLegC"><i style="background:#ffd27a;opacity:.6"></i>고친 곳</span></span>
+      <button type="button" class="tfX" aria-label="닫기"><i>✕</i>닫기</button></div>
       <div class="tfCvBox"><canvas class="tfCv"></canvas><span class="tfMid" aria-hidden="true"></span><span class="tfBye" aria-live="polite">닫을 때는 <b>✕</b> 또는 폰의 <b>뒤로 가기</b></span></div>
       <div class="tfBot"><span class="tfHint">톡 = 재생·멈춤 · 좌우로 밀면 이동<span class="tfSep"> · </span><br>두 손가락으로 벌리면 확대 · 두 번 톡 = 원래 크기</span>
       <span class="tfCtl">${hasAb ? `<span class="tfAb"><button type="button" data-m="o">원음</button><button type="button" data-m="p">✨ 보정본</button></span>` : ""}<span class="tfNav"><button type="button" data-j="0" aria-label="처음으로">⏮ 처음</button><button type="button" data-j="-5" aria-label="5초 뒤로">-5초</button><button type="button" data-j="5" aria-label="5초 앞으로">+5초</button></span></span>
@@ -407,7 +407,8 @@
         pinch = { d: Math.hypot(p1.a - p2.a, p1.b - p2.b), xz: st.xz, yz: st.yz }; return; }
       if (pts.size === 1) { drag = { a: along(e), b: across(e), t: +getT() || 0, id: e.pointerId, mode: null, yc: st.yc, cx: e.clientX, cy: e.clientY };
         if (typeof o.onNote === "function") { const d0 = drag, r0 = cvEl.getBoundingClientRect(), l0 = loc(d0.cx, d0.cy, r0), h0 = hitNote(st, l0.x, l0.y);
-          if (h0) { if (!h0.del) { st.hold = { n: h0.n, at: performance.now() }; d0.lp = setTimeout(() => { st.hold = null; if (drag !== d0 || d0.mode) return; d0.long = true; pauseNow(); lastView = view; o.onNote(h0.n); }, 1000); } }   // 주석 칸 1초 꾹 = 고치기(10/30 17:31 사용자)
+          d0.h0 = h0;
+          if (h0) { if (!h0.del) { st.hold = { n: h0.n, at: performance.now() }; d0.lp = setTimeout(() => { st.hold = null; if (drag !== d0 || d0.mode) return; d0.long = true; pauseNow(); lastView = view; o.onNote(h0.n); }, 600); } }   // 주석 칸 0.6초 꾹 = 고치기(10/30 19:48 사용자)
           else if (typeof o.onAdd === "function") d0.lp = setTimeout(() => { if (drag !== d0 || d0.mode) return;
             d0.long = true; pauseNow();
             const tt = timeAt(st, l0.x); if (tt != null) { lastView = view; o.onAdd(tt); } }, 300); } }
@@ -428,7 +429,7 @@
       if (!pts.has(e.pointerId)) return; pts.delete(e.pointerId);
       if (pinch) { st.hold = null; if (pts.size === 0) pinch = null; return; }
       if (!drag || drag.id !== e.pointerId) return; const d = drag; drag = null; clearTimeout(d.lp); st.hold = null; if (d.long) return;
-      if (!d.mode && e.type === "pointerup" && typeof o.onNote === "function") { const r = cvEl.getBoundingClientRect(), le = loc(e.clientX, e.clientY, r), hn = hitNote(st, le.x, le.y); if (hn) { pauseNow(); if (hn.del) { o.onDelNote && o.onDelNote(hn.n); } else { lastView = view; o.onNote(hn.n); } return; } }
+      if (!d.mode && e.type === "pointerup" && typeof o.onNote === "function") { const r = cvEl.getBoundingClientRect(), le = loc(e.clientX, e.clientY, r), hn = d.h0 || hitNote(st, le.x, le.y);   /* 누를 때 맞은 칸 우선(떼는 사이 칸이 바뀌어도) */ if (hn) { pauseNow(); if (hn.del) { o.onDelNote && o.onDelNote(hn.n); } else { lastView = view; o.onNote(hn.n); } return; } }
       if (d.mode === "time") { const t = preview; preview = null; if (t != null) seek(t, true); return; }   // 이동만, 재생은 안 함
       if (!d.mode && e.type === "pointerup") { const now = Date.now();   // 톡 = 재생/멈춤, 두 번 톡 = 원래 크기
         if (now - lastTap < 320) { resetZoom(); toggle(); lastTap = 0; } else { toggle(); lastTap = now; } }
@@ -451,7 +452,7 @@
   const css = `#tuneFs{position:fixed;inset:0;z-index:9999;background:rgba(8,10,13,.96)}#tuneFs .tfBox{position:absolute;left:50%;top:50%;display:flex;flex-direction:column;background:#0e1116;color:#eceff3;box-sizing:border-box;padding:8px 12px calc(8px + env(safe-area-inset-bottom))}
 #tuneFs .tfTop,#tuneFs .tfBot{display:flex;align-items:center;gap:8px;flex:none}#tuneFs .tfTop{margin-bottom:6px}#tuneFs .tfTitle{font-size:15px}#tuneFs .tfTime{color:#a9b1bc;font-size:13px;font-variant-numeric:tabular-nums}
 #tuneFs .tfAb{display:flex;margin-left:auto;border:1px solid #363c45;border-radius:10px;overflow:hidden}#tuneFs .tfAb button{border:0;border-radius:0;margin:0;background:#11141a;color:#a9b1bc;font-weight:800;min-height:34px;padding:0 14px}#tuneFs .tfAb button.on{background:#9cc3ff;color:#10141a}#tuneFs .tfAb button[data-m=p].on{background:#c9a6ff}
-#tuneFs .tfX{margin-left:8px;width:40px;height:36px;border-radius:10px;border:1px solid #363c45;background:#11141a;color:#eceff3;font-size:16px}#tuneFs .tfCv{flex:1;min-height:0;width:100%;display:block;border-radius:10px;background:#11141a}
+#tuneFs .tfX{margin-left:8px;display:flex;align-items:center;gap:6px;height:46px;padding:0 16px;border-radius:24px;border:2px solid #eceff3;background:#2a2f38;color:#fff;font-weight:800;font-size:15px;flex:none}#tuneFs .tfX i{font-style:normal;font-size:20px;line-height:1;margin-right:2px}#tuneFs .tfCv{flex:1;min-height:0;width:100%;display:block;border-radius:10px;background:#11141a}
 #tuneFs .tfCvBox{position:relative;flex:1;min-height:0;display:flex}#tuneFs .tfMid{position:absolute;left:50%;top:50%;width:84px;height:84px;margin:-42px 0 0 -42px;border-radius:50%;background:rgba(156,195,255,.18);color:rgba(255,255,255,.8);font-size:30px;display:grid;place-items:center;pointer-events:none;opacity:0;transform:scale(.6)}
 #tuneFs .tfMid.stay.go{animation:tfPop .22s cubic-bezier(.3,1.5,.5,1) forwards}#tuneFs .tfMid.flash.go{animation:tfFlash .3s ease-out forwards}
 @keyframes tfPop{from{opacity:0;transform:scale(.6)}to{opacity:.8;transform:scale(1)}}@keyframes tfFlash{0%{opacity:0;transform:scale(.7)}25%{opacity:.8;transform:scale(1.05)}100%{opacity:0;transform:scale(1.2)}}
