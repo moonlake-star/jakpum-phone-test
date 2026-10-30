@@ -304,6 +304,9 @@
   .medalRow { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; text-align:center; font-size:.85rem; margin-top:8px; }
   .medalRow .md { width:58px; height:58px; margin:0 auto 4px; border-radius:50%; display:grid; place-items:center; font-size:1.7rem; background:radial-gradient(circle at 35% 30%,#ffe7a3,#c8912e 70%); box-shadow:0 0 0 3px #6b4d17; }
   .medalRow .off .md { background:#2b3038; box-shadow:0 0 0 3px #3a414b; filter:grayscale(1); opacity:.5; } .medalRow .off { color:var(--muted); }
+  .cal .dy.drop { outline:3px solid var(--accent); background:#24324a; } .calRow.lift { opacity:.5; }
+  .calGhost { position:fixed; z-index:90; transform:translate(-50%, -130%); pointer-events:none; background:var(--accent); color:var(--on-accent, #10141a); font-weight:700; padding:8px 12px; border-radius:12px; box-shadow:0 6px 18px rgba(0,0,0,.45); white-space:nowrap; font-size:.95rem; }
+  .calRow[data-mv] { -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
 </style>
 </head>
 <body>
@@ -727,11 +730,92 @@ function calGrid(ym, byDate, sel, tap) {   // byDate[YYYY-MM-DD] = [{s}] → 칸
   for (let d = 1; d <= n; d++) {
     const k = `${ym}-${String(d).padStart(2, "0")}`, xs = byDate[k] || [], ic = xs.length > 1 ? `${CAL_S[xs[0].s]?.[0] || "•"}${xs.length}` : xs.length ? (CAL_S[xs[0].s]?.[0] || "•") : "";
     const cls = `dy${k === td ? " today" : ""}${k === sel ? " sel" : ""}`, lab = xs.length ? ` aria-label="${m}월 ${d}일 ${xs.map(x => CAL_S[x.s]?.[1] || "").join(", ")}"` : "";
-    h += tap && xs.length ? `<button type="button" class="${cls}" data-cd="${k}"${lab}>${d}<span class="ic">${ic}</span></button>` : `<div class="${cls}"${lab}>${d}<span class="ic">${ic}</span></div>`;
+    h += tap && xs.length ? `<button type="button" class="${cls}" data-cd="${k}" data-day="${k}"${lab}>${d}<span class="ic">${ic}</span></button>` : `<div class="${cls}" data-day="${k}"${lab}>${d}<span class="ic">${ic}</span></div>`;
   }
   return `<div class="cal">${h}</div><div class="calLeg">${["done", "makeup_done", "scheduled", "cancelled", "review"].map(s => `<span>${CAL_S[s][0]} ${CAL_S[s][1]}</span>`).join("")}</div>`;
 }
 const calDay = (iso) => { const d = new Date(iso + "T00:00:00"); return `${d.getMonth() + 1}/${d.getDate()}(${"일월화수목금토"[d.getDay()]})`; };
+// ── 일정 옮기기(사용자 승인 2026-10-30 09:00): 레슨 줄을 길게 눌러 달력 날짜 칸으로 끌어 놓기 → 확인 창 → 구글 캘린더의 그 일정 자체를 옮김 ──
+// 새 일정을 만들지 않으므로 두 번 잡히지 않고 출석 연결(일정 ID)도 그대로. 권한은 이때 처음 한 번만 추가로 받음(캘린더 일정 보기·수정).
+const CAL_SCOPE = "https://www.googleapis.com/auth/calendar.events";
+function calToken() {
+  const v = LS.get("vn_ctok"); if (v && v.exp > Date.now()) return Promise.resolve(v.t);
+  return new Promise((ok, bad) => {
+    const c = google.accounts.oauth2.initTokenClient({ client_id: CLIENT_ID, scope: SCOPE + " " + CAL_SCOPE, include_granted_scopes: true, hint: LS.get("vn_hint") || undefined,
+      callback: (r) => { if (r.error) return bad(new Error("구글 캘린더 권한을 받지 못했어요: " + r.error));
+        if (!google.accounts.oauth2.hasGrantedAllScopes(r, CAL_SCOPE)) return bad(new Error("‘캘린더 일정 보기·수정’에 체크해 주셔야 옮길 수 있어요"));
+        LS.set("vn_ctok", { t: r.access_token, exp: Date.now() + (r.expires_in - 120) * 1000 }); ok(r.access_token); },
+      error_callback: () => bad(new Error("구글 권한 창이 닫혔어요")) });
+    c.requestAccessToken({ prompt: "" });
+  });
+}
+async function calMoveEvent(eventId, newStartLocal) {   // newStartLocal: 'YYYY-MM-DDTHH:MM' (한국 시각)
+  const tok = await calToken(), U = `https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(eventId)}`;
+  const H = { Authorization: "Bearer " + tok, "Content-Type": "application/json" };
+  const g = await fetch(U, { headers: H });
+  if (g.status === 401) { LS.set("vn_ctok", null); throw new Error("구글 권한이 만료됐어요. 한 번 더 눌러 주세요"); }
+  const ev = await g.json(); if (!g.ok) throw new Error(/accessNotConfigured|has not been used|disabled/i.test(JSON.stringify(ev)) ? "구글 클라우드에서 'Google Calendar API' 사용 설정이 필요해요" : "일정을 찾지 못했어요");
+  const s0 = Date.parse(ev.start?.dateTime), e0 = Date.parse(ev.end?.dateTime); if (!s0 || !e0) throw new Error("종일 일정은 옮길 수 없어요");
+  const ns = new Date(newStartLocal + ":00+09:00"), ne = new Date(ns.getTime() + (e0 - s0));
+  const iso = (d) => new Date(d.getTime() + 9 * 36e5).toISOString().slice(0, 19) + "+09:00";
+  const r = await fetch(U, { method: "PATCH", headers: H, body: JSON.stringify({ start: { dateTime: iso(ns), timeZone: "Asia/Seoul" }, end: { dateTime: iso(ne), timeZone: "Asia/Seoul" } }) });
+  if (!r.ok) throw new Error("구글 캘린더에 저장하지 못했어요(" + r.status + ")");
+  return { start: iso(ns) };
+}
+function calMoveSheet(x, date, by, onCancel, onDone) {
+  const d = document.createElement("div"); d.className = "attSheet";
+  const clash = (dt, tm) => (by[dt] || []).filter(y => y.event_id !== x.event_id && y.time === tm && !["cancelled", "forfeit"].includes(y.s));
+  d.innerHTML = `<div class="attBox"><h3 style="margin:0 0 6px">레슨 일정 옮기기</h3>
+    <p style="margin:0 0 8px"><b>${esc(x.name)}</b> · 지금 ${esc(calDay(x.date))} ${esc(x.time)}</p>
+    <div class="row" style="gap:8px;flex-wrap:wrap"><label>날짜 <input type="date" id="mvD" value="${esc(date || x.date)}"></label><label>시간 <input type="time" id="mvT" value="${esc(x.time)}" step="300"></label></div>
+    <p class="muted" id="mvMsg" style="margin:8px 0 0"></p>
+    <button type="button" class="full" id="mvOk" style="margin-top:10px">📅 구글 캘린더에서 옮기기</button>
+    <button type="button" class="ghost full" id="mvNo" style="margin-top:6px">취소</button>
+    <p class="muted" style="margin:8px 0 0;font-size:.8rem">원래 일정을 그대로 옮겨요(새로 만들지 않음). 처음 한 번은 구글이 ‘캘린더 일정 보기·수정’ 허용을 물어봐요.</p></div>`;
+  document.body.appendChild(d);
+  const paint = () => { const dt = $("mvD").value, tm = $("mvT").value, h = +tm.slice(0, 2), c = clash(dt, tm);
+    $("mvMsg").textContent = dt && tm ? `→ ${calDay(dt)} ${h < 12 ? "오전" : "오후"} ${(h % 12) || 12}:${tm.slice(3)}${c.length ? ` · ⚠ 같은 시간에 ${c.map(y => y.name).join(", ")} 님 레슨이 있어요` : ""}` : "날짜와 시간을 골라 주세요"; };
+  $("mvD").oninput = paint; $("mvT").oninput = paint; paint();
+  $("mvNo").onclick = () => { d.remove(); onCancel?.(); };
+  d.addEventListener("click", (e) => { if (e.target === d) { d.remove(); onCancel?.(); } });
+  $("mvOk").onclick = async () => {
+    const dt = $("mvD").value, tm = $("mvT").value; if (!dt || !tm) return;
+    if (dt === x.date && tm === x.time) { d.remove(); return onCancel?.(); }
+    const b = $("mvOk"); b.disabled = true; b.textContent = "옮기는 중…";
+    try {
+      await calMoveEvent(x.event_id, `${dt}T${tm}`);
+      const s = att?.students?.[x.sid], dd = s?.days?.find(y => y.event_id === x.event_id);
+      if (dd) { dd.date = dt; dd.time = tm; dd.moved = true; s.days.sort((a, c) => (a.date + a.time).localeCompare(c.date + c.time)); }
+      if (s && x.s === "scheduled" && dt + "T" + tm > new Date(Date.now() + 9 * 36e5).toISOString().slice(0, 16)) s.next_lesson = s.days.filter(y => y.s === "scheduled").map(y => y.date + "T" + y.time + ":00+09:00").sort()[0] || s.next_lesson;
+      try { LS.set("vn_att", att); } catch {}
+      d.remove(); toast(`옮겼어요 · ${calDay(dt)} ${tm} (구글 캘린더 반영)`); onDone?.(dt);
+    } catch (err) { b.disabled = false; b.textContent = "📅 구글 캘린더에서 옮기기"; $("mvMsg").textContent = err.message; }
+  };
+}
+function calDragWire(root, day, drop) {   // 레슨 줄 길게 누름(0.45초) → 손가락 따라 이름표 → 날짜 칸에 놓으면 drop(x, 날짜)
+  root.querySelectorAll("[data-mv]").forEach(row => {
+    let st = null;
+    const end = () => { if (!st) return; clearTimeout(st.tm); st.ghost?.remove(); root.querySelectorAll(".dy.drop").forEach(c => c.classList.remove("drop")); row.classList.remove("lift"); st = null; };
+    row.addEventListener("touchstart", (e) => {
+      if (e.touches.length !== 1 || e.target.closest("button")) return;
+      const p = e.touches[0]; st = { x: p.clientX, y: p.clientY, on: false };
+      st.tm = setTimeout(() => { if (!st) return; st.on = true; row.classList.add("lift"); try { navigator.vibrate?.(30); } catch {}
+        const x = day[+row.dataset.mv], g = document.createElement("div"); g.className = "calGhost"; g.textContent = `${x.time} ${x.name} → 날짜에 놓기`;
+        document.body.appendChild(g); st.ghost = g; g.style.left = st.x + "px"; g.style.top = st.y + "px"; }, 450);
+    }, { passive: true });
+    row.addEventListener("touchmove", (e) => {
+      if (!st) return; const p = e.touches[0];
+      if (!st.on) { if (Math.hypot(p.clientX - st.x, p.clientY - st.y) > 8) end(); return; }   // 길게 누르기 전에 움직이면 보통 스크롤
+      e.preventDefault(); st.ghost.style.left = p.clientX + "px"; st.ghost.style.top = p.clientY + "px";
+      if (p.clientY < 70) window.scrollBy(0, -14); else if (p.clientY > innerHeight - 70) window.scrollBy(0, 14);
+      root.querySelectorAll(".dy.drop").forEach(c => c.classList.remove("drop"));
+      const cell = document.elementFromPoint(p.clientX, p.clientY)?.closest?.(".dy[data-day]"); if (cell) cell.classList.add("drop"); st.cell = cell?.dataset.day || null;
+    }, { passive: false });
+    row.addEventListener("touchend", (e) => { const s = st; if (s?.on) { e.preventDefault(); const target = s.cell; end(); if (target) drop(day[+row.dataset.mv], target); } else end(); });
+    row.addEventListener("touchcancel", end);
+    row.addEventListener("contextmenu", (e) => { if (st?.on) e.preventDefault(); });
+  });
+}
 function calLessonIdx(x) {   // 캘린더 한 줄 → 선생님 레슨 목록의 몇 번째(레슨 폴더 ID로 찾음)
   const rows = cfg?.students?.[x.sid]?._rows || (LS.get("vn_list") || []).find(d => d?.sid === x.sid)?.rows || [];
   return x.lesson_id ? rows.findIndex(r => r?.l?.id === x.lesson_id) : -1;
@@ -750,13 +834,15 @@ function openCal(ym, sel) {   // 선생님 '레슨 캘린더': 전체 수강생 
   $("vCal").innerHTML = `<div class="card"><div class="calNav"><button class="ghost" id="cPrev" aria-label="지난달">‹</button><b>${+ym.slice(0, 4)}년 ${+ym.slice(5)}월 레슨</b><button class="ghost" id="cNext" aria-label="다음 달">›</button></div>
     ${att ? `<p class="muted" style="margin:6px 0 0">완료 ${cnt("done") + cnt("makeup_done")} · 예정 ${cnt("scheduled")} · 휴강 ${cnt("cancelled") + cnt("forfeit")} · 확인 중 ${cnt("review")}${att.updated_at ? ` · ${esc(attWhen(att.updated_at))} 기준` : ""}</p>` : `<p class="muted">출석 현황을 아직 못 불러왔어요(자동 수집 뒤에 생겨요).</p>`}
     ${calGrid(ym, by, sel, true)}</div>
-    ${day ? `<div class="card"><h3 style="margin:0">${calDay(sel)}</h3>${day.map((x, n) => { const li = calLessonIdx(x); return `<div class="calRow${li >= 0 ? " tap" : ""}"${li >= 0 ? ` data-cl="${n}" role="button" tabindex="0"` : ""}><span class="w">${esc(x.time)} ${esc(x.name)} · ${CAL_S[x.s]?.[0] || ""} ${CAL_S[x.s]?.[1] || ""}</span>${x.q && ATT_KIND[x.q.kind] && !loc[x.q.event_id] ? `<button data-cq="${n}">확인하기</button>` : li >= 0 ? `<button class="ghost" data-cl="${n}">레슨 보기 ›</button>` : ""}</div>`; }).join("")}</div>`
+    ${day ? `<div class="card"><div class="row" style="justify-content:space-between;align-items:baseline;gap:8px"><h3 style="margin:0">${calDay(sel)}</h3>${day.some(y => ["scheduled", "review"].includes(y.s)) ? `<span class="muted" style="font-size:.85rem">레슨을 길게 눌러 끌면 날짜 이동</span>` : ""}</div>${day.map((x, n) => { const li = calLessonIdx(x); return `<div class="calRow${li >= 0 ? " tap" : ""}"${["scheduled", "review"].includes(x.s) ? ` data-mv="${n}"` : ""}${li >= 0 ? ` data-cl="${n}" role="button" tabindex="0"` : ""}><span class="w">${esc(x.time)} ${esc(x.name)} · ${CAL_S[x.s]?.[0] || ""} ${CAL_S[x.s]?.[1] || ""}</span>${x.q && ATT_KIND[x.q.kind] && !loc[x.q.event_id] ? `<button data-cq="${n}">확인하기</button>` : li >= 0 ? `<button class="ghost" data-cl="${n}">레슨 보기 ›</button>` : ["scheduled", "review"].includes(x.s) ? `<button class="ghost" data-mvb="${n}">옮기기</button>` : ""}</div>`; }).join("")}</div>`
       : `<p class="muted">날짜를 누르면 그날 레슨이 보여요.</p>`}`;
   $("cPrev").onclick = () => openCal(calShift(ym, -1)); $("cNext").onclick = () => openCal(calShift(ym, 1));
   $("vCal").querySelectorAll("[data-cd]").forEach(b => b.onclick = () => openCal(ym, b.dataset.cd));
   $("vCal").querySelectorAll("[data-cl]").forEach(b => b.onclick = (e) => { e.stopPropagation();   // 그날 레슨 화면으로(10/30 사용자)
     const x = day[+b.dataset.cl], i = calLessonIdx(x); if (i < 0) return toast("이 레슨 화면을 찾지 못했어요");
     goBack = () => openCal(ym, sel); openLesson(x.sid, i, () => openCal(ym, sel)); });
+  const mv = (x, date) => calMoveSheet(x, date, by, () => openCal(ym, sel), (d2) => openCal(d2.slice(0, 7), d2));
+  if (day) { calDragWire($("vCal"), day, mv); $("vCal").querySelectorAll("[data-mvb]").forEach(b => b.onclick = (e) => { e.stopPropagation(); mv(day[+b.dataset.mvb], null); }); }
   $("vCal").querySelectorAll("[data-cq]").forEach(b => b.onclick = (e) => { e.stopPropagation(); const x = day[+b.dataset.cq];
     attSheet({ k: "att", sid: x.sid, key: x.q.event_id, q: x.q, t: `❓ ${x.name} · ${attWhen(x.q.at || "")} ${ATT_KIND[x.q.kind].t}`, onDone: () => openCal(ym, sel) }); });
 }
@@ -4816,7 +4902,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-30-0920-ano";
+const BUILD = "2026-10-30-0935-move";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
