@@ -12,4 +12,6 @@ const o = f.bestOptions()[0];
 assert.ok(o.file_id === "S2" && o.singlePicked && o.isComposite === false);
 f = mk({ best: { ...best, composite: { status: "ok", file_id: "C1" } }, review: { bestSingle: { file_id: "S2" } } });
 assert.strictEqual(f.bestOptions()[0].file_id, "C1", "편집본이 생기면 편집본이 우선");
+f = mk({ best: { ...best, alternatives: [{ file_id: "S2" }, { file_id: "S3" }, { file_id: "S4" }, { file_id: "S1" }] }, review: {} });
+assert.deepStrictEqual(f.bestSingles().map(x => x.file_id), ["S1", "S2", "S3"], "후보 최대 3개, 중복 없음");
 console.log("best-single-pick ok");

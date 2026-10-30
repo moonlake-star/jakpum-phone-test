@@ -3636,7 +3636,7 @@ function bestOptions() {
   const sp = cur.review?.bestSingle?.file_id, one = sp && typeof bestSingles === "function" && bestSingles().find(x => x.file_id === sp);
   return b?.status === "ok" && one ? [{ ...one, isComposite: false, singlePicked: true }] : [];
 }
-function bestSingles() { const b = cur.best; return b?.status === "ok" ? [b.best, ...(b.alternatives || [])].filter(x => x?.file_id) : []; }
+function bestSingles() { const b = cur.best; return b?.status === "ok" ? [b.best, ...(b.alternatives || [])].filter((x, i, a) => x?.file_id && a.findIndex(y => y?.file_id === x.file_id) === i).slice(0, 3) : []; }
 async function bestSinglePick(fid) {
   cur.review.bestSingle = fid ? { file_id: fid, at: new Date().toISOString() } : null;
   if (typeof markDirty === "function") markDirty();
@@ -4924,7 +4924,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-30-1005-single";
+const BUILD = "2026-10-30-1000-single3";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
