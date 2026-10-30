@@ -18,11 +18,16 @@
     if (v.length < 3) return null; v.sort((a, b) => a - b); const lo = v[Math.floor(v.length * 0.1)], hi = v[Math.floor(v.length * 0.9)];
     return (lo + hi) / 2;
   }
-  function fitAt(cv, t, k) {   // [가장 낮은 음, 가장 높은 음, 가운데] — 튀는 점(위아래 2%) 제외
-    const v = []; for (const p of cv.pts || []) { if (p[0] < t - WIN * HEAD) continue; if (p[0] > t + WIN * (1 - HEAD)) break; v.push(p[1]); if (k) v.push(p[k]); }
-    if (v.length < 3) return null; v.sort((a, b) => a - b);
-    const lo = v[Math.floor(v.length * 0.02)], hi = v[Math.min(v.length - 1, Math.floor(v.length * 0.98))];
-    return [lo, hi, (lo + hi) / 2];
+  function fitAt(cv, t, k) {   // [가장 낮은 음, 가장 높은 음, 가운데] — 짧은 도약음도 포함, 앞뒤와 동떨어진 한 점(숨소리·자음)만 제외
+    const P = cv.pts || [], idx = []; for (let i = 0; i < P.length; i++) { const p = P[i]; if (p[0] < t - WIN * HEAD) continue; if (p[0] > t + WIN * (1 - HEAD)) break; idx.push(i); }
+    if (idx.length < 3) return null;
+    let lo = Infinity, hi = -Infinity;
+    for (const i of idx) {
+      const a = P[i - 1], b = P[i + 1], p = P[i], near = (q) => q && Math.abs(q[0] - p[0]) < 0.13 && Math.abs(q[1] - p[1]) < 300;
+      if (!near(a) && !near(b)) continue;   // 혼자 튄 점
+      for (const v of k ? [p[1], p[k]] : [p[1]]) { if (v < lo) lo = v; if (v > hi) hi = v; }
+    }
+    return Number.isFinite(lo) ? [lo, hi, (lo + hi) / 2] : null;
   }
   // 고친 양을 반음 단위로: 51센트 → "↓ 0.5반음 내림"(반음 = 피아노 건반 한 칸)
   function semiLabel(d) { const s = Math.abs(d) / 100; return `${d > 0 ? "↑" : "↓"} ${s >= 0.95 ? s.toFixed(1).replace(/\.0$/, "") : s.toFixed(1)}반음 ${d > 0 ? "올림" : "내림"}`; }
@@ -41,7 +46,8 @@
     if (st && st.zoom) {   // 확대: 화면 안(지금 앞뒤 8초) 음이 모두 들어오게 — 기본 ±4반음, 크게 도약하면 그만큼 넓힘(10/30 13:28 사용자)
       const f = fitAt(cv, t, k);
       if (f) { const tl = Math.min(f[0] - 150, f[2] - ZOOM_HALF), th = Math.max(f[1] + 150, f[2] + ZOOM_HALF);
-        if (st.lo == null) { st.lo = tl; st.hi = th; } else { st.lo += (tl - st.lo) * 0.12; st.hi += (th - st.hi) * 0.12; } }
+        // 넓힐 땐 빠르게(도약음이 화면 밖으로 안 나가게), 좁힐 땐 천천히(10/30 13:40 사용자)
+        if (st.lo == null) { st.lo = tl; st.hi = th; } else { st.lo += (tl - st.lo) * (tl < st.lo ? 0.45 : 0.06); st.hi += (th - st.hi) * (th > st.hi ? 0.45 : 0.06); } }
       if (st.lo != null) { lo = st.lo; hi = st.hi; }
     }
     const L = 30, y = (c) => H - 6 - (c - lo) / (hi - lo) * (H - 12);
