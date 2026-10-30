@@ -24,4 +24,5 @@ assert.ok(tr[0].title.includes("2회차") && tr[1].curve === "C3");
 // (10/30 13:28) 확대해도 크게 도약한 음이 화면 밖으로 안 나감
 const jump = { levels: [2], pts: Array.from({ length: 200 }, (_, i) => [i / 25, i < 100 ? 6500 : 7400, i < 100 ? 6500 : 7400]) };
 const f = T.fitAt(jump, 4, 2); assert.ok(f[0] <= 6500 && f[1] >= 7400, "지금 앞뒤 음이 모두 들어감");
+assert.strictEqual(T.semiLabel(-51), "↓ 0.5반음 내림"); assert.strictEqual(T.semiLabel(22), "↑ 0.2반음 올림"); assert.strictEqual(T.semiLabel(100), "↑ 1반음 올림");
 console.log("tune-view ok");
