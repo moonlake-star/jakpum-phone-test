@@ -365,16 +365,18 @@
     const bye = wrap.querySelector(".tfBye"); bye && bye.remove();   // (10/30 19:46 사용자) '닫을 때는…' 안내 없앰
     // (10/30 17:18 사용자) 가로 회전 안내는 없앰 — 주석 2층은 세로가 더 편함
     // (10/30 17:51 사용자 시안 승인) 수강생: 선생님이 확인한 주석이 있으면 열 때 2.5초 안내 — 레슨마다 처음 두 번만, 톡 하면 닫힘
-    if (o.tip && (typeof o.notes === "function" ? (o.notes() || []).length : 0)) { let n = 0; const key = "tune_tip_" + String(o.tipKey || o.title || "").slice(0, 80);
+    // (10/30 21:51 사용자) 원음/보정본 비교 안내도 같이 · 3.5초
+    const tipN = o.tip && (typeof o.notes === "function" ? (o.notes() || []).length : 0), tipL = [tipN ? o.tip : "", o.tipAb || ""].filter(Boolean);
+    if (tipL.length) { let n = 0; const key = "tune_tip_" + String(o.tipKey || o.title || "").slice(0, 80);
       try { n = +(localStorage.getItem(key) || 0); } catch {}
       if (n < 2) { try { localStorage.setItem(key, String(n + 1)); } catch {}
         const rp = document.createElement("div"); rp.className = "tfRot"; rp.setAttribute("role", "status");
-        rp.innerHTML = `<div class="rpBox"><div style="font-size:38px;margin-bottom:6px" aria-hidden="true">🎤</div><p style="font-size:15px;color:#f1f1f1;line-height:1.5;word-break:keep-all"></p><div class="rpBar"><i style="animation-duration:2.5s"></i></div></div>`;
-        rp.querySelector("p").textContent = String(o.tip);
+        rp.innerHTML = `<div class="rpBox"><div style="font-size:38px;margin-bottom:6px" aria-hidden="true">🎤</div><p style="font-size:15px;color:#f1f1f1;line-height:1.5;word-break:keep-all"></p><div class="rpBar"><i style="animation-duration:3.5s"></i></div></div>`;
+        const pe = rp.querySelector("p"); tipL.forEach((s, i) => { if (i) pe.appendChild(document.createElement("br")), pe.appendChild(document.createElement("br")); pe.appendChild(document.createTextNode(String(s))); });
         const shut = () => { if (!rp.isConnected) return; rp.classList.add("out"); setTimeout(() => rp.remove(), 300); };
         rp.addEventListener("pointerdown", (e) => { e.stopPropagation(); shut(); });
         bye && bye.remove();   // 안내가 겹치지 않게 '닫을 때는…'은 이번엔 생략
-        setTimeout(() => { if (!wrap.isConnected) return; wrap.appendChild(rp); setTimeout(shut, 2500); }, 400); } }
+        setTimeout(() => { if (!wrap.isConnected) return; wrap.appendChild(rp); setTimeout(shut, 3500); }, 400); } }
     const done = () => { G.removeEventListener("resize", layout); G.removeEventListener("orientationchange", layout); wrap.remove(); if (fsClose === done) fsClose = null; };
     fsClose = done;
     const close = () => { done(); try { if (history.state && history.state.tuneFs) { skipPop = true; history.back(); } } catch {} };

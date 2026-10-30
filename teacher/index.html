@@ -486,7 +486,7 @@
 <div id="v2Shade" class="v2only"></div>
 <div id="toast"></div>
 <script src="../lesson-replies.js"></script>
-<script src="../tune.js?v=20261030-2138"></script>
+<script src="../tune.js?v=20261030-2152"></script>
 
 <script>
 // ── 설정 ────────────────────────────────────────────────
@@ -2030,7 +2030,7 @@ function svTuneWire(l) {
   readBlob(l.makeup.curve_id, true).then(b => b.text()).then(s => { const cv = JSON.parse(s); if (!cv?.pts || !el.isConnected) return;
     Tune.wire(el, cv, () => (mine() ? player.currentTime || 0 : 0), () => (svMk.mode === "p" ? lv : 0), async (tt, still) => {
       try { await load(svMk.mode); player.currentTime = tt; if (still) player.pause(); else if (player.paused) { pauseOthers(player); await player.play(); } } catch {} paint(); },
-      { title: "오늘의 베스트", tapFull: true, play, paused: () => !mine() || player.paused, mode: () => svMk.mode, setMode: (m) => swap(m), lvDef: lv, notes: () => notes, tip: "강사님의 섬세한 피드백을 하나씩 체크해서 연습에 적용해 보세요", tipKey: "pv_" + l.makeup.file_id });
+      { title: "오늘의 베스트", tapFull: true, play, paused: () => !mine() || player.paused, mode: () => svMk.mode, setMode: (m) => swap(m), lvDef: lv, notes: () => notes, tip: "강사님의 섬세한 피드백을 하나씩 체크해서 연습에 적용해 보세요", tipAb: "원음/보정본도 함께 비교해서 들어보세요", tipKey: "pv_" + l.makeup.file_id });
   }).catch(() => { const w = el.closest(".tuneWrap") || el; w.nextElementSibling?.classList?.contains("tuneLeg") && w.nextElementSibling.remove(); w.remove(); box.querySelector(".svMkCtl")?.classList.remove("hidden"); });   // 못 받으면 재생 줄
   paint();
 }
@@ -5270,7 +5270,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-30-2142-notefont";
+const BUILD = "2026-10-30-2155-tipab";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
