@@ -42,7 +42,7 @@
     const w = el.clientWidth, h = el.clientHeight; if (!w || !h) return;
     const r = G.devicePixelRatio || 1; if (el.width !== Math.round(w * r)) { el.width = Math.round(w * r); el.height = Math.round(h * r); }
     const g = el.getContext("2d"); g.setTransform(r, 0, 0, r, 0, 0); g.clearRect(0, 0, w, h);
-    const full = !!(st && st.full), W8 = full ? 6 / (st.xz || 1) : WIN, k = col(cv, lv), lane = k && h > 110 ? (full ? 64 : LANE) : 0, H = h - lane, kt = tgCol(cv);
+    const full = !!(st && st.full), W8 = full ? (st.win || 6) / (st.xz || 1) : WIN, k = col(cv, lv), lane = k && h > 110 ? (full ? 64 : LANE) : 0, H = h - lane, kt = tgCol(cv);
     let [lo, hi] = range(cv);
     if (full && (st.yz || 1) > 1) {   // 전체화면 핀치 확대: 배율은 손가락으로만 바뀜. 가운데는 지금 음을 부드럽게 따라가고, 손으로 위아래로 밀면 그 자리에 머묾
       const half = (hi - lo) / 2 / st.yz, now = Date.now();
@@ -162,19 +162,19 @@
     const wrap = document.createElement("div"); wrap.id = "tuneFs"; wrap.setAttribute("role", "dialog"); wrap.setAttribute("aria-label", "음정선 전체화면");
     const hasAb = typeof o.setMode === "function";
     wrap.innerHTML = `<div class="tfBox"><div class="tfTop"><b class="tfTitle">${String(o.title || "음정선").replace(/[<>&]/g, "")}</b><span class="tfTime"></span>
-      <span class="tfLeg"><span><i style="background:rgba(127,217,154,.6);height:8px"></i>정음</span><span><i style="background:#ff9f5a"></i>부른 음</span><span><i style="background:#7fd9ff"></i>보정 후</span><span><i style="background:#ffd27a;opacity:.6"></i>고친 곳</span></span>
+      <button type="button" class="tfX tfXp" aria-label="닫기">✕</button><span class="tfBr"></span><span class="tfLeg"><span><i style="background:rgba(127,217,154,.6);height:8px"></i>정음</span><span><i style="background:#ff9f5a"></i>부른 음</span><span><i style="background:#7fd9ff"></i>보정 후</span><span class="tfLegC"><i style="background:#ffd27a;opacity:.6"></i>고친 곳</span></span>
       ${hasAb ? `<span class="tfAb"><button type="button" data-m="o">원음</button><button type="button" data-m="p">✨ 보정본</button></span>` : ""}
       <button type="button" class="tfX" aria-label="닫기">✕</button></div>
-      <div class="tfCvBox"><canvas class="tfCv"></canvas><span class="tfMid" aria-hidden="true"></span></div>
-      <div class="tfBot"><span class="tfHint">톡 = 재생·멈춤 · 좌우로 밀면 이동<br>두 손가락으로 벌리면 확대 · 두 번 톡 = 원래 크기</span>
+      <div class="tfCvBox"><canvas class="tfCv"></canvas><span class="tfMid" aria-hidden="true"></span><span class="tfBye" aria-live="polite">닫을 때는 <b>✕</b> 또는 폰의 <b>뒤로 가기</b></span></div>
+      <div class="tfBot"><span class="tfHint">톡 = 재생·멈춤 · 좌우로 밀면 이동<span class="tfSep"> · </span><br>두 손가락으로 벌리면 확대 · 두 번 톡 = 원래 크기</span>
       <span class="tfNav"><button type="button" data-j="0" aria-label="처음으로">⏮ 처음</button><button type="button" data-j="-5" aria-label="5초 뒤로">-5초</button><button type="button" data-j="5" aria-label="5초 앞으로">+5초</button></span>
       <span class="tfNote">AI 단순 보정이라 정확하지 않을 수 있어요.<br>정식 음원은 전문 엔지니어가 한 음 한 음 더 정밀하게 다듬어요.</span></div></div>`;
     document.body.appendChild(wrap);
     const box = wrap.querySelector(".tfBox"), cvEl = wrap.querySelector(".tfCv"), st = { full: true, xz: 1, yz: 1, yc: null, panAt: 0 };
-    let rot = false;
-    const layout = () => { rot = G.innerHeight > G.innerWidth;   // 세로로 든 폰이면 화면을 돌려 가로로(폰을 돌려 들면 그대로)
-      const W = rot ? G.innerHeight : G.innerWidth, H = rot ? G.innerWidth : G.innerHeight;
-      box.style.width = W + "px"; box.style.height = H + "px"; box.style.transform = `translate(-50%,-50%)${rot ? " rotate(90deg)" : ""}`; };
+    const rot = false;   // (10/30 14:56 사용자) 억지로 돌리지 않음 — 세로로 들면 세로 화면, 폰을 돌리면 가로 화면
+    const layout = () => { const W = G.innerWidth, H = G.innerHeight, port = H > W;
+      box.style.width = W + "px"; box.style.height = H + "px"; box.style.transform = "translate(-50%,-50%)";
+      box.classList.toggle("port", port); st.win = port ? 3 : 6; };
     layout();
     try {   // 열 때: 카드 자리에서 커지며 돌아감
       const r = src.getBoundingClientRect(), W = parseFloat(box.style.width), s = Math.max(0.2, r.width / W);
@@ -182,10 +182,14 @@
       box.animate([{ transform: `translate(-50%,-50%) translate(${dx}px,${dy}px) scale(${s})`, opacity: 0.6 }, { transform: box.style.transform, opacity: 1 }],
         { duration: 420, easing: "cubic-bezier(.3,.7,.2,1)" });
     } catch {}
-    try { document.documentElement.requestFullscreen?.({ navigationUI: "hide" })?.then(() => screen.orientation?.lock?.("landscape")).catch(() => {}); } catch {}
-    G.addEventListener("resize", layout);
-    const close = () => { G.removeEventListener("resize", layout); try { screen.orientation?.unlock?.(); } catch {} try { if (document.fullscreenElement) document.exitFullscreen(); } catch {} wrap.remove(); };
-    wrap.querySelector(".tfX").onclick = close;
+    // 크롬 '진짜 전체화면'은 쓰지 않음(크롬 회색 안내가 뜨므로, 10/30 14:52 사용자) — 앱 화면 안에서 가득. 뒤로 가기 = 닫기
+    G.addEventListener("resize", layout); G.addEventListener("orientationchange", layout);
+    try { history.pushState(Object.assign({}, history.state || {}, { tuneFs: true }), ""); } catch {}
+    const bye = wrap.querySelector(".tfBye"); setTimeout(() => bye && bye.classList.add("go"), 450);
+    const done = () => { G.removeEventListener("resize", layout); G.removeEventListener("orientationchange", layout); wrap.remove(); if (fsClose === done) fsClose = null; };
+    fsClose = done;
+    const close = () => { done(); try { if (history.state && history.state.tuneFs) { skipPop = true; history.back(); } } catch {} };
+    wrap.querySelectorAll(".tfX").forEach(b => b.onclick = close);
     const tm = wrap.querySelector(".tfTime"), mid = wrap.querySelector(".tfMid");
     const isPaused = () => (typeof o.paused === "function" ? o.paused() : true);
     // 가운데 표시: 멈추면 ❚❚가 살짝 튀어나와 머묾, 재생하면 ▶가 잠깐 떴다가 사라짐(10/30 14:27 사용자)
@@ -221,7 +225,7 @@
       if (!drag || drag.id !== e.pointerId) return;
       const dA = along(e) - drag.a, dB = across(e) - drag.b;
       if (!drag.mode) { if (Math.max(Math.abs(dA), Math.abs(dB)) < 8) return; drag.mode = Math.abs(dA) >= Math.abs(dB) ? "time" : "pitch"; if (drag.mode === "time") pauseNow(); }
-      if (drag.mode === "time") preview = Math.max(0, drag.t - dA / span() * (6 / st.xz));
+      if (drag.mode === "time") preview = Math.max(0, drag.t - dA / span() * ((st.win || 6) / st.xz));
       else if (st.yz > 1) { const [lo, hi] = range(cv), per = (hi - lo) / st.yz / tall(); st.yc = (drag.yc ?? (lo + hi) / 2) + dB * per * (rot ? -1 : 1); st.panAt = Date.now(); }
     });
     const end = (e) => {
@@ -239,6 +243,12 @@
       requestAnimationFrame(loop); };
     requestAnimationFrame(loop);
   }
+  // 뒤로 가기: 열린 전체화면만 닫고, 앱 쪽 뒤로 가기 처리는 건너뛰게 e.tuneClosed 표시(선생님 앱 popstate가 확인)
+  let fsClose = null, skipPop = false;
+  if (typeof G.addEventListener === "function") G.addEventListener("popstate", (e) => {
+    if (skipPop) { skipPop = false; try { e.tuneClosed = true; } catch {} return; }
+    if (fsClose) { fsClose(); try { e.tuneClosed = true; } catch {} }
+  });
   async function load(url) { const r = await fetch(url); if (!r.ok) throw new Error("음정선을 못 불러왔어요"); const j = await r.json(); return j && Array.isArray(j.pts) ? j : null; }
   const legend = (withCorr) => `<div class="tuneLeg"><span><i style="background:#ff9f5a"></i>부른 음정</span>${withCorr ? `<span><i style="background:#7fd9ff"></i>보정 후</span><span><i style="background:#ffd27a;opacity:.6"></i>고친 곳</span>` : ""}<span><i style="background:#ffd27a;width:3px;height:11px"></i>지금</span></div>`;
   const css = `#tuneFs{position:fixed;inset:0;z-index:9999;background:rgba(8,10,13,.96)}#tuneFs .tfBox{position:absolute;left:50%;top:50%;display:flex;flex-direction:column;background:#0e1116;color:#eceff3;box-sizing:border-box;padding:8px 12px calc(8px + env(safe-area-inset-bottom))}
@@ -250,7 +260,14 @@
 @keyframes tfPop{from{opacity:0;transform:scale(.6)}to{opacity:.8;transform:scale(1)}}@keyframes tfFlash{0%{opacity:0;transform:scale(.7)}25%{opacity:.8;transform:scale(1.05)}100%{opacity:0;transform:scale(1.2)}}
 #tuneFs .tfBot{justify-content:space-between;align-items:flex-end;gap:16px}#tuneFs .tfHint{font-size:11.5px;color:#7d8590;line-height:1.4;word-break:keep-all;text-wrap:balance;max-width:34%}
 #tuneFs .tfNote{font-size:11.5px;color:#c9b98f;text-align:right;line-height:1.45;word-break:keep-all;text-wrap:balance;max-width:36%}
-#tuneFs .tfTop .tfLeg{margin-left:10px}
+#tuneFs .tfTop .tfLeg{margin-left:10px}#tuneFs .tfXp,#tuneFs .tfBr{display:none}
+#tuneFs .tfBye{position:absolute;left:50%;top:58px;transform:translateX(-50%);background:rgba(30,34,42,.85);border:1px solid rgba(255,255,255,.18);padding:8px 16px;border-radius:20px;font-size:14px;white-space:nowrap;pointer-events:none;opacity:0}#tuneFs .tfBye b{color:#ffd27a}#tuneFs .tfBye.go{animation:tfBye 1.9s ease forwards}
+@keyframes tfBye{0%{opacity:0}12%{opacity:1}80%{opacity:1}100%{opacity:0}}
+#tuneFs .tfBox.port{padding-top:calc(10px + env(safe-area-inset-top))}#tuneFs .port .tfTop{flex-wrap:wrap;row-gap:8px}#tuneFs .port .tfTitle{font-size:17px}
+#tuneFs .port .tfXp{display:block;margin-left:auto}#tuneFs .port .tfX:not(.tfXp){display:none}#tuneFs .port .tfBr{display:block;flex-basis:100%;height:0}
+#tuneFs .port .tfLeg{margin-left:0}#tuneFs .port .tfLegC{display:none}#tuneFs .port .tfAb{margin-left:auto}
+#tuneFs .port .tfBot{flex-direction:column;align-items:stretch;gap:10px;margin-top:10px}#tuneFs .port .tfNav{order:-1;justify-content:center;gap:10px}#tuneFs .port .tfNav button{min-width:84px;height:46px;font-size:15px}
+#tuneFs .port .tfHint,#tuneFs .port .tfNote{max-width:none;text-align:left}#tuneFs .port .tfHint br{display:none}#tuneFs .tfSep{display:none}#tuneFs .port .tfSep{display:inline}
 #tuneFs .tfBot{margin-top:6px}#tuneFs .tfNav{display:flex;gap:8px;flex:none;align-self:center}#tuneFs .tfNav button{min-width:64px;padding:0 12px;font-size:14px;background:rgba(30,34,42,.75)}#tuneFs .tfBot button{min-width:52px;height:38px;border-radius:10px;border:1px solid #363c45;background:#11141a;color:#eceff3;font-weight:800;margin:0}#tuneFs .tfBot .tfPP{background:#9cc3ff;color:#10141a;border:0;min-width:64px}
 #tuneFs .tfLeg{display:flex;gap:12px;margin-left:auto;font-size:12px;color:#a9b1bc;flex-wrap:wrap}#tuneFs .tfLeg i{display:inline-block;width:16px;height:3px;border-radius:2px;vertical-align:middle;margin-right:4px}
 @media (prefers-reduced-motion: reduce){#tuneFs .tfBox{animation:none}}
