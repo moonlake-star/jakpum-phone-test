@@ -46,7 +46,10 @@
     let [lo, hi] = range(cv);
     if (full && (st.yz || 1) > 1) {   // 전체화면 핀치 확대: 배율은 손가락으로만 바뀜. 가운데는 지금 음을 부드럽게 따라가고, 손으로 위아래로 밀면 그 자리에 머묾
       const half = (hi - lo) / 2 / st.yz, now = Date.now();
-      if (!st.panAt || now - st.panAt > 4000) { const f = fitAt(cv, t, 0); if (f) { const c = f[2]; st.yc = st.yc == null ? c : st.yc + (c - st.yc) * 0.08; } }
+      if (!st.panAt || now - st.panAt > 4000) {   // 재생 중엔 지금 부르는 음(노란선 근처)을 화면 가운데로 따라감 — 화면 밖 음도 들어오게
+        const v = []; for (const p of cv.pts || []) { if (p[0] < t - 0.6) continue; if (p[0] > t + 1.2) break; v.push(p[1]); }
+        let c = null; if (v.length) { v.sort((a, b) => a - b); c = v[Math.floor(v.length / 2)]; } else { const f = fitAt(cv, t, 0); if (f) c = f[2]; }
+        if (c != null) st.yc = st.yc == null ? c : st.yc + (c - st.yc) * 0.15; }
       const c = st.yc ?? (lo + hi) / 2; lo = c - half; hi = c + half;
     }
     if (st && st.zoom && !full) {   // 확대: 화면 안(지금 앞뒤 8초) 음이 모두 들어오게 — 기본 ±4반음, 크게 도약하면 그만큼 넓힘(10/30 13:28 사용자)
@@ -151,10 +154,9 @@
       <span class="tfLeg"><span><i style="background:rgba(127,217,154,.6);height:8px"></i>정음</span><span><i style="background:#ff9f5a"></i>부른 음</span><span><i style="background:#7fd9ff"></i>보정 후</span><span><i style="background:#ffd27a;opacity:.6"></i>고친 곳</span></span>
       ${hasAb ? `<span class="tfAb"><button type="button" data-m="o">원음</button><button type="button" data-m="p">✨ 보정본</button></span>` : ""}
       <button type="button" class="tfX" aria-label="닫기">✕</button></div>
-      <div class="tfCvBox"><canvas class="tfCv"></canvas><button type="button" class="tfMid hidden" aria-label="재생">▶</button><span class="tfHint">두 손가락으로 벌리면 확대 · 밀면 이동 · 톡 = 재생/멈춤</span></div>
-      <div class="tfBot"><button type="button" data-j="-5">-5</button><button type="button" class="tfPP" aria-label="재생">▶</button><button type="button" data-j="5">+5</button>
-      <button type="button" class="tfZ" aria-label="배율 처음으로">×1</button>
-      <span class="tfNote">AI 단순 보정이라 정확하지 않을 수 있어요 · 정식 음원은 전문 엔지니어가 한 음 한 음 더 정밀하게 다듬어요</span></div></div>`;
+      <div class="tfCvBox"><canvas class="tfCv"></canvas><span class="tfMid" aria-hidden="true"></span></div>
+      <div class="tfBot"><span class="tfHint">톡 = 재생·멈춤 · 좌우로 밀면 이동<br>두 손가락으로 벌리면 확대 · 두 번 톡 = 원래 크기</span>
+      <span class="tfNote">AI 단순 보정이라 정확하지 않을 수 있어요.<br>정식 음원은 전문 엔지니어가 한 음 한 음 더 정밀하게 다듬어요.</span></div></div>`;
     document.body.appendChild(wrap);
     const box = wrap.querySelector(".tfBox"), cvEl = wrap.querySelector(".tfCv"), st = { full: true, xz: 1, yz: 1, yc: null, panAt: 0 };
     let rot = false;
@@ -172,13 +174,14 @@
     G.addEventListener("resize", layout);
     const close = () => { G.removeEventListener("resize", layout); try { screen.orientation?.unlock?.(); } catch {} try { if (document.fullscreenElement) document.exitFullscreen(); } catch {} wrap.remove(); };
     wrap.querySelector(".tfX").onclick = close;
-    const pp = wrap.querySelector(".tfPP"), tm = wrap.querySelector(".tfTime");
+    const tm = wrap.querySelector(".tfTime"), mid = wrap.querySelector(".tfMid");
     const isPaused = () => (typeof o.paused === "function" ? o.paused() : true);
-    const toggle = () => { try { o.play && o.play(); } catch {} };
-    const pauseNow = () => { if (!isPaused()) toggle(); };
-    pp.onclick = toggle; wrap.querySelector(".tfMid").onclick = toggle;
-    wrap.querySelector(".tfZ").onclick = () => { st.xz = 1; st.yz = 1; st.yc = null; st.panAt = 0; };
-    wrap.querySelectorAll("[data-j]").forEach(b => b.onclick = () => seek(Math.max(0, (+getT() || 0) + +b.dataset.j), isPaused()));
+    // 가운데 표시: 멈추면 ❚❚가 살짝 튀어나와 머묾, 재생하면 ▶가 잠깐 떴다가 사라짐(10/30 14:27 사용자)
+    const showMid = (kind) => { mid.textContent = kind === "pause" ? "❚❚" : "▶"; mid.className = "tfMid " + (kind === "pause" ? "stay" : "flash"); void mid.offsetWidth; mid.classList.add("go"); };
+    const toggle = () => { const was = isPaused(); try { o.play && o.play(); } catch {} showMid(was ? "play" : "pause"); if (was) st.panAt = 0; };
+    const pauseNow = () => { if (!isPaused()) { try { o.play && o.play(); } catch {} } showMid("pause"); };
+    let lastTap = 0;
+    const resetZoom = () => { st.xz = 1; st.yz = 1; st.yc = null; st.panAt = 0; };
     wrap.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { try { o.setMode(b.dataset.m); } catch {} });
     const fmt = (x) => `${Math.floor((x || 0) / 60)}:${String(Math.floor((x || 0) % 60)).padStart(2, "0")}`;
     // 손가락: 한 손가락 좌우 = 시간 이동(재생은 멈춤, 가운데 ▶로 다시), 위아래 = 음 높이 이동(확대했을 때), 두 손가락 = 핀치 확대, 톡 = 재생/멈춤
@@ -189,14 +192,13 @@
     cvEl.addEventListener("pointerdown", (e) => {
       pts.set(e.pointerId, { a: along(e), b: across(e) }); try { cvEl.setPointerCapture(e.pointerId); } catch {}
       if (pts.size === 2) { const [p1, p2] = [...pts.values()]; drag = null; preview = null;
-        pinch = { da: Math.abs(p1.a - p2.a), db: Math.abs(p1.b - p2.b), xz: st.xz, yz: st.yz }; return; }
+        pinch = { d: Math.hypot(p1.a - p2.a, p1.b - p2.b), xz: st.xz, yz: st.yz }; return; }
       if (pts.size === 1) drag = { a: along(e), b: across(e), t: +getT() || 0, id: e.pointerId, mode: null, yc: st.yc };
     });
     cvEl.addEventListener("pointermove", (e) => {
       if (!pts.has(e.pointerId)) return; pts.set(e.pointerId, { a: along(e), b: across(e) });
-      if (pinch && pts.size >= 2) { const [p1, p2] = [...pts.values()], da = Math.abs(p1.a - p2.a), db = Math.abs(p1.b - p2.b);
-        if (pinch.db > 30) st.yz = Math.max(1, Math.min(12, pinch.yz * db / pinch.db));
-        if (pinch.da > 30) st.xz = Math.max(1, Math.min(4, pinch.xz * da / pinch.da));
+      if (pinch && pts.size >= 2) { const [p1, p2] = [...pts.values()], r = pinch.d > 30 ? Math.hypot(p1.a - p2.a, p1.b - p2.b) / pinch.d : 1;   // 어느 방향으로 벌려도 상하·좌우 같이 확대
+        st.yz = Math.max(1, Math.min(12, pinch.yz * r)); st.xz = Math.max(1, Math.min(4, pinch.xz * Math.sqrt(r)));
         if (st.yz > 1 && st.yc == null) { const f = fitAt(cv, +getT() || 0, 0); st.yc = f ? f[2] : null; }
         return; }
       if (!drag || drag.id !== e.pointerId) return;
@@ -210,13 +212,12 @@
       if (pinch) { if (pts.size === 0) pinch = null; return; }
       if (!drag || drag.id !== e.pointerId) return; const d = drag; drag = null;
       if (d.mode === "time") { const t = preview; preview = null; if (t != null) seek(t, true); return; }   // 이동만, 재생은 안 함
-      if (!d.mode && e.type === "pointerup") toggle();   // 톡 = 재생/멈춤
+      if (!d.mode && e.type === "pointerup") { const now = Date.now();   // 톡 = 재생/멈춤, 두 번 톡 = 원래 크기
+        if (now - lastTap < 320) { resetZoom(); toggle(); lastTap = 0; } else { toggle(); lastTap = now; } }
     };
     cvEl.addEventListener("pointerup", end); cvEl.addEventListener("pointercancel", (e) => { preview = null; end(e); });
     const loop = () => { if (!wrap.isConnected) return; const t = preview ?? (+getT() || 0); draw(cvEl, cv, t, +getLv() || 0, st);
-      const paused = isPaused(); pp.textContent = paused ? "▶" : "❚❚"; tm.textContent = fmt(t);
-      wrap.querySelector(".tfMid").classList.toggle("hidden", !paused);
-      wrap.querySelector(".tfZ").textContent = st.yz > 1.05 || st.xz > 1.05 ? `×${st.yz.toFixed(1)} 처음으로` : "×1";
+      tm.textContent = fmt(t) + (st.yz > 1.05 ? ` · ×${st.yz.toFixed(1)}` : "");
       if (hasAb) { const m = o.mode ? o.mode() : "p"; wrap.querySelectorAll("[data-m]").forEach(b => b.classList.toggle("on", b.dataset.m === m)); }
       requestAnimationFrame(loop); };
     requestAnimationFrame(loop);
@@ -227,9 +228,12 @@
 #tuneFs .tfTop,#tuneFs .tfBot{display:flex;align-items:center;gap:8px;flex:none}#tuneFs .tfTop{margin-bottom:6px}#tuneFs .tfTitle{font-size:15px}#tuneFs .tfTime{color:#a9b1bc;font-size:13px;font-variant-numeric:tabular-nums}
 #tuneFs .tfAb{display:flex;margin-left:auto;border:1px solid #363c45;border-radius:10px;overflow:hidden}#tuneFs .tfAb button{border:0;border-radius:0;margin:0;background:#11141a;color:#a9b1bc;font-weight:800;min-height:34px;padding:0 14px}#tuneFs .tfAb button.on{background:#9cc3ff;color:#10141a}#tuneFs .tfAb button[data-m=p].on{background:#c9a6ff}
 #tuneFs .tfX{margin-left:8px;width:40px;height:36px;border-radius:10px;border:1px solid #363c45;background:#11141a;color:#eceff3;font-size:16px}#tuneFs .tfCv{flex:1;min-height:0;width:100%;display:block;border-radius:10px;background:#11141a}
-#tuneFs .tfCvBox{position:relative;flex:1;min-height:0;display:flex}#tuneFs .tfMid{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:84px;height:84px;border-radius:50%;border:0;background:rgba(156,195,255,.35);color:#fff;font-size:34px;backdrop-filter:blur(2px)}#tuneFs .tfMid.hidden{display:none}
-#tuneFs .tfHint{position:absolute;right:10px;top:8px;font-size:11px;color:#6b7480;pointer-events:none}#tuneFs .tfNote{margin-left:auto;font-size:11px;color:#c9b98f;text-align:right;max-width:46%;line-height:1.35}
-#tuneFs .tfTop .tfLeg{margin-left:10px}#tuneFs .tfBot .tfZ{min-width:0;padding:0 10px;font-size:12px;color:#a9b1bc}
+#tuneFs .tfCvBox{position:relative;flex:1;min-height:0;display:flex}#tuneFs .tfMid{position:absolute;left:50%;top:50%;width:84px;height:84px;margin:-42px 0 0 -42px;border-radius:50%;background:rgba(156,195,255,.32);color:#fff;font-size:30px;display:grid;place-items:center;pointer-events:none;opacity:0;transform:scale(.6)}
+#tuneFs .tfMid.stay.go{animation:tfPop .22s cubic-bezier(.3,1.5,.5,1) forwards}#tuneFs .tfMid.flash.go{animation:tfFlash .55s ease-out forwards}
+@keyframes tfPop{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:scale(1)}}@keyframes tfFlash{0%{opacity:0;transform:scale(.6)}30%{opacity:1;transform:scale(1.05)}100%{opacity:0;transform:scale(1.25)}}
+#tuneFs .tfBot{justify-content:space-between;align-items:flex-end;gap:16px}#tuneFs .tfHint{font-size:11.5px;color:#7d8590;line-height:1.4;word-break:keep-all;text-wrap:balance;max-width:48%}
+#tuneFs .tfNote{font-size:11.5px;color:#c9b98f;text-align:right;line-height:1.45;word-break:keep-all;text-wrap:balance;max-width:50%}
+#tuneFs .tfTop .tfLeg{margin-left:10px}
 #tuneFs .tfBot{margin-top:6px}#tuneFs .tfBot button{min-width:52px;height:38px;border-radius:10px;border:1px solid #363c45;background:#11141a;color:#eceff3;font-weight:800;margin:0}#tuneFs .tfBot .tfPP{background:#9cc3ff;color:#10141a;border:0;min-width:64px}
 #tuneFs .tfLeg{display:flex;gap:12px;margin-left:auto;font-size:12px;color:#a9b1bc;flex-wrap:wrap}#tuneFs .tfLeg i{display:inline-block;width:16px;height:3px;border-radius:2px;vertical-align:middle;margin-right:4px}
 @media (prefers-reduced-motion: reduce){#tuneFs .tfBox{animation:none}}
