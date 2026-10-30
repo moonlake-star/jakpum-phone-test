@@ -329,6 +329,16 @@
     G.addEventListener("resize", layout); G.addEventListener("orientationchange", layout);
     try { history.pushState(Object.assign({}, history.state || {}, { tuneFs: true }), ""); } catch {}
     const bye = wrap.querySelector(".tfBye"); setTimeout(() => bye && bye.classList.add("go"), 450);
+    // (10/30 17:09 사용자 시안 승인) 세로로 열면 2초 '폰을 가로로 돌려 보세요' — 하루 3번까지, 톡/회전하면 바로 닫힘
+    if (G.innerHeight > G.innerWidth) { let n = 0; const day = new Date().toISOString().slice(0, 10), key = "tune_rot_" + day;
+      try { n = +(localStorage.getItem(key) || 0); } catch {}
+      if (n < 3) { try { localStorage.setItem(key, String(n + 1)); } catch {}
+        const rp = document.createElement("div"); rp.className = "tfRot"; rp.setAttribute("role", "status");
+        rp.innerHTML = `<div class="rpBox"><div class="rpIc" aria-hidden="true"><i></i><span>↻</span></div><b>폰을 가로로 돌려 보세요</b><p>가로화면이 더 확인하기 편해요</p><div class="rpBar"><i></i></div></div>`;
+        const shut = () => { if (!rp.isConnected) return; rp.classList.add("out"); setTimeout(() => rp.remove(), 300); G.removeEventListener("resize", onRs); };
+        const onRs = () => { if (G.innerWidth > G.innerHeight) shut(); };
+        rp.addEventListener("pointerdown", (e) => { e.stopPropagation(); shut(); });
+        setTimeout(() => { if (!wrap.isConnected) return; wrap.appendChild(rp); G.addEventListener("resize", onRs); setTimeout(shut, 2000); }, 400); } }
     const done = () => { G.removeEventListener("resize", layout); G.removeEventListener("orientationchange", layout); wrap.remove(); if (fsClose === done) fsClose = null; };
     fsClose = done;
     const close = () => { done(); try { if (history.state && history.state.tuneFs) { skipPop = true; history.back(); } } catch {} };
@@ -411,7 +421,12 @@
 #tuneFs .tfBot{justify-content:space-between;align-items:flex-end;gap:16px}#tuneFs .tfHint{font-size:11.5px;color:#7d8590;line-height:1.4;word-break:keep-all;text-wrap:balance;max-width:34%}
 #tuneFs .tfNote{font-size:11.5px;color:#c9b98f;text-align:right;line-height:1.45;word-break:keep-all;text-wrap:balance;max-width:36%}
 #tuneFs .tfTop .tfLeg{margin-left:10px}#tuneFs .tfXp,#tuneFs .tfBr{display:none}
-#tuneFs .tfBye{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);background:rgba(30,34,42,.85);border:1px solid rgba(255,255,255,.18);padding:8px 16px;border-radius:20px;font-size:14px;white-space:nowrap;pointer-events:none;opacity:0}#tuneFs .tfBye b{color:#ffd27a}#tuneFs .tfBye.go{animation:tfBye 1.9s ease forwards}
+#tuneFs .tfBye{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);background:rgba(30,34,42,.85);border:1px solid rgba(255,255,255,.18);padding:8px 16px;border-radius:20px;font-size:14px;white-space:nowrap;pointer-events:none;opacity:0}#tuneFs .tfBye b{color:#ffd27a}#tuneFs .tfRot{position:absolute;inset:0;z-index:5;background:rgba(8,10,13,.45);display:flex;align-items:center;justify-content:center;animation:rpIn .25s ease-out}#tuneFs .tfRot.out{opacity:0;transition:opacity .3s}
+#tuneFs .rpBox{color:#f1f1f1;width:min(260px,80vw);background:rgba(24,28,35,.97);border:1px solid rgba(255,210,122,.45);border-radius:18px;padding:18px 16px 14px;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,.5)}#tuneFs .rpBox b{display:block;font-size:16px;margin-bottom:4px}#tuneFs .rpBox p{margin:0;font-size:13.5px;color:#b9bec7}
+#tuneFs .rpIc{width:60px;height:56px;margin:0 auto 10px;position:relative}#tuneFs .rpIc i{position:absolute;left:18px;top:4px;width:22px;height:40px;border:3px solid #ffd27a;border-radius:6px;animation:rpTurn 1.4s ease-in-out infinite}#tuneFs .rpIc span{position:absolute;right:0;top:-6px;font-size:22px;color:#ffd27a}
+#tuneFs .rpBar{height:3px;background:#2a2f38;border-radius:2px;margin-top:12px;overflow:hidden}#tuneFs .rpBar i{display:block;height:100%;width:100%;background:#ffd27a;animation:rpBar 2s linear forwards}
+@keyframes rpIn{from{opacity:0}to{opacity:1}}@keyframes rpBar{to{width:0}}@keyframes rpTurn{0%,20%{transform:rotate(0)}60%,100%{transform:rotate(-90deg)}}
+#tuneFs .tfBye.go{animation:tfBye 1.9s ease forwards}
 @keyframes tfBye{0%{opacity:0}12%{opacity:1}80%{opacity:1}100%{opacity:0}}
 #tuneFs .tfBox.port{padding-top:calc(10px + env(safe-area-inset-top))}#tuneFs .port .tfTop{flex-wrap:wrap;row-gap:8px}#tuneFs .port .tfTitle{font-size:17px}
 #tuneFs .port .tfXp{display:block;margin-left:auto}#tuneFs .port .tfX:not(.tfXp){display:none}#tuneFs .port .tfBr{display:block;flex-basis:100%;height:0}
