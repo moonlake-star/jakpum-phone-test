@@ -42,7 +42,7 @@
     const w = el.clientWidth, h = el.clientHeight; if (!w || !h) return;
     const r = G.devicePixelRatio || 1; if (el.width !== Math.round(w * r)) { el.width = Math.round(w * r); el.height = Math.round(h * r); }
     const g = el.getContext("2d"); g.setTransform(r, 0, 0, r, 0, 0); g.clearRect(0, 0, w, h);
-    const full = !!(st && st.full), W8 = full ? (st.win || 6) / (st.xz || 1) : WIN, k = col(cv, lv), lane = k && h > 110 ? (full ? 64 : LANE) : 0, H = h - lane, kt = tgCol(cv);
+    const full = !!(st && st.full), W8 = full ? (st.win || 6) / (st.xz || 1) : WIN, k = col(cv, lv), lane = k && h > 110 ? (full ? 64 : LANE) : 0, H = h - lane, T = lane, kt = tgCol(cv);   // (10/30 15:39 사용자) 고친 양 = 그래프 위
     let [lo, hi] = range(cv);
     if (full && (st.yz || 1) > 1) {   // 전체화면 핀치 확대: 배율은 손가락으로만 바뀜. 가운데는 지금 음을 부드럽게 따라가고, 손으로 위아래로 밀면 그 자리에 머묾
       const half = (hi - lo) / 2 / st.yz, now = Date.now();
@@ -59,7 +59,7 @@
         if (st.lo == null) { st.lo = tl; st.hi = th; } else { st.lo += (tl - st.lo) * (tl < st.lo ? 0.45 : 0.06); st.hi += (th - st.hi) * (th > st.hi ? 0.45 : 0.06); } }
       if (st.lo != null) { lo = st.lo; hi = st.hi; }
     }
-    const L = full ? 44 : 30, y = (c) => H - 6 - (c - lo) / (hi - lo) * (H - 12);
+    const L = full ? 44 : 30, y = (c) => T + H - 6 - (c - lo) / (hi - lo) * (H - 12);
     const t0 = t - W8 * HEAD, xs = (tt) => L + (tt - t0) / W8 * (w - L), sc = cv.scale;
     g.font = (full ? "12px" : "10px") + " system-ui, sans-serif"; g.textBaseline = "middle";
     let lastY = -99;
@@ -72,7 +72,7 @@
       if (ins && yy - lastY >= 12) { g.fillStyle = sc && pc === sc[0] ? "#9cc3ff" : "#6b7480"; g.fillText(NAMES[pc] + (Math.floor(m / 12) - 1), 2, yy); lastY = yy; }   // 가까운 이름은 건너뜀
     }
     const vis = []; for (const p of cv.pts || []) { if (p[0] < t0 - 0.3) continue; if (p[0] > t0 + W8 + 0.3) break; vis.push(p); }
-    g.save(); g.beginPath(); g.rect(L, 0, w - L, H); g.clip();
+    g.save(); g.beginPath(); g.rect(L, T, w - L, H); g.clip();
     if (full && kt) {   // 정음(목표음) = 초록 막대: 보정이 맞추려는 바로 그 음
       const bh = Math.max(6, (H - 12) / ((hi - lo) / 100) * 0.55);
       for (let i = 0; i < vis.length; i++) { const p = vis[i], q = vis[i + 1]; if (p[kt] == null) continue;
@@ -96,7 +96,7 @@
     if (k) line(k, "#7fd9ff", full ? 2.6 : 2);
     g.restore();
     if (lane) {   // 고친 양 줄
-      const top = H + 2, mid = top + (lane - 4) / 2, half = (lane - 6) / 2;
+      const top = 2, mid = top + (lane - 4) / 2, half = (lane - 6) / 2;
       g.fillStyle = "#151920"; g.fillRect(L, top, w - L, lane - 4); g.fillStyle = "#2c3440"; g.fillRect(L, Math.round(mid), w - L, 1);
       g.fillStyle = "#6b7480"; g.font = (full ? "11px" : "9px") + " system-ui, sans-serif"; g.fillText("고친 양", 0, mid);
       if (full) { g.fillText("+½", 4, top + 8); g.fillText("−½", 4, top + lane - 12); }
@@ -104,13 +104,13 @@
       for (const p of vis) { const X = xs(p[0]); if (X < L || X > w) continue; const d = p[k] - p[1]; if (Math.abs(d) < 2) continue;
         const hh = Math.max(-half, Math.min(half, d / 50 * half)); g.fillStyle = Math.abs(d) > 15 ? "#ffd27a" : "#5b6573"; g.fillRect(X, hh > 0 ? mid - hh : mid, bw, Math.abs(hh)); }
     }
-    g.fillStyle = "rgba(23,25,29,.35)"; g.fillRect(xs(t) + 2, 0, w, H);   // 아직 안 부른 쪽은 살짝 어둡게
+    g.fillStyle = "rgba(23,25,29,.35)"; g.fillRect(xs(t) + 2, T, w, H);   // 아직 안 부른 쪽은 살짝 어둡게
     g.fillStyle = "#ffd27a"; g.fillRect(Math.round(xs(t)) - 1, 2, 2.5, h - 4);
     const d = delta(cv, k, t);
     if (d != null && Math.abs(d) >= 5) {   // 지금 얼마나 고쳤나(반음 단위, 10/30 13:31 사용자)
       const s = semiLabel(d); g.font = (full ? "bold 15px" : "bold 11px") + " system-ui, sans-serif";
       const tw = g.measureText(s).width, x0 = Math.min(w - tw - 8, Math.round(xs(t)) + 6);
-      const bh2 = full ? 22 : 16; g.fillStyle = "rgba(17,20,26,.85)"; g.fillRect(x0 - 3, 4, tw + 6, bh2); g.fillStyle = "#ffd27a"; g.fillText(s, x0, 4 + bh2 / 2);
+      const bh2 = full ? 22 : 16; g.fillStyle = "rgba(17,20,26,.85)"; g.fillRect(x0 - 3, T + 4, tw + 6, bh2); g.fillStyle = "#ffd27a"; g.fillText(s, x0, T + 4 + bh2 / 2);
     }
   }
   // 붙이기: getT()=지금 초, getLv()=보여 줄 보정 단계(0이면 원음만), seek(초). 화면에서 빠지면 저절로 멈춤.
@@ -163,11 +163,10 @@
     const hasAb = typeof o.setMode === "function";
     wrap.innerHTML = `<div class="tfBox"><div class="tfTop"><b class="tfTitle">${String(o.title || "음정선").replace(/[<>&]/g, "")}</b><span class="tfTime"></span>
       <button type="button" class="tfX tfXp" aria-label="닫기">✕</button><span class="tfBr"></span><span class="tfLeg"><span><i style="background:rgba(127,217,154,.6);height:8px"></i>정음</span><span><i style="background:#ff9f5a"></i>부른 음</span><span><i style="background:#7fd9ff"></i>보정 후</span><span class="tfLegC"><i style="background:#ffd27a;opacity:.6"></i>고친 곳</span></span>
-      ${hasAb ? `<span class="tfAb"><button type="button" data-m="o">원음</button><button type="button" data-m="p">✨ 보정본</button></span>` : ""}
       <button type="button" class="tfX" aria-label="닫기">✕</button></div>
       <div class="tfCvBox"><canvas class="tfCv"></canvas><span class="tfMid" aria-hidden="true"></span><span class="tfBye" aria-live="polite">닫을 때는 <b>✕</b> 또는 폰의 <b>뒤로 가기</b></span></div>
       <div class="tfBot"><span class="tfHint">톡 = 재생·멈춤 · 좌우로 밀면 이동<span class="tfSep"> · </span><br>두 손가락으로 벌리면 확대 · 두 번 톡 = 원래 크기</span>
-      <span class="tfNav"><button type="button" data-j="0" aria-label="처음으로">⏮ 처음</button><button type="button" data-j="-5" aria-label="5초 뒤로">-5초</button><button type="button" data-j="5" aria-label="5초 앞으로">+5초</button></span>
+      <span class="tfCtl">${hasAb ? `<span class="tfAb"><button type="button" data-m="o">원음</button><button type="button" data-m="p">✨ 보정본</button></span>` : ""}<span class="tfNav"><button type="button" data-j="0" aria-label="처음으로">⏮ 처음</button><button type="button" data-j="-5" aria-label="5초 뒤로">-5초</button><button type="button" data-j="5" aria-label="5초 앞으로">+5초</button></span></span>
       <span class="tfNote">AI 단순 보정이라 정확하지 않을 수 있어요.<br>정식 음원은 전문 엔지니어가 한 음 한 음 더 정밀하게 다듬어요.</span></div></div>`;
     document.body.appendChild(wrap);
     const box = wrap.querySelector(".tfBox"), cvEl = wrap.querySelector(".tfCv"), st = { full: true, xz: 1, yz: 1, yc: null, panAt: 0 };
@@ -261,12 +260,12 @@
 #tuneFs .tfBot{justify-content:space-between;align-items:flex-end;gap:16px}#tuneFs .tfHint{font-size:11.5px;color:#7d8590;line-height:1.4;word-break:keep-all;text-wrap:balance;max-width:34%}
 #tuneFs .tfNote{font-size:11.5px;color:#c9b98f;text-align:right;line-height:1.45;word-break:keep-all;text-wrap:balance;max-width:36%}
 #tuneFs .tfTop .tfLeg{margin-left:10px}#tuneFs .tfXp,#tuneFs .tfBr{display:none}
-#tuneFs .tfBye{position:absolute;left:50%;top:58px;transform:translateX(-50%);background:rgba(30,34,42,.85);border:1px solid rgba(255,255,255,.18);padding:8px 16px;border-radius:20px;font-size:14px;white-space:nowrap;pointer-events:none;opacity:0}#tuneFs .tfBye b{color:#ffd27a}#tuneFs .tfBye.go{animation:tfBye 1.9s ease forwards}
+#tuneFs .tfBye{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);background:rgba(30,34,42,.85);border:1px solid rgba(255,255,255,.18);padding:8px 16px;border-radius:20px;font-size:14px;white-space:nowrap;pointer-events:none;opacity:0}#tuneFs .tfBye b{color:#ffd27a}#tuneFs .tfBye.go{animation:tfBye 1.9s ease forwards}
 @keyframes tfBye{0%{opacity:0}12%{opacity:1}80%{opacity:1}100%{opacity:0}}
 #tuneFs .tfBox.port{padding-top:calc(10px + env(safe-area-inset-top))}#tuneFs .port .tfTop{flex-wrap:wrap;row-gap:8px}#tuneFs .port .tfTitle{font-size:17px}
 #tuneFs .port .tfXp{display:block;margin-left:auto}#tuneFs .port .tfX:not(.tfXp){display:none}#tuneFs .port .tfBr{display:block;flex-basis:100%;height:0}
 #tuneFs .port .tfLeg{margin-left:0}#tuneFs .port .tfLegC{display:none}#tuneFs .port .tfAb{margin-left:auto}
-#tuneFs .port .tfBot{flex-direction:column;align-items:stretch;gap:10px;margin-top:10px}#tuneFs .port .tfNav{order:-1;justify-content:center;gap:10px}#tuneFs .port .tfNav button{min-width:84px;height:46px;font-size:15px}
+#tuneFs .port .tfBot{flex-direction:column;align-items:stretch;gap:10px;margin-top:10px}#tuneFs .tfCtl{display:flex;align-items:center;gap:10px;flex:none;align-self:center}#tuneFs .tfCtl .tfAb{margin:0;border-radius:22px;padding:3px;background:#11141a}#tuneFs .tfCtl .tfAb button{border:0;height:auto;min-width:0;border-radius:18px;min-height:38px;padding:0 16px;font-size:14px}#tuneFs .port .tfCtl{order:-1;flex-direction:column;gap:10px}#tuneFs .port .tfCtl .tfAb button{min-height:46px;padding:0 28px;font-size:16px}#tuneFs .port .tfNav{justify-content:center;gap:10px}#tuneFs .port .tfNav button{min-width:84px;height:46px;font-size:15px}
 #tuneFs .port .tfHint,#tuneFs .port .tfNote{max-width:none;text-align:left}#tuneFs .port .tfHint br{display:none}#tuneFs .tfSep{display:none}#tuneFs .port .tfSep{display:inline}
 #tuneFs .tfBot{margin-top:6px}#tuneFs .tfNav{display:flex;gap:8px;flex:none;align-self:center}#tuneFs .tfNav button{min-width:64px;padding:0 12px;font-size:14px;background:rgba(30,34,42,.75)}#tuneFs .tfBot button{min-width:52px;height:38px;border-radius:10px;border:1px solid #363c45;background:#11141a;color:#eceff3;font-weight:800;margin:0}#tuneFs .tfBot .tfPP{background:#9cc3ff;color:#10141a;border:0;min-width:64px}
 #tuneFs .tfLeg{display:flex;gap:12px;margin-left:auto;font-size:12px;color:#a9b1bc;flex-wrap:wrap}#tuneFs .tfLeg i{display:inline-block;width:16px;height:3px;border-radius:2px;vertical-align:middle;margin-right:4px}
