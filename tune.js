@@ -70,12 +70,14 @@
     g.restore();
     // (10/30 16:57 사용자 시안 승인) 동시에 최대 2개 · 그래프 아래 2층 칸 고정 · 점선 화살표가 번호 점을 따라감
     const kf = (n) => n.id || n.t0 + ":" + n.text, endT = (n) => Math.max(+n.t1, +n.t0 + 0.5);
-    const near = all.filter(n => t >= +n.t0 - 0.3 && t <= endT(n) + 1.5).sort((a, b) => Math.abs(t - a.t0) - Math.abs(t - b.t0));
+    const near = all.filter(n => t >= +n.t0 - 1.5 && t <= endT(n) + 1.5)   // (10/30 17:10 사용자) 1.5초 미리.sort((a, b) => Math.abs(t - a.t0) - Math.abs(t - b.t0));
     const want = near.slice(0, 2), wk = new Set(want.map(kf));
     let sl = st.slots || [null, null];   // [위 칸, 아래 칸] — 서로 자리를 바꾸지 않음
-    sl = sl.map(k => (k && wk.has(k) ? k : null));
+    const now = performance.now(); st.fin = st.fin || {}; st.fout = st.fout || {};   // 0.3초 페이드 인·아웃
+    sl = sl.map(k => { if (!k) return null; if (wk.has(k)) { delete st.fout[k]; return k; }
+      if (st.fout[k] == null) st.fout[k] = now; if (now - st.fout[k] < 300) return k; delete st.fout[k]; delete st.fin[k]; return null; });
     for (const n of want.slice().sort((a, b) => a.t0 - b.t0)) { const k = kf(n); if (sl.includes(k)) continue;   // 새 주석은 아래 칸으로, 아래에 있던 건 위 칸으로 한 칸 올라감(자막처럼)
-      if (!sl[1]) sl[1] = k; else if (!sl[0]) { sl[0] = sl[1]; sl[1] = k; } }
+      if (!sl[1]) { sl[1] = k; st.fin[k] = now; } else if (!sl[0]) { sl[0] = sl[1]; sl[1] = k; st.fin[k] = now; } }
     st.slots = sl;
     const byK = new Map(all.map(n => [kf(n), n])), shown = sl.map(k => (k ? byK.get(k) : null));
     const order = shown.filter(Boolean).sort((a, b) => a.t0 - b.t0), numOf = (n) => order.indexOf(n) + 1;
@@ -83,10 +85,12 @@
     const maxL = full ? 2 : 1, sh = pad * 2 + (fs - 1) + 4 + maxL * lh, x = L + 4, bw = w - L - 8, gap = 6, bot = T + H - 6;
     const fmtT = (s) => `${Math.floor(s / 60)}:${(s % 60).toFixed(1).padStart(4, "0")}`;
     for (const n of order) { const dt = dots.get(n); if (!dt) continue; const c = n.status === "ok" ? "127,217,154" : "255,210,122";   // 음정선 위 번호 점(칸 아래에 깔리게 먼저)
-      g.save(); if (t > endT(n) + 0.15) g.globalAlpha = 0.55; g.fillStyle = `rgb(${c})`; g.beginPath(); g.arc(dt.x, dt.y, nr, 0, Math.PI * 2); g.fill();
+      const k2 = kf(n), fa = (st.fin[k2] != null ? Math.min(1, (now - st.fin[k2]) / 300) : 1) * (st.fout[k2] != null ? Math.max(0, 1 - (now - st.fout[k2]) / 300) : 1);
+      g.save(); g.globalAlpha = (t > endT(n) + 0.15 ? 0.55 : 1) * fa; g.fillStyle = `rgb(${c})`; g.beginPath(); g.arc(dt.x, dt.y, nr, 0, Math.PI * 2); g.fill();
       g.fillStyle = "#10201a"; g.font = `900 ${full ? 12 : 10}px system-ui, sans-serif`; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(String(numOf(n)), dt.x, dt.y + 0.5); g.restore(); }
     shown.forEach((n, i) => { if (!n) return;
-      const ok = n.status === "ok", c = ok ? "127,217,154" : "255,210,122", past = t > endT(n) + 0.15, al = past ? 0.55 : 1, num = numOf(n);
+      const k = kf(n), fi = st.fin[k] != null ? Math.min(1, (now - st.fin[k]) / 300) : 1, fo = st.fout[k] != null ? Math.max(0, 1 - (now - st.fout[k]) / 300) : 1;
+      const ok = n.status === "ok", c = ok ? "127,217,154" : "255,210,122", past = t > endT(n) + 0.15, al = (past ? 0.55 : 1) * fi * fo, num = numOf(n);
       const y = i === 1 ? bot - sh : bot - sh * 2 - gap;
       g.save(); g.globalAlpha = al;
       const dt = dots.get(n); if (dt) {   // 칸 → 번호 점 점선 화살표
