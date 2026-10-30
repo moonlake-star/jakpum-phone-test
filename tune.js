@@ -68,38 +68,47 @@
       else { g.fillStyle = "#11131a"; g.strokeStyle = `rgb(${c})`; g.lineWidth = 2; g.beginPath(); g.arc(a, s.y, R * 0.8, 0, Math.PI * 2); g.fill(); g.stroke(); }   // 소리 없는 곳 = 가까운 음 높이에 속 빈 점
       dots.set(n, { x: a, y: s.y, c, r: R + 3 }); }
     g.restore();
-    const act = all.filter(n => t >= +n.t0 - 0.3 && t <= Math.max(+n.t1, +n.t0 + 0.5) + 1.5).sort((a, b) => a.t0 - b.t0).slice(0, 2);
-    const fs = full ? 14 : 11, lh = fs + 5, maxW = full ? 260 : 170, pad = full ? 9 : 7;
-    const ms = act.map(n => { const ok = n.status === "ok"; g.font = `${fs}px system-ui, sans-serif`; const lines = wrapTxt(g, n.text || "", maxW);
-      return { n, ok, lines, bh: pad * 2 + (fs - 2 + 4) + lines.length * lh }; });
-    // (10/30 16:30 사용자 시안 승인) 음정선을 피해 위·아래 중 더 넓게 빈 쪽에. 같은 말풍선 묶음이 떠 있는 동안은 자리 고정
-    const need = ms.reduce((s, m) => s + m.bh + 6, 0), bot = T + H - 6, key = act.map(n => n.id || n.t0 + ":" + n.text).join("|");
-    let y;
-    if (st.nPl && st.nPl.key === key && st.nPl.H === H) y = st.nPl.y;
-    else { const upFree = occ ? occ[0] - 10 - (top + 4) : 1e9, dnFree = occ ? bot - (occ[1] + 12) : -1;
-      y = !occ || upFree >= dnFree ? top + 4 : Math.max(top + 4, Math.min(occ[1] + 12, bot - need));
-      if (key) st.nPl = { key, y, H }; }
-    for (const m of ms) { const { n, ok, lines, bh } = m;
-      g.font = `${fs}px system-ui, sans-serif`;
-      const tag = st.teacher ? (ok ? "✓ 확인" : "AI 초안 · " + (SRC[n.src] || "AI")) : "🎤 선생님 한마디";
-      g.font = `bold ${fs - 2}px system-ui, sans-serif`; const tw = g.measureText(tag).width; g.font = `${fs}px system-ui, sans-serif`;
-      const xr = st.teacher ? (full ? 13 : 11) : 0, xPad = xr ? xr * 2 + 6 : 0;   // 선생님: 오른쪽 위 ✕ = 바로 삭제(10/30 16:26 사용자)
-      const bw = Math.min(maxW, Math.max(tw, ...lines.map(s => g.measureText(s).width))) + pad * 2 + xPad;
-      const x = Math.max(L + 2, Math.min(w - bw - 4, xs(+n.t0) - 10));
-      if (y + bh > T + H - 6) break;
-      const dt = dots.get(n); if (dt) {   // 말풍선 → 가리키는 자리 화살표
-        const up = dt.y < y, sx = Math.max(x + 14, Math.min(x + bw - 14, dt.x)), sy = up ? y : y + bh, tx = dt.x, ty = dt.y + (up ? dt.r : -dt.r);
-        if (Math.abs(sy - ty) > 8) { const ang = Math.atan2(ty - sy, tx - sx), hl = full ? 9 : 7;
-          g.strokeStyle = `rgb(${dt.c})`; g.fillStyle = `rgb(${dt.c})`; g.lineWidth = 1.6; g.beginPath(); g.moveTo(sx, sy); g.lineTo(tx - Math.cos(ang) * hl * 0.6, ty - Math.sin(ang) * hl * 0.6); g.stroke();
-          g.beginPath(); g.moveTo(tx, ty); g.lineTo(tx - Math.cos(ang - 0.45) * hl, ty - Math.sin(ang - 0.45) * hl); g.lineTo(tx - Math.cos(ang + 0.45) * hl, ty - Math.sin(ang + 0.45) * hl); g.closePath(); g.fill(); } }
-      g.fillStyle = "rgba(30,34,42,.94)"; rr(g, x, y, bw, bh, 10); g.fill();
-      g.strokeStyle = ok ? "#7fd99a" : "#ffd27a"; g.lineWidth = 1.5; if (!ok) g.setLineDash([4, 3]); rr(g, x, y, bw, bh, 10); g.stroke(); g.setLineDash([]);
-      g.textBaseline = "top"; g.font = `bold ${fs - 2}px system-ui, sans-serif`; g.fillStyle = ok ? "#7fd99a" : "#ffd27a"; g.fillText(tag, x + pad, y + pad);
-      g.font = `${fs}px system-ui, sans-serif`; g.fillStyle = "#f1f1f1"; lines.forEach((s, i) => g.fillText(s, x + pad, y + pad + fs + 2 + i * lh)); g.textBaseline = "middle";
-      let xx = null; if (xr) { xx = { cx: x + bw - xr - 5, cy: y + xr + 5, r: xr };
+    // (10/30 16:57 사용자 시안 승인) 동시에 최대 2개 · 그래프 아래 2층 칸 고정 · 점선 화살표가 번호 점을 따라감
+    const kf = (n) => n.id || n.t0 + ":" + n.text, endT = (n) => Math.max(+n.t1, +n.t0 + 0.5);
+    const near = all.filter(n => t >= +n.t0 - 0.3 && t <= endT(n) + 1.5).sort((a, b) => Math.abs(t - a.t0) - Math.abs(t - b.t0));
+    const want = near.slice(0, 2), wk = new Set(want.map(kf));
+    let sl = st.slots || [null, null];   // [위 칸, 아래 칸] — 서로 자리를 바꾸지 않음
+    sl = sl.map(k => (k && wk.has(k) ? k : null));
+    for (const n of want.slice().sort((a, b) => a.t0 - b.t0)) { const k = kf(n); if (sl.includes(k)) continue;   // 새 주석은 아래 칸으로, 아래에 있던 건 위 칸으로 한 칸 올라감(자막처럼)
+      if (!sl[1]) sl[1] = k; else if (!sl[0]) { sl[0] = sl[1]; sl[1] = k; } }
+    st.slots = sl;
+    const byK = new Map(all.map(n => [kf(n), n])), shown = sl.map(k => (k ? byK.get(k) : null));
+    const order = shown.filter(Boolean).sort((a, b) => a.t0 - b.t0), numOf = (n) => order.indexOf(n) + 1;
+    const fs = full ? 14 : 11.5, lh = fs + 5, pad = full ? 9 : 7, nr = full ? 11 : 9, xr = st.teacher ? (full ? 12 : 10) : 0;
+    const maxL = full ? 2 : 1, sh = pad * 2 + (fs - 1) + 4 + maxL * lh, x = L + 4, bw = w - L - 8, gap = 6, bot = T + H - 6;
+    const fmtT = (s) => `${Math.floor(s / 60)}:${(s % 60).toFixed(1).padStart(4, "0")}`;
+    for (const n of order) { const dt = dots.get(n); if (!dt) continue; const c = n.status === "ok" ? "127,217,154" : "255,210,122";   // 음정선 위 번호 점(칸 아래에 깔리게 먼저)
+      g.save(); if (t > endT(n) + 0.15) g.globalAlpha = 0.55; g.fillStyle = `rgb(${c})`; g.beginPath(); g.arc(dt.x, dt.y, nr, 0, Math.PI * 2); g.fill();
+      g.fillStyle = "#10201a"; g.font = `900 ${full ? 12 : 10}px system-ui, sans-serif`; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(String(numOf(n)), dt.x, dt.y + 0.5); g.restore(); }
+    shown.forEach((n, i) => { if (!n) return;
+      const ok = n.status === "ok", c = ok ? "127,217,154" : "255,210,122", past = t > endT(n) + 0.15, al = past ? 0.55 : 1, num = numOf(n);
+      const y = i === 1 ? bot - sh : bot - sh * 2 - gap;
+      g.save(); g.globalAlpha = al;
+      const dt = dots.get(n); if (dt) {   // 칸 → 번호 점 점선 화살표
+        const sx = Math.max(x + 24, Math.min(x + bw - 24, dt.x + (num === 1 ? -14 : 14))), sy = y, tx = dt.x, ty = dt.y + dt.r + 2;
+        if (sy - ty > 10) { const cy1 = sy - (sy - ty) * 0.45, hl = full ? 9 : 7;
+          g.strokeStyle = `rgb(${c})`; g.fillStyle = `rgb(${c})`; g.lineWidth = 1.5; g.setLineDash([4, 3]); g.beginPath(); g.moveTo(sx, sy); g.quadraticCurveTo(sx, cy1, tx, ty + hl * 0.7); g.stroke(); g.setLineDash([]);
+          g.beginPath(); g.moveTo(tx, ty); g.lineTo(tx - hl * 0.45, ty + hl); g.lineTo(tx + hl * 0.45, ty + hl); g.closePath(); g.fill(); } }
+      g.fillStyle = "rgba(24,28,35,.95)"; rr(g, x, y, bw, sh, 10); g.fill();
+      g.strokeStyle = `rgb(${c})`; g.lineWidth = 1.5; if (!ok) g.setLineDash([4, 3]); rr(g, x, y, bw, sh, 10); g.stroke(); g.setLineDash([]);
+      g.fillStyle = `rgb(${c})`; g.beginPath(); g.arc(x + pad + nr, y + pad + nr, nr, 0, Math.PI * 2); g.fill();
+      g.fillStyle = "#10201a"; g.font = `900 ${full ? 13 : 11}px system-ui, sans-serif`; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(String(num), x + pad + nr, y + pad + nr + 0.5); g.textAlign = "left";
+      const tx0 = x + pad + nr * 2 + 8, tmax = bw - (tx0 - x) - pad - (xr ? xr * 2 + 6 : 0);
+      const tag = (st.teacher ? (ok ? "✓ 확인" : "AI 초안" + (SRC[n.src] ? " · " + SRC[n.src] : "")) : "🎤 선생님 한마디") + " · " + fmtT(+n.t0);
+      g.textBaseline = "top"; g.font = `bold ${fs - 2}px system-ui, sans-serif`; g.fillStyle = `rgb(${c})`; g.fillText(tag, tx0, y + pad);
+      g.font = `${fs}px system-ui, sans-serif`; let lines = wrapTxt(g, n.text || "", tmax);
+      if (lines.length > maxL) { const keep = lines.slice(0, maxL); let l2 = keep[maxL - 1]; while (l2 && g.measureText(l2 + "…").width > tmax) l2 = l2.slice(0, -1); keep[maxL - 1] = l2 + "…"; lines = keep; }   // 작은 화면 1줄·전체화면 2줄, 넘으면 … (눌러서 전체 보기)
+      g.fillStyle = "#f1f1f1"; lines.forEach((s2, j) => g.fillText(s2, tx0, y + pad + fs + 2 + j * lh)); g.textBaseline = "middle";
+      let xx = null; if (xr) { xx = { cx: x + bw - xr - 6, cy: y + xr + 6, r: xr };
         g.fillStyle = "#3a2a2a"; g.beginPath(); g.arc(xx.cx, xx.cy, xr, 0, Math.PI * 2); g.fill(); g.strokeStyle = "#ff9a9a"; g.lineWidth = 1.2; g.stroke();
         const q = xr * 0.42; g.lineWidth = 2; g.beginPath(); g.moveTo(xx.cx - q, xx.cy - q); g.lineTo(xx.cx + q, xx.cy + q); g.moveTo(xx.cx + q, xx.cy - q); g.lineTo(xx.cx - q, xx.cy + q); g.stroke(); }
-      hits.push({ x, y, w: bw, h: bh, n, xx }); y += bh + 6; }
+      g.restore();
+      hits.push({ x, y, w: bw, h: sh, n, xx }); });
   }
   function hitNote(st, x, y) {   // { n, del } — ✕ 둘레는 손가락 크기로 넉넉히
     for (const h of st.hits || []) { if (h.xx && Math.hypot(x - h.xx.cx, y - h.xx.cy) <= h.xx.r + 10) return { n: h.n, del: true };
@@ -266,11 +275,12 @@
     const canEdit = typeof o.onNote === "function";
     if (canEdit) el.addEventListener("contextmenu", (e) => e.preventDefault());
     el.addEventListener("pointerdown", (e) => { drag = { x: e.clientX, y: e.clientY, t: +getT() || 0, id: e.pointerId, moved: false };
-      if (canEdit && typeof o.onAdd === "function") { const d0 = drag; d0.lp = setTimeout(() => { if (drag !== d0 || d0.moved) return;   // 빈 곳 길게 누르기 = 그 자리에 새 주석
-        const r = el.getBoundingClientRect(), hn = hitNote(st, e.clientX - r.left, e.clientY - r.top);
-        if (hn) return;   // (10/30 16:34 사용자) 말풍선은 '눌렀다 떼면' 고치기 — 누른 채 옆으로 밀면 화면 이동
-        d0.long = true; if (ctl && !o.paused()) o.play();
-        const tt = timeAt(st, e.clientX - r.left); if (tt != null) { lastView = view; o.onAdd(tt); } }, 300); } });
+      if (canEdit) { const d0 = drag, r0 = el.getBoundingClientRect(), h0 = hitNote(st, e.clientX - r0.left, e.clientY - r0.top);
+        // (10/30 16:58 사용자) 주석 칸: 톡 하고 떼도, 0.6초 꾹 눌러도 고치기 · 누른 채 좌우로 밀면 화면 이동 / 빈 곳 0.3초 꾹 = 새 주석
+        if (h0) { if (!h0.del) d0.lp = setTimeout(() => { if (drag !== d0 || d0.moved) return; d0.long = true; if (ctl && !o.paused()) o.play(); lastView = view; o.onNote(h0.n); }, 600); }
+        else if (typeof o.onAdd === "function") d0.lp = setTimeout(() => { if (drag !== d0 || d0.moved) return;
+          d0.long = true; if (ctl && !o.paused()) o.play();
+          const tt = timeAt(st, e.clientX - r0.left); if (tt != null) { lastView = view; o.onAdd(tt); } }, 300); } });
     el.addEventListener("pointermove", (e) => {
       if (!drag || drag.id !== e.pointerId) return;
       const dx = e.clientX - drag.x; if (!drag.moved && Math.abs(dx) < 8) return; clearTimeout(drag.lp);
@@ -349,11 +359,11 @@
       if (pts.size === 2) { const [p1, p2] = [...pts.values()]; drag = null; preview = null;
         pinch = { d: Math.hypot(p1.a - p2.a, p1.b - p2.b), xz: st.xz, yz: st.yz }; return; }
       if (pts.size === 1) { drag = { a: along(e), b: across(e), t: +getT() || 0, id: e.pointerId, mode: null, yc: st.yc, cx: e.clientX, cy: e.clientY };
-        if (typeof o.onAdd === "function") { const d0 = drag; d0.lp = setTimeout(() => { if (drag !== d0 || d0.mode) return;
-          const r = cvEl.getBoundingClientRect(), hn = typeof o.onNote === "function" ? hitNote(st, d0.cx - r.left, d0.cy - r.top) : null;
-          if (hn) return;   // 말풍선: 눌렀다 떼면 고치기, 누른 채 밀면 이동
-          d0.long = true; pauseNow();
-          const tt = timeAt(st, d0.cx - r.left); if (tt != null) { lastView = view; o.onAdd(tt); } }, 300); } }
+        if (typeof o.onNote === "function") { const d0 = drag, r0 = cvEl.getBoundingClientRect(), h0 = hitNote(st, d0.cx - r0.left, d0.cy - r0.top);
+          if (h0) { if (!h0.del) d0.lp = setTimeout(() => { if (drag !== d0 || d0.mode) return; d0.long = true; pauseNow(); lastView = view; o.onNote(h0.n); }, 600); }   // 주석 칸 0.6초 꾹 = 고치기
+          else if (typeof o.onAdd === "function") d0.lp = setTimeout(() => { if (drag !== d0 || d0.mode) return;
+            d0.long = true; pauseNow();
+            const tt = timeAt(st, d0.cx - r0.left); if (tt != null) { lastView = view; o.onAdd(tt); } }, 300); } }
     });
     cvEl.addEventListener("pointermove", (e) => {
       if (!pts.has(e.pointerId)) return; pts.set(e.pointerId, { a: along(e), b: across(e) });
