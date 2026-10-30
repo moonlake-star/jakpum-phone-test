@@ -143,22 +143,22 @@
   }
   function sheet(n, o) {
     document.getElementById("tuneSheet")?.remove();
-    const fmt = (x) => `${Math.floor(x / 60)}:${(x % 60).toFixed(1).padStart(4, "0")}`, isNew = !n.id;
+    const fmt = (x) => `${Math.floor(x / 60)}:${(x % 60).toFixed(2).padStart(5, "0")}`, isNew = !n.id;
     const d = { ...n, t0: +n.t0, t1: +n.t1 };
     const el = document.createElement("div"); el.id = "tuneSheet"; el.setAttribute("role", "dialog"); el.setAttribute("aria-label", "음정 주석");
     const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
     el.innerHTML = `<div class="tsBox"><div class="tsHead"><b class="tsRng"></b><span class="tsSrc">${isNew ? "새 주석" : n.status === "ok" ? "✓ 확인됨" : "AI 초안 · " + esc(SRC[n.src] || "AI")}</span></div>
       <div class="tsTxW"><textarea class="tsTx" rows="3" maxlength="80" placeholder="여기에 짧게 적어 주세요 (예: 끝음 내려갈 때 배 힘 유지)">${esc(n.text)}</textarea>${isNew ? "" : `<button type="button" class="tsClr">전체 지우기</button>`}</div>
       ${n.evidence ? `<div class="tsEv">근거 · ${esc(n.evidence)}</div>` : ""}
-      <div class="tsAdj"><span>시작</span><button type="button" data-a="s-">−0.2초</button><button type="button" data-a="s+">+0.2초</button><span>끝</span><button type="button" data-a="e-">−0.2초</button><button type="button" data-a="e+">+0.2초</button></div>
+      <div class="tsAdj"><span>시작</span><button type="button" data-a="s-">−0.15초</button><button type="button" data-a="s+">+0.15초</button><span>끝</span><button type="button" data-a="e-">−0.15초</button><button type="button" data-a="e+">+0.15초</button></div>
       <div class="tsRow">${isNew ? `<button type="button" class="tsCancel">취소</button>` : `<button type="button" class="tsCancel">닫기</button><button type="button" class="tsDel">삭제</button>`}<button type="button" class="tsOk">${isNew ? "저장" : "✓ 확인"}</button></div></div>`;
     (document.getElementById("tuneFs") || document.body).appendChild(el);
     const spot = d.t1 - d.t0 < 0.35;
-    if (spot) el.querySelector(".tsAdj").innerHTML = `<span>위치</span><button type="button" data-a="p-">−0.2초</button><button type="button" data-a="p+">+0.2초</button>`;
+    if (spot) el.querySelector(".tsAdj").innerHTML = `<span>위치</span><button type="button" data-a="p-">−0.15초</button><button type="button" data-a="p+">+0.15초</button>`;
     const V = lastView; V && V.edit(d, n); V && V.focus(d.t0);   // (10/30 16:41 사용자 시안 승인) 창을 열면 그래프가 그 자리로 스르륵
     const paint = () => { el.querySelector(".tsRng").textContent = spot ? fmt(d.t0) : `${fmt(d.t0)} ~ ${fmt(d.t1)}`; }; paint();
-    el.querySelectorAll("[data-a]").forEach(b => b.onclick = () => { const a = b.dataset.a, v = a[1] === "+" ? 0.2 : -0.2;   // (10/30 17:27 사용자) 미세 조정 0.2초
-      if (a[0] === "p") { d.t0 = Math.max(0, Math.round((d.t0 + v) * 10) / 10); d.t1 = d.t0; } else if (a[0] === "s") d.t0 = Math.max(0, Math.min(d.t1 - 0.2, Math.round((d.t0 + v) * 10) / 10)); else d.t1 = Math.max(d.t0 + 0.2, Math.round((d.t1 + v) * 10) / 10);
+    el.querySelectorAll("[data-a]").forEach(b => b.onclick = () => { const a = b.dataset.a, v = a[1] === "+" ? 0.15 : -0.15;   // (10/30 17:48 사용자) 미세 조정 0.15초
+      if (a[0] === "p") { d.t0 = Math.max(0, Math.round((d.t0 + v) * 100) / 100); d.t1 = d.t0; } else if (a[0] === "s") d.t0 = Math.max(0, Math.min(d.t1 - 0.15, Math.round((d.t0 + v) * 100) / 100)); else d.t1 = Math.max(d.t0 + 0.15, Math.round((d.t1 + v) * 100) / 100);
       paint(); V && V.focus(a[0] === "e" ? d.t1 : d.t0); });   // 바꾼 쪽 자리로 그래프가 따라감
     const close = () => { el.remove(); V && V.done(); if (lastView === V) lastView = null; };
     el.onclick = (e) => { if (e.target === el) close(); };
@@ -177,7 +177,7 @@
       cf.querySelector(".cfYes").onclick = () => { if (cf.querySelector("input").checked) { try { localStorage.setItem("tune_del_noask", "1"); } catch {} } doDel(); };
     });
     el.querySelector(".tsOk").onclick = () => { const tx = el.querySelector(".tsTx").value.trim(); if (!tx) { el.querySelector(".tsTx").focus(); return; }
-      close(); o.onSave && o.onSave({ ...d, text: tx, status: "ok", t0: Math.round(d.t0 * 10) / 10, t1: Math.round(d.t1 * 10) / 10 }); };
+      close(); o.onSave && o.onSave({ ...d, text: tx, status: "ok", t0: Math.round(d.t0 * 100) / 100, t1: Math.round(d.t1 * 100) / 100 }); };
     if (isNew) setTimeout(() => el.querySelector(".tsTx").focus(), 50);
   }
   function tgCol(cv) { return cv.target ? 2 + (cv.levels || []).length : 0; }   // 정음(목표음) 열(서버 v2부터)
