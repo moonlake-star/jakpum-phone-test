@@ -158,15 +158,15 @@
     el.innerHTML = `<div class="tsBox"><div class="tsHead"><b class="tsRng"></b><span class="tsSrc">${isNew ? "새 주석" : n.status === "ok" ? "✓ 확인됨" : "AI 초안 · " + esc(SRC[n.src] || "AI")}</span></div>
       <div class="tsTxW"><textarea class="tsTx" rows="3" maxlength="80" placeholder="여기에 짧게 적어 주세요 (예: 끝음 내려갈 때 배 힘 유지)">${esc(n.text)}</textarea>${isNew ? "" : `<button type="button" class="tsClr">전체 지우기</button>`}</div>
       ${n.evidence ? `<div class="tsEv">근거 · ${esc(n.evidence)}</div>` : ""}
-      <div class="tsAdj"><span>시작</span><button type="button" data-a="s-">−0.15초</button><button type="button" data-a="s+">+0.15초</button><span>끝</span><button type="button" data-a="e-">−0.15초</button><button type="button" data-a="e+">+0.15초</button></div>
+      <div class="tsAdj"><span>시작</span><button type="button" data-a="s-">−0.1초</button><button type="button" data-a="s+">+0.1초</button><span>끝</span><button type="button" data-a="e-">−0.1초</button><button type="button" data-a="e+">+0.1초</button></div>
       <div class="tsRow">${isNew ? `<button type="button" class="tsCancel">취소</button>` : `<button type="button" class="tsCancel">닫기</button><button type="button" class="tsDel">삭제</button>`}<button type="button" class="tsOk">${isNew ? "저장" : "✓ 확인"}</button></div></div>`;
     (document.getElementById("tuneFs") || document.body).appendChild(el);
     const spot = d.t1 - d.t0 < 0.35;
-    if (spot) el.querySelector(".tsAdj").innerHTML = `<span>위치</span><button type="button" data-a="p-">−0.15초</button><button type="button" data-a="p+">+0.15초</button>`;
+    if (spot) el.querySelector(".tsAdj").innerHTML = `<span>위치</span><button type="button" data-a="p-">−0.1초</button><button type="button" data-a="p+">+0.1초</button>`;
     const V = lastView; V && V.edit(d, n); V && V.focus(d.t0);   // (10/30 16:41 사용자 시안 승인) 창을 열면 그래프가 그 자리로 스르륵
     const paint = () => { el.querySelector(".tsRng").textContent = spot ? fmt(d.t0) : `${fmt(d.t0)} ~ ${fmt(d.t1)}`; }; paint();
-    el.querySelectorAll("[data-a]").forEach(b => b.onclick = () => { const a = b.dataset.a, v = a[1] === "+" ? 0.15 : -0.15;   // (10/30 17:48 사용자) 미세 조정 0.15초
-      if (a[0] === "p") { d.t0 = Math.max(0, Math.round((d.t0 + v) * 100) / 100); d.t1 = d.t0; } else if (a[0] === "s") d.t0 = Math.max(0, Math.min(d.t1 - 0.15, Math.round((d.t0 + v) * 100) / 100)); else d.t1 = Math.max(d.t0 + 0.15, Math.round((d.t1 + v) * 100) / 100);
+    el.querySelectorAll("[data-a]").forEach(b => b.onclick = () => { const a = b.dataset.a, v = a[1] === "+" ? 0.1 : -0.1;   // (10/30 17:48 사용자) 미세 조정 0.15초 → (10/31 08:12) 0.1초
+      if (a[0] === "p") { d.t0 = Math.max(0, Math.round((d.t0 + v) * 100) / 100); d.t1 = d.t0; } else if (a[0] === "s") d.t0 = Math.max(0, Math.min(d.t1 - 0.1, Math.round((d.t0 + v) * 100) / 100)); else d.t1 = Math.max(d.t0 + 0.1, Math.round((d.t1 + v) * 100) / 100);
       paint(); V && V.focus(a[0] === "e" ? d.t1 : d.t0); });   // 바꾼 쪽 자리로 그래프가 따라감
     const close = () => { el.remove(); V && V.done(); if (lastView === V) lastView = null; };
     // (10/31 08:09 버그) 위 칸을 톡 하면 창이 뜬 직후 같은 손가락의 'click'이 창 바깥(어두운 곳)에 떨어져 바로 닫혔음 → 뜬 뒤 0.45초 안의 바깥 클릭은 무시
