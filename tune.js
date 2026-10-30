@@ -121,10 +121,19 @@
     const bar = document.createElement("div"); bar.className = "tuneZoom";
     // (10/30 14:20 사용자) 작은 화면은 확대(지금 음 근처)로 고정 — 버튼은 '전체화면' 하나만, 잘 보이게
     bar.innerHTML = `<button type="button" data-fs="1" class="tfOpen" aria-label="음정선 전체화면으로 크게 보기"><span class="ic" aria-hidden="true">⛶</span>전체화면으로 크게 보기</button>`;
-    el.parentNode && el.parentNode.insertBefore(bar, el);
-    bar.querySelector("[data-fs]").onclick = () => openFull(el, cv, getT, getLv, seek, opts || {});
-    let drag = null, preview = null;
-    const loop = () => { if (!el.isConnected) { bar.remove(); return; } draw(el, cv, preview ?? (+getT() || 0), +getLv() || 0, st); requestAnimationFrame(loop); };
+    // 작은 화면에도 가운데 표시(10/30 14:29 사용자): 멈춰 있으면 반투명 ❚❚, 톡 하면 ▶가 잠깐 — 전체화면과 같은 조작
+    let box = el.parentNode;
+    if (box && !box.classList.contains("tuneWrap")) { box = document.createElement("div"); box.className = "tuneWrap"; el.parentNode.insertBefore(box, el); box.appendChild(el); }
+    box && box.querySelectorAll(".tuneMid").forEach(x => x.remove());
+    const mid = document.createElement("span"); mid.className = "tuneMid"; mid.setAttribute("aria-hidden", "true"); box && box.appendChild(mid);
+    box && box.parentNode && box.parentNode.insertBefore(bar, box);
+    const o = opts || {}, ctl = typeof o.play === "function" && typeof o.paused === "function";
+    bar.querySelector("[data-fs]").onclick = () => openFull(el, cv, getT, getLv, seek, o);
+    let drag = null, preview = null, shown = null;
+    const showMid = (kind) => { mid.textContent = kind === "pause" ? "❚❚" : "▶"; mid.className = "tuneMid " + (kind === "pause" ? "stay" : "flash"); void mid.offsetWidth; mid.classList.add("go"); shown = kind; };
+    const loop = () => { if (!el.isConnected) { bar.remove(); return; } draw(el, cv, preview ?? (+getT() || 0), +getLv() || 0, st);
+      if (ctl) { const p = !!o.paused(); if (p && shown !== "pause" && !document.getElementById("tuneFs")) showMid("pause"); else if (!p && shown === "pause") showMid("play"); }
+      requestAnimationFrame(loop); };
     requestAnimationFrame(loop);
     const span = () => (el.clientWidth - 30) || 1;
     el.style.touchAction = "pan-y";
@@ -133,15 +142,17 @@
       if (!drag || drag.id !== e.pointerId) return;
       const dx = e.clientX - drag.x; if (!drag.moved && Math.abs(dx) < 8) return;
       if (!drag.moved && Math.abs(e.clientY - drag.y) > Math.abs(dx)) { drag = null; return; }   // 세로로 밀면 화면 스크롤
+      if (!drag.moved && ctl && !o.paused()) o.play();   // 밀기 시작하면 멈춤(재생은 톡으로)
       drag.moved = true; try { el.setPointerCapture(e.pointerId); } catch {}
       preview = Math.max(0, drag.t - dx / span() * WIN);
     });
     const up = (e) => {
       if (!drag || drag.id !== e.pointerId) return;
       const d = drag; drag = null;
-      if (d.moved) { const t = preview; preview = null; if (t != null) seek(t); return; }
+      if (d.moved) { const t = preview; preview = null; if (t != null) seek(t, ctl); return; }
+      if (ctl) { const was = o.paused(); o.play(); showMid(was ? "play" : "pause"); return; }   // 톡 = 재생·멈춤
       const r = el.getBoundingClientRect(), x = e.clientX - r.left;
-      if (x > 30) seek(Math.max(0, d.t - WIN * HEAD + (x - 30) / span() * WIN));   // 톡 = 그 자리부터
+      if (x > 30) seek(Math.max(0, d.t - WIN * HEAD + (x - 30) / span() * WIN));   // 조작 정보가 없으면 예전처럼 그 자리부터
     };
     el.addEventListener("pointerup", up); el.addEventListener("pointercancel", () => { drag = null; preview = null; });
   }
@@ -181,6 +192,7 @@
     const toggle = () => { const was = isPaused(); try { o.play && o.play(); } catch {} showMid(was ? "play" : "pause"); if (was) st.panAt = 0; };
     const pauseNow = () => { if (!isPaused()) { try { o.play && o.play(); } catch {} } showMid("pause"); };
     let lastTap = 0;
+    if (isPaused()) setTimeout(() => showMid("pause"), 430);   // 처음 열었을 때 멈춰 있으면 ❚❚ 대기
     const resetZoom = () => { st.xz = 1; st.yz = 1; st.yc = null; st.panAt = 0; };
     wrap.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { try { o.setMode(b.dataset.m); } catch {} });
     const fmt = (x) => `${Math.floor((x || 0) / 60)}:${String(Math.floor((x || 0) % 60)).padStart(2, "0")}`;
@@ -237,6 +249,8 @@
 #tuneFs .tfBot{margin-top:6px}#tuneFs .tfBot button{min-width:52px;height:38px;border-radius:10px;border:1px solid #363c45;background:#11141a;color:#eceff3;font-weight:800;margin:0}#tuneFs .tfBot .tfPP{background:#9cc3ff;color:#10141a;border:0;min-width:64px}
 #tuneFs .tfLeg{display:flex;gap:12px;margin-left:auto;font-size:12px;color:#a9b1bc;flex-wrap:wrap}#tuneFs .tfLeg i{display:inline-block;width:16px;height:3px;border-radius:2px;vertical-align:middle;margin-right:4px}
 @media (prefers-reduced-motion: reduce){#tuneFs .tfBox{animation:none}}
+.tuneWrap{position:relative}.tuneMid{position:absolute;left:50%;top:44%;width:60px;height:60px;margin:-30px 0 0 -30px;border-radius:50%;background:rgba(156,195,255,.3);color:#fff;font-size:22px;display:grid;place-items:center;pointer-events:none;opacity:0;transform:scale(.6)}
+.tuneMid.stay.go{animation:tfPop .22s cubic-bezier(.3,1.5,.5,1) forwards}.tuneMid.flash.go{animation:tfFlash .55s ease-out forwards}
 .tuneZoom{display:flex;gap:6px;margin:8px 0 4px}.tuneZoom .tfOpen{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:44px;margin:0;border:0;border-radius:12px;background:linear-gradient(135deg,#ffd27a,#c8912e);color:#1a1307;font-weight:800;font-size:.95rem;box-shadow:0 2px 12px rgba(255,190,90,.25)}.tuneZoom .tfOpen .ic{display:grid;place-items:center;width:26px;height:26px;border-radius:8px;background:rgba(26,19,7,.15);font-size:15px}.tuneZoom button{border:1px solid #363c45;border-radius:10px;background:#11141a;color:#a9b1bc;font-weight:700;font-size:.8rem;min-height:32px;padding:0 12px;margin:0}.tuneZoom button.on{background:#9cc3ff;color:#10141a;border-color:#9cc3ff}`;
   if (typeof document !== "undefined" && document.head) { const s = document.createElement("style"); s.textContent = css; document.head.appendChild(s); }
   G.Tune = { draw, wire, load, legend, range, col, tgCol, centerAt, fitAt, delta, semiLabel, openFull, WIN, HEAD, ZOOM_HALF };
