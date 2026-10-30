@@ -49,22 +49,21 @@
     // (10/30 16:42 사용자 시안 승인) 세로 줄 대신 음정선 위 점 · 구간은 그 구간 음정선이 빛나게
     const pAt = (tt) => { let best = null, bd = 1e9; for (const p of vis || []) { if (p[1] == null) continue; const dd = Math.abs(p[0] - tt); if (dd < bd) { bd = dd; best = p; } } return best ? { y: yf(best[1]), on: bd < 0.1 } : null; };
     const dots = new Map();
-    // (10/30 16:57 사용자 시안 승인) 동시에 최대 2개 · 그래프 아래 2층 칸 고정 · 점선 화살표가 번호 점을 따라감
-    const kf = (n) => n.id || n.t0 + ":" + n.text, endT = (n) => Math.max(+n.t1, +n.t0 + 0.5);
-    const near = all.filter(n => t >= +n.t0 - 1.5 && t <= endT(n) + 1.5)   // (10/30 17:10 사용자) 1.5초 미리.sort((a, b) => Math.abs(t - a.t0) - Math.abs(t - b.t0));
-    const want = near.slice(0, 2), wk = new Set(want.map(kf));
-    let sl = st.slots || [null, null];   // [위 칸, 아래 칸] — 서로 자리를 바꾸지 않음
-    const now = performance.now(); st.fin = st.fin || {}; st.fout = st.fout || {};   // 0.3초 페이드 인·아웃
-    sl = sl.map(k => { if (!k) return null; if (wk.has(k)) { delete st.fout[k]; return k; }
-      if (st.fout[k] == null) st.fout[k] = now; if (now - st.fout[k] < 150) return k; delete st.fout[k]; delete st.fin[k]; return null; });
-    for (const n of want.slice().sort((a, b) => a.t0 - b.t0)) { const k = kf(n); if (sl.includes(k)) continue;   // 새 주석은 아래 칸으로, 아래에 있던 건 위 칸으로 한 칸 올라감(자막처럼)
-      if (!sl[1]) { sl[1] = k; st.fin[k] = now; } else if (!sl[0]) { sl[0] = sl[1]; sl[1] = k; st.fin[k] = now; } }
+    // (10/30 17:27 사용자 시안 승인) 주석마다 칸·색·번호 고정: 레슨 전체 시간 순 번호, 홀수 = 위 칸·민트, 짝수 = 아래 칸·라일락
+    const kf = (n) => n.id || n.t0 + ":" + n.text, endT = (n) => Math.max(+n.t1, +n.t0 + 0.5), inWin = (n) => t >= +n.t0 - 1.5 && t <= endT(n) + 1.5;   // 1.5초 미리
+    const allS = all.slice().sort((a, b) => (+a.t0 - +b.t0) || String(kf(a)).localeCompare(String(kf(b))));
+    const gnum = new Map(allS.map((n, i) => [kf(n), i + 1])), slotOf = (n) => (gnum.get(kf(n)) - 1) % 2, byK = new Map(all.map(n => [kf(n), n]));
+    const near = all.filter(inWin).sort((a, b) => Math.abs(t - a.t0) - Math.abs(t - b.t0));
+    const now = performance.now(); st.fin = st.fin || {}; st.fout = st.fout || {};   // 0.15초 페이드 인·아웃
+    let sl = st.slots || [null, null];
+    for (const si of [0, 1]) { const cur = sl[si] && byK.get(sl[si]);
+      const tgt = cur && inWin(cur) && slotOf(cur) === si ? cur : near.find(n => slotOf(n) === si) || null, tk = tgt ? kf(tgt) : null;   // 떠 있는 건 구간 안이면 그대로
+      if (sl[si] === tk) { if (tk) delete st.fout[tk]; continue; }
+      if (sl[si] && byK.has(sl[si])) { const ok0 = sl[si]; if (st.fout[ok0] == null) st.fout[ok0] = now; if (now - st.fout[ok0] < 150) continue; delete st.fout[ok0]; delete st.fin[ok0]; }
+      sl[si] = tk; if (tk) st.fin[tk] = now; }
     st.slots = sl;
-    const byK = new Map(all.map(n => [kf(n), n])), shown = sl.map(k => (k ? byK.get(k) : null));
-    const order = shown.filter(Boolean).sort((a, b) => a.t0 - b.t0), numOf = (n) => order.indexOf(n) + 1;
-    st.ncol = st.ncol || {}; for (const k of Object.keys(st.ncol)) if (!sl.includes(k)) delete st.ncol[k];   // (10/30 17:18 사용자) 칸마다 다른 색 — 들어올 때 정해서 칸을 옮겨도 그대로
-    for (const k of sl) if (k && st.ncol[k] == null) { const used = sl.filter(x => x && x !== k).map(x => st.ncol[x]); st.ncol[k] = used.includes(0) ? 1 : 0; }
-    const PAL = ["111,224,176", "196,163,255"], colOf = (n) => { const k = kf(n); return st.ncol[k] != null ? PAL[st.ncol[k]] : "150,158,170"; };
+    const shown = sl.map(k => (k ? byK.get(k) || null : null)), numOf = (n) => gnum.get(kf(n)) || 0;
+    const PAL = ["111,224,176", "196,163,255"], colOf = (n) => (shown.includes(n) ? PAL[slotOf(n)] : "150,158,170");
     g.save(); g.beginPath(); g.rect(L, T, w - L, H); g.clip();
     for (const n of all) { const a = xs(+n.t0), b = xs(+n.t1); if (b < L - 8 || a > w + 8) continue;
       const ok = n.status === "ok", c = colOf(n), ed = st.editing && (st.editing.n === n || (st.editing.d.t0 === n.t0 && st.editing.d.t1 === n.t1));
@@ -87,7 +86,7 @@
     const fs = full ? 14 : 11.5, lh = fs + 5, pad = full ? 9 : 7, nr = full ? 11 : 9, xr = st.teacher ? (full ? 12 : 10) : 0;
     const maxL = full ? 2 : 1, sh = pad * 2 + (fs - 1) + 4 + maxL * lh, x = L + 4, bw = w - L - 8, gap = 6, bot = T + H - 6;
     const fmtT = (s) => `${Math.floor(s / 60)}:${(s % 60).toFixed(1).padStart(4, "0")}`;
-    for (const n of order) { const dt = dots.get(n); if (!dt) continue; const c = colOf(n);   // 음정선 위 번호 점(칸 아래에 깔리게 먼저)
+    for (const n of [...dots.keys()].sort((a, b) => shown.includes(a) - shown.includes(b))) { const dt = dots.get(n); const c = colOf(n);   // 모든 주석 점에 고정 번호(칸에 없는 건 회색)   // 음정선 위 번호 점(칸 아래에 깔리게 먼저)
       const k2 = kf(n), fa = (st.fin[k2] != null ? Math.min(1, (now - st.fin[k2]) / 150) : 1) * (st.fout[k2] != null ? Math.max(0, 1 - (now - st.fout[k2]) / 150) : 1);
       g.save(); g.globalAlpha = (t > endT(n) + 0.15 ? 0.55 : 1) * fa; g.fillStyle = `rgb(${c})`; g.beginPath(); g.arc(dt.x, dt.y, nr, 0, Math.PI * 2); g.fill();
       g.fillStyle = "#10201a"; g.font = `900 ${full ? 12 : 10}px system-ui, sans-serif`; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(String(numOf(n)), dt.x, dt.y + 0.5); g.restore(); }
