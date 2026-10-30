@@ -109,7 +109,7 @@ const F = (name, id) => ({ id: id || name, name });
   assert.strictEqual(inclOk(t.cur.review, "best", t.api.bestOptions()[0].file_id), true, "채택한 새 편집본은 기본 포함");
   assert.strictEqual(inclOk({ bestInclude: false, bestIncludeId: "OLD" }, "best", t.api.bestOptions()[0].file_id), true);
   assert.strictEqual(inclOk({ bestInclude: false, bestIncludeId: t.api.bestOptions()[0].file_id }, "best", t.api.bestOptions()[0].file_id), false, "지금 파일을 끄면 뺌");
-  assert.strictEqual(inclOk({}, "makeup", "M1"), false, "메이크업은 기본 미포함");
+  assert.strictEqual(inclOk({}, "makeup", "M1"), true, "(10/30) 메이크업도 기본 포함");
 
   // 9) 유효성: 다른 수강생/레슨/요청번호의 후보·상태 불일치는 채택 불가(기본 미선택 유지)
   for (const bad of [{ student_id: "s2" }, { lesson_folder: "L9" }, { req_id: "rzzz999" }]) {

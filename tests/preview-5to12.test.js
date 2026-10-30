@@ -94,6 +94,8 @@ function mk(saveOk = true) {
   for (const mode of ['normal'])   // 10/29 17:28 사용자: 보기 방식 버튼 없앰 → 수강생·미리보기 모두 보통 고정
     for (const [name, note] of Object.entries(cases)) {
       const body = e.f.studentViewHTML(note, mode).match(/<div id="pvFullBody">([^]*)<\/div><\/div>\s*$/)[1];
+      if (note.makeup && note.best && note.makeup.source_file_id === note.best.file_id) {   // (10/30) 수강생은 [원음 | 보정본] 한 곡(튠 화면) — 미리보기는 두 듣기 버튼으로 대신
+        assert.ok(body.includes('✨ 보정본 듣기') && body.includes('원음 듣기') && !body.includes('class="card makeup"'), '미리보기 한 곡: ' + name); continue; }
       assert.equal(norm(body), norm(stuLesson(note, null, mode)), '학생 화면과 다름: ' + mode + ' ' + name);
     }
   // 9-b) 공개 금지: 고르지 않은 오디오는 화면에 없다(노트에 없는 파일·다른 버전·베스트)

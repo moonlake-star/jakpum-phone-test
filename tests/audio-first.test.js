@@ -37,5 +37,6 @@ assert.ok(grab(src, /const noteFileIds = [^\n]*/).includes("n.pairs") && grab(sr
 // 베스트 기본 포함 / 메이크업 기본 미포함
 const inclOk = new Function(grab(src, /const inclOk = [^\n]*\n/) + "; return inclOk;")();
 assert.strictEqual(inclOk({}, "best", "C1"), true); assert.strictEqual(inclOk({ bestInclude: false, bestIncludeId: "C1" }, "best", "C1"), false);
-assert.strictEqual(inclOk({}, "makeup", "M1"), false); assert.strictEqual(inclOk({}, "best", null), false);
+assert.strictEqual(inclOk({}, "makeup", "M1"), true);   // (10/30) 메이크업본도 기본 포함
+ assert.strictEqual(inclOk({}, "best", null), false);
 console.log("audio-first ok");

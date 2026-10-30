@@ -3,17 +3,16 @@ const fs = require("fs"), assert = require("assert");
 const src = fs.readFileSync(__dirname + "/../student/index.html", "utf8");
 const pick = (re) => { const m = src.match(re); assert.ok(m, "코드 조각 못 찾음: " + re); return m[0]; };
 const body = [pick(/const esc = [^\n]*\n/), pick(/const md = [^\n]*\n/), pick(/function player\([\s\S]*?\n}\n/), pick(/function waveSvg\([\s\S]*?\n}\n/), pick(/function pill\([\s\S]*?\n}\n/), pick(/const MAX_CLIPS[^\n]*\n/),
-  pick(/const listHtml[^\n]*\n/), pick(/const sidOk = [^\n]*\n/), pick(/const makeupOk = [^\n]*\n/), pick(/function lessonHtml\([\s\S]*?\n}\n/)].join("\n");
+  pick(/const listHtml[^\n]*\n/), pick(/const sidOk = [^\n]*\n/), pick(/const makeupOk = [^\n]*\n/), pick(/function mkBoxHtml\([\s\S]*?\n}\n/), pick(/function lessonHtml\([\s\S]*?\n}\n/)].join("\n");
 const lessonHtml = new Function(body + "; return lessonHtml;")();
 const base = { id: "L2", date: "2026-10-26", feedback: "한마디", best: { file_id: "B2", len: 40 }, clips: [], extra_best: [] };
 const MK = { file_id: "M2", len: 38, source_file_id: "B2" };
 const au = (h) => [...h.matchAll(/data-(?:au|lp)="([^"]*)"/g)].map(x => x[1]);
 const cardCount = (h) => (h.match(/class="card makeup"/g) || []).length;
 
-// 정상: best 카드와 구분된 메이크업 카드 1개, 플레이어 id 서로 다름
+// (10/30 사용자) 정상: 베스트 안에 한 곡으로 합침 — [원음 | 보정본], 원음이 먼저, 따로 카드 없음
 let h = lessonHtml({ ...base, makeup: MK }, null);
-assert.strictEqual(cardCount(h), 1); assert.deepStrictEqual(au(h), ["B2", "M2#m"]);
-assert.ok(h.indexOf('data-lp="B2"') < h.indexOf('data-lp="M2#m"') && h.includes("메이크업"));
+assert.strictEqual(cardCount(h), 0); assert.ok(h.includes('data-mkbox="M2"') && /data-ab="o" class="on"/.test(h) && h.includes("보정본"));
 // 비노출: 없음/null/빈 ID/ID 누락/원본 불일치/원본 누락/베스트와 같은 파일
 [undefined, null, {}, { ...MK, file_id: "" }, { ...MK, file_id: "  " }, { ...MK, file_id: 5 }, { ...MK, source_file_id: "OLD" }, { ...MK, source_file_id: undefined },
   { file_id: "B2", source_file_id: "B2" }, "M2", []].forEach((m, i) => {
@@ -22,7 +21,7 @@ assert.ok(h.indexOf('data-lp="B2"') < h.indexOf('data-lp="M2#m"') && h.includes(
   assert.ok(!o.includes("undefined") && !o.includes("null"));
 });
 // 베스트 없이 메이크업만: 원본 ID가 있으면 표시, 없으면 비표시
-h = lessonHtml({ ...base, best: null, makeup: MK }, null); assert.deepStrictEqual(au(h), ["M2#m"]);
+h = lessonHtml({ ...base, best: null, makeup: MK }, null); assert.deepStrictEqual(au(h), ["M2#m"]); assert.strictEqual(cardCount(h), 1, "베스트를 뺐으면 메이크업만 따로");
 assert.strictEqual(cardCount(lessonHtml({ ...base, best: null, makeup: { file_id: "M2" } }, null)), 0);
 // 베스트만 있으면 기존 그대로, 구버전 노트(makeup 키 없음)도 비노출
 assert.deepStrictEqual(au(lessonHtml(base, null)), ["B2"]);

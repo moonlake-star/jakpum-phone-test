@@ -60,7 +60,7 @@ t = setup({}, COMP, [JOB()]);
   assert.strictEqual(t.cur.review.bestInclude, true); assert.strictEqual(t.cur.review.bestIncludeId, "C1");
   assert.strictEqual(t.cur.review.makeupInclude, undefined, "편집본 선택이 메이크업 선택을 바꾸지 않음");
   tick(t, "makeup", true); assert.strictEqual(t.cur.review.makeupInclude, true); assert.strictEqual(t.cur.review.makeupIncludeId, "M1");
-  tick(t, "makeup", false); assert.strictEqual(t.cur.review.makeupInclude, null); assert.strictEqual(t.cur.review.makeupIncludeId, undefined); assert.strictEqual(t.cur.review.bestInclude, true);
+  tick(t, "makeup", false); assert.strictEqual(t.cur.review.makeupInclude, false); assert.strictEqual(t.cur.review.makeupIncludeId, "M1"); assert.strictEqual(t.cur.review.bestInclude, true);   // (10/30) 끔 = 그 파일만 뺌
   assert.ok(t.counts().dirty >= 3 && t.counts().delivered >= 3);
   const t2 = setup({}, COMP, []); const b2 = tick(t2, "makeup", true);
   assert.strictEqual(t2.cur.review.makeupInclude, undefined, "메이크업 음원이 없으면 포함 불가"); assert.strictEqual(b2.checked, false);
