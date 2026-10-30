@@ -20,14 +20,14 @@ const lite = (r) => ({ best: r.n.best?.file_id ?? null, makeup: r.n.makeup?.file
 const none = { best: null, makeup: null, extra: 0, ids: [] };
 const inc = (b, m) => ({ ...(b === undefined ? {} : { bestInclude: b, bestIncludeId: "C1" }), ...(m === undefined ? {} : { makeupInclude: m, makeupIncludeId: "M1" }) });
 
-// 첫 진입(미선택) → 베스트 편집본만 기본 포함, 메이크업본은 안 실림
-const bestOnly = { best: "C1", makeup: null, extra: 0, ids: ["C1"] };
-assert.deepStrictEqual(lite(run({}, B(), [JOB()])), bestOnly);
+// (10/30 사용자) 첫 진입(미선택) → 베스트·메이크업본 모두 기본 포함(한 곡 [원음 | 보정본])
+const bestOnly = { best: "C1", makeup: null, extra: 0, ids: ["C1"] }, both = { best: "C1", makeup: "M1", extra: 0, ids: ["C1", "M1"] };
+assert.deepStrictEqual(lite(run({}, B(), [JOB()])), both);
 // 단일 테이크만 있고 편집본이 없으면(후보 0/1/여럿, 실패, 대기, 분석 없음) 자동 선택·대체 금지
 for (const best of [{ status: "ok", best: { file_id: "B1", len: 30 } }, B({ status: "error" }), B({ status: "none", fallback: "best_take" }), B(null), { status: "none" }, undefined])
   assert.deepStrictEqual(lite(run(inc(true, true), best, [JOB()])), none);
 // 편집본만 포함 / 메이크업본만 포함 / 둘 다 — 서로 독립
-assert.deepStrictEqual(lite(run(inc(true), B(), [JOB()])), { best: "C1", makeup: null, extra: 0, ids: ["C1"] });
+assert.deepStrictEqual(lite(run(inc(true), B(), [JOB()])), both);
 assert.deepStrictEqual(lite(run(inc(undefined, true), B(), [JOB()])), { best: "C1", makeup: "M1", extra: 0, ids: ["C1", "M1"] });
 assert.deepStrictEqual(lite(run(inc(true, true), B(), [JOB()])), { best: "C1", makeup: "M1", extra: 0, ids: ["C1", "M1"] });
 assert.deepStrictEqual(lite(run(inc(false, true), B(), [JOB()])), { best: null, makeup: "M1", extra: 0, ids: ["M1"] });   // 제외 = 숨김일 뿐
@@ -41,16 +41,16 @@ assert.deepStrictEqual(lite(run({ bestInclude: true, bestIncludeId: "C0" }, B(),
 assert.deepStrictEqual(lite(run({ bestInclude: true }, B(), [])), bestOnly);
 assert.deepStrictEqual(lite(run({ bestInclude: false, bestIncludeId: "C0" }, B(), [])), bestOnly, "예전 파일을 뺀 기록은 새 편집본에 안 옮겨감");
 assert.deepStrictEqual(lite(run({ bestInclude: false, bestIncludeId: "C1" }, B(), [])), none, "지금 파일을 끄면 뺌");
-assert.deepStrictEqual(lite(run({ makeupInclude: true, makeupIncludeId: "M0" }, B(), [JOB()])), bestOnly);
+assert.deepStrictEqual(lite(run({ makeupInclude: false, makeupIncludeId: "M0" }, B(), [JOB()])), both, "예전 파일을 뺀 기록은 새 메이크업본에 안 옮겨감");
 // 옛 저장 상태(sendBest/bestPick) 는 무시 — 무단 공개 없음
-assert.deepStrictEqual(lite(run({ sendBest: true, bestPick: 2, bestPickId: "C1" }, B(), [JOB()])), bestOnly);
+assert.deepStrictEqual(lite(run({ sendBest: true, bestPick: 2, bestPickId: "C1" }, B(), [JOB()])), both);
 assert.deepStrictEqual(lite(run({ sendBest: true, bestPick: 0, bestPickId: "B1" }, B(), [])), bestOnly);
 // extra_best 재유출 금지: 어떤 경우에도 빈 배열
 assert.strictEqual(run(inc(true, true), B(), [JOB()]).n.extra_best.length, 0);
 // 저장/재로드: review 를 JSON 으로 왕복해도 선택 유지, 포함 상태가 바뀌면 승인 지문(contentSig)도 달라져 재승인 필요
 const rv = inc(true, true), re = JSON.parse(JSON.stringify(rv));
 assert.deepStrictEqual(lite(run(re, B(), [JOB()])), { best: "C1", makeup: "M1", extra: 0, ids: ["C1", "M1"] });
-assert.notStrictEqual(run(inc(true, true), B(), [JOB()]).sig, run(inc(true), B(), [JOB()]).sig);
+assert.notStrictEqual(run(inc(true, true), B(), [JOB()]).sig, run(inc(true, false), B(), [JOB()]).sig);
 assert.notStrictEqual(run(inc(false), B(), [JOB()]).sig, run({}, B(), [JOB()]).sig);
 // 직렬화: 메이크업 항목은 원본 편집본과 별개 파일 ID 로 기록
 assert.deepStrictEqual(run(inc(true, true), B(), [JOB()]).n.makeup, { file_id: "M1", len: 32, source_file_id: "C1", msg: "" });

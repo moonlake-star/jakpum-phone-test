@@ -40,7 +40,7 @@ for (const [name, s, fn] of [["student", stu, "lessonHtml"], ["teacher-preview",
   assert.ok(!f.includes("보컬 메이크업 버전"), name);
   const iMk = f.indexOf('class="card makeup"'), iMission = f.indexOf("📋 다음 미션"), iCheer = f.indexOf('class="card cheer');
   assert.ok(iMk < iCheer && iCheer < iMission, name + " 메이크업 → 응원 → 다음 미션(10/29 10:33 사용자, 11:06 한 카드)");
-  assert.ok(/\$\{full && (sv)?[mM]akeupOk\(/.test(f), name + " 심플에선 메이크업 숨김");
+  assert.ok(/\$\{full && !l\.best\?\.file_id && (sv)?[mM]akeupOk\(/.test(f), name + " 심플에선 메이크업 숨김 · (10/30) 베스트가 있으면 한 곡으로 합침");
 }
 
 // 6) AI 작성 비율: 그대로면 100, 고치면 줄어듦, AI 초안 없으면 null

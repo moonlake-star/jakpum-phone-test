@@ -80,9 +80,10 @@
   .lp .ic { flex:none; width:36px; height:36px; border-radius:50%; background:radial-gradient(circle at 35% 30%, #c4dcff, var(--accent) 70%); color:var(--on-accent); display:flex; align-items:center; justify-content:center; font-size:.8rem; box-shadow:0 2px 10px rgba(156,195,255,.35); }
   .lp.mk { color:#c9a6ff; background:linear-gradient(135deg, rgba(201,166,255,.18), rgba(201,166,255,.06)); box-shadow:inset 0 0 0 1px rgba(201,166,255,.16); } .lp.mk .ic { background:radial-gradient(circle at 35% 30%, #e3d1ff, #c9a6ff 70%); box-shadow:0 2px 10px rgba(201,166,255,.35); }
   /* (10/30 사용자) 튠 화면 · 원음/보정본 · 베스트 모아듣기 */
-  .tune { display:block; width:100%; height:160px; border-radius:12px; background:#11141a; margin:6px 0 2px; cursor:pointer; }
+  .tune { display:block; width:100%; height:200px; border-radius:12px; background:#11141a; margin:6px 0 2px; cursor:pointer; }
   .tuneLeg { display:flex; gap:12px; font-size:.8rem; color:var(--muted); margin:2px 2px 4px; flex-wrap:wrap; } .tuneLeg i { display:inline-block; width:16px; height:3px; border-radius:2px; vertical-align:middle; margin-right:4px; }
   .abSw { display:flex; border:1px solid #363c45; border-radius:12px; overflow:hidden; margin:8px 0 4px; } .abSw button { flex:1; border:0; border-radius:0; background:#11141a; color:var(--muted); font-weight:800; min-height:44px; margin:0; font-size:1rem; } .abSw button.on { background:#c9a6ff; color:#10141a; }
+  .abSw button[data-ab="o"].on { background:var(--accent); }
   .tnote { font-size:.82rem; color:#ffd27a; margin:2px 0 6px; }
   .mkCtl { display:flex; align-items:center; gap:10px; } .mkCtl input[type=range] { flex:1; } .mkCtl .tm2 { font-size:.8rem; color:var(--muted); font-variant-numeric:tabular-nums; min-width:5.6em; text-align:right; }
   .alb .seg3 { display:flex; border:1px solid #363c45; border-radius:12px; overflow:hidden; margin:8px 0; } .alb .seg3 button { flex:1; border:0; border-radius:0; margin:0; min-height:40px; background:#11141a; color:var(--muted); font-weight:700; font-size:.9rem; } .alb .seg3 button.on { background:var(--accent); color:var(--on-accent); }
@@ -451,17 +452,17 @@ function wirePlayers() {
 }
 // ── (10/30 사용자) 메이크업본: 튠 화면 + 원음/보정본(같은 자리에서 바로) — 원음 = 보정 전 같은 구간(같은 크기) ──
 const mmss2 = (x) => `${Math.floor((x || 0) / 60)}:${String(Math.floor((x || 0) % 60)).padStart(2, "0")}`;
-function mkBoxHtml(mk) {
+function mkBoxHtml(mk, best) {
   return `<div class="mkBox" data-mkbox="${esc(mk.file_id)}">
+    <div class="abSw" role="group" aria-label="원음·보정본"><button type="button" data-ab="o" class="on" aria-pressed="true">원음</button><button type="button" data-ab="p" aria-pressed="false">✨ 보정본</button></div>
     ${sidOk(mk.curve_id) && typeof Tune !== "undefined" ? `<canvas class="tune" aria-label="음정선 — 톡 누르면 그 자리부터, 좌우로 밀면 앞뒤로"></canvas>${Tune.legend(true)}` : ""}
-    ${sidOk(mk.before_id) ? `<div class="abSw" role="group" aria-label="원음·보정본"><button type="button" data-ab="o" aria-pressed="false">원음</button><button type="button" data-ab="p" class="on" aria-pressed="true">보정본</button></div>` : ""}
-    <div class="tnote">음정 보정한 예시예요 · 실제 노래는 ‘원음’이에요</div>
+    <div class="tnote">✨ 보정본 = 음정 보정한 예시예요 · 실제 노래는 ‘원음’이에요</div>
     <div class="mkCtl"><button type="button" class="rp" data-mkp aria-label="듣기">▶</button><input type="range" min="0" max="1000" value="0" data-mks aria-label="재생 위치"><span class="tm2" data-mkt></span></div>
     <audio class="hidden" data-mka="p" preload="none"></audio><audio class="hidden" data-mka="o" preload="none"></audio></div>`;
 }
 // 두 음원(보정본 p · 원음 o)을 한 자리에서 바꿔 듣는 작은 재생기. 바꿀 때 지금 위치·재생 상태 그대로.
-function duo(aP, aO) {
-  let mode = "p";
+function duo(aP, aO, start) {
+  let mode = start || "p";
   const act = () => (mode === "p" ? aP : aO);
   return {
     act, mode: () => mode,
@@ -477,7 +478,7 @@ function duo(aP, aO) {
 function wireMkBoxes() {
   document.querySelectorAll("[data-mkbox]").forEach(box => {
     const l = (data.lessons || []).find(x => x.makeup?.file_id === box.dataset.mkbox), mk = l?.makeup; if (!mk) return;
-    const aP = box.querySelector('[data-mka="p"]'), aO = box.querySelector('[data-mka="o"]'), D = duo(aP, aO), src = { p: mk.file_id, o: sidOk(mk.before_id) ? mk.before_id : null };
+    const aP = box.querySelector('[data-mka="p"]'), aO = box.querySelector('[data-mka="o"]'), D = duo(aP, aO, "o"), src = { p: mk.file_id, o: sidOk(l.best?.file_id) ? l.best.file_id : mk.before_id };   // 원음 = 오늘의 베스트 그 파일
     const btn = box.querySelector("[data-mkp]"), sk = box.querySelector("[data-mks]"), tm = box.querySelector("[data-mkt]");
     const paint = () => { const a = D.act(); btn.textContent = a.paused ? "▶" : "❚❚"; if (a.duration) { if (!sk._drag) sk.value = Math.round(a.currentTime / a.duration * 1000); tm.textContent = `${mmss2(a.currentTime)} / ${mmss2(a.duration)}`; }
       box.querySelectorAll("[data-ab]").forEach(b => { const on = b.dataset.ab === D.mode(); b.classList.toggle("on", on); b.setAttribute("aria-pressed", String(on)); }); };
@@ -493,27 +494,26 @@ function wireMkBoxes() {
   });
 }
 // ── (10/30 사용자) 나의 베스트 모아듣기: 선생님이 포함한 베스트·메이크업본만, 레슨 날짜순(성장) · 원음만 · 보정본만 ──
-function albumTracks(ls) {
+function albumTracks(ls) {   // 레슨마다 한 곡: 원음(베스트) + 있으면 보정본(메이크업)
   const out = [], asc = ls.slice().reverse();
   asc.forEach((l, i) => {
-    const nth = i + 1;
-    if (sidOk(l.best?.file_id)) out.push({ k: "b", id: l.best.file_id, lid: l.id, title: `${md(l.date)} · ${nth}회차 베스트`, sub: "원음", len: l.best.len });
-    if (makeupOk(l.makeup, l.best)) out.push({ k: "m", id: l.makeup.file_id, before: sidOk(l.makeup.before_id) ? l.makeup.before_id : null, curve: sidOk(l.makeup.curve_id) ? l.makeup.curve_id : null,
-      lv: +(l.makeup.curve_lv ?? 2), lid: l.id, title: `${md(l.date)} · 메이크업본`, sub: "음정 보정 예시", len: l.makeup.len });
+    if (!sidOk(l.best?.file_id)) return;
+    const mk = makeupOk(l.makeup, l.best) ? l.makeup : null;
+    out.push({ id: l.best.file_id, mk: mk ? mk.file_id : null, curve: mk && sidOk(mk.curve_id) ? mk.curve_id : null, lv: +(mk?.curve_lv ?? 2), lid: l.id,
+      title: `${md(l.date)} · ${i + 1}회차 베스트`, len: l.best.len });
   });
   return out;
 }
 function albumHtml(ls) {
   const tr = albumTracks(ls); if (tr.length < 2) return "";
-  const mins = Math.round(tr.reduce((s, x) => s + (+x.len || 0), 0) / 60);
+  const mins = Math.round(tr.reduce((s, x) => s + (+x.len || 0), 0) / 60), nMk = tr.filter(x => x.mk).length;
   return `<div class="card alb" id="alb"><h2 style="margin:0">🎧 나의 베스트 모아듣기</h2>
-    <div class="muted">선생님이 골라 준 것만 · ${tr.length}곡${mins ? ` · 약 ${mins}분` : ""}</div>
-    <div class="seg3" role="group" aria-label="골라 듣기"><button type="button" data-am="all" class="on">레슨 순서</button><button type="button" data-am="b">원음만</button><button type="button" data-am="m">보정본만</button></div>
+    <div class="muted">선생님이 골라 준 것만 · 레슨 ${tr.length}번${mins ? ` · 약 ${mins}분` : ""}${nMk ? ` · ✨ 보정본 ${nMk}곡` : ""}</div>
+    ${nMk ? `<div class="abSw" id="albAb" role="group" aria-label="원음·보정본으로 듣기"><button type="button" data-ab="o" class="on" aria-pressed="true">원음으로 듣기</button><button type="button" data-ab="p" aria-pressed="false">✨ 보정본으로 듣기</button></div>` : ""}
     <div id="albList"></div>
     <div class="dock hidden" id="albDock"><div class="muted" id="albNow"></div>
       <canvas class="tune hidden" id="albTune" aria-label="음정선"></canvas><div id="albLeg"></div>
-      <div class="abSw hidden" id="albAb" role="group" aria-label="원음·보정본"><button type="button" data-ab="o">원음</button><button type="button" data-ab="p" class="on">보정본</button></div>
-      <div class="tnote hidden" id="albNote">음정 보정한 예시예요 · 실제 노래는 ‘원음’이에요</div>
+      <div class="tnote hidden" id="albNote">✨ 보정본 = 음정 보정한 예시예요 · 실제 노래는 ‘원음’이에요</div>
       <input type="range" min="0" max="1000" value="0" id="albSeek" aria-label="재생 위치" style="width:100%">
       <div class="ctl"><button type="button" class="rp" id="albPrev" aria-label="이전 곡">⏮</button><button type="button" class="rp" id="albPP" aria-label="재생" style="width:56px">▶</button><button type="button" class="rp" id="albNext" aria-label="다음 곡">⏭</button></div></div>
     <button type="button" class="full" id="albGo" style="margin-top:8px">▶ 처음부터 이어 듣기</button>
@@ -524,37 +524,38 @@ function chime() { try { const C = window.AudioContext || window.webkitAudioCont
   o.connect(g); g.connect(c.destination); o.start(); o.stop(c.currentTime + 0.4); } catch {} }
 function wireAlbum(ls) {
   const box = $("alb"); if (!box) return;
-  const all = albumTracks(ls); let mode = "all", list = all, i = -1, D = null, cvs = {};
+  const list = albumTracks(ls); let i = -1, D = null, want = "o", cvs = {};   // want = 원음(o)/보정본(p) — 보정본이 없는 곡은 원음
   const aP = $("albP"), aO = $("albO");
-  const paintList = () => { $("albList").innerHTML = list.map((x, k) => `<button type="button" class="tr${k === i ? " now" : ""}" data-at="${k}"><span class="ic2${x.k === "m" ? " mk" : ""}">${x.k === "m" ? "✨" : "🎵"}</span><span class="tt"><b>${esc(x.title)}</b><span>${esc(x.sub)}${k === i ? " · 재생 중" : ""}</span></span><span class="muted" style="font-size:.8rem">${x.len ? mmss2(x.len) : ""}</span></button>`).join("");
+  const ver = (x) => (want === "p" && x?.mk ? "p" : "o");
+  const paintList = () => { $("albList").innerHTML = list.map((x, k) => `<button type="button" class="tr${k === i ? " now" : ""}" data-at="${k}"><span class="ic2${ver(x) === "p" ? " mk" : ""}">${ver(x) === "p" ? "✨" : "🎵"}</span><span class="tt"><b>${esc(x.title)}</b><span>${ver(x) === "p" ? "보정본" : "원음"}${want === "p" && !x.mk ? " (보정본 없음)" : ""}${k === i ? " · 재생 중" : ""}</span></span><span class="muted" style="font-size:.8rem">${x.len ? mmss2(x.len) : ""}</span></button>`).join("");
     $("albList").querySelectorAll("[data-at]").forEach(b => b.onclick = () => go(+b.dataset.at)); };
-  const src = () => { const x = list[i]; return { p: x.id, o: x.before }; };
+  const src = () => { const x = list[i]; return { o: x.id, p: x.mk }; };
   const paint = () => { const x = list[i]; if (!x || !D) return; const a = D.act();
     $("albPP").textContent = a.paused ? "▶" : "❚❚"; if (a.duration && !$("albSeek")._drag) $("albSeek").value = Math.round(a.currentTime / a.duration * 1000);
-    $("albNow").textContent = `${a.paused ? "■" : "▶"} ${x.title}${a.duration ? ` · ${mmss2(a.currentTime)} / ${mmss2(a.duration)}` : ""}${x.k === "m" && D.mode() === "o" ? " · 원음" : ""}`;
-    $("albAb").querySelectorAll("[data-ab]").forEach(b => b.classList.toggle("on", b.dataset.ab === D.mode())); };
+    $("albNow").textContent = `${a.paused ? "■" : "▶"} ${x.title} · ${D.mode() === "p" ? "✨ 보정본" : "원음"}${a.duration ? ` · ${mmss2(a.currentTime)} / ${mmss2(a.duration)}` : ""}`;
+    $("albNote").classList.toggle("hidden", D.mode() !== "p"); };
   for (const a of [aP, aO]) { for (const ev of ["play", "pause", "timeupdate", "loadedmetadata"]) a.addEventListener(ev, paint);
     a.addEventListener("ended", () => { if (i + 1 < list.length) { chime(); setTimeout(() => go(i + 1), 450); } else { paint(); paintList(); } }); }
   async function go(k) {
-    if (!list[k]) return; i = k; aP.pause(); aO.pause(); aP.removeAttribute("src"); aO.removeAttribute("src"); D = duo(aP, aO);
-    const x = list[k]; $("albDock").classList.remove("hidden"); $("albGo").classList.add("hidden");
-    const mk = x.k === "m"; $("albAb").classList.toggle("hidden", !(mk && x.before)); $("albNote").classList.toggle("hidden", !mk);
+    if (!list[k]) return; i = k; aP.pause(); aO.pause(); aP.removeAttribute("src"); aO.removeAttribute("src");
+    const x = list[k]; D = duo(aP, aO, ver(x)); $("albDock").classList.remove("hidden"); $("albGo").classList.add("hidden");
     const cvEl = $("albTune"); cvEl.classList.add("hidden"); $("albLeg").innerHTML = "";
-    if (mk && x.curve && typeof Tune !== "undefined") { (cvs[x.curve] ||= Tune.load(driveUrl(x.curve)).catch(() => null)).then(cv => {
+    if (x.curve && typeof Tune !== "undefined") { (cvs[x.curve] ||= Tune.load(driveUrl(x.curve)).catch(() => null)).then(cv => {
       if (!cv || list[i] !== x) return; const fresh = cvEl.cloneNode(); cvEl.replaceWith(fresh); fresh.classList.remove("hidden"); $("albLeg").innerHTML = Tune.legend(true);
+      document.querySelectorAll("#alb .tuneZoom").forEach(z => z.remove());
       Tune.wire(fresh, cv, () => D.act().currentTime || 0, () => (D.mode() === "p" ? x.lv : 0), (t) => { const a = D.act(); a.currentTime = t; if (a.paused) a.play().catch(() => {}); }); }); }
     paintList();
     try { await D.play(src()); } catch {}
     try { if ("mediaSession" in navigator) { navigator.mediaSession.metadata = new MediaMetadata({ title: x.title, artist: data.name ? `${data.name}님의 보컬노트` : "보컬노트" });
       navigator.mediaSession.setActionHandler("previoustrack", () => go(Math.max(0, i - 1))); navigator.mediaSession.setActionHandler("nexttrack", () => go(Math.min(list.length - 1, i + 1))); } } catch {}
   }
-  box.querySelectorAll("[data-am]").forEach(b => b.onclick = () => { mode = b.dataset.am; box.querySelectorAll("[data-am]").forEach(x => x.classList.toggle("on", x === b));
-    const cur0 = list[i]; list = mode === "all" ? all : all.filter(x => x.k === mode); i = cur0 ? list.indexOf(cur0) : -1; paintList(); });
+  $("albAb")?.querySelectorAll("[data-ab]").forEach(b => b.onclick = () => { want = b.dataset.ab;
+    $("albAb").querySelectorAll("[data-ab]").forEach(x => { const on = x === b; x.classList.toggle("on", on); x.setAttribute("aria-pressed", String(on)); });
+    if (D && list[i]) D.swap(ver(list[i]), src()).then(paint).catch(() => {}); paintList(); });
   $("albGo").onclick = () => go(0);
   $("albPP").onclick = () => { if (!D) return go(0); const a = D.act(); if (a.paused) D.play(src()).catch(() => {}); else a.pause(); };
   $("albPrev").onclick = () => { const a = D?.act(); if (a && a.currentTime > 3) { a.currentTime = 0; return; } go(Math.max(0, i - 1)); };
   $("albNext").onclick = () => go(Math.min(list.length - 1, i + 1));
-  $("albAb").querySelectorAll("[data-ab]").forEach(b => b.onclick = () => D && D.swap(b.dataset.ab, src()).then(paint).catch(() => {}));
   const sk = $("albSeek"); sk.oninput = () => { sk._drag = true; }; sk.onchange = () => { sk._drag = false; const a = D?.act(); if (a?.duration) a.currentTime = sk.value / 1000 * a.duration; };
   paintList();
 }
@@ -598,7 +599,7 @@ function lessonHtml(l, prev, mode = "normal") {
   const psnd = full ? (Array.isArray(l.point_snd) ? l.point_snd : []).filter(x => x && typeof x.file_id === "string" && x.file_id && Number.isInteger(x.p) && x.p >= 0 && x.p < points.length) : [];
   const atIds = new Set(psnd.map(x => x.file_id)), peakOf = (id) => (clips.find(c => c.file_id === id) || pairs.find(c => c.file_id === id) || {}).peaks;
   const restClips = clips.filter(c => !atIds.has(c.file_id)), restPairs = pairs.filter(x => !atIds.has(x.file_id));
-  const bestBlock = l.best?.file_id ? `<div class="best"><div class="cardHead"><span class="badge">베스트</span><b>오늘의 베스트</b>${l.best.len ? `<span class="muted">${l.best.len}초</span>` : ""}</div><p class="muted" style="margin:2px 0 8px">${l.best.edited ? (l.best.joined === true ? "오늘의 가장 좋았던 부분을 모아 이어붙여봤어요" : l.best.joined === false ? "오늘 가장 좋았던 한 번을 골랐어요" : "오늘의 가장 좋았던 부분을 모아 이어붙여봤어요") : "오늘 부른 가창이에요"}</p>${pill(l.best.file_id, "베스트 듣기", l.best.peaks, "open keep")}</div>` : "";
+  const bestBlock = l.best?.file_id ? `<div class="best"><div class="cardHead"><span class="badge">베스트</span><b>오늘의 베스트</b>${l.best.len ? `<span class="muted">${l.best.len}초</span>` : ""}</div><p class="muted" style="margin:2px 0 8px">${l.best.edited ? (l.best.joined === true ? "오늘의 가장 좋았던 부분을 모아 이어붙여봤어요" : l.best.joined === false ? "오늘 가장 좋았던 한 번을 골랐어요" : "오늘의 가장 좋았던 부분을 모아 이어붙여봤어요") : "오늘 부른 가창이에요"}</p>${makeupOk(l.makeup, l.best) ? `${has(l.makeup.msg) ? `<p style="margin:0 0 8px">${esc(l.makeup.msg.trim())}</p>` : ""}${typeof mkBoxHtml === "function" ? mkBoxHtml(l.makeup, l.best) : pill(l.makeup.file_id + "#m", "메이크업 듣기", l.makeup.peaks, "mk")}` : pill(l.best.file_id, "베스트 듣기", l.best.peaks, "open keep")}</div>` : "";   /* (10/30 11:55 사용자) 원본·메이크업 한 곡: [원음 | 보정본] */
   // (10/29 10:33 사용자 확정 시안 C) 한마디 = 편지 한 통: 글 속 '오늘 중요한 포인트' 줄 → 번호 포인트(+붙인 소리), '이번 주 연습' 줄은 글에서 빼고 응원 다음 '다음 미션' 카드로.
   // 글에 그 제목 줄이 없으면 예전처럼 따로 카드(내용이 빠지지 않게). '오늘의 순간' 문장은 그 소리 위 🔎 설명으로.
   const fbL = has(l.feedback) ? l.feedback.split("\n") : [];
@@ -638,7 +639,7 @@ function lessonHtml(l, prev, mode = "normal") {
     ${full && moment && !clips.some(c => (c.note || "").trim() === moment) && !points.some(t => t.trim() === moment) ? `<div class="card moment" role="region" aria-label="선생님이 발견한 오늘의 순간"><div class="muted">🔎 선생님이 발견한 오늘의 순간</div><p class="big">${esc(moment)}</p></div>` : ""}
     ${!ptsIn && points.length ? `<div class="card"><h2>⭐ 오늘의 핵심 포인트</h2>${ptsHtml(points)}</div>` : ""}
     ${full && (restC.length || restPairs.length) ? `<div class="card listen"><h2>🎧 더 들어 보기</h2>${restC.map(c => `<div class="clip">${has(c.note) ? `<div>${esc(c.note)}</div>` : ""}${pill(c.file_id, "좋았던 순간 듣기", c.peaks)}</div>`).join("")}${restPairs.map(x => `<div class="clip"><div>${esc(x.label)}</div>${pill(x.file_id + "#p", "🔁 지도 전 → 후 듣기", x.peaks)}</div>`).join("")}</div>` : ""}
-    ${full && makeupOk(l.makeup, l.best) ? `<div class="card makeup"><div class="cardHead"><span class="badge mk">메이크업본</span><b>간단 음정보정 예시</b>${l.makeup.len ? `<span class="muted">${l.makeup.len}초</span>` : ""}</div><p class="muted" style="margin:4px 0 6px">음원 발매용으로 정식 보정하면 더 자연스럽고 좋아져요</p>${has(l.makeup.msg) ? `<p style="margin:0 0 8px">${esc(l.makeup.msg.trim())}</p>` : ""}${(sidOk(l.makeup.before_id) || sidOk(l.makeup.curve_id)) ? mkBoxHtml(l.makeup) : pill(l.makeup.file_id + "#m", "메이크업 듣기", l.makeup.peaks, "mk")}</div>` : ""}
+    ${full && !l.best?.file_id && makeupOk(l.makeup, l.best) ? `<div class="card makeup"><div class="cardHead"><span class="badge mk">메이크업본</span><b>간단 음정보정 예시</b>${l.makeup.len ? `<span class="muted">${l.makeup.len}초</span>` : ""}</div><p class="muted" style="margin:4px 0 6px">음원 발매용으로 정식 보정하면 더 자연스럽고 좋아져요</p>${has(l.makeup.msg) ? `<p style="margin:0 0 8px">${esc(l.makeup.msg.trim())}</p>` : ""}${(sidOk(l.makeup.before_id) || sidOk(l.makeup.curve_id)) ? mkBoxHtml(l.makeup) : pill(l.makeup.file_id + "#m", "메이크업 듣기", l.makeup.peaks, "mk")}</div>` : ""}
     ${(full && cheer) || mission.length || (full && song) ? `<div class="card cheer${mission.length || (full && song) ? " mission" : ""}">${full && cheer ? `<h2>💌 응원 메시지</h2><p class="pre" style="margin:0">${esc(cheer)}</p>` : ""}${mission.length || (full && song) ? `<h2${full && cheer ? ' class="mh"' : ""}>📋 다음 미션</h2>${mission.length ? listHtml(mission) : ""}${full && song ? `<div class="song"><div class="muted">🎵 추천 곡</div><b>${esc(song.title)}</b>${has(song.artist) ? ` <span class="muted">(${esc(song.artist)})</span>` : ""}${has(song.why) ? `<p style="margin:4px 0 0">${esc(song.why)}</p>` : ""}${yt(song.url) ? `<a class="yt" href="${esc(yt(song.url))}" target="_blank" rel="noopener noreferrer">▶ 유튜브에서 듣기</a>` : `<a class="yt find" href="https://www.youtube.com/results?search_query=${encodeURIComponent((song.title + " " + (song.artist || "")).trim())}" target="_blank" rel="noopener noreferrer">🔎 유튜브에서 찾아 듣기</a>`}</div>` : ""}` : ""}</div>` : ""}
     ${more && m === "detail" ? `<div class="card more">${more}</div>` : more && m === "normal" ? `<details class="card more"><summary>더 들여다보기</summary>${more}</details>` : ""}
     ${full && l.full && typeof l.full.file_id === "string" && Array.isArray(l.full.segs) && l.full.segs.length ? `<details class="card more fullrec" data-fid="${esc(l.full.file_id)}"><summary>📝 레슨 전체 기록 · 전사본과 녹음</summary><p class="muted" style="margin:0 0 6px">AI가 받아쓴 글이라 틀린 곳이 있을 수 있어요 · 말풍선을 누르면 아래 재생바로 그 자리부터 들려요${l.full.cut ? " · 길어서 앞부분만 실었어요" : ""}</p><div class="trs">${l.full.segs.filter(Array.isArray).map(([t, w, tx]) => { const k = ({ t: "t", s: "s", g: "g" })[w] || "x", tt = Math.max(0, +t || 0);
