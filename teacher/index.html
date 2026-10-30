@@ -3631,7 +3631,18 @@ function bestOptions() {
   const b = cur.best, c = b?.composite;
   const ad = typeof regenAdopted === "function" ? regenAdopted() : null;   // 선생님이 [새 편집본 채택]을 누른 후보만. 채택 전 후보는 여기에 들어오지 않음
   if (b?.status === "ok" && ad) return [{ ...ad, isComposite: true }];
-  return b?.status === "ok" && c?.status === "ok" && c.file_id ? [{ ...c, isComposite: true }] : [];
+  if (b?.status === "ok" && c?.status === "ok" && c.file_id) return [{ ...c, isComposite: true }];
+  // (10/30 사용자) 이어 붙일 구간이 없을 때: 선생님이 '가장 좋았던 한 번' 중 직접 고른 것만 오늘의 베스트로(자동 대체 아님)
+  const sp = cur.review?.bestSingle?.file_id, one = sp && typeof bestSingles === "function" && bestSingles().find(x => x.file_id === sp);
+  return b?.status === "ok" && one ? [{ ...one, isComposite: false, singlePicked: true }] : [];
+}
+function bestSingles() { const b = cur.best; return b?.status === "ok" ? [b.best, ...(b.alternatives || [])].filter(x => x?.file_id) : []; }
+async function bestSinglePick(fid) {
+  cur.review.bestSingle = fid ? { file_id: fid, at: new Date().toISOString() } : null;
+  if (typeof markDirty === "function") markDirty();
+  try { tpDetach(); } catch {} renderToday();
+  await saveReview(true);
+  toast(fid ? "오늘의 베스트로 정했어요 · 메이크업본도 자동으로 만들어요" : "선택을 풀었어요");
 }
 function bestSourceTakes() {   // 하이라이트 기준 테이크 등 내부용. 화면의 선택지가 아님
   const b = cur.best; if (b?.status !== "ok") return [];
@@ -3703,8 +3714,15 @@ function renderBest() {
       : comp?.status === "error" ? "편집본 생성 실패" + (comp.why ? ` (${esc(comp.why)})` : "")
       : comp?.status === "none" ? "이번 레슨에선 이어 붙일 만한 구간을 못 찾았어요" + (comp.why ? ` (${esc(comp.why)})` : "")
       : "편집본이 아직 만들어지는 중이에요(대기)";
+    const singles = typeof bestSingles === "function" ? bestSingles() : [];
+    const whyShort = comp?.status === "none" && /두 번 이상/.test(comp.why || "") ? "같은 부분을 두 번 이상 부른 테이크가 없어 이어 붙일 수 없었어요" : why;
     return `<div class="bestbox"><b>🎵 오늘의 베스트 편집본</b> <span class="chip todo">편집본 없음</span>
-      <p role="status" class="muted" style="margin:6px 0 0">${why}. 다음 자동 처리 때 다시 시도해요. <b>단일 테이크로 대신하거나 학생에게 자동으로 보내지 않아요.</b> 급하면 아래 추천 클립에서 골라 보내 주세요.</p></div>`;
+      <p role="status" class="muted" style="margin:6px 0 0">${whyShort}. 다음 자동 처리 때 다시 시도해요. 학생에게 자동으로 보내지 않아요.${singles.length ? " 아래 <b>가장 좋았던 한 번</b>을 들어 보고 골라 주시면 그걸 오늘의 베스트로 써요." : " 아래 추천 클립에서 골라 보내 주세요."}</p>
+      ${singles.map((x, i) => `<div class="row" style="gap:8px;align-items:center;margin-top:8px;flex-wrap:nowrap">
+        <button type="button" class="small ghost" data-sglplay="${esc(x.file_id)}" style="flex:none">▶ 듣기</button>
+        <span style="flex:1;min-width:0">${i === 0 ? "⭐ " : ""}${esc(x.kind_ko || "한 번 부른 것")} · ${Math.round(+x.len || 0)}초${x.praise?.text ? ` <span class="muted">· 선생님 “${esc(String(x.praise.text).slice(0, 20))}”</span>` : ""}</span>
+        <button type="button" class="small" data-sglpick="${esc(x.file_id)}" style="flex:none">이걸로</button></div>`).join("")}
+      <p class="muted" style="margin:8px 0 0;font-size:.8rem">고르기 전엔 학생에게 아무것도 보내지 않아요.</p></div>`;
   }
   const o = opts[0];
   const status = /^v[67]/.test(o.method || "") && o.mr_aligned === true
@@ -3720,13 +3738,14 @@ function renderBest() {
       : o.method === "v5-mrabs" && o.rhythm_verified === true
       ? "새 MR 정렬 방식 · 자동 검사 통과 · 실제 청감 확인 필요"
       : "기존 또는 방식 미확인 편집본 · 새 MR 정렬 결과로 확인되지 않았어요 · 자동으로 바뀌지 않습니다";
+  const statusTxt = o.singlePicked ? "이어 붙일 구간이 없어 선생님이 고른 ‘가장 좋았던 한 번’을 그대로 써요(편집하지 않음)" : status;
   const segs = (o.segments || []).filter(g => Number.isFinite(+g.start) && +g.end > +g.start).slice(0, 12);
   const ms = typeof makeupState === "function" ? makeupState(o) : "none";
   const waveOnly = (extra = "") => `<div class="tp"><div class="tpWaveBox"><canvas class="tpWave" aria-hidden="true"></canvas><input type="range" class="tpSeek" min="0" max="1000" value="0" aria-label="재생 위치" style="width:100%">${extra}</div></div>`;
   const chk = (k) => typeof inclChk === "function" ? inclChk(k, o) : "";
   // (B안 10/28 23:24 사용자) 파형 2개 위아래(원본·메이크업, 각각 보내기 체크) + 가운데 재생 줄 하나. 파형을 누르면 그 버전·그 자리부터
   return `<div class="bestbox abPair"><span class="sr-only">오늘의 베스트 편집본 ${Math.round(o.len)}초</span>
-    <div class="abRow" data-abrow="orig"><div class="row abHead"><b>원본 편집본</b><span class="muted" style="font-size:.85rem">${Math.round(o.len)}초</span>${chk("best")}</div>${waveOnly(seamStrip(o, "strip"))}</div>
+    <div class="abRow" data-abrow="orig"><div class="row abHead"><b>${o.singlePicked ? "가장 좋았던 한 번" : "원본 편집본"}</b>${o.singlePicked ? `<button type="button" class="small ghost" id="sglReset">다른 걸로</button>` : ""}<span class="muted" style="font-size:.85rem">${Math.round(o.len)}초</span>${chk("best")}</div>${waveOnly(seamStrip(o, "strip"))}</div>
     ${ms === "ready" ? `<div class="abRow" data-abrow="mk"><div class="row abHead"><b>✨ 메이크업본</b>${chk("makeup")}</div><div class="muted" style="font-size:.8rem;margin:-2px 0 2px">간단 음정보정 예시 · 음원 발매용 정식 보정은 더 자연스러워요</div>${waveOnly()}</div>`
       : `<div class="row abHead" style="margin-top:6px"><button type="button" id="bestMakeup" class="small ghost mkMake">🪄 ${ms === "none" ? "메이크업본 만들기" : bestMakeupLabel(o)}</button></div>${makeupBoxHTML(o)}`}
     <div class="row" style="justify-content:space-between;margin-top:4px"><span class="tpTime muted abTime">0:00 / 0:00</span><span class="muted" style="font-size:.8rem">파형을 누르면 그 자리부터</span></div>
@@ -3736,7 +3755,7 @@ function renderBest() {
       <p class="muted" style="font-size:.85rem;margin:4px 0">☑ <b>피드백에 포함</b>을 체크한 것만 수강생 노트에 실리고 ‘클립 보내기’ 때 같이 가요. 체크하지 않으면 수강생에게 안 가요(파일은 그대로 남아요).</p>
       <div class="seamLabels">${seamStrip(o, "labels")}<p class="muted" style="font-size:.8rem;margin:2px 0">노란 칸 = 다른 테이크에서 가져와 이어 붙인 자리 · 시간을 누르면 그 바로 앞부터 들려요</p></div>
       <div class="muted bestDesc" style="font-size:.85rem">${o.base === "fullrun" ? `그날 가장 길게 이어 부른 부분(약 ${Math.round(+o.fullrun?.len || o.len)}초 — 1절이면 1절, 2절까지면 2절까지)을 바탕으로, 칭찬받은 테이크의 더 좋은 구절을 같은 자리에 바꿔 넣은 편집본이에요` : "AI가 이번 레슨 녹음에서 좋은 구간을 골라 박자에 맞춰 하나로 이어 붙인 편집본이에요"}${o.takes_used ? ` (테이크 ${o.takes_used}개 사용)` : ""}</div>
-      <p role="status" class="muted" style="margin:6px 0 0;font-size:.85rem">${status}</p>
+      <p role="status" class="muted" style="margin:6px 0 0;font-size:.85rem">${statusTxt}</p>
       ${segs.length ? `<p class="muted" style="font-size:.85rem;margin:4px 0">원본 레슨에서 가져온 구간 ${segs.length}곳: ${segs.map(g => `${fmt(+g.start)}~${fmt(+g.end)}`).join(" · ")}</p>` : ""}
       ${ms === "ready" ? `<p class="muted" style="font-size:.85rem;margin:4px 0">✨ 메이크업본 = 이 편집본에 음정 보정 등을 한 별도 파일 · ⇄를 누르면 듣던 자리 그대로 다른 쪽이 들려요</p>` : ""}</details>
   </div>`;
@@ -3977,6 +3996,9 @@ function wireIncl(o) {
   });
 }
 function wireBest() {
+  (document.querySelectorAll?.("#todayCard [data-sglplay]") || []).forEach(b => b.onclick = () => playShared(b, b.dataset.sglplay));
+  (document.querySelectorAll?.("#todayCard [data-sglpick]") || []).forEach(b => b.onclick = () => bestSinglePick(b.dataset.sglpick).catch(e => toast(e.message)));
+  const rs = typeof document.getElementById === "function" ? document.getElementById("sglReset") : null; if (rs) rs.onclick = () => bestSinglePick(null).catch(e => toast(e.message));
   const o = bestPicked(); if (!o) return;
   if (typeof mkAutoEnsure === "function") { try { mkAutoEnsure(o); } catch {} }
   const box = $("todayCard").querySelector(".abPair"), broot = box?.querySelector('[data-abrow="orig"] .tp') || $("todayCard").querySelector(".tp");
@@ -4902,7 +4924,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-30-0935-move";
+const BUILD = "2026-10-30-1005-single";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
