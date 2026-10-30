@@ -37,7 +37,9 @@ assert.ok(h.includes("이어 붙인 자리 기록이 없어요") && !h.includes(
 for (const [c, msg] of [[{ status: "error", why: "x" }, "편집본 생성 실패"], [{ status: "none", fallback: "best_take" }, "편집본 생성 보류"], [null, "만들어지는 중"], [{ status: "none" }, "못 찾았어요"]]) {
   t = setup({ bestInclude: true, bestIncludeId: "B1" }, c); h = t.api.renderBest();
   assert.ok(h.includes(msg) && h.includes("다음 자동 처리 때 다시 시도") && h.includes("자동으로 보내지 않아요"), msg);
-  assert.ok(!h.includes('class="tp"') && !h.includes("incl") && !h.includes("B1"), "대체 재생바·포함 버튼·단일 테이크 노출 금지");
+  assert.ok(!h.includes('class="tp"') && !h.includes("incl"), "대체 재생바·포함 버튼 없음(자동 대체·자동 공유 금지)");
+  // (10/30 사용자) 단일 테이크는 '선생님이 고르는 후보'로만 보임 — 고르기 전엔 오늘의 베스트가 아님
+  assert.ok(!h.includes("B1") || h.includes('data-sglpick="B1"'), "단일 테이크는 고르기 버튼으로만");
 }
 // 4) 메이크업 상태: 처리 중/실패/완료인데 파일 없음/완료
 for (const [job, msg] of [[JOB({ status: "running", progress: { pct: 40 } }), "만드는 중이에요(40%)"], [JOB({ status: "error" }), "처리에 실패했어요"], [JOB({}, []), "음원 파일을 확인하지 못했어요"]]) {
