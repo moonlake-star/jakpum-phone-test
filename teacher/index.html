@@ -3620,7 +3620,7 @@ function paintAiNote(ai) {
       (ev.length ? `<div class="row" style="gap:4px;flex-wrap:wrap;margin-top:4px">${ev.map(e =>
         `<button class="small ghost evd" data-t="${+e.t}" title="${esc(e.text || "")}">▶ ${fmt(+e.t)} ${esc((e.text || "").slice(0, 14))}</button>`).join("")}</div>` : "") +
       (ai.notes ? `<div class="muted" style="margin-top:4px">선생님께: ${esc(ai.notes)}</div>` : "") + `</details>` : ""); }
-  document.querySelectorAll("#aiNote .evd").forEach(b => b.onclick = () => playAt(Math.max(0, +b.dataset.t - 1)).catch(e => toast(e.message)));
+  document.querySelectorAll("#aiNote .evd").forEach(b => b.onclick = () => jumpPlay(b, +b.dataset.t));
 }
 // ── 화면 간결화(2단계): 접기 상태는 기기별 편의 저장(localStorage). 경고가 있으면 저장값보다 우선해 펼친다 ──
 const FOLD_KEY = "vn_fold";
@@ -4240,7 +4240,7 @@ function renderAnalysis(pitch, ana, ai) {
     ${pitch?.observations?.length ? `<div class="row" style="margin-top:6px"><button class="small ghost" id="btnPitchOk">✓ 음정 측정이 맞게 들림 (이 수강생 음정 학습에 사용)</button><span class="muted" id="pitchOkT"></span></div>` : ""}
     ${pitch?.error ? `<p class="muted">음정 분석 실패: ${esc(pitch.error)}</p>` : ""}</details>`;
   initFold($("anaWrap"), false);
-  card.querySelectorAll(".tplay").forEach(b => b.onclick = () => playAt(Math.max(0, +b.dataset.t - 1)).catch(e => toast(e.message)));
+  card.querySelectorAll(".tplay").forEach(b => b.onclick = () => jumpPlay(b, +b.dataset.t));
   card.querySelectorAll(".pairplay").forEach(b => b.onclick = () => b.dataset.f ? playShared(b, b.dataset.f) : toast("비교 음성이 아직 없어요"));
   card.querySelectorAll(".pairsend").forEach(c => c.onchange = () => { const L = new Set(cur.review.pairSend || []); c.checked ? L.add(c.dataset.id) : L.delete(c.dataset.id); cur.review.pairSend = [...L]; if (typeof paintDeliver === "function" && cur.folder) paintDeliver(); });
   card.insertAdjacentHTML("beforeend", `<div id="anaSaid"></div>`);   // 이 레슨에서 나온 확인 전 '수강생이 한 말'(접힌 분석 밖, 늘 보이게)
@@ -4509,7 +4509,24 @@ async function fetchChunk(t0) {
   const r = await api(`${DRIVE}/files/${listenFile.id}?alt=media`, { headers: { Range: `bytes=${a}-${b}` } });
   return { t0, url: URL.createObjectURL(await r.blob()) };
 }
+// (10/30 사용자) 글 속 ▶시각 버튼: 누르면 그 버튼이 ❚❚로 — 다시 누르면 그 자리에서 멈춤/이어 듣기(맨 아래 재생바까지 손 안 내려도 됨)
+let jumpCur = null, jumpLock = false;
+function paintJump() {
+  if (typeof document === "undefined" || !document.querySelectorAll) return;
+  document.querySelectorAll("[data-jumpon]").forEach(b => { if (b !== jumpCur) { b.textContent = b.dataset.jlab; delete b.dataset.jumpon; } });
+  if (!jumpCur || !jumpCur.isConnected) return;
+  jumpCur.dataset.jlab ??= jumpCur.textContent; jumpCur.dataset.jumpon = "1";
+  jumpCur.textContent = typeof full !== "undefined" && !full.paused ? jumpCur.dataset.jlab.replace(/^▶/, "❚❚") : jumpCur.dataset.jlab;
+}
+function jumpPlay(b, t) {
+  if (jumpCur === b && typeof full !== "undefined" && full.src) { if (full.paused) full.play().catch(e => toast(e.message)); else full.pause(); return; }
+  if (typeof hlQueueStop === "function") hlQueueStop();
+  jumpCur = b; jumpLock = true; paintJump();
+  try { const r = rangeAt(t, chipRanges(), (cur.segs || []).map(g => +g.start)); miniMarks([{ start: r[0], end: r[1] }], 0); miniLabel(`▶ ${fmt(r[0])}~${fmt(r[1])} (노란 칸)`); } catch {}   // (10/30 사용자) 그 구간 시작·끝을 재생바에 노랗게
+  return playAt(Math.max(0, t - 1)).catch(e => toast(e.message)).finally(() => { jumpLock = false; paintJump(); });
+}
 async function playAt(t, keepGoing = true, follow = false) {
+  if (!jumpLock && jumpCur) { jumpCur = null; paintJump(); }   // 다른 곳에서 재생하면 ▶시각 버튼은 원래대로
   followTranscript = follow;
   listenFile ??= cur.files.find(x => x.name === "듣기용.mp3");
   if (!listenFile) { toast("이 레슨은 듣기용 녹음이 아직 없어요"); return; }
@@ -4560,7 +4577,7 @@ function paintHlBtns() {
   hs.querySelectorAll("[data-hlplay]").forEach(b => { const on = +b.dataset.hlplay === hlCur && !!hlPlay && hlPlay.k === hlCur && !full.paused;
     b.textContent = on ? "❚❚" : "▶"; b.setAttribute("aria-label", on ? "일시정지" : `하이라이트 ${+b.dataset.hlplay + 1} 듣기`); });
 }
-full.onplay = () => { pauseOthers(full); $("miniBtn").textContent = "❚❚"; paintHlBtns(); }; full.onpause = () => { $("miniBtn").textContent = "▶"; paintHlBtns(); };
+full.onplay = () => { pauseOthers(full); $("miniBtn").textContent = "❚❚"; paintHlBtns(); paintJump(); }; full.onpause = () => { $("miniBtn").textContent = "▶"; paintHlBtns(); paintJump(); };
 player.addEventListener("play", () => pauseOthers(player));
 let followTranscript = false;   // 전사 말풍선을 눌러 재생할 때만 화면이 따라감(분석 카드 ▶에서는 스크롤 안 함)
 // ── 오늘의 하이라이트(최대 3개, 2026-10-27 사용자 확정): 선생님 칭찬 말 바로 앞 노래 + 칭찬 말까지 ──
@@ -4964,7 +4981,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-30-1030-wave";
+const BUILD = "2026-10-30-1045-jump";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
