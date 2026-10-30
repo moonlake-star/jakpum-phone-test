@@ -172,9 +172,18 @@
     const renderAdj = () => {
       adj.innerHTML = spot ? `<span>위치</span><button type="button" data-a="p-">−0.1초</button><button type="button" data-a="p+">+0.1초</button>`
         : `<span>시작</span><button type="button" data-a="s-">−0.1초</button><button type="button" data-a="s+">+0.1초</button><span>끝</span><button type="button" data-a="e-">−0.1초</button><button type="button" data-a="e+">+0.1초</button>`;
-      adj.querySelectorAll("[data-a]").forEach(b => b.onclick = () => { const a = b.dataset.a, v = a[1] === "+" ? 0.1 : -0.1;   // (10/31 08:12 사용자) 0.1초 단위
+      const stepBy = (a) => { const v = a[1] === "+" ? 0.1 : -0.1;   // (10/31 08:12 사용자) 0.1초 단위
         if (a[0] === "p") { d.t0 = Math.max(0, R2(d.t0 + v)); d.t1 = d.t0; } else if (a[0] === "s") d.t0 = Math.max(0, Math.min(R2(d.t1 - MIN), R2(d.t0 + v))); else d.t1 = Math.max(R2(d.t0 + MIN), R2(d.t1 + v));
-        paint(); V && V.focus(a[0] === "e" ? d.t1 : d.t0); });   // 바꾼 쪽 자리로 그래프가 따라감
+        paint(); V && V.focus(a[0] === "e" ? d.t1 : d.t0); try { navigator.vibrate && navigator.vibrate(8); } catch {} };   // 바꾼 쪽 자리로 그래프가 따라감 · 살짝 진동
+      // (10/31 08:30 사용자) 길게 누르고 있으면 진동과 함께 계속 눌리기: 0.4초 뒤부터 0.1초마다, 1.5초 넘으면 더 빠르게
+      adj.querySelectorAll("[data-a]").forEach(b => { let tm = null, t0 = 0;
+        const stop = () => { clearTimeout(tm); tm = null; };
+        const tick = () => { stepBy(b.dataset.a); tm = setTimeout(tick, performance.now() - t0 > 1500 ? 50 : 100); };
+        b.addEventListener("pointerdown", (e) => { e.preventDefault(); stop(); t0 = performance.now(); stepBy(b.dataset.a); tm = setTimeout(tick, 400); try { b.setPointerCapture(e.pointerId); } catch {} });
+        ["pointerup", "pointercancel", "lostpointercapture"].forEach(ev => b.addEventListener(ev, stop));
+        b.addEventListener("contextmenu", (e) => e.preventDefault());
+        b.onclick = (e) => { if (e.detail === 0) stepBy(b.dataset.a); };   // 키보드(Enter)로 누른 경우만(손가락은 위에서 처리)
+      });
     };
     kind.querySelectorAll("[data-k]").forEach(b => b.onclick = () => { const want = b.dataset.k === "p"; if (want === spot) return; spot = want;
       d.t1 = spot ? d.t0 : R2(d.t0 + 1.0); renderAdj(); paint(); V && V.focus(d.t0); });
@@ -513,7 +522,7 @@
 #tuneSheet .tsCfBox{width:calc(100% - 40px);box-sizing:border-box;background:#1e2229;border:1px solid #3a3f49;border-radius:16px;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.6)}#tuneSheet .tsCfBox b{display:block;font-size:16px;margin-bottom:6px}#tuneSheet .tsCfBox p{margin:0 0 12px;font-size:13.5px;color:#b9bec7;word-break:keep-all}
 #tuneSheet .tsCk{display:flex;align-items:center;gap:8px;font-size:14px;margin-bottom:14px}#tuneSheet .tsCk input{width:20px;height:20px;margin:0;accent-color:#7fd99a}
 #tuneSheet .tsCfRow{display:flex;gap:8px}#tuneSheet .tsCfRow button{flex:1;min-height:46px;border-radius:22px;border:1px solid #3a3f49;background:#11141a;color:#eceff3;font-weight:800;font-size:15px;margin:0}#tuneSheet .tsCfRow .cfYes{background:#ff8a8a;color:#2a1010;border:0}
-#tuneSheet .tsKind{display:flex;gap:0;margin:8px 0 2px;border:1px solid #3a3f49;border-radius:12px;overflow:hidden}#tuneSheet .tsKind button{flex:1;min-height:40px;margin:0;border:0;border-radius:0;background:#11141a;color:#a9b1bc;font-weight:800;font-size:14px}#tuneSheet .tsKind button.on{background:#7fd99a;color:#0f1a14}
+#tuneSheet .tsAdj button{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}#tuneSheet .tsKind{display:flex;gap:0;margin:8px 0 2px;border:1px solid #3a3f49;border-radius:12px;overflow:hidden}#tuneSheet .tsKind button{flex:1;min-height:40px;margin:0;border:0;border-radius:0;background:#11141a;color:#a9b1bc;font-weight:800;font-size:14px}#tuneSheet .tsKind button.on{background:#7fd99a;color:#0f1a14}
 #tuneSheet .tsEv{font-size:12px;color:#a9b1bc;margin:8px 0;line-height:1.5;background:#11141a;border-radius:8px;padding:7px 9px}#tuneSheet .tsAdj{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:8px 0;font-size:12.5px;color:#a9b1bc}#tuneSheet .tsAdj button{border:1px solid #363c45;background:#11141a;color:#eceff3;border-radius:8px;min-height:34px;padding:0 10px;margin:0;font-weight:700}
 #tuneSheet .tsRow{display:flex;gap:8px;margin-top:10px}#tuneSheet .tsRow button{flex:1;min-height:46px;border-radius:22px;border:1px solid #3a3f49;background:#11141a;color:#eceff3;font-weight:800;font-size:15px;margin:0}#tuneSheet .tsRow .tsOk{background:#7fd99a;color:#10201a;border:0}#tuneSheet .tsRow .tsDel{color:#ff9a9a}`;
   if (typeof document !== "undefined" && document.head) { const s2 = document.createElement("style"); s2.textContent = css2; document.head.appendChild(s2); }
