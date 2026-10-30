@@ -90,6 +90,12 @@
   .tsChip { min-height:34px; padding:0 12px; margin:0; border-radius:17px; border:1.5px solid #9cc3ff; background:transparent; color:#9cc3ff; font-weight:800; font-size:.88rem; }
   .tsMir { position:absolute; left:0; top:0; right:0; z-index:1; pointer-events:none; overflow:hidden; box-sizing:border-box; border:1px solid transparent; padding:8px 10px; line-height:24px; white-space:pre-wrap; overflow-wrap:break-word; word-break:normal; color:transparent; }
   .tsMir mark { color:#ffd27a; background:rgba(255,210,122,.17); border-radius:9px; box-shadow:0 0 0 2px rgba(255,210,122,.17), 0 0 0 3px rgba(255,210,122,.55); }
+  .tsCtl { display:flex; align-items:center; gap:6px; } .tsCtl .tsB { width:36px; height:36px; min-height:36px; padding:0; margin:0; border-radius:50%; border:1.5px solid #3b4250; background:transparent; color:#9cc3ff; font-weight:800; font-size:.8rem; flex:none; }
+  .tsCtl .tsB.tsPP { background:#9cc3ff; color:#111; border:none; width:40px; height:40px; } .tsCtl .tsNow { margin-left:auto; font-size:.8rem; color:var(--mut, #9a9ca3); white-space:nowrap; }
+  .tsTrk { position:relative; height:6px; border-radius:3px; background:#333944; margin:14px 6px 8px; touch-action:none; cursor:pointer; } .tsTrk::before { content:""; position:absolute; left:0; right:0; top:-12px; bottom:-12px; }
+  .tsSeg { position:absolute; top:-4px; bottom:-4px; background:rgba(255,210,122,.35); border:1.5px solid #ffd27a; border-radius:4px; pointer-events:none; }
+  .tsFill { position:absolute; left:0; top:0; bottom:0; width:0; background:#9cc3ff; border-radius:3px; pointer-events:none; } .tsKnob { position:absolute; left:0; top:50%; width:14px; height:14px; margin:-7px; border-radius:50%; background:#9cc3ff; pointer-events:none; }
+  body.tsMini #mini { display:none !important; }
   .tsBar { margin:8px 0 4px; border:1.5px solid #ffd27a; border-radius:14px; background:#1b1e24; padding:9px 10px; } .tsBar[hidden] { display:none; }
   .tsRow { display:flex; align-items:center; gap:10px; } .tsPlay { min-height:40px; padding:0 14px; margin:0; border-radius:20px; border:0; background:#ffd27a; color:#1a1307; font-weight:900; font-size:.95rem; }
   .tsQ { margin-top:7px; font-size:.88rem; line-height:1.55; color:#cfd3da; } .tsQ b { margin-right:4px; } .tsQ .tT { color:#9cc3ff; } .tsQ .tS { color:#7fd99a; }
@@ -1816,7 +1822,11 @@ function tsQuotes(s) {   // 그 시각 앞뒤 대화 2~3줄(누가 한 말인지
 }
 function tsBarHTML(x) {
   const q = tsQuotes(x.s);
-  return `<div class="tsRow"><button type="button" class="tsPlay" data-tsplay="${x.s}" data-jlab="▶ ${esc(x.lab)}" aria-label="${esc(x.lab)}부터 레슨 녹음 듣기">▶ ${esc(x.lab)}</button><span class="muted" style="font-size:.8rem">${esc(fmt(Math.max(0, x.s - 1)))}부터 레슨 녹음</span></div>` +
+  // (10/30 20:44 사용자 시안 승인) 막대 안 작은 재생기: -5 · 재생/멈춤 · +5 + 노란 칸(이 피드백 구간) 있는 진행 막대(노란 칸 앞뒤 30초)
+  let r = [x.s, x.s + 20]; try { r = rangeAt(x.s, chipRanges(), (cur?.segs || []).map(g => +g.start)); } catch {}
+  const v0 = Math.max(0, r[0] - 30), v1 = Math.max(r[1] + 30, v0 + 10), pc = (s) => ((s - v0) / (v1 - v0) * 100).toFixed(2) + "%";
+  return `<div class="tsCtl"><button type="button" class="tsPlay" data-tsplay="${x.s}" data-jlab="▶ ${esc(x.lab)}" aria-label="${esc(x.lab)}부터 레슨 녹음 듣기">▶ ${esc(x.lab)}</button><button type="button" class="tsB" data-tsk="-5" aria-label="5초 뒤로">-5</button><button type="button" class="tsB tsPP" data-tsk="pp" aria-label="재생/멈춤">▶</button><button type="button" class="tsB" data-tsk="+5" aria-label="5초 앞으로">+5</button><span class="tsNow">${esc(fmt(x.s))}</span></div>` +
+    `<div class="tsTrk" data-v0="${v0}" data-v1="${v1}"><div class="tsSeg" style="left:${pc(r[0])};width:${((r[1] - r[0]) / (v1 - v0) * 100).toFixed(2)}%"></div><div class="tsFill"></div><div class="tsKnob"></div></div>` +
     (q.length ? `<div class="tsQ">${q.map(l => `<div><b class="${l.r === "teacher" ? "tT" : l.r === "student" ? "tS" : ""}">${esc(l.who)}</b> ${esc(l.text)}</div>`).join("")}</div>` : `<div class="tsQ muted">이 시각 앞뒤 받아쓴 글이 없어요</div>`);
 }
 function tsWire(el) {
@@ -1825,7 +1835,7 @@ function tsWire(el) {
   const chips = document.createElement("div"); chips.className = "tsChips"; const bar = document.createElement("div"); bar.className = "tsBar"; bar.hidden = true;
   anchor.insertAdjacentElement("afterend", chips); chips.insertAdjacentElement("afterend", bar);
   let shownS = null;
-  const show = (x) => { if (!x) { bar.hidden = true; shownS = null; return; } if (shownS === x.s && !bar.hidden) return; shownS = x.s; bar.innerHTML = tsBarHTML(x); bar.hidden = false; };
+  const show = (x) => { if (!x) { bar.hidden = true; shownS = null; tsTick(); return; } if (shownS === x.s && !bar.hidden) return; shownS = x.s; bar.innerHTML = tsBarHTML(x); bar.hidden = false; };
   const paintChips = () => { const ts = tsTimes(el.value), editing = document.activeElement === el;
     chips.hidden = editing || !ts.length;
     chips.innerHTML = ts.map(x => `<button type="button" class="tsChip" data-tschip="${x.s}" data-lab="${esc(x.lab)}">▶ ${esc(x.lab)}</button>`).join(""); };
@@ -1843,10 +1853,26 @@ function tsWire(el) {
   el.addEventListener("input", paintChips);
   chips.addEventListener("click", (e) => { const b = e.target.closest?.("[data-tschip]"); if (!b) return; const x = { s: +b.dataset.tschip, lab: b.dataset.lab };
     bar._chip = true; place(false); show(x); const pb = bar.querySelector(".tsPlay"); if (pb && typeof jumpPlay === "function") jumpPlay(pb, x.s); });
-  bar.addEventListener("pointerdown", (e) => { if (e.target.closest?.(".tsPlay")) e.preventDefault(); });   // 누르는 동안 글 칸 커서(키보드) 유지
-  bar.addEventListener("click", (e) => { const b = e.target.closest?.(".tsPlay"); if (b && typeof jumpPlay === "function") jumpPlay(b, +b.dataset.tsplay); });
+  const go = (x) => { const pb = bar.querySelector(".tsPlay"); if (!pb || typeof jumpPlay !== "function") return; tsAct = bar; try { jumpCur = null; } catch {} jumpPlay(pb, x.s); tsTick(); };   // 늘 그 시각 1초 앞부터 다시
+  bar.addEventListener("pointerdown", (e) => { if (e.target.closest?.("button,.tsTrk")) e.preventDefault();   // 누르는 동안 글 칸 커서(키보드) 유지
+    const tr = e.target.closest?.(".tsTrk"); if (!tr) return; const at = (ev) => { const q = tr.getBoundingClientRect(), f = Math.min(1, Math.max(0, (ev.clientX - q.left) / q.width)); return +tr.dataset.v0 + f * (+tr.dataset.v1 - +tr.dataset.v0); };
+    const mv = (ev) => tsPaint(bar, at(ev)), up = (ev) => { removeEventListener("pointermove", mv); removeEventListener("pointerup", up); tsAct = bar; tsDrag = false; try { hlPlay = null; hlQueueStop(); } catch {} playAt(at(ev)).catch(er => toast(er.message)); };
+    tsDrag = true; mv(e); addEventListener("pointermove", mv); addEventListener("pointerup", up); });
+  bar.addEventListener("click", (e) => { const b = e.target.closest?.(".tsPlay"); if (b) return go({ s: +b.dataset.tsplay });
+    const k = e.target.closest?.("[data-tsk]")?.dataset.tsk; if (!k) return; tsAct = bar;
+    if (k === "pp") { if (typeof full !== "undefined" && full.src && chunkStart != null) { if (full.paused) full.play().catch(er => toast(er.message)); else full.pause(); } else go({ s: +bar.querySelector(".tsPlay")?.dataset.tsplay }); }
+    else if (typeof hlSeek === "function") hlSeek(k === "+5" ? 5 : -5); tsTick(); });
+  // 글 칸 속 시각 글자를 누르면 바로 그 자리부터 재생
+  el.addEventListener("click", () => { const v = el.value || "", c = el.selectionStart ?? -1; for (const m of v.matchAll(TS_RE)) if (c >= m.index && c <= m.index + m[0].length) { const x = { s: +m[1] * 60 + +m[2], lab: m[0] }; place(document.activeElement === el); show(x); go(x); break; } });
   paintChips(); tsMirror(el);
 }
+let tsAct = null, tsDrag = false;
+function tsPaint(bar, s) { const tr = bar?.querySelector?.(".tsTrk"); if (!tr) return; const f = Math.min(1, Math.max(0, (s - +tr.dataset.v0) / (+tr.dataset.v1 - +tr.dataset.v0))) * 100 + "%";
+  tr.querySelector(".tsFill").style.width = f; tr.querySelector(".tsKnob").style.left = f; const n = bar.querySelector(".tsNow"); if (n) n.textContent = fmt(s); }
+function tsTick() {   // 막대 재생기가 떠 있으면 아래 큰 재생바는 숨김(키보드 위 공간)
+  const on = !!(tsAct && tsAct.isConnected && !tsAct.hidden); document.body?.classList?.toggle("tsMini", on); if (!on || typeof full === "undefined") return;
+  const pp = tsAct.querySelector('[data-tsk="pp"]'); if (pp) pp.textContent = full.paused ? "▶" : "❚❚";
+  if (!tsDrag && full.src && !String(full.currentSrc || full.src).startsWith("data:")) { try { tsPaint(tsAct, chunkStart + (full.currentTime || 0)); } catch {} } }
 // (10/30 20:18 사용자 B안) 글 칸 속 시각(11:15)을 금색 알약으로 — 글 칸 위에 같은 글자 배치의 투명 거울을 겹쳐 시각만 칠함(글자 자리는 그대로)
 function tsMirror(el) {
   const wrap = el.closest?.(".pvEdWrap"); if (!wrap || !document.createElement || el._tsMir) return;
@@ -4676,6 +4702,7 @@ function renderSegs() {
 // 2분 조각씩 받아 재생하고, 끝나기 20초 전에 다음 조각을 미리 받아 이어 붙인다.
 const BPS = 5000, CHUNK = 120;
 const full = new Audio(); let nowIdx = -1, chunkStart = 0, nextChunk = null, listenFile = null;
+["timeupdate", "play", "pause"].forEach(ev => full.addEventListener(ev, () => tsTick()));   // 글 속 시각 막대 재생기 표시 맞춤
 // 연타 대비: 재생 요청마다 번호를 매겨, 늦게 도착한 예전 요청의 조각은 버림(blob URL도 해제)
 let playSeq = 0;
 const freeUrl = (u) => { if (u && String(u).startsWith("blob:")) URL.revokeObjectURL(u); };
@@ -5159,7 +5186,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-30-2025-tspill";
+const BUILD = "2026-10-30-2050-tsplayer";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
