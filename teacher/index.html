@@ -84,7 +84,7 @@
   /* (10/30 사용자) 튠 화면(음정선) · 보정 끔/켬 */
   .tune { display:block; width:100%; height:200px; border-radius:12px; background:#11141a; margin:6px 0 2px; cursor:pointer; } .tune.sm { height:170px; }
   .abPair.merged .abRow { display:none; } .abPair.merged .abRow.show { display:block; } .abPair.merged .abRow .abHead { display:none; }
-  .abPair.tuned .tpWave, .abPair.tuned .tpBtns, .abPair.tuned [data-abrow="mk"] > .muted { display:none; } .abPair.tuned .tpWaveBox { height:auto !important; } .abPair.tuned .abRow { margin-top:6px; }
+  .abPair.tuned .tpWave, .abPair.tuned .tpBtns, .abPair.tuned [data-abrow="mk"] > .muted { display:none !important; } .abPair.tuned .tpWaveBox { height:auto !important; } .abPair.tuned .abRow { margin-top:6px; }
   .mkDockWrap { margin-top:6px; } .mkDockWrap .tune.sm { height:230px; margin:0; } .tuneDock { position:absolute; left:0; right:0; bottom:10px; display:flex; justify-content:center; align-items:center; gap:10px; pointer-events:none; }
   .tuneDock > * { pointer-events:auto; } .tuneDock .dk { min-width:50px; min-height:40px; margin:0; border-radius:20px; background:rgba(30,34,42,.62); border:1px solid rgba(255,255,255,.2); color:#fff; font-weight:800; backdrop-filter:blur(4px); }
   .abPair.merged .tuneDock .abSw { margin:0; flex:none; border-radius:22px; padding:3px; background:rgba(30,34,42,.62); border:1px solid rgba(255,255,255,.2); backdrop-filter:blur(4px); } .tuneDock .abSw button { flex:none; min-height:34px; padding:0 14px; border-radius:18px; background:transparent; color:#d6dae0; }
@@ -5047,7 +5047,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-30-1530-load";
+const BUILD = "2026-10-30-1530-nobtn";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
