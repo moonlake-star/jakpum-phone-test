@@ -5050,7 +5050,7 @@ const BUILD = "2026-10-30-1510-port";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
-    const b = (t.match(/const BUILD = "2026-10-30-1510-port"]+)"/) || [])[1];
+    const b = (t.match(/const BUILD = "([^"]+)"/) || [])[1];
     if (b && b !== BUILD && !document.getElementById("newVer")) {
       const d = document.createElement("div"); d.id = "newVer";
       d.style.cssText = "position:fixed;left:12px;right:12px;bottom:14px;z-index:99;background:#ffd27a;color:#10141a;font-weight:800;border-radius:12px;padding:12px 14px;text-align:center;box-shadow:0 4px 18px #0008";
