@@ -88,11 +88,12 @@
     const fmtT = (s) => `${Math.floor(s / 60)}:${(s % 60).toFixed(1).padStart(4, "0")}`;
     for (const n of [...dots.keys()].sort((a, b) => shown.includes(a) - shown.includes(b))) { const dt = dots.get(n); const c = colOf(n);   // 모든 주석 점에 고정 번호(칸에 없는 건 회색)   // 음정선 위 번호 점(칸 아래에 깔리게 먼저)
       const k2 = kf(n), fa = (st.fin[k2] != null ? Math.min(1, (now - st.fin[k2]) / 150) : 1) * (st.fout[k2] != null ? Math.max(0, 1 - (now - st.fout[k2]) / 150) : 1);
-      g.save(); g.globalAlpha = (t > endT(n) + 0.15 ? 0.55 : 1) * fa; g.fillStyle = `rgb(${c})`; g.beginPath(); g.arc(dt.x, dt.y, nr, 0, Math.PI * 2); g.fill();
+      g.save(); g.globalAlpha = fa; g.fillStyle = `rgb(${c})`; g.beginPath(); g.arc(dt.x, dt.y, nr, 0, Math.PI * 2); g.fill();
       g.fillStyle = "#10201a"; g.font = `900 ${full ? 12 : 10}px system-ui, sans-serif`; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(String(numOf(n)), dt.x, dt.y + 0.5); g.restore(); }
     shown.forEach((n, i) => { if (!n) return;
       const k = kf(n), fi = st.fin[k] != null ? Math.min(1, (now - st.fin[k]) / 150) : 1, fo = st.fout[k] != null ? Math.max(0, 1 - (now - st.fout[k]) / 150) : 1;
-      const ok = n.status === "ok", c = colOf(n), past = t > endT(n) + 0.15, al = (past ? 0.55 : 1) * fi * fo, num = numOf(n);
+      const ok = n.status === "ok", c = colOf(n), past = t > endT(n) + 0.15, al = fi * fo,   // (10/30 18:37 사용자) 지나간 주석도 흐려지지 않게 — 사라질 때만 0.15초 페이드
+        num = numOf(n);
       const y = i === 1 ? bot - sh : bot - sh * 2 - gap;
       g.save(); g.globalAlpha = al;
       const dt = dots.get(n); if (dt) {   // 칸 → 번호 점 점선 화살표
