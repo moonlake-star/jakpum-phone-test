@@ -165,7 +165,7 @@
     g.fillStyle = "rgba(23,25,29,.35)"; g.fillRect(xs(t) + 2, T, w, H);   // 아직 안 부른 쪽은 살짝 어둡게
     g.fillStyle = "#ffd27a"; g.fillRect(Math.round(xs(t)) - 1, 2, 2.5, h - 4);
     const kL = k || col(cv, (st && st.lvDef) || 2) || col(cv, (cv.levels || [])[0]), d = delta(cv, kL, t);   // 원음으로 들을 때도 '어떻게 불렀나'는 보여 줌
-    let tagB = T + 4;
+    let tagB = T + 8 + (full ? 22 : 16) + (st && st.teacher ? (full ? 16 : 12) : 0);   // 말풍선 자리 고정: '높게/낮게' 표시가 떴다 사라져도 말풍선은 안 움직임(10/30 16:18 사용자)
     if (d != null && Math.abs(d) >= 5) {   // 지금 위치: 수강생 기준 현상(↑높게/↓낮게). 선생님은 아래에 작게 보정량
       const s = sangLabel(d), sub = st && st.teacher ? "보정: " + semiLabel(d).slice(2) : "";
       g.font = (full ? "bold 15px" : "bold 11px") + " system-ui, sans-serif";
@@ -174,7 +174,6 @@
       g.fillStyle = "rgba(17,20,26,.85)"; g.fillRect(x0 - 3, T + 4, tw + 6, bh1 + bh2);
       g.font = (full ? "bold 15px" : "bold 11px") + " system-ui, sans-serif"; g.fillStyle = s.c; g.fillText(s.txt, x0, T + 4 + bh1 / 2);
       if (sub) { g.font = g2; g.fillStyle = "#a9b1bc"; g.fillText(sub, x0, T + 4 + bh1 + bh2 / 2 - 2); }
-      tagB = T + 8 + bh1 + bh2;
     }
     if (st) drawNotes(g, st, t, xs, L, w, T, H, full, tagB);
   }
