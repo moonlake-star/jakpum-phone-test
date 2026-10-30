@@ -14,7 +14,7 @@
   const METRIC_EVENT = { lessons: 'lesson', bestWeekStreak: 'lesson', packagesDone: 'lesson', missions: 'mission', bestMissionWeekStreak: 'mission', reflections: 'reflection', noteReplays: 'note_replay' };
   const CATALOG = [
     { id: 'first_lesson', icon: '🎵', name: '첫 레슨', cat: 'lesson', kind: 'auto', rule: { metric: 'lessons', gte: 1 } },
-    { id: 'four_done', icon: '🏅', name: '4회 완주', cat: 'lesson', kind: 'auto', rule: { metric: 'lessons', gte: 4 } },
+    { id: 'four_done', icon: '🏅', name: '수강권 완주', cat: 'lesson', kind: 'auto', rule: { metric: 'lessons', gte: 4 } },
     { id: 'pkg_streak3', icon: '🔥', name: '3번 연속 완주', cat: 'lesson', kind: 'auto', rule: { metric: 'packagesDone', gte: 3 } },
     { id: 'first_mission', icon: '📝', name: '첫 미션 해 옴', cat: 'mission', kind: 'auto', rule: { metric: 'missions', gte: 1 } },
     { id: 'missions5', icon: '📚', name: '미션 5회 해 옴', cat: 'mission', kind: 'auto', rule: { metric: 'missions', gte: 5 } },
