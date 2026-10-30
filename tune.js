@@ -1,7 +1,7 @@
 // (10/30 사용자) 튠 화면 — Waves Tune처럼 음정선이 재생 위치와 함께 오른쪽→왼쪽으로 흐름. 선생님 앱·수강생 노트 공용.
 // curve = 메이크업 서버가 저장한 pitch_curve.json: { fps, scale:[음이름 번호], levels:[1,2,3], pts:[[초, 원음, 약, 중, 강], ...] } (값 = MIDI×100 센트)
 // 주황 = 실제로 부른 음, 하늘색 = 보정된 음, 노란 세로선 = 지금. 두 선 사이 노랑 = 고친 곳(진할수록 많이).
-// 아래 줄 = 고친 양(위 = 올림 · 아래 = 내림, ±50센트). 확대(기본): 지금 음 근처 ±4반음, 전체: 곡 전체 음역.
+// 아래 줄 = 고친 양(위 = 올림 · 아래 = 내림, 끝까지 = 반음 ½ 이상). 확대(기본): 지금 음 근처 ±4반음, 전체: 곡 전체 음역.
 // 음정 인식은 AI 추정(숨소리·자음에서 선이 튈 수 있음) — 참고용.
 (function (G) {
   const WIN = 8, HEAD = 0.4, NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"], LANE = 34, ZOOM_HALF = 400;
@@ -24,6 +24,8 @@
     const lo = v[Math.floor(v.length * 0.02)], hi = v[Math.min(v.length - 1, Math.floor(v.length * 0.98))];
     return [lo, hi, (lo + hi) / 2];
   }
+  // 고친 양을 반음 단위로: 51센트 → "↓ 0.5반음 내림"(반음 = 피아노 건반 한 칸)
+  function semiLabel(d) { const s = Math.abs(d) / 100; return `${d > 0 ? "↑" : "↓"} ${s >= 0.95 ? s.toFixed(1).replace(/\.0$/, "") : s.toFixed(1)}반음 ${d > 0 ? "올림" : "내림"}`; }
   function delta(cv, k, t) {   // 지금 위치의 고친 양(센트)
     if (!k) return null; let best = null;
     for (const p of cv.pts || []) { if (Math.abs(p[0] - t) < 0.06) { best = p[k] - p[1]; break; } if (p[0] > t + 0.06) break; }
@@ -81,8 +83,8 @@
     g.fillStyle = "rgba(23,25,29,.35)"; g.fillRect(xs(t) + 2, 0, w, H);   // 아직 안 부른 쪽은 살짝 어둡게
     g.fillStyle = "#ffd27a"; g.fillRect(Math.round(xs(t)) - 1, 2, 2.5, h - 4);
     const d = delta(cv, k, t);
-    if (d != null && Math.abs(d) >= 3) {   // 지금 몇 센트 고쳤나
-      const s = `${d > 0 ? "↑" : "↓"} ${Math.round(Math.abs(d))}센트`; g.font = "bold 11px system-ui, sans-serif";
+    if (d != null && Math.abs(d) >= 5) {   // 지금 얼마나 고쳤나(반음 단위, 10/30 13:31 사용자)
+      const s = semiLabel(d); g.font = "bold 11px system-ui, sans-serif";
       const tw = g.measureText(s).width, x0 = Math.min(w - tw - 8, Math.round(xs(t)) + 6);
       g.fillStyle = "rgba(17,20,26,.85)"; g.fillRect(x0 - 3, 4, tw + 6, 16); g.fillStyle = "#ffd27a"; g.fillText(s, x0, 12);
     }
@@ -123,5 +125,5 @@
   const legend = (withCorr) => `<div class="tuneLeg"><span><i style="background:#ff9f5a"></i>부른 음정</span>${withCorr ? `<span><i style="background:#7fd9ff"></i>보정 후</span><span><i style="background:#ffd27a;opacity:.6"></i>고친 곳</span>` : ""}<span><i style="background:#ffd27a;width:3px;height:11px"></i>지금</span></div>`;
   const css = `.tuneZoom{display:flex;gap:6px;margin:6px 0 2px}.tuneZoom button{border:1px solid #363c45;border-radius:10px;background:#11141a;color:#a9b1bc;font-weight:700;font-size:.8rem;min-height:32px;padding:0 12px;margin:0}.tuneZoom button.on{background:#9cc3ff;color:#10141a;border-color:#9cc3ff}`;
   if (typeof document !== "undefined" && document.head) { const s = document.createElement("style"); s.textContent = css; document.head.appendChild(s); }
-  G.Tune = { draw, wire, load, legend, range, col, centerAt, fitAt, delta, WIN, HEAD, ZOOM_HALF };
+  G.Tune = { draw, wire, load, legend, range, col, centerAt, fitAt, delta, semiLabel, WIN, HEAD, ZOOM_HALF };
 })(typeof window !== "undefined" ? window : globalThis);
