@@ -288,7 +288,7 @@
     el.addEventListener("pointerdown", (e) => { drag = { x: e.clientX, y: e.clientY, t: +getT() || 0, id: e.pointerId, moved: false };
       if (canEdit) { const d0 = drag, r0 = el.getBoundingClientRect(), h0 = hitNote(st, e.clientX - r0.left, e.clientY - r0.top);
         // (10/30 16:58 사용자) 주석 칸: 톡 하고 떼도, 0.6초 꾹 눌러도 고치기 · 누른 채 좌우로 밀면 화면 이동 / 빈 곳 0.3초 꾹 = 새 주석
-        if (h0) { if (!h0.del) d0.lp = setTimeout(() => { if (drag !== d0 || d0.moved) return; d0.long = true; if (ctl && !o.paused()) o.play(); lastView = view; o.onNote(h0.n); }, 600); }
+        if (h0) { if (!h0.del) d0.lp = setTimeout(() => { if (drag !== d0 || d0.moved) return; d0.long = true; if (ctl && !o.paused()) o.play(); lastView = view; o.onNote(h0.n); }, 1000); }
         else if (typeof o.onAdd === "function") d0.lp = setTimeout(() => { if (drag !== d0 || d0.moved) return;
           d0.long = true; if (ctl && !o.paused()) o.play();
           const tt = timeAt(st, e.clientX - r0.left); if (tt != null) { lastView = view; o.onAdd(tt); } }, 300); } });
@@ -372,7 +372,7 @@
         pinch = { d: Math.hypot(p1.a - p2.a, p1.b - p2.b), xz: st.xz, yz: st.yz }; return; }
       if (pts.size === 1) { drag = { a: along(e), b: across(e), t: +getT() || 0, id: e.pointerId, mode: null, yc: st.yc, cx: e.clientX, cy: e.clientY };
         if (typeof o.onNote === "function") { const d0 = drag, r0 = cvEl.getBoundingClientRect(), h0 = hitNote(st, d0.cx - r0.left, d0.cy - r0.top);
-          if (h0) { if (!h0.del) d0.lp = setTimeout(() => { if (drag !== d0 || d0.mode) return; d0.long = true; pauseNow(); lastView = view; o.onNote(h0.n); }, 600); }   // 주석 칸 0.6초 꾹 = 고치기
+          if (h0) { if (!h0.del) d0.lp = setTimeout(() => { if (drag !== d0 || d0.mode) return; d0.long = true; pauseNow(); lastView = view; o.onNote(h0.n); }, 1000); }   // 주석 칸 1초 꾹 = 고치기(10/30 17:31 사용자)
           else if (typeof o.onAdd === "function") d0.lp = setTimeout(() => { if (drag !== d0 || d0.mode) return;
             d0.long = true; pauseNow();
             const tt = timeAt(st, d0.cx - r0.left); if (tt != null) { lastView = view; o.onAdd(tt); } }, 300); } }
