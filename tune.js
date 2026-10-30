@@ -161,13 +161,24 @@
       <div class="tsAdj"><span>시작</span><button type="button" data-a="s-">−0.1초</button><button type="button" data-a="s+">+0.1초</button><span>끝</span><button type="button" data-a="e-">−0.1초</button><button type="button" data-a="e+">+0.1초</button></div>
       <div class="tsRow">${isNew ? `<button type="button" class="tsCancel">취소</button>` : `<button type="button" class="tsCancel">닫기</button><button type="button" class="tsDel">삭제</button>`}<button type="button" class="tsOk">${isNew ? "저장" : "✓ 확인"}</button></div></div>`;
     (document.getElementById("tuneFs") || document.body).appendChild(el);
-    const spot = d.t1 - d.t0 < 0.35;
-    if (spot) el.querySelector(".tsAdj").innerHTML = `<span>위치</span><button type="button" data-a="p-">−0.1초</button><button type="button" data-a="p+">+0.1초</button>`;
+    // (10/31 08:21 사용자) 새로 쓰는 주석도 '한 점' 또는 '구간'으로 — 위 칸에서 바꾸고, 구간이면 시작·끝을 0.1초씩
+    let spot = d.t1 - d.t0 < 0.35;
+    const adj = el.querySelector(".tsAdj"), kind = document.createElement("div"); kind.className = "tsKind";
+    kind.innerHTML = `<button type="button" data-k="p">● 한 점</button><button type="button" data-k="r">├─┤ 구간</button>`; adj.parentNode.insertBefore(kind, adj);
     const V = lastView; V && V.edit(d, n); V && V.focus(d.t0);   // (10/30 16:41 사용자 시안 승인) 창을 열면 그래프가 그 자리로 스르륵
-    const paint = () => { el.querySelector(".tsRng").textContent = spot ? fmt(d.t0) : `${fmt(d.t0)} ~ ${fmt(d.t1)}`; }; paint();
-    el.querySelectorAll("[data-a]").forEach(b => b.onclick = () => { const a = b.dataset.a, v = a[1] === "+" ? 0.1 : -0.1;   // (10/30 17:48 사용자) 미세 조정 0.15초 → (10/31 08:12) 0.1초
-      if (a[0] === "p") { d.t0 = Math.max(0, Math.round((d.t0 + v) * 100) / 100); d.t1 = d.t0; } else if (a[0] === "s") d.t0 = Math.max(0, Math.min(d.t1 - 0.1, Math.round((d.t0 + v) * 100) / 100)); else d.t1 = Math.max(d.t0 + 0.1, Math.round((d.t1 + v) * 100) / 100);
-      paint(); V && V.focus(a[0] === "e" ? d.t1 : d.t0); });   // 바꾼 쪽 자리로 그래프가 따라감
+    const paint = () => { el.querySelector(".tsRng").textContent = spot ? fmt(d.t0) : `${fmt(d.t0)} ~ ${fmt(d.t1)}`;
+      kind.querySelectorAll("[data-k]").forEach(b => { const on = (b.dataset.k === "p") === spot; b.classList.toggle("on", on); b.setAttribute("aria-pressed", String(on)); }); };
+    const R2 = (x) => Math.round(x * 100) / 100, MIN = 0.4;
+    const renderAdj = () => {
+      adj.innerHTML = spot ? `<span>위치</span><button type="button" data-a="p-">−0.1초</button><button type="button" data-a="p+">+0.1초</button>`
+        : `<span>시작</span><button type="button" data-a="s-">−0.1초</button><button type="button" data-a="s+">+0.1초</button><span>끝</span><button type="button" data-a="e-">−0.1초</button><button type="button" data-a="e+">+0.1초</button>`;
+      adj.querySelectorAll("[data-a]").forEach(b => b.onclick = () => { const a = b.dataset.a, v = a[1] === "+" ? 0.1 : -0.1;   // (10/31 08:12 사용자) 0.1초 단위
+        if (a[0] === "p") { d.t0 = Math.max(0, R2(d.t0 + v)); d.t1 = d.t0; } else if (a[0] === "s") d.t0 = Math.max(0, Math.min(R2(d.t1 - MIN), R2(d.t0 + v))); else d.t1 = Math.max(R2(d.t0 + MIN), R2(d.t1 + v));
+        paint(); V && V.focus(a[0] === "e" ? d.t1 : d.t0); });   // 바꾼 쪽 자리로 그래프가 따라감
+    };
+    kind.querySelectorAll("[data-k]").forEach(b => b.onclick = () => { const want = b.dataset.k === "p"; if (want === spot) return; spot = want;
+      d.t1 = spot ? d.t0 : R2(d.t0 + 1.0); renderAdj(); paint(); V && V.focus(d.t0); });
+    renderAdj(); paint();
     const close = () => { el.remove(); V && V.done(); if (lastView === V) lastView = null; };
     // (10/31 08:09 버그) 위 칸을 톡 하면 창이 뜬 직후 같은 손가락의 'click'이 창 바깥(어두운 곳)에 떨어져 바로 닫혔음 → 뜬 뒤 0.45초 안의 바깥 클릭은 무시
     const openedAt = performance.now();
@@ -502,6 +513,7 @@
 #tuneSheet .tsCfBox{width:calc(100% - 40px);box-sizing:border-box;background:#1e2229;border:1px solid #3a3f49;border-radius:16px;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.6)}#tuneSheet .tsCfBox b{display:block;font-size:16px;margin-bottom:6px}#tuneSheet .tsCfBox p{margin:0 0 12px;font-size:13.5px;color:#b9bec7;word-break:keep-all}
 #tuneSheet .tsCk{display:flex;align-items:center;gap:8px;font-size:14px;margin-bottom:14px}#tuneSheet .tsCk input{width:20px;height:20px;margin:0;accent-color:#7fd99a}
 #tuneSheet .tsCfRow{display:flex;gap:8px}#tuneSheet .tsCfRow button{flex:1;min-height:46px;border-radius:22px;border:1px solid #3a3f49;background:#11141a;color:#eceff3;font-weight:800;font-size:15px;margin:0}#tuneSheet .tsCfRow .cfYes{background:#ff8a8a;color:#2a1010;border:0}
+#tuneSheet .tsKind{display:flex;gap:0;margin:8px 0 2px;border:1px solid #3a3f49;border-radius:12px;overflow:hidden}#tuneSheet .tsKind button{flex:1;min-height:40px;margin:0;border:0;border-radius:0;background:#11141a;color:#a9b1bc;font-weight:800;font-size:14px}#tuneSheet .tsKind button.on{background:#7fd99a;color:#0f1a14}
 #tuneSheet .tsEv{font-size:12px;color:#a9b1bc;margin:8px 0;line-height:1.5;background:#11141a;border-radius:8px;padding:7px 9px}#tuneSheet .tsAdj{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:8px 0;font-size:12.5px;color:#a9b1bc}#tuneSheet .tsAdj button{border:1px solid #363c45;background:#11141a;color:#eceff3;border-radius:8px;min-height:34px;padding:0 10px;margin:0;font-weight:700}
 #tuneSheet .tsRow{display:flex;gap:8px;margin-top:10px}#tuneSheet .tsRow button{flex:1;min-height:46px;border-radius:22px;border:1px solid #3a3f49;background:#11141a;color:#eceff3;font-weight:800;font-size:15px;margin:0}#tuneSheet .tsRow .tsOk{background:#7fd99a;color:#10201a;border:0}#tuneSheet .tsRow .tsDel{color:#ff9a9a}`;
   if (typeof document !== "undefined" && document.head) { const s2 = document.createElement("style"); s2.textContent = css2; document.head.appendChild(s2); }
