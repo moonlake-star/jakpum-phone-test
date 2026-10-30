@@ -56,16 +56,30 @@
       g.font = `${fs}px system-ui, sans-serif`; const lines = wrapTxt(g, n.text || "", maxW);
       const tag = st.teacher ? (ok ? "✓ 확인" : "AI 초안 · " + (SRC[n.src] || "AI")) : "🎤 선생님 한마디";
       g.font = `bold ${fs - 2}px system-ui, sans-serif`; const tw = g.measureText(tag).width; g.font = `${fs}px system-ui, sans-serif`;
-      const bw = Math.min(maxW, Math.max(tw, ...lines.map(s => g.measureText(s).width))) + pad * 2, bh = pad * 2 + (fs - 2 + 4) + lines.length * lh;
+      const xr = st.teacher ? (full ? 13 : 11) : 0, xPad = xr ? xr * 2 + 6 : 0;   // 선생님: 오른쪽 위 ✕ = 바로 삭제(10/30 16:26 사용자)
+      const bw = Math.min(maxW, Math.max(tw, ...lines.map(s => g.measureText(s).width))) + pad * 2 + xPad, bh = pad * 2 + (fs - 2 + 4) + lines.length * lh;
       const x = Math.max(L + 2, Math.min(w - bw - 4, xs(+n.t0) - 10));
       if (y + bh > T + H - 6) break;
       g.fillStyle = "rgba(30,34,42,.94)"; rr(g, x, y, bw, bh, 10); g.fill();
       g.strokeStyle = ok ? "#7fd99a" : "#ffd27a"; g.lineWidth = 1.5; if (!ok) g.setLineDash([4, 3]); rr(g, x, y, bw, bh, 10); g.stroke(); g.setLineDash([]);
       g.textBaseline = "top"; g.font = `bold ${fs - 2}px system-ui, sans-serif`; g.fillStyle = ok ? "#7fd99a" : "#ffd27a"; g.fillText(tag, x + pad, y + pad);
       g.font = `${fs}px system-ui, sans-serif`; g.fillStyle = "#f1f1f1"; lines.forEach((s, i) => g.fillText(s, x + pad, y + pad + fs + 2 + i * lh)); g.textBaseline = "middle";
-      hits.push({ x, y, w: bw, h: bh, n }); y += bh + 6; }
+      let xx = null; if (xr) { xx = { cx: x + bw - xr - 5, cy: y + xr + 5, r: xr };
+        g.fillStyle = "#3a2a2a"; g.beginPath(); g.arc(xx.cx, xx.cy, xr, 0, Math.PI * 2); g.fill(); g.strokeStyle = "#ff9a9a"; g.lineWidth = 1.2; g.stroke();
+        const q = xr * 0.42; g.lineWidth = 2; g.beginPath(); g.moveTo(xx.cx - q, xx.cy - q); g.lineTo(xx.cx + q, xx.cy + q); g.moveTo(xx.cx + q, xx.cy - q); g.lineTo(xx.cx - q, xx.cy + q); g.stroke(); }
+      hits.push({ x, y, w: bw, h: bh, n, xx }); y += bh + 6; }
   }
-  function hitNote(st, x, y) { for (const h of st.hits || []) if (x >= h.x && x <= h.x + h.w && y >= h.y && y <= h.y + h.h) return h.n; return null; }
+  function hitNote(st, x, y) {   // { n, del } — ✕ 둘레는 손가락 크기로 넉넉히
+    for (const h of st.hits || []) { if (h.xx && Math.hypot(x - h.xx.cx, y - h.xx.cy) <= h.xx.r + 10) return { n: h.n, del: true };
+      if (x >= h.x && x <= h.x + h.w && y >= h.y && y <= h.y + h.h) return { n: h.n, del: false }; } return null; }
+  function undo(msg, onUndo) {   // 4초 동안 '되돌리기'
+    document.getElementById("tuneUndo")?.remove();
+    const el = document.createElement("div"); el.id = "tuneUndo"; el.setAttribute("role", "status");
+    el.innerHTML = `<span></span><button type="button">되돌리기</button>`; el.querySelector("span").textContent = msg;
+    (document.getElementById("tuneFs") || document.body).appendChild(el);
+    const tm = setTimeout(() => el.remove(), 4000);
+    el.querySelector("button").onclick = () => { clearTimeout(tm); el.remove(); onUndo && onUndo(); };
+  }
   function timeAt(st, x) { const m = st.map; return m ? Math.max(0, m.t0 + (x - m.L) / Math.max(1, m.w - m.L) * m.W8) : null; }
   // 주석 고치기 시트(선생님만). onSave(새 주석) / onDelete()
   function sheet(n, o) {
@@ -75,7 +89,7 @@
     const el = document.createElement("div"); el.id = "tuneSheet"; el.setAttribute("role", "dialog"); el.setAttribute("aria-label", "음정 주석");
     const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
     el.innerHTML = `<div class="tsBox"><div class="tsHead"><b class="tsRng"></b><span class="tsSrc">${isNew ? "새 주석" : n.status === "ok" ? "✓ 확인됨" : "AI 초안 · " + esc(SRC[n.src] || "AI")}</span></div>
-      <textarea class="tsTx" rows="3" maxlength="80" placeholder="여기에 짧게 적어 주세요 (예: 끝음 내려갈 때 배 힘 유지)">${esc(n.text)}</textarea>
+      <div class="tsTxW"><textarea class="tsTx" rows="3" maxlength="80" placeholder="여기에 짧게 적어 주세요 (예: 끝음 내려갈 때 배 힘 유지)">${esc(n.text)}</textarea>${isNew ? "" : `<button type="button" class="tsClr">전체 지우기</button>`}</div>
       ${n.evidence ? `<div class="tsEv">근거 · ${esc(n.evidence)}</div>` : ""}
       <div class="tsAdj"><span>시작</span><button type="button" data-a="s-">−0.5초</button><button type="button" data-a="s+">+0.5초</button><span>끝</span><button type="button" data-a="e-">−0.5초</button><button type="button" data-a="e+">+0.5초</button></div>
       <div class="tsRow">${isNew ? `<button type="button" class="tsCancel">취소</button>` : `<button type="button" class="tsDel">삭제</button><button type="button" class="tsCancel">닫기</button>`}<button type="button" class="tsOk">${isNew ? "저장" : "✓ 확인"}</button></div></div>`;
@@ -88,6 +102,7 @@
     const close = () => el.remove();
     el.onclick = (e) => { if (e.target === el) close(); };
     el.querySelector(".tsCancel").onclick = close;
+    el.querySelector(".tsClr") && (el.querySelector(".tsClr").onclick = () => { const ta = el.querySelector(".tsTx"); ta.value = ""; ta.focus(); });
     el.querySelector(".tsDel") && (el.querySelector(".tsDel").onclick = () => { close(); o.onDelete && o.onDelete(n); });
     el.querySelector(".tsOk").onclick = () => { const tx = el.querySelector(".tsTx").value.trim(); if (!tx) { el.querySelector(".tsTx").focus(); return; }
       close(); o.onSave && o.onSave({ ...d, text: tx, status: "ok", t0: Math.round(d.t0 * 10) / 10, t1: Math.round(d.t1 * 10) / 10 }); };
@@ -206,7 +221,9 @@
     if (canEdit) el.addEventListener("contextmenu", (e) => e.preventDefault());
     el.addEventListener("pointerdown", (e) => { drag = { x: e.clientX, y: e.clientY, t: +getT() || 0, id: e.pointerId, moved: false };
       if (canEdit && typeof o.onAdd === "function") { const d0 = drag; d0.lp = setTimeout(() => { if (drag !== d0 || d0.moved) return; d0.long = true;   // 길게 누르기 = 그 자리에 새 주석
-        const r = el.getBoundingClientRect(), tt = timeAt(st, e.clientX - r.left); if (ctl && !o.paused()) o.play(); if (tt != null) o.onAdd(tt); }, 600); } });
+        const r = el.getBoundingClientRect(), hn = hitNote(st, e.clientX - r.left, e.clientY - r.top); if (ctl && !o.paused()) o.play();
+        if (hn) { if (!hn.del) o.onNote(hn.n); return; }   // 말풍선 위 꾹 = 그 주석 고치기
+        const tt = timeAt(st, e.clientX - r.left); if (tt != null) o.onAdd(tt); }, 300); } });
     el.addEventListener("pointermove", (e) => {
       if (!drag || drag.id !== e.pointerId) return;
       const dx = e.clientX - drag.x; if (!drag.moved && Math.abs(dx) < 8) return; clearTimeout(drag.lp);
@@ -219,7 +236,7 @@
       if (!drag || drag.id !== e.pointerId) return;
       const d = drag; drag = null; clearTimeout(d.lp); if (d.long) return;
       if (d.moved) { const t = preview; preview = null; if (t != null) seek(t, ctl); return; }
-      if (canEdit) { const r = el.getBoundingClientRect(), hn = hitNote(st, e.clientX - r.left, e.clientY - r.top); if (hn) { if (ctl && !o.paused()) o.play(); o.onNote(hn); return; } }
+      if (canEdit) { const r = el.getBoundingClientRect(), hn = hitNote(st, e.clientX - r.left, e.clientY - r.top); if (hn) { if (ctl && !o.paused()) o.play(); if (hn.del) { o.onDelNote && o.onDelNote(hn.n); } else o.onNote(hn.n); return; } }
       if (ctl) { const was = o.paused(); o.play(); showMid(was ? "play" : "pause"); return; }   // 톡 = 재생·멈춤
       const r = el.getBoundingClientRect(), x = e.clientX - r.left;
       if (x > 30) seek(Math.max(0, d.t - WIN * HEAD + (x - 30) / span() * WIN));   // 조작 정보가 없으면 예전처럼 그 자리부터
@@ -285,7 +302,9 @@
         pinch = { d: Math.hypot(p1.a - p2.a, p1.b - p2.b), xz: st.xz, yz: st.yz }; return; }
       if (pts.size === 1) { drag = { a: along(e), b: across(e), t: +getT() || 0, id: e.pointerId, mode: null, yc: st.yc, cx: e.clientX, cy: e.clientY };
         if (typeof o.onAdd === "function") { const d0 = drag; d0.lp = setTimeout(() => { if (drag !== d0 || d0.mode) return; d0.long = true;
-          const r = cvEl.getBoundingClientRect(), tt = timeAt(st, d0.cx - r.left); pauseNow(); if (tt != null) o.onAdd(tt); }, 600); } }
+          const r = cvEl.getBoundingClientRect(), hn = typeof o.onNote === "function" ? hitNote(st, d0.cx - r.left, d0.cy - r.top) : null; pauseNow();
+          if (hn) { if (!hn.del) o.onNote(hn.n); return; }
+          const tt = timeAt(st, d0.cx - r.left); if (tt != null) o.onAdd(tt); }, 300); } }
     });
     cvEl.addEventListener("pointermove", (e) => {
       if (!pts.has(e.pointerId)) return; pts.set(e.pointerId, { a: along(e), b: across(e) });
@@ -303,7 +322,7 @@
       if (!pts.has(e.pointerId)) return; pts.delete(e.pointerId);
       if (pinch) { if (pts.size === 0) pinch = null; return; }
       if (!drag || drag.id !== e.pointerId) return; const d = drag; drag = null; clearTimeout(d.lp); if (d.long) return;
-      if (!d.mode && e.type === "pointerup" && typeof o.onNote === "function") { const r = cvEl.getBoundingClientRect(), hn = hitNote(st, e.clientX - r.left, e.clientY - r.top); if (hn) { pauseNow(); o.onNote(hn); return; } }
+      if (!d.mode && e.type === "pointerup" && typeof o.onNote === "function") { const r = cvEl.getBoundingClientRect(), hn = hitNote(st, e.clientX - r.left, e.clientY - r.top); if (hn) { pauseNow(); if (hn.del) { o.onDelNote && o.onDelNote(hn.n); } else o.onNote(hn.n); return; } }
       if (d.mode === "time") { const t = preview; preview = null; if (t != null) seek(t, true); return; }   // 이동만, 재생은 안 함
       if (!d.mode && e.type === "pointerup") { const now = Date.now();   // 톡 = 재생/멈춤, 두 번 톡 = 원래 크기
         if (now - lastTap < 320) { resetZoom(); toggle(); lastTap = 0; } else { toggle(); lastTap = now; } }
@@ -348,9 +367,11 @@
 .tuneZoom{display:flex;gap:6px;margin:8px 0 4px}.tuneZoom .tfOpen{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:44px;margin:0;border:0;border-radius:12px;background:linear-gradient(135deg,#ffd27a,#c8912e);color:#1a1307;font-weight:800;font-size:.95rem;box-shadow:0 2px 12px rgba(255,190,90,.25)}.tuneZoom .tfOpen .ic{display:grid;place-items:center;width:26px;height:26px;border-radius:8px;background:rgba(26,19,7,.15);font-size:15px}.tuneZoom button{border:1px solid #363c45;border-radius:10px;background:#11141a;color:#a9b1bc;font-weight:700;font-size:.8rem;min-height:32px;padding:0 12px;margin:0}.tuneZoom button.on{background:#9cc3ff;color:#10141a;border-color:#9cc3ff}`;
   const css2 = `#tuneSheet{position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center}#tuneSheet .tsBox{width:min(520px,100%);box-sizing:border-box;background:#171a20;color:#eceff3;border:1px solid #363c45;border-radius:16px 16px 0 0;padding:14px 14px calc(14px + env(safe-area-inset-bottom))}
 #tuneSheet .tsHead{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:14px}#tuneSheet .tsSrc{font-size:12px;color:#ffd27a}#tuneSheet .tsTx{width:100%;box-sizing:border-box;background:#0f1116;color:#f1f1f1;border:1px solid #3a3f49;border-radius:10px;padding:10px;font-size:16px;line-height:1.5;font-family:inherit;resize:none}
+#tuneSheet .tsTxW{position:relative}#tuneSheet .tsTxW .tsTx{padding-right:104px}#tuneSheet .tsClr{position:absolute;right:8px;top:8px;margin:0;border:0;border-radius:12px;background:#2a2f38;color:#eceff3;font-weight:700;font-size:12.5px;min-height:30px;padding:0 10px}
+#tuneUndo{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:10002;display:flex;align-items:center;gap:14px;background:#2a2f38;color:#eceff3;border-radius:14px;padding:10px 12px 10px 16px;font-size:14px;box-shadow:0 4px 18px rgba(0,0,0,.4)}#tuneUndo button{margin:0;border:0;background:transparent;color:#ffd27a;font-weight:800;font-size:14px;min-height:34px;padding:0 6px}
 #tuneSheet .tsEv{font-size:12px;color:#a9b1bc;margin:8px 0;line-height:1.5;background:#11141a;border-radius:8px;padding:7px 9px}#tuneSheet .tsAdj{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:8px 0;font-size:12.5px;color:#a9b1bc}#tuneSheet .tsAdj button{border:1px solid #363c45;background:#11141a;color:#eceff3;border-radius:8px;min-height:34px;padding:0 10px;margin:0;font-weight:700}
 #tuneSheet .tsRow{display:flex;gap:8px;margin-top:10px}#tuneSheet .tsRow button{flex:1;min-height:46px;border-radius:22px;border:1px solid #3a3f49;background:#11141a;color:#eceff3;font-weight:800;font-size:15px;margin:0}#tuneSheet .tsRow .tsOk{background:#7fd99a;color:#10201a;border:0}#tuneSheet .tsRow .tsDel{color:#ff9a9a}`;
   if (typeof document !== "undefined" && document.head) { const s2 = document.createElement("style"); s2.textContent = css2; document.head.appendChild(s2); }
   if (typeof document !== "undefined" && document.head) { const s = document.createElement("style"); s.textContent = css; document.head.appendChild(s); }
-  G.Tune = { draw, wire, load, legend, range, col, tgCol, centerAt, fitAt, delta, semiLabel, sangLabel, sheet, openFull, WIN, HEAD, ZOOM_HALF };
+  G.Tune = { draw, wire, load, legend, range, col, tgCol, centerAt, fitAt, delta, semiLabel, sangLabel, sheet, undo, openFull, WIN, HEAD, ZOOM_HALF };
 })(typeof window !== "undefined" ? window : globalThis);
