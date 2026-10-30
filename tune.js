@@ -30,11 +30,68 @@
     return Number.isFinite(lo) ? [lo, hi, (lo + hi) / 2] : null;
   }
   // 고친 양을 반음 단위로: 51센트 → "↓ 0.5반음 내림"(반음 = 피아노 건반 한 칸)
+  // (10/30 16:06 사용자 시안 승인) 수강생 기준 '내가 어떻게 불렀나': 고친 양의 반대 방향. d = 고친 양(센트)
+  function sangLabel(d) { const s = (Math.abs(d) / 100).toFixed(1); return d < 0 ? { txt: `↑ ${s}반음 높게 불렀어요`, c: "#ffd27a" } : { txt: `↓ ${s}반음 낮게 불렀어요`, c: "#9cc3ff" }; }
   function semiLabel(d) { const s = Math.abs(d) / 100; return `${d > 0 ? "↑" : "↓"} ${s >= 0.95 ? s.toFixed(1).replace(/\.0$/, "") : s.toFixed(1)}반음 ${d > 0 ? "올림" : "내림"}`; }
   function delta(cv, k, t) {   // 지금 위치의 고친 양(센트)
     if (!k) return null; let best = null;
     for (const p of cv.pts || []) { if (Math.abs(p[0] - t) < 0.06) { best = p[k] - p[1]; break; } if (p[0] > t + 0.06) break; }
     return best;
+  }
+  // ── 음정 주석(10/30 사용자 시안 승인): 초안 = 노란 점선, 확인 = 초록 실선. 그 구간을 지날 때만 말풍선 ──
+  const SRC = { lesson: "이번 레슨", habit: "선생님 강조", knowledge: "보컬 지식", teacher: "선생님" };
+  function wrapTxt(g, s, maxW) { const out = []; let line = ""; for (const ch of String(s)) { if (ch === "\n") { out.push(line); line = ""; continue; } if (g.measureText(line + ch).width > maxW && line) { out.push(line); line = ch.trim() ? ch : ""; } else line += ch; } if (line) out.push(line); return out.slice(0, 4); }
+  function rr(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
+  function drawNotes(g, st, t, xs, L, w, T, H, full, top) {
+    const all = typeof st.notes === "function" ? (st.notes() || []) : [], hits = []; st.hits = hits;
+    if (!all.length) return;
+    for (const n of all) { const a = xs(+n.t0), b = xs(+n.t1); if (b < L - 8 || a > w + 8) continue;   // 구간 표시(짧으면 한 점)
+      const ok = n.status === "ok";
+      if (+n.t1 - +n.t0 < 0.35) { const X = Math.round(a) + 0.5; g.strokeStyle = ok ? "rgba(127,217,154,.75)" : "rgba(255,210,122,.75)"; g.lineWidth = 1.5; g.beginPath(); g.moveTo(X, T); g.lineTo(X, T + H); g.stroke();
+        g.fillStyle = ok ? "#7fd99a" : "#ffd27a"; g.beginPath(); g.moveTo(X, T + H - 2); g.lineTo(X - 5, T + H - 9); g.lineTo(X + 5, T + H - 9); g.closePath(); g.fill(); continue; } g.fillStyle = ok ? "rgba(127,217,154,.08)" : "rgba(255,210,122,.09)"; g.fillRect(Math.max(L, a), T, Math.max(2, Math.min(w, b) - Math.max(L, a)), H);
+      g.strokeStyle = ok ? "rgba(127,217,154,.5)" : "rgba(255,210,122,.5)"; g.lineWidth = 1; g.setLineDash([3, 3]); g.beginPath(); for (const x of [a, b]) if (x >= L && x <= w) { g.moveTo(Math.round(x) + 0.5, T); g.lineTo(Math.round(x) + 0.5, T + H); } g.stroke(); g.setLineDash([]); }
+    const act = all.filter(n => t >= +n.t0 - 0.3 && t <= Math.max(+n.t1, +n.t0 + 0.5) + 1.5).sort((a, b) => a.t0 - b.t0).slice(0, 2);
+    const fs = full ? 14 : 11, lh = fs + 5, maxW = full ? 260 : 170, pad = full ? 9 : 7; let y = top + 4;
+    for (const n of act) { const ok = n.status === "ok";
+      g.font = `${fs}px system-ui, sans-serif`; const lines = wrapTxt(g, n.text || "", maxW);
+      const tag = st.teacher ? (ok ? "✓ 확인" : "AI 초안 · " + (SRC[n.src] || "AI")) : "🎤 선생님 한마디";
+      g.font = `bold ${fs - 2}px system-ui, sans-serif`; const tw = g.measureText(tag).width; g.font = `${fs}px system-ui, sans-serif`;
+      const bw = Math.min(maxW, Math.max(tw, ...lines.map(s => g.measureText(s).width))) + pad * 2, bh = pad * 2 + (fs - 2 + 4) + lines.length * lh;
+      const x = Math.max(L + 2, Math.min(w - bw - 4, xs(+n.t0) - 10));
+      if (y + bh > T + H - 6) break;
+      g.fillStyle = "rgba(30,34,42,.94)"; rr(g, x, y, bw, bh, 10); g.fill();
+      g.strokeStyle = ok ? "#7fd99a" : "#ffd27a"; g.lineWidth = 1.5; if (!ok) g.setLineDash([4, 3]); rr(g, x, y, bw, bh, 10); g.stroke(); g.setLineDash([]);
+      g.textBaseline = "top"; g.font = `bold ${fs - 2}px system-ui, sans-serif`; g.fillStyle = ok ? "#7fd99a" : "#ffd27a"; g.fillText(tag, x + pad, y + pad);
+      g.font = `${fs}px system-ui, sans-serif`; g.fillStyle = "#f1f1f1"; lines.forEach((s, i) => g.fillText(s, x + pad, y + pad + fs + 2 + i * lh)); g.textBaseline = "middle";
+      hits.push({ x, y, w: bw, h: bh, n }); y += bh + 6; }
+  }
+  function hitNote(st, x, y) { for (const h of st.hits || []) if (x >= h.x && x <= h.x + h.w && y >= h.y && y <= h.y + h.h) return h.n; return null; }
+  function timeAt(st, x) { const m = st.map; return m ? Math.max(0, m.t0 + (x - m.L) / Math.max(1, m.w - m.L) * m.W8) : null; }
+  // 주석 고치기 시트(선생님만). onSave(새 주석) / onDelete()
+  function sheet(n, o) {
+    document.getElementById("tuneSheet")?.remove();
+    const fmt = (x) => `${Math.floor(x / 60)}:${(x % 60).toFixed(1).padStart(4, "0")}`, isNew = !n.id;
+    const d = { ...n, t0: +n.t0, t1: +n.t1 };
+    const el = document.createElement("div"); el.id = "tuneSheet"; el.setAttribute("role", "dialog"); el.setAttribute("aria-label", "음정 주석");
+    const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+    el.innerHTML = `<div class="tsBox"><div class="tsHead"><b class="tsRng"></b><span class="tsSrc">${isNew ? "새 주석" : n.status === "ok" ? "✓ 확인됨" : "AI 초안 · " + esc(SRC[n.src] || "AI")}</span></div>
+      <textarea class="tsTx" rows="3" maxlength="80" placeholder="여기에 짧게 적어 주세요 (예: 끝음 내려갈 때 배 힘 유지)">${esc(n.text)}</textarea>
+      ${n.evidence ? `<div class="tsEv">근거 · ${esc(n.evidence)}</div>` : ""}
+      <div class="tsAdj"><span>시작</span><button type="button" data-a="s-">−0.5초</button><button type="button" data-a="s+">+0.5초</button><span>끝</span><button type="button" data-a="e-">−0.5초</button><button type="button" data-a="e+">+0.5초</button></div>
+      <div class="tsRow">${isNew ? `<button type="button" class="tsCancel">취소</button>` : `<button type="button" class="tsDel">삭제</button><button type="button" class="tsCancel">닫기</button>`}<button type="button" class="tsOk">${isNew ? "저장" : "✓ 확인"}</button></div></div>`;
+    (document.getElementById("tuneFs") || document.body).appendChild(el);
+    const spot = d.t1 - d.t0 < 0.35;
+    if (spot) el.querySelector(".tsAdj").innerHTML = `<span>위치</span><button type="button" data-a="p-">−0.5초</button><button type="button" data-a="p+">+0.5초</button>`;
+    const paint = () => { el.querySelector(".tsRng").textContent = spot ? fmt(d.t0) : `${fmt(d.t0)} ~ ${fmt(d.t1)}`; }; paint();
+    el.querySelectorAll("[data-a]").forEach(b => b.onclick = () => { const a = b.dataset.a, v = a[1] === "+" ? 0.5 : -0.5;
+      if (a[0] === "p") { d.t0 = Math.max(0, d.t0 + v); d.t1 = d.t0; } else if (a[0] === "s") d.t0 = Math.max(0, Math.min(d.t1 - 0.3, d.t0 + v)); else d.t1 = Math.max(d.t0 + 0.3, d.t1 + v); paint(); });
+    const close = () => el.remove();
+    el.onclick = (e) => { if (e.target === el) close(); };
+    el.querySelector(".tsCancel").onclick = close;
+    el.querySelector(".tsDel") && (el.querySelector(".tsDel").onclick = () => { close(); o.onDelete && o.onDelete(n); });
+    el.querySelector(".tsOk").onclick = () => { const tx = el.querySelector(".tsTx").value.trim(); if (!tx) { el.querySelector(".tsTx").focus(); return; }
+      close(); o.onSave && o.onSave({ ...d, text: tx, status: "ok", t0: Math.round(d.t0 * 10) / 10, t1: Math.round(d.t1 * 10) / 10 }); };
+    if (isNew) setTimeout(() => el.querySelector(".tsTx").focus(), 50);
   }
   function tgCol(cv) { return cv.target ? 2 + (cv.levels || []).length : 0; }   // 정음(목표음) 열(서버 v2부터)
   function draw(el, cv, t, lv, st) {
@@ -71,6 +128,7 @@
       if (full && !ins && yy - lastY >= 14) { g.fillStyle = "#3d4450"; g.fillText(NAMES[pc] + (Math.floor(m / 12) - 1), 4, yy); lastY = yy; }
       if (ins && yy - lastY >= 12) { g.fillStyle = sc && pc === sc[0] ? "#9cc3ff" : "#6b7480"; g.fillText(NAMES[pc] + (Math.floor(m / 12) - 1), 2, yy); lastY = yy; }   // 가까운 이름은 건너뜀
     }
+    if (st) st.map = { L, W8, t0, w, T, H };
     const vis = []; for (const p of cv.pts || []) { if (p[0] < t0 - 0.3) continue; if (p[0] > t0 + W8 + 0.3) break; vis.push(p); }
     g.save(); g.beginPath(); g.rect(L, T, w - L, H); g.clip();
     if (full && kt) {   // 정음(목표음) = 초록 막대: 보정이 맞추려는 바로 그 음
@@ -99,25 +157,32 @@
       const top = 2, mid = top + (lane - 4) / 2, half = (lane - 6) / 2;
       g.fillStyle = "#151920"; g.fillRect(L, top, w - L, lane - 4); g.fillStyle = "#2c3440"; g.fillRect(L, Math.round(mid), w - L, 1);
       g.fillStyle = "#6b7480"; g.font = (full ? "11px" : "9px") + " system-ui, sans-serif"; g.fillText("고친 양", 0, mid);
-      if (full) { g.fillText("+½", 4, top + 8); g.fillText("−½", 4, top + lane - 12); }
+      if (full) { g.fillText("높게", 4, top + 8); g.fillText("낮게", 4, top + lane - 12); }
       const bw = Math.max(1.5, (w - L) / (W8 * (cv.fps || 25)) * 0.8);
       for (const p of vis) { const X = xs(p[0]); if (X < L || X > w) continue; const d = p[k] - p[1]; if (Math.abs(d) < 2) continue;
-        const hh = Math.max(-half, Math.min(half, d / 50 * half)); g.fillStyle = Math.abs(d) > 15 ? "#ffd27a" : "#5b6573"; g.fillRect(X, hh > 0 ? mid - hh : mid, bw, Math.abs(hh)); }
+        const hh = Math.max(-half, Math.min(half, -d / 50 * half)); g.fillStyle = Math.abs(d) <= 15 ? "#5b6573" : hh > 0 ? "#ffd27a" : "#9cc3ff"; g.fillRect(X, hh > 0 ? mid - hh : mid, bw, Math.abs(hh)); }   // 높게 부른 곳 = 위·노랑, 낮게 = 아래·파랑
     }
     g.fillStyle = "rgba(23,25,29,.35)"; g.fillRect(xs(t) + 2, T, w, H);   // 아직 안 부른 쪽은 살짝 어둡게
     g.fillStyle = "#ffd27a"; g.fillRect(Math.round(xs(t)) - 1, 2, 2.5, h - 4);
-    const d = delta(cv, k, t);
-    if (d != null && Math.abs(d) >= 5) {   // 지금 얼마나 고쳤나(반음 단위, 10/30 13:31 사용자)
-      const s = semiLabel(d); g.font = (full ? "bold 15px" : "bold 11px") + " system-ui, sans-serif";
-      const tw = g.measureText(s).width, x0 = Math.min(w - tw - 8, Math.round(xs(t)) + 6);
-      const bh2 = full ? 22 : 16; g.fillStyle = "rgba(17,20,26,.85)"; g.fillRect(x0 - 3, T + 4, tw + 6, bh2); g.fillStyle = "#ffd27a"; g.fillText(s, x0, T + 4 + bh2 / 2);
+    const kL = k || col(cv, (st && st.lvDef) || 2) || col(cv, (cv.levels || [])[0]), d = delta(cv, kL, t);   // 원음으로 들을 때도 '어떻게 불렀나'는 보여 줌
+    let tagB = T + 4;
+    if (d != null && Math.abs(d) >= 5) {   // 지금 위치: 수강생 기준 현상(↑높게/↓낮게). 선생님은 아래에 작게 보정량
+      const s = sangLabel(d), sub = st && st.teacher ? "보정: " + semiLabel(d).slice(2) : "";
+      g.font = (full ? "bold 15px" : "bold 11px") + " system-ui, sans-serif";
+      const g2 = (full ? "12px" : "9.5px") + " system-ui, sans-serif", tw1 = g.measureText(s.txt).width; g.font = g2; const tw2 = sub ? g.measureText(sub).width : 0;
+      const tw = Math.max(tw1, tw2), x0 = Math.min(w - tw - 8, Math.round(xs(t)) + 6), bh1 = full ? 22 : 16, bh2 = sub ? (full ? 16 : 12) : 0;
+      g.fillStyle = "rgba(17,20,26,.85)"; g.fillRect(x0 - 3, T + 4, tw + 6, bh1 + bh2);
+      g.font = (full ? "bold 15px" : "bold 11px") + " system-ui, sans-serif"; g.fillStyle = s.c; g.fillText(s.txt, x0, T + 4 + bh1 / 2);
+      if (sub) { g.font = g2; g.fillStyle = "#a9b1bc"; g.fillText(sub, x0, T + 4 + bh1 + bh2 / 2 - 2); }
+      tagB = T + 8 + bh1 + bh2;
     }
+    if (st) drawNotes(g, st, t, xs, L, w, T, H, full, tagB);
   }
   // 붙이기: getT()=지금 초, getLv()=보여 줄 보정 단계(0이면 원음만), seek(초). 화면에서 빠지면 저절로 멈춤.
   // 확대/전체 버튼: el 바로 앞에 붙임(Tune.controls). 기본 = 확대.
   function wire(el, cv, getT, getLv, seek, opts) {
     if (!el || !cv) return;
-    const st = { zoom: true, lo: null, hi: null };
+    const st = { zoom: true, lo: null, hi: null, notes: opts && opts.notes, teacher: !!(opts && opts.teacher), lvDef: opts && opts.lvDef };
     const bar = document.createElement("div"); bar.className = "tuneZoom";
     // (10/30 14:20 사용자) 작은 화면은 확대(지금 음 근처)로 고정 — 버튼은 '전체화면' 하나만, 잘 보이게
     bar.innerHTML = `<button type="button" data-fs="1" class="tfOpen" aria-label="음정선 전체화면으로 크게 보기"><span class="ic" aria-hidden="true">⛶</span>전체화면으로 크게 보기</button>`;
@@ -132,15 +197,20 @@
     let drag = null, preview = null, shown = null;
     const showMid = (kind) => { mid.textContent = kind === "pause" ? "❚❚" : "▶"; mid.className = "tuneMid " + (kind === "pause" ? "stay" : "flash"); void mid.offsetWidth; mid.classList.add("go"); shown = kind; };
     const loop = () => { if (!el.isConnected) { bar.remove(); return; } draw(el, cv, preview ?? (+getT() || 0), +getLv() || 0, st);
+      mid.style.visibility = st.hits && st.hits.length ? "hidden" : "";   // 말풍선이 떠 있으면 가운데 ❚❚는 숨김
       if (ctl) { const p = !!o.paused(); if (p && shown !== "pause" && !document.getElementById("tuneFs")) showMid("pause"); else if (!p && shown === "pause") showMid("play"); }
       requestAnimationFrame(loop); };
     requestAnimationFrame(loop);
     const span = () => (el.clientWidth - 30) || 1;
     el.style.touchAction = "pan-y";
-    el.addEventListener("pointerdown", (e) => { drag = { x: e.clientX, y: e.clientY, t: +getT() || 0, id: e.pointerId, moved: false }; });
+    const canEdit = typeof o.onNote === "function";
+    if (canEdit) el.addEventListener("contextmenu", (e) => e.preventDefault());
+    el.addEventListener("pointerdown", (e) => { drag = { x: e.clientX, y: e.clientY, t: +getT() || 0, id: e.pointerId, moved: false };
+      if (canEdit && typeof o.onAdd === "function") { const d0 = drag; d0.lp = setTimeout(() => { if (drag !== d0 || d0.moved) return; d0.long = true;   // 길게 누르기 = 그 자리에 새 주석
+        const r = el.getBoundingClientRect(), tt = timeAt(st, e.clientX - r.left); if (ctl && !o.paused()) o.play(); if (tt != null) o.onAdd(tt); }, 600); } });
     el.addEventListener("pointermove", (e) => {
       if (!drag || drag.id !== e.pointerId) return;
-      const dx = e.clientX - drag.x; if (!drag.moved && Math.abs(dx) < 8) return;
+      const dx = e.clientX - drag.x; if (!drag.moved && Math.abs(dx) < 8) return; clearTimeout(drag.lp);
       if (!drag.moved && Math.abs(e.clientY - drag.y) > Math.abs(dx)) { drag = null; return; }   // 세로로 밀면 화면 스크롤
       if (!drag.moved && ctl && !o.paused()) o.play();   // 밀기 시작하면 멈춤(재생은 톡으로)
       drag.moved = true; try { el.setPointerCapture(e.pointerId); } catch {}
@@ -148,13 +218,14 @@
     });
     const up = (e) => {
       if (!drag || drag.id !== e.pointerId) return;
-      const d = drag; drag = null;
+      const d = drag; drag = null; clearTimeout(d.lp); if (d.long) return;
       if (d.moved) { const t = preview; preview = null; if (t != null) seek(t, ctl); return; }
+      if (canEdit) { const r = el.getBoundingClientRect(), hn = hitNote(st, e.clientX - r.left, e.clientY - r.top); if (hn) { if (ctl && !o.paused()) o.play(); o.onNote(hn); return; } }
       if (ctl) { const was = o.paused(); o.play(); showMid(was ? "play" : "pause"); return; }   // 톡 = 재생·멈춤
       const r = el.getBoundingClientRect(), x = e.clientX - r.left;
       if (x > 30) seek(Math.max(0, d.t - WIN * HEAD + (x - 30) / span() * WIN));   // 조작 정보가 없으면 예전처럼 그 자리부터
     };
-    el.addEventListener("pointerup", up); el.addEventListener("pointercancel", () => { drag = null; preview = null; });
+    el.addEventListener("pointerup", up); el.addEventListener("pointercancel", () => { if (drag) clearTimeout(drag.lp); drag = null; preview = null; });
   }
   // ── 전체화면: 카드에서 커지며 가로로 돌아 폰 화면 가득. 상하 배율 고정(곡 전체 음역), 정음·부른 음·보정 음을 크게 ──
   function openFull(src, cv, getT, getLv, seek, o) {
@@ -169,7 +240,7 @@
       <span class="tfCtl">${hasAb ? `<span class="tfAb"><button type="button" data-m="o">원음</button><button type="button" data-m="p">✨ 보정본</button></span>` : ""}<span class="tfNav"><button type="button" data-j="0" aria-label="처음으로">⏮ 처음</button><button type="button" data-j="-5" aria-label="5초 뒤로">-5초</button><button type="button" data-j="5" aria-label="5초 앞으로">+5초</button></span></span>
       <span class="tfNote">AI 단순 보정이라 정확하지 않을 수 있어요.<br>정식 음원은 전문 엔지니어가 한 음 한 음 더 정밀하게 다듬어요.</span></div></div>`;
     document.body.appendChild(wrap);
-    const box = wrap.querySelector(".tfBox"), cvEl = wrap.querySelector(".tfCv"), st = { full: true, xz: 1, yz: 1, yc: null, panAt: 0 };
+    const box = wrap.querySelector(".tfBox"), cvEl = wrap.querySelector(".tfCv"), st = { full: true, xz: 1, yz: 1, yc: null, panAt: 0, notes: o.notes, teacher: !!o.teacher, lvDef: o.lvDef };
     const rot = false;   // (10/30 14:56 사용자) 억지로 돌리지 않음 — 세로로 들면 세로 화면, 폰을 돌리면 가로 화면
     const layout = () => { const W = G.innerWidth, H = G.innerHeight, port = H > W;
       box.style.width = W + "px"; box.style.height = H + "px"; box.style.transform = "translate(-50%,-50%)";
@@ -208,12 +279,14 @@
     const along = (e) => (rot ? e.clientY : e.clientX), across = (e) => (rot ? e.clientX : e.clientY);
     const span = () => (cvEl.clientWidth - 44) || 1, tall = () => cvEl.clientHeight || 1;
     const pts = new Map(); let drag = null, pinch = null, preview = null;
-    cvEl.style.touchAction = "none";
+    cvEl.style.touchAction = "none"; cvEl.addEventListener("contextmenu", (e) => e.preventDefault());
     cvEl.addEventListener("pointerdown", (e) => {
       pts.set(e.pointerId, { a: along(e), b: across(e) }); try { cvEl.setPointerCapture(e.pointerId); } catch {}
       if (pts.size === 2) { const [p1, p2] = [...pts.values()]; drag = null; preview = null;
         pinch = { d: Math.hypot(p1.a - p2.a, p1.b - p2.b), xz: st.xz, yz: st.yz }; return; }
-      if (pts.size === 1) drag = { a: along(e), b: across(e), t: +getT() || 0, id: e.pointerId, mode: null, yc: st.yc };
+      if (pts.size === 1) { drag = { a: along(e), b: across(e), t: +getT() || 0, id: e.pointerId, mode: null, yc: st.yc, cx: e.clientX, cy: e.clientY };
+        if (typeof o.onAdd === "function") { const d0 = drag; d0.lp = setTimeout(() => { if (drag !== d0 || d0.mode) return; d0.long = true;
+          const r = cvEl.getBoundingClientRect(), tt = timeAt(st, d0.cx - r.left); pauseNow(); if (tt != null) o.onAdd(tt); }, 600); } }
     });
     cvEl.addEventListener("pointermove", (e) => {
       if (!pts.has(e.pointerId)) return; pts.set(e.pointerId, { a: along(e), b: across(e) });
@@ -223,20 +296,21 @@
         return; }
       if (!drag || drag.id !== e.pointerId) return;
       const dA = along(e) - drag.a, dB = across(e) - drag.b;
-      if (!drag.mode) { if (Math.max(Math.abs(dA), Math.abs(dB)) < 8) return; drag.mode = Math.abs(dA) >= Math.abs(dB) ? "time" : "pitch"; if (drag.mode === "time") pauseNow(); }
+      if (!drag.mode) { if (Math.max(Math.abs(dA), Math.abs(dB)) < 8) return; clearTimeout(drag.lp); drag.mode = Math.abs(dA) >= Math.abs(dB) ? "time" : "pitch"; if (drag.mode === "time") pauseNow(); }
       if (drag.mode === "time") preview = Math.max(0, drag.t - dA / span() * ((st.win || 6) / st.xz));
       else if (st.yz > 1) { const [lo, hi] = range(cv), per = (hi - lo) / st.yz / tall(); st.yc = (drag.yc ?? (lo + hi) / 2) + dB * per * (rot ? -1 : 1); st.panAt = Date.now(); }
     });
     const end = (e) => {
       if (!pts.has(e.pointerId)) return; pts.delete(e.pointerId);
       if (pinch) { if (pts.size === 0) pinch = null; return; }
-      if (!drag || drag.id !== e.pointerId) return; const d = drag; drag = null;
+      if (!drag || drag.id !== e.pointerId) return; const d = drag; drag = null; clearTimeout(d.lp); if (d.long) return;
+      if (!d.mode && e.type === "pointerup" && typeof o.onNote === "function") { const r = cvEl.getBoundingClientRect(), hn = hitNote(st, e.clientX - r.left, e.clientY - r.top); if (hn) { pauseNow(); o.onNote(hn); return; } }
       if (d.mode === "time") { const t = preview; preview = null; if (t != null) seek(t, true); return; }   // 이동만, 재생은 안 함
       if (!d.mode && e.type === "pointerup") { const now = Date.now();   // 톡 = 재생/멈춤, 두 번 톡 = 원래 크기
         if (now - lastTap < 320) { resetZoom(); toggle(); lastTap = 0; } else { toggle(); lastTap = now; } }
     };
     cvEl.addEventListener("pointerup", end); cvEl.addEventListener("pointercancel", (e) => { preview = null; end(e); });
-    const loop = () => { if (!wrap.isConnected) return; const t = preview ?? (+getT() || 0); draw(cvEl, cv, t, +getLv() || 0, st);
+    const loop = () => { if (!wrap.isConnected) return; const t = preview ?? (+getT() || 0); draw(cvEl, cv, t, +getLv() || 0, st); mid.style.visibility = st.hits && st.hits.length ? "hidden" : "";
       tm.textContent = fmt(t) + (st.yz > 1.05 ? ` · ×${st.yz.toFixed(1)}` : "");
       if (hasAb) { const m = o.mode ? o.mode() : "p"; wrap.querySelectorAll("[data-m]").forEach(b => b.classList.toggle("on", b.dataset.m === m)); }
       requestAnimationFrame(loop); };
@@ -273,6 +347,11 @@
 .tuneWrap{position:relative}.tuneMid{position:absolute;left:50%;top:44%;width:60px;height:60px;margin:-30px 0 0 -30px;border-radius:50%;background:rgba(156,195,255,.18);color:rgba(255,255,255,.8);font-size:22px;display:grid;place-items:center;pointer-events:none;opacity:0;transform:scale(.6)}
 .tuneMid.stay.go{animation:tfPop .22s cubic-bezier(.3,1.5,.5,1) forwards}.tuneMid.flash.go{animation:tfFlash .3s ease-out forwards}
 .tuneZoom{display:flex;gap:6px;margin:8px 0 4px}.tuneZoom .tfOpen{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:44px;margin:0;border:0;border-radius:12px;background:linear-gradient(135deg,#ffd27a,#c8912e);color:#1a1307;font-weight:800;font-size:.95rem;box-shadow:0 2px 12px rgba(255,190,90,.25)}.tuneZoom .tfOpen .ic{display:grid;place-items:center;width:26px;height:26px;border-radius:8px;background:rgba(26,19,7,.15);font-size:15px}.tuneZoom button{border:1px solid #363c45;border-radius:10px;background:#11141a;color:#a9b1bc;font-weight:700;font-size:.8rem;min-height:32px;padding:0 12px;margin:0}.tuneZoom button.on{background:#9cc3ff;color:#10141a;border-color:#9cc3ff}`;
+  const css2 = `#tuneSheet{position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center}#tuneSheet .tsBox{width:min(520px,100%);box-sizing:border-box;background:#171a20;color:#eceff3;border:1px solid #363c45;border-radius:16px 16px 0 0;padding:14px 14px calc(14px + env(safe-area-inset-bottom))}
+#tuneSheet .tsHead{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:14px}#tuneSheet .tsSrc{font-size:12px;color:#ffd27a}#tuneSheet .tsTx{width:100%;box-sizing:border-box;background:#0f1116;color:#f1f1f1;border:1px solid #3a3f49;border-radius:10px;padding:10px;font-size:16px;line-height:1.5;font-family:inherit;resize:none}
+#tuneSheet .tsEv{font-size:12px;color:#a9b1bc;margin:8px 0;line-height:1.5;background:#11141a;border-radius:8px;padding:7px 9px}#tuneSheet .tsAdj{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:8px 0;font-size:12.5px;color:#a9b1bc}#tuneSheet .tsAdj button{border:1px solid #363c45;background:#11141a;color:#eceff3;border-radius:8px;min-height:34px;padding:0 10px;margin:0;font-weight:700}
+#tuneSheet .tsRow{display:flex;gap:8px;margin-top:10px}#tuneSheet .tsRow button{flex:1;min-height:46px;border-radius:22px;border:1px solid #3a3f49;background:#11141a;color:#eceff3;font-weight:800;font-size:15px;margin:0}#tuneSheet .tsRow .tsOk{background:#7fd99a;color:#10201a;border:0}#tuneSheet .tsRow .tsDel{color:#ff9a9a}`;
+  if (typeof document !== "undefined" && document.head) { const s2 = document.createElement("style"); s2.textContent = css2; document.head.appendChild(s2); }
   if (typeof document !== "undefined" && document.head) { const s = document.createElement("style"); s.textContent = css; document.head.appendChild(s); }
-  G.Tune = { draw, wire, load, legend, range, col, tgCol, centerAt, fitAt, delta, semiLabel, openFull, WIN, HEAD, ZOOM_HALF };
+  G.Tune = { draw, wire, load, legend, range, col, tgCol, centerAt, fitAt, delta, semiLabel, sangLabel, sheet, openFull, WIN, HEAD, ZOOM_HALF };
 })(typeof window !== "undefined" ? window : globalThis);

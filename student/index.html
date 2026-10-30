@@ -138,7 +138,7 @@
   <div id="view"><p class="muted">불러오는 중…</p></div>
 </main>
 <script src="../lesson-replies.js"></script>
-<script src="../tune.js?v=20261030-1545"></script>
+<script src="../tune.js?v=20261030-1700"></script>
 <script>
 // ── 설정(비밀값 아님): 수강생 로그인용 구글 클라이언트 ID, 노트 연결(Apps Script 웹 앱) 주소 ──
 const STUDENT_CLIENT_ID = "712936245254-2itl2rolhhcsq9cdqnhku4u43hpdv2mk.apps.googleusercontent.com";
@@ -458,6 +458,8 @@ function wirePlayers() {
 }
 // ── (10/30 사용자) 메이크업본: 튠 화면 + 원음/보정본(같은 자리에서 바로) — 원음 = 보정 전 같은 구간(같은 크기) ──
 const mmss2 = (x) => `${Math.floor((x || 0) / 60)}:${String(Math.floor((x || 0) % 60)).padStart(2, "0")}`;
+// 선생님이 ✓확인한 음정 주석만(전달할 때 실림). 글은 화면(캔버스)에만 그려서 HTML로 넣지 않음
+function tnOk(a) { return Array.isArray(a) ? a.filter(n => n && Number.isFinite(+n.t0) && +n.t1 >= +n.t0 && typeof n.text === "string" && n.text.trim()).slice(0, 12).map(n => ({ t0: +n.t0, t1: +n.t1, text: n.text.slice(0, 80), status: "ok" })) : []; }
 function mkBoxHtml(mk, best) {
   return `<div class="mkBox" data-mkbox="${esc(mk.file_id)}">
     <div class="abSw" role="group" aria-label="원음·보정본"><button type="button" data-ab="o" class="on" aria-pressed="true">원음</button><button type="button" data-ab="p" aria-pressed="false">✨ 보정본</button></div>
@@ -497,7 +499,7 @@ function wireMkBoxes() {
       Tune.wire(cvEl, cv, () => D.act().currentTime || 0, () => (D.mode() === "p" ? +(mk.curve_lv ?? 2) : 0), async (t, still) => {
         const a = D.act(); try { if (!a.getAttribute("src")) { if (still) a.src = await audioUrl(D.mode() === "p" ? src.p : src.o); else await D.play(src); }
           const go = () => { a.currentTime = t; if (still) a.pause(); else if (a.paused) a.play().catch(() => {}); }; if (a.readyState >= 1) go(); else a.addEventListener("loadedmetadata", go, { once: true }); } catch {} },
-        { title: "오늘의 베스트", play: () => btn.click(), paused: () => D.act().paused, mode: () => D.mode(), setMode: (m) => D.swap(m, src).then(paint).catch(() => {}) });
+        { title: "오늘의 베스트", play: () => btn.click(), paused: () => D.act().paused, mode: () => D.mode(), setMode: (m) => D.swap(m, src).then(paint).catch(() => {}), lvDef: +(mk.curve_lv ?? 2), notes: () => tnOk(mk.tune_notes) });
     }).catch(() => { cvEl.nextElementSibling?.classList?.contains("tuneLeg") && cvEl.nextElementSibling.remove(); cvEl.remove(); });
   });
 }
@@ -507,7 +509,7 @@ function albumTracks(ls) {   // 레슨마다 한 곡: 원음(베스트) + 있으
   asc.forEach((l, i) => {
     if (!sidOk(l.best?.file_id)) return;
     const mk = makeupOk(l.makeup, l.best) ? l.makeup : null;
-    out.push({ id: l.best.file_id, mk: mk ? mk.file_id : null, curve: mk && sidOk(mk.curve_id) ? mk.curve_id : null, lv: +(mk?.curve_lv ?? 2), lid: l.id,
+    out.push({ id: l.best.file_id, mk: mk ? mk.file_id : null, curve: mk && sidOk(mk.curve_id) ? mk.curve_id : null, lv: +(mk?.curve_lv ?? 2), lid: l.id, notes: mk && typeof tnOk === "function" ? tnOk(mk.tune_notes) : [],
       title: `${md(l.date)} · ${i + 1}회차 베스트`, len: l.best.len });
   });
   return out;
@@ -552,7 +554,7 @@ function wireAlbum(ls) {
       if (!cv || list[i] !== x) return; const fresh = cvEl.cloneNode(); cvEl.replaceWith(fresh); fresh.classList.remove("hidden"); $("albLeg").innerHTML = Tune.legend(true);
       document.querySelectorAll("#alb .tuneZoom").forEach(z => z.remove());
       Tune.wire(fresh, cv, () => D.act().currentTime || 0, () => (D.mode() === "p" ? x.lv : 0), (t, still) => { const a = D.act(); a.currentTime = t; if (still) a.pause(); else if (a.paused) a.play().catch(() => {}); },
-        { title: x.title, play: () => $("albPP").click(), paused: () => D.act().paused, mode: () => D.mode(), ...(x.mk ? { setMode: (m) => $("albAb")?.querySelector(`[data-ab="${m}"]`)?.click() } : {}) }); }); }
+        { title: x.title, play: () => $("albPP").click(), paused: () => D.act().paused, mode: () => D.mode(), lvDef: x.lv, notes: () => x.notes || [], ...(x.mk ? { setMode: (m) => $("albAb")?.querySelector(`[data-ab="${m}"]`)?.click() } : {}) }); }); }
     paintList();
     try { await D.play(src()); } catch {}
     try { if ("mediaSession" in navigator) { navigator.mediaSession.metadata = new MediaMetadata({ title: x.title, artist: data.name ? `${data.name}님의 보컬노트` : "보컬노트" });
