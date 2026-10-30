@@ -239,7 +239,7 @@ function calGrid(ym, byDate, sel, tap) {   // byDate[YYYY-MM-DD] = [{s}] → 칸
   return `<div class="cal">${h}</div><div class="calLeg">${["done", "makeup_done", "scheduled", "cancelled", "review"].map(s => `<span>${CAL_S[s][0]} ${CAL_S[s][1]}</span>`).join("")}</div>`;
 }
 const calDay = (iso) => { const d = new Date(iso + "T00:00:00"); return `${d.getMonth() + 1}/${d.getDate()}(${"일월화수목금토"[d.getDay()]})`; };
-const S_BADGES = [["first_lesson", "🎵", "첫 레슨"], ["four_done", "🏅", "4회 완주"], ["pkg_streak3", "🔥", "3번 연속 완주"]];
+const S_BADGES = [["first_lesson", "🎵", "첫 레슨"], ["four_done", "🏅", "수강권 완주"], ["pkg_streak3", "🔥", "3번 연속 완주"]];
 function myLessons(ym) {   // '나의 레슨': 이번 달 달력 + 그 달 레슨 목록(누르면 노트) + 배지
   const s = data.status || {}, days = Array.isArray(s.days) ? s.days : [];
   ym = ym || calYm(new Date());
