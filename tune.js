@@ -193,6 +193,9 @@
     const openedAt = performance.now();
     el.onclick = (e) => { if (e.target === el && performance.now() - openedAt > 450) close(); };
     el.querySelector(".tsCancel").onclick = close;
+    // (10/31 08:58 사용자) 글 칸에 커서가 있는 채로 미세 조정·한 점/구간 버튼을 누르면 키보드가 자꾸 올라옴 → 글 칸 밖 버튼을 누르는 순간 글 칸에서 커서를 빼서 키보드를 내림
+    el.addEventListener("pointerdown", (e) => { const b = e.target.closest && e.target.closest("button"); if (!b || b.classList.contains("tsClr")) return;
+      const ae = document.activeElement; if (ae && ae.classList && ae.classList.contains("tsTx")) ae.blur(); }, true);
     el.querySelector(".tsClr") && (el.querySelector(".tsClr").onclick = () => { const ta = el.querySelector(".tsTx"); ta.value = ""; ta.focus(); });
     // (10/30 17:38 사용자 시안 승인) 삭제 = 확인 팝업('다음부터 묻지 않기' 체크하면 이 폰에선 바로 삭제)
     const doDel = () => { close(); o.onDelete && o.onDelete(n); };
