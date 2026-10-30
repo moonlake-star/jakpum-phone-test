@@ -968,6 +968,7 @@ function paintList(data, stale) {
     if (pend) todo.push({ k: "subs", sid: d.sid, t: `🎙 ${st.name} · 과제 답장`, c: `${pend}개` });
     (d.jobs || []).forEach(j => {
       if (["queued", "working"].includes(j.req.status)) todo.push({ k: "job", sid: d.sid, reqId: j.reqId, t: `🪄 ${st.name} · ${j.req.title}`, c: `${j.req.progress?.pct ?? 0}% 만드는 중` });
+      else if (j.req.status === "done" && j.req.notify === "best_change" && !j.req.sent_at && daysAgo(j.req.done_at) <= 14) todo.push({ k: "job", sid: d.sid, reqId: j.reqId, bell: true, t: `🔔 ${st.name} · ${String(j.req.title || "").slice(0, 10)} 바꾼 베스트 보정 완료`, c: "확인하기" });   // (10/30 22:11 사용자) 새로 고른 베스트 보정이 끝나면 알림
       else if (j.req.status === "done" && !j.req.sent_at && daysAgo(j.req.done_at) <= 7) todo.push({ k: "job", sid: d.sid, reqId: j.reqId, t: `🪄 ${st.name} · ${j.req.title}`, c: "완성 · 들어보기" });
     });
   }
@@ -3818,19 +3819,36 @@ function initFold(el, forceOpen) {
 function bestOptions() {
   const b = cur.best, c = b?.composite;
   const ad = typeof regenAdopted === "function" ? regenAdopted() : null;   // 선생님이 [새 편집본 채택]을 누른 후보만. 채택 전 후보는 여기에 들어오지 않음
+  // (10/30 22:11 사용자) 선생님이 '다른 후보'에서 직접 바꿔 고른 테이크가 있으면 그것이 우선(over 표시가 있는 선택만 — 예전 선택은 예전 규칙)
+  { const ov = cur.review?.bestSingle?.over && cur.review.bestSingle.file_id, one = ov && typeof bestSingles === "function" && bestSingles().find(x => x.file_id === ov);
+    if (b?.status === "ok" && one) return [{ ...one, isComposite: false, singlePicked: true, over: true }]; }
   if (b?.status === "ok" && ad) return [{ ...ad, isComposite: true }];
   if (b?.status === "ok" && c?.status === "ok" && c.file_id) return [{ ...c, isComposite: true }];
   // (10/30 사용자) 이어 붙일 구간이 없을 때: 선생님이 '가장 좋았던 한 번' 중 직접 고른 것만 오늘의 베스트로(자동 대체 아님)
   const sp = cur.review?.bestSingle?.file_id, one = sp && typeof bestSingles === "function" && bestSingles().find(x => x.file_id === sp);
   return b?.status === "ok" && one ? [{ ...one, isComposite: false, singlePicked: true }] : [];
 }
-function bestSingles() { const b = cur.best; return b?.status === "ok" ? [b.best, ...(b.alternatives || [])].filter((x, i, a) => x?.file_id && a.findIndex(y => y?.file_id === x.file_id) === i).slice(0, 3) : []; }
-async function bestSinglePick(fid) {
-  cur.review.bestSingle = fid ? { file_id: fid, at: new Date().toISOString() } : null;
+// (10/30 22:11 사용자) AI가 고른 베스트가 마음에 안 들면: 미리 잘라 둔 다른 후보(최대 3개, 보정 전 원음)를 바로 듣고 [이걸로] → 그 테이크로 보정본을 새로 만듦
+function bestAltsHTML(o) {
+  const L = (typeof bestSingles === "function" ? bestSingles() : []).filter(x => x.file_id !== o?.file_id).slice(0, 3);
+  const back = o?.over ? `<button type="button" class="small ghost" id="sglReset" style="margin-top:6px">↩ AI가 고른 원래 베스트로</button>` : "";
+  if (!L.length) return back ? `<div>${back}</div>` : "";
+  return `<details class="sglMore" style="margin-top:8px"><summary class="muted" style="font-size:.88rem">🎧 다른 후보 듣고 바꾸기 (${L.length}) · 보정 전 원음</summary>
+    ${L.map((x, i) => `<div style="margin-top:8px"><div class="row" style="gap:8px;align-items:center;flex-wrap:nowrap">
+      <div class="tp sglTp" data-sgltp="${esc(x.file_id)}" data-len="${+x.len || 0}"><button type="button" class="small" data-tp="play" aria-label="다른 후보 ${i + 1} 듣기" style="flex:none">▶</button>
+        <span class="sglLab">${Number.isFinite(+x.start) ? esc(fmt(+x.start)) + " · " : ""}${Math.round(+x.len || 0)}초${x.late ? " · 뒤쪽 테이크" : ""}</span>
+        <div class="tpWaveBox"><canvas class="tpWave" aria-hidden="true"></canvas><input type="range" class="tpSeek" min="0" max="1000" value="0" aria-label="재생 위치"></div><span class="tpTime"></span></div>
+      <button type="button" class="small" data-sglover="${esc(x.file_id)}" style="flex:none">이걸로</button></div>
+      ${x.praise?.text ? `<div class="muted" style="font-size:.8rem;margin:2px 0 0 4px">선생님 “${esc(String(x.praise.text).slice(0, 24))}”</div>` : ""}</div>`).join("")}
+    <p class="muted" style="margin:8px 0 0;font-size:.8rem">바꾸면 그 테이크로 보정본을 새로 만들어요(10~15분) · 다 되면 ‘오늘 할 일’에 🔔</p>${back}</details>`;
+}
+function bestSingles() { const b = cur.best; return b?.status === "ok" ? [b.best, ...(b.alternatives || [])].filter((x, i, a) => x?.file_id && a.findIndex(y => y?.file_id === x.file_id) === i).slice(0, 4) : []; }   // 베스트 + 다른 후보 최대 3개(10/30 22:11)
+async function bestSinglePick(fid, over) {
+  cur.review.bestSingle = fid ? { file_id: fid, at: new Date().toISOString(), ...(over ? { over: true } : {}) } : null;
   if (typeof markDirty === "function") markDirty();
   try { tpDetach(); } catch {} renderToday();
   await saveReview(true);
-  toast(fid ? "오늘의 베스트로 정했어요 · 메이크업본도 자동으로 만들어요" : "선택을 풀었어요");
+  toast(fid ? (over ? "이 테이크로 바꿨어요 · 보정본을 새로 만들어요(10~15분) · 다 되면 ‘오늘 할 일’에 🔔로 알려 드려요" : "오늘의 베스트로 정했어요 · 메이크업본도 자동으로 만들어요") : "선택을 풀었어요");
 }
 function bestSourceTakes() {   // 하이라이트 기준 테이크 등 내부용. 화면의 선택지가 아님
   const b = cur.best; if (b?.status !== "ok") return [];
@@ -3983,6 +4001,7 @@ function renderBest() {
     <div class="row abTimeRow" style="justify-content:space-between;margin-top:4px"><span class="tpTime muted abTime">0:00 / 0:00</span><span class="muted" style="font-size:.8rem">${tuneF ? "그래프 톡 = 재생·멈춤 · 좌우로 밀면 이동" : "파형을 누르면 그 자리부터"}</span></div>
     <div class="row tpBtns" style="margin-top:4px;gap:4px;flex-wrap:nowrap;display:grid;grid-template-columns:${ms === "ready" ? "1fr 1fr 1.1fr 1fr 1fr 1.1fr" : "1fr 1fr 1.1fr 1fr 1fr"}">
       <button class="small ghost" data-abp="start" aria-label="처음으로 이동">⏮</button><button class="small ghost" data-abp="back" aria-label="5초 뒤로">-5</button><button class="small" data-abp="play" aria-label="재생">▶</button><button class="small ghost" data-abp="fwd" aria-label="5초 앞으로">+5</button><button class="small ghost" data-abp="end" aria-label="끝으로 이동">⏭</button>${ms === "ready" ? `<button class="small ghost" data-abp="swap" aria-label="같은 위치에서 원본·메이크업 바꾸기">⇄</button>` : ""}</div>
+    ${typeof bestAltsHTML === "function" ? bestAltsHTML(o) : ""}
     <details style="margin-top:6px"><summary class="muted" style="font-size:.88rem">ℹ 자세히 · 어떻게 만들었나</summary>
       <p class="muted" style="font-size:.85rem;margin:4px 0">☑ <b>피드백에 포함</b>을 체크한 것만 수강생 노트에 실리고 ‘클립 보내기’ 때 같이 가요. 체크하지 않으면 수강생에게 안 가요(파일은 그대로 남아요).</p>
       <div class="seamLabels">${seamStrip(o, "labels")}<p class="muted" style="font-size:.8rem;margin:2px 0">노란 부분 = 다른 테이크에서 가져와 이어 붙인 자리 · 시간을 누르면 그 바로 앞부터 들려요</p></div>
@@ -4186,7 +4205,7 @@ function mkAutoEnsure(o) {
       const title = me.folder.name.slice(0, 10) + "_베스트_" + (o.isComposite ? "이어붙임" : "연속테이크");
       const req = { status: "queued", mode: "single", title, student_id: me.sid, student_name: me.st.name, preset: "표준", settings: {},
         source_id: o.file_id, source_name: o.file || "베스트.mp3", source_is_clip: true, start: null, end: null,
-        lesson_folder: me.folder.id, best_file_id: o.file_id, pitch_level: 2, requested_at: new Date().toISOString(), auto: true };
+        lesson_folder: me.folder.id, best_file_id: o.file_id, pitch_level: 2, requested_at: new Date().toISOString(), auto: true, ...(o.over ? { notify: "best_change" } : {}) };   // 선생님이 바꿔 고른 베스트 → 다 되면 🔔
       const f7 = await mkFolder(me.sid), jf = await newFolder(title + "_메이크업", f7), reqId = await writeJSON(jf, MKREQ, req);
       me.st._jobs = [{ sid: me.sid, st: me.st, folder: { id: jf, name: title + "_메이크업" }, files: [], reqId, req }, ...(me.st._jobs || [])];
       kick().catch(() => {});
@@ -4237,6 +4256,7 @@ function wireBest() {
     });
   });
   (document.querySelectorAll?.("#todayCard [data-sglpick]") || []).forEach(b => b.onclick = () => bestSinglePick(b.dataset.sglpick).catch(e => toast(e.message)));
+  (document.querySelectorAll?.("#todayCard [data-sglover]") || []).forEach(b => b.onclick = () => bestSinglePick(b.dataset.sglover, true).catch(e => toast(e.message)));
   const rs = typeof document.getElementById === "function" ? document.getElementById("sglReset") : null; if (rs) rs.onclick = () => bestSinglePick(null).catch(e => toast(e.message));
   const o = bestPicked(); if (!o) return;
   if (typeof mkAutoEnsure === "function") { try { mkAutoEnsure(o); } catch {} }
@@ -5270,7 +5290,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-30-2205-kakaoshort";
+const BUILD = "2026-10-30-2240-bestalts";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
