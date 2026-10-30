@@ -42,6 +42,10 @@
   const SRC = { lesson: "이번 레슨", habit: "선생님 강조", knowledge: "보컬 지식", teacher: "선생님" };
   function wrapTxt(g, s, maxW) { const out = []; let line = ""; for (const ch of String(s)) { if (ch === "\n") { out.push(line); line = ""; continue; } if (g.measureText(line + ch).width > maxW && line) { out.push(line); line = ch.trim() ? ch : ""; } else line += ch; } if (line) out.push(line); return out.slice(0, 4); }
   function rr(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
+  function noteBand(st, full) {   // 주석 칸 두 층 높이(drawNotes와 같은 계산)
+    const stu = !st.teacher, fs = full ? (stu ? 17 : 14) : (stu ? 13.5 : 11.5), lh = fs + 5, pad = full ? 9 : 7, maxL = full ? 2 : 1;
+    const sh = pad * 2 + (stu ? 2 : (fs - 1) + 4) + maxL * lh; return sh * 2 + 6 + 10;
+  }
   function drawNotes(g, st, t, xs, L, w, T, H, full, top, occ, vis, yf) {
     let all = typeof st.notes === "function" ? (st.notes() || []) : []; const hits = []; st.hits = hits;
     if (st.editing) { const { d, n } = st.editing; all = all.includes(n) ? all.map(x => (x === n ? { ...n, ...d } : x)) : all.concat([{ ...d, status: d.status || "ok" }]); }   // 고치는 중: 바뀐 자리로 미리 보기
@@ -78,9 +82,7 @@
         if (a >= L) { g.moveTo(a, yb - tk); g.lineTo(a, yb + tk); } if (b <= w) { g.moveTo(b, yb - tk); g.lineTo(b, yb + tk); } g.stroke();
         dots.set(n, { x: (xa + xb) / 2, y: yb, c, r: 2 }); continue; }
       const s = pAt(+n.t0); if (!s) continue; const R = (full ? 7 : 5) * (ed ? 1.3 : 1);   // 시작 점 = 그 시간에 부른 음 위
-      g.fillStyle = `rgba(${c},.22)`; g.beginPath(); g.arc(a, s.y, R * 1.9, 0, Math.PI * 2); g.fill();
-      if (s.on) { g.fillStyle = `rgb(${c})`; g.beginPath(); g.arc(a, s.y, R, 0, Math.PI * 2); g.fill(); }
-      else { g.fillStyle = "#11131a"; g.strokeStyle = `rgb(${c})`; g.lineWidth = 2; g.beginPath(); g.arc(a, s.y, R * 0.8, 0, Math.PI * 2); g.fill(); g.stroke(); }   // 소리 없는 곳 = 가까운 음 높이에 속 빈 점
+      if (!s.on) { g.strokeStyle = `rgb(${c})`; g.lineWidth = 1.5; g.beginPath(); g.arc(a, s.y, 3.5, 0, Math.PI * 2); g.stroke(); }   // 소리 없는 곳 = 가까운 음 높이에 작은 빈 고리(10/31: 음정선 안 가리게 작게)
       dots.set(n, { x: a, y: s.y, c, r: R + 3 }); }
     g.restore();
     const stu = !st.teacher, fs = full ? (stu ? 17 : 14) : (stu ? 13.5 : 11.5), lh = fs + 5, pad = full ? 9 : 7, nr = full ? 11 : 9, xr = st.teacher && !st.noX ? (full ? 12 : 10) : 0;
@@ -88,8 +90,13 @@
     const fmtT = (s) => `${Math.floor(s / 60)}:${(s % 60).toFixed(1).padStart(4, "0")}`;
     for (const n of [...dots.keys()].sort((a, b) => shown.includes(a) - shown.includes(b))) { const dt = dots.get(n); const c = colOf(n);   // 모든 주석 점에 고정 번호(칸에 없는 건 회색)   // 음정선 위 번호 점(칸 아래에 깔리게 먼저)
       const k2 = kf(n), fa = (st.fin[k2] != null ? Math.min(1, (now - st.fin[k2]) / 150) : 1) * (st.fout[k2] != null ? Math.max(0, 1 - (now - st.fout[k2]) / 150) : 1);
-      g.save(); g.globalAlpha = fa; g.fillStyle = `rgb(${c})`; g.beginPath(); g.arc(dt.x, dt.y, nr, 0, Math.PI * 2); g.fill();
-      g.fillStyle = "#10201a"; g.font = `900 ${full ? 12 : 10}px system-ui, sans-serif`; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(String(numOf(n)), dt.x, dt.y + 0.5); g.restore(); }
+      // (10/31 07:57 사용자) 번호가 음정선을 가리지 않게: 선 위엔 작은 점, 번호는 위로 띄운 작은 깃발
+      const br = full ? 8.5 : 7, by = Math.max(T + br + 1, dt.y - (full ? 22 : 17));
+      g.save(); g.globalAlpha = fa; g.strokeStyle = `rgb(${c})`; g.lineWidth = 1.2; g.beginPath(); g.moveTo(dt.x, dt.y - 3); g.lineTo(dt.x, by + br); g.stroke();
+      g.fillStyle = `rgb(${c})`; g.beginPath(); g.arc(dt.x, dt.y, 2.6, 0, Math.PI * 2); g.fill();
+      g.beginPath(); g.arc(dt.x, by, br, 0, Math.PI * 2); g.fill();
+      g.fillStyle = "#10201a"; g.font = `900 ${full ? 11 : 9}px system-ui, sans-serif`; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(String(numOf(n)), dt.x, by + 0.5); g.restore();
+      dt.r = 4; }
     shown.forEach((n, i) => { if (!n) return;
       const k = kf(n), fi = st.fin[k] != null ? Math.min(1, (now - st.fin[k]) / 150) : 1, fo = st.fout[k] != null ? Math.max(0, 1 - (now - st.fout[k]) / 150) : 1;
       const ok = n.status === "ok", c = colOf(n), past = t > endT(n) + 0.15, al = fi * fo,   // (10/30 18:37 사용자) 지나간 주석도 흐려지지 않게 — 사라질 때만 0.15초 페이드
@@ -204,7 +211,10 @@
         if (st.lo == null) { st.lo = tl; st.hi = th; } else { st.lo += (tl - st.lo) * (tl < st.lo ? 0.45 : 0.06); st.hi += (th - st.hi) * (th > st.hi ? 0.45 : 0.06); } }
       if (st.lo != null) { lo = st.lo; hi = st.hi; }
     }
-    const L = full ? 44 : 30, y = (c) => T + H - 6 - (c - lo) / (hi - lo) * (H - 12);
+    // (10/31 07:57 사용자) 주석 칸이 음정선을 가리지 않게: 주석이 있으면 아래쪽은 칸 자리로 비워 두고 음정선은 그 위에만 그림
+    const hasN = full && !!(st && typeof st.notes === "function" && (st.notes() || []).length) && H > 200;   // 작은 화면은 덮개(전체화면으로 보기) 아래라 그대로
+    const RB = hasN ? noteBand(st, full) : 0, HP = H - RB;
+    const L = full ? 44 : 30, y = (c) => T + HP - 6 - (c - lo) / (hi - lo) * (HP - 12);
     const t0 = t - W8 * HEAD, xs = (tt) => L + (tt - t0) / W8 * (w - L), sc = cv.scale;
     g.font = (full ? "12px" : "10px") + " system-ui, sans-serif"; g.textBaseline = "middle";
     let lastY = -99;
@@ -212,15 +222,17 @@
       const pc = ((m % 12) + 12) % 12, ins = !sc || sc.includes(pc), yy = Math.round(y(m * 100)) + 0.5;
       if (ins && sc) { g.fillStyle = "rgba(156,195,255,.06)"; g.fillRect(L, yy - 4, w - L, 8); }
       g.fillStyle = ins ? "#2c3440" : "#1b1f26"; g.fillRect(L, yy, w - L, 1);
-      if (full && (H - 12) / ((hi - lo) / 100) > 60) { g.fillStyle = "#171b21"; for (const q of [25, 50, 75]) g.fillRect(L, Math.round(y(m * 100 - q)) + 0.5, w - L, 1); }   // 크게 확대하면 ¼반음 눈금
+      if (yy > T + HP) continue;
+      if (full && (HP - 12) / ((hi - lo) / 100) > 60) { g.fillStyle = "#171b21"; for (const q of [25, 50, 75]) g.fillRect(L, Math.round(y(m * 100 - q)) + 0.5, w - L, 1); }   // 크게 확대하면 ¼반음 눈금
       if (full && !ins && yy - lastY >= 14) { g.fillStyle = "#3d4450"; g.fillText(NAMES[pc] + (Math.floor(m / 12) - 1), 4, yy); lastY = yy; }
       if (ins && yy - lastY >= 12) { g.fillStyle = sc && pc === sc[0] ? "#9cc3ff" : "#6b7480"; g.fillText(NAMES[pc] + (Math.floor(m / 12) - 1), 2, yy); lastY = yy; }   // 가까운 이름은 건너뜀
     }
     if (st) st.map = { L, W8, t0, w, T, H };
     const vis = []; for (const p of cv.pts || []) { if (p[0] < t0 - 0.3) continue; if (p[0] > t0 + W8 + 0.3) break; vis.push(p); }
-    g.save(); g.beginPath(); g.rect(L, T, w - L, H); g.clip();
+    if (RB) { g.fillStyle = "#0c0e12"; g.fillRect(L, T + HP, w - L, RB); g.fillStyle = "#232a34"; g.fillRect(L, T + HP, w - L, 1); }   // 주석 칸 자리(음정선 아래)
+    g.save(); g.beginPath(); g.rect(L, T, w - L, HP); g.clip();
     if (full && kt) {   // 정음(목표음) = 초록 막대: 보정이 맞추려는 바로 그 음
-      const bh = Math.max(6, (H - 12) / ((hi - lo) / 100) * 0.55);
+      const bh = Math.max(6, (HP - 12) / ((hi - lo) / 100) * 0.55);
       for (let i = 0; i < vis.length; i++) { const p = vis[i], q = vis[i + 1]; if (p[kt] == null) continue;
         const x0 = xs(p[0]), x1 = q && q[kt] === p[kt] && q[0] - p[0] < 0.13 ? xs(q[0]) : x0 + 2;
         g.fillStyle = "rgba(127,217,154,.28)"; g.fillRect(x0, y(p[kt]) - bh / 2, Math.max(1, x1 - x0 + 0.5), bh); }
