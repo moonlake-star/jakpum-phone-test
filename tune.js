@@ -42,8 +42,13 @@
     const w = el.clientWidth, h = el.clientHeight; if (!w || !h) return;
     const r = G.devicePixelRatio || 1; if (el.width !== Math.round(w * r)) { el.width = Math.round(w * r); el.height = Math.round(h * r); }
     const g = el.getContext("2d"); g.setTransform(r, 0, 0, r, 0, 0); g.clearRect(0, 0, w, h);
-    const full = !!(st && st.full), W8 = full ? 6 : WIN, k = col(cv, lv), lane = k && h > 110 ? (full ? 64 : LANE) : 0, H = h - lane, kt = tgCol(cv);
+    const full = !!(st && st.full), W8 = full ? 6 / (st.xz || 1) : WIN, k = col(cv, lv), lane = k && h > 110 ? (full ? 64 : LANE) : 0, H = h - lane, kt = tgCol(cv);
     let [lo, hi] = range(cv);
+    if (full && (st.yz || 1) > 1) {   // 전체화면 핀치 확대: 배율은 손가락으로만 바뀜. 가운데는 지금 음을 부드럽게 따라가고, 손으로 위아래로 밀면 그 자리에 머묾
+      const half = (hi - lo) / 2 / st.yz, now = Date.now();
+      if (!st.panAt || now - st.panAt > 4000) { const f = fitAt(cv, t, 0); if (f) { const c = f[2]; st.yc = st.yc == null ? c : st.yc + (c - st.yc) * 0.08; } }
+      const c = st.yc ?? (lo + hi) / 2; lo = c - half; hi = c + half;
+    }
     if (st && st.zoom && !full) {   // 확대: 화면 안(지금 앞뒤 8초) 음이 모두 들어오게 — 기본 ±4반음, 크게 도약하면 그만큼 넓힘(10/30 13:28 사용자)
       const f = fitAt(cv, t, k);
       if (f) { const tl = Math.min(f[0] - 150, f[2] - ZOOM_HALF), th = Math.max(f[1] + 150, f[2] + ZOOM_HALF);
@@ -59,6 +64,7 @@
       const pc = ((m % 12) + 12) % 12, ins = !sc || sc.includes(pc), yy = Math.round(y(m * 100)) + 0.5;
       if (ins && sc) { g.fillStyle = "rgba(156,195,255,.06)"; g.fillRect(L, yy - 4, w - L, 8); }
       g.fillStyle = ins ? "#2c3440" : "#1b1f26"; g.fillRect(L, yy, w - L, 1);
+      if (full && (H - 12) / ((hi - lo) / 100) > 60) { g.fillStyle = "#171b21"; for (const q of [25, 50, 75]) g.fillRect(L, Math.round(y(m * 100 - q)) + 0.5, w - L, 1); }   // 크게 확대하면 ¼반음 눈금
       if (full && !ins && yy - lastY >= 14) { g.fillStyle = "#3d4450"; g.fillText(NAMES[pc] + (Math.floor(m / 12) - 1), 4, yy); lastY = yy; }
       if (ins && yy - lastY >= 12) { g.fillStyle = sc && pc === sc[0] ? "#9cc3ff" : "#6b7480"; g.fillText(NAMES[pc] + (Math.floor(m / 12) - 1), 2, yy); lastY = yy; }   // 가까운 이름은 건너뜀
     }
@@ -143,13 +149,15 @@
     const wrap = document.createElement("div"); wrap.id = "tuneFs"; wrap.setAttribute("role", "dialog"); wrap.setAttribute("aria-label", "음정선 전체화면");
     const hasAb = typeof o.setMode === "function";
     wrap.innerHTML = `<div class="tfBox"><div class="tfTop"><b class="tfTitle">${String(o.title || "음정선").replace(/[<>&]/g, "")}</b><span class="tfTime"></span>
+      <span class="tfLeg"><span><i style="background:rgba(127,217,154,.6);height:8px"></i>정음</span><span><i style="background:#ff9f5a"></i>부른 음</span><span><i style="background:#7fd9ff"></i>보정 후</span><span><i style="background:#ffd27a;opacity:.6"></i>고친 곳</span></span>
       ${hasAb ? `<span class="tfAb"><button type="button" data-m="o">원음</button><button type="button" data-m="p">✨ 보정본</button></span>` : ""}
       <button type="button" class="tfX" aria-label="닫기">✕</button></div>
-      <canvas class="tfCv"></canvas>
+      <div class="tfCvBox"><canvas class="tfCv"></canvas><button type="button" class="tfMid hidden" aria-label="재생">▶</button><span class="tfHint">두 손가락으로 벌리면 확대 · 밀면 이동 · 톡 = 재생/멈춤</span></div>
       <div class="tfBot"><button type="button" data-j="-5">-5</button><button type="button" class="tfPP" aria-label="재생">▶</button><button type="button" data-j="5">+5</button>
-      <span class="tfLeg"><span><i style="background:rgba(127,217,154,.6);height:8px"></i>정음</span><span><i style="background:#ff9f5a"></i>부른 음</span><span><i style="background:#7fd9ff"></i>보정 후</span><span><i style="background:#ffd27a;opacity:.6"></i>고친 곳</span></span></div></div>`;
+      <button type="button" class="tfZ" aria-label="배율 처음으로">×1</button>
+      <span class="tfNote">AI 단순 보정이라 정확하지 않을 수 있어요 · 정식 음원은 전문 엔지니어가 한 음 한 음 더 정밀하게 다듬어요</span></div></div>`;
     document.body.appendChild(wrap);
-    const box = wrap.querySelector(".tfBox"), cvEl = wrap.querySelector(".tfCv"), st = { full: true };
+    const box = wrap.querySelector(".tfBox"), cvEl = wrap.querySelector(".tfCv"), st = { full: true, xz: 1, yz: 1, yc: null, panAt: 0 };
     let rot = false;
     const layout = () => { rot = G.innerHeight > G.innerWidth;   // 세로로 든 폰이면 화면을 돌려 가로로(폰을 돌려 들면 그대로)
       const W = rot ? G.innerHeight : G.innerWidth, H = rot ? G.innerWidth : G.innerHeight;
@@ -166,23 +174,50 @@
     const close = () => { G.removeEventListener("resize", layout); try { screen.orientation?.unlock?.(); } catch {} try { if (document.fullscreenElement) document.exitFullscreen(); } catch {} wrap.remove(); };
     wrap.querySelector(".tfX").onclick = close;
     const pp = wrap.querySelector(".tfPP"), tm = wrap.querySelector(".tfTime");
-    pp.onclick = () => { try { o.play && o.play(); } catch {} };
-    wrap.querySelectorAll("[data-j]").forEach(b => b.onclick = () => seek(Math.max(0, (+getT() || 0) + +b.dataset.j)));
+    const isPaused = () => (typeof o.paused === "function" ? o.paused() : true);
+    const toggle = () => { try { o.play && o.play(); } catch {} };
+    const pauseNow = () => { if (!isPaused()) toggle(); };
+    pp.onclick = toggle; wrap.querySelector(".tfMid").onclick = toggle;
+    wrap.querySelector(".tfZ").onclick = () => { st.xz = 1; st.yz = 1; st.yc = null; st.panAt = 0; };
+    wrap.querySelectorAll("[data-j]").forEach(b => b.onclick = () => seek(Math.max(0, (+getT() || 0) + +b.dataset.j), isPaused()));
     wrap.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { try { o.setMode(b.dataset.m); } catch {} });
     const fmt = (x) => `${Math.floor((x || 0) / 60)}:${String(Math.floor((x || 0) % 60)).padStart(2, "0")}`;
-    let drag = null, preview = null;
-    const local = (e) => { const r = cvEl.getBoundingClientRect(); return rot ? e.clientY - r.top : e.clientX - r.left; };
+    // 손가락: 한 손가락 좌우 = 시간 이동(재생은 멈춤, 가운데 ▶로 다시), 위아래 = 음 높이 이동(확대했을 때), 두 손가락 = 핀치 확대, 톡 = 재생/멈춤
     const along = (e) => (rot ? e.clientY : e.clientX), across = (e) => (rot ? e.clientX : e.clientY);
-    const span = () => (cvEl.clientWidth - 44) || 1;
+    const span = () => (cvEl.clientWidth - 44) || 1, tall = () => cvEl.clientHeight || 1;
+    const pts = new Map(); let drag = null, pinch = null, preview = null;
     cvEl.style.touchAction = "none";
-    cvEl.addEventListener("pointerdown", (e) => { drag = { a: along(e), b: across(e), t: +getT() || 0, id: e.pointerId, moved: false }; try { cvEl.setPointerCapture(e.pointerId); } catch {} });
-    cvEl.addEventListener("pointermove", (e) => { if (!drag || drag.id !== e.pointerId) return; const d = along(e) - drag.a; if (!drag.moved && Math.abs(d) < 8) return; drag.moved = true; preview = Math.max(0, drag.t - d / span() * 6); });
-    cvEl.addEventListener("pointerup", (e) => { if (!drag || drag.id !== e.pointerId) return; const d = drag; drag = null;
-      if (d.moved) { const t = preview; preview = null; if (t != null) seek(t); return; }
-      const x = local(e); if (x > 44) seek(Math.max(0, d.t - 6 * HEAD + (x - 44) / span() * 6)); });
-    cvEl.addEventListener("pointercancel", () => { drag = null; preview = null; });
+    cvEl.addEventListener("pointerdown", (e) => {
+      pts.set(e.pointerId, { a: along(e), b: across(e) }); try { cvEl.setPointerCapture(e.pointerId); } catch {}
+      if (pts.size === 2) { const [p1, p2] = [...pts.values()]; drag = null; preview = null;
+        pinch = { da: Math.abs(p1.a - p2.a), db: Math.abs(p1.b - p2.b), xz: st.xz, yz: st.yz }; return; }
+      if (pts.size === 1) drag = { a: along(e), b: across(e), t: +getT() || 0, id: e.pointerId, mode: null, yc: st.yc };
+    });
+    cvEl.addEventListener("pointermove", (e) => {
+      if (!pts.has(e.pointerId)) return; pts.set(e.pointerId, { a: along(e), b: across(e) });
+      if (pinch && pts.size >= 2) { const [p1, p2] = [...pts.values()], da = Math.abs(p1.a - p2.a), db = Math.abs(p1.b - p2.b);
+        if (pinch.db > 30) st.yz = Math.max(1, Math.min(12, pinch.yz * db / pinch.db));
+        if (pinch.da > 30) st.xz = Math.max(1, Math.min(4, pinch.xz * da / pinch.da));
+        if (st.yz > 1 && st.yc == null) { const f = fitAt(cv, +getT() || 0, 0); st.yc = f ? f[2] : null; }
+        return; }
+      if (!drag || drag.id !== e.pointerId) return;
+      const dA = along(e) - drag.a, dB = across(e) - drag.b;
+      if (!drag.mode) { if (Math.max(Math.abs(dA), Math.abs(dB)) < 8) return; drag.mode = Math.abs(dA) >= Math.abs(dB) ? "time" : "pitch"; if (drag.mode === "time") pauseNow(); }
+      if (drag.mode === "time") preview = Math.max(0, drag.t - dA / span() * (6 / st.xz));
+      else if (st.yz > 1) { const [lo, hi] = range(cv), per = (hi - lo) / st.yz / tall(); st.yc = (drag.yc ?? (lo + hi) / 2) + dB * per * (rot ? -1 : 1); st.panAt = Date.now(); }
+    });
+    const end = (e) => {
+      if (!pts.has(e.pointerId)) return; pts.delete(e.pointerId);
+      if (pinch) { if (pts.size === 0) pinch = null; return; }
+      if (!drag || drag.id !== e.pointerId) return; const d = drag; drag = null;
+      if (d.mode === "time") { const t = preview; preview = null; if (t != null) seek(t, true); return; }   // 이동만, 재생은 안 함
+      if (!d.mode && e.type === "pointerup") toggle();   // 톡 = 재생/멈춤
+    };
+    cvEl.addEventListener("pointerup", end); cvEl.addEventListener("pointercancel", (e) => { preview = null; end(e); });
     const loop = () => { if (!wrap.isConnected) return; const t = preview ?? (+getT() || 0); draw(cvEl, cv, t, +getLv() || 0, st);
-      const paused = typeof o.paused === "function" ? o.paused() : true; pp.textContent = paused ? "▶" : "❚❚"; tm.textContent = fmt(t);
+      const paused = isPaused(); pp.textContent = paused ? "▶" : "❚❚"; tm.textContent = fmt(t);
+      wrap.querySelector(".tfMid").classList.toggle("hidden", !paused);
+      wrap.querySelector(".tfZ").textContent = st.yz > 1.05 || st.xz > 1.05 ? `×${st.yz.toFixed(1)} 처음으로` : "×1";
       if (hasAb) { const m = o.mode ? o.mode() : "p"; wrap.querySelectorAll("[data-m]").forEach(b => b.classList.toggle("on", b.dataset.m === m)); }
       requestAnimationFrame(loop); };
     requestAnimationFrame(loop);
@@ -193,6 +228,9 @@
 #tuneFs .tfTop,#tuneFs .tfBot{display:flex;align-items:center;gap:8px;flex:none}#tuneFs .tfTop{margin-bottom:6px}#tuneFs .tfTitle{font-size:15px}#tuneFs .tfTime{color:#a9b1bc;font-size:13px;font-variant-numeric:tabular-nums}
 #tuneFs .tfAb{display:flex;margin-left:auto;border:1px solid #363c45;border-radius:10px;overflow:hidden}#tuneFs .tfAb button{border:0;border-radius:0;margin:0;background:#11141a;color:#a9b1bc;font-weight:800;min-height:34px;padding:0 14px}#tuneFs .tfAb button.on{background:#9cc3ff;color:#10141a}#tuneFs .tfAb button[data-m=p].on{background:#c9a6ff}
 #tuneFs .tfX{margin-left:8px;width:40px;height:36px;border-radius:10px;border:1px solid #363c45;background:#11141a;color:#eceff3;font-size:16px}#tuneFs .tfCv{flex:1;min-height:0;width:100%;display:block;border-radius:10px;background:#11141a}
+#tuneFs .tfCvBox{position:relative;flex:1;min-height:0;display:flex}#tuneFs .tfMid{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:84px;height:84px;border-radius:50%;border:0;background:rgba(156,195,255,.35);color:#fff;font-size:34px;backdrop-filter:blur(2px)}#tuneFs .tfMid.hidden{display:none}
+#tuneFs .tfHint{position:absolute;right:10px;top:8px;font-size:11px;color:#6b7480;pointer-events:none}#tuneFs .tfNote{margin-left:auto;font-size:11px;color:#c9b98f;text-align:right;max-width:46%;line-height:1.35}
+#tuneFs .tfTop .tfLeg{margin-left:10px}#tuneFs .tfBot .tfZ{min-width:0;padding:0 10px;font-size:12px;color:#a9b1bc}
 #tuneFs .tfBot{margin-top:6px}#tuneFs .tfBot button{min-width:52px;height:38px;border-radius:10px;border:1px solid #363c45;background:#11141a;color:#eceff3;font-weight:800;margin:0}#tuneFs .tfBot .tfPP{background:#9cc3ff;color:#10141a;border:0;min-width:64px}
 #tuneFs .tfLeg{display:flex;gap:12px;margin-left:auto;font-size:12px;color:#a9b1bc;flex-wrap:wrap}#tuneFs .tfLeg i{display:inline-block;width:16px;height:3px;border-radius:2px;vertical-align:middle;margin-right:4px}
 @media (prefers-reduced-motion: reduce){#tuneFs .tfBox{animation:none}}
