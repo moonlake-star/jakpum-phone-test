@@ -86,6 +86,11 @@
   .abPair.merged .abRow { display:none; } .abPair.merged .abRow.show { display:block; } .abPair.merged .abRow .abHead { display:none; }
   .abPair.tuned .abTimeRow, .abPair.tuned .tpWave, .abPair.tuned .tpBtns, .abPair.tuned [data-abrow="mk"] > .muted { display:none !important; } .abPair.tuned .tpWaveBox { height:auto !important; } .abPair.tuned .abRow { margin-top:6px; }
   /* (10/30 18:22 사용자 시안 승인) 그래프 가운데 금색 큰 버튼 · 그래프는 반쯤 어둡게(누르는 곳은 그래프 전체) */
+  .tsChips { display:flex; gap:6px; flex-wrap:wrap; margin:6px 0 2px; } .tsChips[hidden] { display:none; }
+  .tsChip { min-height:34px; padding:0 12px; margin:0; border-radius:17px; border:1.5px solid #9cc3ff; background:transparent; color:#9cc3ff; font-weight:800; font-size:.88rem; }
+  .tsBar { margin:8px 0 4px; border:1.5px solid #ffd27a; border-radius:14px; background:#1b1e24; padding:9px 10px; } .tsBar[hidden] { display:none; }
+  .tsRow { display:flex; align-items:center; gap:10px; } .tsPlay { min-height:40px; padding:0 14px; margin:0; border-radius:20px; border:0; background:#ffd27a; color:#1a1307; font-weight:900; font-size:.95rem; }
+  .tsQ { margin-top:7px; font-size:.88rem; line-height:1.55; color:#cfd3da; } .tsQ b { margin-right:4px; } .tsQ .tT { color:#9cc3ff; } .tsQ .tS { color:#7fd99a; }
   .tuneDim { position:absolute; inset:0; background:rgba(8,10,13,.55); border-radius:12px; pointer-events:none; }
   .tuneHint { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); display:flex; align-items:center; gap:9px; white-space:nowrap; padding:13px 22px; border-radius:30px; background:linear-gradient(135deg,#ffe08f,#e0a73c); color:#1a1307; font-weight:900; font-size:1.02rem; border:2px solid #fff3cf; box-shadow:0 0 0 6px rgba(255,210,122,.22),0 8px 26px rgba(0,0,0,.55); pointer-events:none; }
   .mkDockWrap { margin-top:6px; } .mkDockWrap .tune.sm { height:230px; margin:0; } .tuneDock { position:absolute; left:0; right:0; bottom:10px; display:flex; justify-content:center; align-items:center; gap:10px; pointer-events:none; }
@@ -1785,6 +1790,7 @@ function pvWireCards(me) {
   q("[data-pvcheer]").forEach(b => b.onclick = () => { const el = $("pvCheer"); if (!el) return; el.value = b.dataset.pvcheer === "ai" ? String(me.ai?.cheer || "").trim() : (typeof lessonCheer === "function" ? lessonCheer(+b.dataset.pvcheer, el.value, cheerFacts(me)) : "") || pickCheer(+b.dataset.pvcheer, el.value, me.st?.name); pvSetH(el, true); el.focus(); });
   for (const id of ["previewFeedback", ...Object.keys(PV_EDS)]) { const el = $(id); if (el && el.addEventListener) { if (typeof pvHold === "function") pvHold(el);
     el.addEventListener("focus", () => pvLift(el));   // (10/30 19:27 사용자) 고치기 들어가면 칸을 화면 위로 올려 키보드에 안 가리게
+    if (typeof tsWire === "function") tsWire(el);   // (10/30 20:02 사용자 시안 승인) 글 속 8:24 → 그 자리 듣기 + 전사
     el.addEventListener("input", () => { pvCount(el); const op = !!el.closest?.(".pvCard")?.classList.contains("open"); el.style.height = pvFit(el, op ? PV_ROWS.open : PV_ROWS.closed) + "px"; });
     pvCount(el); if (typeof requestAnimationFrame === "function") requestAnimationFrame(() => { const op = !!el.closest?.(".pvCard")?.classList.contains("open"); el.style.height = pvFit(el, op ? PV_ROWS.open : PV_ROWS.closed) + "px"; }); } }
   q("[data-pvfold]").forEach(b => b.onclick = () => { const el = $(b.dataset.pvfold); if (el) { el.blur?.(); pvSetH(el, false); } });
@@ -1794,6 +1800,43 @@ function pvWireCards(me) {
     const box = $("todayCard"), btn = box && box.querySelector('.tp [data-tp="play"]');
     if (!btn) return toast("위 ‘오늘의 베스트’에서 들어 주세요");
     box.scrollIntoView({ behavior: "smooth", block: "center" }); btn.click(); });
+}
+// ── 글 속 시각(8:24) 근거: 고치는 중엔 커서 줄의 시각 막대, 읽을 땐 카드 아래 시각 칩(10/30 20:02 사용자 시안 승인) ──
+const TS_RE = /(?<![\d:])(\d{1,2}):([0-5]\d)(?![\d:])/g;
+function tsTimes(text) { const out = []; for (const m of String(text || "").matchAll(TS_RE)) { const s = +m[1] * 60 + +m[2]; if (!out.some(x => x.s === s)) out.push({ s, lab: m[0] }); } return out; }
+function tsLineTime(el) {   // 커서가 있는 줄의 첫 시각(초) — 없으면 null
+  const v = el.value || "", c = el.selectionStart ?? 0, a = v.lastIndexOf("\n", c - 1) + 1, b = v.indexOf("\n", c), line = v.slice(a, b < 0 ? v.length : b);
+  const m = [...line.matchAll(TS_RE)][0]; return m ? { s: +m[1] * 60 + +m[2], lab: m[0] } : null;
+}
+function tsQuotes(s) {   // 그 시각 앞뒤 대화 2~3줄(누가 한 말인지)
+  const who = { teacher: "선생님", student: "수강생" }, segs = (cur?.segs || []).filter(g => +g.end >= s - 4 && +g.start <= s + 8 && String(g.text || "").trim());
+  return segs.slice(0, 3).map(g => { const r = typeof roleOf === "function" ? roleOf(g.speaker) : ""; return { who: who[r] || "말", r, text: String(g.text).trim().slice(0, 80) }; });
+}
+function tsBarHTML(x) {
+  const q = tsQuotes(x.s);
+  return `<div class="tsRow"><button type="button" class="tsPlay" data-tsplay="${x.s}" data-jlab="▶ ${esc(x.lab)}" aria-label="${esc(x.lab)}부터 레슨 녹음 듣기">▶ ${esc(x.lab)}</button><span class="muted" style="font-size:.8rem">${esc(fmt(Math.max(0, x.s - 1)))}부터 레슨 녹음</span></div>` +
+    (q.length ? `<div class="tsQ">${q.map(l => `<div><b class="${l.r === "teacher" ? "tT" : l.r === "student" ? "tS" : ""}">${esc(l.who)}</b> ${esc(l.text)}</div>`).join("")}</div>` : `<div class="tsQ muted">이 시각 앞뒤 받아쓴 글이 없어요</div>`);
+}
+function tsWire(el) {
+  if (!el?.insertAdjacentElement || el._ts) return; el._ts = true;
+  const anchor = document.querySelector(`[data-pvmore="${el.id}"]`) || el;
+  const chips = document.createElement("div"); chips.className = "tsChips"; const bar = document.createElement("div"); bar.className = "tsBar"; bar.hidden = true;
+  anchor.insertAdjacentElement("afterend", chips); chips.insertAdjacentElement("afterend", bar);
+  let shownS = null;
+  const show = (x) => { if (!x) { bar.hidden = true; shownS = null; return; } if (shownS === x.s && !bar.hidden) return; shownS = x.s; bar.innerHTML = tsBarHTML(x); bar.hidden = false; };
+  const paintChips = () => { const ts = tsTimes(el.value), editing = document.activeElement === el;
+    chips.hidden = editing || !ts.length;
+    chips.innerHTML = ts.map(x => `<button type="button" class="tsChip" data-tschip="${x.s}" data-lab="${esc(x.lab)}">▶ ${esc(x.lab)}</button>`).join(""); };
+  const onCaret = () => { if (document.activeElement !== el) return; show(tsLineTime(el)); };
+  ["keyup", "click", "input", "select"].forEach(ev => el.addEventListener(ev, onCaret));
+  el.addEventListener("focus", () => { paintChips(); setTimeout(onCaret, 30); });
+  el.addEventListener("blur", () => setTimeout(() => { if (document.activeElement !== el && !bar.contains(document.activeElement)) { paintChips(); if (!bar._chip) show(null); } }, 150));
+  el.addEventListener("input", paintChips);
+  chips.addEventListener("click", (e) => { const b = e.target.closest?.("[data-tschip]"); if (!b) return; const x = { s: +b.dataset.tschip, lab: b.dataset.lab };
+    bar._chip = true; show(x); const pb = bar.querySelector(".tsPlay"); if (pb && typeof jumpPlay === "function") jumpPlay(pb, x.s); });
+  bar.addEventListener("pointerdown", (e) => { if (e.target.closest?.(".tsPlay")) e.preventDefault(); });   // 누르는 동안 글 칸 커서(키보드) 유지
+  bar.addEventListener("click", (e) => { const b = e.target.closest?.(".tsPlay"); if (b && typeof jumpPlay === "function") jumpPlay(b, +b.dataset.tsplay); });
+  paintChips();
 }
 // 고치는 칸을 화면 맨 위 근처로: 키보드가 올라오는 동안(화면 높이가 바뀌는 동안) 두어 번 다시 맞춤
 function pvLift(el) {
@@ -5094,7 +5137,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-30-1952-tapfix";
+const BUILD = "2026-10-30-2010-tstime";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
