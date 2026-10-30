@@ -83,7 +83,7 @@
       else { g.fillStyle = "#11131a"; g.strokeStyle = `rgb(${c})`; g.lineWidth = 2; g.beginPath(); g.arc(a, s.y, R * 0.8, 0, Math.PI * 2); g.fill(); g.stroke(); }   // 소리 없는 곳 = 가까운 음 높이에 속 빈 점
       dots.set(n, { x: a, y: s.y, c, r: R + 3 }); }
     g.restore();
-    const fs = full ? 14 : 11.5, lh = fs + 5, pad = full ? 9 : 7, nr = full ? 11 : 9, xr = st.teacher ? (full ? 12 : 10) : 0;
+    const fs = full ? 14 : 11.5, lh = fs + 5, pad = full ? 9 : 7, nr = full ? 11 : 9, xr = st.teacher && !st.noX ? (full ? 12 : 10) : 0;
     const maxL = full ? 2 : 1, sh = pad * 2 + (fs - 1) + 4 + maxL * lh, x = L + 4, bw = w - L - 8, gap = 6, bot = T + H - 6;
     const fmtT = (s) => `${Math.floor(s / 60)}:${(s % 60).toFixed(1).padStart(4, "0")}`;
     for (const n of [...dots.keys()].sort((a, b) => shown.includes(a) - shown.includes(b))) { const dt = dots.get(n); const c = colOf(n);   // 모든 주석 점에 고정 번호(칸에 없는 건 회색)   // 음정선 위 번호 점(칸 아래에 깔리게 먼저)
@@ -274,7 +274,7 @@
   // 확대/전체 버튼: el 바로 앞에 붙임(Tune.controls). 기본 = 확대.
   function wire(el, cv, getT, getLv, seek, opts) {
     if (!el || !cv) return;
-    const st = { zoom: true, lo: null, hi: null, notes: opts && opts.notes, teacher: !!(opts && opts.teacher), lvDef: opts && opts.lvDef };
+    const st = { zoom: true, lo: null, hi: null, notes: opts && opts.notes, teacher: !!(opts && opts.teacher), lvDef: opts && opts.lvDef, noX: !!(opts && opts.tapFull) };
     const bar = document.createElement("div"); bar.className = "tuneZoom";
     // (10/30 14:20 사용자) 작은 화면은 확대(지금 음 근처)로 고정 — 버튼은 '전체화면' 하나만, 잘 보이게
     bar.innerHTML = `<button type="button" data-fs="1" class="tfOpen" aria-label="음정선 전체화면으로 크게 보기"><span class="ic" aria-hidden="true">⛶</span>전체화면으로 크게 보기</button>`;
@@ -283,7 +283,8 @@
     if (box && !box.classList.contains("tuneWrap")) { box = document.createElement("div"); box.className = "tuneWrap"; el.parentNode.insertBefore(box, el); box.appendChild(el); }
     box && box.querySelectorAll(".tuneMid").forEach(x => x.remove());
     const mid = document.createElement("span"); mid.className = "tuneMid"; mid.setAttribute("aria-hidden", "true"); box && box.appendChild(mid);
-    box && box.parentNode && box.parentNode.insertBefore(bar, box);
+    const o0 = opts || {};
+    if (!o0.tapFull) box && box.parentNode && box.parentNode.insertBefore(bar, box);   // (10/30 17:43 사용자) tapFull: 전체화면 버튼 없이 그래프를 누르면 전체화면
     const o = opts || {}, ctl = typeof o.play === "function" && typeof o.paused === "function";
     bar.querySelector("[data-fs]").onclick = () => openFull(el, cv, getT, getLv, seek, o);
     let drag = null, preview = null, shown = null;
@@ -296,6 +297,14 @@
     requestAnimationFrame(loop);
     const span = () => (el.clientWidth - 30) || 1;
     el.style.touchAction = "pan-y";
+    if (o.tapFull) {   // 작은 화면은 보기만 — 톡 하면 세로 전체화면(재생·이동·주석 고치기는 거기서)
+      el.style.cursor = "pointer"; let d0 = null;
+      el.addEventListener("pointerdown", (e) => { d0 = { x: e.clientX, y: e.clientY, id: e.pointerId }; });
+      el.addEventListener("pointerup", (e) => { const d = d0; d0 = null; if (!d || d.id !== e.pointerId) return; if (Math.hypot(e.clientX - d.x, e.clientY - d.y) > 10) return; openFull(el, cv, getT, getLv, seek, o); });
+      el.addEventListener("pointercancel", () => { d0 = null; });
+      mid.style.display = "none";
+      return;
+    }
     const canEdit = typeof o.onNote === "function";
     if (canEdit) el.addEventListener("contextmenu", (e) => e.preventDefault());
     el.addEventListener("pointerdown", (e) => { drag = { x: e.clientX, y: e.clientY, t: +getT() || 0, id: e.pointerId, moved: false };
@@ -338,10 +347,10 @@
       <span class="tfNote">AI 단순 보정이라 정확하지 않을 수 있어요.<br>정식 음원은 전문 엔지니어가 한 음 한 음 더 정밀하게 다듬어요.</span></div></div>`;
     document.body.appendChild(wrap);
     const box = wrap.querySelector(".tfBox"), cvEl = wrap.querySelector(".tfCv"), st = { full: true, xz: 1, yz: 1, yc: null, panAt: 0, notes: o.notes, teacher: !!o.teacher, lvDef: o.lvDef };
-    const rot = false;   // (10/30 14:56 사용자) 억지로 돌리지 않음 — 세로로 들면 세로 화면, 폰을 돌리면 가로 화면
-    const layout = () => { const W = G.innerWidth, H = G.innerHeight, port = H > W;
-      box.style.width = W + "px"; box.style.height = H + "px"; box.style.transform = "translate(-50%,-50%)";
-      box.classList.toggle("port", port); st.win = port ? 3 : 6; };
+    let rot = false;   // (10/30 17:43 사용자) 전체화면은 무조건 세로 배치 — 폰을 옆으로 들고 있으면 화면을 돌려 세로로
+    const layout = () => { rot = G.innerWidth > G.innerHeight; const W = rot ? G.innerHeight : G.innerWidth, H = rot ? G.innerWidth : G.innerHeight;
+      box.style.width = W + "px"; box.style.height = H + "px"; box.style.transform = `translate(-50%,-50%)${rot ? " rotate(90deg)" : ""}`;
+      box.classList.add("port"); st.win = 3; };
     layout();
     try {   // 열 때: 카드 자리에서 커지며 돌아감
       const r = src.getBoundingClientRect(), W = parseFloat(box.style.width), s = Math.max(0.2, r.width / W);
@@ -374,6 +383,7 @@
     wrap.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { try { o.setMode(b.dataset.m); } catch {} });
     const fmt = (x) => `${Math.floor((x || 0) / 60)}:${String(Math.floor((x || 0) % 60)).padStart(2, "0")}`;
     // 손가락: 한 손가락 좌우 = 시간 이동(재생은 멈춤, 가운데 ▶로 다시), 위아래 = 음 높이 이동(확대했을 때), 두 손가락 = 핀치 확대, 톡 = 재생/멈춤
+    const loc = (cx, cy, r) => (rot ? { x: cy - r.top, y: r.right - cx } : { x: cx - r.left, y: cy - r.top });   // 돌린 화면에서도 캔버스 안 좌표
     const along = (e) => (rot ? e.clientY : e.clientX), across = (e) => (rot ? e.clientX : e.clientY);
     const span = () => (cvEl.clientWidth - 44) || 1, tall = () => cvEl.clientHeight || 1;
     const pts = new Map(); let drag = null, pinch = null, preview = null;
@@ -384,11 +394,11 @@
       if (pts.size === 2) { const [p1, p2] = [...pts.values()]; drag = null; preview = null;
         pinch = { d: Math.hypot(p1.a - p2.a, p1.b - p2.b), xz: st.xz, yz: st.yz }; return; }
       if (pts.size === 1) { drag = { a: along(e), b: across(e), t: +getT() || 0, id: e.pointerId, mode: null, yc: st.yc, cx: e.clientX, cy: e.clientY };
-        if (typeof o.onNote === "function") { const d0 = drag, r0 = cvEl.getBoundingClientRect(), h0 = hitNote(st, d0.cx - r0.left, d0.cy - r0.top);
+        if (typeof o.onNote === "function") { const d0 = drag, r0 = cvEl.getBoundingClientRect(), l0 = loc(d0.cx, d0.cy, r0), h0 = hitNote(st, l0.x, l0.y);
           if (h0) { if (!h0.del) { st.hold = { n: h0.n, at: performance.now() }; d0.lp = setTimeout(() => { st.hold = null; if (drag !== d0 || d0.mode) return; d0.long = true; pauseNow(); lastView = view; o.onNote(h0.n); }, 1000); } }   // 주석 칸 1초 꾹 = 고치기(10/30 17:31 사용자)
           else if (typeof o.onAdd === "function") d0.lp = setTimeout(() => { if (drag !== d0 || d0.mode) return;
             d0.long = true; pauseNow();
-            const tt = timeAt(st, d0.cx - r0.left); if (tt != null) { lastView = view; o.onAdd(tt); } }, 300); } }
+            const tt = timeAt(st, l0.x); if (tt != null) { lastView = view; o.onAdd(tt); } }, 300); } }
     });
     cvEl.addEventListener("pointermove", (e) => {
       if (!pts.has(e.pointerId)) return; pts.set(e.pointerId, { a: along(e), b: across(e) });
@@ -406,7 +416,7 @@
       if (!pts.has(e.pointerId)) return; pts.delete(e.pointerId);
       if (pinch) { st.hold = null; if (pts.size === 0) pinch = null; return; }
       if (!drag || drag.id !== e.pointerId) return; const d = drag; drag = null; clearTimeout(d.lp); st.hold = null; if (d.long) return;
-      if (!d.mode && e.type === "pointerup" && typeof o.onNote === "function") { const r = cvEl.getBoundingClientRect(), hn = hitNote(st, e.clientX - r.left, e.clientY - r.top); if (hn) { pauseNow(); if (hn.del) { o.onDelNote && o.onDelNote(hn.n); } else { lastView = view; o.onNote(hn.n); } return; } }
+      if (!d.mode && e.type === "pointerup" && typeof o.onNote === "function") { const r = cvEl.getBoundingClientRect(), le = loc(e.clientX, e.clientY, r), hn = hitNote(st, le.x, le.y); if (hn) { pauseNow(); if (hn.del) { o.onDelNote && o.onDelNote(hn.n); } else { lastView = view; o.onNote(hn.n); } return; } }
       if (d.mode === "time") { const t = preview; preview = null; if (t != null) seek(t, true); return; }   // 이동만, 재생은 안 함
       if (!d.mode && e.type === "pointerup") { const now = Date.now();   // 톡 = 재생/멈춤, 두 번 톡 = 원래 크기
         if (now - lastTap < 320) { resetZoom(); toggle(); lastTap = 0; } else { toggle(); lastTap = now; } }
