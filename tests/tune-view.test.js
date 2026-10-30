@@ -8,7 +8,7 @@ const r = T.range({ pts: Array.from({ length: 100 }, (_, i) => [i / 25, 6000 + i
 assert.ok(r[0] < 6000 && r[1] > 6990 && r[0] % 50 === 0);
 const st = fs.readFileSync(__dirname + "/../student/index.html", "utf8"), te = fs.readFileSync(__dirname + "/../teacher/index.html", "utf8");
 assert.ok(st.includes('<script src="../tune.js"></script>') && te.includes('<script src="../tune.js"></script>'));
-assert.ok(/✨ 보정본 = 음정 보정한 예시예요 · 실제 노래는 ‘원음’이에요/.test(st), "보정본엔 항상 안내");
+assert.ok(st.includes("정확하지 않을 수 있어요. 정식 음원은 전문 엔지니어가 한 음 한 음 더 정밀하게 다듬어요"), "보정본엔 항상 안내(10/30 13:35 사용자 문구)");
 assert.ok(/data-ab="o" class="on" aria-pressed="true">원음/.test(st), "수강생은 원음이 먼저");
 assert.ok(/n\.makeup\?\.before_id, n\.makeup\?\.curve_id/.test(te), "원음·음정선도 게시 때 링크 열림");
 assert.ok(/data-ab="0">보정 끔.*data-ab="1">보정 켬/.test(te) && /<details id="mkLvBox">/.test(te), "세기 4단계는 '자세히' 안에 그대로");
