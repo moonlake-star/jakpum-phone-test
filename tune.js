@@ -151,7 +151,7 @@
       <div class="tsTxW"><textarea class="tsTx" rows="3" maxlength="80" placeholder="여기에 짧게 적어 주세요 (예: 끝음 내려갈 때 배 힘 유지)">${esc(n.text)}</textarea>${isNew ? "" : `<button type="button" class="tsClr">전체 지우기</button>`}</div>
       ${n.evidence ? `<div class="tsEv">근거 · ${esc(n.evidence)}</div>` : ""}
       <div class="tsAdj"><span>시작</span><button type="button" data-a="s-">−0.2초</button><button type="button" data-a="s+">+0.2초</button><span>끝</span><button type="button" data-a="e-">−0.2초</button><button type="button" data-a="e+">+0.2초</button></div>
-      <div class="tsRow">${isNew ? `<button type="button" class="tsCancel">취소</button>` : `<button type="button" class="tsDel">삭제</button><button type="button" class="tsCancel">닫기</button>`}<button type="button" class="tsOk">${isNew ? "저장" : "✓ 확인"}</button></div></div>`;
+      <div class="tsRow">${isNew ? `<button type="button" class="tsCancel">취소</button>` : `<button type="button" class="tsCancel">닫기</button><button type="button" class="tsDel">삭제</button>`}<button type="button" class="tsOk">${isNew ? "저장" : "✓ 확인"}</button></div></div>`;
     (document.getElementById("tuneFs") || document.body).appendChild(el);
     const spot = d.t1 - d.t0 < 0.35;
     if (spot) el.querySelector(".tsAdj").innerHTML = `<span>위치</span><button type="button" data-a="p-">−0.2초</button><button type="button" data-a="p+">+0.2초</button>`;
@@ -164,7 +164,18 @@
     el.onclick = (e) => { if (e.target === el) close(); };
     el.querySelector(".tsCancel").onclick = close;
     el.querySelector(".tsClr") && (el.querySelector(".tsClr").onclick = () => { const ta = el.querySelector(".tsTx"); ta.value = ""; ta.focus(); });
-    el.querySelector(".tsDel") && (el.querySelector(".tsDel").onclick = () => { close(); o.onDelete && o.onDelete(n); });
+    // (10/30 17:38 사용자 시안 승인) 삭제 = 확인 팝업('다음부터 묻지 않기' 체크하면 이 폰에선 바로 삭제)
+    const doDel = () => { close(); o.onDelete && o.onDelete(n); };
+    el.querySelector(".tsDel") && (el.querySelector(".tsDel").onclick = () => {
+      let skip = false; try { skip = localStorage.getItem("tune_del_noask") === "1"; } catch {}
+      if (skip) return doDel();
+      const cf = document.createElement("div"); cf.className = "tsCf";
+      cf.innerHTML = `<div class="tsCfBox" role="alertdialog" aria-label="주석 삭제 확인"><b>이 주석을 정말 삭제할까요?</b><p></p><label class="tsCk"><input type="checkbox"> 다음부터 묻지 않기</label><div class="tsCfRow"><button type="button" class="cfNo">취소</button><button type="button" class="cfYes">삭제</button></div></div>`;
+      cf.querySelector("p").textContent = "“" + String(n.text || "").slice(0, 60) + "”";
+      el.querySelector(".tsBox").appendChild(cf);
+      cf.querySelector(".cfNo").onclick = () => cf.remove();
+      cf.querySelector(".cfYes").onclick = () => { if (cf.querySelector("input").checked) { try { localStorage.setItem("tune_del_noask", "1"); } catch {} } doDel(); };
+    });
     el.querySelector(".tsOk").onclick = () => { const tx = el.querySelector(".tsTx").value.trim(); if (!tx) { el.querySelector(".tsTx").focus(); return; }
       close(); o.onSave && o.onSave({ ...d, text: tx, status: "ok", t0: Math.round(d.t0 * 10) / 10, t1: Math.round(d.t1 * 10) / 10 }); };
     if (isNew) setTimeout(() => el.querySelector(".tsTx").focus(), 50);
@@ -447,6 +458,10 @@
 #tuneSheet .tsHead{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:14px}#tuneSheet .tsSrc{font-size:12px;color:#ffd27a}#tuneSheet .tsTx{width:100%;box-sizing:border-box;background:#0f1116;color:#f1f1f1;border:1px solid #3a3f49;border-radius:10px;padding:10px;font-size:16px;line-height:1.5;font-family:inherit;resize:none}
 #tuneSheet .tsTxW{position:relative}#tuneSheet .tsTxW .tsTx{padding-right:104px}#tuneSheet .tsClr{position:absolute;right:8px;top:8px;margin:0;border:0;border-radius:12px;background:#2a2f38;color:#eceff3;font-weight:700;font-size:12.5px;min-height:30px;padding:0 10px}
 #tuneUndo{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:10002;display:flex;align-items:center;gap:14px;background:#2a2f38;color:#eceff3;border-radius:14px;padding:10px 12px 10px 16px;font-size:14px;box-shadow:0 4px 18px rgba(0,0,0,.4)}#tuneUndo button{margin:0;border:0;background:transparent;color:#ffd27a;font-weight:800;font-size:14px;min-height:34px;padding:0 6px}
+#tuneSheet .tsBox{position:relative}#tuneSheet .tsCf{position:absolute;inset:0;background:rgba(0,0,0,.55);border-radius:16px 16px 0 0;display:flex;align-items:flex-start;justify-content:center;padding-top:30px}
+#tuneSheet .tsCfBox{width:calc(100% - 40px);box-sizing:border-box;background:#1e2229;border:1px solid #3a3f49;border-radius:16px;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.6)}#tuneSheet .tsCfBox b{display:block;font-size:16px;margin-bottom:6px}#tuneSheet .tsCfBox p{margin:0 0 12px;font-size:13.5px;color:#b9bec7;word-break:keep-all}
+#tuneSheet .tsCk{display:flex;align-items:center;gap:8px;font-size:14px;margin-bottom:14px}#tuneSheet .tsCk input{width:20px;height:20px;margin:0;accent-color:#7fd99a}
+#tuneSheet .tsCfRow{display:flex;gap:8px}#tuneSheet .tsCfRow button{flex:1;min-height:46px;border-radius:22px;border:1px solid #3a3f49;background:#11141a;color:#eceff3;font-weight:800;font-size:15px;margin:0}#tuneSheet .tsCfRow .cfYes{background:#ff8a8a;color:#2a1010;border:0}
 #tuneSheet .tsEv{font-size:12px;color:#a9b1bc;margin:8px 0;line-height:1.5;background:#11141a;border-radius:8px;padding:7px 9px}#tuneSheet .tsAdj{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:8px 0;font-size:12.5px;color:#a9b1bc}#tuneSheet .tsAdj button{border:1px solid #363c45;background:#11141a;color:#eceff3;border-radius:8px;min-height:34px;padding:0 10px;margin:0;font-weight:700}
 #tuneSheet .tsRow{display:flex;gap:8px;margin-top:10px}#tuneSheet .tsRow button{flex:1;min-height:46px;border-radius:22px;border:1px solid #3a3f49;background:#11141a;color:#eceff3;font-weight:800;font-size:15px;margin:0}#tuneSheet .tsRow .tsOk{background:#7fd99a;color:#10201a;border:0}#tuneSheet .tsRow .tsDel{color:#ff9a9a}`;
   if (typeof document !== "undefined" && document.head) { const s2 = document.createElement("style"); s2.textContent = css2; document.head.appendChild(s2); }
