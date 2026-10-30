@@ -324,8 +324,11 @@
 </style>
 </head>
 <body>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@700&display=swap">
+<script src="../brand.js?v=20261030-1420"></script>
+<script>try { Brand.splash("teacher"); } catch {}</script>
 <main>
-  <header><button id="btnBack" class="ghost small hidden">← 뒤로</button><h1>작품 보컬노트</h1><button id="btnUi" class="ghost small" type="button" title="화면 방식 바꾸기">V1 화면</button></header>
+  <header><button id="btnBack" class="ghost small hidden">← 뒤로</button><h1><span class="brMark" aria-hidden="true"></span>작품 보컬노트</h1><button id="btnUi" class="ghost small" type="button" title="화면 방식 바꾸기">V1 화면</button></header>
 
   <section id="vLogin" class="card">
     <h2 style="margin-top:0">선생님 전용</h2>
@@ -455,7 +458,7 @@
 <div id="v2Shade" class="v2only"></div>
 <div id="toast"></div>
 <script src="../lesson-replies.js"></script>
-<script src="../tune.js?v=20261030-1400"></script>
+<script src="../tune.js?v=20261030-1420"></script>
 
 <script>
 // ── 설정 ────────────────────────────────────────────────
@@ -487,7 +490,7 @@ window.addEventListener("popstate", () => {
   const onSub = ["vLesson","vShared","vSubs","vStu","vMkJob"].some(v => !$(v)?.classList.contains("hidden"));
   if (onSub) { try { goBack(); } catch { renderList(); } }
 });
-function show(view) { syncBackHistory(view); for (const v of ["vLogin","vList","vLesson","vShared","vSubs","vStu","vMkJob","vCal"]) $(v).classList.toggle("hidden", v !== view); try { $("v2Dock")?.classList.add("hidden"); document.body.classList.remove("v2send"); document.getElementById("v2Ai")?.remove(); } catch {} $("btnBack").classList.toggle("hidden", ["vLogin","vList"].includes(view)); if (view !== "vMkJob") { mkStop?.(); stopProg?.(); } window.scrollTo(0,0); }
+function show(view) { syncBackHistory(view); try { Brand.bar(); } catch {} for (const v of ["vLogin","vList","vLesson","vShared","vSubs","vStu","vMkJob","vCal"]) $(v).classList.toggle("hidden", v !== view); try { $("v2Dock")?.classList.add("hidden"); document.body.classList.remove("v2send"); document.getElementById("v2Ai")?.remove(); } catch {} $("btnBack").classList.toggle("hidden", ["vLogin","vList"].includes(view)); if (view !== "vMkJob") { mkStop?.(); stopProg?.(); } window.scrollTo(0,0); }
 
 // ── 구글 로그인 · 드라이브 ───────────────────────────────
 // 로그인 유지: 구글이 주는 출입증(1시간짜리)을 이 폰에만 보관해, 새로고침·앱 다시 열기에도 다시 묻지 않는다.
@@ -3481,7 +3484,7 @@ async function openMkJob(j, backTo) {
     if (lvNow() > 0) lvOn = lvNow(); el.value = b.dataset.ab === "1" ? String(lvOn) : "0"; el.oninput(); });
   abPaint();
   if (tuneOk) readBlob(curveF.id, true).then(b => b.text()).then(s => { const cv = JSON.parse(s); if (!cv?.pts || !$("mkTune")) return;
-    Tune.wire($("mkTune"), cv, () => mkNow(), () => (mkRaw ? 0 : lvNow()), (t) => { if (!mkPlaying) { mkOffset = Math.max(0, Math.min(t, mkDurS ? mkDurS - 0.05 : t)); $("mkPP").click(); } else mkSeekTo(t); },
+    Tune.wire($("mkTune"), cv, () => mkNow(), () => (mkRaw ? 0 : lvNow()), (t, still) => { const tt = Math.max(0, Math.min(t, mkDurS ? mkDurS - 0.05 : t)); if (still) { if (mkPlaying) mkStop(); mkOffset = tt; paintTransport(); return; } if (!mkPlaying) { mkOffset = tt; $("mkPP").click(); } else mkSeekTo(t); },
       { title: "메이크업 · 바로 듣고 조절", play: () => $("mkPP")?.click(), paused: () => !mkPlaying, mode: () => (lvNow() > 0 ? "p" : "o"),
         setMode: (m) => document.querySelector(`#mkAb [data-ab="${m === "p" ? 1 : 0}"]`)?.click() });
   }).catch(() => { const c = $("mkTune"); if (c) c.replaceWith(Object.assign(document.createElement("p"), { className: "muted", textContent: "음정선을 불러오지 못했어요" })); });
@@ -3546,6 +3549,7 @@ function busy(on, msg = "불러오는 중…") {
   let el = document.getElementById("busy");
   if (!el) { el = document.createElement("div"); el.id = "busy"; el.setAttribute("role", "status"); document.body.appendChild(el); }
   busyN = Math.max(0, busyN + (on ? 1 : -1));
+  try { Brand.loading(on); } catch {}   // (10/30 사용자) 1초 넘게 걸리면 작은 로고 + "오늘의 작품을 불러오고 있어요…"
   if (on) { el.textContent = "⏳ " + msg; clearTimeout(busyT); busyT = setTimeout(() => { busyN = 0; el.classList.remove("on"); }, 15000); }
   el.classList.toggle("on", busyN > 0);
 }
@@ -4063,8 +4067,8 @@ function wireBest() {
   if (m && mroot) tpWire(mroot, m.file_id, false, timeEl);   // 같은 player 하나 → 두 음원이 겹쳐 나지 않음
   { const cf = m && mkCurveFile(o), el = typeof document.getElementById === "function" ? document.getElementById("mkTuneToday") : null;   // (10/30 사용자) 피드백 화면에도 튠 화면
     if (cf && el && typeof Tune !== "undefined") readBlob(cf.id, true).then(b => b.text()).then(s => { const cv = JSON.parse(s); if (!cv?.pts) return;
-      Tune.wire(el, cv, () => (tpFile === m.file_id || tpFile === o.file_id ? player.currentTime : 0), () => (tpFile === m.file_id ? +(job?.req?.pitch_level ?? 2) : 0), async (t) => {
-        try { const [r, id] = active(); if ((tpRoot !== r || tpFile !== id) && !(await tpLoad(r, id))) return; player.currentTime = t; if (player.paused) { pauseOthers(player); await player.play(); } tpPaint(); } catch (e) { toast(e.message); } },
+      Tune.wire(el, cv, () => (tpFile === m.file_id || tpFile === o.file_id ? player.currentTime : 0), () => (tpFile === m.file_id ? +(job?.req?.pitch_level ?? 2) : 0), async (t, still) => {
+        try { const [r, id] = active(); if ((tpRoot !== r || tpFile !== id) && !(await tpLoad(r, id))) return; player.currentTime = t; if (still) player.pause(); else if (player.paused) { pauseOthers(player); await player.play(); } tpPaint(); } catch (e) { toast(e.message); } },
       { title: "오늘의 베스트", play: () => box?.querySelector('[data-abp="play"]')?.click(), paused: () => player.paused || !(tpFile === m.file_id || tpFile === o.file_id),
         mode: () => (tpFile === m.file_id ? "p" : "o"), setMode: (md) => box?.querySelector(`[data-ver="${md === "p" ? "mk" : "orig"}"]`)?.click() });
     }).catch(() => {}); }
@@ -5032,7 +5036,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-30-1400-tunefs";
+const BUILD = "2026-10-30-1425-brand";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
