@@ -464,7 +464,7 @@
 <div id="v2Shade" class="v2only"></div>
 <div id="toast"></div>
 <script src="../lesson-replies.js"></script>
-<script src="../tune.js?v=20261030-1752"></script>
+<script src="../tune.js?v=20261030-1755"></script>
 
 <script>
 // ── 설정 ────────────────────────────────────────────────
@@ -3822,7 +3822,7 @@ function renderBest() {
   const abSwH = `<div class="abSw" role="group" aria-label="원음·보정본"><button type="button" data-ver="orig" class="on" aria-pressed="true">원음</button><button type="button" data-ver="mk" class="mk" aria-pressed="false">✨ 보정본</button></div>`;
   const tuneH = tuneF ? `<div class="tuneWrap mkDockWrap"><canvas class="tune sm" id="mkTuneToday" aria-label="음정선 — 누르면 크게 보기"></canvas><span class="tuneHint" aria-hidden="true">⛶ 누르면 크게 보기</span></div><div style="display:none">${abSwH}</div>${Tune.legend(true)}<div class="muted tnSum" id="tnSum" style="font-size:.8rem;margin:2px 0 4px"></div>` : "";   // (10/30 17:43 사용자) 전체화면·[-5|원음·보정본|+5] 버튼 삭제, 그래프를 누르면 세로 전체화면
   return `<div class="bestbox abPair${merged ? " merged" : ""}${tuneF ? " tuned" : ""}"><span class="sr-only">오늘의 베스트 편집본 ${Math.round(o.len)}초</span>
-    ${merged ? `<div class="row abHead"><b>오늘의 포인트</b>${o.singlePicked ? `<button type="button" class="small ghost" id="sglReset">다른 걸로</button>` : ""}<span class="muted" style="font-size:.85rem">${Math.round(o.len)}초</span>${chk("best")}</div>
+    ${merged ? `<div class="row abHead"><b>오늘의 베스트</b>${o.singlePicked ? `<button type="button" class="small ghost" id="sglReset">다른 걸로</button>` : ""}<span class="muted" style="font-size:.85rem">${Math.round(o.len)}초</span>${chk("best")}</div>
       ${tuneF ? tuneH : abSwH}` : ""}
     <div class="abRow${merged ? " show" : ""}" data-abrow="orig">${merged ? "" : `<div class="row abHead"><b>${o.singlePicked ? "가장 좋았던 한 번" : "원본 편집본"}</b>${o.singlePicked ? `<button type="button" class="small ghost" id="sglReset">다른 걸로</button>` : ""}<span class="muted" style="font-size:.85rem">${Math.round(o.len)}초</span>${chk("best")}</div>`}${waveOnly(seamStrip(o, "strip"))}</div>
     ${ms === "ready" ? `<div class="abRow" data-abrow="mk"><div class="muted" style="font-size:.8rem;margin:-2px 0 2px">간단 음정보정 예시 · 음원 발매용 정식 보정은 더 자연스러워요</div>${waveOnly()}</div>
@@ -4109,7 +4109,7 @@ function wireBest() {
         onAdd: (tt) => Tune.sheet({ t0: Math.round(tt * 10) / 10, t1: Math.round(tt * 10) / 10, text: "", src: "teacher" }, { onSave: (u) => tnDo(() => tc.doc.notes.push({ ...u, id: "t" + Date.now().toString(36), src: "teacher" })) }) } : { teacher: true, lvDef: +(job?.req?.pitch_level ?? 2) };
       Tune.wire(el, cv, () => (tpFile === m.file_id || tpFile === o.file_id ? player.currentTime : 0), () => (tpFile === m.file_id ? +(job?.req?.pitch_level ?? 2) : 0), async (t, still) => {
         try { const [r, id] = active(); if ((tpRoot !== r || tpFile !== id) && !(await tpLoad(r, id))) return; player.currentTime = t; if (still) player.pause(); else if (player.paused) { pauseOthers(player); await player.play(); } tpPaint(); } catch (e) { toast(e.message); } },
-      { title: "오늘의 포인트", tapFull: true, play: () => box?.querySelector('[data-abp="play"]')?.click(), paused: () => player.paused || !(tpFile === m.file_id || tpFile === o.file_id),
+      { title: "오늘의 베스트", tapFull: true, play: () => box?.querySelector('[data-abp="play"]')?.click(), paused: () => player.paused || !(tpFile === m.file_id || tpFile === o.file_id),
         mode: () => (tpFile === m.file_id ? "p" : "o"), setMode: (md) => box?.querySelector(`[data-ver="${md === "p" ? "mk" : "orig"}"]`)?.click(), ...tnOpts });
     }).catch(() => {}); }
   const pairs = [[broot, o.file_id], ...(m && mroot ? [[mroot, m.file_id]] : [])];
@@ -4168,7 +4168,7 @@ function renderToday() {
   // 오늘 핵심·이번 주 연습은 아래 '카톡 피드백'과 '수강생에게 보이는 내용'에 같은 글이 있어 여기선 뺌(2026-10-27 사용자: 정보가 너무 많음)
   void head; void prs;
   const bo = typeof bestPicked === "function" ? bestPicked() : null, bj = bo && typeof bestJoined === "function" ? bestJoined(bo) : undefined, tag = bj === undefined ? "" : `<span class="bestTag">${bj ? "오늘 잘한 부분 이어붙임" : "가장 좋았던 한 번"}</span>`;
-  $("todayCard").innerHTML = `<h3 style="margin:0 0 6px">🎵 오늘의 포인트<span class="v2ck v2only"></span></h3>` + renderBest() + (typeof regenBoxHTML === "function" ? regenBoxHTML() : "") + (typeof renderTrial === "function" ? renderTrial() : "");
+  $("todayCard").innerHTML = `<h3 style="margin:0 0 6px">🎵 오늘의 베스트<span class="v2ck v2only"></span></h3>` + renderBest() + (typeof regenBoxHTML === "function" ? regenBoxHTML() : "") + (typeof renderTrial === "function" ? renderTrial() : "");
   wireBest(); if (typeof wireRegen === "function") wireRegen(); if (typeof paintDeliver === "function" && cur.folder) paintDeliver();
 }
 // 화자 확인이 필요한 상태(미확인/AI 불확실/3명 이상)면 상단으로 올리고 자동 펼침 + 경고. 아니면 한 줄 요약으로 접음
@@ -5076,7 +5076,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-30-1752-step";
+const BUILD = "2026-10-30-1755-tip";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
