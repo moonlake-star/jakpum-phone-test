@@ -5270,7 +5270,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-30-2155-tipab";
+const BUILD = "2026-10-30-2205-kakaoshort";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
@@ -5306,10 +5306,14 @@ $("btnAdd").onclick = () => {
 };
 $("btnRegen").onclick = () => { updateFeedbackDraft(draftFeedback()); };
 // (#80·#81) 카톡 버튼: 멘트+링크 복사(링크 1번) · 🎲 인사말 바꾸기(첫 줄만) · 카카오톡 열기(열기만) — 셋 다 '보냄'으로 치지 않음
+// (10/30 21:59 사용자) 카톡 멘트는 짧게 — 노트 페이지에 그대로 보이는 피드백 본문은 넣지 않음: 인사 한 줄 + 안내 한 줄 + 링크
+const KAKAO_LINE = ["오늘 레슨 노트 올려 두었어요. 편하실 때 확인해 보세요~", "오늘 부른 녹음이랑 피드백 정리해 두었어요. 한번 들어 보세요!", "오늘 레슨 내용 정리해 두었어요. 아래에서 확인해 보세요~"];
 function kakaoCopyText() {
   const link = cur.note ? `${studentPage()}?l=${encodeURIComponent(cur.note.lesson_id)}` : `${studentPage()}?l=${encodeURIComponent(cur.folder.id)}`;
-  const body = String($("fb").value || "").trim();
-  return body.includes(link) ? body : body + "\n\n👉 노트 보기: " + link;
+  const name = cur.st?.name || "", first = String($("fb").value || "").trim().split("\n")[0].trim();
+  const greet = first && first.length <= 40 && ((name && first.includes(name)) || /수고|고생|감사|레슨|잘하셨/.test(first)) ? first : (name ? `${name}님, 오늘 레슨 수고 많으셨어요!` : "오늘 레슨 수고 많으셨어요!");
+  const k = Math.abs([...String(cur.note?.lesson_id || cur.folder?.id || "")].reduce((a, c) => a + c.charCodeAt(0), 0)) % KAKAO_LINE.length;
+  return `${greet}\n${KAKAO_LINE[k]}\n\n👉 노트 보기: ${link}`;
 }
 const GREETS = [(n) => `${n}님, 오늘 레슨 수고 많으셨어요!`, (n) => `${n}님 오늘도 고생 많으셨습니다 :)`, (n) => `${n}님, 오늘 수업 감사했습니다!`, (n) => `오늘 레슨 즐거우셨죠, ${n}님?`, (n) => `${n}님, 오늘 정말 잘하셨어요!`];
 function swapGreeting(text, name, k) {   // 첫 줄이 인사말이면 그 줄만 바꾸고, 아니면 맨 위에 인사말 한 줄을 넣음. 나머지 본문은 그대로

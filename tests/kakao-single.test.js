@@ -11,9 +11,13 @@ assert.notEqual(swapGreeting(a, '홍길동', 2).split('\n')[0], a.split('\n')[0]
 const b = swapGreeting('오늘 중요한 포인트\n· 하나', '홍길동', 0); assert(b.startsWith('홍길동님, 오늘 레슨 수고 많으셨어요!\n\n오늘 중요한 포인트'), '인사말이 없으면 맨 위에 한 줄만');
 // 링크 1번
 let fbv = '본문'; const cur = { note: { lesson_id: 'L1' }, folder: { id: 'L1' } };
-const kct = new Function('$', 'cur', 'studentPage', grab('kakaoCopyText') + 'return kakaoCopyText;')(() => ({ value: fbv }), cur, () => 'https://x/student/');
+const KL = src.match(/const KAKAO_LINE = [^\n]*\n/)[0];
+const kct = new Function('$', 'cur', 'studentPage', KL + grab('kakaoCopyText') + 'return kakaoCopyText;')(() => ({ value: fbv }), cur, () => 'https://x/student/');
 const t1 = kct(); assert.equal((t1.match(/https:\/\/x\/student\/\?l=L1/g) || []).length, 1);
 fbv = t1; assert.equal((kct().match(/\?l=L1/g) || []).length, 1, '이미 링크가 있으면 다시 안 붙임');
+// (10/30 21:59) 짧게: 본문은 안 넣고 인사 + 안내 한 줄 + 링크
+fbv = '홍길동님, 오늘 레슨 수고 많으셨어요!\n\n· 8:24 긴 피드백 본문'; cur.st = { name: '홍길동' }; const t2 = kct();
+assert(t2.startsWith('홍길동님, 오늘 레슨 수고 많으셨어요!\n') && !t2.includes('긴 피드백 본문') && t2.split('\n').length === 4, t2);
 // 화면: 카톡 입력칸은 하나도 없음, 버튼 3역할 + 완료 표시
 assert(!src.includes('id="kakaoMsg"') && !src.includes('btnKakaoCopy') && !src.includes('btnKakaoRe"'));
 for (const k of ['멘트+링크 복사', '🎲 인사말 바꾸기', '카카오톡 열기', '카톡 전송 완료 표시']) assert(src.includes(k), k);
