@@ -90,6 +90,10 @@
   .tsChip { min-height:34px; padding:0 12px; margin:0; border-radius:17px; border:1.5px solid #9cc3ff; background:transparent; color:#9cc3ff; font-weight:800; font-size:.88rem; }
   .tsMir { position:absolute; left:0; top:0; right:0; z-index:1; pointer-events:none; overflow:hidden; box-sizing:border-box; border:1px solid transparent; padding:8px 10px; line-height:24px; white-space:pre-wrap; overflow-wrap:break-word; word-break:normal; color:transparent; }
   .tsMir mark { color:#ffd27a; background:rgba(255,210,122,.17); border-radius:9px; box-shadow:0 0 0 2px rgba(255,210,122,.17), 0 0 0 3px rgba(255,210,122,.55); }
+  #hlCard.hlFolded > :not(.hlHead) { display:none !important; } #hlCard.hlFolded .hlHead { margin:0; }
+  .hl.hlDup { opacity:.55; } .hlDupTag { display:inline-block; font-size:.75rem; padding:0 8px; border-radius:9px; background:#2a303a; color:#9cc3ff; margin-left:6px; font-weight:700; }
+  .aTop { border-top:1px solid #2a2f39; padding:9px 0 7px; } .aTop:first-child { border-top:none; } .aTg { display:inline-block; font-size:.75rem; padding:0 7px; border-radius:9px; margin-right:5px; font-weight:800; }
+  .aTg.k1 { background:#33222a; color:#ff9ab8; } .aTg.k2 { background:#3a2c14; color:#ffd27a; } .aTg.k3 { background:#16302a; color:#6fe0a0; } .aTg.k4, .aTg.k5, .aTg.k6 { background:#1d2740; color:#9cc3ff; }
   .tsCtl { display:flex; align-items:center; gap:6px; } .tsCtl .tsB { width:36px; height:36px; min-height:36px; padding:0; margin:0; border-radius:50%; border:1.5px solid #3b4250; background:transparent; color:#9cc3ff; font-weight:800; font-size:.8rem; flex:none; }
   .tsCtl .tsB.tsPP { background:#9cc3ff; color:#111; border:none; width:40px; height:40px; } .tsCtl .tsNow { margin-left:auto; font-size:.8rem; color:var(--mut, #9a9ca3); white-space:nowrap; }
   .tsTrk { position:relative; height:6px; border-radius:3px; background:#333944; margin:14px 6px 8px; touch-action:none; cursor:pointer; } .tsTrk::before { content:""; position:absolute; left:0; right:0; top:-12px; bottom:-12px; }
@@ -394,7 +398,7 @@
     </div>
 
     <div class="card" id="hlCard" style="order:4">
-      <div class="row" style="justify-content:space-between"><h3 style="margin:0">⭐ 오늘의 하이라이트</h3><span class="chip" id="sendCount">포함 0/5</span></div>
+      <div class="row hlHead" id="hlHead" role="button" tabindex="0" aria-expanded="false" style="justify-content:space-between;cursor:pointer"><h3 style="margin:0">⭐ 오늘의 하이라이트 <span class="muted" id="hlSum" style="font-size:.85rem;font-weight:400"></span></h3><span class="row" style="gap:6px;flex-wrap:nowrap"><span class="chip" id="sendCount">포함 0/5</span><b class="hlTog" id="hlTog" style="color:#9cc3ff;font-size:.85rem;white-space:nowrap">고치기 ▸</b></span></div>
       <p class="muted" style="margin:4px 0">칭찬한 순간(노래 + 칭찬 말) · 🎵 = 오늘의 베스트 · <b>포함</b>한 것만 수강생에게 가요(최대 5개, 다시 누르면 취소)</p>
       <div class="row" style="margin:4px 0;flex-wrap:nowrap"><button class="small ghost" id="btnPlayAll">▶ 고른 하이라이트 이어 듣기</button></div>
       <div id="hls"></div>
@@ -1776,6 +1780,7 @@ function pickCheer(kind, now, name) {   // 같은 종류 안에서 지금 칸에
   return pool[Math.floor(Math.random() * pool.length)] || fill(set[0]);
 }
 function pvWireCards(me) {
+  setTimeout(() => { try { hlMarkDup(); anaTopPaint(); } catch {} }, 0);   // 피드백 카드가 그려진 뒤 겹침 다시 계산
   const sb = document.getElementById?.("pvSndBox"); if (sb) sb.ontoggle = () => { (me.sched ??= { busy: false, pick: {} }).sndOpen = sb.open; };
   document.querySelectorAll("[data-pvsndplay]").forEach(b => b.onclick = (e) => { e.preventDefault(); if (cur !== me) return; const v = document.querySelector(`[data-pvsnd="${b.dataset.pvsndplay}"]`)?.value, c = pointSndChoices().find(x => x.key === v);
     if (!c) return toast("‘소리 없음’을 골랐어요 · 위 칸에서 소리를 고르면 들어 볼 수 있어요"); playShared(b, c.file_id); });
@@ -4408,6 +4413,32 @@ async function paintSaid(el, sid, lesson, rec) {
 }
 // ── 수강생이 한 말 확인 끝 ──
 // ── 레슨 분석(선생님 전용): 수강생이 한 말 / 녹음에서 확인된 가창 / 선생님 판단 / AI 가설 / 지도→변화 / 선곡·키 / 챙길 것 ──
+// (10/30 21:08 사용자 시안 승인) 근거·자세히: 중요한 순 최대 5개 — ①확인 필요한 AI 추측 ②전→후 변화 있는 지도 ③수강생 고민·목표 ④측정 ⑤챙길 것. 위 피드백 카드와 겹치는 시각(±10초)·말은 뺌
+const ANA_TOP = 5;
+function anaTopItems(a, obs, fbT, fbX) {
+  const L = [], near = (t) => t != null && fbT.some(s => Math.abs(s - +t) <= 10), said = (q) => { const s = String(q || "").replace(/\s+/g, ""); return s.length >= 8 && fbX.replace(/\s+/g, "").includes(s.slice(0, 12)); };
+  const chg = { improved: "좋아짐", partly: "조금 좋아짐", not_yet: "아직" };
+  (a.ai_hypotheses || []).forEach(x => L.push({ k: 1, tag: "확인 필요", text: "AI 추측: " + (x.text || ""), sub: [x.basis && "근거: " + x.basis, x.check && "확인: " + x.check].filter(Boolean).join(" · "), t: x.t }));
+  (a.coaching || []).filter(k => chg[k.change]).forEach(k => L.push({ k: 2, tag: "지도→변화", text: `${k.issue || ""} → ${chg[k.change]}`, sub: k.change_basis ? "근거: " + k.change_basis : (k.instruction ? "지도: " + k.instruction : ""), t: k.instruction_t, w: k.change === "improved" ? 0.2 : 0 }));
+  (a.student_said || []).filter(x => ["worry", "goal", "request"].includes(x.kind)).forEach(x => L.push({ k: 3, tag: "수강생이 한 말", text: `“${x.quote || ""}”`, sub: x.meaning || "", t: x.t, q: x.quote }));
+  (obs || []).filter(o => o.tone !== "info").forEach(o => L.push({ k: 4, tag: "측정", text: o.text || "", sub: "", t: o.evidence?.[0]?.t, w: o.tone === "improve" ? 0.2 : 0 }));
+  (a.care || []).forEach(x => L.push({ k: 5, tag: "챙길 것", text: x.text || "", sub: "문구엔 넣지 않음", t: x.t }));
+  (a.progress || []).forEach(x => L.push({ k: 6, tag: "성장", text: x.text || "", sub: x.basis || "", t: x.t }));
+  const out = [];
+  for (const x of L.sort((p, q) => (p.k - (p.w || 0)) - (q.k - (q.w || 0)))) {
+    if (out.length >= ANA_TOP) break; if (!String(x.text).replace(/[“”\s→]/g, "")) continue;
+    if (x.k !== 1 && (near(x.t) || said(x.q || x.text))) continue;   // 위 카드에 이미 있음(AI 추측은 확인이 필요하니 남김)
+    if (x.t != null && out.some(y => y.t != null && Math.abs(+y.t - +x.t) <= 5 && y.k === x.k)) continue;
+    out.push(x);
+  }
+  return out;
+}
+function anaTopPaint() { const box = $("anaTop"); if (!box || !cur?.anaRaw) return; const { a, obs } = cur.anaRaw, items = anaTopItems(a, obs, fbTimesNow(), fbTextNow());
+  const T = (t) => t == null ? "" : ` <button class="small ghost tplay" data-t="${+t}">▶ ${fmt(+t)}</button>`;
+  box.innerHTML = items.map(x => `<div class="aTop"><span class="aTg k${x.k}">${esc(x.tag)}</span>${esc(x.text)}${T(x.t)}${x.sub ? `<div class="muted" style="font-size:.85rem">${esc(x.sub)}</div>` : ""}</div>`).join("") || `<p class="muted" style="margin:6px 0">따로 확인할 것이 없어요 · 위 카드에 다 들어 있어요</p>`;
+  box.querySelectorAll(".tplay").forEach(b => b.onclick = () => jumpPlay(b, +b.dataset.t));
+  const n = $("anaTopN"); if (n) n.textContent = items.length;
+  const all = $("anaAllSum"); if (all) all.textContent = `전체 항목 보기 (${$("anaAll")?.querySelectorAll(".lesson, div[style*='margin:4px 0']").length || 0}개)`; }
 function renderAnalysis(pitch, ana, ai) {
   const card = $("anaCard"); cur.pairs = ana?.pairs || ai?.pairs || [];
   if (!pitch && !ana) { card.classList.add("hidden"); return; }
@@ -4419,7 +4450,9 @@ function renderAnalysis(pitch, ana, ai) {
   const a = ana || {};
   const obs = pitch?.observations || [];
   const tone = { good: "👍", improve: "🎯", info: "ℹ️" };
-  card.innerHTML = `<details id="anaWrap" data-fold="ana"><summary><b>🔎 ${a.first_lesson ? "첫 레슨 정밀 진단" : "레슨 분석"} 자세히</b> <span class="muted" style="font-size:.85rem">선생님만 보는 화면 · AI가 정리, 확인 필요</span></summary>
+  cur.anaRaw = { a, obs };
+  card.innerHTML = `<details id="anaWrap" data-fold="ana"><summary><b>🔎 ${a.first_lesson ? "첫 레슨 정밀 진단" : "레슨 분석"} · 확인할 것 <span id="anaTopN">5</span>개</b> <span class="muted" style="font-size:.85rem">선생님만 보는 화면 · AI가 정리, 확인 필요</span></summary>
+    <div id="anaTop"></div><details id="anaAll" style="margin:8px 0 0"><summary class="muted" id="anaAllSum">전체 항목 보기</summary>
     ${a.next_goal ? `<div style="margin:4px 0"><b>다음 레슨 목표</b> · ${esc(a.next_goal)}${a.mission ? `<br><span class="muted">미션: ${esc(a.mission)}</span>` : ""}</div>` : ""}
     ${sec("지도 → 변화", a.coaching, (k) => { const p = cur.pairs.find(x => x.id === k.id); const c = chg[k.change] || chg.unknown;
       return `<div class="lesson" style="display:block"><div><b>${esc(k.issue || "")}</b> <span class="chip ${c[1]}">${c[0]}</span></div>
@@ -4440,8 +4473,8 @@ function renderAnalysis(pitch, ana, ai) {
     ${sec("성장(지난번보다)", a.progress, (x) => `<div style="margin:4px 0">📈 ${esc(x.text)} <span class="muted">${esc(x.basis || "")}</span></div>`)}
     ${sec("챙길 것(문구엔 넣지 않음)", a.care, (x) => `<div style="margin:4px 0">${T(x.t)} 🤝 ${esc(x.text)}</div>`)}
     ${pitch?.observations?.length ? `<div class="row" style="margin-top:6px"><button class="small ghost" id="btnPitchOk">✓ 음정 측정이 맞게 들림 (이 수강생 음정 학습에 사용)</button><span class="muted" id="pitchOkT"></span></div>` : ""}
-    ${pitch?.error ? `<p class="muted">음정 분석 실패: ${esc(pitch.error)}</p>` : ""}</details>`;
-  initFold($("anaWrap"), false);
+    ${pitch?.error ? `<p class="muted">음정 분석 실패: ${esc(pitch.error)}</p>` : ""}</details></details>`;
+  initFold($("anaWrap"), false); anaTopPaint();
   card.querySelectorAll(".tplay").forEach(b => b.onclick = () => jumpPlay(b, +b.dataset.t));
   card.querySelectorAll(".pairplay").forEach(b => b.onclick = () => b.dataset.f ? playShared(b, b.dataset.f) : toast("비교 음성이 아직 없어요"));
   card.querySelectorAll(".pairsend").forEach(c => c.onchange = () => { const L = new Set(cur.review.pairSend || []); c.checked ? L.add(c.dataset.id) : L.delete(c.dataset.id); cur.review.pairSend = [...L]; if (typeof paintDeliver === "function" && cur.folder) paintDeliver(); });
@@ -4841,6 +4874,18 @@ function miniLabel(t) { const el = $("miniLab"); if (el) el.textContent = t || "
 function hlBestOpts() {   // ① = 지금 고른 베스트(편집본을 골랐으면 그 기준이 되는 후보 1)
   return bestSourceTakes();   // 편집본의 재료가 된 단일 테이크(내부 기준). 화면 선택지가 아님
 }
+// (10/30 21:08 사용자 시안 승인) 하이라이트는 평소 접힌 한 줄(AI가 골라 포함) — '고치기'로 펼침. 위 피드백 카드에 나온 시각과 겹치면 '위 카드에 있음'
+function fbTimesNow() { const out = []; if (typeof document === "undefined" || !document.querySelectorAll) return out;
+  document.querySelectorAll("#previewFeedback, #pvStrip textarea").forEach(el => { for (const x of tsTimes(el.value)) out.push(x.s); }); return out; }
+function fbTextNow() { if (typeof document === "undefined" || !document.querySelectorAll) return ""; return [...document.querySelectorAll("#previewFeedback, #pvStrip textarea")].map(el => el.value || "").join("\n"); }
+function hlFoldPaint() { const c = $("hlCard"), h = $("hlHead"); if (!c || !h) return; const fold = !cur?.hlEdit;
+  c.classList.toggle("hlFolded", fold); h.setAttribute("aria-expanded", fold ? "false" : "true");
+  const n = hlList.filter(x => cur?.review?.decisions?.[x.cand] === "send").length, s = $("hlSum"), tg = $("hlTog");
+  if (s) s.textContent = fold ? (hlList.length ? `AI가 ${n}개 골라 포함` : "고를 순간이 없어요") : ""; if (tg) tg.textContent = fold ? "고치기 ▸" : "접기 ▴";
+  if (!h._w) { h._w = true; const go = (e) => { if (e.target.closest?.("button") && e.target !== h) return; cur.hlEdit = !cur.hlEdit; hlFoldPaint(); }; h.onclick = go; h.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(e); } }; } }
+function hlMarkDup() { const ts = fbTimesNow(); document.querySelectorAll?.("#hls .hl[data-h]").forEach(el => { const h = hlList[+el.dataset.h]; if (!h) return;
+  const dup = ts.some(s => s >= h.start - 10 && s <= h.end + 10); el.classList.toggle("hlDup", dup); let tg = el.querySelector(".hlDupTag");
+  if (dup && !tg) { const b = el.querySelector("b"); if (b) b.insertAdjacentHTML("afterend", `<span class="hlDupTag">위 카드에 있음</span>`); } else if (!dup && tg) tg.remove(); }); }
 function renderHighlights() {
   hlList = computeHighlights(cur.cands, cur.segs, roleOf, hlBestOpts());
   const p = bestPicked(), rv = cur.review;
@@ -4875,7 +4920,8 @@ function renderHighlights() {
     hlQueueStop(); hlPlay = { k, end: h.end, queue: null }; hlCur = k; hlMark(k); miniMarks([h], 0);
     playAt(h.start + fr * (h.end - h.start), true, false).catch(x => toast(x.message)); });
   if (hlWaveK >= 0) hlWaveOpen(hlWaveK);
-  wirePick2(hs, () => { renderHighlights(); renderCands(); syncGood(); });   // (10/30 사용자) 포함·제외를 누르면 재생은 멈춤(자동 재생 안 함)
+  wirePick2(hs, () => { renderHighlights(); renderCands(); syncGood(); });
+  hlFoldPaint(); hlMarkDup();   // (10/30 사용자) 포함·제외를 누르면 재생은 멈춤(자동 재생 안 함)
   hs.querySelectorAll(".cnote").forEach(i => { i.oninput = () => { (cur.review.notes ??= {})[i.dataset.c] = i.value.trim(); }; i.onchange = syncGood; });
   wireStab(hs);
   hs.querySelectorAll("[data-mk]").forEach(b => b.onclick = () => {
@@ -5186,7 +5232,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-30-2050-tsplayer";
+const BUILD = "2026-10-30-2120-fold5";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
