@@ -3715,6 +3715,12 @@ function tnPublic(job) {   // 수강생 노트에 싣는 것: ✓확인한 주�
   return c.doc.notes.filter(n => n && n.status === "ok" && String(n.text || "").trim() && Number.isFinite(+n.t0) && +n.t1 >= +n.t0)
     .slice(0, 12).map(n => ({ t0: Math.round(+n.t0 * 100) / 100, t1: Math.round(+n.t1 * 100) / 100, text: String(n.text).trim().slice(0, 80) }));
 }
+// (10/30 18:43 사용자) 선생님이 고친·지운·직접 쓴 기록 = 다음 AI 주석 초안의 학습 자료(서버가 이름을 가리고 모음)
+function tnKeepAi(n) { if (n && n.src !== "teacher" && n.ai_text == null && n.text) n.ai_text = n.text; }   // 처음 고칠 때 원래 AI 글을 남김
+function tnRemove(c, n) { const i = c.doc.notes.indexOf(n); if (i < 0) return;
+  c.doc.notes.splice(i, 1);
+  if (n.src !== "teacher") (c.doc.deleted ||= []).push({ id: n.id, text: n.ai_text || n.text, src: n.src || "", at: new Date().toISOString() });
+  if (c.doc.deleted && c.doc.deleted.length > 50) c.doc.deleted = c.doc.deleted.slice(-50); }
 function tnSumHTML(c) { if (!c) return ""; const ns = c.doc.notes, d = ns.filter(n => n.status !== "ok").length, ok = ns.length - d;
   return `<span class="chip">AI 초안 ${d}</span> <span class="chip">확인 ${ok}</span> · 초안은 수강생에게 안 보여요 · 그래프를 눌러 크게 본 뒤 칸을 누르면 고치기, 빈 곳을 길게 누르면 추가`; }
 function mkSideFiles(o) {   // 수강생 노트용: 원음(보정 전, 같은 크기) · 음정선
@@ -4106,8 +4112,8 @@ function wireBest() {
       const tc = await tnLoad(job).catch(() => null), sumEl = document.getElementById("tnSum"), paintSum = () => { if (sumEl) sumEl.innerHTML = tnSumHTML(tc); }; paintSum();
       const tnDo = async (f) => { if (!tc) return; try { f(); paintSum(); await tnSave(job, tc); toast("주석을 저장했어요 · 수강생에게는 ‘전달하기’ 때 반영돼요"); } catch (e) { toast("주석 저장 실패: " + e.message); } };
       const tnOpts = tc ? { teacher: true, lvDef: +(job?.req?.pitch_level ?? 2), notes: () => tc.doc.notes,
-        onNote: (n) => Tune.sheet(n, { onSave: (u) => tnDo(() => Object.assign(n, u)), onDelete: () => tnDo(() => { const i = tc.doc.notes.indexOf(n); if (i >= 0) tc.doc.notes.splice(i, 1); }) }),
-        onDelNote: (n) => { const i = tc.doc.notes.indexOf(n); if (i < 0) return; tnDo(() => tc.doc.notes.splice(i, 1)); Tune.undo("주석을 지웠어요", () => tnDo(() => tc.doc.notes.splice(Math.min(i, tc.doc.notes.length), 0, n))); },
+        onNote: (n) => Tune.sheet(n, { onSave: (u) => tnDo(() => { tnKeepAi(n); Object.assign(n, u); }), onDelete: () => tnDo(() => tnRemove(tc, n)) }),
+        onDelNote: (n) => { const i = tc.doc.notes.indexOf(n); if (i < 0) return; tnDo(() => tnRemove(tc, n)); Tune.undo("주석을 지웠어요", () => tnDo(() => { tc.doc.notes.splice(Math.min(i, tc.doc.notes.length), 0, n); tc.doc.deleted = (tc.doc.deleted || []).filter(d => d.id !== n.id); })); },
         onAdd: (tt) => Tune.sheet({ t0: Math.round(tt * 10) / 10, t1: Math.round(tt * 10) / 10, text: "", src: "teacher" }, { onSave: (u) => tnDo(() => tc.doc.notes.push({ ...u, id: "t" + Date.now().toString(36), src: "teacher" })) }) } : { teacher: true, lvDef: +(job?.req?.pitch_level ?? 2) };
       Tune.wire(el, cv, () => (tpFile === m.file_id || tpFile === o.file_id ? player.currentTime : 0), () => (tpFile === m.file_id ? +(job?.req?.pitch_level ?? 2) : 0), async (t, still) => {
         try { const [r, id] = active(); if ((tpRoot !== r || tpFile !== id) && !(await tpLoad(r, id))) return; player.currentTime = t; if (still) player.pause(); else if (player.paused) { pauseOthers(player); await player.play(); } tpPaint(); } catch (e) { toast(e.message); } },
@@ -5078,7 +5084,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-30-1840-nodim";
+const BUILD = "2026-10-30-1850-learn";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
