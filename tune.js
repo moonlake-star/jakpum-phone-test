@@ -116,10 +116,9 @@
     if (!el || !cv) return;
     const st = { zoom: true, lo: null, hi: null };
     const bar = document.createElement("div"); bar.className = "tuneZoom";
-    bar.innerHTML = `<button type="button" data-z="1" class="on" aria-pressed="true">🔍 확대</button><button type="button" data-z="0" aria-pressed="false">축소</button><button type="button" data-fs="1" aria-label="전체화면으로 크게 보기">⛶ 전체화면</button>`;
+    // (10/30 14:20 사용자) 작은 화면은 확대(지금 음 근처)로 고정 — 버튼은 '전체화면' 하나만, 잘 보이게
+    bar.innerHTML = `<button type="button" data-fs="1" class="tfOpen" aria-label="음정선 전체화면으로 크게 보기"><span class="ic" aria-hidden="true">⛶</span>전체화면으로 크게 보기</button>`;
     el.parentNode && el.parentNode.insertBefore(bar, el);
-    bar.querySelectorAll("[data-z]").forEach(b => b.onclick = () => { st.zoom = b.dataset.z === "1"; st.lo = st.hi = null;
-      bar.querySelectorAll("[data-z]").forEach(x => { const on = x === b; x.classList.toggle("on", on); x.setAttribute("aria-pressed", String(on)); }); });
     bar.querySelector("[data-fs]").onclick = () => openFull(el, cv, getT, getLv, seek, opts || {});
     let drag = null, preview = null;
     const loop = () => { if (!el.isConnected) { bar.remove(); return; } draw(el, cv, preview ?? (+getT() || 0), +getLv() || 0, st); requestAnimationFrame(loop); };
@@ -234,7 +233,7 @@
 #tuneFs .tfBot{margin-top:6px}#tuneFs .tfBot button{min-width:52px;height:38px;border-radius:10px;border:1px solid #363c45;background:#11141a;color:#eceff3;font-weight:800;margin:0}#tuneFs .tfBot .tfPP{background:#9cc3ff;color:#10141a;border:0;min-width:64px}
 #tuneFs .tfLeg{display:flex;gap:12px;margin-left:auto;font-size:12px;color:#a9b1bc;flex-wrap:wrap}#tuneFs .tfLeg i{display:inline-block;width:16px;height:3px;border-radius:2px;vertical-align:middle;margin-right:4px}
 @media (prefers-reduced-motion: reduce){#tuneFs .tfBox{animation:none}}
-.tuneZoom{display:flex;gap:6px;margin:6px 0 2px}.tuneZoom button{border:1px solid #363c45;border-radius:10px;background:#11141a;color:#a9b1bc;font-weight:700;font-size:.8rem;min-height:32px;padding:0 12px;margin:0}.tuneZoom button.on{background:#9cc3ff;color:#10141a;border-color:#9cc3ff}`;
+.tuneZoom{display:flex;gap:6px;margin:8px 0 4px}.tuneZoom .tfOpen{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:44px;margin:0;border:0;border-radius:12px;background:linear-gradient(135deg,#ffd27a,#c8912e);color:#1a1307;font-weight:800;font-size:.95rem;box-shadow:0 2px 12px rgba(255,190,90,.25)}.tuneZoom .tfOpen .ic{display:grid;place-items:center;width:26px;height:26px;border-radius:8px;background:rgba(26,19,7,.15);font-size:15px}.tuneZoom button{border:1px solid #363c45;border-radius:10px;background:#11141a;color:#a9b1bc;font-weight:700;font-size:.8rem;min-height:32px;padding:0 12px;margin:0}.tuneZoom button.on{background:#9cc3ff;color:#10141a;border-color:#9cc3ff}`;
   if (typeof document !== "undefined" && document.head) { const s = document.createElement("style"); s.textContent = css; document.head.appendChild(s); }
   G.Tune = { draw, wire, load, legend, range, col, tgCol, centerAt, fitAt, delta, semiLabel, openFull, WIN, HEAD, ZOOM_HALF };
 })(typeof window !== "undefined" ? window : globalThis);
