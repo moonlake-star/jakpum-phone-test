@@ -362,7 +362,7 @@
     // 크롬 '진짜 전체화면'은 쓰지 않음(크롬 회색 안내가 뜨므로, 10/30 14:52 사용자) — 앱 화면 안에서 가득. 뒤로 가기 = 닫기
     G.addEventListener("resize", layout); G.addEventListener("orientationchange", layout);
     try { history.pushState(Object.assign({}, history.state || {}, { tuneFs: true }), ""); } catch {}
-    const bye = wrap.querySelector(".tfBye"); setTimeout(() => bye && bye.classList.add("go"), 450);
+    const bye = wrap.querySelector(".tfBye"); bye && bye.remove();   // (10/30 19:46 사용자) '닫을 때는…' 안내 없앰
     // (10/30 17:18 사용자) 가로 회전 안내는 없앰 — 주석 2층은 세로가 더 편함
     // (10/30 17:51 사용자 시안 승인) 수강생: 선생님이 확인한 주석이 있으면 열 때 2.5초 안내 — 레슨마다 처음 두 번만, 톡 하면 닫힘
     if (o.tip && (typeof o.notes === "function" ? (o.notes() || []).length : 0)) { let n = 0; const key = "tune_tip_" + String(o.tipKey || o.title || "").slice(0, 80);
