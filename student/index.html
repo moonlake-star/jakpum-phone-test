@@ -138,7 +138,7 @@
   <div id="view"><p class="muted">불러오는 중…</p></div>
 </main>
 <script src="../lesson-replies.js"></script>
-<script src="../tune.js?v=20261030-1952"></script>
+<script src="../tune.js?v=20261030-2114"></script>
 <script>
 // ── 설정(비밀값 아님): 수강생 로그인용 구글 클라이언트 ID, 노트 연결(Apps Script 웹 앱) 주소 ──
 const STUDENT_CLIENT_ID = "712936245254-2itl2rolhhcsq9cdqnhku4u43hpdv2mk.apps.googleusercontent.com";
@@ -464,7 +464,7 @@ function mkBoxHtml(mk, best) {
   return `<div class="mkBox" data-mkbox="${esc(mk.file_id)}">
     <div class="abSw" role="group" aria-label="원음·보정본"><button type="button" data-ab="o" class="on" aria-pressed="true">원음</button><button type="button" data-ab="p" aria-pressed="false">✨ 보정본</button></div>
     ${sidOk(mk.curve_id) && typeof Tune !== "undefined" ? `<canvas class="tune" aria-label="음정선 — 톡 누르면 그 자리부터, 좌우로 밀면 앞뒤로"></canvas>${Tune.legend(true)}` : ""}
-    <div class="tnote">✨ 보정본은 AI가 자동으로 음정을 맞춘 예시라 정확하지 않을 수 있어요. 정식 음원은 전문 엔지니어가 한 음 한 음 더 정밀하게 다듬어요 · 내가 실제로 부른 소리는 ‘원음’이에요</div>
+    <div class="tnote">✨ 보정본은 자동으로 음정을 맞춘 예시라 정확하지 않을 수 있어요. 정식 음원은 전문 엔지니어가 한 음 한 음 더 정밀하게 다듬어요 · 내가 실제로 부른 소리는 ‘원음’이에요</div>
     <div class="mkCtl"><button type="button" class="rp" data-mkp aria-label="듣기">▶</button><input type="range" min="0" max="1000" value="0" data-mks aria-label="재생 위치"><span class="tm2" data-mkt></span></div>
     <audio class="hidden" data-mka="p" preload="none"></audio><audio class="hidden" data-mka="o" preload="none"></audio></div>`;
 }
@@ -523,7 +523,7 @@ function albumHtml(ls) {
     <div id="albList"></div>
     <div class="dock hidden" id="albDock"><div class="muted" id="albNow"></div>
       <canvas class="tune hidden" id="albTune" aria-label="음정선"></canvas><div id="albLeg"></div>
-      <div class="tnote hidden" id="albNote">✨ 보정본은 AI가 자동으로 음정을 맞춘 예시라 정확하지 않을 수 있어요. 정식 음원은 전문 엔지니어가 한 음 한 음 더 정밀하게 다듬어요 · 내가 실제로 부른 소리는 ‘원음’이에요</div>
+      <div class="tnote hidden" id="albNote">✨ 보정본은 자동으로 음정을 맞춘 예시라 정확하지 않을 수 있어요. 정식 음원은 전문 엔지니어가 한 음 한 음 더 정밀하게 다듬어요 · 내가 실제로 부른 소리는 ‘원음’이에요</div>
       <input type="range" min="0" max="1000" value="0" id="albSeek" aria-label="재생 위치" style="width:100%">
       <div class="ctl"><button type="button" class="rp" id="albPrev" aria-label="이전 곡">⏮</button><button type="button" class="rp" id="albPP" aria-label="재생" style="width:56px">▶</button><button type="button" class="rp" id="albNext" aria-label="다음 곡">⏭</button></div></div>
     <button type="button" class="full" id="albGo" style="margin-top:8px">▶ 처음부터 이어 듣기</button>
@@ -653,7 +653,7 @@ function lessonHtml(l, prev, mode = "normal") {
     ${full && !l.best?.file_id && makeupOk(l.makeup, l.best) ? `<div class="card makeup"><div class="cardHead"><span class="badge mk">메이크업본</span><b>간단 음정보정 예시</b>${l.makeup.len ? `<span class="muted">${l.makeup.len}초</span>` : ""}</div><p class="muted" style="margin:4px 0 6px">음원 발매용으로 정식 보정하면 더 자연스럽고 좋아져요</p>${has(l.makeup.msg) ? `<p style="margin:0 0 8px">${esc(l.makeup.msg.trim())}</p>` : ""}${(sidOk(l.makeup.before_id) || sidOk(l.makeup.curve_id)) ? mkBoxHtml(l.makeup) : pill(l.makeup.file_id + "#m", "메이크업 듣기", l.makeup.peaks, "mk")}</div>` : ""}
     ${(full && cheer) || mission.length || (full && song) ? `<div class="card cheer${mission.length || (full && song) ? " mission" : ""}">${full && cheer ? `<h2>💌 응원 메시지</h2><p class="pre" style="margin:0">${esc(cheer)}</p>` : ""}${mission.length || (full && song) ? `<h2${full && cheer ? ' class="mh"' : ""}>📋 다음 미션</h2>${mission.length ? listHtml(mission) : ""}${full && song ? `<div class="song"><div class="muted">🎵 추천 곡</div><b>${esc(song.title)}</b>${has(song.artist) ? ` <span class="muted">(${esc(song.artist)})</span>` : ""}${has(song.why) ? `<p style="margin:4px 0 0">${esc(song.why)}</p>` : ""}${yt(song.url) ? `<a class="yt" href="${esc(yt(song.url))}" target="_blank" rel="noopener noreferrer">▶ 유튜브에서 듣기</a>` : `<a class="yt find" href="https://www.youtube.com/results?search_query=${encodeURIComponent((song.title + " " + (song.artist || "")).trim())}" target="_blank" rel="noopener noreferrer">🔎 유튜브에서 찾아 듣기</a>`}</div>` : ""}` : ""}</div>` : ""}
     ${more && m === "detail" ? `<div class="card more">${more}</div>` : more && m === "normal" ? `<details class="card more"><summary>더 들여다보기</summary>${more}</details>` : ""}
-    ${full && l.full && typeof l.full.file_id === "string" && Array.isArray(l.full.segs) && l.full.segs.length ? `<details class="card more fullrec" data-fid="${esc(l.full.file_id)}"><summary>📝 레슨 전체 기록 · 전사본과 녹음</summary><p class="muted" style="margin:0 0 6px">AI가 받아쓴 글이라 틀린 곳이 있을 수 있어요 · 말풍선을 누르면 아래 재생바로 그 자리부터 들려요${l.full.cut ? " · 길어서 앞부분만 실었어요" : ""}</p><div class="trs">${l.full.segs.filter(Array.isArray).map(([t, w, tx]) => { const k = ({ t: "t", s: "s", g: "g" })[w] || "x", tt = Math.max(0, +t || 0);
+    ${full && l.full && typeof l.full.file_id === "string" && Array.isArray(l.full.segs) && l.full.segs.length ? `<details class="card more fullrec" data-fid="${esc(l.full.file_id)}"><summary>📝 레슨 전체 기록 · 전사본과 녹음</summary><p class="muted" style="margin:0 0 6px">녹음을 글로 옮긴 기록이라 틀린 곳이 있을 수 있어요 · 말풍선을 누르면 아래 재생바로 그 자리부터 들려요${l.full.cut ? " · 길어서 앞부분만 실었어요" : ""}</p><div class="trs">${l.full.segs.filter(Array.isArray).map(([t, w, tx]) => { const k = ({ t: "t", s: "s", g: "g" })[w] || "x", tt = Math.max(0, +t || 0);
       return `<div class="fseg ${k === "s" ? "right" : "left"}"><div class="fbub fb-${k}" data-ft="${tt}"><span class="who">${({ t: "선생님", s: "나", g: "🎵 노래" })[k] || "·"}</span><span class="tm">${Math.floor(tt / 60)}:${String(Math.floor(tt % 60)).padStart(2, "0")}</span><span class="tx">${esc(tx)}</span></div></div>`; }).join("")}</div></details>` : ""}`;
 }
 
