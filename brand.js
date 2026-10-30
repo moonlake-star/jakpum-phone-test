@@ -33,7 +33,7 @@
     let el = document.getElementById("brLoad");
     if (!el) { el = document.createElement("div"); el.id = "brLoad"; el.setAttribute("role", "status"); el.innerHTML = `<div class="lg"></div><div class="tx"></div><div class="br"><i></i></div>`; document.body.appendChild(el); }
     ln = Math.max(0, ln + (on ? 1 : -1));
-    if (on) { el.querySelector(".tx").textContent = text || "오늘의 작품을 불러오고 있어요…"; clearTimeout(lt); lt = setTimeout(() => { if (ln > 0) el.classList.add("on"); }, delay == null ? 600 : delay);
+    if (on) { el.querySelector(".tx").textContent = text || "불러오는 중..."; clearTimeout(lt); lt = setTimeout(() => { if (ln > 0) el.classList.add("on"); }, delay == null ? 600 : delay);
       clearTimeout(loading.cap); loading.cap = setTimeout(() => { ln = 0; el.classList.remove("on"); }, 20000); }
     if (ln === 0) { clearTimeout(lt); el.classList.remove("on"); }
   }
