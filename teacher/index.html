@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>작품 보컬노트 · 선생님</title>
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" href="../brand/app-192.png">
+<link rel="icon" href="../brand/app-192.png?v=20261031b">
 <meta name="theme-color" content="#17191d">
 <script src="https://accounts.google.com/gsi/client" async></script>
 <style>
@@ -353,7 +353,7 @@
 </head>
 <body>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@700&display=swap">
-<script src="../brand.js?v=20261030-1700"></script>
+<script src="../brand.js?v=20261031-2339"></script>
 <script>try { Brand.splash("teacher"); } catch {}</script>
 <main>
   <header><button id="btnBack" class="ghost small hidden">← 뒤로</button><h1><span class="brMark" aria-hidden="true"></span>작품 보컬노트</h1><button id="btnUi" class="ghost small hidden" style="display:none" type="button" title="화면 방식 바꾸기">V1 화면</button></header>
@@ -5319,7 +5319,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-31-1548-sheetback";
+const BUILD = "2026-10-31-2339-logo";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
