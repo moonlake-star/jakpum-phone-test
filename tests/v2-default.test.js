@@ -27,7 +27,7 @@ const bestJoined = new Function(grab(src, "bestJoined") + "; return bestJoined;"
 assert.strictEqual(bestJoined({ isComposite: true, seams: [{}], takes_used: 2 }), true);
 assert.strictEqual(bestJoined({ isComposite: true, composition: "sections_only", seams: [] }), true);
 assert.strictEqual(bestJoined({ isComposite: true, composition: "single_take", seams: [], takes_used: 1 }), false);
-assert.strictEqual(bestJoined({ isComposite: true, seams: [], takes_used: 1 }), false, "어젯밤 김미영 사례처럼 사실상 한 테이크");
+assert.strictEqual(bestJoined({ isComposite: true, seams: [], takes_used: 1 }), false, "어젯밤 홍길동 사례처럼 사실상 한 테이크");
 assert.strictEqual(bestJoined({ isComposite: false }), false);
 assert.strictEqual(bestJoined({ isComposite: true }), undefined, "예전 편집본(정보 없음)은 모름 → 수강생 화면 예전 문구");
 assert.ok(src.includes('공개 전에 할 것: " + bl0.msg'), "구버전 서버 게시도 승인 전 확인");

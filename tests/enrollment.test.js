@@ -8,7 +8,7 @@ const build = new Function("cfg", "DRIVE", "api", "writeJSON", "adoptConfig", "L
   source + "\nreturn {joinCreateStudent,joinStudentName,joinStudentOptions,joinRow};");
 const mk = (failAt = 0) => {
   let writes = 0, made = 0, adopted = false;
-  const config = {students: {STU_0001: {name:"김미영",folder:"student-1",status:"active",
+  const config = {students: {STU_0001: {name:"김철수",folder:"student-1",status:"active",
     sub:{"02_레슨":"lesson-1"},aliases:[],payments:[]}}, portal_url:"https://example.test"};
   const cfg = JSON.parse(JSON.stringify(config));
   Object.defineProperty(cfg, "_configId", {value:"config-file"});
@@ -47,7 +47,7 @@ const mk = (failAt = 0) => {
   assert.strictEqual(st.status,"active"); assert.strictEqual(x.made,5);
   for (const k of ["02_레슨","03_메모_카톡_통화","04_과제제출","07_커버제작"]) assert(st.sub[k]);
   assert.strictEqual(x.writes,1); assert(x.adopted);
-  await assert.rejects(x.impl.joinCreateStudent("김미영"),/같은 이름/);
+  await assert.rejects(x.impl.joinCreateStudent("김철수"),/같은 이름/);
   assert.strictEqual(x.writes,1);
   const t = mk(), created2 = await t.impl.joinCreateStudent("연습 계정",true);
   assert.strictEqual(t.config.students[created2.sid].status,"test");

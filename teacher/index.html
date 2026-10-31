@@ -706,7 +706,7 @@ async function anoDecide(c, v) {
   const m = s.anomaly_memory ||= {}; m.accepted_events ||= []; m.accepted_times ||= {}; m.dismissed ||= []; m.wrong_counts ||= {};
   if (v === "ok") { m.accepted_events.push(c.event_id); if (c.student_id && ["ampm_flip", "unusual_time"].includes(c.kind)) (m.accepted_times[c.student_id] ||= []).push(c.hm); }
   else { m.dismissed.push(c.dedupe_key); if (v === "wrong") m.wrong_counts[c.kind] = (m.wrong_counts[c.kind] || 0) + 1; }
-  if (v === "alias") {   // '윤진선' → 윤지선 님의 다른 표기로 기억(다음 수집부터 그 일정이 윤지선 레슨으로 잡힘)
+  if (v === "alias") {   // '이하니' → 이하나 님의 다른 표기로 기억(다음 수집부터 그 일정이 이하나 레슨으로 잡힘)
     const sid = Object.entries(cfg.students || {}).find(([, x]) => x.name === c.suggested_name)?.[0];
     if (sid && c.typed) { const o = ((s.students ||= {})[sid] ||= {}); o.aliases = [...new Set([...(o.aliases || []), c.typed])]; }
   }
@@ -4051,7 +4051,7 @@ const RG_REQ = "전체재편집_요청_", RG_STATE = "전체재편집_상태_", 
 const RG_LABEL = { requested: "요청됨", queued: "대기 중", processing: "처리 중", succeeded: "성공", failed: "실패" };
 const RG_ACTIVE = ["requested", "queued", "processing"];
 let regenBusy = false, regenTimer = null;
-// (10/29 11:28 사용자) 예상 완료 시간. 10/29 11:39 실제(김미영 10/25, 전체 부르기 81초): 준비 1.5분 + 편집 9.5분 = 11분 → 보통 10~15분
+// (10/29 11:28 사용자) 예상 완료 시간. 10/29 11:39 실제(홍길동 10/25, 전체 부르기 81초): 준비 1.5분 + 편집 9.5분 = 11분 → 보통 10~15분
 // 바로 시작(kick)이 안 되면 예약 확인(collect.yml cron, UTC) 때 시작 → 그 시각 + 10분
 const RG_ETA_MIN = 13, RG_CRON_UTC = [[1, 30], [2, 30], [7, 0], [8, 0], [9, 0], [10, 0], [10, 30], ...[11, 12].flatMap(h => [0, 15, 30, 45].map(m => [h, m])), [13, 0], [13, 15], [13, 30], [14, 0], [14, 30]];
 function rgNextCron(now) {

@@ -6,7 +6,7 @@ const reLine = html.match(/const TS_RE = (\/.*\/g);/)[1];
 const env = new Function(`const TS_RE = ${reLine}; ${grab("tsTimes")}; ${grab("tsLineTime")}; return { tsTimes, tsLineTime };`)();
 assert.deepStrictEqual(env.tsTimes("· 8:24 '오' 발음\n· 11:16 언젠가는\n· 15:24 마지막 · 8:24 다시").map(x => x.s), [504, 676, 924]);
 assert.deepStrictEqual(env.tsTimes("1:02:03 은 무시, 12:345도 무시, 3:7도 무시"), []);
-const v = "김미영님 수고하셨어요!\n· 8:24 브릿지 좋았어요\n· 11:16 숨";
+const v = "홍길동님 수고하셨어요!\n· 8:24 브릿지 좋았어요\n· 11:16 숨";
 assert.strictEqual(env.tsLineTime({ value: v, selectionStart: v.indexOf("브릿지") }).s, 504);
 assert.strictEqual(env.tsLineTime({ value: v, selectionStart: 3 }), null, "시각 없는 줄 = 막대 숨김");
 assert.strictEqual(env.tsLineTime({ value: v, selectionStart: v.length }).lab, "11:16");

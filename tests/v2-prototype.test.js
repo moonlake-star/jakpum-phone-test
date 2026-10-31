@@ -62,7 +62,7 @@ assert.deepEqual(V2.mockPeaks(7, 10), V2.mockPeaks(7, 10));
 
 // 가상 데이터만: 실제 수강생 이름·Drive ID 없음
 const logic = fs.readFileSync(__dirname + '/../v2/v2-logic.js', 'utf8');
-assert(!/김미영|[A-Za-z0-9_-]{28,}/.test(logic), '실명·파일 ID 금지');
+assert(!/홍길동|[A-Za-z0-9_-]{28,}/.test(logic), '실명·파일 ID 금지');
 
 // 실제 전송/네트워크/저장/공유 코드 없음
 for (const f of ['v2/v2-logic.js', 'v2/index.html']) {

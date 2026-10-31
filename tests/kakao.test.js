@@ -10,8 +10,8 @@ const { kakaoText, nextTpl, KAKAO_TPL } = f(LS, cfg, () => cfg.student_page_url)
 const note = { lesson_id: "abc 1", highlight: "'오' 발음 잡은 브릿지" };
 const ks = [nextTpl("S1"), nextTpl("S1"), nextTpl("S1")];
 assert(ks[0] !== ks[1] && ks[1] !== ks[2]);
-const t = kakaoText({ name: "김미영" }, note, ks[0]);
-assert(t.includes("김미영님") && t.includes("'오' 발음 잡은 브릿지") && t.includes("👉 https://x.github.io/jakpum-phone-test/student/?l=abc%201"));
+const t = kakaoText({ name: "홍길동" }, note, ks[0]);
+assert(t.includes("홍길동님") && t.includes("'오' 발음 잡은 브릿지") && t.includes("👉 https://x.github.io/jakpum-phone-test/student/?l=abc%201"));
 assert(!kakaoText({ name: "가" }, { lesson_id: "x" }, 0).includes("undefined"));
 assert(new Set(KAKAO_TPL.map(fn => fn("가", "p"))).size === KAKAO_TPL.length);
 console.log("kakao ok");
