@@ -1341,7 +1341,7 @@ function buildNote() {
   // practice(이번 주 미션)와 no_mission(‘미션 없음’ 의도적 선택)을 구분해 싣는다. 미설정(둘 다 없음)은 승인 단계에서 막힘
   const noMission = rv.no_mission === true;
   return { lesson_id: cur.folder.id, date: cur.folder.name.slice(0, 10), title: cur.folder.name,
-    feedback: $("fb").value, points: (rv.points || []).filter(Boolean), practice: noMission ? [] : (rv.practice || []).filter(Boolean), no_mission: noMission,
+    feedback: typeof datedGreet === "function" ? datedGreet($("fb").value, cur.folder.name) : $("fb").value, points: (rv.points || []).filter(Boolean), practice: noMission ? [] : (rv.practice || []).filter(Boolean), no_mission: noMission,
     best: bestNote(bp), makeup: mk ? { file_id: mk.file_id, len: mk.len, source_file_id: mk.source_file_id, msg: (rv.makeup_msg || "").trim(), ...(typeof mkSideFiles === "function" ? mkSideFiles(bestPicked()) : {}) } : null, extra_best: [],
     cheer: (rv.cheer || "").trim(), song: rv.song?.title ? { title: rv.song.title, artist: rv.song.artist || "", why: rv.song.why || "", ...(rv.song.url ? { url: rv.song.url } : {}) } : null,   /* 고르지 않은 편집본을 '다른 버전'으로 몰래 싣지 않음 */
     ...(/^[A-Za-z0-9_-]{30,60}$/.test((typeof cfg !== "undefined" && cfg?.student_audio_key) || "") ? { audio_key: cfg.student_audio_key } : {}),   // 수강생 재생용(드라이브 API 키, 주소 제한)
@@ -1636,6 +1636,9 @@ function practiceFromText(value) {
   const m = String(value || "").match(/이번 주 연습[^\n]*\n((?:[ \t]*[·•\-][^\n]*(?:\n|$))+)/);
   return m ? m[1].split("\n").map(x => x.replace(/^[ \t]*[·•\-]\s*/, "").trim()).filter(Boolean) : null;
 }
+// (11/01 00:00 사용자) 인사 첫 줄의 '오늘 레슨' → 레슨 날짜('10월 29일 레슨') — 첫 줄 인사말만 바꾸고 본문의 '오늘'은 그대로
+function datedGreet(text, d) { const m = String(d || "").match(/^\d{4}-(\d{2})-(\d{2})/), s = String(text ?? ""); if (!m) return s;
+  const L = s.split("\n"); if (L[0] && L[0].length <= 60) L[0] = L[0].replace(/오늘\s*(레슨|수업)/, (_, b) => `${+m[1]}월 ${+m[2]}일 ${b}`); return L.join("\n"); }
 function updateFeedbackDraft(value, fromPreview = false) {
   $("fb").value = value;
   cur.review.feedback = value;
@@ -3790,7 +3793,7 @@ async function openLessonInner(sid, i, backTo) {
   renderPoints();
   review.pairSend ??= (ai?.audio || []);
   renderAnalysis(d.pitch, d.ana, ai);
-  $("fb").value = review.reviewed_at ? (review.feedback ?? "") : (review.feedback || draftFeedback());
+  $("fb").value = datedGreet(review.reviewed_at ? (review.feedback ?? "") : (review.feedback || draftFeedback()), cur?.folder?.name);
   $("fb").oninput = () => updateFeedbackDraft($("fb").value);
   paintAiNote(ai);
   $("ck").value = review.check_text || draftCheck();
@@ -5319,7 +5322,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-10-31-2339-logo";
+const BUILD = "2026-11-01-0001-greetdate";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
@@ -5353,7 +5356,7 @@ $("btnAdd").onclick = () => {
   cur.review.manual.push({ id: `M${cur.review.manual.length + 1}`, start: s, end: e, note: $("addNote").value.trim() });
   $("addS").value = $("addE").value = $("addNote").value = ""; renderCands();
 };
-$("btnRegen").onclick = () => { updateFeedbackDraft(draftFeedback()); };
+$("btnRegen").onclick = () => { updateFeedbackDraft(datedGreet(draftFeedback(), cur?.folder?.name)); };
 // (#80·#81) 카톡 버튼: 멘트+링크 복사(링크 1번) · 🎲 인사말 바꾸기(첫 줄만) · 카카오톡 열기(열기만) — 셋 다 '보냄'으로 치지 않음
 // (10/30 21:59 사용자) 카톡 멘트는 짧게 — 노트 페이지에 그대로 보이는 피드백 본문은 넣지 않음: 인사 한 줄 + 안내 한 줄 + 링크
 const KAKAO_LINE = ["오늘 레슨 노트 올려 두었어요. 편하실 때 확인해 보세요~", "오늘 부른 녹음이랑 피드백 정리해 두었어요. 한번 들어 보세요!", "오늘 레슨 내용 정리해 두었어요. 아래에서 확인해 보세요~"];
@@ -5364,7 +5367,7 @@ function kakaoCopyText() {
   const k = Math.abs([...String(cur.note?.lesson_id || cur.folder?.id || "")].reduce((a, c) => a + c.charCodeAt(0), 0)) % KAKAO_LINE.length;
   return `${greet}\n${KAKAO_LINE[k]}\n\n👉 노트 보기: ${link}`;
 }
-const GREETS = [(n) => `${n}님, 오늘 레슨 수고 많으셨어요!`, (n) => `${n}님 오늘도 고생 많으셨습니다 :)`, (n) => `${n}님, 오늘 수업 감사했습니다!`, (n) => `오늘 레슨 즐거우셨죠, ${n}님?`, (n) => `${n}님, 오늘 정말 잘하셨어요!`];
+const GREETS = [(n) => `${n}님, 오늘 레슨 수고 많으셨어요!`, (n) => `${n}님 오늘 레슨도 고생 많으셨습니다 :)`, (n) => `${n}님, 오늘 수업 감사했습니다!`, (n) => `오늘 레슨 즐거우셨죠, ${n}님?`, (n) => `${n}님, 오늘 레슨 정말 잘하셨어요!`];
 function swapGreeting(text, name, k) {   // 첫 줄이 인사말이면 그 줄만 바꾸고, 아니면 맨 위에 인사말 한 줄을 넣음. 나머지 본문은 그대로
   const L = String(text || "").split("\n"), g = GREETS[k % GREETS.length](name);
   if (L.length && (L[0].includes(name) || /수고|고생|감사|레슨|잘하셨/.test(L[0])) && L[0].length <= 40) { L[0] = g; return L.join("\n"); }
@@ -5372,8 +5375,9 @@ function swapGreeting(text, name, k) {   // 첫 줄이 인사말이면 그 줄�
 }
 $("btnCopy").onclick = async () => { const t = kakaoCopyText(); if (!cur.note) toast("아직 공개 전이에요 — 링크를 열어도 노트가 안 보여요");
   try { await navigator.clipboard.writeText(t); toast("복사했어요. 카톡에 붙여넣기 하세요. 보낸 뒤 ③을 눌러 주세요"); } catch { toast("복사하지 못했어요. 다시 눌러 주세요"); } };
-$("btnGreet").onclick = () => { const now = String($("fb").value || "").split("\n")[0], i0 = GREETS.findIndex(g => g(cur.st.name) === now);
-  let k = (i0 + 1) % GREETS.length; if (i0 < 0) k = nextTpl(cur.sid) % GREETS.length; const v = swapGreeting($("fb").value, cur.st.name, k);   // 누를 때마다 지금과 다른 인사말
+$("btnGreet").onclick = () => { const now = String($("fb").value || "").split("\n")[0], i0 = GREETS.findIndex(g => g(cur.st.name) === now || (typeof datedGreet === "function" && datedGreet(g(cur.st.name), cur?.folder?.name) === now));
+  let k = (i0 + 1) % GREETS.length; if (i0 < 0) k = nextTpl(cur.sid) % GREETS.length; let v = swapGreeting($("fb").value, cur.st.name, k);   // 누를 때마다 지금과 다른 인사말
+  if (typeof datedGreet === "function") v = datedGreet(v, cur?.folder?.name);
   if (typeof updateFeedbackDraft === "function") updateFeedbackDraft(v); else $("fb").value = v; toast("인사말만 바꿨어요"); };
 $("btnKakaoOpen").onclick = () => { location.href = /Android/i.test(navigator.userAgent) ? "intent://#Intent;scheme=kakaotalk;package=com.kakao.talk;end" : "kakaotalk://"; };
 $("btnShare").onclick = async () => {

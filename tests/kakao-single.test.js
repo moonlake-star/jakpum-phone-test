@@ -6,7 +6,7 @@ const G = src.match(/const GREETS = [^\n]*\n/)[0];
 const { swapGreeting } = new Function(G + grab('swapGreeting') + 'return {swapGreeting};')();
 const body = '홍길동님, 오늘 레슨 수고 많으셨어요!\n\n오늘 중요한 포인트\n· 직접 고친 문장';
 const a = swapGreeting(body, '홍길동', 1);
-assert.equal(a.split('\n')[0], '홍길동님 오늘도 고생 많으셨습니다 :)'); assert.equal(a.split('\n').slice(1).join('\n'), body.split('\n').slice(1).join('\n'), '본문은 그대로');
+assert.equal(a.split('\n')[0], '홍길동님 오늘 레슨도 고생 많으셨습니다 :)'); assert.equal(a.split('\n').slice(1).join('\n'), body.split('\n').slice(1).join('\n'), '본문은 그대로');
 assert.notEqual(swapGreeting(a, '홍길동', 2).split('\n')[0], a.split('\n')[0], '누를 때마다 다른 인사말');
 const b = swapGreeting('오늘 중요한 포인트\n· 하나', '홍길동', 0); assert(b.startsWith('홍길동님, 오늘 레슨 수고 많으셨어요!\n\n오늘 중요한 포인트'), '인사말이 없으면 맨 위에 한 줄만');
 // 링크 1번
