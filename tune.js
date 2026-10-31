@@ -188,7 +188,11 @@
     kind.querySelectorAll("[data-k]").forEach(b => b.onclick = () => { const want = b.dataset.k === "p"; if (want === spot) return; spot = want;
       d.t1 = spot ? d.t0 : R2(d.t0 + 1.0); renderAdj(); paint(); V && V.focus(d.t0); });
     renderAdj(); paint();
-    const close = () => { el.remove(); V && V.done(); if (lastView === V) lastView = null; };
+    // (10/31 15:47 사용자) 폰 뒤로 버튼 = 주석 창만 닫기(오늘의 베스트 전체화면은 그대로)
+    if (!sheetClose) try { history.pushState(Object.assign({}, history.state || {}, { tuneSheet: true }), ""); } catch {}
+    const close = (fromPop) => { el.remove(); V && V.done(); if (lastView === V) lastView = null; if (sheetClose === close) sheetClose = null;
+      if (fromPop !== true) try { if (history.state && history.state.tuneSheet) { skipPop = true; history.back(); } } catch {} };
+    sheetClose = close;
     // (10/31 08:09 버그) 위 칸을 톡 하면 창이 뜬 직후 같은 손가락의 'click'이 창 바깥(어두운 곳)에 떨어져 바로 닫혔음 → 뜬 뒤 0.45초 안의 바깥 클릭은 무시
     const openedAt = performance.now();
     el.onclick = (e) => { if (e.target === el && performance.now() - openedAt > 450) close(); };
@@ -420,7 +424,7 @@
         setTimeout(() => { if (!wrap.isConnected) return; wrap.appendChild(rp); setTimeout(shut, 3500); }, 400); } }
     const done = () => { G.removeEventListener("resize", layout); G.removeEventListener("orientationchange", layout); wrap.remove(); if (fsClose === done) fsClose = null; };
     fsClose = done;
-    const close = () => { done(); try { if (history.state && history.state.tuneFs) { skipPop = true; history.back(); } } catch {} };
+    const close = () => { const sh = !!sheetClose; if (sh) sheetClose(true); done(); try { if (history.state && history.state.tuneFs) { skipPop = true; history.go(sh && history.state.tuneSheet ? -2 : -1); } } catch {} };   // 주석 창이 열린 채 닫으면 그 기록까지 같이 정리
     wrap.querySelectorAll(".tfX").forEach(b => b.onclick = close);
     const tm = wrap.querySelector(".tfTime"), mid = wrap.querySelector(".tfMid");
     const isPaused = () => (typeof o.paused === "function" ? o.paused() : true);
@@ -486,9 +490,10 @@
     requestAnimationFrame(loop);
   }
   // 뒤로 가기: 열린 전체화면만 닫고, 앱 쪽 뒤로 가기 처리는 건너뛰게 e.tuneClosed 표시(선생님 앱 popstate가 확인)
-  let fsClose = null, skipPop = false;
+  let fsClose = null, skipPop = false, sheetClose = null;
   if (typeof G.addEventListener === "function") G.addEventListener("popstate", (e) => {
     if (skipPop) { skipPop = false; try { e.tuneClosed = true; } catch {} return; }
+    if (sheetClose) { sheetClose(true); try { e.tuneClosed = true; } catch {} return; }   // 주석 창이 열려 있으면 그것만 닫음
     if (fsClose) { fsClose(); try { e.tuneClosed = true; } catch {} }
   });
   async function load(url) { const r = await fetch(url); if (!r.ok) throw new Error("음정선을 못 불러왔어요"); const j = await r.json(); return j && Array.isArray(j.pts) ? j : null; }
