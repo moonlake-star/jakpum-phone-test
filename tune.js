@@ -291,7 +291,7 @@
       for (const p of vis) { const X = xs(p[0]); if (X < L || X > w) continue; const d = p[k] - p[1]; if (Math.abs(d) < 2) continue;
         const hh = Math.max(-half, Math.min(half, -d / 50 * half)); g.fillStyle = Math.abs(d) <= 15 ? "#5b6573" : hh > 0 ? "#ffd27a" : "#9cc3ff"; g.fillRect(X, hh > 0 ? mid - hh : mid, bw, Math.abs(hh)); }   // 높게 부른 곳 = 위·노랑, 낮게 = 아래·파랑
     }
-    g.fillStyle = "rgba(23,25,29,.35)"; g.fillRect(xs(t) + 2, T, w, H);   // 아직 안 부른 쪽은 살짝 어둡게
+    // (10/31 15:38 사용자) 세로줄 오른쪽(아직 안 부른 쪽)도 어둡게 하지 않음 — 음정 선이 끝까지 같은 밝기
     g.fillStyle = "#ff9f5a"; g.fillRect(Math.round(xs(t)) - 1, 2, 2.5, h - 4);   // (10/31 15:34 사용자) 지금 세로줄 = 주황
     const kL = k || col(cv, (st && st.lvDef) || 2) || col(cv, (cv.levels || [])[0]), d = delta(cv, kL, t);   // 원음으로 들을 때도 '어떻게 불렀나'는 보여 줌
     let tagB = T + 8 + (full ? 22 : 16) + (st && st.teacher ? (full ? 16 : 12) : 0);   // 말풍선 자리 고정: '높게/낮게' 표시가 떴다 사라져도 말풍선은 안 움직임(10/30 16:18 사용자)
