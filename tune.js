@@ -73,7 +73,7 @@
       const ok = n.status === "ok", c = colOf(n), ed = st.editing && (st.editing.n === n || (st.editing.d.t0 === n.t0 && st.editing.d.t1 === n.t1));
       if (+n.t1 - +n.t0 >= 0.35) {   // 구간: 그 구간 음정선을 두껍게 빛나게
         const seg = (vis || []).filter(p => p[1] != null && p[0] >= +n.t0 && p[0] <= +n.t1);
-        for (const [wd, al] of [[12, 0.28], [3.2, 1]]) { g.strokeStyle = `rgba(${c},${al})`; g.lineWidth = wd; g.lineCap = "round"; g.lineJoin = "round"; g.beginPath(); let prev = null;
+        for (const [wd, al, cc] of [[12, 0.22, c], [3.2, 1, "255,224,102"]]) { g.strokeStyle = `rgba(${cc},${al})`;   /* (10/31 15:43 사용자) 구간 안 음정선은 노랑 그대로 — 주석 색은 은은한 테두리와 ├─┤ 막대에만 */ g.lineWidth = wd; g.lineCap = "round"; g.lineJoin = "round"; g.beginPath(); let prev = null;
           for (const p of seg) { const X = xs(p[0]), Y = yf(p[1]); if (prev != null && p[0] - prev < 0.13) g.lineTo(X, Y); else g.moveTo(X, Y); prev = p[0]; } g.stroke(); }
         // (10/30 16:48 사용자 시안 승인) 구간 = 음정선 바로 위 ├──┤ 괄호, 말풍선 화살표가 괄호 가운데를 가리킴
         let top = 1e9; for (const p of seg) { const Y = yf(p[1]); if (Y < top) top = Y; } if (top > 1e8) { const s0 = pAt(+n.t0); top = s0 ? s0.y : T + H / 2; }
