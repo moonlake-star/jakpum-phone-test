@@ -212,6 +212,10 @@
     el.querySelector(".tsOk").onclick = () => { const tx = el.querySelector(".tsTx").value.trim(); if (!tx) { el.querySelector(".tsTx").focus(); return; }
       close(); o.onSave && o.onSave({ ...d, text: tx, status: "ok", t0: Math.round(d.t0 * 100) / 100, t1: Math.round(d.t1 * 100) / 100 }); };
     if (isNew) setTimeout(() => el.querySelector(".tsTx").focus(), 50);
+    // (10/31 09:04 사용자) 상자를 누른 손가락의 뒤따르는 클릭이 막 열린 글 칸에 떨어지면 키보드가 바로 올라옴 → 열고 0.45초 동안은 글 칸이 키보드를 못 띄움(글을 한 번 더 눌러야 올라옴, 새 주석은 예전처럼 바로)
+    if (!isNew) { const ta = el.querySelector(".tsTx"); ta.readOnly = true;
+      ta.addEventListener("focus", () => { if (performance.now() - openedAt < 450) ta.blur(); });
+      setTimeout(() => { ta.readOnly = false; }, 450); }
   }
   function tgCol(cv) { return cv.target ? 2 + (cv.levels || []).length : 0; }   // 정음(목표음) 열(서버 v2부터)
   function draw(el, cv, t, lv, st) {
