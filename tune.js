@@ -1,6 +1,6 @@
 // (10/30 사용자) 튠 화면 — Waves Tune처럼 음정선이 재생 위치와 함께 오른쪽→왼쪽으로 흐름. 선생님 앱·수강생 노트 공용.
 // curve = 메이크업 서버가 저장한 pitch_curve.json: { fps, scale:[음이름 번호], levels:[1,2,3], pts:[[초, 원음, 약, 중, 강], ...] } (값 = MIDI×100 센트)
-// 주황 = 실제로 부른 음, 하늘색 = 보정된 음, 노란 세로선 = 지금. 두 선 사이 노랑 = 고친 곳(진할수록 많이).
+// 노랑 = 실제로 부른 음, 하늘색 = 보정된 음, 주황 세로선 = 지금(10/31 사용자 C안 변형). 두 선 사이 노랑 = 고친 곳(진할수록 많이).
 // 아래 줄 = 고친 양(위 = 올림 · 아래 = 내림, 끝까지 = 반음 ½ 이상). 확대(기본): 지금 음 근처 ±4반음, 전체: 곡 전체 음역.
 // 음정 인식은 AI 추정(숨소리·자음에서 선이 튈 수 있음) — 참고용.
 (function (G) {
@@ -31,7 +31,7 @@
   }
   // 고친 양을 반음 단위로: 51센트 → "↓ 0.5반음 내림"(반음 = 피아노 건반 한 칸)
   // (10/30 16:06 사용자 시안 승인) 수강생 기준 '내가 어떻게 불렀나': 고친 양의 반대 방향. d = 고친 양(센트)
-  function sangLabel(d) { const s = (Math.abs(d) / 100).toFixed(1); return d < 0 ? { txt: `↑ ${s}반음 높게 불렀어요`, c: "#ffd27a" } : { txt: `↓ ${s}반음 낮게 불렀어요`, c: "#9cc3ff" }; }
+  function sangLabel(d) { const s = (Math.abs(d) / 100).toFixed(1); return d < 0 ? { txt: `↑ ${s}반음 높게 불렀어요`, c: "#ff9f5a" } : { txt: `↓ ${s}반음 낮게 불렀어요`, c: "#9cc3ff" }; }
   function semiLabel(d) { const s = Math.abs(d) / 100; return `${d > 0 ? "↑" : "↓"} ${s >= 0.95 ? s.toFixed(1).replace(/\.0$/, "") : s.toFixed(1)}반음 ${d > 0 ? "올림" : "내림"}`; }
   function delta(cv, k, t) {   // 지금 위치의 고친 양(센트)
     if (!k) return null; let best = null;
@@ -279,7 +279,7 @@
       for (const p of vis) { const X = xs(p[0]), Y = y(p[kk]); if (prev != null && p[0] - prev < 0.13) g.lineTo(X, Y); else g.moveTo(X, Y); prev = p[0]; }
       g.stroke();
     };
-    line(1, "#ff9f5a", full ? 2.6 : 2);
+    line(1, "#ffe066", full ? 2.6 : 2);   // (10/31 15:34 사용자) 부른 음 = 밝은 노랑
     if (k) line(k, "#7fd9ff", full ? 2.6 : 2);
     g.restore();
     if (lane) {   // 고친 양 줄
@@ -292,7 +292,7 @@
         const hh = Math.max(-half, Math.min(half, -d / 50 * half)); g.fillStyle = Math.abs(d) <= 15 ? "#5b6573" : hh > 0 ? "#ffd27a" : "#9cc3ff"; g.fillRect(X, hh > 0 ? mid - hh : mid, bw, Math.abs(hh)); }   // 높게 부른 곳 = 위·노랑, 낮게 = 아래·파랑
     }
     g.fillStyle = "rgba(23,25,29,.35)"; g.fillRect(xs(t) + 2, T, w, H);   // 아직 안 부른 쪽은 살짝 어둡게
-    g.fillStyle = "#ffd27a"; g.fillRect(Math.round(xs(t)) - 1, 2, 2.5, h - 4);
+    g.fillStyle = "#ff9f5a"; g.fillRect(Math.round(xs(t)) - 1, 2, 2.5, h - 4);   // (10/31 15:34 사용자) 지금 세로줄 = 주황
     const kL = k || col(cv, (st && st.lvDef) || 2) || col(cv, (cv.levels || [])[0]), d = delta(cv, kL, t);   // 원음으로 들을 때도 '어떻게 불렀나'는 보여 줌
     let tagB = T + 8 + (full ? 22 : 16) + (st && st.teacher ? (full ? 16 : 12) : 0);   // 말풍선 자리 고정: '높게/낮게' 표시가 떴다 사라져도 말풍선은 안 움직임(10/30 16:18 사용자)
     const lb = st ? (st.lab = st.lab || { a: 0, d: null, seen: 0, at: 0 }) : { a: 1, d, seen: 0, at: 0 }, nowL = performance.now();   // (10/30 17:18 사용자) 0.15초 페이드
@@ -381,7 +381,7 @@
     const wrap = document.createElement("div"); wrap.id = "tuneFs"; wrap.setAttribute("role", "dialog"); wrap.setAttribute("aria-label", "음정선 전체화면");
     const hasAb = typeof o.setMode === "function";
     wrap.innerHTML = `<div class="tfBox"><div class="tfTop"><b class="tfTitle">${String(o.title || "음정선").replace(/[<>&]/g, "")}</b><span class="tfTime"></span>
-      <button type="button" class="tfX tfXp" aria-label="닫기"><i>✕</i>닫기</button><span class="tfBr"></span><span class="tfLeg"><span><i style="background:rgba(127,217,154,.6);height:8px"></i>정음</span><span><i style="background:#ff9f5a"></i>부른 음</span><span><i style="background:#7fd9ff"></i>보정 후</span><span class="tfLegC"><i style="background:#ffd27a;opacity:.6"></i>고친 곳</span></span>
+      <button type="button" class="tfX tfXp" aria-label="닫기"><i>✕</i>닫기</button><span class="tfBr"></span><span class="tfLeg"><span><i style="background:rgba(127,217,154,.6);height:8px"></i>정음</span><span><i style="background:#ffe066"></i>부른 음</span><span><i style="background:#7fd9ff"></i>보정 후</span><span class="tfLegC"><i style="background:#ffd27a;opacity:.6"></i>고친 곳</span></span>
       <button type="button" class="tfX" aria-label="닫기"><i>✕</i>닫기</button></div>
       <div class="tfCvBox"><canvas class="tfCv"></canvas><span class="tfMid" aria-hidden="true"></span><span class="tfBye" aria-live="polite">닫을 때는 <b>✕</b> 또는 폰의 <b>뒤로 가기</b></span></div>
       <div class="tfBot"><span class="tfHint">톡 = 재생·멈춤 · 좌우로 밀면 이동<span class="tfSep"> · </span><br>두 손가락으로 벌리면 확대 · 두 번 톡 = 원래 크기</span>
@@ -492,7 +492,7 @@
     if (fsClose) { fsClose(); try { e.tuneClosed = true; } catch {} }
   });
   async function load(url) { const r = await fetch(url); if (!r.ok) throw new Error("음정선을 못 불러왔어요"); const j = await r.json(); return j && Array.isArray(j.pts) ? j : null; }
-  const legend = (withCorr) => `<div class="tuneLeg"><span><i style="background:#ff9f5a"></i>부른 음정</span>${withCorr ? `<span><i style="background:#7fd9ff"></i>보정 후</span><span><i style="background:#ffd27a;opacity:.6"></i>고친 곳</span>` : ""}<span><i style="background:#ffd27a;width:3px;height:11px"></i>지금</span></div>`;
+  const legend = (withCorr) => `<div class="tuneLeg"><span><i style="background:#ffe066"></i>부른 음정</span>${withCorr ? `<span><i style="background:#7fd9ff"></i>보정 후</span><span><i style="background:#ffd27a;opacity:.6"></i>고친 곳</span>` : ""}<span><i style="background:#ff9f5a;width:3px;height:11px"></i>지금</span></div>`;
   const css = `#tuneFs{position:fixed;inset:0;z-index:9999;background:rgba(8,10,13,.96)}#tuneFs .tfBox{position:absolute;left:50%;top:50%;display:flex;flex-direction:column;background:#0e1116;color:#eceff3;box-sizing:border-box;padding:8px 12px calc(8px + env(safe-area-inset-bottom))}
 #tuneFs .tfTop,#tuneFs .tfBot{display:flex;align-items:center;gap:8px;flex:none}#tuneFs .tfTop{margin-bottom:6px}#tuneFs .tfTitle{font-size:15px}#tuneFs .tfTime{color:#a9b1bc;font-size:13px;font-variant-numeric:tabular-nums}
 #tuneFs .tfAb{display:flex;margin-left:auto;border:1px solid #363c45;border-radius:10px;overflow:hidden}#tuneFs .tfAb button{border:0;border-radius:0;margin:0;background:#11141a;color:#a9b1bc;font-weight:800;min-height:34px;padding:0 14px}#tuneFs .tfAb button.on{background:#9cc3ff;color:#10141a}#tuneFs .tfAb button[data-m=p].on{background:#c9a6ff}
