@@ -88,7 +88,7 @@
   /* (10/30 18:22 사용자 시안 승인) 그래프 가운데 금색 큰 버튼 · 그래프는 반쯤 어둡게(누르는 곳은 그래프 전체) */
   .tsChips { display:flex; gap:6px; flex-wrap:wrap; margin:6px 0 2px; } .tsChips[hidden] { display:none; }
   .tsChip { min-height:34px; padding:0 12px; margin:0; border-radius:17px; border:1.5px solid #9cc3ff; background:transparent; color:#9cc3ff; font-weight:800; font-size:.88rem; }
-  .tsMir { position:absolute; left:0; top:0; right:0; z-index:1; pointer-events:none; overflow:hidden; box-sizing:border-box; border:1px solid transparent; padding:8px 10px; line-height:24px; white-space:pre-wrap; overflow-wrap:break-word; word-break:normal; color:transparent; }
+  .tsMir { -webkit-text-size-adjust:none; text-size-adjust:none; position:absolute; left:0; top:0; right:0; z-index:1; pointer-events:none; overflow:hidden; box-sizing:border-box; border:1px solid transparent; padding:8px 10px; line-height:24px; white-space:pre-wrap; overflow-wrap:break-word; word-break:normal; color:transparent; }
   .tsMir mark { color:#ffd27a; background:rgba(255,210,122,.17); border-radius:9px; box-shadow:0 0 0 2px rgba(255,210,122,.17), 0 0 0 3px rgba(255,210,122,.55); }
   #hlCard.hlFolded > :not(.hlHead) { display:none !important; } #hlCard.hlFolded .hlHead { margin:0; }
   .hl.hlDup { opacity:.55; } .hlDupTag { display:inline-block; font-size:.75rem; padding:0 8px; border-radius:9px; background:#2a303a; color:#9cc3ff; margin-left:6px; font-weight:700; }
@@ -5323,7 +5323,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-01-0009-mirwrap";
+const BUILD = "2026-11-01-0015-mirboost";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
