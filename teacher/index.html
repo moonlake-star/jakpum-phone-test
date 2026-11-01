@@ -355,6 +355,7 @@
   .medalRow { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; text-align:center; font-size:.85rem; margin-top:8px; }
   .medalRow .md { width:58px; height:58px; margin:0 auto 4px; border-radius:50%; display:grid; place-items:center; font-size:1.7rem; background:radial-gradient(circle at 35% 30%,#ffe7a3,#c8912e 70%); box-shadow:0 0 0 3px #6b4d17; }
   .medalRow .off .md { background:#2b3038; box-shadow:0 0 0 3px #3a414b; filter:grayscale(1); opacity:.5; } .medalRow .off { color:var(--muted); }
+  .cal { touch-action:pan-y; } .cal .dy { -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; } .cal .dy.lift { opacity:.5; }
   .cal .dy.drop { outline:3px solid var(--accent); background:#24324a; } .calRow.lift { opacity:.5; }
   .calGhost { position:fixed; z-index:90; transform:translate(-50%, -130%); pointer-events:none; background:var(--accent); color:var(--on-accent, #10141a); font-weight:700; padding:8px 12px; border-radius:12px; box-shadow:0 6px 18px rgba(0,0,0,.45); white-space:nowrap; font-size:.95rem; }
   .calRow[data-mv] { -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
@@ -890,6 +891,40 @@ function calDragWire(root, day, drop) {   // 레슨 줄 길게 누름(0.45초) �
     row.addEventListener("contextmenu", (e) => { if (st?.on) e.preventDefault(); });
   });
 }
+// (11/02 01:21 사용자) 달력에서 바로: 좌우로 밀면 지난달·다음 달 · 레슨 있는 날짜 칸을 길게 눌러(0.45초) 끌어 다른 날짜에 놓으면 옮기기 창(시간은 그대로, 바꿀 수도)
+function calCellWire(root, by, ym, drop, nav) {
+  const grid = root.querySelector(".cal"); if (!grid) return;
+  const mov = (k) => (by[k] || []).filter(x => x.event_id && ["scheduled", "review"].includes(x.s));
+  let st = null, eatClick = false;
+  const clear = () => { if (!st) return; clearTimeout(st.tm); st.ghost?.remove(); grid.querySelectorAll(".dy.drop,.dy.lift").forEach(c => c.classList.remove("drop", "lift")); st = null; };
+  grid.addEventListener("touchstart", (e) => {
+    if (e.touches.length !== 1) return; const p = e.touches[0], cell = e.target.closest?.(".dy[data-day]");
+    st = { x: p.clientX, y: p.clientY, t: Date.now(), on: false, cell };
+    const xs = cell ? mov(cell.dataset.day) : [];
+    if (xs.length) st.tm = setTimeout(() => { if (!st) return;
+      if (xs.length > 1) { st.multi = true; toast("그날 레슨이 여럿이에요 · 날짜를 눌러 아래 목록에서 끌어 주세요"); return; }
+      st.on = true; st.item = xs[0]; cell.classList.add("lift"); try { navigator.vibrate?.(30); } catch {}
+      const g = document.createElement("div"); g.className = "calGhost"; g.textContent = `${xs[0].time} ${xs[0].name} → 날짜에 놓기`;
+      document.body.appendChild(g); st.ghost = g; g.style.left = st.x + "px"; g.style.top = st.y + "px"; }, 450);
+  }, { passive: true });
+  grid.addEventListener("touchmove", (e) => {
+    if (!st) return; const p = e.touches[0];
+    if (!st.on) { if (Math.hypot(p.clientX - st.x, p.clientY - st.y) > 8) clearTimeout(st.tm); return; }
+    e.preventDefault(); st.ghost.style.left = p.clientX + "px"; st.ghost.style.top = p.clientY + "px";
+    grid.querySelectorAll(".dy.drop").forEach(c => c.classList.remove("drop"));
+    const c = document.elementFromPoint(p.clientX, p.clientY)?.closest?.(".dy[data-day]"); if (c) c.classList.add("drop"); st.to = c?.dataset.day || null;
+  }, { passive: false });
+  grid.addEventListener("touchend", (e) => {
+    const s = st; if (!s) return; const p = e.changedTouches[0], dx = p.clientX - s.x, dy = p.clientY - s.y;
+    if (s.on) { e.preventDefault(); eatClick = true; const it = s.item, to = s.to; clear(); if (to && to !== it.date) drop(it, to); return; }
+    if (s.multi) { eatClick = true; clear(); return; }
+    clear();
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5 && Date.now() - s.t < 800) { eatClick = true; nav(dx < 0 ? 1 : -1); }   // 왼쪽으로 밀면 다음 달
+  });
+  grid.addEventListener("touchcancel", clear);
+  grid.addEventListener("click", (e) => { if (eatClick) { eatClick = false; e.stopPropagation(); e.preventDefault(); } }, true);
+  grid.addEventListener("contextmenu", (e) => { if (st?.on || st?.tm) e.preventDefault(); });
+}
 function calLessonIdx(x) {   // 캘린더 한 줄 → 선생님 레슨 목록의 몇 번째(레슨 폴더 ID로 찾음)
   const rows = cfg?.students?.[x.sid]?._rows || (LS.get("vn_list") || []).find(d => d?.sid === x.sid)?.rows || [];
   return x.lesson_id ? rows.findIndex(r => r?.l?.id === x.lesson_id) : -1;
@@ -916,6 +951,7 @@ function openCal(ym, sel) {   // 선생님 '레슨 캘린더': 전체 수강생 
     const x = day[+b.dataset.cl], i = calLessonIdx(x); if (i < 0) return toast("이 레슨 화면을 찾지 못했어요");
     goBack = () => openCal(ym, sel); openLesson(x.sid, i, () => openCal(ym, sel)); });
   const mv = (x, date) => calMoveSheet(x, date, by, () => openCal(ym, sel), (d2) => openCal(d2.slice(0, 7), d2));
+  calCellWire($("vCal"), by, ym, mv, (n) => openCal(calShift(ym, n)));
   if (day) { calDragWire($("vCal"), day, mv); $("vCal").querySelectorAll("[data-mvb]").forEach(b => b.onclick = (e) => { e.stopPropagation(); mv(day[+b.dataset.mvb], null); }); }
   $("vCal").querySelectorAll("[data-cq]").forEach(b => b.onclick = (e) => { e.stopPropagation(); const x = day[+b.dataset.cq];
     attSheet({ k: "att", sid: x.sid, key: x.q.event_id, q: x.q, t: `❓ ${x.name} · ${attWhen(x.q.at || "")} ${ATT_KIND[x.q.kind].t}`, onDone: () => openCal(ym, sel) }); });
@@ -5374,7 +5410,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-02-0115-fold";
+const BUILD = "2026-11-02-0123-calswipe";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
