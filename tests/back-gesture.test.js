@@ -21,4 +21,6 @@ visible = "vLesson"; sync("vLesson"); assert.strictEqual(idx, 1);
 visible = "vList"; sync("vList");   // 화면의 ← 뒤로로 목록에 옴
 assert.strictEqual(idx, 0, '남은 칸 정리'); assert.deepStrictEqual(calls, ["back"], '정리할 땐 goBack 다시 안 부름');
 assert(/function show\(view\) \{ syncBackHistory\(view\);/.test(src));
+// (11/02 사용자) 레슨 캘린더에서도 뒤로 = 직전 화면(앱 종료 아님)
+visible = "vCal"; sync("vCal"); assert.strictEqual(idx, 1); history.back(); assert.deepStrictEqual(calls, ["back", "back"], "캘린더에서 뒤로");
 console.log('back-gesture ok');
