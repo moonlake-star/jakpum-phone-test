@@ -33,9 +33,10 @@
   button.full { width:100%; margin:6px 0; }
   .saidHit { animation:saidPop 320ms ease; } .saidHit.yes { background:linear-gradient(180deg, #9ff0b6, var(--ok)) !important; color:#0f1a12 !important; opacity:1 !important; } .saidHit.no { background:#3a404a !important; color:#eceff3 !important; box-shadow:none !important; opacity:1 !important; }
   @keyframes saidPop { 0% { transform:scale(1); } 35% { transform:scale(.9); } 70% { transform:scale(1.06); } 100% { transform:scale(1); } }
-  .saidItem, .warnbox { transition:max-height 380ms ease, opacity 300ms ease, transform 300ms ease, padding 380ms ease, margin 380ms ease; }
+  .saidItem, .warnbox { transition:max-height 460ms cubic-bezier(.4,0,.2,1), opacity 300ms ease, transform 300ms ease, padding 460ms cubic-bezier(.4,0,.2,1), margin 460ms cubic-bezier(.4,0,.2,1); }
+  .saidRise { animation:saidRise 380ms cubic-bezier(.2,.8,.3,1.2); } @keyframes saidRise { 0% { transform:translateY(14px); } 100% { transform:none; } }   /* (11/02 07:59 사용자) 아래 말들이 올라올 때 살짝 움직임 */
   .saidGone { max-height:0 !important; opacity:0; transform:translateX(24px); padding-top:0 !important; padding-bottom:0 !important; margin-top:0 !important; margin-bottom:0 !important; overflow:hidden; border-color:transparent !important; }
-  @media (prefers-reduced-motion: reduce) { .saidHit { animation:none; } .saidItem, .warnbox { transition:none; } }
+  @media (prefers-reduced-motion: reduce) { .saidHit, .saidRise { animation:none; } .saidItem, .warnbox { transition:none; } }
   .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
   .lesson { display:flex; justify-content:space-between; gap:8px; align-items:center; padding:10px 0; border-top:1px solid var(--line); cursor:pointer; }
   .lesson:first-of-type { border-top:0; }
@@ -4594,7 +4595,9 @@ async function paintSaid(el, sid, lesson, rec) {
       const rm = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches, wait = (ms) => new Promise(r => setTimeout(r, rm ? 0 : ms));
       const tgt = row ? (items.length === 1 && box ? box : row) : null;
       const anim = (async () => { if (!tgt) return; await wait(250); tgt.style.transition = "transform 320ms ease-in, opacity 320ms ease-in"; tgt.style.transform = `translateX(${yes ? 70 : -70}px)`; tgt.style.opacity = "0";
-        await wait(320); tgt.style.maxHeight = tgt.scrollHeight + "px"; void tgt.offsetHeight; tgt.style.transition = ""; tgt.classList.add("saidGone"); await wait(400); })();
+        await wait(320); tgt.style.maxHeight = tgt.scrollHeight + "px"; void tgt.offsetHeight; tgt.style.transition = ""; tgt.classList.add("saidGone");
+        const below = []; for (let s = tgt.nextElementSibling; s; s = s.nextElementSibling) below.push(s);
+        await wait(300); below.forEach((s, i) => { s.style.animationDelay = i * 40 + "ms"; s.classList.add("saidRise"); }); await wait(420); })();
       let ok = false;
       try { await setSaid(sid, k, yes ? true : "rejected"); ok = true; toast(yes ? "확인했어요. 다음 브리핑부터 이 말을 써요" : "빼 두었어요. 브리핑과 AI 정리에 쓰지 않아요"); }
       catch (e) { toast(errMsg(e)); }
@@ -5426,7 +5429,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-02-0758-saidanim";
+const BUILD = "2026-11-02-0800-saidrise";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
