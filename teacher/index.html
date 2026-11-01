@@ -951,10 +951,10 @@ function openCal(ym, sel) {   // 선생님 '레슨 캘린더': 전체 수강생 
   const day = sel && by[sel] ? by[sel] : null, loc = attLocal();
   const cnt = (k) => Object.entries(by).filter(([d]) => d.startsWith(ym)).reduce((n, [, xs]) => n + xs.filter(x => x.s === k).length, 0);
   $("vCal").innerHTML = `<div class="card"><div class="calNav"><button class="ghost" id="cPrev" aria-label="지난달">‹</button><b>${+ym.slice(0, 4)}년 ${+ym.slice(5)}월 레슨</b><button class="ghost" id="cNext" aria-label="다음 달">›</button></div>
-    ${att ? `<p class="muted" style="margin:6px 0 0">완료 ${cnt("done") + cnt("makeup_done")} · 예정 ${cnt("scheduled")} · 휴강 ${cnt("cancelled") + cnt("forfeit")} · 확인 중 ${cnt("review")}${att.updated_at ? ` · ${esc(attWhen(att.updated_at))} 기준` : ""}</p>` : `<p class="muted">출석 현황을 아직 못 불러왔어요(자동 수집 뒤에 생겨요).</p>`}
+    ${att ? `<p class="muted" style="margin:6px 0 0">완료 ${cnt("done") + cnt("makeup_done")} · 예정 ${cnt("scheduled")} · 휴강 ${cnt("cancelled") + cnt("forfeit")} · 확인 중 ${cnt("review")}</p>` : `<p class="muted">출석 현황을 아직 못 불러왔어요(자동 수집 뒤에 생겨요).</p>`}
     ${calGrid(ym, by, sel, true)}</div>
     ${day ? `<div class="card"><div class="row" style="justify-content:space-between;align-items:baseline;gap:8px"><h3 style="margin:0">${calDay(sel)}</h3>${day.some(y => ["scheduled", "review"].includes(y.s)) ? `<span class="muted" style="font-size:.85rem">레슨을 길게 눌러 끌면 날짜 이동</span>` : ""}</div>${day.map((x, n) => { const li = calLessonIdx(x); return `<div class="calRow${li >= 0 ? " tap" : ""}"${["scheduled", "review"].includes(x.s) ? ` data-mv="${n}"` : ""}${li >= 0 ? ` data-cl="${n}" role="button" tabindex="0"` : ""}><span class="w">${esc(x.time)} ${esc(x.name)} · ${CAL_S[x.s]?.[0] || ""} ${CAL_S[x.s]?.[1] || ""}</span>${x.q && ATT_KIND[x.q.kind] && !loc[x.q.event_id] ? `<button data-cq="${n}">확인하기</button>` : li >= 0 ? `<button class="ghost" data-cl="${n}">레슨 보기 ›</button>` : ["scheduled", "review"].includes(x.s) ? `<button class="ghost" data-mvb="${n}">옮기기</button>` : ""}</div>`; }).join("")}</div>`
-      : `<p class="muted">날짜를 누르면 그날 레슨이 보여요 · 좌우로 밀면 지난달·다음 달 · 레슨 있는 칸을 길게 눌러 다른 날짜로 끌어 놓으면 옮기기(시간은 그대로, 창에서 바꿀 수 있어요)</p>`}`;
+      : `<p class="muted" style="line-height:1.8">· 날짜를 누르면 그날 레슨이 보여요<br>· 좌우로 밀면 지난달·다음 달<br>· 레슨 있는 칸을 길게 눌러 다른 날짜로 끌어 놓으면 옮기기${att?.updated_at ? `<br>(구글 캘린더 반영: ${esc(attWhen(att.updated_at))} 기준)` : ""}</p>`}`;   /* (11/02 01:42 사용자) 안내 문구 줄바꿈 */
   $("cPrev").onclick = () => openCal(calShift(ym, -1)); $("cNext").onclick = () => openCal(calShift(ym, 1));
   $("vCal").querySelectorAll("[data-cd]").forEach(b => b.onclick = () => openCal(ym, b.dataset.cd));
   $("vCal").querySelectorAll("[data-cl]").forEach(b => b.onclick = (e) => { e.stopPropagation();   // 그날 레슨 화면으로(10/30 사용자)
@@ -5421,7 +5421,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-02-0137-calcount";
+const BUILD = "2026-11-02-0142-caltime";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
