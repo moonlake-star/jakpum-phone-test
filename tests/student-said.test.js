@@ -16,9 +16,9 @@ function makeDrive(initial, hooks = {}) {
   d.list = async (folder) => { assert.strictEqual(folder, "F1"); return [{ id: "X", name: "레슨분석.json" }, { id: "REC", name: "수강생기록.json" }]; };
   return d;
 }
-const mk = (cfg, drive) => new Function("cfg", "api", "writeJSON", "list", "DRIVE", "esc", "toast", "errMsg", "rootFile", "paintBriefing", "stuCur",
+const mk = (cfg, drive) => new Function("cfg", "api", "writeJSON", "list", "DRIVE", "esc", "toast", "errMsg", "rootFile", "paintBriefing", "stuCur", "fmt",
   `${body}\n; return { saidUsed, saidPending, patchSaid, setSaid, saidBoxHTML };`)(cfg, drive.api, drive.writeJSON, drive.list, "DRIVE",
-  (s) => String(s ?? ""), () => {}, (e) => e.message, async () => null, () => {}, null);
+  (s) => String(s ?? ""), () => {}, (e) => e.message, async () => null, () => {}, null, (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`);
 const rec0 = () => ({
   briefing: "지난 레슨 요약",
   profile: {
@@ -99,6 +99,9 @@ const K = { kind: "goal", quote: "축가 부르고 싶어요", date: "2026-10-20
     const h = app.saidBoxHTML(app.saidPending(rec0()));
     assert.ok(h.includes("확인 전") && h.includes("맞아요") && h.includes("아니에요"));
     assert.strictEqual(app.saidBoxHTML([]), "");
+    // (11/01 사용자) 수강생 화면(레슨 안 연 상태)에서도 시각이 있으면 ▶ 듣기
+    assert.ok(app.saidBoxHTML([{ kind: "taste", quote: "q", date: "d", lesson: "L9", t: 75 }], false).includes("▶ 1:15 듣기"));
+    assert.ok(!app.saidBoxHTML([{ kind: "taste", quote: "q", date: "d", lesson: "L9", t: null }], false).includes("듣기"));
   }
   console.log("student-said: ok");
 })().catch((e) => { console.error(e); process.exit(1); });
