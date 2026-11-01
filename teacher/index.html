@@ -89,6 +89,8 @@
   /* (10/30 18:22 사용자 시안 승인) 그래프 가운데 금색 큰 버튼 · 그래프는 반쯤 어둡게(누르는 곳은 그래프 전체) */
   .tsChips { display:flex; gap:6px; flex-wrap:wrap; margin:6px 0 2px; } .tsChips[hidden] { display:none; }
   .tsChip { min-height:34px; padding:0 12px; margin:0; border-radius:17px; border:1.5px solid #9cc3ff; background:transparent; color:#9cc3ff; font-weight:800; font-size:.88rem; }
+  .tSeg { display:flex; gap:6px; overflow-x:auto; margin:0 0 8px; } .tSeg button { flex:none; min-height:40px; padding:0 14px; border-radius:20px; background:#11141a; color:var(--fg); border:1.5px solid var(--line); font-weight:800; } .tSeg button.on { background:var(--accent); color:#111; border-color:var(--accent); }
+  #staffBar { position:sticky; top:0; z-index:9000; background:#1d2740; color:#9cc3ff; font-size:.85rem; padding:7px 12px; text-align:center; font-weight:700; }
   #demoBar { position:sticky; top:0; z-index:9000; background:#3a2c14; color:#ffd27a; font-size:.85rem; padding:8px 12px; text-align:center; }
   .demoRO #v2Save, .demoRO #btnSave, .demoRO #btnPublish, .demoRO #btnPreviewSave, .demoRO #btnCopy, .demoRO #btnKakaoOpen, .demoRO #btnKakaoMark, .demoRO #btnShare, .demoRO #btnCkShare, .demoRO #btnMkGo, .demoRO #btnAdd, .demoRO #btnSched { display:none !important; }
   .npIt { display:flex; gap:8px; align-items:flex-start; border-top:1px solid var(--line); padding:8px 0; } .npIt:first-child { border-top:none; }
@@ -680,8 +682,20 @@ async function loadConfig() {
     const c = (await list(f.id)).find(x => x.name === "config.json");
     if (c) { cfg = await readJSON(c.id); if (cfg.demo_readonly !== true) continue; Object.defineProperty(cfg, "_configId", { value: c.id, enumerable: false }); LS.set("vn_cfg_id", c.id); LS.set("vn_cfg", cfg); demoMode(); return; }
   }
+  // (11/02 사용자 시안 승인) 강사 계정: 원장이 공유한 '강사_이름/_강사시스템/config.json'(그 강사 수강생만)
+  const s = await (await api(`${DRIVE}/files?q=${q("name='_강사시스템' and mimeType='application/vnd.google-apps.folder' and trashed=false")}&fields=files(id)`)).json();
+  for (const f of s.files || []) {
+    const c = (await list(f.id)).find(x => x.name === "config.json");
+    if (c) { cfg = await readJSON(c.id); if (cfg.role !== "teacher") continue; Object.defineProperty(cfg, "_configId", { value: c.id, enumerable: false }); LS.set("vn_cfg_id", c.id); LS.set("vn_cfg", cfg); staffMode(); return; }
+  }
   throw new Error("_시스템/config.json을 찾지 못했습니다");
 }
+function staffMode() {   // 강사 앱: 맨 위에 강사 이름 띠
+  if (typeof document === "undefined" || document.body.classList.contains("staffApp")) return;
+  document.body.classList.add("staffApp"); const b = document.createElement("div"); b.id = "staffBar";
+  b.textContent = `🎓 ${cfg?.name || "강사"} 선생님 · 내 수강생만 보여요`; document.body.prepend(b);
+}
+const isStaffApp = () => typeof cfg !== "undefined" && cfg?.role === "teacher";
 // 체험 보기 전용: 드라이브에 쓰기·서버 깨우기 막음 + 화면 위 안내 띠 + 저장·공개·보내기 버튼 숨김
 function demoMode() {
   if (typeof document === "undefined" || document.body.classList.contains("demoRO")) return;
@@ -1033,6 +1047,12 @@ const isTeacher = (st) => st.status === "teacher";
 const daysAgo = (name) => { const d = Date.parse((name || "").slice(0, 10)); return isNaN(d) ? 99 : (Date.now() - d) / 864e5; };
 function paintList(data, stale) {
   data.forEach(attach);
+  // (11/02 사용자 시안 ②) 원장 앱: [전체 | 작품(원장) | 강사…] — 고른 강사 것만(오늘 할 일·수강생 목록)
+  const stf = isStaffApp() ? {} : staffOf(), tf0 = LS.get("vn_tfilter") || "all", tf = tf0 === "all" || tf0 === "own" || stf[tf0] ? tf0 : "all";
+  const tOf = (sid) => cfg.students[sid]?.teacher_id || "";
+  const allData = data; data = data.filter(d => tf === "all" || (tf === "own" ? !tOf(d.sid) : tOf(d.sid) === tf));
+  const segHtml = Object.keys(stf).length ? `<div class="tSeg" role="group" aria-label="강사별 보기">${[["all", "전체"], ["own", "작품(원장)"], ...Object.entries(stf).map(([k, s]) => [k, `${s.name} (${allData.filter(d => tOf(d.sid) === k).length})`])].map(([k, l]) =>
+    `<button type="button" data-tf="${esc(k)}" class="${k === tf ? "on" : ""}" aria-pressed="${k === tf}">${esc(l)}</button>`).join("")}</div>` : "";
   // 오늘 할 일: 최근 14일 피드백 안 보낸 레슨 · 답장 안 한 과제 · 완성됐는데 안 보낸/진행 중 메이크업
   const todo = [];
   for (const d of data) {
@@ -1077,10 +1097,11 @@ function paintList(data, stale) {
       `<div class="muted">${sub}</div></div><div class="stuBody"><div class="sum">${chips || `<span class="muted">아직 기록 없음</span>`}</div></div></div>`;
   });
   // 가입 신청·계정 연결 카드는 맨 아래(2026-10-27 사용자: 맨 위에 늦게 생겨 아래가 밀리며 엉뚱한 게 눌림)
-  $("vList").innerHTML = `<button class="ghost full" id="calBtn" style="margin:0 0 8px">📅 레슨 캘린더</button>` + todoHtml + blocks.join("") + `<div id="joinReq">${lastJoinHtml}</div>` +
+  $("vList").innerHTML = `<button class="ghost full" id="calBtn" style="margin:0 0 8px">📅 레슨 캘린더</button>` + segHtml + todoHtml + blocks.join("") + `<div id="joinReq">${lastJoinHtml}</div>` +
     `<p class="muted">${stale ? "최신 내용 확인 중…" : "최신 상태"} · <a href="#" id="reload">새로고침</a> · 앱 버전 ${typeof BUILD === "string" ? BUILD : ""}</p>`;
   $("reload").onclick = (e) => { e.preventDefault(); renderList(); };
   $("calBtn").onclick = () => openCal();
+  $("vList").querySelectorAll("[data-tf]").forEach(b => b.onclick = () => { LS.set("vn_tfilter", b.dataset.tf); paintList(allData, stale); });
   $("vList").insertAdjacentHTML("beforeend", `<div id="prefsBox"></div><div id="laBox"></div>`); paintPrefs(); paintLaBox(); if (laIsOn()) laStart();
   paintJoinRequests();
   $("vList").querySelectorAll(".stuCard.tap").forEach(el => el.onclick = () => openStudent(el.dataset.s));
@@ -1249,7 +1270,7 @@ function joinStudentName(name) {
 }
 function joinStudentOptions(selected = JOIN_NEW) {
   const existing = Object.entries(cfg.students).filter(([, st]) => !isTeacher(st) && !st.consent_withdrawn);
-  return `<option value="${JOIN_NEW}" ${selected === JOIN_NEW ? "selected" : ""}>＋ 새 수강생 이름 입력</option>` +
+  return `<option value="${JOIN_NEW}" ${selected === JOIN_NEW ? "selected" : ""}>＋ 새 수강생 이름 입력</option><option value="${JOIN_STAFF}">🎓 강사로 승인(새 강사)</option>` +
     existing.map(([sid, st]) => `<option value="${esc(sid)}" ${sid === selected ? "selected" : ""}>${esc(st.name)} (${esc(sid)})</option>`).join("");
 }
 function joinRow(email, selected, buttonText, showReject = false) {
@@ -1259,6 +1280,7 @@ function joinRow(email, selected, buttonText, showReject = false) {
     <select class="join-choice" style="width:100%;margin:4px 0 8px">${joinStudentOptions(selected)}</select>
     <div class="join-new-fields hidden" style="margin-bottom:10px">
       <input class="join-new-name" type="text" maxlength="30" autocomplete="off" placeholder="새 수강생 이름 직접 입력" aria-label="새 수강생 이름" style="width:100%;margin-bottom:6px">
+      ${Object.keys(staffOf()).length ? `<label class="muted join-tch-l" style="display:block;margin:2px 0 6px">담당 강사 <select class="join-tch" style="margin-left:6px">${staffOptions()}</select></label>` : ""}
       <label class="muted" style="display:flex;align-items:center;gap:6px"><input type="checkbox" class="join-test"> 테스트용 수강생으로 등록</label>
       <p class="muted" style="margin:4px 0">새 전용 폴더·수강생 ID를 만든 다음 이 구글 계정을 연결합니다.</p>
     </div>
@@ -1282,7 +1304,7 @@ function joinNewSid(students) {
   while (students[id]);
   return id;
 }
-async function joinCreateStudent(rawName, forTest = false) {
+async function joinCreateStudent(rawName, forTest = false, tid = "") {
   const name = joinStudentName(rawName), cid = cfg?._configId;
   if (!cid) throw new Error("수강생 설정을 다시 불러와 주세요.");
   const read = async () => (await api(`${DRIVE}/files/${cid}?alt=media&_=${Date.now()}`, { cache: "no-store" })).json();
@@ -1294,8 +1316,8 @@ async function joinCreateStudent(rawName, forTest = false) {
   if (!sample) throw new Error("기준 수강생 폴더를 찾지 못했습니다. 기존 수강생이 한 명 이상 필요합니다.");
   const p = await (await api(`${DRIVE}/files/${sample.folder}?fields=parents,trashed`)).json();
   if (!p.parents?.[0] || p.trashed) throw new Error("기준 수강생 폴더의 상위 위치를 찾지 못했습니다.");
-  const sid = joinNewSid(first.students || {});
-  const folder = await joinMakeFolder(name + "_" + sid, p.parents[0]);
+  const sid = joinNewSid(first.students || {}), tch = tid && first.staff?.[tid];
+  const folder = await joinMakeFolder(name + "_" + sid, tch?.students_root || p.parents[0]);   // 강사 수강생은 그 강사 폴더 안(강사에게 공유됨)
   const sub = {};
   try {
     for (const key of ["02_레슨", "03_메모_카톡_통화", "04_과제제출", "07_커버제작"])
@@ -1303,7 +1325,7 @@ async function joinCreateStudent(rawName, forTest = false) {
   } catch (e) {
     throw new Error("학생 폴더는 생성됐지만 하위 폴더 생성 중 오류가 났습니다. 다시 승인하지 말고 폴더를 확인하세요: " + e.message);
   }
-  const student = { name, aliases: [], status: forTest ? "test" : "active", folder, sub, payments: [] };
+  const student = { name, aliases: [], status: forTest ? "test" : "active", folder, sub, payments: [], ...(tch ? { teacher_id: tid } : {}) };
   // 기존 saveSubFolder와 동일하게 최신 config 위에서만 해당 신규 학생 한 명을 추가한다.
   for (let attempt = 0; attempt < 3; attempt++) {
     const v = await version(), latest = await read();
@@ -1315,11 +1337,52 @@ async function joinCreateStudent(rawName, forTest = false) {
     await writeJSON(null, "config.json", latest, cid);
     const check = await read();
     if (check.students?.[sid]?.folder === folder) {
-      adoptConfig(check); LS.set("vn_list", null);
+      adoptConfig(check); LS.set("vn_list", null); if (tch) await staffSync(tid).catch(() => {});
       return { sid, name };
     }
   }
   throw new Error("설정이 다른 기기에서 변경됐습니다. 학생 폴더만 생성됐을 수 있으니 수강생 목록을 확인하세요.");
+}
+// ── 강사 계정(11/02 08:12 사용자 시안 승인 '좋다 고고') ──
+// 원장 config.staff[TCH_x] = {name, email, role:"teacher", folder(강사_이름), sys(_강사시스템), students_root, cfg_id}
+// 강사 앱은 '_강사시스템/config.json'(role:"teacher", 그 강사 수강생만)을 읽음. 원장 config가 바뀌면 staffSync가 다시 씀.
+const JOIN_STAFF = "__staff__";
+const staffOf = () => (typeof cfg !== "undefined" && cfg?.staff) || {};
+const staffEmails = () => new Set(Object.values(staffOf()).map(s => String(s?.email || "").toLowerCase()).filter(Boolean));
+const staffOptions = (sel = "") => `<option value="">작품(원장)</option>` + Object.entries(staffOf()).map(([k, s]) => `<option value="${esc(k)}"${k === sel ? " selected" : ""}>${esc(s.name)} 강사</option>`).join("");
+async function cfgUpdate(fn) {   // 원장 config를 최신본 위에서 고쳐 씀(다른 기기와 겹치지 않게 version 확인)
+  const cid = cfg?._configId; if (!cid) throw new Error("설정을 다시 불러와 주세요.");
+  const read = async () => (await api(`${DRIVE}/files/${cid}?alt=media&_=${Date.now()}`, { cache: "no-store" })).json();
+  const version = async () => (await (await api(`${DRIVE}/files/${cid}?fields=version`)).json()).version;
+  for (let n = 0; n < 3; n++) { const v = await version(), latest = await read(); fn(latest); if (await version() !== v) continue;
+    await writeJSON(null, "config.json", latest, cid); const check = await read(); adoptConfig(check); return check; }
+  throw new Error("설정이 다른 기기에서 바뀌고 있어요. 잠시 뒤 다시 해 주세요.");
+}
+function staffConfigFor(c, tid) {   // 강사에게 보여 줄 설정: 그 강사 수강생만 + 앱 동작에 필요한 공통값(주소·키). 결제·다른 수강생·서버 비밀값 없음
+  const s = c.staff?.[tid] || {}, students = {};
+  for (const [k, v] of Object.entries(c.students || {})) if (v?.teacher_id === tid) students[k] = v;
+  return { role: "teacher", staff_id: tid, name: s.name || "", students, practice_check: !!c.practice_check,
+    ...(c.student_page_url ? { student_page_url: c.student_page_url } : {}), updated_at: new Date().toISOString() };
+}
+async function staffSync(tid) { const s = staffOf()[tid]; if (!s?.cfg_id) return; await writeJSON(null, "config.json", staffConfigFor(cfg, tid), s.cfg_id); }
+async function joinCreateStaff(rawName, email) {
+  const name = joinStudentName(rawName), em = String(email || "").trim().toLowerCase();
+  if (!/^[^@\s]+@[^@\s]+$/.test(em)) throw new Error("이메일을 확인해 주세요");
+  if (staffEmails().has(em)) throw new Error("이미 강사로 등록된 계정이에요");
+  const sample = Object.values(cfg.students || {}).find(s => s.folder);
+  const p = sample ? await (await api(`${DRIVE}/files/${sample.folder}?fields=parents`)).json() : null;
+  const parent = p?.parents?.[0]; if (!parent) throw new Error("수강생 폴더 위치를 찾지 못했어요");
+  const tid = "TCH_" + Date.now().toString(36).toUpperCase();
+  const folder = await joinMakeFolder(`강사_${name}`, parent), sys = await joinMakeFolder("_강사시스템", folder), root = await joinMakeFolder("수강생", folder);
+  const entry = { name, email: em, role: "teacher", folder, sys, students_root: root, at: new Date().toISOString() };
+  const cfgId = await writeJSON(sys, "config.json", staffConfigFor({ ...cfg, staff: { [tid]: entry } }, tid));
+  const msg = encodeURIComponent(`작품 보컬노트 강사 계정이 만들어졌어요. https://moonlake-star.github.io/jakpum-phone-test/teacher/ 에서 이 구글 계정으로 로그인해 주세요.`);
+  const pr = await api(`${DRIVE}/files/${folder}/permissions?sendNotificationEmail=true&emailMessage=${msg}&fields=id`, { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ type: "user", role: "writer", emailAddress: em }) });
+  const perm = await pr.json(); if (!perm.id) throw new Error("강사 폴더 공유가 되지 않았어요");
+  await cfgUpdate(l => { (l.staff ??= {})[tid] = { ...entry, cfg_id: cfgId, perm_id: perm.id };
+    l.staff_owner ??= { email: LS.get("vn_hint") || "", name: "작품", roles: ["owner", "teacher", "developer"] }; });
+  return { tid, name };
 }
 let lastJoinHtml = "";   // (2026-10-27 사용자: 목록이 늦게 밀려 엉뚱한 곳이 눌림) 지난번 가입 카드를 바로 그려 자리를 유지
 async function paintJoinRequests() {
@@ -1327,9 +1390,9 @@ async function paintJoinRequests() {
   try {
     const { rows, requests } = await loadAccounts();
     closeWithdrawn(rows).catch(() => {});
-    const linked = new Set(rows.map(x => String(x.email).toLowerCase()));
-    const wait = requests.filter(r => !linked.has(String(r.email).toLowerCase()));
-    const managed = rows.filter(x => ["approved", "closed"].includes(x.state));
+    const linked = new Set(rows.map(x => String(x.email).toLowerCase())), se = staffEmails();
+    const wait = requests.filter(r => !linked.has(String(r.email).toLowerCase()) && !se.has(String(r.email).toLowerCase()));
+    const managed = rows.filter(x => ["approved", "closed"].includes(x.state) && !se.has(String(x.email).toLowerCase()));
     if (!wait.length && !managed.length) { el.innerHTML = lastJoinHtml = ""; return; }
     let busy = false;
     el.innerHTML = (wait.length ? `<div class="card"><h3 style="margin:0 0 6px">🙋 수강생 노트 가입 신청 ${wait.length}명</h3>
@@ -1341,11 +1404,24 @@ async function paintJoinRequests() {
     lastJoinHtml = el.innerHTML;
     for (const row of el.querySelectorAll(".join-row")) {
       const choice = row.querySelector(".join-choice"), newFields = row.querySelector(".join-new-fields");
-      const update = () => { newFields.classList.toggle("hidden", choice.value !== JOIN_NEW); };
+      const update = () => { const st_ = choice.value === JOIN_STAFF; newFields.classList.toggle("hidden", choice.value !== JOIN_NEW && !st_);
+        const nm = row.querySelector(".join-new-name"); if (nm) nm.placeholder = st_ ? "강사 이름 (예: 홍길동)" : "새 수강생 이름 직접 입력";
+        row.querySelectorAll(".join-test, .join-tch-l").forEach(x => (x.closest("label") || x).classList.toggle("hidden", st_));
+        const ex = row.querySelector(".join-new-fields p"); if (ex) ex.textContent = st_ ? "‘강사_이름’ 폴더를 만들어 이 구글 계정에만 공유해요(편집 가능). 원장님은 전부 보고 고칠 수 있어요." : "새 전용 폴더·수강생 ID를 만든 다음 이 구글 계정을 연결합니다.";
+        const bt = row.querySelector(".join-confirm"); if (bt && bt.dataset.lab0 == null) bt.dataset.lab0 = bt.textContent; if (bt) bt.textContent = st_ ? "강사로 승인" : bt.dataset.lab0; };
       choice.onchange = update; update();
       const status = row.querySelector(".join-msg"), email = row.dataset.email;
       const operate = async (action) => {
         if (busy) return;
+        if (action === "approved" && choice.value === JOIN_STAFF) {   // (11/02) 강사로 승인
+          let nm; try { nm = joinStudentName(row.querySelector(".join-new-name").value); } catch (e) { status.textContent = "강사 이름을 1~30자로 입력해 주세요"; return; }
+          if (!confirm(`${email}\n‘${nm}’ 강사로 승인할까요?\n(강사 폴더를 만들어 이 계정에 공유해요)`)) return;
+          busy = true; status.textContent = "강사 폴더 만드는 중…"; row.querySelectorAll("button,select,input").forEach(x => x.disabled = true);
+          try { await joinCreateStaff(nm, email); await portal("t_account", { email, sid: "", state: "closed", name: "강사:" + nm }).catch(() => {});
+            status.textContent = "처리 완료 — 강사에게 구글 공유 알림 메일이 갔어요"; await renderList(); }
+          catch (e) { status.textContent = `완료되지 않았습니다: ${e.message}`; row.querySelectorAll("button,select,input").forEach(x => x.disabled = false); }
+          finally { busy = false; } return;
+        }
         const newStudent = action === "approved" && choice.value === JOIN_NEW;
         let name, sid, forTest = false;
         if (newStudent) {
@@ -1362,7 +1438,7 @@ async function paintJoinRequests() {
         row.querySelectorAll("button,select,input").forEach(x => x.disabled = true);
         try {
           if (newStudent) {
-            const created = await joinCreateStudent(name, forTest);
+            const created = await joinCreateStudent(name, forTest, row.querySelector(".join-tch")?.value || "");
             sid = created.sid; name = created.name;
           }
           await portal("t_account", { email, sid: action === "approved" ? sid : "",
@@ -5429,7 +5505,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-02-0800-saidrise";
+const BUILD = "2026-11-02-0814-staff1";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
