@@ -108,6 +108,7 @@
   .tsSeg { position:absolute; top:-4px; bottom:-4px; background:rgba(255,210,122,.35); border:1.5px solid #ffd27a; border-radius:4px; pointer-events:none; }
   .tsFill { position:absolute; left:0; top:0; bottom:0; width:0; background:#9cc3ff; border-radius:3px; pointer-events:none; } .tsKnob { position:absolute; left:0; top:50%; width:14px; height:14px; margin:-7px; border-radius:50%; background:#9cc3ff; pointer-events:none; }
   body.tsMini #mini { display:none !important; }
+  body.miniOn.tsMini #v2Dock { bottom:0; }   /* (11/02 01:07 사용자) 큰 재생바가 숨은 동안엔 아래 막대를 화면 맨 아래로 */
   .tsBar { margin:8px 0 4px; border:1.5px solid #ffd27a; border-radius:14px; background:#1b1e24; padding:9px 10px; } .tsBar[hidden] { display:none; }
   .tsRow { display:flex; align-items:center; gap:10px; } .tsPlay { min-height:40px; padding:0 14px; margin:0; border-radius:20px; border:0; background:#ffd27a; color:#1a1307; font-weight:900; font-size:.95rem; }
   .tsQ { margin-top:7px; font-size:.88rem; line-height:1.55; color:#cfd3da; } .tsQ b { margin-right:4px; } .tsQ .tT { color:#9cc3ff; } .tsQ .tS { color:#7fd99a; }
@@ -1953,7 +1954,7 @@ function pvMore(el) {   // 접힌 칸에서 안 보이는 줄 수(대략, 줄높
   if (tag) { tag.hidden = !(extra > 0); tag.textContent = extra > 0 ? `… 아래 ${extra}줄 더 있어요 · 길게 누르면 크게 보여요(누른 채 끌면 넘겨짐) · 톡 누르면 고치기` : ""; tag.onclick = () => el.focus(); }
 }
 // (10/29 08:43 사용자) 접힌 칸: 바로 끌면 화면 스크롤(폰 기본), 0.35초 길게 누른 뒤 끌면 칸 안의 글만 넘김. 수정 모드(펼침)에선 길게 누르기 = 원래대로 글자 선택
-const PV_HOLD_MS = 170, PV_MOVE = 8, PV_WAIT_MS = 3000, PV_SHRINK_DELAY = 500, PV_SHRINK_MS = Math.round(PV_WAIT_MS * 1.3);   // (11/02 01:05 사용자) 손 떼고 0.5초 뒤부터, 30% 더 천천히 줄어듦
+const PV_HOLD_MS = 170, PV_MOVE = 8, PV_WAIT_MS = 3000, PV_SHRINK_DELAY = 700, PV_FOLD_MS = 3400, PV_SHRINK_MS = PV_FOLD_MS - PV_SHRINK_DELAY, PV_SHRINK_RATE = 1 / (PV_WAIT_MS * 1.3);   // (11/02 01:13 사용자) 손 떼고 0.7초 뒤부터 줄어듦(빠르기는 01:05 그대로 = 예전보다 30% 느리게), 3.4초에 접힘(1초 앞당김)
    // 손 뗀 뒤 3초 기다렸다 접힘(10/29 11:47 사용자)   // (10/29 08:55 사용자) 0.17초 · 누르는 동안 칸이 커졌다가(최대 12줄) 손 떼면 원래 크기로(250ms)
 // 길게 눌러 들어간 수정 모드에선 그 손가락으로 글자가 선택되지 않게: 손을 떼고 '다시' 길게 눌렀을 때만 선택(_pvNoSel)
 function pvHold(el) {
@@ -1981,8 +1982,8 @@ function pvHold(el) {
       el._pvStay = { fl, dy, moved }; h = null;
       const fin = () => { document.removeEventListener("touchstart", out, true); clearTimeout(el._pvWaitT); el.style.transition = ""; if (el._pvStay) { const st = el._pvStay; el._pvStay = null; h = { on: true, moved: st.moved, fl: st.fl, dy: st.dy, t: null }; end({ type: "finish" }); } };
       const out = (ev) => { if (!inside(ev.target)) fin(); };
-      el._pvOut = out; clearTimeout(el._pvWaitT); el._pvWaitT = setTimeout(fin, PV_SHRINK_DELAY + PV_SHRINK_MS);
-      try { const H0 = el.getBoundingClientRect().height, Hc = pvFit(el, PV_ROWS.closed); if (H0 > Hc + 10) { el.style.transition = `height ${PV_SHRINK_MS}ms linear ${PV_SHRINK_DELAY}ms`; void el.offsetHeight; el.style.height = Math.round(H0 - Math.min(48, (H0 - Hc) * 0.25)) + "px"; } } catch {}   // (10/29 12:01 사용자) 기다리는 3초 동안 아래쪽부터 아주 천천히 줄어듦 → 3초가 되면 보통 속도로 원래 크기
+      el._pvOut = out; clearTimeout(el._pvWaitT); el._pvWaitT = setTimeout(fin, PV_FOLD_MS);
+      try { const H0 = el.getBoundingClientRect().height, Hc = pvFit(el, PV_ROWS.closed); if (H0 > Hc + 10) { el.style.transition = `height ${PV_SHRINK_MS}ms linear ${PV_SHRINK_DELAY}ms`; void el.offsetHeight; el.style.height = Math.round(H0 - Math.min(48, (H0 - Hc) * 0.25) * PV_SHRINK_MS * PV_SHRINK_RATE) + "px"; } } catch {}   // (10/29 12:01 사용자) 기다리는 3초 동안 아래쪽부터 아주 천천히 줄어듦 → 3초가 되면 보통 속도로 원래 크기
       document.addEventListener("touchstart", out, true); return;
     }
     h = null; el.classList.remove("pvHolding");
@@ -5373,7 +5374,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-02-0107-nextplan";
+const BUILD = "2026-11-02-0115-fold";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
