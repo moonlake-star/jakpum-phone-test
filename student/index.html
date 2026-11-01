@@ -250,7 +250,8 @@ function storyHtml(ls) {
 }
 
 // ── 레슨 캘린더 공통(#182, 2026-10-29) ──
-const CAL_S = { done: ["✅", "완료"], makeup_done: ["🔁", "보강 완료"], scheduled: ["📅", "예정"], cancelled: ["✖️", "휴강"], forfeit: ["✖️", "휴강"], review: ["⏳", "확인 중"], moved: ["↪️", "이동"] };   // (11/02 사용자) 옮긴 레슨은 휴강이 아니라 이동
+const IC_CAL = '<svg class="icCal" viewBox="0 0 24 24" width="1.05em" height="1.05em" aria-hidden="true" style="vertical-align:-.15em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>';   // (11/02 사용자) 📅(숫자 17 보이는 달력 그림) 대신 숫자 없는 달력 선 그림
+const CAL_S = { done: ["✅", "완료"], makeup_done: ["🔁", "보강 완료"], scheduled: [IC_CAL, "예정"], cancelled: ["✖️", "휴강"], forfeit: ["✖️", "휴강"], review: ["⏳", "확인 중"], moved: ["↪️", "이동"] };   // (11/02 사용자) 옮긴 레슨은 휴강이 아니라 이동
 const calYm = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 const calShift = (ym, n) => { const [y, m] = ym.split("-").map(Number), d = new Date(y, m - 1 + n, 1); return calYm(d); };
 function calGrid(ym, byDate, sel, tap) {   // byDate[YYYY-MM-DD] = [{s}] → 칸마다 대표 아이콘(여럿이면 개수)
@@ -291,7 +292,7 @@ function statusHtml(s, flat) {
   const nx = s.next_lesson ? new Date(s.next_lesson) : null;
   const when = nx && !isNaN(nx) ? `${nx.getMonth() + 1}월 ${nx.getDate()}일(${"일월화수목금토"[nx.getDay()]}) ${nx.getHours() < 12 ? "오전" : "오후"} ${(nx.getHours() % 12) || 12}시${nx.getMinutes() ? " " + nx.getMinutes() + "분" : ""}` : "";
   return `<div class="card status"><div class="cardHead"><b>${T[1]} ${esc(T[2])}</b><span class="muted">레슨 ${n}회${N ? ` · 다음 칭호까지 ${N[0] - n}회` : ""}</span></div>
-    ${when ? `<p style="margin:8px 0 0">📅 다음 레슨 <b>${esc(when)}</b></p>` : ""}${s.line ? `<p style="margin:4px 0 0">🎫 ${esc(s.line)}</p>` : ""}${flat ? "" : `<button class="ghost full" id="myLes" style="margin-top:10px">📅 나의 레슨 · 배지 보기</button>`}</div>`;
+    ${when ? `<p style="margin:8px 0 0">${IC_CAL} 다음 레슨 <b>${esc(when)}</b></p>` : ""}${s.line ? `<p style="margin:4px 0 0">🎫 ${esc(s.line)}</p>` : ""}${flat ? "" : `<button class="ghost full" id="myLes" style="margin-top:10px">${IC_CAL} 나의 레슨 · 배지 보기</button>`}</div>`;
 }
 
 function timeline() {

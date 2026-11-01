@@ -722,8 +722,8 @@ const attOf = (sid) => att?.students?.[sid] || null;
 const attWhen = (iso) => { const d = new Date(iso); return isNaN(d) ? "" : `${d.getMonth() + 1}/${d.getDate()}(${"일월화수목금토"[d.getDay()]}) ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
 const attLocal = () => LS.get("vn_att_dec") || {};   // 이 폰에서 방금 고른 것(수집 반영 전까지 목록에서 숨김)
 const ATT_KIND = {
-  same_day_cancel: { t: "오늘 레슨 취소됨", btn: [["makeup", "📅 보강일 잡기", 1], ["forfeit", "소멸로 처리", 0]] },
-  missing_recording: { t: "레슨 녹음이 없어요", btn: [["done", "✅ 했어요(녹음 없음)", 1], ["makeup", "📅 보강 잡기", 0], ["absent", "결석", 0], ["forfeit", "소멸", 0]] },
+  same_day_cancel: { t: "오늘 레슨 취소됨", btn: [["makeup", "보강일 잡기", 1], ["forfeit", "소멸로 처리", 0]] },
+  missing_recording: { t: "레슨 녹음이 없어요", btn: [["done", "✅ 했어요(녹음 없음)", 1], ["makeup", "보강 잡기", 0], ["absent", "결석", 0], ["forfeit", "소멸", 0]] },
   adhoc_lesson: { t: "캘린더에 없는 레슨 녹음", btn: [["lesson", "✅ 레슨 맞아요", 1], ["not_lesson", "레슨 아니에요", 0]] },
 };
 // ── 레슨 일정 점검(#197, 사용자 2026-10-30): 이름 오타·오전/오후 뒤바뀜·같은 주 두 번 등 '제안'만. 일정은 선생님이 구글 캘린더에서 고침 ──
@@ -740,9 +740,9 @@ function anoTodos() {
 function anoButtons(c) {   // [값, 글자, 강조]
   const hm = (iso) => { const m = /T(\d\d):(\d\d)/.exec(String(iso || "")); if (!m) return ""; const h = +m[1]; return `${h < 12 ? "오전" : "오후"} ${(h % 12) || 12}:${m[2]}`; };   // 일정에 적힌 한국 시각 그대로
   if (c.kind === "name_typo" && c.suggested_name) return [["alias", `✅ ${c.suggested_name} 님 맞아요`, 1], ["wrong", "다른 사람이에요", 0], ["later", "나중에", 0]];
-  if (c.kind === "ampm_flip") return [["fix", `📅 구글 캘린더에서 ${hm(c.suggested)}로 고칠게요`, 1], ["ok", `${hm(c.at)}이 맞아요`, 0], ["later", "나중에", 0]];
-  if (["double_week", "duplicate_student", "overlap"].includes(c.kind)) return [["fix", "📅 구글 캘린더에서 하나 지울게요", 1], ["ok", "둘 다 맞아요", 0], ["later", "나중에", 0]];
-  return [["ok", "그대로 맞아요", 1], ["fix", "📅 구글 캘린더 열기", 0], ["later", "나중에", 0]];
+  if (c.kind === "ampm_flip") return [["fix", `구글 캘린더에서 ${hm(c.suggested)}로 고칠게요`, 1], ["ok", `${hm(c.at)}이 맞아요`, 0], ["later", "나중에", 0]];
+  if (["double_week", "duplicate_student", "overlap"].includes(c.kind)) return [["fix", "구글 캘린더에서 하나 지울게요", 1], ["ok", "둘 다 맞아요", 0], ["later", "나중에", 0]];
+  return [["ok", "그대로 맞아요", 1], ["fix", "구글 캘린더 열기", 0], ["later", "나중에", 0]];
 }
 async function anoDecide(c, v) {
   const db = att?._db; if (!db) throw new Error("출석 현황을 아직 못 불러왔어요");
@@ -812,7 +812,8 @@ function attSheet(x) {
   };
 }
 // ── 레슨 캘린더 공통(#182, 2026-10-29) ──
-const CAL_S = { done: ["✅", "완료"], makeup_done: ["🔁", "보강 완료"], scheduled: ["📅", "예정"], cancelled: ["✖️", "휴강"], forfeit: ["✖️", "휴강"], review: ["⏳", "확인 중"], moved: ["↪️", "이동"] };   // (11/02 사용자) 옮긴 레슨은 휴강이 아니라 이동
+const IC_CAL = '<svg class="icCal" viewBox="0 0 24 24" width="1.05em" height="1.05em" aria-hidden="true" style="vertical-align:-.15em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>';   // (11/02 사용자) 📅(숫자 17 보이는 달력 그림) 대신 숫자 없는 달력 선 그림
+const CAL_S = { done: ["✅", "완료"], makeup_done: ["🔁", "보강 완료"], scheduled: [IC_CAL, "예정"], cancelled: ["✖️", "휴강"], forfeit: ["✖️", "휴강"], review: ["⏳", "확인 중"], moved: ["↪️", "이동"] };   // (11/02 사용자) 옮긴 레슨은 휴강이 아니라 이동
 const calYm = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 const calShift = (ym, n) => { const [y, m] = ym.split("-").map(Number), d = new Date(y, m - 1 + n, 1); return calYm(d); };
 function calGrid(ym, byDate, sel, tap) {   // byDate[YYYY-MM-DD] = [{s}] → 칸마다 대표 아이콘(여럿이면 개수)
@@ -862,7 +863,7 @@ function calMoveSheet(x, date, by, onCancel, onDone) {
     <p style="margin:0 0 8px"><b>${esc(x.name)}</b> · 지금 ${esc(calDay(x.date))} ${esc(x.time)}</p>
     <div class="row" style="gap:8px;flex-wrap:wrap"><label>날짜 <input type="date" id="mvD" value="${esc(date || x.date)}"></label><label>시간 <input type="time" id="mvT" value="${esc(x.time)}" step="300"></label></div>
     <p class="muted" id="mvMsg" style="margin:8px 0 0"></p>
-    <button type="button" class="full" id="mvOk" style="margin-top:10px">📅 구글 캘린더에서 옮기기</button>
+    <button type="button" class="full" id="mvOk" style="margin-top:10px">구글 캘린더에서 옮기기</button>
     <button type="button" class="ghost full" id="mvNo" style="margin-top:6px">취소</button>
     <p class="muted" style="margin:8px 0 0;font-size:.8rem">원래 일정을 그대로 옮겨요(새로 만들지 않음). 처음 한 번은 구글이 ‘캘린더 일정 보기·수정’ 허용을 물어봐요.</p></div>`;
   document.body.appendChild(d);
@@ -882,7 +883,7 @@ function calMoveSheet(x, date, by, onCancel, onDone) {
       if (s && x.s === "scheduled" && dt + "T" + tm > new Date(Date.now() + 9 * 36e5).toISOString().slice(0, 16)) s.next_lesson = s.days.filter(y => y.s === "scheduled").map(y => y.date + "T" + y.time + ":00+09:00").sort()[0] || s.next_lesson;
       try { LS.set("vn_att", att); } catch {}
       d.remove(); toast(`옮겼어요 · ${calDay(dt)} ${tm} (구글 캘린더 반영)`); onDone?.(dt);
-    } catch (err) { b.disabled = false; b.textContent = "📅 구글 캘린더에서 옮기기"; $("mvMsg").textContent = err.message; }
+    } catch (err) { b.disabled = false; b.textContent = "구글 캘린더에서 옮기기"; $("mvMsg").textContent = err.message; }
   };
 }
 function calDragWire(root, day, drop) {   // 레슨 줄 길게 누름(0.45초) → 손가락 따라 이름표 → 날짜 칸에 놓으면 drop(x, 날짜)
@@ -1097,7 +1098,7 @@ function paintList(data, stale) {
       `<div class="muted">${sub}</div></div><div class="stuBody"><div class="sum">${chips || `<span class="muted">아직 기록 없음</span>`}</div></div></div>`;
   });
   // 가입 신청·계정 연결 카드는 맨 아래(2026-10-27 사용자: 맨 위에 늦게 생겨 아래가 밀리며 엉뚱한 게 눌림)
-  $("vList").innerHTML = `<button class="ghost full" id="calBtn" style="margin:0 0 8px">📅 레슨 캘린더</button>` + segHtml + todoHtml + blocks.join("") + `<div id="joinReq">${lastJoinHtml}</div>` +
+  $("vList").innerHTML = `<button class="ghost full" id="calBtn" style="margin:0 0 8px">${IC_CAL} 레슨 캘린더</button>` + segHtml + todoHtml + blocks.join("") + `<div id="joinReq">${lastJoinHtml}</div>` +
     `<p class="muted">${stale ? "최신 내용 확인 중…" : "최신 상태"} · <a href="#" id="reload">새로고침</a> · 앱 버전 ${typeof BUILD === "string" ? BUILD : ""}</p>`;
   $("reload").onclick = (e) => { e.preventDefault(); renderList(); };
   $("calBtn").onclick = () => openCal();
@@ -5505,7 +5506,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-02-0814-staff1";
+const BUILD = "2026-11-02-0832-noical";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
@@ -5672,7 +5673,7 @@ function renderNextPlan() {
     <p class="muted" style="margin:4px 0 6px">레슨 중 ‘다음에 ~’ 한 말·못 끝낸 것·미션 점검. <b>✓확인</b>한 것만 다음 레슨 시작 때 폰 알림(구글 캘린더)과 앱 팝업으로 알려 드려요</p>
     <div id="npList">${list.length ? list.map(row).join("") : `<p class="muted">AI가 찾은 ‘다음에 할 것’이 없어요. 직접 적어 주세요.</p>`}</div>
     <div class="row" style="gap:6px;margin-top:8px;flex-wrap:nowrap"><button type="button" class="ghost" id="npAdd" style="flex:1">＋ 한 줄 더</button><button type="button" id="npOk" style="flex:1">✓ 확인</button></div>
-    <div class="muted" id="npCal" style="margin-top:6px;font-size:.85rem">${cal?.event_id ? `📅 ${esc(cal.when || "")} 레슨 일정에 넣었어요 · 시작할 때 알림` : ok ? "📅 다음 레슨 일정이 생기면 그때 넣어요" : ""}</div>`;
+    <div class="muted" id="npCal" style="margin-top:6px;font-size:.85rem">${cal?.event_id ? `${IC_CAL} ${esc(cal.when || "")} 레슨 일정에 넣었어요 · 시작할 때 알림` : ok ? `${IC_CAL} 다음 레슨 일정이 생기면 그때 넣어요` : ""}</div>`;
   const read = () => [...el.querySelectorAll(".npTx")].map((inp, i) => ({ ...(list[i] || {}), text: inp.value.trim() }));
   const changed = () => { if (cur !== me) return; list = read(); rv.next_plan = list; rv.next_plan_ok_at = null; const c = el.querySelector(".chip"); if (c) { c.className = "chip todo"; c.textContent = "확인 전"; } markDirty(); };
   el.querySelectorAll(".npTx").forEach(inp => inp.oninput = changed);
