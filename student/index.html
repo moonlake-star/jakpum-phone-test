@@ -124,7 +124,7 @@
   .cal .dy { min-height:54px; border-radius:10px; background:#1b1f26; border:1px solid var(--line); padding:3px 2px; text-align:center; font-size:.85rem; line-height:1.2; color:var(--fg); }
   .cal .dy.today { border-color:var(--accent); } .cal .dy.empty { background:transparent; border-color:transparent; }
   .cal .dy .ic { display:block; font-size:1.05rem; margin-top:2px; } .cal button.dy { font:inherit; min-height:54px; padding:3px 2px; cursor:pointer; font-weight:400; }
-  .cal .dy.sel { outline:2px solid var(--accent); }
+  .cal .dy.sel { outline:2px solid var(--accent); } .cal .dy .tm { display:block; font-size:.68rem; color:var(--muted, #9a9ca3); margin-top:1px; letter-spacing:-.02em; }
   .calNav { display:flex; align-items:center; justify-content:space-between; gap:8px; } .calNav b { font-size:1.15rem; }
   .calNav button { min-height:44px; min-width:52px; padding:0 10px; }
   .calLeg { display:flex; flex-wrap:wrap; gap:6px 12px; font-size:.85rem; color:var(--muted); margin-top:8px; }
@@ -258,7 +258,7 @@ function calGrid(ym, byDate, sel, tap) {   // byDate[YYYY-MM-DD] = [{s}] → 칸
   const td = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
   let h = "일월화수목금토".split("").map(x => `<div class="hd">${x}</div>`).join("") + "<div class=\"dy empty\"></div>".repeat(first.getDay());
   for (let d = 1; d <= n; d++) {
-    const k = `${ym}-${String(d).padStart(2, "0")}`, xs = byDate[k] || [], ic = xs.length > 1 ? `${CAL_S[xs[0].s]?.[0] || "•"}${xs.length}` : xs.length ? (CAL_S[xs[0].s]?.[0] || "•") : "";
+    const k = `${ym}-${String(d).padStart(2, "0")}`, xs = byDate[k] || [], ic = xs.length ? `${CAL_S[xs[0].s]?.[0] || "•"}${xs.length > 1 ? xs.length : ""}${xs[0].time ? `<span class="tm">${esc(String(xs[0].time).slice(0, 5))}</span>` : ""}` : "";   // (11/02 01:42 사용자) 수강생 화면은 레슨 시작 시간
     const cls = `dy${k === td ? " today" : ""}${k === sel ? " sel" : ""}`, lab = xs.length ? ` aria-label="${m}월 ${d}일 ${xs.map(x => CAL_S[x.s]?.[1] || "").join(", ")}"` : "";
     h += tap && xs.length ? `<button type="button" class="${cls}" data-cd="${k}"${lab}>${d}<span class="ic">${ic}</span></button>` : `<div class="${cls}"${lab}>${d}<span class="ic">${ic}</span></div>`;
   }
