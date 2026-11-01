@@ -124,6 +124,8 @@
   .cal .dy { min-height:54px; border-radius:10px; background:#1b1f26; border:1px solid var(--line); padding:3px 2px; text-align:center; font-size:.85rem; line-height:1.2; color:var(--fg); }
   .cal .dy.today { border-color:var(--accent); } .cal .dy.empty { background:transparent; border-color:transparent; }
   .cal .dy .ic { display:block; font-size:1.05rem; margin-top:2px; } .cal button.dy { font:inherit; min-height:54px; padding:3px 2px; cursor:pointer; font-weight:400; }
+  .grow .up { color:#6fe0a0; } .grRow { display:flex; align-items:center; gap:8px; margin-top:4px; } .grRow .muted { min-width:3em; } .grBar { flex:1; height:10px; border-radius:5px; background:#2a2f38; overflow:hidden; } .grBar i { display:block; height:100%; background:linear-gradient(90deg,#c8912e,#ffd27a); }
+  .grCheer { background:#1d2740; color:#cfe0ff; border-radius:12px; padding:10px 12px; margin-top:8px; line-height:1.55; } .grTip { background:#16302a; color:#cdf5dc; border-radius:12px; padding:10px 12px; margin-top:10px; line-height:1.55; }
   .cal .dy.sel { outline:2px solid var(--accent); } .cal .dy .tm { display:block; font-size:.68rem; color:var(--muted, #9a9ca3); margin-top:1px; letter-spacing:-.02em; }
   .calNav { display:flex; align-items:center; justify-content:space-between; gap:8px; } .calNav b { font-size:1.15rem; }
   .calNav button { min-height:44px; min-width:52px; padding:0 10px; }
@@ -221,7 +223,8 @@ async function load() {
     data = j;
     // 출석·수강권 현황(선생님 앱이 '_status' 칸으로 보냄, 2026-10-29): 레슨 목록에서는 빼고 맨 위 카드로
     const sx = (j.lessons || []).find(l => l && l.id === "_status"); data.status = sx && sx.kind === "status" ? sx : null;
-    data.lessons = (j.lessons || []).filter(l => l && l.id !== "_status");
+    const gx = (j.lessons || []).find(l => l && l.id === "_growth"); data.growth = gx && gx.kind === "growth" ? gx : null;   // (11/02) 나의 성장
+    data.lessons = (j.lessons || []).filter(l => l && l.id !== "_status" && l.id !== "_growth");
     const want = params.get("l");
     if (want && data.lessons.some(l => l.id === want)) openLesson(want); else timeline();
   } catch (e) {   // 로그인 문제일 때만 저장된 로그인을 지움(오프라인·일시 오류로 매번 다시 로그인하지 않게)
@@ -295,12 +298,34 @@ function statusHtml(s, flat) {
     ${when ? `<p style="margin:8px 0 0">${IC_CAL} 다음 레슨 <b>${esc(when)}</b></p>` : ""}${s.line ? `<p style="margin:4px 0 0">🎫 ${esc(s.line)}</p>` : ""}${flat ? "" : `<button class="ghost full" id="myLes" style="margin-top:10px">${IC_CAL} 나의 레슨 · 배지 보기</button>`}</div>`;
 }
 
+// (11/02 사용자) 🌱 나의 성장: 첫 기록 → 지금, 최고 기록, 같은 곡 처음 vs 지금, 선생님의 한 마디. 낮아진 날은 격려 문구(선생님 앱이 만들어 보냄)
+function growthHtml(g) {
+  if (!g || !g.last) return "";
+  const n = +g.n || 0, v = +g.last.v || 0, f0 = +g.first?.v || 0, d = v - f0, best = g.best || g.last, md2 = (s) => String(s || "").slice(5, 10).replace("-", "/");
+  if (n < 3 && !g.tip) return `<div class="card grow"><h2 style="margin:0">🌱 나의 성장</h2><p class="muted" style="margin:6px 0 0">기록이 쌓이는 중이에요 · 레슨 노래가 3번 쌓이면 정확도 변화를 보여 드려요</p></div>`;
+  const ring = (p) => `<svg viewBox="0 0 36 36" width="92" height="92" style="flex:none"><circle cx="18" cy="18" r="15.5" fill="none" stroke="#2a2f38" stroke-width="4"/><circle cx="18" cy="18" r="15.5" fill="none" stroke="#6fe0a0" stroke-width="4" stroke-dasharray="${Math.max(1, Math.min(100, p))} 100" stroke-linecap="round" transform="rotate(-90 18 18)" pathLength="100"/><text x="18" y="21" text-anchor="middle" fill="currentColor" font-size="9" font-weight="900">${p}%</text></svg>`;
+  const pts = (g.pts || []).filter(p => Number.isFinite(+p.v)), W = 300, H = 90;
+  const chart = pts.length >= 2 ? (() => { const lo = Math.max(0, Math.min(...pts.map(p => +p.v)) - 8), hi = Math.min(100, Math.max(...pts.map(p => +p.v)) + 8), xs = (i) => 12 + i * (W - 24) / (pts.length - 1), ys = (p) => H - 16 - ((p - lo) / Math.max(1, hi - lo)) * (H - 30);
+    const bi = pts.reduce((a, p, i) => p.v > pts[a].v ? i : a, 0);
+    return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" style="margin-top:6px"><line x1="0" x2="${W}" y1="${ys(pts[bi].v)}" y2="${ys(pts[bi].v)}" stroke="#3a3f49" stroke-dasharray="3 4"/>
+      <polyline points="${pts.map((p, i) => `${xs(i)},${ys(p.v)}`).join(" ")}" fill="none" stroke="#6fe0a0" stroke-width="3" stroke-linejoin="round"/>
+      ${pts.map((p, i) => `<circle cx="${xs(i)}" cy="${ys(p.v)}" r="${i === bi ? 5.5 : 4}" fill="${i === bi ? "#ffd27a" : "#6fe0a0"}"/>`).join("")}
+      ${pts.map((p, i) => `<text x="${xs(i)}" y="${H - 2}" fill="#9a9ca3" font-size="9" text-anchor="middle">${esc(md2(p.d))}</text>`).join("")}</svg>`; })() : "";
+  const same = (g.same || []).map(s => `<div style="margin-top:10px"><b>🔁 ‘${esc(s.title)}’</b> <span class="muted">${+s.n || 2}번 불렀어요</span>
+      <div class="grRow"><span class="muted">${esc(md2(s.first.d))}</span><div class="grBar"><i style="width:${+s.first.v}%;background:#7f8a99"></i></div><b>${+s.first.v}%</b></div>
+      <div class="grRow"><span class="muted">${esc(md2(s.last.d))}</span><div class="grBar"><i style="width:${+s.last.v}%"></i></div><b${s.last.v > s.first.v ? ' class="up"' : ""}>${+s.last.v}%</b></div></div>`).join("");
+  return `<div class="card grow"><h2 style="margin:0 0 6px">🌱 나의 성장</h2>
+    ${pts.length ? `<div style="display:flex;gap:14px;align-items:center">${ring(v)}<div><div class="muted">정확하게 짚은 음</div>${d > 0 ? `<div class="up" style="font-size:1.25rem;font-weight:900">▲ ${d}%p</div>` : ""}<div class="muted">첫 기록 ${f0}% → 지금 ${v}%${best.v > v ? ` · 최고 ${+best.v}%` : ""}</div></div></div>${chart}
+      ${g.cheer ? `<div class="grCheer">🌤 ${esc(g.cheer)}</div>` : `<p class="muted" style="margin:4px 0 0;font-size:.85rem">⭐ = 가장 좋았던 날 · 곡마다 난이도가 달라 오르내려요</p>`}` : ""}
+    ${same}
+    ${g.tip ? `<div class="grTip"><b>💬 선생님의 한 마디</b><div style="margin-top:4px">${esc(g.tip)}</div></div>` : ""}</div>`;
+}
 function timeline() {
   try { Brand.bar(); } catch {}
   history.replaceState(null, "", location.pathname);
   const ls = data.lessons, seen = seenLocal();
   const bests = ls.filter(l => l.best?.file_id);
-  $("view").innerHTML = `${statusHtml(data.status)}<div class="card"><h2>${esc(data.name)}님의 레슨 노트</h2>
+  $("view").innerHTML = `${statusHtml(data.status)}${growthHtml(data.growth)}<div class="card"><h2>${esc(data.name)}님의 레슨 노트</h2>
       <p class="muted" style="margin:0">레슨 ${ls.length}회 · 최근 ${md(ls[0]?.date)}</p>
       ${bests.length > 1 && !albumTracks(ls).length ? `<button class="ghost full" id="playAll" style="margin-top:10px">▶ 그동안의 베스트 가창 이어 듣기 (${bests.length}곡)</button>` : ""}</div>
     ${albumHtml(ls)}

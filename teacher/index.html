@@ -99,6 +99,7 @@
   .npPl { margin-top:4px; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   #npPop { position:fixed; inset:0; z-index:9500; background:rgba(0,0,0,.55); display:flex; align-items:center; justify-content:center; padding:16px; }
   #npPop .box { width:min(420px,100%); background:#1d2230; border:1.5px solid var(--accent); border-radius:18px; padding:16px; box-shadow:0 10px 30px rgba(0,0,0,.5); }
+  .grTg { display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--line); padding:8px 0; } .grTg input { width:22px; height:22px; }
   .hbIt { display:flex; gap:10px; align-items:flex-start; border-top:1px solid var(--line); padding:10px 0; } .hbIt:first-child { border-top:none; }
   .hbIc { width:34px; height:34px; border-radius:10px; background:#11141a; display:grid; place-items:center; font-size:1.1rem; flex:none; }
   .hbLR { display:flex; align-items:center; gap:6px; margin-top:5px; font-size:.75rem; color:var(--muted, #9a9ca3); } .hbLR span { white-space:nowrap; }
@@ -1138,6 +1139,7 @@ async function renderList() {
     const attP = loadAttendance().then(a => { if (a) { att = a; LS.set("vn_att", a); if (typeof npAfterAtt === "function") npAfterAtt(); } return a; }).catch(() => null);
     const data = await listData(cached || []);
     await attP; if (att) pushStatuses().catch(() => {});
+    pushGrowthAll().catch(() => {});
     if (my !== listGen || $("vList").classList.contains("hidden")) { LS.set("vn_list", data); return; }
     LS.set("vn_list", data);
     await untilIdle();                                  // 누르는 중이면 손을 뗀 뒤에 다시 그림(화면이 손가락 밑에서 바뀌지 않게)
@@ -3556,10 +3558,69 @@ function habitCardsHTML(m) {
   if (m.vib) c.push(["〰", m.vib.r >= 0.4 ? "비브라토 자연스러운 편" : "비브라토가 적은 편", "", `긴 음의 ${Math.round(m.vib.r * 100)}%${m.vib.rate ? ` · 초당 ${Math.round(m.vib.rate)}회` : ""}${m.vib.ext ? ` · 폭 ±${Math.round(m.vib.ext)}센트` : ""}`, ""]);
   return c.map(([ic, h, chip, sub, bar]) => `<div class="hbIt"><span class="hbIc">${ic}</span><div style="flex:1;min-width:0"><b>${esc(h)}</b>${chip ? ` <span class="chip">${esc(chip)}</span>` : ""}<div class="muted" style="font-size:.85rem">${sub}</div>${bar}</div></div>`).join("");
 }
+// ── 수강생 페이지 '🌱 나의 성장'(11/02 08:53 사용자): 숫자로 의욕을 · 낮아지면 격려 문구 · 선생님의 한 마디 · 수강생별 보이기 설정 ──
+const GR_SHOW0 = { acc: true, same: true, tip: true };
+function growthFacts(st) {   // 정확도 흐름(키 불확실 곡 제외)
+  const songs = (st._habit?.songs || []).slice().sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+  const pts = songs.filter(x => !keyShaky(x)).map(x => ({ x, s: songStats(x) })).filter(o => o.s).map(o => ({ d: o.x.date || "", v: Math.round(o.s.in15 * 100), t: o.x.title || "", lesson: o.x.kind === "lesson" }));
+  if (!pts.length) return null;
+  const first = pts[0], last = pts.at(-1), prev = pts.length > 1 ? pts.at(-2) : null, best = pts.reduce((a, b) => b.v > a.v ? b : a, pts[0]);
+  const groups = {}; for (const p of pts) (groups[normTitle(p.t)] ??= []).push(p);
+  const same = Object.values(groups).filter(g => g.length >= 2).map(g => ({ title: g[0].t, first: g[0], last: g.at(-1), n: g.length })).sort((a, b) => b.last.d.localeCompare(a.last.d)).slice(0, 2);
+  const newSong = !pts.slice(0, -1).some(p => normTitle(p.t) === normTitle(last.t));
+  return { pts: pts.slice(-8), first, last, prev, best, same, newSong, n: pts.length };
+}
+function growthCheer(f) {   // 숫자가 낮아졌을 때 의욕을 지키는 문구(사실에 근거한 것만, 비교·질책 없음)
+  if (!f || !f.prev || f.last.v >= f.prev.v) return "";
+  const k = (f.last.d || "").split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+  const pick = (arr) => arr[k % arr.length];
+  if (f.newSong) return pick([`‘${f.last.t}’는 처음 부르는 곡이라 숫자가 잠깐 쉬어 갔어요. 새 곡을 익히는 날엔 자연스러운 일이에요 — 몇 번 부르면 금방 올라와요!`,
+    `새 곡 ‘${f.last.t}’에 도전한 날이에요. 낯선 멜로디는 처음엔 누구나 흔들려요. 다음에 다시 부를 때 차이를 느껴 보세요!`]);
+  if (f.best.v > f.last.v) return pick([`최고 기록 ${f.best.v}%를 이미 찍어 보셨어요. 그 실력은 사라지지 않아요 — 컨디션과 곡에 따라 잠깐 오르내릴 뿐이에요!`,
+    `오늘은 숫자가 조금 쉬어 갔지만, 첫 기록 ${f.first.v}% 때보다 소리의 기본이 단단해졌어요. 다음 레슨에서 다시 올려 봐요!`]);
+  return `곡마다 난이도가 달라 숫자는 오르내려요. 꾸준히 부르는 것만으로도 실력은 쌓이고 있어요!`;
+}
+function growthNote(sid) {
+  const st = cfg.students[sid], f = growthFacts(st), show = { ...GR_SHOW0, ...(st.growth_show || {}) };
+  if (!f) return null;
+  return { kind: "growth", show, first: f.first, last: f.last, best: f.best, pts: show.acc ? f.pts : [], same: show.same ? f.same : [], n: f.n,
+    tip: show.tip ? String(st.growth_tip || "").trim() : "", cheer: show.acc ? (String(st.growth_cheer || "").trim() || growthCheer(f)) : "", updated_at: new Date().toISOString() };
+}
+async function pushGrowth(sid, force) {
+  if (isStaffApp() || !portalUrl()) return;
+  const n = growthNote(sid); if (!n) return; const h = JSON.stringify({ ...n, updated_at: null }), sent = LS.get("vn_gr_pushed") || {};
+  if (!force && sent[sid] === h) return;
+  await portal("t_note", { sid, lesson_id: "_growth", date: "", published_at: n.updated_at, note: n, _nb: true }); sent[sid] = h; LS.set("vn_gr_pushed", sent);
+}
+function growthShareHTML(sid) {
+  const st = cfg.students[sid], show = { ...GR_SHOW0, ...(st.growth_show || {}) }, f = growthFacts(st), auto = growthCheer(f);
+  const tg = (k, l) => `<label class="grTg"><span>${l}</span><input type="checkbox" data-gs="${k}"${show[k] ? " checked" : ""}></label>`;
+  return `<div class="card"><h3 style="margin:0 0 4px">👀 수강생 페이지 ‘🌱 나의 성장’</h3>
+    ${tg("acc", "정확도·그래프")}${tg("same", "같은 곡 처음 vs 지금")}${tg("tip", "선생님의 한 마디")}
+    <label class="muted" style="display:block;margin-top:8px">💬 선생님의 한 마디 <span style="font-size:.8rem">(직접 고른 이번 주 포인트, 따뜻한 말로)</span></label>
+    <textarea id="grTip" rows="2" maxlength="160" style="width:100%;min-height:0" placeholder="예: 2옥레~2옥솔은 시작할 때 살짝 위에서 찍어 보기 — 좋아지고 있어요!">${esc(st.growth_tip || "")}</textarea>
+    ${auto || st.growth_cheer ? `<label class="muted" style="display:block;margin-top:6px">🌤 숫자가 지난번보다 낮을 때 보일 격려 <span style="font-size:.8rem">(자동으로 만든 말 · 고쳐 쓰면 그 말로)</span></label>
+      <textarea id="grCheer" rows="2" maxlength="200" style="width:100%;min-height:0" placeholder="${esc(auto)}">${esc(st.growth_cheer || "")}</textarea>` : ""}
+    <div class="row" style="margin-top:8px"><button type="button" class="small" id="grSave">저장하고 수강생 페이지에 반영</button><span class="muted" id="grMsg"></span></div></div>`;
+}
+function wireGrowthShare(sid) {
+  const box = $("grShare"); if (!box) return; box.innerHTML = growthShareHTML(sid);
+  $("grSave").onclick = async () => { const b = $("grSave"); b.disabled = true; $("grMsg").textContent = "저장 중…";
+    const show = {}; box.querySelectorAll("[data-gs]").forEach(x => show[x.dataset.gs] = x.checked);
+    const tip = $("grTip").value.trim(), cheer = $("grCheer") ? $("grCheer").value.trim() : (cfg.students[sid].growth_cheer || "");
+    try { await cfgUpdate(l => { const x = l.students?.[sid]; if (x) { x.growth_show = show; x.growth_tip = tip; x.growth_cheer = cheer; } });
+      const st = cfg.students[sid]; if (st.teacher_id) staffSync(st.teacher_id).catch(() => {});
+      await pushGrowth(sid, true); $("grMsg").textContent = "✓ 반영했어요"; } catch (e) { $("grMsg").textContent = errMsg(e); } finally { b.disabled = false; } };
+}
+async function pushGrowthAll() {   // 음정성향 파일이 바뀐 수강생만 조용히(성장 탭을 안 열어도 수강생 페이지가 최신)
+  if (isStaffApp() || !portalUrl()) return; const seen = LS.get("vn_gr_at") || {};
+  for (const [sid, st] of Object.entries(cfg.students || {})) { if (isTeacher(st) || st.status === "test" || st.consent_withdrawn || !st._habitAt || seen[sid] === st._habitAt) continue;
+    try { st._habit = await rootFile(st, "음정성향.json"); if (st._habit) await pushGrowth(sid); seen[sid] = st._habitAt; LS.set("vn_gr_at", seen); } catch {} }
+}
 async function paintGrowthTab(sid) {
   const st = cfg.students[sid];
-  $("stuTab").innerHTML = `<div id="grTop"></div><div id="mkHabit"><p class="muted">불러오는 중…</p></div><div id="stuGrowth4"></div>`;
-  paintHabit(sid, "growth");
+  $("stuTab").innerHTML = `<div id="grTop"></div><div id="grShare"></div><div id="mkHabit"><p class="muted">불러오는 중…</p></div><div id="stuGrowth4"></div>`;
+  paintHabit(sid, "growth").then(() => { if (stuCur?.sid === sid && stuCur.tab === "growth" && st._habit) { wireGrowthShare(sid); pushGrowth(sid).catch(() => {}); } });
   try { const rec = await rootFile(st, "수강생기록.json"); if (stuCur?.sid === sid && stuCur.tab === "growth") paintGrowth4(rec, st); } catch {}
 }
 function growthLine(st) {   // 레슨 탭 맨 위 한 줄 → 누르면 성장 탭
@@ -5647,7 +5708,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-02-0843-growth";
+const BUILD = "2026-11-02-0856-stugrowth";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
