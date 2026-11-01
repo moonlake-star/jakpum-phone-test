@@ -108,6 +108,7 @@
   .tsSeg { position:absolute; top:-4px; bottom:-4px; background:rgba(255,210,122,.35); border:1.5px solid #ffd27a; border-radius:4px; pointer-events:none; }
   .tsFill { position:absolute; left:0; top:0; bottom:0; width:0; background:#9cc3ff; border-radius:3px; pointer-events:none; } .tsKnob { position:absolute; left:0; top:50%; width:14px; height:14px; margin:-7px; border-radius:50%; background:#9cc3ff; pointer-events:none; }
   body.tsMini #mini { display:none !important; }
+  body.miniOn.tsMini #v2Dock { bottom:0; }   /* (11/02 01:07 사용자) 큰 재생바가 숨은 동안엔 아래 막대를 화면 맨 아래로 */
   .tsBar { margin:8px 0 4px; border:1.5px solid #ffd27a; border-radius:14px; background:#1b1e24; padding:9px 10px; } .tsBar[hidden] { display:none; }
   .tsRow { display:flex; align-items:center; gap:10px; } .tsPlay { min-height:40px; padding:0 14px; margin:0; border-radius:20px; border:0; background:#ffd27a; color:#1a1307; font-weight:900; font-size:.95rem; }
   .tsQ { margin-top:7px; font-size:.88rem; line-height:1.55; color:#cfd3da; } .tsQ b { margin-right:4px; } .tsQ .tT { color:#9cc3ff; } .tsQ .tS { color:#7fd99a; }
@@ -5373,7 +5374,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-02-0107-nextplan";
+const BUILD = "2026-11-02-0109-dock";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
