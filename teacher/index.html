@@ -796,7 +796,7 @@ function attSheet(x) {
   };
 }
 // ── 레슨 캘린더 공통(#182, 2026-10-29) ──
-const CAL_S = { done: ["✅", "완료"], makeup_done: ["🔁", "보강 완료"], scheduled: ["📅", "예정"], cancelled: ["✖️", "휴강"], forfeit: ["✖️", "휴강"], review: ["⏳", "확인 중"] };
+const CAL_S = { done: ["✅", "완료"], makeup_done: ["🔁", "보강 완료"], scheduled: ["📅", "예정"], cancelled: ["✖️", "휴강"], forfeit: ["✖️", "휴강"], review: ["⏳", "확인 중"], moved: ["↪️", "이동"] };   // (11/02 사용자) 옮긴 레슨은 휴강이 아니라 이동
 const calYm = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 const calShift = (ym, n) => { const [y, m] = ym.split("-").map(Number), d = new Date(y, m - 1 + n, 1); return calYm(d); };
 function calGrid(ym, byDate, sel, tap) {   // byDate[YYYY-MM-DD] = [{s}] → 칸마다 대표 아이콘(여럿이면 개수)
@@ -808,7 +808,7 @@ function calGrid(ym, byDate, sel, tap) {   // byDate[YYYY-MM-DD] = [{s}] → 칸
     const cls = `dy${k === td ? " today" : ""}${k === sel ? " sel" : ""}`, lab = xs.length ? ` aria-label="${m}월 ${d}일 ${xs.map(x => CAL_S[x.s]?.[1] || "").join(", ")}"` : "";
     h += tap && xs.length ? `<button type="button" class="${cls}" data-cd="${k}" data-day="${k}"${lab}>${d}<span class="ic">${ic}</span></button>` : `<div class="${cls}" data-day="${k}"${lab}>${d}<span class="ic">${ic}</span></div>`;
   }
-  return `<div class="cal">${h}</div><div class="calLeg">${["done", "makeup_done", "scheduled", "cancelled", "review"].map(s => `<span>${s === "scheduled" ? `<b class="icnum sm">1</b>` : CAL_S[s][0]} ${CAL_S[s][1]}${s === "scheduled" ? "(개수)" : ""}</span>`).join("")}</div>`;
+  return `<div class="cal">${h}</div><div class="calLeg">${["done", "makeup_done", "scheduled", "cancelled", "moved", "review"].map(s => `<span>${s === "scheduled" ? `<b class="icnum sm">1</b>` : CAL_S[s][0]} ${CAL_S[s][1]}${s === "scheduled" ? "(개수)" : ""}</span>`).join("")}</div>`;
 }
 const calDay = (iso) => { const d = new Date(iso + "T00:00:00"); return `${d.getMonth() + 1}/${d.getDate()}(${"일월화수목금토"[d.getDay()]})`; };
 // ── 일정 옮기기(사용자 승인 2026-10-30 09:00): 레슨 줄을 길게 눌러 달력 날짜 칸으로 끌어 놓기 → 확인 창 → 구글 캘린더의 그 일정 자체를 옮김 ──
@@ -952,9 +952,9 @@ function openCal(ym, sel) {   // 선생님 '레슨 캘린더': 전체 수강생 
   const day = sel && by[sel] ? by[sel] : null, loc = attLocal();
   const cnt = (k) => Object.entries(by).filter(([d]) => d.startsWith(ym)).reduce((n, [, xs]) => n + xs.filter(x => x.s === k).length, 0);
   $("vCal").innerHTML = `<div class="card"><div class="calNav"><button class="ghost" id="cPrev" aria-label="지난달">‹</button><b>${+ym.slice(0, 4)}년 ${+ym.slice(5)}월 레슨</b><button class="ghost" id="cNext" aria-label="다음 달">›</button></div>
-    ${att ? `<p class="muted" style="margin:6px 0 0">완료 ${cnt("done") + cnt("makeup_done")} · 예정 ${cnt("scheduled")} · 휴강 ${cnt("cancelled") + cnt("forfeit")} · 확인 중 ${cnt("review")}</p>` : `<p class="muted">출석 현황을 아직 못 불러왔어요(자동 수집 뒤에 생겨요).</p>`}
+    ${att ? `<p class="muted" style="margin:6px 0 0">완료 ${cnt("done") + cnt("makeup_done")} · 예정 ${cnt("scheduled")} · 휴강 ${cnt("cancelled") + cnt("forfeit")}${cnt("moved") ? ` · 이동 ${cnt("moved")}` : ""} · 확인 중 ${cnt("review")}</p>` : `<p class="muted">출석 현황을 아직 못 불러왔어요(자동 수집 뒤에 생겨요).</p>`}
     ${calGrid(ym, by, sel, true)}</div>
-    ${day ? `<div class="card"><div class="row" style="justify-content:space-between;align-items:baseline;gap:8px"><h3 style="margin:0">${calDay(sel)}</h3>${day.some(y => ["scheduled", "review"].includes(y.s)) ? `<span class="muted" style="font-size:.85rem">레슨을 길게 눌러 끌면 날짜 이동</span>` : ""}</div>${day.map((x, n) => { const li = calLessonIdx(x); return `<div class="calRow${li >= 0 ? " tap" : ""}"${["scheduled", "review"].includes(x.s) ? ` data-mv="${n}"` : ""}${li >= 0 ? ` data-cl="${n}" role="button" tabindex="0"` : ""}><span class="w">${esc(x.time)} ${esc(x.name)} · ${x.s === "scheduled" ? "" : CAL_S[x.s]?.[0] || ""} ${CAL_S[x.s]?.[1] || ""}</span>${x.q && ATT_KIND[x.q.kind] && !loc[x.q.event_id] ? `<button data-cq="${n}">확인하기</button>` : li >= 0 ? `<button class="ghost" data-cl="${n}">레슨 보기 ›</button>` : ["scheduled", "review"].includes(x.s) ? `<button class="ghost" data-mvb="${n}">옮기기</button>` : ""}</div>`; }).join("")}</div>`
+    ${day ? `<div class="card"><div class="row" style="justify-content:space-between;align-items:baseline;gap:8px"><h3 style="margin:0">${calDay(sel)}</h3>${day.some(y => ["scheduled", "review"].includes(y.s)) ? `<span class="muted" style="font-size:.85rem">레슨을 길게 눌러 끌면 날짜 이동</span>` : ""}</div>${day.map((x, n) => { const li = calLessonIdx(x); return `<div class="calRow${li >= 0 ? " tap" : ""}"${["scheduled", "review"].includes(x.s) ? ` data-mv="${n}"` : ""}${li >= 0 ? ` data-cl="${n}" role="button" tabindex="0"` : ""}><span class="w">${esc(x.time)} ${esc(x.name)} · ${x.s === "scheduled" ? "" : CAL_S[x.s]?.[0] || ""} ${x.s === "moved" && x.to ? `${calDay(x.to)}로 이동` : CAL_S[x.s]?.[1] || ""}</span>${x.q && ATT_KIND[x.q.kind] && !loc[x.q.event_id] ? `<button data-cq="${n}">확인하기</button>` : li >= 0 ? `<button class="ghost" data-cl="${n}">레슨 보기 ›</button>` : ["scheduled", "review"].includes(x.s) ? `<button class="ghost" data-mvb="${n}">옮기기</button>` : ""}</div>`; }).join("")}</div>`
       : `<p class="muted" style="line-height:1.8">· 날짜를 누르면 그날 레슨이 보여요<br>· 좌우로 밀면 지난달·다음 달<br>· 레슨 있는 칸을 길게 눌러 다른 날짜로 끌어 놓으면 옮기기${att?.updated_at ? `<br>(구글 캘린더 반영: ${esc(attWhen(att.updated_at))} 기준)` : ""}</p>`}`;   /* (11/02 01:42 사용자) 안내 문구 줄바꿈 */
   $("cPrev").onclick = () => openCal(calShift(ym, -1)); $("cNext").onclick = () => openCal(calShift(ym, 1));
   $("vCal").querySelectorAll("[data-cd]").forEach(b => b.onclick = () => openCal(ym, b.dataset.cd));
@@ -974,7 +974,7 @@ async function pushStatuses() {   // 수강생 화면 맨 위 카드용(바뀐 �
     const st = cfg.students[sid]; if (!st || isTeacher(st) || st.status === "test" || st.consent_withdrawn) continue;
     const note = { kind: "status", line: s.line || null, next_lesson: s.next_lesson || null, lessons_confirmed: s.lessons_confirmed || 0,
                    badges: s.badges || [], streak: s.streak || 0, updated_at: att.updated_at || null,
-                   days: (s.days || []).map(d => ({ date: d.date, time: d.time, s: d.s, lesson_id: d.lesson_id || null })) };
+                   days: (s.days || []).map(d => ({ date: d.date, time: d.time, s: d.s, lesson_id: d.lesson_id || null, ...(d.to ? { to: d.to } : {}) })) };
     const h = JSON.stringify({ ...note, updated_at: null }); if (sent[sid] === h) continue;
     try { await portal("t_note", { sid, lesson_id: "_status", date: "", published_at: note.updated_at || new Date().toISOString(), note, _nb: true }); sent[sid] = h; LS.set("vn_att_pushed", sent); }
     catch { /* 다음에 다시 */ }
@@ -5422,7 +5422,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-02-0149-noicon";
+const BUILD = "2026-11-02-0159-moved";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();

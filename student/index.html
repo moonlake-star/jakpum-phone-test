@@ -250,7 +250,7 @@ function storyHtml(ls) {
 }
 
 // ── 레슨 캘린더 공통(#182, 2026-10-29) ──
-const CAL_S = { done: ["✅", "완료"], makeup_done: ["🔁", "보강 완료"], scheduled: ["📅", "예정"], cancelled: ["✖️", "휴강"], forfeit: ["✖️", "휴강"], review: ["⏳", "확인 중"] };
+const CAL_S = { done: ["✅", "완료"], makeup_done: ["🔁", "보강 완료"], scheduled: ["📅", "예정"], cancelled: ["✖️", "휴강"], forfeit: ["✖️", "휴강"], review: ["⏳", "확인 중"], moved: ["↪️", "이동"] };   // (11/02 사용자) 옮긴 레슨은 휴강이 아니라 이동
 const calYm = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 const calShift = (ym, n) => { const [y, m] = ym.split("-").map(Number), d = new Date(y, m - 1 + n, 1); return calYm(d); };
 function calGrid(ym, byDate, sel, tap) {   // byDate[YYYY-MM-DD] = [{s}] → 칸마다 대표 아이콘(여럿이면 개수)
@@ -262,7 +262,7 @@ function calGrid(ym, byDate, sel, tap) {   // byDate[YYYY-MM-DD] = [{s}] → 칸
     const cls = `dy${k === td ? " today" : ""}${k === sel ? " sel" : ""}`, lab = xs.length ? ` aria-label="${m}월 ${d}일 ${xs.map(x => CAL_S[x.s]?.[1] || "").join(", ")}"` : "";
     h += tap && xs.length ? `<button type="button" class="${cls}" data-cd="${k}"${lab}>${d}<span class="ic">${ic}</span></button>` : `<div class="${cls}"${lab}>${d}<span class="ic">${ic}</span></div>`;
   }
-  return `<div class="cal">${h}</div><div class="calLeg">${["done", "makeup_done", "scheduled", "cancelled", "review"].map(s => `<span>${CAL_S[s][0]} ${CAL_S[s][1]}</span>`).join("")}</div>`;
+  return `<div class="cal">${h}</div><div class="calLeg">${["done", "makeup_done", "scheduled", "cancelled", "moved", "review"].map(s => `<span>${CAL_S[s][0]} ${CAL_S[s][1]}</span>`).join("")}</div>`;
 }
 const calDay = (iso) => { const d = new Date(iso + "T00:00:00"); return `${d.getMonth() + 1}/${d.getDate()}(${"일월화수목금토"[d.getDay()]})`; };
 const S_BADGES = [["first_lesson", "🎵", "첫 레슨"], ["four_done", "🏅", "수강권 완주"], ["pkg_streak3", "🔥", "3번 연속 완주"]];
@@ -274,7 +274,7 @@ function myLessons(ym) {   // '나의 레슨': 이번 달 달력 + 그 달 레�
   $("view").innerHTML = `<button class="ghost" id="back">← 전체 노트</button>${statusHtml(s, true)}
     <div class="card"><div class="calNav"><button class="ghost" id="cPrev" aria-label="지난달">‹</button><b>${+ym.slice(0, 4)}년 ${+ym.slice(5)}월</b><button class="ghost" id="cNext" aria-label="다음 달">›</button></div>
     ${calGrid(ym, by, null, false)}
-    ${mine.length ? mine.map(d => `<div class="calRow${d.lesson_id && has.has(d.lesson_id) ? " tap" : ""}"${d.lesson_id && has.has(d.lesson_id) ? ` data-nl="${esc(d.lesson_id)}" role="button" tabindex="0"` : ""}><span class="w">${calDay(d.date)} ${esc(d.time)} · ${CAL_S[d.s]?.[0] || ""} ${CAL_S[d.s]?.[1] || ""}</span>${d.lesson_id && has.has(d.lesson_id) ? `<button class="ghost" data-nl="${esc(d.lesson_id)}">노트 보기</button>` : ""}</div>`).join("")
+    ${mine.length ? mine.map(d => `<div class="calRow${d.lesson_id && has.has(d.lesson_id) ? " tap" : ""}"${d.lesson_id && has.has(d.lesson_id) ? ` data-nl="${esc(d.lesson_id)}" role="button" tabindex="0"` : ""}><span class="w">${calDay(d.date)} ${esc(d.time)} · ${CAL_S[d.s]?.[0] || ""} ${d.s === "moved" && d.to ? `${calDay(d.to)}로 이동` : CAL_S[d.s]?.[1] || ""}</span>${d.lesson_id && has.has(d.lesson_id) ? `<button class="ghost" data-nl="${esc(d.lesson_id)}">노트 보기</button>` : ""}</div>`).join("")
       : `<p class="muted" style="margin:10px 0 0">이 달에는 레슨 기록이 없어요.</p>`}</div>
     <div class="card"><h2 style="margin:0">🏆 나의 배지</h2><p class="muted" style="margin:2px 0 0">다른 분과 비교하지 않아요. 한 번 받은 배지는 계속 남아요.</p>
     <div class="medalRow">${S_BADGES.map(([id, ic, nm]) => `<div class="${got.has(id) ? "" : "off"}"><div class="md">${ic}</div>${esc(nm)}</div>`).join("")}</div></div>`;
