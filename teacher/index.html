@@ -99,6 +99,12 @@
   .npPl { margin-top:4px; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   #npPop { position:fixed; inset:0; z-index:9500; background:rgba(0,0,0,.55); display:flex; align-items:center; justify-content:center; padding:16px; }
   #npPop .box { width:min(420px,100%); background:#1d2230; border:1.5px solid var(--accent); border-radius:18px; padding:16px; box-shadow:0 10px 30px rgba(0,0,0,.5); }
+  .hbIt { display:flex; gap:10px; align-items:flex-start; border-top:1px solid var(--line); padding:10px 0; } .hbIt:first-child { border-top:none; }
+  .hbIc { width:34px; height:34px; border-radius:10px; background:#11141a; display:grid; place-items:center; font-size:1.1rem; flex:none; }
+  .hbLR { display:flex; align-items:center; gap:6px; margin-top:5px; font-size:.75rem; color:var(--muted, #9a9ca3); } .hbLR span { white-space:nowrap; }
+  .hbBar { position:relative; flex:1; height:8px; border-radius:4px; background:#2a2f38; overflow:hidden; } .hbBar i { position:absolute; top:0; bottom:0; } .hbBar i.l { right:50%; background:#ff9f5a; } .hbBar i.r { left:50%; background:#7fd9ff; }
+  .hbBar b { position:absolute; left:50%; top:-2px; bottom:-2px; width:2px; margin-left:-1px; background:#eceff3; } .hbBar.one i { left:0; background:var(--accent); }
+  .grLine { display:flex; align-items:center; gap:6px; width:100%; text-align:left; font:inherit; color:var(--fg); cursor:pointer; } .grLine .up { color:var(--ok); } .grLine .down { color:var(--bad); }
   .tsMir { -webkit-text-size-adjust:none; text-size-adjust:none; position:absolute; left:0; top:0; right:0; z-index:1; pointer-events:none; overflow:hidden; box-sizing:border-box; border:1px solid transparent; padding:8px 10px; line-height:24px; white-space:pre-wrap; overflow-wrap:break-word; word-break:normal; color:transparent; }
   .tsMir mark { color:#ffd27a; background:rgba(255,210,122,.17); border-radius:9px; box-shadow:0 0 0 2px rgba(255,210,122,.17), 0 0 0 3px rgba(255,210,122,.55); }
   #hlCard.hlFolded > :not(.hlHead) { display:none !important; } #hlCard.hlFolded .hlHead { margin:0; }
@@ -1148,7 +1154,7 @@ async function openStudent(sid, tab) {
   tab = tab || (isTeacher(st) ? "mk" : (stuCur?.sid === sid ? stuCur.tab : "lesson"));
   stuCur = { sid, tab }; goBack = () => renderList(); show("vStu");
   const pay = (st.payments || []).slice(-1)[0];
-  const tabs = isTeacher(st) ? [["mk", "🪄 메이크업·커버"]] : [["lesson", "📋 레슨"], ["subs", "📝 과제"], ["mk", "🪄 메이크업·커버"]];
+  const tabs = isTeacher(st) ? [["mk", "🪄 메이크업·커버"]] : [["lesson", "📋 레슨"], ["subs", "📝 과제"], ["growth", "📈 성장"], ["mk", "🪄 메이크업"]];   // (11/02 사용자 시안 승인) 성장 탭
   $("vStu").innerHTML = `<div class="card stuCard"><div class="stuHead"><h3>${esc(st.name)} <span class="muted">${esc(sid)}</span></h3>
       <div class="muted">${isTeacher(st) ? "선생님 본인 곡·작업" : pay ? `최근 결제 ${esc(pay.date)} · ${esc(pay.sessions)}회 묶음` : "결제 기록 없음"} · <a href="https://drive.google.com/drive/folders/${esc(st.folder)}" target="_blank" rel="noopener">드라이브 폴더</a></div></div></div>
     <div class="tabs">${tabs.map(([k, n]) => `<button class="small ${k === tab ? "on" : ""}" data-tab="${k}">${n}</button>`).join("")}</div>
@@ -1161,6 +1167,7 @@ async function openStudent(sid, tab) {
   }
   if (tab === "lesson") paintLessonsTab(sid);
   else if (tab === "subs") openSubs(sid, $("stuTab"));
+  else if (tab === "growth") paintGrowthTab(sid);
   else paintMakeupTab(sid);
   // 뒤에서 새로 받아 갱신(화면 그대로면 다시 그림)
   studentData(sid).then(d => { attach(d); const c = LS.get("vn_list") || []; LS.set("vn_list", c.map(x => x.sid === sid ? d : x));
@@ -2557,15 +2564,17 @@ function paintDeliver() {
   if (!me.note) return;
   paintSeen();
 }
+function paintGrowthLine(sid) { const st = cfg.students[sid], el = $("grLine"); if (!el) return; const go = () => { const h = growthLine(st); el.innerHTML = h; const b = $("grGo"); if (b) b.onclick = () => openStudent(sid, "growth"); };
+  if (st._habit) go(); else rootFile(st, "음정성향.json").then(h => { if (h) { st._habit = h; if (stuCur?.sid === sid) go(); } }).catch(() => {}); }
 function paintLessonsTab(sid) {
   const st = cfg.students[sid], rows = st._rows || [];
-  $("stuTab").innerHTML = `<div id="stuBrief"></div><div id="stuGrowth4"></div><div id="stuKakao"></div><div id="stuKakaoCand"></div><div class="card">` + (rows.length ? rows.map((r, i) => r.err ? `<div class="lesson retry" data-i="${i}" title="${esc(r.err)}"><span>${esc(r.l.name)}</span><span class="chip todo">불러오기 실패(다시 시도)</span></div>`
+  $("stuTab").innerHTML = `<div id="grLine"></div><div id="stuBrief"></div><div id="stuKakao"></div><div id="stuKakaoCand"></div><div class="card">` + (rows.length ? rows.map((r, i) => r.err ? `<div class="lesson retry" data-i="${i}" title="${esc(r.err)}"><span>${esc(r.l.name)}</span><span class="chip todo">불러오기 실패(다시 시도)</span></div>`
     : `<div class="lesson" data-i="${i}"><span>${esc(r.l.name)}</span><span class="row" style="gap:4px"><span class="chip ${r.fb ? "ok" : "todo"}">${r.fb ? "피드백 ✓" : "피드백 전"}</span>${cfg.practice_check ? `<span class="chip ${r.ck ? "ok" : ""}">${r.ck ? "점검 ✓" : "점검 –"}</span>` : ""}</span></div>`).join("")
     : `<p class="muted">아직 레슨 녹음이 없어요. 녹음이 정리되면 여기에 날짜별로 생기고, 누르면 검수 화면이 열립니다.</p>`) + `</div>`;
   $("stuTab").querySelectorAll(".lesson").forEach(el => el.onclick = () => rows[+el.dataset.i]?.err
     ? (st._rows = null, openStudent(sid, "lesson")) : openLesson(sid, +el.dataset.i, () => openStudent(sid, "lesson")));
   prefetchLessons([{ rows }]);
-  paintBriefing(sid);
+  paintBriefing(sid); paintGrowthLine(sid);
   paintKakaoImport(sid);
   { const k = kcS(sid); if (!k.busy) { k.loaded = null; k.draft = {}; k.msg = ""; } }   // 학생 화면을 열 때마다 최신 후보를 다시 읽는다
   paintKakaoCand(sid);
@@ -3517,6 +3526,48 @@ function keyOptions(sel, withAuto) {
       `<option value="${t}:${mo}" ${sel && sel.tonic === t && sel.mode === mo ? "selected" : ""}>${nm} ${kn} (${nm}${sym})</option>`).join("") + `</optgroup>`).join("");
 }
 const keyOf = (v) => { if (!v) return null; const [t, mo] = v.split(":"); return { tonic: +t, mode: mo, name: `${KEY_NOTES[+t]} ${mo === "major" ? "장조" : "단조"}` }; };
+// ── 📈 성장 탭(11/02 08:40 사용자 시안 승인): 정확도 한눈에 · 습관 카드(쉬운 말, 실제 음 이름) · 코칭 참고 · 최근 레슨 돌아보기 ──
+const KR_NOTE = ["도", "도#", "레", "레#", "미", "파", "파#", "솔", "솔#", "라", "라#", "시"];
+const krNote = (m) => Number.isFinite(m) ? `${Math.floor(m / 12) - 3}옥${KR_NOTE[((m % 12) + 12) % 12]}` : "";   // MIDI 60(C4) = 2옥도
+function habitModel(songs) {   // 음정성향.json songs[].rows: [어긋남(센트), 길이, 음역 위치 0~1, 목표음(MIDI), …]
+  const good = songs.filter(x => !keyShaky(x)), rows = good.flatMap(x => (x.rows || []).filter(r => Math.abs(r[0]) <= 35));
+  if (rows.length < 20) return null;
+  const mean = (a) => a.reduce((s, v) => s + v, 0) / (a.length || 1), q = (a, p) => { const s = a.slice().sort((x, y) => x - y); return s[Math.min(s.length - 1, Math.max(0, Math.round(p * (s.length - 1))))]; };
+  const bands = [0, 1, 2].map(b => { const rs = rows.filter(r => (r[2] < 0.35 ? 0 : r[2] > 0.65 ? 2 : 1) === b), ns = rs.map(r => r[3]).filter(Number.isFinite);
+    return rs.length >= 8 ? { n: rs.length, dev: mean(rs.map(r => r[0])), lo: ns.length ? q(ns, 0.1) : null, hi: ns.length ? q(ns, 0.9) : null } : null; });
+  const on = good.map(x => x.onset).filter(o => o?.notes), onN = on.reduce((s, o) => s + o.notes, 0);
+  const vb = good.map(x => x.vibrato).filter(v => v?.notes && v.rate), vbN = vb.reduce((s, v) => s + v.notes, 0);
+  return { n: rows.length, songs: good.length, dev: mean(rows.map(r => r[0])), flat: rows.filter(r => r[0] < 0).length / rows.length, bands,
+    scoop: onN ? { r: on.reduce((s, o) => s + o.notes * (o.scoop_ratio || 0), 0) / onN, ms: q(on.map(o => o.scoop_ms).filter(Boolean), 0.5) } : null,
+    vib: vbN ? { r: vb.reduce((s, v) => s + v.notes * (v.ratio || 0), 0) / vbN, rate: q(vb.map(v => v.rate), 0.5), ext: q(vb.map(v => v.extent).filter(Boolean), 0.5) } : null };
+}
+function habitCardsHTML(m) {
+  const rng = (b) => b && b.lo != null ? (b.lo === b.hi ? krNote(b.lo) : `${krNote(b.lo)}~${krNote(b.hi)}`) : "", c = [];
+  const ab = Math.abs(m.dev), side = m.dev < 0 ? "낮게" : "높게", freq = (r) => r >= 0.35 ? "자주" : r >= 0.15 ? "가끔" : "드물게";
+  // 가운데 기준 막대: 왼쪽 = 낮게 부른 음, 오른쪽 = 높게 부른 음 (11/02 08:41 사용자 '가로바가 뭐야?')
+  const lr = (fl) => `<div class="hbLR"><span>낮게 ${Math.round(fl * 100)}%</span><div class="hbBar"><i class="l" style="width:${fl * 50}%"></i><i class="r" style="width:${(1 - fl) * 50}%"></i><b></b></div><span>${Math.round((1 - fl) * 100)}% 높게</span></div>`;
+  c.push(["⬇", ab < 3 ? "음정 중심이 잘 맞는 편" : `전체적으로 살짝 ${side}`, ab >= 3 && Math.abs(m.flat - 0.5) >= 0.05 ? (m.flat > 0.5 ? freq(m.flat - 0.3) : "") : "",
+    `평균 ${Math.round(ab)}센트${ab >= 3 ? ` ${side}(반음은 100센트)` : ""}`, lr(m.flat)]);
+  const B = m.bands, nm = ["낮은 음역", "중간 음역", "높은 음역"];
+  if (B.every(Boolean)) { const w = B.map((b, i) => [Math.abs(b.dev), i]).sort((a, b) => b[0] - a[0])[0][1], wb = B[w];
+    c.push(["🎚", `${rng(wb)}(${nm[w]})에서 가장 ${wb.dev < 0 ? "낮아짐" : "높아짐"}`, "", B.map((b, i) => `${i === w ? "<b>" : ""}${rng(b)} ${b.dev > 0 ? "+" : ""}${Math.round(b.dev)}${i === w ? "</b>" : ""}`).join(" · ") + " 센트", ""]); }
+  if (m.scoop && m.scoop.r >= 0.1) c.push(["↗", "음을 아래에서 끌어올려 시작", freq(m.scoop.r), `새로 내는 음 ${Math.round(m.scoop.r * 100)}%가 그래요${m.scoop.ms ? ` · 보통 ${(m.scoop.ms / 1000).toFixed(2)}초 동안` : ""}`,
+    `<div class="hbLR"><span></span><div class="hbBar one"><i style="width:${Math.round(m.scoop.r * 100)}%"></i></div><span>${Math.round(m.scoop.r * 100)}%</span></div>`]);
+  if (m.vib) c.push(["〰", m.vib.r >= 0.4 ? "비브라토 자연스러운 편" : "비브라토가 적은 편", "", `긴 음의 ${Math.round(m.vib.r * 100)}%${m.vib.rate ? ` · 초당 ${Math.round(m.vib.rate)}회` : ""}${m.vib.ext ? ` · 폭 ±${Math.round(m.vib.ext)}센트` : ""}`, ""]);
+  return c.map(([ic, h, chip, sub, bar]) => `<div class="hbIt"><span class="hbIc">${ic}</span><div style="flex:1;min-width:0"><b>${esc(h)}</b>${chip ? ` <span class="chip">${esc(chip)}</span>` : ""}<div class="muted" style="font-size:.85rem">${sub}</div>${bar}</div></div>`).join("");
+}
+async function paintGrowthTab(sid) {
+  const st = cfg.students[sid];
+  $("stuTab").innerHTML = `<div id="grTop"></div><div id="mkHabit"><p class="muted">불러오는 중…</p></div><div id="stuGrowth4"></div>`;
+  paintHabit(sid, "growth");
+  try { const rec = await rootFile(st, "수강생기록.json"); if (stuCur?.sid === sid && stuCur.tab === "growth") paintGrowth4(rec, st); } catch {}
+}
+function growthLine(st) {   // 레슨 탭 맨 위 한 줄 → 누르면 성장 탭
+  const songs = (st._habit?.songs || []).slice().sort((a, b) => (a.date || "").localeCompare(b.date || "")), S = songs.filter(x => !keyShaky(x)).map(x => songStats(x)).filter(Boolean);
+  if (!S.length) return ""; const a = S[0].in15, b = S.at(-1).in15, d = Math.round((b - a) * 100), m = habitModel(songs);
+  const hab = m ? (Math.abs(m.dev) < 3 ? "음정 중심 잘 맞음" : `살짝 ${m.dev < 0 ? "낮게" : "높게"}`) : "";
+  return `<button type="button" class="card grLine" id="grGo">📈 정확도 <b>${Math.round(b * 100)}%</b>${S.length > 1 && d ? ` <span class="${d > 0 ? "up" : "down"}">${d > 0 ? "▲" : "▼"}${Math.abs(d)}%p</span>` : ""}${hab ? ` · 습관: ${esc(hab)}` : ""}<span class="muted" style="margin-left:auto">성장 ▸</span></button>`;
+}
 function paintMakeupTab(sid) {
   const st = cfg.students[sid], jobs = st._jobs || [];
   const stTxt = { queued: "대기 중 ⏳", working: "만드는 중 ⚙️", done: "완료", error: "실패" };
@@ -3585,12 +3636,19 @@ function growthSvg(pts) {   // pts: [{d, v, label, shaky}] 0~1
     ${pts.map((p, i) => `<circle cx="${x(i)}" cy="${y(p.v)}" r="5" fill="${p.shaky ? "#17191d" : "#b9a2ff"}" stroke="#b9a2ff" stroke-width="2"><title>${esc(p.label)} ${Math.round(p.v * 100)}%</title></circle>
       <text x="${x(i)}" y="${H - 6}" fill="#a9b1bc" font-size="9" text-anchor="middle">${esc(p.d)}</text>`).join("")}</svg>`;
 }
-async function paintHabit(sid) {
+async function paintHabit(sid, mode = "mk") {
   const st = cfg.students[sid];
   try {
-    st._habit = await rootFile(st, "음정성향.json"); if (!st._habit) return;
+    st._habit = await rootFile(st, "음정성향.json");
+    if (!st._habit) { if (mode === "growth" && $("mkHabit")) $("mkHabit").innerHTML = `<div class="card"><p class="muted" style="margin:0">아직 음정 기록이 없어요. 레슨 노래가 분석되거나 곡을 메이크업하면 쌓여요.</p></div>`; return; }
     const p = st._habit.profile_now || {}, songs = (st._habit.songs || []).slice().sort((a, b) => (a.date || "").localeCompare(b.date || ""));
     if (!$("mkHabit") || stuCur?.sid !== sid || !p.summary) return;
+    if (mode === "mk") {   // (11/02) 메이크업 탭엔 '보정 학습'(보정본 설정)만, 습관·성장은 📈 성장 탭으로
+      const lines = p.summary.filter(x => /^보정 학습/.test(x));
+      $("mkHabit").innerHTML = `<div class="card"><h3 style="margin-top:0">🎚 보정 학습</h3>${lines.map(x => `<div class="muted">${esc(x.replace(/^보정 학습:\s*/, ""))}</div>`).join("") || `<div class="muted">기본 보정</div>`}
+        <button type="button" class="small ghost" id="mkToGrowth" style="margin-top:8px">📈 음정 습관·성장 기록은 성장 탭에서</button></div>`;
+      $("mkToGrowth").onclick = () => openStudent(sid, "growth"); return;
+    }
     const S = songs.map(x => ({ x, s: songStats(x) })).filter(o => o.s);
     const good = S.filter(o => !keyShaky(o.x));
     const pct = (v) => v == null ? "–" : Math.round(v * 100) + "%";
@@ -3598,7 +3656,7 @@ async function paintHabit(sid) {
     let growth = "";
     if (S.length) {
       const pts = S.map(o => ({ d: (o.x.date || "").slice(5).replace("-", "/"), v: o.s.in15, label: (o.x.kind === "lesson" ? "레슨 " : "") + (o.x.title || ""), shaky: keyShaky(o.x) }));
-      growth += `<h4 style="margin:12px 0 4px">📈 정확도 변화 <span class="muted" style="font-size:.8rem;font-weight:400">정확한 음 가까이 부른 비율 · 빈 동그라미 = 키 자동 인식이 불확실한 곡(비교에서 뺌)</span></h4>${growthSvg(pts)}${S.length < 2 ? `<p class="muted" style="font-size:.85rem;margin:2px 0">지금은 기록이 하나예요. 곡을 하나 더 메이크업하거나 레슨 노래가 분석되면 변화와 비교가 나타나요.</p>` : ""}`;
+      if (!$("grTop")) growth += `<h4 style="margin:12px 0 4px">📈 정확도 변화 <span class="muted" style="font-size:.8rem;font-weight:400">정확한 음 가까이 부른 비율 · 빈 동그라미 = 키 자동 인식이 불확실한 곡(비교에서 뺌)</span></h4>${growthSvg(pts)}${S.length < 2 ? `<p class="muted" style="font-size:.85rem;margin:2px 0">지금은 기록이 하나예요. 곡을 하나 더 메이크업하거나 레슨 노래가 분석되면 변화와 비교가 나타나요.</p>` : ""}`;
       if (good.length >= 2) {
         const a = good[0], b = good.at(-1);
         const row = (nm, va, vb, fmtv, up = true) => `<tr><td>${nm}</td><td>${fmtv(va)}</td><td>${fmtv(vb)}</td><td>${arrow(va, vb, up)}</td></tr>`;
@@ -3619,16 +3677,23 @@ async function paintHabit(sid) {
           <span style="flex:1">${o.x.kind === "lesson" ? "📋 " : "🎤 "}${esc(o.x.title || "")}${keyShaky(o.x) ? ` <span class="chip todo">키 확인</span>` : ""}<div class="bar"><i style="width:${Math.round(o.s.in15 * 100)}%"></i></div></span>
           <b style="min-width:3em;text-align:right">${pct(o.s.in15)}</b>${j ? `<button class="small ghost hbOpen" data-id="${o.x.id}">열기</button>` : ""}</div>`; }).join("") + `</details>`;
     }
-    $("mkHabit").innerHTML = `<div class="card habit"><h3 style="margin-top:0">🎯 음정 습관·성장 기록 <span class="muted" style="font-size:.85rem;font-weight:400">메이크업·레슨 노래 ${songs.length}개</span></h3>
-      ${p.summary.map(x => `<div style="margin:3px 0">· ${esc(x)}</div>`).join("")}
-      ${(p.coaching || []).length ? `<h4 style="margin:14px 0 4px">🧑‍🏫 코칭 참고 <span class="muted" style="font-size:.8rem;font-weight:400">측정된 습관 → 자주 쓰는 지도법에서 고른 제안 · 원인은 가능성일 뿐, 판단은 선생님</span></h4>` +
-        p.coaching.map((t, i) => `<div class="coach"><div><span class="k ${t.kind}">${{ focus: "집중", strength: "강점", style: "스타일", check: "확인" }[t.kind] || ""}</span><b>${esc(t.title)}</b></div>
+    const m = habitModel(songs), last = S.length ? S.at(-1).s.in15 : null, first = S.length ? S[0].s.in15 : null, dd = last != null && S.length > 1 ? Math.round((last - first) * 100) : 0;
+    if ($("grTop")) $("grTop").innerHTML = last == null ? "" : `<div class="card"><div class="muted">정확하게 짚은 음 · 최근 ${esc(S.at(-1).x.date?.slice(5).replace("-", "/") || "")}</div>
+      <div class="row" style="align-items:flex-end;gap:10px"><span style="font-size:2rem;font-weight:900">${Math.round(last * 100)}%</span>${dd ? `<span class="${dd > 0 ? "up" : "down"}" style="font-weight:800;margin-bottom:6px">${dd > 0 ? "▲" : "▼"} ${Math.abs(dd)}%p <span class="muted" style="font-weight:400">(첫 기록 ${Math.round(first * 100)}%)</span></span>` : ""}</div>
+      ${S.length > 1 ? growthSvg(S.slice(-8).map(o => ({ d: (o.x.date || "").slice(5).replace("-", "/"), v: o.s.in15, label: (o.x.kind === "lesson" ? "레슨 " : "") + (o.x.title || ""), shaky: keyShaky(o.x) }))) : ""}
+      <div class="muted" style="font-size:.8rem">정확한 음에서 ±15센트(반음의 약 1/7) 안에 든 음 비율 · 곡마다 난이도가 달라요</div></div>`;
+    $("mkHabit").innerHTML = `<div class="card habit"><h3 style="margin-top:0">🎯 음정 습관 <span class="muted" style="font-size:.85rem;font-weight:400">${m ? `노래 ${m.songs}곡, 음 ${m.n}개에서` : `노래 ${songs.length}개`}</span></h3>
+      ${m ? habitCardsHTML(m) : ""}
+      <details style="margin-top:6px"><summary class="muted">자세한 숫자 보기</summary>${p.summary.filter(x => !/^보정 학습/.test(x)).map(x => `<div style="margin:3px 0;font-size:.9rem">· ${esc(x)}</div>`).join("")}</details>
+      ${(p.coaching || []).length ? `<h4 style="margin:14px 0 4px">🧑‍🏫 다음 레슨에 써 볼 지도 <span class="muted" style="font-size:.8rem;font-weight:400">측정된 습관 → 자주 쓰는 지도법에서 고른 제안 · 원인은 가능성일 뿐, 판단은 선생님</span></h4>` +
+        p.coaching.map((t, i) => `<div class="coach"><div><span class="k ${t.kind}">${{ focus: "집중", strength: "강점", style: "스타일", check: "확인" }[t.kind] || ""}</span><b>${esc(t.title)}</b> <button type="button" class="small ghost npAddCoach" data-i="${i}" style="margin-left:4px">📌 다음 레슨에 할 것에 넣기</button></div>
           <div class="muted" style="margin-top:3px">${esc(t.why)}</div>
           ${t.possible ? `<div class="muted" style="margin-top:3px">원인 후보: ${esc(t.possible)}</div>` : ""}
           ${i < 2 ? `<ol>${t.how.map(h => `<li>${esc(h)}</li>`).join("")}</ol>` : `<details><summary class="muted">지도 아이디어 ${t.how.length}개</summary><ol>${t.how.map(h => `<li>${esc(h)}</li>`).join("")}</ol></details>`}</div>`).join("") : ""}
       ${growth}
       <p class="muted" style="margin:8px 0 0;font-size:.8rem">곡을 메이크업하거나 레슨 노래가 분석될 때마다 자동으로 쌓여요. 기계 측정이라 참고용이고, 수강생에게 보여 줄 땐 숫자보다 전·후 음성으로.</p></div>`;
-    $("mkHabit").querySelectorAll(".hbOpen").forEach(b => b.onclick = () => { const j = st._jobs.find(y => y.folder.id === b.dataset.id); if (j) openMkJob(j, () => openStudent(sid, "mk")); });
+    $("mkHabit").querySelectorAll(".hbOpen").forEach(b => b.onclick = () => { const j = st._jobs.find(y => y.folder.id === b.dataset.id); if (j) openMkJob(j, () => openStudent(sid, "growth")); });
+    $("mkHabit").querySelectorAll(".npAddCoach").forEach(b => b.onclick = () => npAddToLatest(sid, p.coaching[+b.dataset.i]?.title || "", b));
   } catch (e) { console.warn(e); }
 }
 async function submitMakeup() {
@@ -5582,7 +5647,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-02-0834-assign";
+const BUILD = "2026-11-02-0843-growth";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
@@ -5738,6 +5803,14 @@ async function npCalSync(sid, plan) {   // plan: {lesson, date, lines}. 결과: 
   return { event_id: ev0.event_id, when: `${calDay(ev0.date)} ${ev0.time}` };
 }
 const npKey = (sid) => "vn_np_" + sid;
+async function npAddToLatest(sid, text, btn) {   // (11/02 성장 탭) 코칭 제안 → 가장 최근 레슨의 '📌 다음 레슨에 할 것'에 한 줄(확인 전으로)
+  const st = cfg.students[sid], r = (st?._rows || []).find(x => !x.err); if (!r || !text) return toast("레슨을 찾지 못했어요");
+  try { const f = (r.files || []).find(x => x.name === REVIEW); if (!f) return toast("그 레슨은 아직 검수 화면을 한 번 열어 주세요");
+    const rv = await (await api(`${DRIVE}/files/${f.id}?alt=media&_=${Date.now()}`, { cache: "no-store" })).json();
+    rv.next_plan = [...(Array.isArray(rv.next_plan) ? rv.next_plan : []), { text: String(text).slice(0, 80), t: null, src: "coach" }].slice(0, NP_MAX); rv.next_plan_ok_at = null;
+    await writeJSON(null, REVIEW, rv, f.id); if (btn) { btn.textContent = "✓ 넣었어요"; btn.disabled = true; } toast(`${r.l.name.slice(5, 10).replace("-", "/")} 레슨의 ‘다음 레슨에 할 것’에 넣었어요 · 레슨 화면에서 ✓확인해 주세요`);
+  } catch (e) { toast(errMsg(e)); }
+}
 function renderNextPlan() {
   const el = typeof document !== "undefined" && document.getElementById("npCard"); if (!el || !cur) return;
   const me = cur, rv = me.review, ok = !!rv.next_plan_ok_at && Array.isArray(rv.next_plan); let list = npDraft(me);
