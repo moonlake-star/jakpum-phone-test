@@ -1098,10 +1098,14 @@ function paintList(data, stale) {
       `<div class="muted">${sub}</div></div><div class="stuBody"><div class="sum">${chips || `<span class="muted">아직 기록 없음</span>`}</div></div></div>`;
   });
   // 가입 신청·계정 연결 카드는 맨 아래(2026-10-27 사용자: 맨 위에 늦게 생겨 아래가 밀리며 엉뚱한 게 눌림)
-  $("vList").innerHTML = `<button class="ghost full" id="calBtn" style="margin:0 0 8px">${IC_CAL} 레슨 캘린더</button>` + segHtml + todoHtml + blocks.join("") + `<div id="joinReq">${lastJoinHtml}</div>` +
+  $("vList").innerHTML = `<div class="row" style="gap:6px;margin:0 0 8px;flex-wrap:nowrap"><button class="ghost" id="calBtn" style="flex:1">${IC_CAL} 레슨 캘린더</button>${isStaffApp() ? "" : `<button class="ghost" id="nsBtn" style="flex:1">＋ 신규 수강생</button>`}</div>` + segHtml + todoHtml + blocks.join("") + `<div id="joinReq">${lastJoinHtml}</div>` +
     `<p class="muted">${stale ? "최신 내용 확인 중…" : "최신 상태"} · <a href="#" id="reload">새로고침</a> · 앱 버전 ${typeof BUILD === "string" ? BUILD : ""}</p>`;
   $("reload").onclick = (e) => { e.preventDefault(); renderList(); };
   $("calBtn").onclick = () => openCal();
+  if ($("nsBtn")) $("nsBtn").onclick = () => newStudentSheet();
+  if (isStaffApp()) asgStaffCheck().catch(() => {});
+  else if (Object.keys(staffOf()).length) asgOwnerTodos().then(xs => { const box = $("vList").querySelector(".card"); if (!xs.length || !box) return;
+    box.insertAdjacentHTML("beforeend", xs.map(x => `<div class="todo-item"><span>${esc(x.t)}</span><span class="chip todo">${esc(x.c)}</span></div>`).join("")); }).catch(() => {});
   $("vList").querySelectorAll("[data-tf]").forEach(b => b.onclick = () => { LS.set("vn_tfilter", b.dataset.tf); paintList(allData, stale); });
   $("vList").insertAdjacentHTML("beforeend", `<div id="prefsBox"></div><div id="laBox"></div>`); paintPrefs(); paintLaBox(); if (laIsOn()) laStart();
   paintJoinRequests();
@@ -1362,7 +1366,7 @@ async function cfgUpdate(fn) {   // 원장 config를 최신본 위에서 고쳐 
 function staffConfigFor(c, tid) {   // 강사에게 보여 줄 설정: 그 강사 수강생만 + 앱 동작에 필요한 공통값(주소·키). 결제·다른 수강생·서버 비밀값 없음
   const s = c.staff?.[tid] || {}, students = {};
   for (const [k, v] of Object.entries(c.students || {})) if (v?.teacher_id === tid) students[k] = v;
-  return { role: "teacher", staff_id: tid, name: s.name || "", students, practice_check: !!c.practice_check,
+  return { role: "teacher", staff_id: tid, name: s.name || "", students, practice_check: !!c.practice_check, sys: s.sys || "", folder: s.folder || "",
     ...(c.student_page_url ? { student_page_url: c.student_page_url } : {}), updated_at: new Date().toISOString() };
 }
 async function staffSync(tid) { const s = staffOf()[tid]; if (!s?.cfg_id) return; await writeJSON(null, "config.json", staffConfigFor(cfg, tid), s.cfg_id); }
@@ -1384,6 +1388,78 @@ async function joinCreateStaff(rawName, email) {
   await cfgUpdate(l => { (l.staff ??= {})[tid] = { ...entry, cfg_id: cfgId, perm_id: perm.id };
     l.staff_owner ??= { email: LS.get("vn_hint") || "", name: "작품", roles: ["owner", "teacher", "developer"] }; });
   return { tid, name };
+}
+// ── 신규 수강생 등록·첫 레슨 배치(11/02 08:31 사용자 시안 승인) ──
+const ASSIGN_FILE = "배치알림.json";
+const asgFmt = (iso) => { const d = new Date(iso); return isNaN(d) ? "" : `${d.getMonth() + 1}/${d.getDate()}(${"일월화수목금토"[d.getDay()]}) ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
+async function asgRead(sys) { const f = (await list(sys)).find(x => x.name === ASSIGN_FILE); return { id: f?.id || null, items: f ? ((await (await api(`${DRIVE}/files/${f.id}?alt=media&_=${Date.now()}`, { cache: "no-store" })).json()).items || []) : [] }; }
+async function asgAdd(sys, it) { const cur = await asgRead(sys); cur.items.push(it); return writeJSON(sys, ASSIGN_FILE, { items: cur.items.slice(-50) }, cur.id); }
+async function calCreate(ev) {   // 원장 구글 캘린더에 일정(강사 초대 메일·알림은 구글이 보냄)
+  const tok = await calToken(), r = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?sendUpdates=all`, { method: "POST", headers: { Authorization: "Bearer " + tok, "Content-Type": "application/json" }, body: JSON.stringify(ev) });
+  if (r.status === 401) { LS.set("vn_ctok", null); throw new Error("구글 권한이 만료됐어요. 한 번 더 눌러 주세요"); }
+  const j = await r.json(); if (!r.ok || !j.id) throw new Error("구글 캘린더에 일정을 만들지 못했어요(" + r.status + ")"); return j;
+}
+const PROFILE_CHIPS = ["나이대", "경험", "목표 곡", "고민", "좋아하는 가수"];
+function newStudentSheet() {
+  const d = document.createElement("div"); d.className = "attSheet";
+  const tom = new Date(Date.now() + 864e5 + 9 * 36e5).toISOString().slice(0, 10);
+  d.innerHTML = `<div class="attBox" style="max-height:92vh;overflow:auto"><h3 style="margin:0 0 6px">＋ 신규 수강생 등록 · 첫 레슨 배치</h3>
+    <label class="muted">이름</label><input id="nsName" maxlength="30" style="width:100%;margin:3px 0 8px" placeholder="예: 김하나">
+    <label class="muted">구글 계정(알면) — 몰라도 나중에 카톡으로 받아 연결</label><input id="nsMail" type="email" style="width:100%;margin:3px 0 8px" placeholder="예: hana@gmail.com">
+    <label class="muted">담당 강사</label><select id="nsTch" style="width:100%;margin:3px 0 8px">${staffOptions()}</select>
+    <div class="row" style="gap:6px;flex-wrap:nowrap"><label style="flex:1.4" class="muted">첫 레슨 날짜<input id="nsD" type="date" value="${tom}" style="width:100%"></label><label style="flex:1" class="muted">시간<input id="nsT" type="time" value="19:00" step="300" style="width:100%"></label><label style="flex:.8" class="muted">길이(분)<input id="nsL" type="number" value="50" min="10" max="180" step="5" style="width:100%"></label></div>
+    <label class="muted" style="display:block;margin-top:8px">강사에게 알려 줄 간단 프로필</label><textarea id="nsP" rows="4" maxlength="600" style="width:100%;min-height:0;margin:3px 0 4px" placeholder="예: 50대 · 레슨 처음 · 목표 곡 ‘사랑으로’ · 고음에서 목이 조임"></textarea>
+    <div class="row" style="gap:6px;flex-wrap:wrap">${PROFILE_CHIPS.map(c => `<button type="button" class="small ghost" data-pc="${esc(c)}">＋ ${esc(c)}</button>`).join("")}</div>
+    <p class="muted" id="nsMsg" style="margin:8px 0 0"></p>
+    <div class="row" style="gap:6px;margin-top:10px;flex-wrap:nowrap"><button type="button" class="ghost" id="nsNo" style="flex:1">취소</button><button type="button" id="nsOk" style="flex:2">등록하고 배치</button></div>
+    <p class="muted" style="font-size:.8rem;margin:8px 0 0">담당 강사 폴더에 수강생 폴더를 만들고, 원장님 구글 캘린더에 첫 레슨 일정을 만들어 강사를 초대해요(강사 폰에 초대 알림). 강사 앱을 열면 배치 알림과 프로필이 떠요.</p></div>`;
+  document.body.appendChild(d);
+  const tch = d.querySelector("#nsTch"), ok = d.querySelector("#nsOk"), msg = d.querySelector("#nsMsg");
+  const lab = () => { const s = staffOf()[tch.value]; ok.textContent = s ? `${s.name}에게 배치` : "등록하기"; }; tch.onchange = lab; lab();
+  d.querySelectorAll("[data-pc]").forEach(b => b.onclick = () => { const ta = d.querySelector("#nsP"); ta.value = (ta.value.trim() ? ta.value.replace(/\s*$/, "\n") : "") + b.dataset.pc + ": "; ta.focus(); });
+  const close = () => d.remove(); d.querySelector("#nsNo").onclick = close; d.onclick = (e) => { if (e.target === d) close(); };
+  ok.onclick = async () => {
+    let name; try { name = joinStudentName(d.querySelector("#nsName").value); } catch (e) { msg.textContent = e.message; return; }
+    const mail = d.querySelector("#nsMail").value.trim().toLowerCase(), tid = tch.value, s = staffOf()[tid] || null, profile = d.querySelector("#nsP").value.trim();
+    if (mail && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(mail)) { msg.textContent = "구글 계정 주소를 확인해 주세요"; return; }
+    const dt = d.querySelector("#nsD").value, tm = d.querySelector("#nsT").value, len = Math.max(10, Math.min(180, +d.querySelector("#nsL").value || 50));
+    if (!dt || !tm) { msg.textContent = "첫 레슨 날짜와 시간을 정해 주세요"; return; }
+    const start = new Date(`${dt}T${tm}:00+09:00`), end = new Date(start.getTime() + len * 60e3), iso = (x) => new Date(x.getTime() + 9 * 36e5).toISOString().slice(0, 19) + "+09:00";
+    ok.disabled = true; const step = (t_) => { msg.textContent = t_; };
+    try {
+      step("수강생 폴더 만드는 중…"); const created = await joinCreateStudent(name, false, s ? tid : "");
+      await cfgUpdate(l => { const x = l.students?.[created.sid]; if (x) { if (profile) x.profile = profile; x.first_lesson = { start: iso(start), len }; if (mail) x.email = mail; } });
+      if (s) await staffSync(tid).catch(() => {});
+      let acct = false; if (mail) { step("수강생 노트 계정 연결 중…"); try { await portal("t_account", { email: mail, sid: created.sid, state: "approved", name: created.name }); acct = true; } catch {} }
+      step("구글 캘린더에 첫 레슨 넣는 중…");
+      const ev = await calCreate({ summary: `${created.name} 첫 레슨${s ? ` · ${s.name}` : ""}`, description: [s ? `담당: ${s.name} 강사` : "", profile ? "── 프로필 ──\n" + profile : ""].filter(Boolean).join("\n\n"),
+        start: { dateTime: iso(start), timeZone: "Asia/Seoul" }, end: { dateTime: iso(end), timeZone: "Asia/Seoul" },
+        ...(s?.email ? { attendees: [{ email: s.email }], guestsCanModify: true } : {}), reminders: { useDefault: false, overrides: [{ method: "popup", minutes: 60 }, { method: "popup", minutes: 0 }] } }).catch(e => { toast(errMsg(e)); return null; });
+      if (s?.sys) { step("강사에게 배치 알림 보내는 중…"); await asgAdd(s.sys, { id: "A" + Date.now().toString(36), sid: created.sid, name: created.name, start: iso(start), len, profile, account: acct, event_id: ev?.id || null, at: new Date().toISOString() }); }
+      close(); toast(`${created.name} 등록 완료${s ? ` · ${s.name} 강사에게 배치` : ""}${ev ? " · 캘린더에 넣었어요" : " (캘린더는 직접 넣어 주세요)"}`); LS.set("vn_list", null); renderList();
+    } catch (e) { ok.disabled = false; msg.textContent = "완료되지 않았어요: " + errMsg(e) + " (이미 만들어진 부분이 있을 수 있어 목록을 확인해 주세요)"; }
+  };
+}
+// 원장 앱: 강사가 배치 알림을 확인했는지 · 강사 앱: 안 본 배치 알림 팝업
+async function asgOwnerTodos() {
+  const out = []; for (const [tid, s] of Object.entries(staffOf())) { if (!s.sys) continue;
+    try { for (const it of (await asgRead(s.sys)).items) if (!it.seen_at && Date.now() - Date.parse(it.at) < 30 * 864e5) out.push({ k: "asg", t: `🎓 ${s.name} · ${it.name} 첫 레슨 ${asgFmt(it.start)} 배치`, c: "강사 확인 전" }); } catch {} }
+  return out;
+}
+async function asgStaffCheck() {
+  if (!isStaffApp() || !cfg.sys || document.getElementById("asgPop")) return;
+  let cur; try { cur = await asgRead(cfg.sys); } catch { return; }
+  const it = cur.items.find(x => !x.seen_at); if (!it) return;
+  const w = document.createElement("div"); w.id = "asgPop"; w.className = "attSheet"; w.style.alignItems = "center";
+  w.innerHTML = `<div class="attBox" style="border-radius:18px;border:1.5px solid var(--accent);margin:16px"><h3 style="margin:0 0 6px">🎉 새 수강생이 배치됐어요</h3>
+    <p style="margin:4px 0"><b>${esc(it.name)}</b> · 첫 레슨 <b>${esc(asgFmt(it.start))}</b> (${esc(it.len)}분)</p>
+    ${it.profile ? `<div style="white-space:pre-wrap;background:#0f1216;border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin:6px 0">${esc(it.profile)}</div>` : ""}
+    <p class="muted" style="margin:6px 0">${it.account ? "수강생 노트 계정 연결됨" : "구글 계정: 아직 없음 → 첫 레슨 뒤 피드백 보낼 때 카톡으로 받아 주세요"}${it.event_id ? " · 구글 캘린더 초대가 와 있어요" : ""}</p>
+    <div class="row" style="gap:6px;margin-top:10px;flex-wrap:nowrap"><button type="button" class="ghost" data-go style="flex:1">수강생 보기</button><button type="button" data-ok style="flex:1">확인했어요</button></div></div>`;
+  document.body.appendChild(w);
+  const seen = async () => { w.remove(); try { const c2 = await asgRead(cfg.sys), x = c2.items.find(y => y.id === it.id); if (x) { x.seen_at = new Date().toISOString(); await writeJSON(cfg.sys, ASSIGN_FILE, { items: c2.items }, c2.id); } } catch {} setTimeout(asgStaffCheck, 300); };
+  w.querySelector("[data-ok]").onclick = seen;
+  w.querySelector("[data-go]").onclick = async () => { await seen(); if (cfg.students?.[it.sid]) openStudent(it.sid); };
 }
 let lastJoinHtml = "";   // (2026-10-27 사용자: 목록이 늦게 밀려 엉뚱한 곳이 눌림) 지난번 가입 카드를 바로 그려 자리를 유지
 async function paintJoinRequests() {
@@ -5506,7 +5582,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-02-0832-noical";
+const BUILD = "2026-11-02-0834-assign";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
