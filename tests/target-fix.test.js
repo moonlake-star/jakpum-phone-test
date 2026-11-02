@@ -9,7 +9,7 @@ assert.ok(src.includes("cv._fixes = (r.target_fixes || []).slice();") && src.inc
 const onFixBody = src.match(/const onFix = async \(f\) => \{ const cur = [^\n]*\n/)[0];
 assert.ok(/filter\(x => !\(x\.t0 < f\.t1 && x\.t1 > f\.t0\)\)/.test(onFixBody) && onFixBody.includes("if (f.midi != null) cur.push(f)"));
 console.log("target-fix ok");
-assert.ok(tune.includes("data-cut") && tune.includes("두 음으로 나누기") && tune.includes("fxOf(q[0]) === fxOf(p[0])"), "세로줄 자리에서 나누기 + 막대가 나눈 경계에서 끊김");
+assert.ok(tune.includes("data-cut") && tune.includes("fxOf(q[0]) === fxOf(p[0])"), "세로줄 자리에서 나누기 + 막대가 나눈 경계에서 끊김");
 assert.ok(!tune.includes('aria-label="이 음 듣기">♪') && tune.includes('nb.addEventListener("pointerdown"'), "음 이름 누르는 동안 소리");
 assert.ok(tune.includes("<small>← ${noteName(m0)}</small>") && tune.includes("white-space:nowrap"), "한 줄");
 console.log("target-fix split ok");
@@ -17,5 +17,5 @@ assert.ok(tune.includes("function introDraw(") && tune.includes("function waveOf
 assert.ok(/#tuneFs \.tfMid\{position:absolute;left:50%;top:9%;width:48px/.test(tune), "일시정지 표시는 작게 위로(그래프 안 가림)");
 assert.ok(src.includes("wave: () => mkTracks.mr?.buf"));
 assert.ok(tune.includes("g.globalAlpha = Math.max(0, Math.min(1, (left - 0.4) / 2.6))"), "3초 전 페이드");
-assert.ok(tune.includes("paint(); preview(); tone(m)") && tune.includes("{ revert(); shut(); }"), "▼▲ 바로 이동·취소 되돌림");
+assert.ok(tune.includes("paint(); preview(); persist(); tone(m)") && tune.includes("st.sel = { t0: b.t0, t1: b.t1 }") && tune.includes("if (f && !f.cut)") && tune.includes('class="tfCut" data-cut'), "바로 저장·선택 표시·나눈 조각 테두리 없음·✂ 아이콘");
 console.log("intro ok");
