@@ -6094,12 +6094,14 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-02-1711-pv";
+const BUILD = "2026-11-02-2005-fix";
+// (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
+const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
-    const b = (t.match(/const BUILD = "([^"]+)"/) || [])[1];
-    if (b && b !== BUILD && !document.getElementById("newVer")) {
+    const b = (t.match(/const BUILD = "([^"]+)"/) || [])[1], tv = (t.match(/tune\.js\?v=([\w-]+)/) || [])[1];
+    if (((b && b !== BUILD) || (tv && TUNE_V && tv !== TUNE_V)) && !document.getElementById("newVer")) {
       const d = document.createElement("div"); d.id = "newVer";
       d.style.cssText = "position:fixed;left:12px;right:12px;bottom:14px;z-index:99;background:#ffd27a;color:#10141a;font-weight:800;border-radius:12px;padding:12px 14px;text-align:center;box-shadow:0 4px 18px #0008";
       d.textContent = "✨ 새 버전이 있어요 — 눌러서 새로고침"; d.onclick = () => location.replace(location.pathname + "?v=" + Date.now());
