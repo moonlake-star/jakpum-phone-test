@@ -5,7 +5,7 @@ const g = (src, re) => { const m = src.match(re); assert.ok(m, String(re)); retu
 const f = new Function(g(t, /function growthCheer\([\s\S]*?\n\}\n/) + "return growthCheer;")();
 const P = (d, v, tt) => ({ d, v, t: tt });
 assert.strictEqual(f({ prev: P("2026-10-29", 50, "a"), last: P("2026-10-30", 55, "a"), first: P("", 40), best: P("", 55) }), "", "오르면 격려 문구 없음");
-assert.ok(/처음 부르는 곡|새 곡/.test(f({ prev: P("x", 60, "a"), last: P("2026-10-30", 50, "사랑으로"), first: P("", 40), best: P("", 60), newSong: true })), "새 곡이면 새 곡 격려");
+assert.ok(/처음 불러 본 곡|새 곡/.test(f({ prev: P("x", 60, "a"), last: P("2026-10-30", 50, "사랑으로"), first: P("", 40), best: P("", 60), newSong: true })), "새 곡이면 새 곡 격려");
 const c = f({ prev: P("x", 60, "a"), last: P("2026-10-31", 50, "a"), first: P("", 40), best: P("", 62), newSong: false });
 assert.ok(/62%|40%/.test(c) && !/꾸준히 부르는 중/.test(c), "최고·첫 기록 사실로 격려, '꾸준히 부르는 중' 안 씀");
 const h = new Function("esc", g(s, /function growthHtml\([\s\S]*?\n\}\n/) + "return growthHtml;")((x) => String(x));
