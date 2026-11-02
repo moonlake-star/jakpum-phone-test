@@ -17,14 +17,14 @@ assert.ok(tune.includes("function introDraw(") && tune.includes("function waveOf
 assert.ok(/#tuneFs \.tfMid\{position:absolute;left:50%;top:9%;width:48px/.test(tune), "일시정지 표시는 작게 위로(그래프 안 가림)");
 assert.ok(src.includes("wave: () => mkTracks.mr?.buf"));
 assert.ok(tune.includes("g.globalAlpha = Math.max(0, Math.min(1, (left - 0.4) / 2.6))"), "3초 전 페이드");
-assert.ok(tune.includes("paint(); preview(); persist(); tone(m)") && tune.includes("st.sel = { t0: b.t0, t1: b.t1 }") && tune.includes("if (f && !f.cut)") && tune.includes('class="tfCut" data-cut'), "바로 저장·선택 표시·나눈 조각 테두리 없음·✂ 아이콘");
+assert.ok(tune.includes("paint(); preview(); persist(); tone(m)") && tune.includes("st.sel = { t0: b.t0, t1: b.t1 }") && tune.includes("if (f && !f.cut)") && tune.includes('class="tfCut tfIc" data-cut'), "바로 저장·선택 표시·나눈 조각 테두리 없음·✂ 아이콘");
 console.log("intro ok");
 // (11/02 19:28·19:30 사용자 시안 승인) 고치기 창은 아래 이동 버튼·안내 자리에, 원음/보정본은 큰 스위치(B안) 그대로
 { const t = require("fs").readFileSync(__dirname + "/../tune.js", "utf8");
   assert.ok(t.includes('const bot = host.querySelector(".tfBot"); if (bot) { d.classList.add("inBot"); bot.appendChild(d); }'));
-  assert.ok(t.includes("#tuneFs:has(.tfFix) .tfNav,#tuneFs:has(.tfFix) .tfHint,#tuneFs:has(.tfFix) .tfNote"), "이동 버튼·안내만 숨김");
+  assert.ok(t.includes("#tuneFs:has(.tfFix) .tfCtl,#tuneFs:has(.tfFix) .tfHint,#tuneFs:has(.tfFix) .tfNote"), "(19:38 다이어트) 큰 스위치·이동 버튼·안내는 숨기고 창 안 첫 줄 스위치로");
   assert.ok(!t.includes("#tuneFs:has(.tfFix) .tfBot,"), "원음/보정본은 숨기지 않음");
   assert.ok(t.includes('<span class="tfAbL">듣는 소리</span>') && t.includes("⇆ 톡 하면 바뀌어요") && t.includes('.tfAb:has([data-m="p"].on)::before{left:50%'), "미끄러지는 손잡이 스위치");
   assert.ok(t.includes('want = b.dataset.m === cur ? (cur === "o" ? "p" : "o") : b.dataset.m'), "켜진 쪽을 눌러도 바뀜");
-  assert.ok(!t.includes('<span class="tfFixAb">'), "창 안 작은 전환 버튼은 없앰");
+  assert.ok(t.includes('<span class="tfFixAb" role="group"') && t.includes('data-r aria-label="처음 음으로">↺</button>') && t.includes('data-ok aria-label="닫기">✓</button>') && t.includes('<span class="i">처음 음</span>'), "한 줄 버튼 + 이름표");
   assert.ok(t.includes("mO = ov.length ? Math.round(ov[ov.length >> 1] / 100) : m0") && t.includes("const f = { t0: T0, t1: T1, midi: isCut ? mO : null")); }
