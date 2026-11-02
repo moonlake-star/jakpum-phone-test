@@ -124,7 +124,7 @@
   .cal .dy { min-height:54px; border-radius:10px; background:#1b1f26; border:1px solid var(--line); padding:3px 2px; text-align:center; font-size:.85rem; line-height:1.2; color:var(--fg); }
   .cal .dy.today { border-color:var(--accent); } .cal .dy.empty { background:transparent; border-color:transparent; }
   .cal .dy .ic { display:block; font-size:1.05rem; margin-top:2px; } .cal button.dy { font:inherit; min-height:54px; padding:3px 2px; cursor:pointer; font-weight:400; }
-  .grow .up { color:#6fe0a0; } .grRow { display:flex; align-items:center; gap:8px; margin-top:4px; } .grRow .muted { min-width:3em; } .grBar { flex:1; height:10px; border-radius:5px; background:#2a2f38; overflow:hidden; } .grBar i { display:block; height:100%; background:linear-gradient(90deg,#c8912e,#ffd27a); }
+  .grow .up { color:#6fe0a0; } .grRow { display:flex; align-items:center; gap:8px; margin-top:4px; } .grRow .muted { min-width:3em; } .grBar { flex:1; height:10px; border-radius:5px; background:#2a2f38; overflow:hidden; } .grBar i { display:block; height:100%; background:linear-gradient(90deg,#c8912e,#ffd27a); } .grPair { display:flex; gap:8px; margin-top:8px; } .grPair button { flex:1; min-height:44px; border:1.5px solid #3b4250; background:#11141a; color:#9cc3ff; border-radius:14px; font-weight:800; font-size:.92rem; }
   .grCheer { background:#1d2740; color:#cfe0ff; border-radius:12px; padding:10px 12px; margin-top:8px; line-height:1.55; } .grTip { background:#16302a; color:#cdf5dc; border-radius:12px; padding:10px 12px; margin-top:10px; line-height:1.55; }
   .cal .dy.sel { outline:2px solid var(--accent); } .cal .dy .tm { display:block; font-size:.68rem; color:var(--muted, #9a9ca3); margin-top:1px; letter-spacing:-.02em; }
   .calNav { display:flex; align-items:center; justify-content:space-between; gap:8px; } .calNav b { font-size:1.15rem; }
@@ -313,13 +313,26 @@ function growthHtml(g) {
       ${pts.map((p, i) => `<text x="${xs(i)}" y="${H - 2}" fill="#9a9ca3" font-size="9" text-anchor="middle">${esc(md2(p.d))}</text>`).join("")}</svg>`; })() : "";
   const same = (g.same || []).map(s => `<div style="margin-top:10px"><b>🔁 ‘${esc(s.title)}’</b> <span class="muted">${+s.n || 2}번 불렀어요</span>
       <div class="grRow"><span class="muted">${esc(md2(s.first.d))}</span><div class="grBar"><i style="width:${+s.first.v}%;background:#7f8a99"></i></div><b>${+s.first.v}%</b></div>
-      <div class="grRow"><span class="muted">${esc(md2(s.last.d))}</span><div class="grBar"><i style="width:${+s.last.v}%"></i></div><b${s.last.v > s.first.v ? ' class="up"' : ""}>${+s.last.v}%</b></div></div>`).join("");
+      <div class="grRow"><span class="muted">${esc(md2(s.last.d))}</span><div class="grBar"><i style="width:${+s.last.v}%"></i></div><b${s.last.v > s.first.v ? ' class="up"' : ""}>${+s.last.v}%</b></div>
+      ${s.first.f && s.last.f ? `<div class="grPair"><button type="button" class="grPlay" data-f="${esc(s.first.f)}" data-t="${+s.first.t0 || 0}">▶ 처음 (${esc(md2(s.first.d))})</button><button type="button" class="grPlay" data-f="${esc(s.last.f)}" data-t="${+s.last.t0 || 0}">▶ 지금 (${esc(md2(s.last.d))})</button></div>` : ""}</div>`).join("");
   return `<div class="card grow"><h2 style="margin:0 0 6px">🌱 나의 성장</h2>
     ${pts.length ? `<div style="display:flex;gap:14px;align-items:center">${ring(v)}<div><div class="muted">정확하게 짚은 음</div>${d > 0 ? `<div class="up" style="font-size:1.25rem;font-weight:900">▲ ${d}%p</div>` : ""}<div class="muted">첫 기록 ${f0}% → 지금 ${v}%${best.v > v ? ` · 최고 ${+best.v}%` : ""}</div></div></div>${chart}
       ${g.cheer ? `<div class="grCheer">🌤 ${esc(g.cheer)}</div>` : `<p class="muted" style="margin:4px 0 0;font-size:.85rem">⭐ = 가장 좋았던 날 · 곡마다 난이도가 달라 오르내려요</p>`}` : ""}
     ${same}
     ${g.tip ? `<div class="grTip"><b>💬 선생님의 한 마디</b><div style="margin-top:4px">${esc(g.tip)}</div></div>` : ""}</div>`;
 }
+// (11/02 사용자 시안 ③) 같은 곡 처음 vs 지금 — 귀로 듣는 성장(20초씩, 다시 누르면 멈춤)
+let grAud = null, grBtn = null;
+if (typeof document !== "undefined") document.addEventListener("click", (e) => {
+  const b = e.target.closest?.(".grPlay"); if (!b) return;
+  grAud ??= new Audio(); b.dataset.lab ??= b.textContent;
+  if (grBtn === b && !grAud.paused) { grAud.pause(); return; }
+  if (grBtn && grBtn !== b) grBtn.textContent = grBtn.dataset.lab; grBtn = b;
+  const t0 = +b.dataset.t || 0; grAud.src = driveUrl(b.dataset.f); grAud.onloadedmetadata = () => { grAud.currentTime = t0; };
+  grAud.ontimeupdate = () => { if (grAud.currentTime > t0 + 20) grAud.pause(); };
+  grAud.onpause = grAud.onended = () => { if (grBtn === b) b.textContent = b.dataset.lab; };
+  b.textContent = "❚❚ 멈춤"; grAud.play().catch(() => { b.textContent = b.dataset.lab; });
+});
 function timeline() {
   try { Brand.bar(); } catch {}
   history.replaceState(null, "", location.pathname);

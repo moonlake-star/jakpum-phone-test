@@ -100,7 +100,7 @@
   #npPop { position:fixed; inset:0; z-index:9500; background:rgba(0,0,0,.55); display:flex; align-items:center; justify-content:center; padding:16px; }
   #npPop .box { width:min(420px,100%); background:#1d2230; border:1.5px solid var(--accent); border-radius:18px; padding:16px; box-shadow:0 10px 30px rgba(0,0,0,.5); }
   .grTg { display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--line); padding:8px 0; } .grTg input { width:22px; height:22px; }
-  .hbIt { display:flex; gap:10px; align-items:flex-start; border-top:1px solid var(--line); padding:10px 0; } .hbIt:first-child { border-top:none; }
+  .hbIt { display:flex; gap:10px; align-items:flex-start; border-top:1px solid var(--line); padding:10px 0; } .hbIt:first-child { border-top:none; } .hbEx { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; } .hbEx button { min-height:34px; text-align:left; white-space:normal; }
   .hbIc { width:34px; height:34px; border-radius:10px; background:#11141a; display:grid; place-items:center; font-size:1.1rem; flex:none; }
   .hbLR { display:flex; align-items:center; gap:6px; margin-top:5px; font-size:.75rem; color:var(--muted, #9a9ca3); } .hbLR span { white-space:nowrap; }
   .hbBar { position:relative; flex:1; height:8px; border-radius:4px; background:#2a2f38; overflow:hidden; } .hbBar i { position:absolute; top:0; bottom:0; } .hbBar i.l { right:50%; background:#ff9f5a; } .hbBar i.r { left:50%; background:#7fd9ff; }
@@ -3728,13 +3728,14 @@ function habitCardsHTML(m) {
   if (m.scoop && m.scoop.r >= 0.1) c.push(["↗", "음을 아래에서 끌어올려 시작", freq(m.scoop.r), `새로 내는 음 ${Math.round(m.scoop.r * 100)}%가 그래요${m.scoop.ms ? ` · 보통 ${(m.scoop.ms / 1000).toFixed(2)}초 동안` : ""}`,
     `<div class="hbLR"><span></span><div class="hbBar one"><i style="width:${Math.round(m.scoop.r * 100)}%"></i></div><span>${Math.round(m.scoop.r * 100)}%</span></div>`]);
   if (m.vib) c.push(["〰", m.vib.r >= 0.4 ? "비브라토 자연스러운 편" : "비브라토가 적은 편", "", `긴 음의 ${Math.round(m.vib.r * 100)}%${m.vib.rate ? ` · 초당 ${Math.round(m.vib.rate)}회` : ""}${m.vib.ext ? ` · 폭 ±${Math.round(m.vib.ext)}센트` : ""}`, ""]);
-  return c.map(([ic, h, chip, sub, bar]) => `<div class="hbIt"><span class="hbIc">${ic}</span><div style="flex:1;min-width:0"><b>${esc(h)}</b>${chip ? ` <span class="chip">${esc(chip)}</span>` : ""}<div class="muted" style="font-size:.85rem">${sub}</div>${bar}</div></div>`).join("");
+  const hk = { "⬇": "bias", "🎚": "band" };   // (11/02) ▶ 예시 듣기 자리(레슨 음정분석의 근거 시각)
+  return c.map(([ic, h, chip, sub, bar]) => `<div class="hbIt"${hk[ic] ? ` data-hb="${hk[ic]}"` : ""}><span class="hbIc">${ic}</span><div style="flex:1;min-width:0"><b>${esc(h)}</b>${chip ? ` <span class="chip">${esc(chip)}</span>` : ""}<div class="muted" style="font-size:.85rem">${sub}</div>${bar}${hk[ic] ? `<div class="hbEx"></div>` : ""}</div></div>`).join("");
 }
 // ── 수강생 페이지 '🌱 나의 성장'(11/02 08:53 사용자): 숫자로 의욕을 · 낮아지면 격려 문구 · 선생님의 한 마디 · 수강생별 보이기 설정 ──
 const GR_SHOW0 = { acc: true, same: true, tip: true };
 function growthFacts(st) {   // 정확도 흐름(키 불확실 곡 제외)
   const songs = (st._habit?.songs || []).slice().sort((a, b) => (a.date || "").localeCompare(b.date || ""));
-  const pts = songs.filter(x => !keyShaky(x)).map(x => ({ x, s: songStats(x) })).filter(o => o.s).map(o => ({ d: o.x.date || "", v: Math.round(o.s.in15 * 100), t: o.x.title || "", lesson: o.x.kind === "lesson" }));
+  const pts = songs.filter(x => !keyShaky(x)).map(x => ({ x, s: songStats(x) })).filter(o => o.s).map(o => ({ d: o.x.date || "", v: Math.round(o.s.in15 * 100), t: o.x.title || "", lesson: o.x.kind === "lesson", id: o.x.id || "", mk: o.x.kind === "makeup" }));
   if (!pts.length) return null;
   const first = pts[0], last = pts.at(-1), prev = pts.length > 1 ? pts.at(-2) : null, best = pts.reduce((a, b) => b.v > a.v ? b : a, pts[0]);
   const groups = {}; for (const p of pts) (groups[normTitle(p.t)] ??= []).push(p);
@@ -3760,7 +3761,8 @@ function growthNote(sid) {
 }
 async function pushGrowth(sid, force) {
   if (isStaffApp() || !portalUrl()) return;
-  const n = growthNote(sid); if (!n) return; const h = JSON.stringify({ ...n, updated_at: null }), sent = LS.get("vn_gr_pushed") || {};
+  const n = growthNote(sid); if (!n) return; await growthSameAudio(n).catch(() => {});
+  const h = JSON.stringify({ ...n, updated_at: null }), sent = LS.get("vn_gr_pushed") || {};
   if (!force && sent[sid] === h) return;
   await portal("t_note", { sid, lesson_id: "_growth", date: "", published_at: n.updated_at, note: n, _nb: true }); sent[sid] = h; LS.set("vn_gr_pushed", sent);
 }
@@ -3783,6 +3785,56 @@ function wireGrowthShare(sid) {
     try { await cfgUpdate(l => { const x = l.students?.[sid]; if (x) { x.growth_show = show; x.growth_tip = tip; x.growth_cheer = cheer; } });
       const st = cfg.students[sid]; if (st.teacher_id) staffSync(st.teacher_id).catch(() => {});
       await pushGrowth(sid, true); $("grMsg").textContent = "✓ 반영했어요"; } catch (e) { $("grMsg").textContent = errMsg(e); } finally { b.disabled = false; } };
+}
+// (11/02 사용자 시안 ③) 같은 곡 ‘처음 vs 지금’을 귀로: 메이크업한 곡의 원래 목소리(before_vocal.mp3)를 노래 시작부터 · 수강생 페이지에선 링크로 공개(같은 곡 보이기를 켠 경우만)
+const SAME_FILE = "before_vocal.mp3";
+async function sameAudio(folder) {   // → {f: 파일ID, t0: 목소리 시작(초)} · 결과는 이 폰에 기억
+  const memo = LS.get("vn_same_aud") || {}; if (memo[folder]) return memo[folder];
+  const f = (await list(folder)).find(y => y.name === SAME_FILE); if (!f) return null;
+  let t0 = 0;
+  try { const AC = window.OfflineAudioContext || window.webkitOfflineAudioContext, buf = await (await api(`${DRIVE}/files/${f.id}?alt=media`)).arrayBuffer();
+    const a = await new AC(1, 44100, 44100).decodeAudioData(buf); t0 = voiceStart(a.getChannelData(0), a.sampleRate); } catch {}
+  memo[folder] = { f: f.id, t0 }; LS.set("vn_same_aud", memo); return memo[folder];
+}
+function voiceStart(x, sr) {   // 50ms 창의 크기가 처음으로 분명해지는 곳 − 0.4초(앞 반주 구간의 무음 건너뛰기)
+  const w = Math.max(1, Math.round(sr * 0.05)); let peak = 0; for (let i = 0; i < x.length; i += 7) peak = Math.max(peak, Math.abs(x[i]));
+  const th = Math.max(0.01, peak * 0.12);
+  for (let i = 0; i + w <= x.length; i += w) { let s = 0; for (let j = i; j < i + w; j++) s += x[j] * x[j]; if (Math.sqrt(s / w) > th) return Math.max(0, Math.round((i / sr - 0.4) * 10) / 10); }
+  return 0;
+}
+async function growthSameAudio(n) {
+  const linked = LS.get("vn_same_link") || {};
+  for (const s of n.same || []) for (const k of ["first", "last"]) { const p = s[k]; if (!p?.mk || !p.id) continue;
+    const a = await sameAudio(p.id).catch(() => null); if (!a) continue;
+    if (!linked[a.f]) { await openLink(a.f); linked[a.f] = 1; LS.set("vn_same_link", linked); }
+    p.f = a.f; p.t0 = a.t0; }
+}
+let sameAud = null, sameBtn = null;
+async function samePlay(b, folder) {   // 선생님 화면: 같은 곡 기록 ▶ (20초)
+  sameAud ??= new Audio(); b.dataset.lab ??= b.textContent;
+  if (sameBtn === b && !sameAud.paused) { sameAud.pause(); return; }
+  if (sameBtn && sameBtn !== b) sameBtn.textContent = sameBtn.dataset.lab; sameBtn = b; b.textContent = "불러오는 중…";
+  try { const a = await sameAudio(folder); if (!a) throw new Error("이 곡은 원래 목소리 파일이 없어요");
+    const url = URL.createObjectURL(await (await api(`${DRIVE}/files/${a.f}?alt=media`)).blob()); if (sameBtn !== b) return URL.revokeObjectURL(url);
+    if (sameAud.src?.startsWith("blob:")) URL.revokeObjectURL(sameAud.src);
+    sameAud.src = url; sameAud.currentTime = 0; sameAud.onloadedmetadata = () => { sameAud.currentTime = a.t0 || 0; };
+    sameAud.ontimeupdate = () => { if (sameAud.currentTime > (a.t0 || 0) + 20) sameAud.pause(); };
+    sameAud.onpause = sameAud.onended = () => { if (sameBtn === b) b.textContent = b.dataset.lab; };
+    await sameAud.play(); b.textContent = "❚❚ 멈춤";
+  } catch (e) { b.textContent = b.dataset.lab; toast(errMsg(e)); }
+}
+async function hbExamples(sid, songs) {   // 습관 카드 ▶ 예시 듣기: 최근 레슨 음정분석.json의 근거(그 음을 부른 시각·가사)
+  const les = songs.filter(x => x.kind === "lesson" && x.id).slice(-3).reverse(), ex = { bias: [], band: [] };
+  for (const x of les) { if (ex.bias.length >= 2 && ex.band.length >= 2) break;
+    try { const f = (await list(x.id)).find(y => y.name === "음정분석.json"); if (!f) continue;
+      const a = await (await api(`${DRIVE}/files/${f.id}?alt=media`)).json();
+      for (const o of a.observations || []) { const k = o.id === "bias" ? "bias" : o.id === "weak_band" ? "band" : null; if (!k) continue;
+        for (const e of o.evidence || []) if (ex[k].length < 2 && Number.isFinite(+e.t)) ex[k].push({ lesson: x.id, t: +e.t, d: x.date || "", lyric: e.lyric || "" }); } } catch {} }
+  if (typeof stuCur !== "undefined" && stuCur?.sid !== sid) return ex;
+  for (const [k, xs] of Object.entries(ex)) { const box = $("mkHabit")?.querySelector(`.hbIt[data-hb="${k}"] .hbEx`); if (!box || !xs.length) continue;
+    box.innerHTML = xs.map((e, i) => `<button type="button" class="small ghost hbPlay" data-k="${k}" data-i="${i}">▶ 예시 듣기 · ${esc(e.d.slice(5).replace("-", "/"))} ${fmt(e.t)}${e.lyric ? ` “${esc(e.lyric)}”` : ""}</button>`).join("");
+    box.querySelectorAll(".hbPlay").forEach(b => b.onclick = () => saidPlay(b, ex[k][+b.dataset.i])); }
+  return ex;
 }
 async function pushGrowthAll() {   // 음정성향 파일이 바뀐 수강생만 조용히(성장 탭을 안 열어도 수강생 페이지가 최신)
   if (isStaffApp() || !portalUrl()) return; const seen = LS.get("vn_gr_at") || {};
@@ -3903,7 +3955,7 @@ async function paintHabit(sid, mode = "mk") {
       const groups = {};
       for (const o of good) (groups[normTitle(o.x.title)] ??= []).push(o);
       const same = Object.values(groups).filter(g => g.length >= 2);
-      if (same.length) growth += `<h4 style="margin:12px 0 4px">🔁 같은 곡 다시 부른 기록</h4>` + same.map(g => `<div style="margin:4px 0"><b>${esc(g[0].x.title)}</b> · ${g.map(o => `${esc(o.x.date?.slice(5) || "")} ${pct(o.s.in15)}`).join(" → ")} ${arrow(g[0].s.in15, g.at(-1).s.in15)}</div>`).join("");
+      if (same.length) growth += `<h4 style="margin:12px 0 4px">🔁 같은 곡 다시 부른 기록</h4>` + same.map(g => `<div style="margin:4px 0"><b>${esc(g[0].x.title)}</b> · ${g.map(o => `${esc(o.x.date?.slice(5) || "")} ${pct(o.s.in15)}${o.x.kind === "makeup" && o.x.id ? ` <button type="button" class="small ghost samePlay" data-f="${esc(o.x.id)}">▶</button>` : ""}`).join(" → ")} ${arrow(g[0].s.in15, g.at(-1).s.in15)}</div>`).join("");
       growth += `<details style="margin-top:8px"><summary><b>곡·레슨별 기록</b> <span class="muted">${S.length}개</span></summary>` + S.slice().reverse().map(o => {
         const j = (st._jobs || []).find(y => y.folder.id === o.x.id);
         return `<div class="row" style="margin:6px 0;flex-wrap:nowrap;gap:8px"><span style="min-width:3.4em" class="muted">${esc((o.x.date || "").slice(5))}</span>
@@ -3925,6 +3977,8 @@ async function paintHabit(sid, mode = "mk") {
           ${i < 2 ? `<ol>${t.how.map(h => `<li>${esc(h)}</li>`).join("")}</ol>` : `<details><summary class="muted">지도 아이디어 ${t.how.length}개</summary><ol>${t.how.map(h => `<li>${esc(h)}</li>`).join("")}</ol></details>`}</div>`).join("") : ""}
       ${growth}
       <p class="muted" style="margin:8px 0 0;font-size:.8rem">곡을 메이크업하거나 레슨 노래가 분석될 때마다 자동으로 쌓여요. 기계 측정이라 참고용이고, 수강생에게 보여 줄 땐 숫자보다 전·후 음성으로.</p></div>`;
+    $("mkHabit").querySelectorAll(".samePlay").forEach(b => b.onclick = () => samePlay(b, b.dataset.f));
+    if (m) hbExamples(sid, songs).catch(() => {});
     $("mkHabit").querySelectorAll(".hbOpen").forEach(b => b.onclick = () => { const j = st._jobs.find(y => y.folder.id === b.dataset.id); if (j) openMkJob(j, () => openStudent(sid, "growth")); });
     $("mkHabit").querySelectorAll(".npAddCoach").forEach(b => b.onclick = () => npAddToLatest(sid, p.coaching[+b.dataset.i]?.title || "", b));
   } catch (e) { console.warn(e); }
@@ -5880,7 +5934,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-02-1012-acct";
+const BUILD = "2026-11-02-1106-listen";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
