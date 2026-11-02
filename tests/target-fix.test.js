@@ -48,3 +48,7 @@ console.log("intro ok");
 { const t = require("fs").readFileSync(__dirname + "/../tune.js", "utf8");
   assert.ok(t.includes("canCut = atHead || b.t1 - b.t0 >= 0.3") && t.includes("const ts = +(atHead ? tNow : (b.t0 + b.t1) / 2).toFixed(2)"));
   assert.ok(t.includes('nb.addEventListener("touchstart", (e) => { if (e.cancelable) e.preventDefault(); }, { passive: false });')); }
+// (11/03 02:54 사용자) 창을 빠져나올 때 '저장 중…' → '✓ 저장됨'
+{ const t = require("fs").readFileSync(__dirname + "/../tune.js", "utf8");
+  assert.ok(t.includes("function fxSave(fn, f)") && t.includes("const close_ = (fromPop) => { core(); saveToast();") && t.includes('const done = () => { saveToast();') && t.includes('saveEl.textContent = "✓ 저장됨"'));
+  assert.ok(!/[^.\w]onFix\(\{/.test(t.slice(t.indexOf("function fixSheet("), t.indexOf("function fixSheet(") + 6000)), "고치기 창의 저장은 전부 fxSave로"); }
