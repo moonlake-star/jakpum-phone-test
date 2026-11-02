@@ -55,3 +55,6 @@ console.log("intro ok");
 // (11/03 08:14 사용자) 나누면 오른쪽 조각이 바로 골라진 채로
 { const t = require("fs").readFileSync(__dirname + "/../tune.js", "utf8");
   assert.ok(t.includes("fixSheet(host, cv, { t0: ts, t1: T1, c: m * 100 }, onFix, getT, st); };")); }
+// (11/03 08:39 사용자) 기준선 왼쪽 두 번 톡 = 5초 뒤로, 오른쪽 = 5초 앞으로
+{ const t = require("fs").readFileSync(__dirname + "/../tune.js", "utf8");
+  assert.ok(t.includes('const jb = wrap.querySelector(`[data-j="${le.x < hx ? -5 : 5}"]`); if (jb) jb.click();') && t.includes("기준선 왼쪽·오른쪽 두 번 톡 = 5초 뒤로·앞으로")); }
