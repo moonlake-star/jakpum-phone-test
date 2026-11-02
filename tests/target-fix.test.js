@@ -9,3 +9,7 @@ assert.ok(src.includes("cv._fixes = (r.target_fixes || []).slice();") && src.inc
 const onFixBody = src.match(/const onFix = async \(f\) => \{ const cur = [^\n]*\n/)[0];
 assert.ok(/filter\(x => !\(x\.t0 < f\.t1 && x\.t1 > f\.t0\)\)/.test(onFixBody) && onFixBody.includes("if (f.midi != null) cur.push(f)"));
 console.log("target-fix ok");
+assert.ok(tune.includes("data-cut") && tune.includes("두 음으로 나누기") && tune.includes("fxOf(q[0]) === fxOf(p[0])"), "세로줄 자리에서 나누기 + 막대가 나눈 경계에서 끊김");
+assert.ok(!tune.includes('aria-label="이 음 듣기">♪') && tune.includes('nb.addEventListener("pointerdown"'), "음 이름 누르는 동안 소리");
+assert.ok(tune.includes("<small>← ${noteName(m0)}</small>") && tune.includes("white-space:nowrap"), "한 줄");
+console.log("target-fix split ok");
