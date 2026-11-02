@@ -41,3 +41,6 @@ console.log("intro ok");
 // (11/02 20:31 사용자) 재생을 눌렀는데 아직 소리가 안 나오면 '소리 불러오는 중' 표시
 { const t = require("fs").readFileSync(__dirname + "/../tune.js", "utf8");
   assert.ok(t.includes("st.waitAt = performance.now()") && t.includes("<b>소리 불러오는 중…</b>") && t.includes('ppB.classList.contains("ld") ? "⏳"')); }
+// (11/03 02:13 사용자) 앱 전체 button 최소 높이를 이기게 높이 고정: 닫기 28 · 스위치 46 · 재생 버튼 40
+{ const t = require("fs").readFileSync(__dirname + "/../tune.js", "utf8");
+  assert.ok(t.includes("#tuneFs .port .tfXp{height:28px!important;min-height:0!important") && t.includes("#tuneFs .port .tfCtl .tfAb{height:46px") && t.includes("#tuneFs .port .tfNav button{min-height:0!important;height:40px!important}")); }
