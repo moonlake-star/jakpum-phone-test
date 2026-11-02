@@ -487,7 +487,7 @@
   // (11/02 17:02 사용자) 정음 고치기: 고른 막대는 파란 테두리 · ▼▲는 바로 저장(저장 버튼 없음) · 나누기는 ✂ 아이콘 하나 · 나눈 조각은 노란 테두리 없이 경계만
   function fixSheet(host, cv, b, onFix, getT, st) {
     const kt = tgCol(cv), m0 = Math.round(b.c / 100), tNow = typeof getT === "function" ? +getT() || 0 : -1; let m = m0;
-    const fixed = (cv._fixes || []).find(x => x.t0 < b.t1 && x.t1 > b.t0), isCut = !!(fixed && fixed.cut), canCut = tNow > b.t0 + 0.08 && tNow < b.t1 - 0.08;
+    const fixed = (cv._fixes || []).find(x => x.t0 < b.t1 && x.t1 > b.t0), isCut = !!(fixed && fixed.cut), atHead = tNow > b.t0 + 0.08 && tNow < b.t1 - 0.08, canCut = atHead || b.t1 - b.t0 >= 0.3;   // (11/03 02:20 사용자) ✂는 늘 보이게: 세로줄이 막대 안이면 그 자리, 아니면 막대 가운데에서 나눔
     const T0 = +b.t0.toFixed(2), T1 = +b.t1.toFixed(2);
     if (st) { st.sel = { t0: b.t0, t1: b.t1 }; st.focusC = b.c; }
     const had = !!host.querySelector(".tfFix"); host.querySelectorAll(".tfFix").forEach(x => x.remove());
@@ -495,7 +495,7 @@
     const mm = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
     // (11/02 19:38 사용자 시안 승인) 다이어트: 첫 줄 = 원음/보정본 스위치 + 시간·저장 표시 / 둘째 줄 = 버튼 한 줄(▼ 음 ▲ ✂ ↺ ✓) + 작은 이름표
     d.innerHTML = `<div class="tfFixBox"><div class="tfFixHd"><b>정음</b><span class="tfFixTm">${mm(b.t0)}~${mm(b.t1)}</span><span class="tfFixSt"></span></div>
-      <div class="tfFixRow"><button type="button" data-d="-1" aria-label="반음 내림">▼</button><button type="button" class="tfFixN" data-p aria-label="누르는 동안 이 음 소리"></button><button type="button" data-d="1" aria-label="반음 올림">▲</button>${canCut ? `<button type="button" class="tfCut tfIc" data-cut aria-label="세로줄 자리에서 두 음으로 나누기">✂</button>` : ""}<button type="button" class="tfIc" data-r aria-label="처음 음으로">↺</button></div>
+      <div class="tfFixRow"><button type="button" data-d="-1" aria-label="반음 내림">▼</button><button type="button" class="tfFixN" data-p aria-label="누르는 동안 이 음 소리"></button><button type="button" data-d="1" aria-label="반음 올림">▲</button>${canCut ? `<button type="button" class="tfCut tfIc" data-cut aria-label="두 음으로 나누기(세로줄 자리, 막대 밖이면 가운데)">✂</button>` : ""}<button type="button" class="tfIc" data-r aria-label="처음 음으로">↺</button></div>
       <div class="tfFixLab"><span>반음 내림</span><span class="n">누르면 소리</span><span>반음 올림</span>${canCut ? `<span class="i">나누기</span>` : ""}<span class="i">처음 음</span></div></div>`;
     // (11/02 19:28 사용자 시안 승인) 전체화면이면 아래 이동 버튼·안내 문구 자리에(원음/보정본 큰 버튼은 그대로 위에)
     // (11/02 02:02 사용자 시안) 스위치 아래 칸(이동 버튼·안내)만 같은 높이의 고치기 창으로 바뀜 → 그래프·주석·스위치는 그대로
@@ -526,11 +526,12 @@
    // 아래 큰 스위치(창이 뜨면 숨김)와 같은 동작 · 켜짐 표시는 그림 그릴 때 같이
     d.querySelectorAll("[data-d]").forEach(x => x.onclick = () => { m += +x.dataset.d; paint(); preview(); persist(); tone(m); setTimeout(toneOff, 500); });
     const nb = d.querySelector("[data-p]");   // 음 이름을 누르는 동안 그 음 소리
-    nb.addEventListener("pointerdown", (e) => { e.preventDefault(); tone(m); }); ["pointerup", "pointerleave", "pointercancel"].forEach(ev => nb.addEventListener(ev, toneOff));
+    nb.addEventListener("pointerdown", (e) => { e.preventDefault(); tone(m); });
+    nb.addEventListener("touchstart", (e) => { if (e.cancelable) e.preventDefault(); }, { passive: false });   // (11/03) 길게 눌러도 폰 진동(길게 누르기 반응) 안 나게 — 누르는 동안 소리만 ["pointerup", "pointerleave", "pointercancel"].forEach(ev => nb.addEventListener(ev, toneOff));
     const cut = d.querySelector("[data-cut]");
     if (cut) cut.onclick = () => {   // 세로줄 자리에서 나누기 → 두 조각(같은 음, 노란 테두리 없음) · 조각을 눌러 따로 고침
       clearTimeout(tm); tm = null;
-      const ts = +tNow.toFixed(2), a = { t0: T0, t1: ts, midi: m, cut: m === mO }, c = { t0: ts, t1: T1, midi: m, cut: m === mO };
+      const ts = +(atHead ? tNow : (b.t0 + b.t1) / 2).toFixed(2), a = { t0: T0, t1: ts, midi: m, cut: m === mO }, c = { t0: ts, t1: T1, midi: m, cut: m === mO };
       cv._fixes = prior.filter(x => !(x.t0 < b.t1 && x.t1 > b.t0)).concat([a, c]);
       try { onFix(a); onFix(c); } catch {} toneOff(); if (st) st.sel = null; d.remove(); leave(); };
     d.querySelector("[data-r]").onclick = () => { m = mO; paint(); for (const i in snap) cv.pts[i][kt] = i in o0 ? o0[i] : snap[i]; clearTimeout(tm); tm = null;
