@@ -24,7 +24,7 @@ console.log("intro ok");
   assert.ok(t.includes('d.classList.add("inBot"); bot.appendChild(d);') && t.includes('if (gap > 0) d.style.minHeight = (d.offsetHeight + gap) + "px";'), "(11/03 02:02) 이동 버튼·안내 칸과 같은 높이");
   assert.ok(t.includes("#tuneFs:has(.tfFix) .tfNav,#tuneFs:has(.tfFix) .tfAbH,#tuneFs:has(.tfFix) .tfHint,#tuneFs:has(.tfFix) .tfNote"), "큰 스위치는 그대로, 이동 버튼·안내만 숨김");
   assert.ok(!t.includes("#tuneFs:has(.tfFix) .tfBot,"), "원음/보정본은 숨기지 않음");
-  assert.ok(t.includes('<span class="tfAbL">듣는 소리</span>') && t.includes("⇆ 톡 하면 바뀌어요") && t.includes('.tfAb:has([data-m="p"].on)::before{left:50%'), "미끄러지는 손잡이 스위치");
+  assert.ok(t.includes('<span class="tfAbL">듣는 소리</span>') && !t.includes("⇆ 톡 하면 바뀌어요") && t.includes('<i class="tfSwap" aria-hidden="true">⇄</i>') && t.includes('.tfAb:has([data-m="p"].on)::before{left:50%'), "미끄러지는 손잡이 스위치");
   assert.ok(t.includes('want = b.dataset.m === cur ? (cur === "o" ? "p" : "o") : b.dataset.m'), "켜진 쪽을 눌러도 바뀜");
   assert.ok(!t.includes('<span class="tfFixAb" role="group"') && t.includes('data-r aria-label="처음 음으로">↺</button>') && !t.includes('data-ok aria-label="닫기"') && t.includes('<span class="i">처음 음</span>'), "(11/03) 창 안 스위치·✓ 없음, 빈 곳 톡으로 닫기"); assert.ok(t.includes("if (!onBar) { sheetClose(); lastTap = 0; return; }") && t.includes("#tuneFs .tfTitle{display:none}"), "한 줄 버튼 + 이름표");
   assert.ok(t.includes("mO = ov.length ? Math.round(ov[ov.length >> 1] / 100) : m0") && t.includes("const f = { t0: T0, t1: T1, midi: isCut ? mO : null")); }
