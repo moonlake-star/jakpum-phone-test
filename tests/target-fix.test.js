@@ -21,12 +21,12 @@ assert.ok(tune.includes("paint(); preview(); persist(); tone(m)") && tune.includ
 console.log("intro ok");
 // (11/02 19:28·19:30 사용자 시안 승인) 고치기 창은 아래 이동 버튼·안내 자리에, 원음/보정본은 큰 스위치(B안) 그대로
 { const t = require("fs").readFileSync(__dirname + "/../tune.js", "utf8");
-  assert.ok(t.includes('const bot = host.querySelector(".tfBot"); if (bot) { d.classList.add("inBot"); bot.appendChild(d); }'));
-  assert.ok(t.includes("#tuneFs:has(.tfFix) .tfCtl,#tuneFs:has(.tfFix) .tfHint,#tuneFs:has(.tfFix) .tfNote"), "(19:38 다이어트) 큰 스위치·이동 버튼·안내는 숨기고 창 안 첫 줄 스위치로");
+  assert.ok(t.includes('d.classList.add("inBot"); bot.appendChild(d);') && t.includes('if (gap > 0) d.style.minHeight = (d.offsetHeight + gap) + "px";'), "(11/03 02:02) 이동 버튼·안내 칸과 같은 높이");
+  assert.ok(t.includes("#tuneFs:has(.tfFix) .tfNav,#tuneFs:has(.tfFix) .tfAbH,#tuneFs:has(.tfFix) .tfHint,#tuneFs:has(.tfFix) .tfNote"), "큰 스위치는 그대로, 이동 버튼·안내만 숨김");
   assert.ok(!t.includes("#tuneFs:has(.tfFix) .tfBot,"), "원음/보정본은 숨기지 않음");
   assert.ok(t.includes('<span class="tfAbL">듣는 소리</span>') && t.includes("⇆ 톡 하면 바뀌어요") && t.includes('.tfAb:has([data-m="p"].on)::before{left:50%'), "미끄러지는 손잡이 스위치");
   assert.ok(t.includes('want = b.dataset.m === cur ? (cur === "o" ? "p" : "o") : b.dataset.m'), "켜진 쪽을 눌러도 바뀜");
-  assert.ok(t.includes('<span class="tfFixAb" role="group"') && t.includes('data-r aria-label="처음 음으로">↺</button>') && t.includes('data-ok aria-label="닫기">✓</button>') && t.includes('<span class="i">처음 음</span>'), "한 줄 버튼 + 이름표");
+  assert.ok(!t.includes('<span class="tfFixAb" role="group"') && t.includes('data-r aria-label="처음 음으로">↺</button>') && !t.includes('data-ok aria-label="닫기"') && t.includes('<span class="i">처음 음</span>'), "(11/03) 창 안 스위치·✓ 없음, 빈 곳 톡으로 닫기"); assert.ok(t.includes("if (!onBar) { sheetClose(); lastTap = 0; return; }") && t.includes("#tuneFs .tfTitle{display:none}"), "한 줄 버튼 + 이름표");
   assert.ok(t.includes("mO = ov.length ? Math.round(ov[ov.length >> 1] / 100) : m0") && t.includes("const f = { t0: T0, t1: T1, midi: isCut ? mO : null")); }
 // (11/02 19:48 사용자) 고치기 창이 뜨면 고른 막대가 보이게 그래프를 옮김 · 확대 안 해도 위아래로 밀어 보기
 { const t = require("fs").readFileSync(__dirname + "/../tune.js", "utf8");
