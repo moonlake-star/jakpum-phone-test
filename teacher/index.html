@@ -510,7 +510,7 @@
 <div id="v2Shade" class="v2only"></div>
 <div id="toast"></div>
 <script src="../lesson-replies.js"></script>
-<script src="../tune.js?v=20261103-0230"></script>
+<script src="../tune.js?v=20261103-0250"></script>
 
 <script>
 // ── 설정 ────────────────────────────────────────────────
@@ -4424,7 +4424,11 @@ async function openMkJob(j, backTo) {
     el.addEventListener("input", () => { const now = +el.value; if (now === d && prev !== d) { try { navigator.vibrate?.(12); } catch {} } prev = now; }); }
   const dec = { ...(r.pitch_review?.decisions || {}) };
   document.querySelectorAll("#vMkJob .mkU").forEach(b => b.onclick = () => { const t = Math.max(0, +b.dataset.t - 1); if (!mkPlaying) { mkOffset = t; $("mkPP").click(); } else mkSeekTo(t); });
+  // (11/03 02:45 사용자) 음정 판단 확인: 음 이름을 누르면 그 음 소리(사인파)로 들려줌 — 모름은 소리 없음
+  const nmMidi = (nm) => { const m_ = /^([A-G])([#b]?)(-?\d)$/.exec(String(nm || "").trim()); if (!m_) return null; return 12 * (+m_[3] + 1) + { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }[m_[1]] + (m_[2] === "#" ? 1 : m_[2] === "b" ? -1 : 0); };
+  let rvTm = null;
   document.querySelectorAll("#vMkJob .mkD").forEach(b => b.onclick = () => { dec[b.dataset.id] = b.dataset.v;
+    { const md = b.dataset.v === "skip" ? null : nmMidi(b.textContent); if (md != null && typeof Tune !== "undefined" && Tune.tone) { clearTimeout(rvTm); Tune.tone(md); rvTm = setTimeout(() => Tune.toneOff(), 700); } }
     document.querySelectorAll(`#vMkJob .mkD[data-id="${b.dataset.id}"]`).forEach(x => x.classList.toggle("ghost", x !== b)); });
   if ($("mkPitchOk")) $("mkPitchOk").onclick = () => { r.pitch_review = { decisions: dec }; sendPitchReview(j.sid, j.folder.id, j.folder.id, { approved: true, decisions: dec }, $("mkPitchOkT")); };
   $("mkFinal").onclick = async () => {
@@ -6094,7 +6098,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-03-0230-cut";
+const BUILD = "2026-11-03-0250-tone";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {

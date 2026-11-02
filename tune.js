@@ -723,5 +723,5 @@
 #tuneSheet .tsRow{display:flex;gap:8px;margin-top:10px}#tuneSheet .tsRow button{flex:1;min-height:46px;border-radius:22px;border:1px solid #3a3f49;background:#11141a;color:#eceff3;font-weight:800;font-size:15px;margin:0}#tuneSheet .tsRow .tsOk{background:#7fd99a;color:#10201a;border:0}#tuneSheet .tsRow .tsDel{color:#ff9a9a}`;
   if (typeof document !== "undefined" && document.head) { const s2 = document.createElement("style"); s2.textContent = css2; document.head.appendChild(s2); }
   if (typeof document !== "undefined" && document.head) { const s = document.createElement("style"); s.textContent = css; document.head.appendChild(s); }
-  G.Tune = { draw, wire, load, legend, range, col, tgCol, centerAt, fitAt, delta, semiLabel, sangLabel, sheet, undo, openFull, noteName, WIN, HEAD, ZOOM_HALF };
+  G.Tune = { tone, toneOff, draw, wire, load, legend, range, col, tgCol, centerAt, fitAt, delta, semiLabel, sangLabel, sheet, undo, openFull, noteName, WIN, HEAD, ZOOM_HALF };
 })(typeof window !== "undefined" ? window : globalThis);
