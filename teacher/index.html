@@ -4193,7 +4193,7 @@ async function openMkJob(j, backTo) {
   if (r.status === "done" && (by("vocal_dry.mp3") || hasP)) {
     curveF = by("pitch_curve.json"); tuneOk = !!(hasP && curveF && typeof Tune !== "undefined");
     body += `<div class="card"><h3 style="margin-top:0">바로 듣고 조절</h3>
-      ${tuneOk ? `<canvas class="tune" id="mkTune" aria-label="음정선 — 톡 누르면 그 자리부터, 좌우로 밀면 앞뒤로"></canvas>${Tune.legend(true)}`
+      ${tuneOk ? `<div class="tuneWrap mkDockWrap"><canvas class="tune sm" id="mkTune" aria-label="음정선 — 누르면 크게 보기"></canvas><span class="tuneDim" aria-hidden="true"></span><span class="tuneHint" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1a1307" stroke-width="2.8" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>전체화면으로 크게 보기</span></div>${Tune.legend(true)}<div class="muted tnSum" id="mkTnSum" style="font-size:.8rem;margin:2px 0 4px"></div>`
         : hasP ? `<p class="muted" style="margin:4px 0">🎼 튠 화면(음정선)은 새로 만든 메이크업본부터 보여요 · 예전 것은 서버가 차례로 다시 만드는 중</p>` : ""}
       <div class="row" style="margin-top:8px;flex-wrap:nowrap"><span class="muted" id="mkPos" style="min-width:6em">0:00 / -:--</span>
         <input type="range" id="mkSeek" min="0" max="1000" value="0" style="flex:1"></div>
@@ -4271,11 +4271,19 @@ async function openMkJob(j, backTo) {
   if (tuneOk) tunePending($("mkTune"));
   let tuneWired = false;   // (11/02) 12초 안에 못 받으면 이유를 칸에 적음(빈 검은 칸으로 두지 않음)
   if (tuneOk) setTimeout(() => { if (!tuneWired && $("mkTune")) tunePending($("mkTune"), "음정선을 아직 못 받았어요 · 화면을 다시 열어 주세요"); }, 12000);
-  if (tuneOk) readBlob(curveF.id, true).then(b => b.text()).then(s => { const cv = JSON.parse(s); if (!cv?.pts || !$("mkTune")) throw new Error("음정선 형식");
+  // (11/02 15:35 사용자) 오늘의 베스트와 같은 최신 화면: 작은 그래프는 보기만 + 톡 하면 전체화면(재생·이동·주석 고치기는 거기서)
+  if (tuneOk) readBlob(curveF.id, true).then(b => b.text()).then(async s => { const cv = JSON.parse(s); if (!cv?.pts || !$("mkTune")) throw new Error("음정선 형식");
     tuneWired = true;
+    const tc = await tnLoad(j).catch(() => null), sumEl = $("mkTnSum"), paintSum = () => { if (sumEl) sumEl.innerHTML = tnSumHTML(tc); }; paintSum();
+    const tnDo = async (f) => { if (!tc) return; try { f(); paintSum(); await tnSave(j, tc); toast("주석을 저장했어요 · 수강생에게는 ‘전달하기’ 때 반영돼요"); } catch (e) { toast("주석 저장 실패: " + e.message); } };
+    const tnOpts = tc ? { notes: () => tc.doc.notes,
+      onNote: (n) => Tune.sheet(n, { onSave: (u) => tnDo(() => { tnKeepAi(n); Object.assign(n, u); }), onDelete: () => tnDo(() => tnRemove(tc, n)) }),
+      onDelNote: (n) => { const i = tc.doc.notes.indexOf(n); if (i < 0) return; tnDo(() => tnRemove(tc, n)); Tune.undo("주석을 지웠어요", () => tnDo(() => { tc.doc.notes.splice(Math.min(i, tc.doc.notes.length), 0, n); tc.doc.deleted = (tc.doc.deleted || []).filter(d => d.id !== n.id); })); },
+      onAdd: (tt) => Tune.sheet({ t0: Math.round(tt * 10) / 10, t1: Math.round(tt * 10) / 10, text: "", src: "teacher" }, { onSave: (u) => tnDo(() => tc.doc.notes.push({ ...u, id: "t" + Date.now().toString(36), src: "teacher" })) }) } : {};
+    if (!$("mkTune")) return;
     Tune.wire($("mkTune"), cv, () => mkNow(), () => (mkRaw ? 0 : lvNow()), (t, still) => { const tt = Math.max(0, Math.min(t, mkDurS ? mkDurS - 0.05 : t)); if (still) { if (mkPlaying) mkStop(); mkOffset = tt; paintTransport(); return; } if (!mkPlaying) { mkOffset = tt; $("mkPP").click(); } else mkSeekTo(t); },
-      { title: "메이크업 · 바로 듣고 조절", play: () => $("mkPP")?.click(), paused: () => !mkPlaying, mode: () => (lvNow() > 0 ? "p" : "o"),
-        setMode: (m) => document.querySelector(`#mkAb [data-ab="${m === "p" ? 1 : 0}"]`)?.click() });
+      { title: `${j.st?.name || ""} · ${r.title || "메이크업"}`, tapFull: true, teacher: true, lvDef: +(r.pitch_level ?? 2), play: () => $("mkPP")?.click(), paused: () => !mkPlaying, mode: () => (lvNow() > 0 ? "p" : "o"),
+        setMode: (m) => document.querySelector(`#mkAb [data-ab="${m === "p" ? 1 : 0}"]`)?.click(), ...tnOpts });
   }).catch((e) => { tuneWired = true; console.warn("음정선", e); const c = $("mkTune"); if (c) c.replaceWith(Object.assign(document.createElement("p"), { className: "muted", textContent: "음정선을 불러오지 못했어요 (" + String(e?.message || e).slice(0, 60) + ")" })); });
   // 슬라이더가 기본값에 닿으면 짧고 약한 진동(안드로이드). 기본값: 보컬 0dB · 리버브 15% · MR 0dB · 음정 '중'
   const DEF = { mkVol: 0, mkRev: 15, mkMr: 0, mkPitch: 2 };
@@ -5953,7 +5961,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-02-1530-mktune";
+const BUILD = "2026-11-02-1536-mktune2";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
