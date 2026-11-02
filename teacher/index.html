@@ -4116,35 +4116,63 @@ async function makeupFromLesson(cid, back) {
 const REV_UNIT = 0.00144;   // 리버브 1% = 센드 0.00144  → 30% = 표준(0.0432, 11/02 17:39 사용자 — 전엔 15%) · (11/02 15:22 사용자) 최대 50% → 100%
 const PITCH_NAMES = ["끔", "켬", "켬", "켬"];   // (11/02 17:30 사용자) 세기 고르기 없앰 — 보정은 강 하나, 끔/켬만
 let mkCtx = null, mkT0 = 0, mkOffset = 0, mkPlaying = false, mkTracks = {}, mkTick = null, mkBefore = false, mkRaw = false, mkJob = null, mkDurS = 0, mkBound = "center", mkHasW = false;
-// ── (11/02 17:09 사용자) 고친 정음을 폰에서 바로 미리 듣기: 보정본(약·중·강)과 리버브 트랙의 그 구간만 '새 정음 − 서버가 맞춘 음'만큼 음 높이를 옮김 ──
-// 짧은 조각(약 43ms)을 겹쳐 이어 붙이는 방식이라 길이·비브라토는 그대로, 소리는 미리듣기용(정식은 '완성본 다시 만들기'). 원래 조각은 기억해 두고 되돌림
-let mkPv = { fixes: [], rendered: () => null, orig: {} };
-function pvShift(x, ratio) {   // 길이 그대로 음 높이만 ratio배: 다시 샘플링(빨라짐) → WSOLA로 원래 길이로 늘림
-  const n = x.length, m = Math.max(2, Math.floor(n / ratio)), r = new Float32Array(m);
-  for (let k = 0; k < m; k++) { const s = k * ratio, s0 = Math.floor(s), fr = s - s0; r[k] = (x[s0] || 0) + ((x[s0 + 1] || 0) - (x[s0] || 0)) * fr; }
-  const N = 1536, Hs = N / 2, tol = 384, w = new Float32Array(N); for (let i = 0; i < N; i++) w[i] = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / N);
-  const y = new Float32Array(n + N), ws = new Float32Array(n + N), a = m / n; let prev = -1;
-  for (let o = 0; o < n; o += Hs) {
-    const ideal = Math.min(Math.max(0, Math.round(o * a)), Math.max(0, m - N)); let best = ideal;
-    if (prev >= 0 && prev + Hs + N <= m) { const nat = prev + Hs; let bc = -Infinity;
-      for (let d = -tol; d <= tol; d += 8) { const q = ideal + d; if (q < 0 || q + N > m) continue; let c = 0; for (let i = 0; i < N; i += 6) c += r[q + i] * r[nat + i]; if (c > bc) { bc = c; best = q; } } }
-    for (let i = 0; i < N; i++) { const v = best + i < m ? r[best + i] : 0; y[o + i] += v * w[i]; ws[o + i] += w[i]; }
-    prev = best;
-  }
-  const out = new Float32Array(n); for (let k = 0; k < n; k++) out[k] = ws[k] > 1e-3 ? y[k] / ws[k] : 0;
+// ── (11/02 17:09 사용자) 고친 정음을 폰에서 바로 미리 듣기 · (11/02 17:39 사용자) 소리를 완성본과 최대한 비슷하게 ──
+// 서버(Praat)와 같은 원리(PSOLA): 목소리 한 주기씩 잘라 간격만 바꿔 다시 붙임 → 음색(포먼트)은 그대로, 높이만. 음 높이 정보는 음정선(pitch_curve)에 이미 있음
+// 보정본(p)은 완성본처럼 '보정 전 보컬(p0)'에서 한 번에 정음까지(음 중심 ≈0.2초 평균 기준 · 8센트 안쪽 그대로 · 최대 ±2반음) · 울림(w)은 그 차이만큼 옮김
+let mkPv = { fixes: [], rendered: () => null, orig: {}, cv: null };
+const PV_C2HZ = (c) => 440 * 2 ** ((c - 6900) / 1200);
+function pvBins(cv, col) {   // 음정선 한 열 → { 칸 번호: 센트 }
+  const cache = cv._pvb || (cv._pvb = {}); if (cache[col]) return cache[col];
+  const fps = cv.fps || 25, m = new Map(); for (const p of cv.pts || []) if (p[col] != null) m.set(Math.round(p[0] * fps), p[col]);
+  return (cache[col] = m);
+}
+function pvPerSample(cv, bins, sr, i0, n, fn) {   // 칸 값(없으면 null) → 샘플마다 선형 보간
+  const fps = cv.fps || 25, out = new Float32Array(n);
+  for (let k = 0; k < n; k++) { const fr = (i0 + k) / sr * fps, a = Math.floor(fr), w = fr - a, va = bins.get(a), vb = bins.get(a + 1);
+    out[k] = va != null && vb != null ? fn(va + (vb - va) * w) : va != null ? fn(va) : vb != null ? fn(vb) : fn(null); }
   return out;
 }
-function pvApply(name) {   // 한 트랙에 지금 고친 정음 전부 반영(원래 조각에서 다시 만듦)
-  const tr = mkTracks[name], buf = tr?.buf; if (!buf || !/^[pw][123]$/.test(name)) return false;
-  const sr = buf.sampleRate, X = Math.round(sr * 0.02); let changed = false;
-  for (const f of mkPv.fixes) { const rm = mkPv.rendered(f); if (rm == null) continue; const d = f.midi - rm, key = `${name}:${f.t0}:${f.t1}`;
-    const i0 = Math.max(0, Math.round(f.t0 * sr) - X), i1 = Math.min(buf.length, Math.round(f.t1 * sr) + X); if (i1 - i0 < 4 * X) continue;
-    const st = mkPv.orig[key] || (mkPv.orig[key] = { d: 0, ch: Array.from({ length: buf.numberOfChannels }, (_, c) => buf.getChannelData(c).slice(i0, i1)) });
-    if (st.d === d) continue; st.d = d; changed = true;
+function pvF0(cv, col, sr, i0, n) { return pvPerSample(cv, pvBins(cv, col), sr, i0, n, (c) => c == null ? 0 : PV_C2HZ(c)); }
+function pvRatio(cv, midi, sr, i0, n) {   // 서버 correction_cents와 같은 규칙: (정음 − 음 중심), 8센트 안쪽 0, ±200
+  const raw = pvBins(cv, 1), key = "c" + midi, cache = cv._pvb;
+  if (!cache[key]) { const m = new Map(); for (const [k, v] of raw) { let s = 0, c = 0; for (let d = -2; d <= 2; d++) { const x = raw.get(k + d); if (x != null) { s += x; c++; } }
+      let cor = midi * 100 - s / c; if (Math.abs(cor) < 8) cor = 0; m.set(k, Math.max(-200, Math.min(200, cor))); } cache[key] = m; }
+  return pvPerSample(cv, cache[key], sr, i0, n, (c) => c == null ? 1 : 2 ** (c / 1200));
+}
+function pvPsola(x, sr, f0, rat) {   // TD-PSOLA: 분석 표시(주기마다 봉우리) → 새 간격(T/비율)으로 2주기 한(Hann) 창을 겹쳐 붙임 · 길이 그대로
+  const n = x.length, U = Math.round(sr * 0.005), R = (i) => typeof rat === "number" ? rat : rat[Math.min(n - 1, Math.max(0, i | 0))];
+  const per = (i) => { const f = f0[Math.min(n - 1, Math.max(0, i | 0))]; return f > 50 ? sr / f : 0; };
+  const mk = []; let i = 0;
+  while (i < n) { const T = per(i); if (!T) { mk.push([i, U, false]); i += U; continue; }
+    const prevV = mk.length && mk[mk.length - 1][2], lo = prevV ? Math.max(0, Math.round(i - T * 0.25)) : i, hi = Math.min(n - 1, Math.round(prevV ? i + T * 0.25 : i + T));
+    let b = lo, bv = -1; for (let k = lo; k <= hi; k++) { const v = Math.abs(x[k]); if (v > bv) { bv = v; b = k; } }
+    if (mk.length && b <= mk[mk.length - 1][0]) b = mk[mk.length - 1][0] + 1;
+    mk.push([b, Math.max(8, Math.round(T)), true]); i = b + Math.round(T); }
+  for (let k = 0; k + 1 < mk.length; k++) if (mk[k][2] && mk[k + 1][2]) { const g = mk[k + 1][0] - mk[k][0]; if (g > mk[k][1] * 0.6 && g < mk[k][1] * 1.6) mk[k][1] = g; }   // 실제 봉우리 간격 = 주기(비율 1이면 원래 소리 그대로 → 구간 경계도 매끄럽게)
+  const y = new Float32Array(n), ws = new Float32Array(n); let ts = mk.length ? mk[0][0] : n, j = 0;
+  while (ts < n) {
+    while (j + 1 < mk.length && Math.abs(mk[j + 1][0] - ts) <= Math.abs(mk[j][0] - ts)) j++;
+    const [c, L, v] = mk[j], o0 = Math.round(ts);
+    for (let k = -L; k <= L; k++) { const s_ = c + k, o = o0 + k; if (s_ < 0 || s_ >= n || o < 0 || o >= n) continue; const w = 0.5 + 0.5 * Math.cos(Math.PI * k / L); y[o] += x[s_] * w; ws[o] += w; }
+    ts += v ? L / R(ts) : L;
+  }
+  const out = new Float32Array(n); for (let k = 0; k < n; k++) out[k] = ws[k] > 0.05 ? y[k] / ws[k] : x[k];
+  return out;
+}
+function pvApply(name) {   // 한 트랙에 지금 고친 정음 전부 반영(원래 조각을 기억해 두고 그걸로 다시 만듦)
+  const tr = mkTracks[name], buf = tr?.buf, nm = /^([pw])([123])$/.exec(name), cv = mkPv.cv; if (!buf || !nm || !cv) return false;
+  const dry = nm[1] === "p", src = dry ? mkTracks.p0?.buf : buf; if (!src) return false;   // 보정본은 보정 전 보컬이 있어야(다 받으면 다시 시도)
+  const sr = buf.sampleRate, X = Math.round(sr * 0.02), lvCol = typeof Tune !== "undefined" ? Tune.col(cv, +nm[2]) : 1 + +nm[2]; let changed = false;
+  for (const f of mkPv.fixes) { const key = `${name}:${f.t0}:${f.t1}`;
+    const rm = dry ? 0 : mkPv.rendered(f); if (rm == null) continue; const d = f.midi - rm, sig = dry ? "m" + f.midi : "d" + d;
+    const i0 = Math.max(0, Math.round(f.t0 * sr) - X), i1 = Math.min(buf.length, Math.round(f.t1 * sr) + X), n = i1 - i0; if (n < 4 * X) continue;
+    const st = mkPv.orig[key] || (mkPv.orig[key] = { d: "", ch: Array.from({ length: buf.numberOfChannels }, (_, c) => buf.getChannelData(c).slice(i0, i1)) });
+    if (st.d === sig) continue; st.d = sig; changed = true;
+    if (!dry && !d) { st.ch.forEach((org, c) => buf.getChannelData(c).set(org, i0)); continue; }
+    const f0 = pvF0(cv, dry ? 1 : lvCol, sr, i0, n), rat = dry ? pvRatio(cv, f.midi, sr, i0, n) : 2 ** (d / 12);
     for (let c = 0; c < buf.numberOfChannels; c++) { const out = buf.getChannelData(c), org = st.ch[c];
-      if (!d) { out.set(org, i0); continue; }
-      const sh = pvShift(org, 2 ** (d / 12));
-      for (let k = 0; k < org.length; k++) { const a = k < X ? k / X : k > org.length - X ? (org.length - k) / X : 1; out[i0 + k] = org[k] * (1 - a) + sh[k] * a; } } }
+      const from = dry ? src.getChannelData(Math.min(c, src.numberOfChannels - 1)).slice(i0, i1) : org, sh = pvPsola(from, sr, f0, rat);
+      for (let k = 0; k < n; k++) { const a = k < X ? k / X : k > n - X ? (n - k) / X : 1; out[i0 + k] = org[k] * (1 - a) + sh[k] * a; } } }
   // 이제 고친 기록에서 빠진 구간(원래대로)은 되돌림
   for (const key of Object.keys(mkPv.orig)) { if (!key.startsWith(name + ":")) continue; const [, a, b] = key.split(":"); const still = mkPv.fixes.some(f => `${f.t0}` === a && `${f.t1}` === b);
     if (!still) { const st = mkPv.orig[key], i0 = Math.max(0, Math.round(+a * sr) - X); if (st.d) { st.ch.forEach((org, c) => buf.getChannelData(c).set(org, i0)); changed = true; } delete mkPv.orig[key]; } }
@@ -4167,7 +4195,7 @@ async function mkLoad(name, fileId) {
   const g = mkCtx.createGain(); g.gain.value = 0; g.connect(mkCtx.destination);
   const t = mkTracks[name] = { gain: g, buf: null, src: null };
   t.loading = (async () => { t.buf = await mkCtx.decodeAudioData(await (await readBlob(fileId, true)).arrayBuffer());
-    mkDurS = Math.max(mkDurS, t.buf.duration); try { pvApply(name); } catch {} if (mkPlaying) mkStartTrack(t, mkNow()); mkApply(); })();
+    mkDurS = Math.max(mkDurS, t.buf.duration); let re = false; try { re = pvApplyAll(); } catch {} if (mkPlaying && !re) mkStartTrack(t, mkNow()); mkApply(); })();   // 다시 만들었으면 pvApplyAll이 전부 다시 틀었음(두 번 겹쳐 나오지 않게)
   return t.loading;
 }
 function mkApply() {
@@ -4361,7 +4389,7 @@ async function openMkJob(j, backTo) {
     if (!$("mkTune")) return;
     { const kt = Tune.tgCol(cv), o_ = cv._orig || (cv._orig = {});   // 저장만 하고 아직 다시 안 만든 고침: 막대를 그 음에 두고(서버가 맞춘 음은 _orig에) 미리듣기
       for (const f of r.target_fixes || []) (cv.pts || []).forEach((p, i) => { if (kt && p[0] >= f.t0 - 0.001 && p[0] <= f.t1 + 0.001 && p[kt] != null) { if (!(i in o_)) o_[i] = p[kt]; p[kt] = f.midi * 100; } });
-      mkPv.rendered = (f) => { const i = (cv.pts || []).findIndex(p => p[0] >= f.t0 - 0.001 && p[0] <= f.t1 + 0.001 && p[kt] != null); return i < 0 ? null : Math.round((i in o_ ? o_[i] : cv.pts[i][kt]) / 100); };
+      mkPv.cv = cv; mkPv.rendered = (f) => { const i = (cv.pts || []).findIndex(p => p[0] >= f.t0 - 0.001 && p[0] <= f.t1 + 0.001 && p[kt] != null); return i < 0 ? null : Math.round((i in o_ ? o_[i] : cv.pts[i][kt]) / 100); };
       mkPv.fixes = (r.target_fixes || []).slice(); try { pvApplyAll(); } catch {} }
     cv._fixes = (r.target_fixes || []).slice(); cv._src = (pi.ref?.segs || []).slice(); cv._midi = !!r.melody_id;   // 정음 막대 색 = 기준   // (11/02 15:48 사용자) 선생님이 고친 정음(노란 테두리)
     const onFix = async (f) => { const cur = (r.target_fixes || []).filter(x => !(x.t0 < f.t1 && x.t1 > f.t0)); if (f.midi != null) cur.push(f); r.target_fixes = cur.sort((a, b) => a.t0 - b.t0);
