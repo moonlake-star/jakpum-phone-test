@@ -50,3 +50,11 @@ const code = src.slice(start, end) + g(/function calNums\([\s\S]*?\n\}\n/);
   assert.ok(src.includes("구글 캘린더 앱에서 직접 바꾼 건 여기로 돌아오지 않아요"), "사용 안내");
   console.log("staff-calendar ok");
 })().catch(e => { console.error(e); process.exit(1); });
+// 3단계: 강사 수강생 노트엔 강사 이름 · 강사 폴더에 녹음함
+{ const s2 = fs.readFileSync(__dirname + "/../student/index.html", "utf8");
+  assert.ok(s2.includes('${l.teacher_name ? esc(l.teacher_name) + " " : ""}선생님 한마디') && src.includes("teacher_name: noteTeacher()"));
+  const nt = new Function("cfg", "cur", "isStaffApp", "staffOf", src.match(/function noteTeacher\(\) \{[\s\S]*?\n\}\n/)[0] + "return noteTeacher();");
+  assert.strictEqual(nt({ students: { S2: { teacher_id: "T9" } } }, { sid: "S2" }, () => false, () => ({ T9: { name: "홍강사" } })), "홍강사");
+  assert.strictEqual(nt({ students: { S1: {} } }, { sid: "S1" }, () => false, () => ({})), "", "원장 수강생은 그대로 ‘선생님 한마디’");
+  assert.strictEqual(nt({ name: "홍강사" }, {}, () => true, () => ({})), "홍강사");
+  assert.ok(src.includes('joinMakeFolder("녹음함", folder)')); }
