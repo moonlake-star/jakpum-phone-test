@@ -4178,24 +4178,37 @@ function pvPsola(x, sr, f0, rat) {   // TD-PSOLA: 분석 표시(주기마다 봉
   const out = new Float32Array(n); for (let k = 0; k < n; k++) out[k] = ws[k] > 0.05 ? y[k] / ws[k] : x[k];
   return out;
 }
-function pvApply(name) {   // 한 트랙에 지금 고친 정음 전부 반영(원래 조각을 기억해 두고 그걸로 다시 만듦)
+// (11/03 03:00 사용자) 미리듣기가 튐: 고친 막대마다 따로 다시 만들고 짧게(20ms) 이어 붙여 이음매가 많았음
+// → 0.3초 안으로 붙은 고침은 한 덩어리로 한 번에 PSOLA(사이 빈 곳은 서버가 맞춘 높이 그대로), 덩어리 끝은 50ms로 이어 붙임
+function pvClusters(fixes) { const out = []; for (const f of [...fixes].sort((a, b) => a.t0 - b.t0)) { const L = out[out.length - 1];
+  if (L && f.t0 - L.t1 < 0.3) { L.t1 = Math.max(L.t1, f.t1); L.fx.push(f); } else out.push({ t0: f.t0, t1: f.t1, fx: [f] }); } return out; }
+function pvClusterRatio(cv, cl, dry, lvCol, sr, i0, n) {   // 덩어리 안 칸마다 보정량(센트) → 샘플마다 비율
+  const fps = cv.fps || 25, raw = pvBins(cv, 1), ren = pvBins(cv, lvCol), m = new Map(), k0 = Math.floor(i0 / sr * fps) - 1, k1 = Math.ceil((i0 + n) / sr * fps) + 1;
+  for (let k = k0; k <= k1; k++) { const tk = k / fps, f = cl.fx.find(x => tk >= x.t0 - 0.001 && tk <= x.t1 + 0.001), r0 = raw.get(k), rk = ren.get(k); let cor = 0;
+    if (f) { if (dry) { if (r0 == null) continue; let s_ = 0, c_ = 0; for (let d = -2; d <= 2; d++) { const x = raw.get(k + d); if (x != null) { s_ += x; c_++; } }
+        cor = f.midi * 100 - s_ / c_; if (Math.abs(cor) < 8) cor = 0; cor = Math.max(-200, Math.min(200, cor)); }
+      else { const rm = mkPv.rendered(f); cor = rm == null ? 0 : (f.midi - rm) * 100; } }
+    else if (dry && r0 != null && rk != null) cor = rk - r0;   // 사이 빈 곳: 서버가 만든 높이 그대로
+    m.set(k, cor); }
+  return pvPerSample(cv, m, sr, i0, n, (c) => c == null ? 1 : 2 ** (c / 1200));
+}
+function pvApply(name) {   // 한 트랙에 지금 고친 정음 전부 반영(원래 조각을 기억해 두고, 바뀌면 되돌린 뒤 다시 만듦)
   const tr = mkTracks[name], buf = tr?.buf, nm = /^([pw])([123])$/.exec(name), cv = mkPv.cv; if (!buf || !nm || !cv) return false;
   const dry = nm[1] === "p", src = dry ? mkTracks.p0?.buf : buf; if (!src) return false;   // 보정본은 보정 전 보컬이 있어야(다 받으면 다시 시도)
-  const sr = buf.sampleRate, X = Math.round(sr * 0.02), lvCol = typeof Tune !== "undefined" ? Tune.col(cv, +nm[2]) : 1 + +nm[2]; let changed = false;
-  for (const f of mkPv.fixes) { const key = `${name}:${f.t0}:${f.t1}`;
-    const rm = dry ? 0 : mkPv.rendered(f); if (rm == null) continue; const d = f.midi - rm, sig = dry ? "m" + f.midi : "d" + d;
-    const i0 = Math.max(0, Math.round(f.t0 * sr) - X), i1 = Math.min(buf.length, Math.round(f.t1 * sr) + X), n = i1 - i0; if (n < 4 * X) continue;
-    const st = mkPv.orig[key] || (mkPv.orig[key] = { d: "", ch: Array.from({ length: buf.numberOfChannels }, (_, c) => buf.getChannelData(c).slice(i0, i1)) });
-    if (st.d === sig) continue; st.d = sig; changed = true;
-    if (!dry && !d) { st.ch.forEach((org, c) => buf.getChannelData(c).set(org, i0)); continue; }
-    const f0 = pvF0(cv, dry ? 1 : lvCol, sr, i0, n), rat = dry ? pvRatio(cv, f.midi, sr, i0, n) : 2 ** (d / 12);
-    for (let c = 0; c < buf.numberOfChannels; c++) { const out = buf.getChannelData(c), org = st.ch[c];
+  const sr = buf.sampleRate, X = Math.round(sr * 0.05), lvCol = typeof Tune !== "undefined" ? Tune.col(cv, +nm[2]) : 1 + +nm[2];
+  const cls = pvClusters(mkPv.fixes), sig = JSON.stringify(cls.map(c => c.fx.map(f => [f.t0, f.t1, f.midi, dry ? 0 : mkPv.rendered(f)])));
+  const st = mkPv.orig[name] || (mkPv.orig[name] = { sig: "[]", regs: [] });
+  if (st.sig === sig) return false;
+  for (const r of st.regs.slice().reverse()) r.ch.forEach((org, c) => buf.getChannelData(c).set(org, r.i0));   // 먼저 원래대로
+  st.regs = []; st.sig = sig;
+  for (const cl of cls) {
+    const i0 = Math.max(0, Math.round(cl.t0 * sr) - X), i1 = Math.min(buf.length, Math.round(cl.t1 * sr) + X), n = i1 - i0; if (n < 3 * X) continue;
+    const reg = { i0, ch: Array.from({ length: buf.numberOfChannels }, (_, c) => buf.getChannelData(c).slice(i0, i1)) }; st.regs.push(reg);
+    const f0 = pvF0(cv, dry ? 1 : lvCol, sr, i0, n), rat = pvClusterRatio(cv, cl, dry, lvCol, sr, i0, n);
+    for (let c = 0; c < buf.numberOfChannels; c++) { const out = buf.getChannelData(c), org = reg.ch[c];
       const from = dry ? src.getChannelData(Math.min(c, src.numberOfChannels - 1)).slice(i0, i1) : org, sh = pvPsola(from, sr, f0, rat);
       for (let k = 0; k < n; k++) { const a = k < X ? k / X : k > n - X ? (n - k) / X : 1; out[i0 + k] = org[k] * (1 - a) + sh[k] * a; } } }
-  // 이제 고친 기록에서 빠진 구간(원래대로)은 되돌림
-  for (const key of Object.keys(mkPv.orig)) { if (!key.startsWith(name + ":")) continue; const [, a, b] = key.split(":"); const still = mkPv.fixes.some(f => `${f.t0}` === a && `${f.t1}` === b);
-    if (!still) { const st = mkPv.orig[key], i0 = Math.max(0, Math.round(+a * sr) - X); if (st.d) { st.ch.forEach((org, c) => buf.getChannelData(c).set(org, i0)); changed = true; } delete mkPv.orig[key]; } }
-  return changed;
+  return true;
 }
 function pvApplyAll() { let ch = false; for (const n of Object.keys(mkTracks)) if (pvApply(n)) ch = true; if (ch && mkPlaying) mkPlay(mkNow()); return ch; }   // 재생 중이면 같은 자리에서 다시(바뀐 소리로)
 function mkStop() { for (const t of Object.values(mkTracks)) { try { t.src?.stop(); } catch {} t.src = null; } mkPlaying = false; }
@@ -6103,7 +6116,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-03-0300-save";
+const BUILD = "2026-11-03-0330-pvcl";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
