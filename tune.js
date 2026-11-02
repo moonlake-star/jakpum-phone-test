@@ -12,7 +12,7 @@
     const lo = a[Math.floor(a.length * 0.03)], hi = a[Math.min(a.length - 1, Math.floor(a.length * 0.97))];
     return (cv._rng = [Math.floor(lo / 100) * 100 - 250, Math.ceil(hi / 100) * 100 + 250]);
   }
-  function col(cv, lv) { const i = (cv.levels || []).indexOf(+lv); return lv > 0 && i >= 0 ? 2 + i : 0; }   // pts 안 위치(0 = 없음)
+  function col(cv, lv) { const L = cv.levels || [], i = L.indexOf(+lv); return lv > 0 ? (i >= 0 ? 2 + i : L.length ? 2 + L.length - 1 : 0) : 0; }   // (11/02 17:30) 새 음정선은 강[3]만 — 없는 단계를 찾으면 가장 센 단계   // pts 안 위치(0 = 없음)
   function centerAt(cv, t) {   // 확대 화면 가운데 = 지금 앞뒤 화면 안 음의 가운데(튀는 점 제외)
     const v = []; for (const p of cv.pts || []) { if (p[0] < t - WIN * HEAD) continue; if (p[0] > t + WIN * (1 - HEAD)) break; v.push(p[1]); }
     if (v.length < 3) return null; v.sort((a, b) => a - b); const lo = v[Math.floor(v.length * 0.1)], hi = v[Math.floor(v.length * 0.9)];
@@ -190,15 +190,23 @@
     renderAdj(); paint();
     // (10/31 15:47 사용자) 폰 뒤로 버튼 = 주석 창만 닫기(오늘의 베스트 전체화면은 그대로)
     if (!sheetClose) try { history.pushState(Object.assign({}, history.state || {}, { tuneSheet: true }), ""); } catch {}
-    const close = (fromPop) => { el.remove(); V && V.done(); if (lastView === V) lastView = null; if (sheetClose === close) sheetClose = null;
+    let closed = false;
+    const close = (fromPop) => { if (closed) return; closed = true; el.remove(); V && V.done(); if (lastView === V) lastView = null; if (sheetClose === close) sheetClose = null;
       if (fromPop !== true) try { if (history.state && history.state.tuneSheet) { skipPop = true; history.back(); } } catch {} };
     sheetClose = close;
     // (10/31 08:09 버그) 위 칸을 톡 하면 창이 뜬 직후 같은 손가락의 'click'이 창 바깥(어두운 곳)에 떨어져 바로 닫혔음 → 뜬 뒤 0.45초 안의 바깥 클릭은 무시
     const openedAt = performance.now();
     el.onclick = (e) => { if (e.target === el && performance.now() - openedAt > 450) close(); };
     el.querySelector(".tsCancel").onclick = close;
+    // (11/02 17:32 사용자 버그) 글을 쓰다 [취소]·[저장]을 누르면 키보드가 먼저 내려가며 창이 밑으로 움직여, 손을 뗄 때 버튼이 손가락 밑에 없어 '클릭'이 안 됐음
+    // → 이 버튼들은 손을 떼는 순간(pointerup — 누른 버튼으로 옴) 바로 실행 · 누를 때 키보드를 내리지 않음
+    const ACT = ".tsCancel,.tsOk,.tsDel";
+    el.querySelectorAll(ACT).forEach(b => { let downAt = 0, firedAt = -1e9;
+      b.addEventListener("pointerdown", () => { downAt = performance.now(); });
+      b.addEventListener("pointerup", (e) => { if (!downAt || e.pointerType === "mouse") return; downAt = 0; firedAt = performance.now(); b.click(); });
+      b.addEventListener("click", (e) => { if (e.isTrusted && performance.now() - firedAt < 700) { e.stopImmediatePropagation(); e.preventDefault(); } }, true); });   // 뒤따르는 진짜 클릭은 한 번 더 실행 안 함
     // (10/31 08:58 사용자) 글 칸에 커서가 있는 채로 미세 조정·한 점/구간 버튼을 누르면 키보드가 자꾸 올라옴 → 글 칸 밖 버튼을 누르는 순간 글 칸에서 커서를 빼서 키보드를 내림
-    el.addEventListener("pointerdown", (e) => { const b = e.target.closest && e.target.closest("button"); if (!b || b.classList.contains("tsClr")) return;
+    el.addEventListener("pointerdown", (e) => { const b = e.target.closest && e.target.closest("button"); if (!b || b.classList.contains("tsClr") || b.matches(ACT)) return;
       const ae = document.activeElement; if (ae && ae.classList && ae.classList.contains("tsTx")) ae.blur(); }, true);
     el.querySelector(".tsClr") && (el.querySelector(".tsClr").onclick = () => { const ta = el.querySelector(".tsTx"); ta.value = ""; ta.focus(); });
     // (10/30 17:38 사용자 시안 승인) 삭제 = 확인 팝업('다음부터 묻지 않기' 체크하면 이 폰에선 바로 삭제)
@@ -215,7 +223,7 @@
     });
     el.querySelector(".tsOk").onclick = () => { const tx = el.querySelector(".tsTx").value.trim(); if (!tx) { el.querySelector(".tsTx").focus(); return; }
       close(); o.onSave && o.onSave({ ...d, text: tx, status: "ok", t0: Math.round(d.t0 * 100) / 100, t1: Math.round(d.t1 * 100) / 100 }); };
-    if (isNew) setTimeout(() => el.querySelector(".tsTx").focus(), 50);
+    // (11/02 17:32 사용자) 새 주석도 창이 뜨자마자 키보드를 올리지 않음(창과 키보드가 동시에 올라와 출렁였음) — 글 칸을 톡 하면 키보드
     // (10/31 09:04 사용자) 상자를 누른 손가락의 뒤따르는 클릭이 막 열린 글 칸에 떨어지면 키보드가 바로 올라옴 → 열고 0.45초 동안은 글 칸이 키보드를 못 띄움(글을 한 번 더 눌러야 올라옴, 새 주석은 예전처럼 바로)
     if (!isNew) { const ta = el.querySelector(".tsTx"); ta.readOnly = true;
       ta.addEventListener("focus", () => { if (performance.now() - openedAt < 450) ta.blur(); });

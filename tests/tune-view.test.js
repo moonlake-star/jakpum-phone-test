@@ -3,7 +3,7 @@ const fs = require("fs"), assert = require("assert");
 require("../tune.js");
 const T = globalThis.Tune;
 const cv = { levels: [1, 2, 3], pts: [[0, 6600, 6610, 6620, 6630], [0.04, 6700, 6700, 6700, 6700]] };
-assert.strictEqual(T.col(cv, 2), 3); assert.strictEqual(T.col(cv, 0), 0); assert.strictEqual(T.col(cv, 9), 0);
+assert.strictEqual(T.col(cv, 2), 3); assert.strictEqual(T.col(cv, 0), 0); assert.strictEqual(T.col(cv, 9), 4); assert.strictEqual(T.col({ levels: [3], pts: [] }, 2), 2);   // (11/02 17:30) 없는 단계 → 가장 센 단계(새 음정선은 강[3]만)
 const r = T.range({ pts: Array.from({ length: 100 }, (_, i) => [i / 25, 6000 + i * 10]) });
 assert.ok(r[0] < 6000 && r[1] > 6990 && r[0] % 50 === 0);
 const st = fs.readFileSync(__dirname + "/../student/index.html", "utf8"), te = fs.readFileSync(__dirname + "/../teacher/index.html", "utf8");
@@ -11,7 +11,7 @@ assert.ok(st.includes('<script src="../tune.js?v=') && te.includes('<script src=
 assert.ok(st.includes("정확하지 않을 수 있어요. 정식 음원은 전문 엔지니어가 한 음 한 음 더 정밀하게 다듬어요"), "보정본엔 항상 안내(10/30 13:35 사용자 문구)");
 assert.ok(/data-ab="o" class="on" aria-pressed="true">원음/.test(st), "수강생은 원음이 먼저");
 assert.ok(/n\.makeup\?\.before_id, n\.makeup\?\.curve_id/.test(te), "원음·음정선도 게시 때 링크 열림");
-assert.ok(/data-ab="0">보정 끔.*data-ab="1">보정 켬/.test(te) && /<details id="mkLvBox">/.test(te), "세기 4단계는 '자세히' 안에 그대로");
+assert.ok(/data-ab="0">보정 끔.*data-ab="1">보정 켬/.test(te) && /<input type="hidden" id="mkPitch"/.test(te) && !/id="mkLvBox"/.test(te), "(11/02 17:30) 세기 고르기 없음 — 끔/켬만");
 // 모아듣기 목록: 날짜순, 베스트 → 메이크업, 포함한 것만
 const md = (d) => d, sidOk = (x) => typeof x === "string" && x.trim() !== "";
 const makeupOk = new Function("sidOk", "return " + st.match(/const makeupOk = ([^\n]+);/)[1])(sidOk);
