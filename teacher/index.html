@@ -4116,6 +4116,41 @@ async function makeupFromLesson(cid, back) {
 const REV_UNIT = 0.00144;   // 리버브 1% = 센드 0.00144  → 15% = 표준(0.0216) · (11/02 15:22 사용자) 최대 50% → 100%
 const PITCH_NAMES = ["끔", "약", "중", "강"];
 let mkCtx = null, mkT0 = 0, mkOffset = 0, mkPlaying = false, mkTracks = {}, mkTick = null, mkBefore = false, mkRaw = false, mkJob = null, mkDurS = 0, mkBound = "center", mkHasW = false;
+// ── (11/02 17:09 사용자) 고친 정음을 폰에서 바로 미리 듣기: 보정본(약·중·강)과 리버브 트랙의 그 구간만 '새 정음 − 서버가 맞춘 음'만큼 음 높이를 옮김 ──
+// 짧은 조각(약 43ms)을 겹쳐 이어 붙이는 방식이라 길이·비브라토는 그대로, 소리는 미리듣기용(정식은 '완성본 다시 만들기'). 원래 조각은 기억해 두고 되돌림
+let mkPv = { fixes: [], rendered: () => null, orig: {} };
+function pvShift(x, ratio) {   // 길이 그대로 음 높이만 ratio배: 다시 샘플링(빨라짐) → WSOLA로 원래 길이로 늘림
+  const n = x.length, m = Math.max(2, Math.floor(n / ratio)), r = new Float32Array(m);
+  for (let k = 0; k < m; k++) { const s = k * ratio, s0 = Math.floor(s), fr = s - s0; r[k] = (x[s0] || 0) + ((x[s0 + 1] || 0) - (x[s0] || 0)) * fr; }
+  const N = 1536, Hs = N / 2, tol = 384, w = new Float32Array(N); for (let i = 0; i < N; i++) w[i] = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / N);
+  const y = new Float32Array(n + N), ws = new Float32Array(n + N), a = m / n; let prev = -1;
+  for (let o = 0; o < n; o += Hs) {
+    const ideal = Math.min(Math.max(0, Math.round(o * a)), Math.max(0, m - N)); let best = ideal;
+    if (prev >= 0 && prev + Hs + N <= m) { const nat = prev + Hs; let bc = -Infinity;
+      for (let d = -tol; d <= tol; d += 8) { const q = ideal + d; if (q < 0 || q + N > m) continue; let c = 0; for (let i = 0; i < N; i += 6) c += r[q + i] * r[nat + i]; if (c > bc) { bc = c; best = q; } } }
+    for (let i = 0; i < N; i++) { const v = best + i < m ? r[best + i] : 0; y[o + i] += v * w[i]; ws[o + i] += w[i]; }
+    prev = best;
+  }
+  const out = new Float32Array(n); for (let k = 0; k < n; k++) out[k] = ws[k] > 1e-3 ? y[k] / ws[k] : 0;
+  return out;
+}
+function pvApply(name) {   // 한 트랙에 지금 고친 정음 전부 반영(원래 조각에서 다시 만듦)
+  const tr = mkTracks[name], buf = tr?.buf; if (!buf || !/^[pw][123]$/.test(name)) return false;
+  const sr = buf.sampleRate, X = Math.round(sr * 0.02); let changed = false;
+  for (const f of mkPv.fixes) { const rm = mkPv.rendered(f); if (rm == null) continue; const d = f.midi - rm, key = `${name}:${f.t0}:${f.t1}`;
+    const i0 = Math.max(0, Math.round(f.t0 * sr) - X), i1 = Math.min(buf.length, Math.round(f.t1 * sr) + X); if (i1 - i0 < 4 * X) continue;
+    const st = mkPv.orig[key] || (mkPv.orig[key] = { d: 0, ch: Array.from({ length: buf.numberOfChannels }, (_, c) => buf.getChannelData(c).slice(i0, i1)) });
+    if (st.d === d) continue; st.d = d; changed = true;
+    for (let c = 0; c < buf.numberOfChannels; c++) { const out = buf.getChannelData(c), org = st.ch[c];
+      if (!d) { out.set(org, i0); continue; }
+      const sh = pvShift(org, 2 ** (d / 12));
+      for (let k = 0; k < org.length; k++) { const a = k < X ? k / X : k > org.length - X ? (org.length - k) / X : 1; out[i0 + k] = org[k] * (1 - a) + sh[k] * a; } } }
+  // 이제 고친 기록에서 빠진 구간(원래대로)은 되돌림
+  for (const key of Object.keys(mkPv.orig)) { if (!key.startsWith(name + ":")) continue; const [, a, b] = key.split(":"); const still = mkPv.fixes.some(f => `${f.t0}` === a && `${f.t1}` === b);
+    if (!still) { const st = mkPv.orig[key], i0 = Math.max(0, Math.round(+a * sr) - X); if (st.d) { st.ch.forEach((org, c) => buf.getChannelData(c).set(org, i0)); changed = true; } delete mkPv.orig[key]; } }
+  return changed;
+}
+function pvApplyAll() { let ch = false; for (const n of Object.keys(mkTracks)) if (pvApply(n)) ch = true; if (ch && mkPlaying) mkPlay(mkNow()); return ch; }   // 재생 중이면 같은 자리에서 다시(바뀐 소리로)
 function mkStop() { for (const t of Object.values(mkTracks)) { try { t.src?.stop(); } catch {} t.src = null; } mkPlaying = false; }
 const mkNow = () => mkPlaying ? Math.min(mkCtx.currentTime - mkT0, mkDurS) : mkOffset;
 function mkStartTrack(t, at) {
@@ -4132,7 +4167,7 @@ async function mkLoad(name, fileId) {
   const g = mkCtx.createGain(); g.gain.value = 0; g.connect(mkCtx.destination);
   const t = mkTracks[name] = { gain: g, buf: null, src: null };
   t.loading = (async () => { t.buf = await mkCtx.decodeAudioData(await (await readBlob(fileId, true)).arrayBuffer());
-    mkDurS = Math.max(mkDurS, t.buf.duration); if (mkPlaying) mkStartTrack(t, mkNow()); mkApply(); })();
+    mkDurS = Math.max(mkDurS, t.buf.duration); try { pvApply(name); } catch {} if (mkPlaying) mkStartTrack(t, mkNow()); mkApply(); })();
   return t.loading;
 }
 function mkApply() {
@@ -4219,7 +4254,7 @@ async function mkRefPaint(j, r, pi, by) {
 async function openMkJob(j, backTo) {
   goBack = backTo || (() => openStudent(j.sid, "mk"));
   if (!["done", "error"].includes(j.req.status)) return showProgress(j);
-  stopProg(); mkStop(); mkTracks = {}; mkDurS = 0; mkOffset = 0; mkBefore = false; mkRaw = false; mkJob = j; show("vMkJob");
+  stopProg(); mkStop(); mkTracks = {}; mkPv = { fixes: [], rendered: () => null, orig: {} }; mkDurS = 0; mkOffset = 0; mkBefore = false; mkRaw = false; mkJob = j; show("vMkJob");
   if (!j.files?.length) j.files = await list(j.folder.id);
   const r = j.req, by = (n) => j.files.find(f => f.name === n);
   const meas = r.result?.measure || {}, pi = r.result?.pitch || {};
@@ -4312,7 +4347,7 @@ async function openMkJob(j, backTo) {
     if (lvNow() > 0) lvOn = lvNow(); el.value = b.dataset.ab === "1" ? String(lvOn) : "0"; el.oninput(); });
   abPaint();
   mkRefPaint(j, r, pi, by);
-  const paintFixN = () => { const n = (r.target_fixes || []).filter(x => !x.cut).length, el = $("mkFixN"); if (el) el.innerHTML = n ? `✏️ 선생님이 고친 정음 <b>${n}곳</b> · 아래 버튼을 누르면 그 음으로 다시 보정해요` : ""; }; paintFixN();
+  const paintFixN = () => { const n = (r.target_fixes || []).filter(x => !x.cut).length, el = $("mkFixN"); if (el) el.innerHTML = n ? `✏️ 선생님이 고친 정음 <b>${n}곳</b> · 지금은 폰 미리듣기(간이)로 들려요 · 아래 버튼을 누르면 정식으로 다시 보정해요` : ""; }; paintFixN();
   if (tuneOk) tunePending($("mkTune"));
   let tuneWired = false;   // (11/02) 12초 안에 못 받으면 이유를 칸에 적음(빈 검은 칸으로 두지 않음)
   if (tuneOk) setTimeout(() => { if (!tuneWired && $("mkTune")) tunePending($("mkTune"), "음정선을 아직 못 받았어요 · 화면을 다시 열어 주세요"); }, 12000);
@@ -4326,8 +4361,13 @@ async function openMkJob(j, backTo) {
       onDelNote: (n) => { const i = tc.doc.notes.indexOf(n); if (i < 0) return; tnDo(() => tnRemove(tc, n)); Tune.undo("주석을 지웠어요", () => tnDo(() => { tc.doc.notes.splice(Math.min(i, tc.doc.notes.length), 0, n); tc.doc.deleted = (tc.doc.deleted || []).filter(d => d.id !== n.id); })); },
       onAdd: (tt) => Tune.sheet({ t0: Math.round(tt * 10) / 10, t1: Math.round(tt * 10) / 10, text: "", src: "teacher" }, { onSave: (u) => tnDo(() => tc.doc.notes.push({ ...u, id: "t" + Date.now().toString(36), src: "teacher" })) }) } : {};
     if (!$("mkTune")) return;
+    { const kt = Tune.tgCol(cv), o_ = cv._orig || (cv._orig = {});   // 저장만 하고 아직 다시 안 만든 고침: 막대를 그 음에 두고(서버가 맞춘 음은 _orig에) 미리듣기
+      for (const f of r.target_fixes || []) (cv.pts || []).forEach((p, i) => { if (kt && p[0] >= f.t0 - 0.001 && p[0] <= f.t1 + 0.001 && p[kt] != null) { if (!(i in o_)) o_[i] = p[kt]; p[kt] = f.midi * 100; } });
+      mkPv.rendered = (f) => { const i = (cv.pts || []).findIndex(p => p[0] >= f.t0 - 0.001 && p[0] <= f.t1 + 0.001 && p[kt] != null); return i < 0 ? null : Math.round((i in o_ ? o_[i] : cv.pts[i][kt]) / 100); };
+      mkPv.fixes = (r.target_fixes || []).slice(); try { pvApplyAll(); } catch {} }
     cv._fixes = (r.target_fixes || []).slice(); cv._src = (pi.ref?.segs || []).slice(); cv._midi = !!r.melody_id;   // 정음 막대 색 = 기준   // (11/02 15:48 사용자) 선생님이 고친 정음(노란 테두리)
     const onFix = async (f) => { const cur = (r.target_fixes || []).filter(x => !(x.t0 < f.t1 && x.t1 > f.t0)); if (f.midi != null) cur.push(f); r.target_fixes = cur.sort((a, b) => a.t0 - b.t0);
+      mkPv.fixes = r.target_fixes.slice(); try { pvApplyAll(); } catch (e) { console.warn("미리듣기", e); }
       try { await writeJSON(j.folder.id, MKREQ, r, j.reqId); paintFixN(); } catch (e) { toast("정음 저장 실패: " + errMsg(e)); } };   // (11/02 17:02) 바로 저장 — 알림은 창 안 '✓ 저장됨'으로
     Tune.wire($("mkTune"), cv, () => mkNow(), () => (mkRaw ? 0 : lvNow()), (t, still) => { const tt = Math.max(0, Math.min(t, mkDurS ? mkDurS - 0.05 : t)); if (still) { if (mkPlaying) mkStop(); mkOffset = tt; paintTransport(); return; } if (!mkPlaying) { mkOffset = tt; $("mkPP").click(); } else mkSeekTo(t); },
       { title: `${j.st?.name || ""} · ${r.title || "메이크업"}`, tapFull: true, teacher: true, lvDef: +(r.pitch_level ?? 2), play: () => $("mkPP")?.click(), paused: () => !mkPlaying, mode: () => (lvNow() > 0 ? "p" : "o"),
@@ -6009,7 +6049,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-02-1703-fixux";
+const BUILD = "2026-11-02-1711-pv";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
