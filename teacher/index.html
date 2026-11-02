@@ -510,7 +510,7 @@
 <div id="v2Shade" class="v2only"></div>
 <div id="toast"></div>
 <script src="../lesson-replies.js"></script>
-<script src="../tune.js?v=20261031-1548"></script>
+<script src="../tune.js?v=20261102-1530"></script>
 
 <script>
 // ── 설정 ────────────────────────────────────────────────
@@ -4170,6 +4170,10 @@ function paintTransport() {
 }
 function mkSeekTo(t) { t = Math.max(0, Math.min(t, mkDurS - 0.05)); if (mkPlaying) mkPlay(t); else { mkOffset = t; paintTransport(); } }
 
+function tunePending(c) {   // (11/02) 음정선 받는 동안 빈 검은 칸 대신 안내(받으면 그래프가 덮어 그림)
+  try { const w = c.clientWidth, h = c.clientHeight, r = window.devicePixelRatio || 1; if (!w || !h) return; c.width = w * r; c.height = h * r;
+    const g = c.getContext("2d"); g.scale(r, r); g.fillStyle = "#6b7480"; g.font = "13px system-ui, sans-serif"; g.textAlign = "center"; g.fillText("음정선 불러오는 중…", w / 2, h / 2); } catch {}
+}
 async function openMkJob(j, backTo) {
   goBack = backTo || (() => openStudent(j.sid, "mk"));
   if (!["done", "error"].includes(j.req.status)) return showProgress(j);
@@ -4263,7 +4267,8 @@ async function openMkJob(j, backTo) {
   document.querySelectorAll("#mkAb [data-ab]").forEach(b => b.onclick = () => { const el = $("mkPitch"); if (!el) return;
     if (lvNow() > 0) lvOn = lvNow(); el.value = b.dataset.ab === "1" ? String(lvOn) : "0"; el.oninput(); });
   abPaint();
-  if (tuneOk) readBlob(curveF.id, true).then(b => b.text()).then(s => { const cv = JSON.parse(s); if (!cv?.pts || !$("mkTune")) return;
+  if (tuneOk) tunePending($("mkTune"));
+  if (tuneOk) readBlob(curveF.id, true).then(b => b.text()).then(s => { const cv = JSON.parse(s); if (!cv?.pts || !$("mkTune")) throw new Error("음정선 형식");
     Tune.wire($("mkTune"), cv, () => mkNow(), () => (mkRaw ? 0 : lvNow()), (t, still) => { const tt = Math.max(0, Math.min(t, mkDurS ? mkDurS - 0.05 : t)); if (still) { if (mkPlaying) mkStop(); mkOffset = tt; paintTransport(); return; } if (!mkPlaying) { mkOffset = tt; $("mkPP").click(); } else mkSeekTo(t); },
       { title: "메이크업 · 바로 듣고 조절", play: () => $("mkPP")?.click(), paused: () => !mkPlaying, mode: () => (lvNow() > 0 ? "p" : "o"),
         setMode: (m) => document.querySelector(`#mkAb [data-ab="${m === "p" ? 1 : 0}"]`)?.click() });
@@ -5944,7 +5949,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-02-1150-worktime";
+const BUILD = "2026-11-02-1519-tunegap";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();

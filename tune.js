@@ -313,6 +313,16 @@
       g.font = (full ? "bold 15px" : "bold 11px") + " system-ui, sans-serif"; g.fillStyle = s.c; g.fillText(s.txt, x0, T + 4 + bh1 / 2);
       if (sub) { g.font = g2; g.fillStyle = "#a9b1bc"; g.fillText(sub, x0, T + 4 + bh1 + bh2 / 2 - 2); }
       g.restore(); }
+    // (11/02 15:15 사용자 '왜 안 보여?') 지금 화면에 부른 음이 없으면(전주·간주) 다음 노래 시각을 알려 줌 — 작은 화면은 톡 하면 그 자리로
+    if (st) st.gapNext = null;
+    if (!vis.length && (cv.pts || []).length) {
+      const nx = (cv.pts || []).find(p => p[0] > t + 0.3), pv = nx ? null : (cv.pts || []).at(-1);
+      if (nx && st) st.gapNext = nx[0];
+      const mmss = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+      const msg = nx ? `♪ 노래는 ${mmss(nx[0])}부터${full ? "" : " · 톡 하면 그 자리로"}` : pv ? "♪ 노래가 끝났어요" : "";
+      if (msg) { g.save(); g.font = (full ? "bold 16px" : "bold 13px") + " system-ui, sans-serif"; g.textAlign = "center"; const mx = L + (w - L) / 2, my = T + HP / 2, tw = g.measureText(msg).width;
+        g.fillStyle = "rgba(17,20,26,.88)"; g.fillRect(mx - tw / 2 - 10, my - 15, tw + 20, 30); g.fillStyle = "#ffe066"; g.fillText(msg, mx, my); g.restore(); }
+    }
     if (st) { let oy0 = 1e9, oy1 = -1e9; for (const p of vis) { for (const kk of [1, k]) { if (!kk || p[kk] == null) continue; const Y = y(p[kk]); if (Y < oy0) oy0 = Y; if (Y > oy1) oy1 = Y; } }   // 지금 화면의 음정선 높이 범위
       drawNotes(g, st, t, xs, L, w, T, H, full, tagB, oy0 <= oy1 ? [oy0, oy1] : null, vis, y); }
   }
@@ -373,6 +383,7 @@
       const d = drag; drag = null; clearTimeout(d.lp); st.hold = null; if (d.long) return;
       if (d.moved) { const t = preview; preview = null; if (t != null) seek(t, ctl); return; }
       if (canEdit) { const r = el.getBoundingClientRect(), hn = d.h0 || hitNote(st, e.clientX - r.left, e.clientY - r.top); if (hn) { if (ctl && !o.paused()) o.play(); if (hn.del) { o.onDelNote && o.onDelNote(hn.n); } else { lastView = view; o.onNote(hn.n); } return; } }
+      if (st.gapNext != null && o.paused && o.paused()) { seek(Math.max(0, st.gapNext - 1), true); return; }   // 전주에서 멈춰 있을 때 톡 = 노래 시작 1초 전으로
       if (ctl) { const was = o.paused(); o.play(); showMid(was ? "play" : "pause"); return; }   // 톡 = 재생·멈춤
       const r = el.getBoundingClientRect(), x = e.clientX - r.left;
       if (x > 30) seek(Math.max(0, d.t - WIN * HEAD + (x - 30) / span() * WIN));   // 조작 정보가 없으면 예전처럼 그 자리부터
