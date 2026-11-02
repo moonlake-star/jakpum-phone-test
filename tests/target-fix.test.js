@@ -38,3 +38,6 @@ console.log("intro ok");
   assert.ok(t.includes("#tuneFs .tfAbL{display:none}") && t.includes("#tuneFs .port .tfCtl .tfAb button{min-height:32px}#tuneFs .port .tfNav button{height:32px}"));
   assert.ok(!t.includes('<details class="tfHint">'), "사용법 문구는 그대로 보임");
   assert.ok(t.includes("if (!had && !sheetClose) try { history.pushState(") && t.includes("sheetClose = close_;"), "고치기 창도 뒤로 가기 기록 한 칸"); }
+// (11/02 20:31 사용자) 재생을 눌렀는데 아직 소리가 안 나오면 '소리 불러오는 중' 표시
+{ const t = require("fs").readFileSync(__dirname + "/../tune.js", "utf8");
+  assert.ok(t.includes("st.waitAt = performance.now()") && t.includes("<b>소리 불러오는 중…</b>") && t.includes('ppB.classList.contains("ld") ? "⏳"')); }
