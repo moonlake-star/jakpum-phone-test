@@ -11,7 +11,7 @@ assert.ok(/filter\(x => !\(x\.t0 < f\.t1 && x\.t1 > f\.t0\)\)/.test(onFixBody) &
 console.log("target-fix ok");
 assert.ok(tune.includes("data-cut") && tune.includes("fxOf(q[0]) === fxOf(p[0])"), "세로줄 자리에서 나누기 + 막대가 나눈 경계에서 끊김");
 assert.ok(!tune.includes('aria-label="이 음 듣기">♪') && tune.includes('nb.addEventListener("pointerdown"'), "음 이름 누르는 동안 소리");
-assert.ok(tune.includes("<small>← ${noteName(m0)}</small>") && tune.includes("white-space:nowrap"), "한 줄");
+assert.ok(tune.includes("<small>← ${noteName(mO)}</small>") && tune.includes("white-space:nowrap"), "한 줄");
 console.log("target-fix split ok");
 assert.ok(tune.includes("function introDraw(") && tune.includes("function waveOf(") && !tune.includes("초 뒤 노래 시작") && !tune.includes("다가오는 멜로디 미리보기(오른쪽") && tune.includes('class="tfSkip"'), "전주 화면");
 assert.ok(/#tuneFs \.tfMid\{position:absolute;left:50%;top:9%;width:48px/.test(tune), "일시정지 표시는 작게 위로(그래프 안 가림)");
@@ -21,3 +21,7 @@ assert.ok(tune.includes("paint(); preview(); persist(); tone(m)") && tune.includ
 console.log("intro ok");
 // (11/02 19:16 사용자) 정음 고치기 창이 떠 있으면 아래 원음/보정본·이동 버튼이 겹쳐 보이지 않게
 assert.ok(require("fs").readFileSync(__dirname + "/../tune.js", "utf8").includes("#tuneFs:has(.tfFix) .tfBot,#tuneFs:has(.tfFix) .tfSkip{visibility:hidden}"));
+// (11/02 19:20 사용자) '처음 음으로' = 서버가 처음 고른 음(이전에 고쳐 저장한 음 아님)
+{ const t = require("fs").readFileSync(__dirname + "/../tune.js", "utf8");
+  assert.ok(t.includes("mO = ov.length ? Math.round(ov[ov.length >> 1] / 100) : m0") && t.includes("m = mO; paint(); for (const i in snap) cv.pts[i][kt] = i in o0 ? o0[i] : snap[i];"));
+  assert.ok(t.includes("const f = { t0: T0, t1: T1, midi: isCut ? mO : null"), "고침 기록을 지움(나눈 조각은 나눔만 남김)"); }
