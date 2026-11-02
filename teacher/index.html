@@ -4113,7 +4113,7 @@ async function makeupFromLesson(cid, back) {
 // 미리듣기: 보컬(원음)·보컬(울림)·MR 세 갈래를 동시에 재생하며 비율만 바로 조절
 // ── 메이크업 미리듣기 엔진: 여러 갈래를 같은 시각에 함께 재생하고 '크기'만 바꿔 즉시 전환/조절 ──
 // 갈래: 애프터 보컬(음정 단계별 p0~p3) · 울림(센드 1.0) · MR · 비포 보컬 · 비포 MR
-const REV_UNIT = 0.00144;   // 리버브 1% = 센드 0.00144  → 15% = 표준(0.0216)
+const REV_UNIT = 0.00144;   // 리버브 1% = 센드 0.00144  → 15% = 표준(0.0216) · (11/02 15:22 사용자) 최대 50% → 100%
 const PITCH_NAMES = ["끔", "약", "중", "강"];
 let mkCtx = null, mkT0 = 0, mkOffset = 0, mkPlaying = false, mkTracks = {}, mkTick = null, mkBefore = false, mkRaw = false, mkJob = null, mkDurS = 0, mkBound = "center", mkHasW = false;
 function mkStop() { for (const t of Object.values(mkTracks)) { try { t.src?.stop(); } catch {} t.src = null; } mkPlaying = false; }
@@ -4170,9 +4170,9 @@ function paintTransport() {
 }
 function mkSeekTo(t) { t = Math.max(0, Math.min(t, mkDurS - 0.05)); if (mkPlaying) mkPlay(t); else { mkOffset = t; paintTransport(); } }
 
-function tunePending(c) {   // (11/02) 음정선 받는 동안 빈 검은 칸 대신 안내(받으면 그래프가 덮어 그림)
+function tunePending(c, msg = "음정선 불러오는 중…") {   // (11/02) 음정선 받는 동안 빈 검은 칸 대신 안내(받으면 그래프가 덮어 그림)
   try { const w = c.clientWidth, h = c.clientHeight, r = window.devicePixelRatio || 1; if (!w || !h) return; c.width = w * r; c.height = h * r;
-    const g = c.getContext("2d"); g.scale(r, r); g.fillStyle = "#6b7480"; g.font = "13px system-ui, sans-serif"; g.textAlign = "center"; g.fillText("음정선 불러오는 중…", w / 2, h / 2); } catch {}
+    const g = c.getContext("2d"); g.scale(r, r); g.fillStyle = "#6b7480"; g.font = "13px system-ui, sans-serif"; g.textAlign = "center"; g.fillText(msg, w / 2, h / 2); } catch {}
 }
 async function openMkJob(j, backTo) {
   goBack = backTo || (() => openStudent(j.sid, "mk"));
@@ -4213,7 +4213,7 @@ async function openMkJob(j, backTo) {
         : `<p class="muted">음정 보정은 ‘이 설정으로 완성본 다시 만들기’를 한 번 하면 생겨요.</p>`}
       <div style="margin-top:8px">보컬 크기 <b id="mkVolT"></b><input type="range" id="mkVol" min="-6" max="6" step="0.5" value="0" style="width:100%"></div>
       <div>MR 크기 <b id="mkMrT"></b><input type="range" id="mkMr" min="-6" max="6" step="0.5" value="0" style="width:100%"></div>
-      <div class="mkFx">리버브(울림) <b id="mkRevT"></b><input type="range" id="mkRev" min="0" max="50" step="1" value="${revNow}" style="width:100%"></div>
+      <div class="mkFx">리버브(울림) <b id="mkRevT"></b><input type="range" id="mkRev" min="0" max="100" step="1" value="${revNow}" style="width:100%"></div>
       ${pi.tendency ? `<details id="mkReview" style="margin-top:8px"><summary><b>음정 판단 확인</b> <span class="muted">선택 · 이 수강생 음정 보정 학습에 쓰여요</span></summary>
         <p class="muted" style="margin:4px 0">기계가 어느 음을 노렸는지 확신 못 한 곳이에요. 들어 보고 맞는 음을 눌러 주세요(모르면 건너뛰기).</p>
         ${(pi.tendency.uncertain || []).map(u => `<div class="row" style="gap:4px;margin:3px 0;flex-wrap:nowrap"><button class="small ghost mkU" data-t="${u.t0}">▶ ${fmt(u.t0)}</button>
@@ -4268,11 +4268,14 @@ async function openMkJob(j, backTo) {
     if (lvNow() > 0) lvOn = lvNow(); el.value = b.dataset.ab === "1" ? String(lvOn) : "0"; el.oninput(); });
   abPaint();
   if (tuneOk) tunePending($("mkTune"));
+  let tuneWired = false;   // (11/02) 12초 안에 못 받으면 이유를 칸에 적음(빈 검은 칸으로 두지 않음)
+  if (tuneOk) setTimeout(() => { if (!tuneWired && $("mkTune")) tunePending($("mkTune"), "음정선을 아직 못 받았어요 · 화면을 다시 열어 주세요"); }, 12000);
   if (tuneOk) readBlob(curveF.id, true).then(b => b.text()).then(s => { const cv = JSON.parse(s); if (!cv?.pts || !$("mkTune")) throw new Error("음정선 형식");
+    tuneWired = true;
     Tune.wire($("mkTune"), cv, () => mkNow(), () => (mkRaw ? 0 : lvNow()), (t, still) => { const tt = Math.max(0, Math.min(t, mkDurS ? mkDurS - 0.05 : t)); if (still) { if (mkPlaying) mkStop(); mkOffset = tt; paintTransport(); return; } if (!mkPlaying) { mkOffset = tt; $("mkPP").click(); } else mkSeekTo(t); },
       { title: "메이크업 · 바로 듣고 조절", play: () => $("mkPP")?.click(), paused: () => !mkPlaying, mode: () => (lvNow() > 0 ? "p" : "o"),
         setMode: (m) => document.querySelector(`#mkAb [data-ab="${m === "p" ? 1 : 0}"]`)?.click() });
-  }).catch(() => { const c = $("mkTune"); if (c) c.replaceWith(Object.assign(document.createElement("p"), { className: "muted", textContent: "음정선을 불러오지 못했어요" })); });
+  }).catch((e) => { tuneWired = true; console.warn("음정선", e); const c = $("mkTune"); if (c) c.replaceWith(Object.assign(document.createElement("p"), { className: "muted", textContent: "음정선을 불러오지 못했어요 (" + String(e?.message || e).slice(0, 60) + ")" })); });
   // 슬라이더가 기본값에 닿으면 짧고 약한 진동(안드로이드). 기본값: 보컬 0dB · 리버브 15% · MR 0dB · 음정 '중'
   const DEF = { mkVol: 0, mkRev: 15, mkMr: 0, mkPitch: 2 };
   for (const [id, d] of Object.entries(DEF)) { const el = $(id); if (!el) continue; let prev = +el.value;
@@ -5949,7 +5952,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-02-1519-tunegap";
+const BUILD = "2026-11-02-1525-rev100";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
