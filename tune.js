@@ -477,16 +477,21 @@
     const mm = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
     d.innerHTML = `<div class="tfFixBox"><b>정음 고치기</b> <span style="color:#9aa3ad;font-size:13px">${mm(b.t0)}~${mm(b.t1)}</span>
       <div class="tfFixRow"><button type="button" data-d="-1" aria-label="반음 아래">▼</button><button type="button" class="tfFixN" data-p aria-label="누르는 동안 이 음 소리"></button><button type="button" data-d="1" aria-label="반음 위">▲</button></div>
-      ${tNow > b.t0 + 0.08 && tNow < b.t1 - 0.08 ? `<div class="tfFixRow"><button type="button" data-cut>✂ 지금 자리(${mm(tNow)}.${Math.floor((tNow % 1) * 10)})에서 두 음으로 나누기</button></div>` : ""}
+      ${tNow > b.t0 + 0.08 && tNow < b.t1 - 0.08 ? `<div class="tfFixRow"><button type="button" data-cut>✂ ${mm(tNow)}.${Math.floor((tNow % 1) * 10)}에서 두 음으로 나누기</button></div>` : ""}
       <div class="tfFixRow"><button type="button" data-x>취소</button>${fixed ? `<button type="button" data-r>원래대로</button>` : ""}<button type="button" data-s class="pri">저장</button></div>
       <p style="margin:6px 0 0;color:#9aa3ad;font-size:12px">저장한 정음은 ‘완성본 다시 만들기’ 때 반영돼요</p></div>`;
     host.appendChild(d);
     const paint = () => { d.querySelector(".tfFixN").innerHTML = `${noteName(m)}${m !== m0 ? `<small>← ${noteName(m0)}</small>` : ""}`; }; paint();
     const apply = (mid) => { const cur = cv._orig || (cv._orig = {});
       (cv.pts || []).forEach((p, i) => { if (p[0] >= b.t0 - 0.001 && p[0] <= b.t1 + 0.001 && p[kt] != null) { if (!(i in cur)) cur[i] = p[kt]; p[kt] = mid == null ? cur[i] : mid * 100; } }); };
+    // (11/02 16:57 사용자) ▼▲ 누르면 막대(노란 테두리)가 바로 따라 움직임 · 취소하면 원래 자리로
+    const prior = (cv._fixes || []).slice(), snap = {};
+    (cv.pts || []).forEach((p, i) => { if (p[0] >= b.t0 - 0.001 && p[0] <= b.t1 + 0.001 && p[kt] != null) snap[i] = p[kt]; });
+    const preview = () => { const o_ = cv._orig || (cv._orig = {}); for (const i in snap) { if (!(i in o_)) o_[i] = snap[i]; cv.pts[i][kt] = m * 100; } cv._fixes = prior.filter(x => !(x.t0 < b.t1 && x.t1 > b.t0)).concat(m === m0 && !fixed ? [] : [{ t0: b.t0, t1: b.t1, midi: m }]); };
+    const revert = () => { for (const i in snap) cv.pts[i][kt] = snap[i]; cv._fixes = prior; };
     const shut = () => { toneOff(); d.remove(); };
     d.addEventListener("pointerdown", (e) => e.stopPropagation()); d.addEventListener("contextmenu", (e) => e.preventDefault());
-    d.querySelectorAll("[data-d]").forEach(x => x.onclick = () => { m += +x.dataset.d; paint(); tone(m); setTimeout(toneOff, 500); });
+    d.querySelectorAll("[data-d]").forEach(x => x.onclick = () => { m += +x.dataset.d; paint(); preview(); tone(m); setTimeout(toneOff, 500); });
     const nb = d.querySelector("[data-p]");   // (11/02 16:36 사용자) 음 이름을 누르는 동안 그 음 소리(길게 눌러도 진동·선택 없이)
     nb.addEventListener("pointerdown", (e) => { e.preventDefault(); tone(m); }); ["pointerup", "pointerleave", "pointercancel"].forEach(ev => nb.addEventListener(ev, toneOff));
     const cut = d.querySelector("[data-cut]");
@@ -494,7 +499,7 @@
       const ts = +tNow.toFixed(2), a = { t0: +b.t0.toFixed(2), t1: ts, midi: m0 }, c = { t0: ts, t1: +b.t1.toFixed(2), midi: m0 };
       cv._fixes = (cv._fixes || []).filter(x => !(x.t0 < b.t1 && x.t1 > b.t0)).concat([a, c]);
       try { onFix(a); onFix(c); } catch {} shut(); };
-    d.querySelector("[data-x]").onclick = shut;
+    d.querySelector("[data-x]").onclick = () => { revert(); shut(); };
     const r = d.querySelector("[data-r]"); if (r) r.onclick = () => { apply(null); cv._fixes = (cv._fixes || []).filter(x => !(x.t0 < b.t1 && x.t1 > b.t0)); try { onFix({ t0: b.t0, t1: b.t1, midi: null }); } catch {} shut(); };
     d.querySelector("[data-s]").onclick = () => { if (m === m0 && !fixed) return shut(); apply(m); cv._fixes = (cv._fixes || []).filter(x => !(x.t0 < b.t1 && x.t1 > b.t0)).concat([{ t0: b.t0, t1: b.t1, midi: m }]);
       try { onFix({ t0: +b.t0.toFixed(2), t1: +b.t1.toFixed(2), midi: m }); } catch {} shut(); };
