@@ -244,7 +244,8 @@
   function introDraw(g, cv, st, t, nx, m) {
     const { L, w, T, HP, t0, W8, y, kt } = m, left = Math.max(0, nx[0] - t), sec = Math.ceil(left), mmss = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
     const wv = typeof st.wave === "function" ? waveOf(st.wave()) : null, now = performance.now();
-    g.save();
+    g.save(); g.globalAlpha = Math.max(0, Math.min(1, (left - 0.4) / 2.6));   // (11/02 16:53 사용자) 노래 3초 전쯤부터 스르륵 사라짐
+    if (g.globalAlpha <= 0) { g.restore(); return; }
     if (wv) {   // 반주 크기 파형(아래쪽, 흐리게)
       const bh = HP * 0.26, by = T + HP - 4, bw = Math.max(2, (w - L) / (W8 / wv.hop) - 1);
       for (let x = L; x < w; x += bw + 1) { const tt = t0 + (x - L) / (w - L) * W8, i = Math.floor(tt / wv.hop); if (i < 0 || i >= wv.pk.length) continue;
@@ -253,7 +254,7 @@
         g.fillStyle = `rgba(255,159,90,${(0.3 + 0.7 * a).toFixed(2)})`; g.beginPath(); g.arc(xs0, T + HP * 0.3, 5 + 5 * a, 0, 7); g.fill(); }
     }
     // 카운트다운
-    const cx = L + (w - L) / 2, big = sec <= 3 ? 64 : 48;
+    const cx = L + (w - L) / 2, big = 48;
     g.textAlign = "center"; g.textBaseline = "middle"; g.fillStyle = "#ffe066"; g.font = `900 ${big}px system-ui, sans-serif`; g.fillText(String(sec), cx, T + HP * 0.16 + 10);
     // 첫 음 건반 깜빡임
     const fm = Math.round((kt && nx[kt] != null ? nx[kt] : nx[1]) / 100), fy = y(fm * 100), blink = 0.45 + 0.55 * Math.abs(Math.sin(now / 380));
