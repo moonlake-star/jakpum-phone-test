@@ -1129,6 +1129,7 @@ function paintList(data, stale) {
   $("reload").onclick = (e) => { e.preventDefault(); renderList(); };
   $("calBtn").onclick = () => openCal();
   if ($("nsBtn")) $("nsBtn").onclick = () => newStudentSheet();
+  if (!isStaffApp()) staffPortalSync().catch(() => {});
   if (isStaffApp()) asgStaffCheck().catch(() => {});
   else if (Object.keys(staffOf()).length) asgOwnerTodos().then(xs => { const box = $("vList").querySelector(".card"); if (!xs.length || !box) return;
     box.insertAdjacentHTML("beforeend", xs.map(x => `<div class="todo-item"><span>${esc(x.t)}</span><span class="chip todo">${esc(x.c)}</span></div>`).join("")); }).catch(() => {});
@@ -1397,7 +1398,7 @@ function staffConfigFor(c, tid) {   // 강사에게 보여 줄 설정: 그 강�
   return { role: "teacher", staff_id: tid, name: s.name || "", students, practice_check: !!c.practice_check, sys: s.sys || "", folder: s.folder || "",
     ...(c.student_page_url ? { student_page_url: c.student_page_url } : {}), updated_at: new Date().toISOString() };
 }
-async function staffSync(tid) { const s = staffOf()[tid]; if (!s?.cfg_id) return; await writeJSON(null, "config.json", staffConfigFor(cfg, tid), s.cfg_id); }
+async function staffSync(tid) { const s = staffOf()[tid]; if (!s?.cfg_id) return; await writeJSON(null, "config.json", staffConfigFor(cfg, tid), s.cfg_id); staffPortalSync().catch(() => {}); }
 async function joinCreateStaff(rawName, email) {
   const name = joinStudentName(rawName), em = String(email || "").trim().toLowerCase();
   if (!/^[^@\s]+@[^@\s]+$/.test(em)) throw new Error("이메일을 확인해 주세요");
@@ -1602,7 +1603,7 @@ function schEditSheet(x, by, onDone) {   // 강사 앱: 레슨 한 줄 → 시�
 }
 let lastJoinHtml = "";   // (2026-10-27 사용자: 목록이 늦게 밀려 엉뚱한 곳이 눌림) 지난번 가입 카드를 바로 그려 자리를 유지
 async function paintJoinRequests() {
-  const el = $("joinReq"); if (!el || !portalUrl()) return;
+  const el = $("joinReq"); if (!el || !portalUrl() || isStaffApp()) return;   // 가입 신청 승인은 원장만(강사는 레슨 화면에서 담당 수강생 계정 연결)
   try {
     const { rows, requests } = await loadAccounts();
     closeWithdrawn(rows).catch(() => {});
@@ -1954,6 +1955,7 @@ async function refreshSched(me) {   // 서버의 실제 상태를 다시 조회(
     const j = await portal("t_state");
     s.caps = schedCapable(j); s.serverNow = j.server_now || null;
     s.entry = s.caps ? (j.notes.find(n => n.sid === me.sid && n.lesson_id === me.folder.id) || null) : null; s.err = null;
+    s.acct = (j.accounts || []).filter(a => a.sid === me.sid && a.state === "approved").map(a => a.email);   // 수강생 노트 계정(연결된 구글 주소)
   } catch (e) { s.caps = null; s.entry = null; s.err = e.message; }
   return s;
 }
@@ -2617,6 +2619,39 @@ function wireFeedbackPreview(me) {
     if (msg) msg.textContent = saved ? "고친 문구를 저장했어요. ‘검수 저장’을 누르면 수강생 노트에 반영돼요." : "저장하지 못했어요. 수정 내용은 이 화면에 남아 있으니 다시 저장해 주세요.";
   };
 }
+// (11/02 사용자 시안 ⑤) 수강생 노트 계정이 없으면: 구글 계정 요청 카톡 복사 → 받은 주소 적기 → 바로 연결(강사는 담당 수강생만)
+const acctAskText = (name) => `${name}님, 레슨 노트를 보내 드리려고 해요. 쓰시는 구글(지메일) 주소를 알려 주시겠어요? 알려 주시면 그 계정으로 로그인해서 레슨 녹음·피드백을 보실 수 있어요.`;
+const acctMask = (em) => String(em).replace(/^(.{2})[^@]*/, "$1***");
+function acctHTML(me, s) {
+  if (!s || s.caps == null || !Array.isArray(s.acct)) return "";
+  if (s.acct.length) return `<p class="muted" style="margin:6px 0 0">🔗 수강생 노트 계정 연결됨 · ${s.acct.map(acctMask).map(esc).join(", ")}</p>`;
+  return `<div style="margin-top:10px;border-top:1px solid #8884;padding-top:8px"><b>🔗 수강생 노트 계정이 아직 없어요</b>
+    <p class="muted" style="margin:2px 0">${esc(me.st?.name || "")} 님 구글 주소를 받아 적으면 노트 링크로 바로 볼 수 있어요</p>
+    <button type="button" class="small ghost" id="acctAsk">💬 구글 계정 요청 카톡 복사</button>
+    <div class="row" style="gap:6px;margin-top:6px;flex-wrap:nowrap"><input id="acctMail" type="email" placeholder="받은 주소 예: hana@gmail.com" style="flex:1;min-width:0"><button type="button" class="small" id="acctGo">연결</button></div>
+    <p class="muted" id="acctMsg" style="margin:4px 0 0"></p></div>`;
+}
+function acctWire(me, s) {
+  const a = $("acctAsk"), g = $("acctGo"); if (!a || !g) return;
+  a.onclick = async () => { try { await navigator.clipboard.writeText(acctAskText(me.st?.name || "")); toast("복사했어요. 카톡에 붙여넣기 하세요"); } catch { toast("복사하지 못했어요. 다시 눌러 주세요"); } };
+  g.onclick = async () => {
+    const em = $("acctMail").value.trim().toLowerCase(), msg = $("acctMsg");
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) { msg.textContent = "구글 주소를 확인해 주세요"; return; }
+    g.disabled = true; msg.textContent = "연결하는 중…";
+    try { await portal("t_account", { email: em, sid: me.sid, state: "approved", name: me.st?.name || "" }); s.acct = [em]; toast("연결했어요 · 이제 이 계정으로 노트를 볼 수 있어요");
+      const sl = $("acctSlot"); if (sl) sl.innerHTML = acctHTML(me, s); }
+    catch (e) { g.disabled = false; msg.textContent = /알 수 없는 요청|선생님 계정이 아님|강사 계정은/.test(e.message) ? "수강생 노트 서버가 아직 강사 연결을 몰라요 · 원장님이 서버를 다시 배포하면 돼요" : errMsg(e); }
+  };
+}
+// 원장 앱: 강사 담당 수강생 목록을 수강생 노트 서버에 알려 줌(강사가 자기 수강생 노트를 게시·연결할 수 있게). 바뀔 때만
+async function staffPortalSync(force) {
+  if (isStaffApp() || (typeof isDemo === "function" && isDemo()) || !portalUrl()) return;
+  const done = LS.get("vn_staff_portal") || {};
+  for (const [tid, s] of Object.entries(staffOf())) { if (!s.email) continue;
+    const sids = Object.entries(cfg.students || {}).filter(([, x]) => x?.teacher_id === tid && !x.consent_withdrawn).map(([k]) => k).sort(), key = s.email + "|" + sids.join(",");
+    if (!force && done[tid] === key) continue;
+    try { await portal("t_staff", { email: s.email, tid, sids }); done[tid] = key; LS.set("vn_staff_portal", done); } catch {} }
+}
 let sendBtnsEl = null;   // '긴 글로 복사·클립 보내기' 묶음(처음 한 번 연결된 버튼을 ② 자리로 옮겨 씀)
 function paintDeliver() {
   const el = $("deliverBox"); if (!el) return;
@@ -2636,7 +2671,7 @@ function paintDeliver() {
   const pvBox = $("pvBox");
   const pubOk = st === "published" || st === "published_stale";
   const kakaoBlock = `<div style="margin-top:10px;border-top:1px solid #8884;padding-top:8px"><b>② 카톡 보내기</b>
-      <p class="muted" style="margin:2px 0">보낼 글 = 위 ‘수강생 노트’의 선생님 한마디(한 곳에서만 고쳐요) + 노트 링크 1번${pubOk ? "" : " · ⚠ 아직 공개 전이라 링크를 열어도 노트가 안 보여요"}</p><div id="step2Slot"></div>
+      <p class="muted" style="margin:2px 0">보낼 글 = 위 ‘수강생 노트’의 선생님 한마디(한 곳에서만 고쳐요) + 노트 링크 1번${pubOk ? "" : " · ⚠ 아직 공개 전이라 링크를 열어도 노트가 안 보여요"}</p><div id="step2Slot"></div><div id="acctSlot">${acctHTML(me, s)}</div>
       <div style="margin-top:10px;border-top:1px solid #8884;padding-top:8px"><b>③ 보냈으면 표시</b> <button class="small ghost" id="btnKakaoMark">${sentAt ? "✓ 보냄 표시 취소" : "카톡 전송 완료 표시"}</button>
         <span class="chip ${sentAt ? "ok" : "todo"}">${sentAt ? "보냄 " + esc(fmtVisible(sentAt).kst) : "아직 안 보냄"}</span>${me.note ? ` <span id="seenChip" class="chip">아직 안 읽음</span>` : ""}
         <p class="muted" style="margin:4px 0">복사·클립 보내기만으로는 보낸 걸로 치지 않아요. 직접 보낸 뒤 눌러 주세요. 안 누르면 앱 알림으로 다시 알려 드려요.</p></div></div>`;
@@ -2691,6 +2726,7 @@ function paintDeliver() {
   if (pvBox) { if (!document.activeElement?.closest?.("#pvBox") || !pvBox.innerHTML.includes("pvWrap")) pvBox.innerHTML = preview; }   // 고치는 중이면 다시 그리지 않음(커서·한글 조합 보호)
   else el.insertAdjacentHTML("afterbegin", preview);
   { const slot = $("step2Slot"); if (slot && sendBtnsEl) slot.appendChild(sendBtnsEl); }
+  acctWire(me, s);
   wireFeedbackPreview(me);
   { const pv = $("pvWrap"); if (pv) pv.ontoggle = () => { s.pvOpen = pv.open; }; }
   $("btnKakaoMark").onclick = async () => {   // ③ 하나로: 카톡 보냄(알림용)과 '피드백 보냄'(목록 표시)을 같이
@@ -5844,7 +5880,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-02-0936-staffnote";
+const BUILD = "2026-11-02-1012-acct";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
