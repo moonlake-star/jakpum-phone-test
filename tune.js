@@ -228,6 +228,46 @@
     if (!cv._src) return "rgba(127,217,154,.28)";
     const s = cv._src.find(x => tt >= x[0] && tt <= x[1]); return s ? SRC_C[s[3]] || SRC_C.sheet : cv._midi ? SRC_C.midi : SRC_C.scale;
   }
+  // ── (11/02 16:45 사용자 시안 승인) 전주·간주 화면: 카운트다운 · 반주 파형 · 박자 점 · 다가오는 멜로디 미리보기 · 첫 음 건반 ──
+  function waveOf(buf) {   // AudioBuffer → 0.05초마다 크기 + 박자(주기·위상) 추정. 한 번만 계산해 둠
+    if (!buf || !buf.getChannelData) return null; if (buf._jw) return buf._jw;
+    const sr = buf.sampleRate, hop = Math.round(sr * 0.05), n = Math.floor(buf.length / hop), ch = [];
+    for (let c = 0; c < Math.min(2, buf.numberOfChannels); c++) ch.push(buf.getChannelData(c));
+    const pk = new Float32Array(n);
+    for (let i = 0; i < n; i++) { let m = 0; for (const d of ch) for (let j = i * hop, e = j + hop; j < e; j += 8) { const v = Math.abs(d[j]); if (v > m) m = v; } pk[i] = m; }
+    let mx = 0; for (const v of pk) if (v > mx) mx = v; if (mx > 0) for (let i = 0; i < n; i++) pk[i] /= mx;
+    const on = new Float32Array(n); for (let i = 1; i < n; i++) on[i] = Math.max(0, pk[i] - pk[i - 1]);
+    let bl = 0, bs = 0; for (let L = 7; L <= 20; L++) { let s = 0; for (let i = L; i < n; i++) s += on[i] * on[i - L]; if (s > bs) { bs = s; bl = L; } }   // 0.35~1초(60~170BPM)
+    let ph = 0, pb = -1; if (bl) for (let p = 0; p < bl; p++) { let s = 0; for (let i = p; i < n; i += bl) s += on[i]; if (s > pb) { pb = s; ph = p; } }
+    return (buf._jw = { pk, hop: 0.05, per: bl * 0.05, ph: ph * 0.05 });
+  }
+  function introDraw(g, cv, st, t, nx, m) {
+    const { L, w, T, HP, t0, W8, y, kt } = m, left = Math.max(0, nx[0] - t), sec = Math.ceil(left), mmss = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+    const wv = typeof st.wave === "function" ? waveOf(st.wave()) : null, now = performance.now();
+    g.save();
+    if (wv) {   // 반주 크기 파형(아래쪽, 흐리게)
+      const bh = HP * 0.26, by = T + HP - 4, bw = Math.max(2, (w - L) / (W8 / wv.hop) - 1);
+      for (let x = L; x < w; x += bw + 1) { const tt = t0 + (x - L) / (w - L) * W8, i = Math.floor(tt / wv.hop); if (i < 0 || i >= wv.pk.length) continue;
+        const h = wv.pk[i] * bh; g.fillStyle = tt <= t ? "rgba(127,138,153,.55)" : "rgba(127,138,153,.3)"; g.fillRect(x, by - h, bw, h); }
+      if (wv.per) { const ph = ((t - wv.ph) % wv.per + wv.per) % wv.per, a = Math.max(0, 1 - ph / (wv.per * 0.6)), xs0 = L + (t - t0) / W8 * (w - L);   // 박자 점(세로줄 위)
+        g.fillStyle = `rgba(255,159,90,${(0.3 + 0.7 * a).toFixed(2)})`; g.beginPath(); g.arc(xs0, T + HP * 0.3, 5 + 5 * a, 0, 7); g.fill(); }
+    }
+    // 카운트다운
+    const cx = L + (w - L) / 2, big = sec <= 3 ? 64 : 48;
+    g.textAlign = "center"; g.textBaseline = "middle"; g.fillStyle = "#ffe066"; g.font = `900 ${big}px system-ui, sans-serif`; g.fillText(String(sec), cx, T + HP * 0.16 + 10);
+    g.font = "13px system-ui, sans-serif"; g.fillStyle = "#9aa3ad"; g.fillText(`초 뒤 노래 시작 · ${mmss(nx[0])}`, cx, T + HP * 0.16 + 48);
+    // 다가오는 멜로디 미리보기(오른쪽 끝, 점선) — 첫 소절 4초
+    const up = (cv.pts || []).filter(p => p[0] >= nx[0] && p[0] < nx[0] + 4), gx0 = L + (w - L) * 0.66, gw = w - 6 - gx0;
+    g.setLineDash([4, 3]); g.strokeStyle = "rgba(255,224,102,.8)"; g.lineWidth = 2; g.beginPath(); let pr = null;
+    for (const p of up) { const c = kt && p[kt] != null ? p[kt] : p[1], X = gx0 + (p[0] - nx[0]) / 4 * gw, Y = y(c); if (pr != null && p[0] - pr < 0.13) g.lineTo(X, Y); else g.moveTo(X, Y); pr = p[0]; }
+    g.stroke(); g.setLineDash([]);
+    // 첫 음 건반 깜빡임 + 안내
+    const fm = Math.round((kt && nx[kt] != null ? nx[kt] : nx[1]) / 100), fy = y(fm * 100), blink = 0.45 + 0.55 * Math.abs(Math.sin(now / 380));
+    g.fillStyle = `rgba(255,159,90,${blink.toFixed(2)})`; g.fillRect(0, fy - 9, L - 3, 18);
+    const lab = `첫 음 ${noteName(fm)} · 건반 톡 = 미리 듣기`; g.font = "bold 13px system-ui, sans-serif"; g.textAlign = "left"; const tw = g.measureText(lab).width;
+    g.fillStyle = "#ff9f5a"; g.fillRect(L + 8, fy - 13, tw + 16, 26); g.fillStyle = "#111"; g.fillText(lab, L + 16, fy + 1);
+    g.restore();
+  }
   function tgCol(cv) { return cv.target ? 2 + (cv.levels || []).length : 0; }   // 정음(목표음) 열(서버 v2부터)
   function draw(el, cv, t, lv, st) {
     if (!el || !el.getContext || !cv) return;
@@ -345,7 +385,8 @@
       if (nx && st) st.gapNext = nx[0];
       const mmss = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
       const msg = nx ? `♪ 노래는 ${mmss(nx[0])}부터${full ? "" : " · 톡 하면 그 자리로"}` : pv ? "♪ 노래가 끝났어요" : "";
-      if (msg) { g.save(); g.font = (full ? "bold 16px" : "bold 13px") + " system-ui, sans-serif"; g.textAlign = "center"; const mx = L + (w - L) / 2, my = T + HP / 2, tw = g.measureText(msg).width;
+      if (full && nx && st) { introDraw(g, cv, st, t, nx, { L, w, T, HP, t0, W8, y, kt }); }
+      else if (msg) { g.save(); g.font = (full ? "bold 16px" : "bold 13px") + " system-ui, sans-serif"; g.textAlign = "center"; const mx = L + (w - L) / 2, my = T + HP / 2, tw = g.measureText(msg).width;
         g.fillStyle = "rgba(17,20,26,.88)"; g.fillRect(mx - tw / 2 - 10, my - 15, tw + 20, 30); g.fillStyle = "#ffe066"; g.fillText(msg, mx, my); g.restore(); }
     }
     if (st) { let oy0 = 1e9, oy1 = -1e9; for (const p of vis) { for (const kk of [1, k]) { if (!kk || p[kk] == null) continue; const Y = y(p[kk]); if (Y < oy0) oy0 = Y; if (Y > oy1) oy1 = Y; } }   // 지금 화면의 음정선 높이 범위
@@ -472,12 +513,12 @@
     wrap.innerHTML = `<div class="tfBox"><div class="tfTop"><b class="tfTitle">${String(o.title || "음정선").replace(/[<>&]/g, "")}</b><span class="tfTime"></span>
       <button type="button" class="tfX tfXp" aria-label="닫기"><i>✕</i>닫기</button><span class="tfBr"></span><span class="tfLeg"><span><i style="background:rgba(127,217,154,.6);height:8px"></i>정음</span><span><i style="background:#ffe066"></i>부른 음</span><span><i style="background:#7fd9ff"></i>보정 후</span><span class="tfLegC"><i style="background:#ffd27a;opacity:.6"></i>고친 곳</span></span>
       <button type="button" class="tfX" aria-label="닫기"><i>✕</i>닫기</button></div>
-      <div class="tfCvBox"><canvas class="tfCv"></canvas><span class="tfMid" aria-hidden="true"></span><span class="tfBye" aria-live="polite">닫을 때는 <b>✕</b> 또는 폰의 <b>뒤로 가기</b></span></div>
+      <div class="tfCvBox"><canvas class="tfCv"></canvas><span class="tfMid" aria-hidden="true"></span><button type="button" class="tfSkip" hidden>⏩ 노래 시작 1초 전으로</button><span class="tfBye" aria-live="polite">닫을 때는 <b>✕</b> 또는 폰의 <b>뒤로 가기</b></span></div>
       <div class="tfBot"><span class="tfHint">톡 = 재생·멈춤 · 좌우로 밀면 이동<span class="tfSep"> · </span><br>두 손가락으로 벌리면 확대 · 두 번 톡 = 원래 크기<span class="tfSep"> · </span><br>${typeof o.onFix === "function" ? "건반 = 그 음 소리 · 멈춘 뒤 초록 정음 막대 톡 = 정음 고치기" : "왼쪽 건반을 누르면 그 음 소리"}</span>
       <span class="tfCtl">${hasAb ? `<span class="tfAb"><button type="button" data-m="o">원음</button><button type="button" data-m="p">✨ 보정본</button></span>` : ""}<span class="tfNav"><button type="button" data-j="0" aria-label="처음으로">⏮ 처음</button><button type="button" data-j="-5" aria-label="5초 뒤로">-5초</button><button type="button" class="tfPP" data-pp="1" aria-label="재생/일시정지">▶</button><button type="button" data-j="5" aria-label="5초 앞으로">+5초</button></span></span>
       <span class="tfNote">자동 단순 보정이라 정확하지 않을 수 있어요.<br>정식 음원은 전문 엔지니어가 한 음 한 음 더 정밀하게 다듬어요.</span></div></div>`;
     document.body.appendChild(wrap);
-    const box = wrap.querySelector(".tfBox"), cvEl = wrap.querySelector(".tfCv"), st = { full: true, xz: 1, yz: 1, yc: null, panAt: 0, notes: o.notes, teacher: !!o.teacher, lvDef: o.lvDef };
+    const box = wrap.querySelector(".tfBox"), cvEl = wrap.querySelector(".tfCv"), st = { full: true, xz: 1, yz: 1, yc: null, panAt: 0, notes: o.notes, teacher: !!o.teacher, lvDef: o.lvDef, wave: o.wave };
     const rot = false;   // (10/30 17:51 사용자) 가로도 남김 — 세로로 들면 세로, 폰을 돌리면 가로
     const layout = () => { const W = G.innerWidth, H = G.innerHeight, port = H > W;
       box.style.width = W + "px"; box.style.height = H + "px"; box.style.transform = "translate(-50%,-50%)";
@@ -511,7 +552,9 @@
     fsClose = done;
     const close = () => { const sh = !!sheetClose; if (sh) sheetClose(true); done(); try { if (history.state && history.state.tuneFs) { skipPop = true; history.go(sh && history.state.tuneSheet ? -2 : -1); } } catch {} };   // 주석 창이 열린 채 닫으면 그 기록까지 같이 정리
     wrap.querySelectorAll(".tfX").forEach(b => b.onclick = close);
-    const tm = wrap.querySelector(".tfTime"), mid = wrap.querySelector(".tfMid");
+    const tm = wrap.querySelector(".tfTime"), mid = wrap.querySelector(".tfMid"), skipB = wrap.querySelector(".tfSkip");
+    skipB.addEventListener("pointerdown", (e) => e.stopPropagation());
+    skipB.onclick = () => { if (st.gapNext != null) { st.panAt = 0; try { seek(Math.max(0, st.gapNext - 1), typeof o.paused === "function" ? o.paused() : true); } catch {} } };
     const isPaused = () => (typeof o.paused === "function" ? o.paused() : true);
     // 가운데 표시: 멈추면 ❚❚가 살짝 튀어나와 머묾, 재생하면 ▶가 잠깐 떴다가 사라짐(10/30 14:27 사용자)
     const showMid = (kind) => { mid.textContent = kind === "pause" ? "❚❚" : "▶"; mid.className = "tfMid " + (kind === "pause" ? "stay" : "flash"); void mid.offsetWidth; mid.classList.add("go"); };
@@ -577,6 +620,7 @@
     cvEl.addEventListener("pointerup", end); cvEl.addEventListener("pointercancel", (e) => { preview = null; end(e); });
     const loop = () => { if (!wrap.isConnected) return; if (ppB) { const s = isPaused() ? "▶" : "❚❚"; if (ppB.textContent !== s) { ppB.textContent = s; ppB.setAttribute("aria-label", isPaused() ? "재생" : "일시정지"); } } const t = preview ?? (+getT() || 0); draw(cvEl, cv, t, +getLv() || 0, st); mid.style.visibility = st.hits && st.hits.length ? "hidden" : "";
       tm.textContent = fmt(t) + (st.yz > 1.05 ? ` · ×${st.yz.toFixed(1)}` : "");
+      { const show = st.gapNext != null && st.gapNext - t > 2; if (skipB.hidden === show) skipB.hidden = !show; }
       if (hasAb) { const m = o.mode ? o.mode() : "p"; wrap.querySelectorAll("[data-m]").forEach(b => b.classList.toggle("on", b.dataset.m === m)); }
       requestAnimationFrame(loop); };
     requestAnimationFrame(loop);
@@ -594,7 +638,7 @@
 #tuneFs .tfTop,#tuneFs .tfBot{display:flex;align-items:center;gap:8px;flex:none}#tuneFs .tfTop{margin-bottom:6px}#tuneFs .tfTitle{font-size:15px}#tuneFs .tfTime{color:#a9b1bc;font-size:13px;font-variant-numeric:tabular-nums}
 #tuneFs .tfAb{display:flex;margin-left:auto;border:1px solid #363c45;border-radius:10px;overflow:hidden}#tuneFs .tfAb button{border:0;border-radius:0;margin:0;background:#11141a;color:#a9b1bc;font-weight:800;min-height:34px;padding:0 14px}#tuneFs .tfAb button.on{background:#9cc3ff;color:#10141a}#tuneFs .tfAb button[data-m=p].on{background:#c9a6ff}
 #tuneFs .tfX{margin-left:8px;display:flex;align-items:center;gap:6px;height:46px;padding:0 16px;border-radius:24px;border:2px solid #eceff3;background:#2a2f38;color:#fff;font-weight:800;font-size:15px;flex:none}#tuneFs .tfX i{font-style:normal;font-size:20px;line-height:1;margin-right:2px}#tuneFs .tfCv{flex:1;min-height:0;width:100%;display:block;border-radius:10px;background:#11141a}
-#tuneFs .tfCvBox{position:relative;flex:1;min-height:0;display:flex}#tuneFs .tfMid{position:absolute;left:50%;top:50%;width:84px;height:84px;margin:-42px 0 0 -42px;border-radius:50%;background:rgba(156,195,255,.18);color:rgba(255,255,255,.8);font-size:30px;display:grid;place-items:center;pointer-events:none;opacity:0;transform:scale(.6)}
+#tuneFs .tfCvBox{position:relative;flex:1;min-height:0;display:flex}#tuneFs .tfSkip{position:absolute;right:12px;bottom:12px;z-index:5;border:0;border-radius:12px;background:#9cc3ff;color:#111;font-weight:800;font-size:14px;padding:10px 14px}#tuneFs .tfSkip[hidden]{display:none}#tuneFs .tfMid{position:absolute;left:50%;top:9%;width:48px;height:48px;margin:-24px 0 0 -24px;border-radius:50%;background:rgba(156,195,255,.12);color:rgba(255,255,255,.55);font-size:18px;display:grid;place-items:center;pointer-events:none;opacity:0;transform:scale(.6)}
 #tuneFs .tfMid.stay.go{animation:tfPop .22s cubic-bezier(.3,1.5,.5,1) forwards}#tuneFs .tfMid.flash.go{animation:tfFlash .3s ease-out forwards}
 @keyframes tfPop{from{opacity:0;transform:scale(.6)}to{opacity:.8;transform:scale(1)}}@keyframes tfFlash{0%{opacity:0;transform:scale(.7)}25%{opacity:.8;transform:scale(1.05)}100%{opacity:0;transform:scale(1.2)}}
 #tuneFs .tfBot{justify-content:space-between;align-items:flex-end;gap:16px}#tuneFs .tfHint{font-size:11.5px;color:#7d8590;line-height:1.4;word-break:keep-all;text-wrap:balance;max-width:34%}
