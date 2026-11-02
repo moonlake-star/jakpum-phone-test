@@ -19,3 +19,5 @@ assert.ok(src.includes("wave: () => mkTracks.mr?.buf"));
 assert.ok(tune.includes("g.globalAlpha = Math.max(0, Math.min(1, (left - 0.4) / 2.6))"), "3초 전 페이드");
 assert.ok(tune.includes("paint(); preview(); persist(); tone(m)") && tune.includes("st.sel = { t0: b.t0, t1: b.t1 }") && tune.includes("if (f && !f.cut)") && tune.includes('class="tfCut" data-cut'), "바로 저장·선택 표시·나눈 조각 테두리 없음·✂ 아이콘");
 console.log("intro ok");
+// (11/02 19:16 사용자) 정음 고치기 창이 떠 있으면 아래 원음/보정본·이동 버튼이 겹쳐 보이지 않게
+assert.ok(require("fs").readFileSync(__dirname + "/../tune.js", "utf8").includes("#tuneFs:has(.tfFix) .tfBot,#tuneFs:has(.tfFix) .tfSkip{visibility:hidden}"));
