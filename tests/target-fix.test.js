@@ -28,3 +28,8 @@ console.log("intro ok");
   assert.ok(t.includes('want = b.dataset.m === cur ? (cur === "o" ? "p" : "o") : b.dataset.m'), "켜진 쪽을 눌러도 바뀜");
   assert.ok(t.includes('<span class="tfFixAb" role="group"') && t.includes('data-r aria-label="처음 음으로">↺</button>') && t.includes('data-ok aria-label="닫기">✓</button>') && t.includes('<span class="i">처음 음</span>'), "한 줄 버튼 + 이름표");
   assert.ok(t.includes("mO = ov.length ? Math.round(ov[ov.length >> 1] / 100) : m0") && t.includes("const f = { t0: T0, t1: T1, midi: isCut ? mO : null")); }
+// (11/02 19:48 사용자) 고치기 창이 뜨면 고른 막대가 보이게 그래프를 옮김 · 확대 안 해도 위아래로 밀어 보기
+{ const t = require("fs").readFileSync(__dirname + "/../tune.js", "utf8");
+  assert.ok(t.includes("st.sel = { t0: b.t0, t1: b.t1 }; st.focusC = b.c;") && t.includes("if (full && st.focusC != null)"), "창이 뜨면 고른 막대 쪽으로");
+  assert.ok(t.includes("} else if (full && st.yo) { lo += st.yo; hi += st.yo; }") && t.includes("drag.yo + dB * per * (rot ? -1 : 1)"), "1배에서도 위아래 밀기");
+  assert.ok(t.includes("st.yc = null; st.yo = 0; st.panAt = 0;"), "두 번 톡 = 원래대로"); }
