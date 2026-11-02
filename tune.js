@@ -341,6 +341,13 @@
     }
     if (st) { let oy0 = 1e9, oy1 = -1e9; for (const p of vis) { for (const kk of [1, k]) { if (!kk || p[kk] == null) continue; const Y = y(p[kk]); if (Y < oy0) oy0 = Y; if (Y > oy1) oy1 = Y; } }   // 지금 화면의 음정선 높이 범위
       drawNotes(g, st, t, xs, L, w, T, H, full, tagB, oy0 <= oy1 ? [oy0, oy1] : null, vis, y); }
+    if (full && st && st.kbDown != null) {   // (11/02 16:28 사용자) 누른 건반은 손가락에 가려서 → 오른쪽에 음 이름 말풍선
+      const m = st.kbDown, yy = Math.max(T + 22, Math.min(T + HP - 22, y(m * 100))), txt = NAMES[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1);
+      g.save(); g.font = "bold 22px system-ui, sans-serif"; g.textBaseline = "middle"; const tw = g.measureText(txt).width, bx = L + 14, bw = tw + 28, bh = 40;
+      g.fillStyle = "#ff9f5a"; g.beginPath(); g.moveTo(L + 4, yy); g.lineTo(bx + 1, yy - 8); g.lineTo(bx + 1, yy + 8); g.closePath(); g.fill();
+      g.beginPath(); if (g.roundRect) g.roundRect(bx, yy - bh / 2, bw, bh, 12); else g.rect(bx, yy - bh / 2, bw, bh); g.fill();
+      g.fillStyle = "#111"; g.fillText(txt, bx + 14, yy + 1); g.restore();
+    }
   }
   // 붙이기: getT()=지금 초, getLv()=보여 줄 보정 단계(0이면 원음만), seek(초). 화면에서 빠지면 저절로 멈춤.
   // 확대/전체 버튼: el 바로 앞에 붙임(Tune.controls). 기본 = 확대.
