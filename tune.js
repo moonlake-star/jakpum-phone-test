@@ -285,6 +285,10 @@
         let c = null; if (v.length) { v.sort((a, b) => a - b); c = v[Math.floor(v.length / 2)]; } else { const f = fitAt(cv, t, 0); if (f) c = f[2]; }
         if (c != null) st.yc = st.yc == null ? c : st.yc + (c - st.yc) * 0.15; }
       const c = st.yc ?? (lo + hi) / 2; lo = c - half; hi = c + half;
+    } else if (full && st.yo) { lo += st.yo; hi += st.yo; }   // (11/02 19:48 사용자) 확대 안 해도 위아래로 밀어 보기
+    if (full && st.focusC != null) {   // 고치기 창이 뜨며 그래프가 줄어들 때 고른 막대가 화면 안(위아래 20% 안쪽)에 오게 한 번 옮김
+      const fc = st.focusC, m = (hi - lo) * 0.2; st.focusC = null;
+      if (fc < lo + m || fc > hi - m) { const sh = fc - (lo + hi) / 2; if ((st.yz || 1) > 1) { st.yc = (st.yc ?? (lo + hi) / 2) + sh; st.panAt = Date.now(); } else st.yo = (st.yo || 0) + sh; lo += sh; hi += sh; }
     }
     if (st && st.zoom && !full) {   // 확대: 화면 안(지금 앞뒤 8초) 음이 모두 들어오게 — 기본 ±4반음, 크게 도약하면 그만큼 넓힘(10/30 13:28 사용자)
       const f = fitAt(cv, t, k);
@@ -485,7 +489,7 @@
     const kt = tgCol(cv), m0 = Math.round(b.c / 100), tNow = typeof getT === "function" ? +getT() || 0 : -1; let m = m0;
     const fixed = (cv._fixes || []).find(x => x.t0 < b.t1 && x.t1 > b.t0), isCut = !!(fixed && fixed.cut), canCut = tNow > b.t0 + 0.08 && tNow < b.t1 - 0.08;
     const T0 = +b.t0.toFixed(2), T1 = +b.t1.toFixed(2);
-    if (st) st.sel = { t0: b.t0, t1: b.t1 };
+    if (st) { st.sel = { t0: b.t0, t1: b.t1 }; st.focusC = b.c; }
     host.querySelectorAll(".tfFix").forEach(x => x.remove());
     const d = document.createElement("div"); d.className = "tfFix";
     const mm = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
@@ -581,7 +585,7 @@
     const pauseNow = () => { if (!isPaused()) { try { o.play && o.play(); } catch {} } showMid("pause"); };
     let lastTap = 0;
     if (isPaused()) setTimeout(() => showMid("pause"), 430);   // 처음 열었을 때 멈춰 있으면 ❚❚ 대기
-    const resetZoom = () => { st.xz = 1; st.yz = 1; st.yc = null; st.panAt = 0; };
+    const resetZoom = () => { st.xz = 1; st.yz = 1; st.yc = null; st.yo = 0; st.panAt = 0; };
     const endT = () => { const p = cv && cv.pts; return p && p.length ? +p[p.length - 1][0] || 0 : 1e9; };
     wrap.querySelectorAll("[data-j]").forEach(b => b.onclick = () => {   // 처음 / -5초 / +5초(10/30 14:49 사용자) — 재생 중이면 계속, 멈춰 있으면 멈춘 채
       const j = +b.dataset.j, now = +getT() || 0, t = j === 0 ? 0 : Math.max(0, Math.min(endT(), now + j));
@@ -622,6 +626,7 @@
       if (!drag.mode) { if (Math.max(Math.abs(dA), Math.abs(dB)) < 8) return; clearTimeout(drag.lp); st.hold = null; drag.mode = Math.abs(dA) >= Math.abs(dB) ? "time" : "pitch"; if (drag.mode === "time") pauseNow(); }
       if (drag.mode === "time") preview = Math.max(0, drag.t - dA / span() * ((st.win || 6) / st.xz));
       else if (st.yz > 1) { const [lo, hi] = range(cv), per = (hi - lo) / st.yz / tall(); st.yc = (drag.yc ?? (lo + hi) / 2) + dB * per * (rot ? -1 : 1); st.panAt = Date.now(); }
+      else { const [lo, hi] = range(cv), per = (hi - lo) / tall(); if (drag.yo == null) drag.yo = st.yo || 0; st.yo = Math.max(-(hi - lo) * 0.6, Math.min((hi - lo) * 0.6, drag.yo + dB * per * (rot ? -1 : 1))); }   // 확대 안 했을 때도 위아래로(곡 음역의 60%까지)
     });
     const end = (e) => {
       if (!pts.has(e.pointerId)) return; pts.delete(e.pointerId);
