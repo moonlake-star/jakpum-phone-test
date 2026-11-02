@@ -58,3 +58,21 @@ const code = src.slice(start, end) + g(/function calNums\([\s\S]*?\n\}\n/);
   assert.strictEqual(nt({ students: { S1: {} } }, { sid: "S1" }, () => false, () => ({})), "", "원장 수강생은 그대로 ‘선생님 한마디’");
   assert.strictEqual(nt({ name: "홍강사" }, {}, () => true, () => ({})), "홍강사");
   assert.ok(src.includes('joinMakeFolder("녹음함", folder)')); }
+// 시안 ⑤: 계정 없으면 카톡 요청 복사 + 주소 적어 연결 · 원장 앱이 강사 담당 수강생을 서버에 알림(바뀔 때만)
+(async () => {
+  const gg = (re) => src.match(re)[0];
+  const code = gg(/const acctAskText = [^\n]*\n/) + gg(/const acctMask = [^\n]*\n/) + gg(/function acctHTML\([\s\S]*?\n\}\n/) + gg(/async function staffPortalSync\([\s\S]*?\n\}\n/);
+  const calls = [], store = {};
+  const f = new Function("esc", "portal", "LS", "isStaffApp", "staffOf", "cfg", "portalUrl", code + "return { acctAskText, acctHTML, acctMask, staffPortalSync };")(
+    (s) => String(s), async (a, b) => { calls.push([a, b]); return { ok: true }; }, { get: (k) => store[k], set: (k, v) => { store[k] = v; } }, () => false,
+    () => ({ T9: { name: "홍강사", email: "eco9336@gmail.com" } }), { students: { S1: {}, S2: { teacher_id: "T9" }, S3: { teacher_id: "T9", consent_withdrawn: true } } }, () => "https://p");
+  assert.ok(f.acctAskText("이하나").startsWith("이하나님, 레슨 노트를 보내 드리려고 해요. 쓰시는 구글(지메일) 주소"));
+  const me = { st: { name: "이하나" } };
+  assert.ok(f.acctHTML(me, { caps: {}, acct: [] }).includes('id="acctAsk"') && f.acctHTML(me, { caps: {}, acct: [] }).includes('id="acctGo"'));
+  assert.ok(f.acctHTML(me, { caps: {}, acct: ["hana@gmail.com"] }).includes("ha***@gmail.com"));
+  assert.strictEqual(f.acctHTML(me, { caps: null }), "", "서버 상태 모르면 안 보임");
+  await f.staffPortalSync(); await f.staffPortalSync();
+  assert.deepStrictEqual(calls, [["t_staff", { email: "eco9336@gmail.com", tid: "T9", sids: ["S2"] }]], "철회 수강생 빼고, 같으면 다시 안 보냄");
+  assert.ok(src.includes("|| isStaffApp()) return;   // 가입 신청 승인은 원장만"));
+  console.log("acct-link ok");
+})().catch(e => { console.error(e); process.exit(1); });
