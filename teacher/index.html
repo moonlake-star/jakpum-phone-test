@@ -1429,6 +1429,13 @@ async function joinCreateStaff(rawName, email) {
     l.staff_owner ??= { email: LS.get("vn_hint") || "", name: "작품", roles: ["owner", "teacher", "developer"] }; });
   return { tid, name };
 }
+async function staffUndo(tid) {   // (11/02 19:06 사용자) 잘못 만든 강사 되돌리기: 공유 해제 → 포털 권한 해제 → 원장 설정에서 빼기 → 폴더 휴지통(되살릴 수 있음)
+  const s = staffOf()[tid]; if (!s) return;
+  if (s.folder && s.perm_id) { const r = await api(`${DRIVE}/files/${s.folder}/permissions/${s.perm_id}`, { method: "DELETE" }); if (!r.ok && r.status !== 404) throw new Error("폴더 공유 해제 실패(" + r.status + ")"); }
+  if (s.email) await portal("t_staff", { email: s.email, tid: "", sids: [] });
+  await cfgUpdate(l => { if (l.staff) delete l.staff[tid]; });
+  if (s.folder) await api(`${DRIVE}/files/${s.folder}?fields=id`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trashed: true }) }).catch(() => {});
+}
 // ── 신규 수강생 등록·첫 레슨 배치(11/02 08:31 사용자 시안 승인) ──
 const ASSIGN_FILE = "배치알림.json";
 const asgFmt = (iso) => { const d = new Date(iso); return isNaN(d) ? "" : `${d.getMonth() + 1}/${d.getDate()}(${"일월화수목금토"[d.getDay()]}) ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
@@ -1620,15 +1627,27 @@ async function paintJoinRequests() {
     const linked = new Set(rows.map(x => String(x.email).toLowerCase())), se = staffEmails();
     const wait = requests.filter(r => !linked.has(String(r.email).toLowerCase()) && !se.has(String(r.email).toLowerCase()));
     const managed = rows.filter(x => ["approved", "closed"].includes(x.state) && !se.has(String(x.email).toLowerCase()));
-    if (!wait.length && !managed.length) { el.innerHTML = lastJoinHtml = ""; return; }
+    // (11/02 19:06 사용자) 강사로 등록된 메일이 수강생으로 신청하면 조용히 사라졌음 → 따로 보여 주고 '강사 등록 취소'로 되돌릴 수 있게
+    const stfBy = {}; for (const [tid, s_] of Object.entries(staffOf())) if (s_?.email) stfBy[String(s_.email).toLowerCase()] = [tid, s_];
+    const stWait = requests.filter(r => !linked.has(String(r.email).toLowerCase()) && stfBy[String(r.email).toLowerCase()]);
+    if (!wait.length && !managed.length && !stWait.length) { el.innerHTML = lastJoinHtml = ""; return; }
     let busy = false;
     el.innerHTML = (wait.length ? `<div class="card"><h3 style="margin:0 0 6px">🙋 수강생 노트 가입 신청 ${wait.length}명</h3>
       <p class="muted" style="margin:4px 0">신규 수강생은 이름을 직접 입력하세요. 기존 수강생이 다른 구글 계정으로 신청한 경우에만 기존 이름을 선택하세요.</p>
       ${wait.map(r => joinRow(r.email, JOIN_NEW, "승인", true)).join("")}</div>` : "") +
+      (stWait.length ? `<div class="card"><h3 style="margin:0 0 6px">⚠ 강사로 등록된 계정이 수강생으로 신청함 ${stWait.length}명</h3>
+        <p class="muted" style="margin:4px 0">잘못 강사로 등록했다면 [강사 등록 취소]를 누르세요. 강사 폴더 공유를 풀고 폴더는 휴지통으로 옮긴 뒤, 위 가입 신청 목록에 다시 떠요(그때 기존 수강생과 연결).</p>
+        ${stWait.map(r => { const [tid, s_] = stfBy[String(r.email).toLowerCase()]; return `<div class="row" style="gap:6px;margin:6px 0;flex-wrap:wrap"><span style="flex:1;min-width:12em"><b>${esc(r.name || "")}</b> <span class="muted">${esc(acctMask(r.email))} · 지금 ‘${esc(s_.name)}’ 강사로 등록됨</span></span><button class="small ghost stfUndo" data-tid="${esc(tid)}">강사 등록 취소</button><span class="muted stfUndoT"></span></div>`; }).join("")}</div>` : "") +
       (managed.length ? `<details class="card" style="padding:12px"><summary><b>승인된 계정 연결 변경·취소 (${managed.length}명)</b></summary>
         <p class="muted">잘못 연결한 계정은 다른 수강생으로 변경하거나 연결을 해제할 수 있습니다. 레슨 기록은 바뀌지 않습니다.</p>
         ${managed.map(a => joinRow(a.email, a.sid && cfg.students[a.sid] ? a.sid : JOIN_NEW, a.state === "closed" ? "다시 승인" : "연결 변경")).join("")}</details>` : "");
     lastJoinHtml = el.innerHTML;
+    el.querySelectorAll(".stfUndo").forEach(b => b.onclick = async () => { const tid = b.dataset.tid, s_ = staffOf()[tid], msg = b.parentNode.querySelector(".stfUndoT"); if (!s_) return;
+      const n_ = Object.values(cfg.students || {}).filter(x => x?.teacher_id === tid).length;
+      if (n_) { msg.textContent = `담당 수강생 ${n_}명이 있어 취소할 수 없어요(먼저 담당을 바꿔 주세요)`; return; }
+      if (!confirm(`‘${s_.name}’ 강사 등록을 취소할까요?\n(강사 폴더 공유를 풀고 폴더는 휴지통으로 — 30일 안엔 되살릴 수 있어요)`)) return;
+      b.disabled = true; msg.textContent = "취소하는 중…";
+      try { await staffUndo(tid); msg.textContent = "취소했어요"; await renderList(); } catch (e) { b.disabled = false; msg.textContent = "완료되지 않았어요: " + errMsg(e); } });
     for (const row of el.querySelectorAll(".join-row")) {
       const choice = row.querySelector(".join-choice"), newFields = row.querySelector(".join-new-fields");
       const update = () => { const st_ = choice.value === JOIN_STAFF; newFields.classList.toggle("hidden", choice.value !== JOIN_NEW && !st_);
