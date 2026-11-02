@@ -106,6 +106,7 @@
   .hbBar { position:relative; flex:1; height:8px; border-radius:4px; background:#2a2f38; overflow:hidden; } .hbBar i { position:absolute; top:0; bottom:0; } .hbBar i.l { right:50%; background:#ff9f5a; } .hbBar i.r { left:50%; background:#7fd9ff; }
   .hbBar b { position:absolute; left:50%; top:-2px; bottom:-2px; width:2px; margin-left:-1px; background:#eceff3; } .hbBar.one i { left:0; background:var(--accent); }
   .grLine { display:flex; align-items:center; gap:6px; width:100%; text-align:left; font:inherit; color:var(--fg); cursor:pointer; } .grLine .up { color:var(--ok); } .grLine .down { color:var(--bad); }
+  .abHead { flex-wrap:nowrap; } .abHead b { white-space:nowrap; }
   .tsMir { -webkit-text-size-adjust:none; text-size-adjust:none; position:absolute; left:0; top:0; right:0; z-index:1; pointer-events:none; overflow:hidden; box-sizing:border-box; border:1px solid transparent; padding:8px 10px; line-height:24px; white-space:pre-wrap; overflow-wrap:break-word; word-break:normal; color:transparent; }
   .tsMir mark { color:#ffd27a; background:rgba(255,210,122,.17); border-radius:9px; box-shadow:0 0 0 2px rgba(255,210,122,.17), 0 0 0 3px rgba(255,210,122,.55); }
   #hlCard.hlFolded > :not(.hlHead) { display:none !important; } #hlCard.hlFolded .hlHead { margin:0; }
@@ -3570,15 +3571,15 @@ function growthFacts(st) {   // 정확도 흐름(키 불확실 곡 제외)
   const newSong = !pts.slice(0, -1).some(p => normTitle(p.t) === normTitle(last.t));
   return { pts: pts.slice(-8), first, last, prev, best, same, newSong, n: pts.length };
 }
-function growthCheer(f) {   // 숫자가 낮아졌을 때 의욕을 지키는 문구(사실에 근거한 것만, 비교·질책 없음)
+function growthCheer(f) {   // 정확도가 낮아졌을 때 의욕을 지키는 문구(사실에 근거한 것만, 비교·질책 없음)
   if (!f || !f.prev || f.last.v >= f.prev.v) return "";
   const k = (f.last.d || "").split("").reduce((a, c) => a + c.charCodeAt(0), 0);
   const pick = (arr) => arr[k % arr.length];
-  if (f.newSong) return pick([`‘${f.last.t}’는 처음 부르는 곡이라 숫자가 잠깐 쉬어 갔어요. 새 곡을 익히는 날엔 자연스러운 일이에요 — 몇 번 부르면 금방 올라와요!`,
+  if (f.newSong) return pick([`‘${f.last.t}’는 처음 부르는 곡이라 정확도가 잠깐 쉬어 갔어요. 새 곡을 익히는 날엔 자연스러운 일이에요 — 몇 번 부르면 금방 올라와요!`,
     `새 곡 ‘${f.last.t}’에 도전한 날이에요. 낯선 멜로디는 처음엔 누구나 흔들려요. 다음에 다시 부를 때 차이를 느껴 보세요!`]);
   if (f.best.v > f.last.v) return pick([`최고 기록 ${f.best.v}%를 이미 찍어 보셨어요. 그 실력은 사라지지 않아요 — 컨디션과 곡에 따라 잠깐 오르내릴 뿐이에요!`,
-    `오늘은 숫자가 조금 쉬어 갔지만, 첫 기록 ${f.first.v}% 때보다 소리의 기본이 단단해졌어요. 다음 레슨에서 다시 올려 봐요!`]);
-  return `곡마다 난이도가 달라 숫자는 오르내려요. 꾸준히 부르는 것만으로도 실력은 쌓이고 있어요!`;
+    `이번엔 정확도가 조금 쉬어 갔지만, 첫 기록 ${f.first.v}% 때보다 소리의 기본이 단단해졌어요. 다음 레슨에서 다시 올려 봐요!`]);
+  return `곡마다 난이도가 달라 정확도는 오르내려요. 한 곡 한 곡 부를 때마다 실력은 쌓이고 있어요!`;
 }
 function growthNote(sid) {
   const st = cfg.students[sid], f = growthFacts(st), show = { ...GR_SHOW0, ...(st.growth_show || {}) };
@@ -3599,7 +3600,7 @@ function growthShareHTML(sid) {
     ${tg("acc", "정확도·그래프")}${tg("same", "같은 곡 처음 vs 지금")}${tg("tip", "선생님의 한 마디")}
     <label class="muted" style="display:block;margin-top:8px">💬 선생님의 한 마디 <span style="font-size:.8rem">(직접 고른 이번 주 포인트, 따뜻한 말로)</span></label>
     <textarea id="grTip" rows="2" maxlength="160" style="width:100%;min-height:0" placeholder="예: 2옥레~2옥솔은 시작할 때 살짝 위에서 찍어 보기 — 좋아지고 있어요!">${esc(st.growth_tip || "")}</textarea>
-    ${auto || st.growth_cheer ? `<label class="muted" style="display:block;margin-top:6px">🌤 숫자가 지난번보다 낮을 때 보일 격려 <span style="font-size:.8rem">(자동으로 만든 말 · 고쳐 쓰면 그 말로)</span></label>
+    ${auto || st.growth_cheer ? `<label class="muted" style="display:block;margin-top:6px">🌤 정확도가 지난번보다 낮을 때 보일 격려 <span style="font-size:.8rem">(자동으로 만든 말 · 고쳐 쓰면 그 말로)</span></label>
       <textarea id="grCheer" rows="2" maxlength="200" style="width:100%;min-height:0" placeholder="${esc(auto)}">${esc(st.growth_cheer || "")}</textarea>` : ""}
     <div class="row" style="margin-top:8px"><button type="button" class="small" id="grSave">저장하고 수강생 페이지에 반영</button><span class="muted" id="grMsg"></span></div></div>`;
 }
@@ -4222,7 +4223,7 @@ function bestOptions() {
 // (10/30 22:11 사용자) AI가 고른 베스트가 마음에 안 들면: 미리 잘라 둔 다른 후보(최대 3개, 보정 전 원음)를 바로 듣고 [이걸로] → 그 테이크로 보정본을 새로 만듦
 function bestAltsHTML(o) {
   const L = (typeof bestSingles === "function" ? bestSingles() : []).filter(x => x.file_id !== o?.file_id).slice(0, 3);
-  const back = o?.over ? `<button type="button" class="small ghost" id="sglReset" style="margin-top:6px">↩ AI가 고른 원래 베스트로</button>` : "";
+  const back = o?.over || o?.singlePicked ? `<button type="button" class="small ghost" id="sglReset" style="margin-top:6px">${o?.over ? "↩ AI가 고른 원래 베스트로" : "↩ 다시 고르기"}</button>` : "";   // (11/02 08:59 사용자) 제목 옆 '다른 걸로'는 세로로 깨져 보여서 뺌 → 여기 한 곳에
   if (!L.length) return back ? `<div>${back}</div>` : "";
   return `<details class="sglMore" style="margin-top:8px"><summary class="muted" style="font-size:.88rem">🎧 다른 후보 듣고 바꾸기 (${L.length}) · 보정 전 원음</summary>
     ${L.map((x, i) => `<div style="margin-top:8px"><div class="row" style="gap:8px;align-items:center;flex-wrap:nowrap">
@@ -4383,9 +4384,9 @@ function renderBest() {
   const abSwH = `<div class="abSw" role="group" aria-label="원음·보정본"><button type="button" data-ver="orig" class="on" aria-pressed="true">원음</button><button type="button" data-ver="mk" class="mk" aria-pressed="false">✨ 보정본</button></div>`;
   const tuneH = tuneF ? `<div class="tuneWrap mkDockWrap"><canvas class="tune sm" id="mkTuneToday" aria-label="음정선 — 누르면 크게 보기"></canvas><span class="tuneDim" aria-hidden="true"></span><span class="tuneHint" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1a1307" stroke-width="2.8" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>전체화면으로 크게 보기</span></div><div style="display:none">${abSwH}</div>${Tune.legend(true)}<div class="muted tnSum" id="tnSum" style="font-size:.8rem;margin:2px 0 4px"></div>` : "";   // (10/30 17:43 사용자) 전체화면·[-5|원음·보정본|+5] 버튼 삭제, 그래프를 누르면 세로 전체화면
   return `<div class="bestbox abPair${merged ? " merged" : ""}${tuneF ? " tuned" : ""}"><span class="sr-only">오늘의 베스트 편집본 ${Math.round(o.len)}초</span>
-    ${merged ? `<div class="row abHead"><b>오늘의 베스트</b>${o.singlePicked ? `<button type="button" class="small ghost" id="sglReset">다른 걸로</button>` : ""}<span class="muted" style="font-size:.85rem">${Math.round(o.len)}초</span>${chk("best")}</div>
+    ${merged ? `<div class="row abHead"><b>오늘의 베스트</b><span class="muted" style="font-size:.85rem;white-space:nowrap">${Math.round(o.len)}초</span>${chk("best")}</div>
       ${tuneF ? tuneH : abSwH}` : ""}
-    <div class="abRow${merged ? " show" : ""}" data-abrow="orig">${merged ? "" : `<div class="row abHead"><b>${o.singlePicked ? "가장 좋았던 한 번" : "원본 편집본"}</b>${o.singlePicked ? `<button type="button" class="small ghost" id="sglReset">다른 걸로</button>` : ""}<span class="muted" style="font-size:.85rem">${Math.round(o.len)}초</span>${chk("best")}</div>`}${waveOnly(seamStrip(o, "strip"))}</div>
+    <div class="abRow${merged ? " show" : ""}" data-abrow="orig">${merged ? "" : `<div class="row abHead"><b>${o.singlePicked ? "가장 좋았던 한 번" : "원본 편집본"}</b><span class="muted" style="font-size:.85rem;white-space:nowrap">${Math.round(o.len)}초</span>${chk("best")}</div>`}${waveOnly(seamStrip(o, "strip"))}</div>
     ${ms === "ready" ? `<div class="abRow" data-abrow="mk"><div class="muted" style="font-size:.8rem;margin:-2px 0 2px">간단 음정보정 예시 · 음원 발매용 정식 보정은 더 자연스러워요</div>${waveOnly()}</div>
       <div class="mkSendRow">✨ 보정본도 수강생에게 같이 보내요(수강생은 원음·보정본을 바꿔 들음)${chk("makeup").replace("피드백에 포함", "같이 보내기")}</div>`
       : `<div class="row abHead" style="margin-top:6px"><button type="button" id="bestMakeup" class="small ghost mkMake">🪄 ${ms === "none" ? "메이크업본 만들기" : bestMakeupLabel(o)}</button></div>${makeupBoxHTML(o)}`}
@@ -5708,7 +5709,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-02-0856-stugrowth";
+const BUILD = "2026-11-02-0900-besthead";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
