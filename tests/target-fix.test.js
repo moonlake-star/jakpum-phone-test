@@ -25,3 +25,6 @@ assert.ok(require("fs").readFileSync(__dirname + "/../tune.js", "utf8").includes
 { const t = require("fs").readFileSync(__dirname + "/../tune.js", "utf8");
   assert.ok(t.includes("mO = ov.length ? Math.round(ov[ov.length >> 1] / 100) : m0") && t.includes("m = mO; paint(); for (const i in snap) cv.pts[i][kt] = i in o0 ? o0[i] : snap[i];"));
   assert.ok(t.includes("const f = { t0: T0, t1: T1, midi: isCut ? mO : null"), "고침 기록을 지움(나눈 조각은 나눔만 남김)"); }
+// (11/02 19:23 사용자) 고치기 창 안에서도 원음/보정본 전환(아래 버튼과 같은 동작)
+{ const t = require("fs").readFileSync(__dirname + "/../tune.js", "utf8");
+  assert.ok(t.includes('<span class="tfFixAb"><button type="button" data-m="o">원음</button>') && t.includes('host.querySelector(`.tfAb [data-m="${x.dataset.m}"]`)')); }
