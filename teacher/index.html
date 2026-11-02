@@ -368,7 +368,7 @@
   .medalRow .off .md { background:#2b3038; box-shadow:0 0 0 3px #3a414b; filter:grayscale(1); opacity:.5; } .medalRow .off { color:var(--muted); }
   .cal { touch-action:pan-y; } .cal .dy { -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; } .cal .dy.lift { opacity:.5; }
   .cal .icw { position:relative; display:inline-block; } .cal .icn { position:absolute; top:-7px; right:-11px; min-width:17px; height:17px; padding:0 4px; box-sizing:border-box; border-radius:9px; background:#ff5d6c; color:#fff; font-size:.68rem; font-weight:800; line-height:17px; text-align:center; font-family:system-ui, sans-serif; }
-  .cal .icnum, .calLeg .icnum { display:inline-grid; place-items:center; min-width:24px; height:24px; padding:0 5px; box-sizing:border-box; border-radius:12px; background:var(--accent); color:#111; font-weight:900; font-size:.85rem; line-height:1; } .calLeg .icnum.sm { min-width:18px; height:18px; font-size:.7rem; vertical-align:-3px; }
+  .cal .icnum, .calLeg .icnum { display:inline-grid; place-items:center; min-width:24px; height:24px; padding:0 5px; box-sizing:border-box; border-radius:12px; background:var(--accent); color:#111; font-weight:900; font-size:.85rem; line-height:1; } .cal .icnum + .icnum { margin-left:2px; } .calLeg .icnum.sm { min-width:18px; height:18px; font-size:.7rem; vertical-align:-3px; }
   .cal .dy.drop { outline:3px solid var(--accent); background:#24324a; } .calRow.lift { opacity:.5; }
   .calGhost { position:fixed; z-index:90; transform:translate(-50%, -130%); pointer-events:none; background:var(--accent); color:var(--on-accent, #10141a); font-weight:700; padding:8px 12px; border-radius:12px; box-shadow:0 6px 18px rgba(0,0,0,.45); white-space:nowrap; font-size:.95rem; }
   .calRow[data-mv] { -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
@@ -821,7 +821,7 @@ function attSheet(x) {
 }
 // ── 레슨 캘린더 공통(#182, 2026-10-29) ──
 const IC_CAL = '<svg class="icCal" viewBox="0 0 24 24" width="1.05em" height="1.05em" aria-hidden="true" style="vertical-align:-.15em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>';   // (11/02 사용자) 📅(숫자 17 보이는 달력 그림) 대신 숫자 없는 달력 선 그림
-const CAL_S = { done: ["✅", "완료"], makeup_done: ["🔁", "보강 완료"], scheduled: [IC_CAL, "예정"], cancelled: ["✖️", "휴강"], forfeit: ["✖️", "휴강"], review: ["⏳", "확인 중"], moved: ["↪️", "이동"] };   // (11/02 사용자) 옮긴 레슨은 휴강이 아니라 이동
+const CAL_S = { done: ["✅", "완료"], makeup_done: ["🔁", "보강 완료"], scheduled: [IC_CAL, "예정"], cancelled: ["✖️", "휴강"], forfeit: ["✖️", "휴강"], review: ["⏳", "확인 중"], moved: ["↪️", "이동"], past: ["☑️", "지난 레슨"] };   // (11/02 사용자) 옮긴 레슨은 휴강이 아니라 이동
 const calYm = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 const calShift = (ym, n) => { const [y, m] = ym.split("-").map(Number), d = new Date(y, m - 1 + n, 1); return calYm(d); };
 function calGrid(ym, byDate, sel, tap) {   // byDate[YYYY-MM-DD] = [{s}] → 칸마다 대표 아이콘(여럿이면 개수)
@@ -829,11 +829,16 @@ function calGrid(ym, byDate, sel, tap) {   // byDate[YYYY-MM-DD] = [{s}] → 칸
   const td = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
   let h = "일월화수목금토".split("").map(x => `<div class="hd">${x}</div>`).join("") + "<div class=\"dy empty\"></div>".repeat(first.getDay());
   for (let d = 1; d <= n; d++) {
-    const k = `${ym}-${String(d).padStart(2, "0")}`, xs = byDate[k] || [], ic = !xs.length ? "" : xs[0].s === "scheduled" ? `<b class="icnum">${xs.length}</b>` : `<span class="icw">${CAL_S[xs[0].s]?.[0] || "•"}<b class="icn">${xs.length}</b></span>`;   // (11/02 01:44 사용자) 예정은 달력 아이콘 없이 레슨 개수 숫자만   // (11/02 01:36 사용자) 그날 레슨 개수를 아이콘 위 숫자로
+    const k = `${ym}-${String(d).padStart(2, "0")}`, xs = byDate[k] || [], ic = !xs.length ? "" : xs[0].s === "scheduled" ? calNums(xs.filter(x => x.s === "scheduled")) : `<span class="icw">${CAL_S[xs[0].s]?.[0] || "•"}<b class="icn">${xs.length}</b></span>`;   // (11/02 01:44 사용자) 예정은 달력 아이콘 없이 레슨 개수 숫자만   // (11/02 01:36 사용자) 그날 레슨 개수를 아이콘 위 숫자로
     const cls = `dy${k === td ? " today" : ""}${k === sel ? " sel" : ""}`, lab = xs.length ? ` aria-label="${m}월 ${d}일 ${xs.map(x => CAL_S[x.s]?.[1] || "").join(", ")}"` : "";
     h += tap && xs.length ? `<button type="button" class="${cls}" data-cd="${k}" data-day="${k}"${lab}>${d}<span class="ic">${ic}</span></button>` : `<div class="${cls}" data-day="${k}"${lab}>${d}<span class="ic">${ic}</span></div>`;
   }
-  return `<div class="cal">${h}</div><div class="calLeg">${["done", "makeup_done", "scheduled", "cancelled", "moved", "review"].map(s => `<span>${s === "scheduled" ? `<b class="icnum sm">1</b>` : CAL_S[s][0]} ${CAL_S[s][1]}${s === "scheduled" ? "(개수)" : ""}</span>`).join("")}</div>`;
+  const all = Object.values(byDate).flat(), cols = [...new Map(all.filter(x => x.color).map(x => [x.color, x.tname])).entries()];
+  return `<div class="cal">${h}</div><div class="calLeg">${["done", "makeup_done", "scheduled", "cancelled", "moved", "review", ...(all.some(x => x.s === "past") ? ["past"] : [])].map(s => `<span>${s === "scheduled" ? `<b class="icnum sm">1</b>` : CAL_S[s][0]} ${CAL_S[s][1]}${s === "scheduled" ? "(개수)" : ""}</span>`).join("")}</div>${cols.length ? `<div class="calLeg">${!isStaffApp() ? `<span><b class="icnum sm">&nbsp;</b> 작품(원장)</span>` : ""}${cols.map(([c, n]) => `<span><b class="icnum sm" style="background:${c}">&nbsp;</b> ${esc(n)}</span>`).join("")}</div>` : ""}`;
+}
+function calNums(xs) {   // 예정 개수 — 강사 레슨은 강사 색으로 따로(원장 화면)
+  const g = new Map(); xs.forEach(x => g.set(x.color || "", (g.get(x.color || "") || 0) + 1));
+  return [...g.entries()].map(([c, n]) => `<b class="icnum"${c ? ` style="background:${c}"` : ""}>${n}</b>`).join("");
 }
 const calDay = (iso) => { const d = new Date(iso + "T00:00:00"); return `${d.getMonth() + 1}/${d.getDate()}(${"일월화수목금토"[d.getDay()]})`; };
 // ── 일정 옮기기(사용자 승인 2026-10-30 09:00): 레슨 줄을 길게 눌러 달력 날짜 칸으로 끌어 놓기 → 확인 창 → 구글 캘린더의 그 일정 자체를 옮김 ──
@@ -885,6 +890,7 @@ function calMoveSheet(x, date, by, onCancel, onDone) {
     if (dt === x.date && tm === x.time) { d.remove(); return onCancel?.(); }
     const b = $("mvOk"); b.disabled = true; b.textContent = "옮기는 중…";
     try {
+      if (x.sch) { await schMove(x.sch, dt, tm); d.remove(); toast(`옮겼어요 · ${calDay(dt)} ${tm} (구글 캘린더 반영)`); return onDone?.(dt); }
       await calMoveEvent(x.event_id, `${dt}T${tm}`);
       const s = att?.students?.[x.sid], dd = s?.days?.find(y => y.event_id === x.event_id);
       if (dd) { dd.date = dt; dd.time = tm; dd.moved = true; s.days.sort((a, c) => (a.date + a.time).localeCompare(c.date + c.time)); }
@@ -968,18 +974,27 @@ function calLessonIdx(x) {   // 캘린더 한 줄 → 선생님 레슨 목록의
 function openCal(ym, sel) {   // 선생님 '레슨 캘린더': 전체 수강생 한 달 + 날짜 누르면 그날 레슨·확인 필요
   goBack = () => renderList(); show("vCal");
   ym = ym || calYm(new Date());
-  const by = {};
-  for (const [sid, s] of Object.entries(att?.students || {})) {
+  const by = {}, staffApp = isStaffApp(), stf = staffApp ? {} : staffOf(), tf0 = LS.get("vn_tfilter") || "all", tf = tf0 === "own" || stf[tf0] ? tf0 : "all", seen = new Set();
+  if (!staffApp) for (const [sid, s] of Object.entries(att?.students || {})) {
     const st = cfg.students[sid]; if (!st || isTeacher(st)) continue;
-    (s.days || []).forEach(d => (by[d.date] ||= []).push({ ...d, sid, name: st.name, q: (s.queue || []).find(q => q.event_id === d.event_id) }));
+    const tid = st.teacher_id || ""; if (tf !== "all" && (tf === "own" ? tid : tid !== tf)) continue;
+    (s.days || []).forEach(d => { if (d.event_id) seen.add(d.event_id); (by[d.date] ||= []).push({ ...d, sid, name: st.name, q: (s.queue || []).find(q => q.event_id === d.event_id) }); });
   }
+  // (11/02 사용자 승인 2단계) 강사 레슨: 강사 앱은 내 일정(고치기 가능) · 원장 앱은 강사 색으로 같이(보기만)
+  if (staffApp) schDays(schCache.self?.items).forEach(x => (by[x.date] ||= []).push(x));
+  else for (const [tid, s] of Object.entries(stf)) { if (tf !== "all" && tf !== tid) continue;
+    schDays(schCache[tid]?.items, { ro: true, tid, color: staffColor(tid), tname: s.name }).filter(x => !(x.ev && seen.has(x.ev))).forEach(x => (by[x.date] ||= []).push(x)); }
+  if (!openCal._ld && (staffApp || Object.keys(stf).length)) { openCal._ld = 1; schLoad().then(ch => { openCal._ld = 0; if (ch && !$("vCal").classList.contains("hidden") && openCal._cur === ym + "|" + (sel || "")) openCal(ym, sel); }).catch(() => { openCal._ld = 0; }); }
+  openCal._cur = ym + "|" + (sel || "");
   Object.values(by).forEach(xs => xs.sort((a, b) => a.time.localeCompare(b.time)));
   const day = sel && by[sel] ? by[sel] : null, loc = attLocal();
   const cnt = (k) => Object.entries(by).filter(([d]) => d.startsWith(ym)).reduce((n, [, xs]) => n + xs.filter(x => x.s === k).length, 0);
   $("vCal").innerHTML = `<div class="card"><div class="calNav"><button class="ghost" id="cPrev" aria-label="지난달">‹</button><b>${+ym.slice(0, 4)}년 ${+ym.slice(5)}월 레슨</b><button class="ghost" id="cNext" aria-label="다음 달">›</button></div>
-    ${att ? `<p class="muted" style="margin:6px 0 0">완료 ${cnt("done") + cnt("makeup_done")} · 예정 ${cnt("scheduled")} · 휴강 ${cnt("cancelled") + cnt("forfeit")}${cnt("moved") ? ` · 이동 ${cnt("moved")}` : ""} · 확인 중 ${cnt("review")}</p>` : `<p class="muted">출석 현황을 아직 못 불러왔어요(자동 수집 뒤에 생겨요).</p>`}
+    ${staffApp ? `<button type="button" id="schAdd" class="full" style="margin:8px 0 2px">＋ 레슨 등록</button>` : ""}
+    ${att || staffApp ? `<p class="muted" style="margin:6px 0 0">완료 ${cnt("done") + cnt("makeup_done")} · 예정 ${cnt("scheduled")} · 휴강 ${cnt("cancelled") + cnt("forfeit")}${cnt("moved") ? ` · 이동 ${cnt("moved")}` : ""}${cnt("past") ? ` · 지난 레슨 ${cnt("past")}` : ""}${staffApp ? "" : ` · 확인 중 ${cnt("review")}`}</p>` : `<p class="muted">출석 현황을 아직 못 불러왔어요(자동 수집 뒤에 생겨요).</p>`}
     ${calGrid(ym, by, sel, true)}</div>
-    ${day ? `<div class="card"><div class="row" style="justify-content:space-between;align-items:baseline;gap:8px"><h3 style="margin:0">${calDay(sel)}</h3>${day.some(y => ["scheduled", "review"].includes(y.s)) ? `<span class="muted" style="font-size:.85rem">레슨을 길게 눌러 끌면 날짜 이동</span>` : ""}</div>${day.map((x, n) => { const li = calLessonIdx(x); return `<div class="calRow${li >= 0 ? " tap" : ""}"${["scheduled", "review"].includes(x.s) ? ` data-mv="${n}"` : ""}${li >= 0 ? ` data-cl="${n}" role="button" tabindex="0"` : ""}><span class="w">${esc(x.time)} ${esc(x.name)} · ${x.s === "scheduled" ? "" : CAL_S[x.s]?.[0] || ""} ${x.s === "moved" && x.to ? `${calDay(x.to)}로 이동` : CAL_S[x.s]?.[1] || ""}</span>${x.q && ATT_KIND[x.q.kind] && !loc[x.q.event_id] ? `<button data-cq="${n}">확인하기</button>` : li >= 0 ? `<button class="ghost" data-cl="${n}">레슨 보기 ›</button>` : ["scheduled", "review"].includes(x.s) ? `<button class="ghost" data-mvb="${n}">옮기기</button>` : ""}</div>`; }).join("")}</div>`
+    ${day ? `<div class="card"><div class="row" style="justify-content:space-between;align-items:baseline;gap:8px"><h3 style="margin:0">${calDay(sel)}</h3>${day.some(y => ["scheduled", "review"].includes(y.s)) ? `<span class="muted" style="font-size:.85rem">레슨을 길게 눌러 끌면 날짜 이동</span>` : ""}</div>${day.map((x, n) => { const li = calLessonIdx(x); return `<div class="calRow${li >= 0 ? " tap" : ""}"${["scheduled", "review"].includes(x.s) && !x.ro ? ` data-mv="${n}"` : ""}${li >= 0 ? ` data-cl="${n}" role="button" tabindex="0"` : ""}><span class="w">${x.color ? `<i style="display:inline-block;width:11px;height:11px;border-radius:50%;background:${x.color};margin-right:6px;vertical-align:0"></i>` : ""}${esc(x.time)} ${esc(x.name)} · ${x.s === "scheduled" ? "" : CAL_S[x.s]?.[0] || ""} ${x.s === "moved" && x.to ? `${calDay(x.to)}로 이동` : CAL_S[x.s]?.[1] || ""}${x.tname ? ` <span class="muted">· ${esc(x.tname)}</span>` : ""}</span>${x.sch && !x.ro ? `<button class="ghost" data-se="${n}">고치기</button>` : x.ro ? "" : x.q && ATT_KIND[x.q.kind] && !loc[x.q.event_id] ? `<button data-cq="${n}">확인하기</button>` : li >= 0 ? `<button class="ghost" data-cl="${n}">레슨 보기 ›</button>` : ["scheduled", "review"].includes(x.s) ? `<button class="ghost" data-mvb="${n}">옮기기</button>` : ""}</div>`; }).join("")}</div>`
+      : staffApp ? SCH_GUIDE
       : `<p class="muted" style="line-height:1.8">· 날짜를 누르면 그날 레슨이 보여요<br>· 좌우로 밀면 지난달·다음 달<br>· 레슨 있는 칸을 길게 눌러 다른 날짜로 끌어 놓으면 옮기기${att?.updated_at ? `<br>(구글 캘린더 반영: ${esc(attWhen(att.updated_at))} 기준)` : ""}</p>`}`;   /* (11/02 01:42 사용자) 안내 문구 줄바꿈 */
   $("cPrev").onclick = () => openCal(calShift(ym, -1)); $("cNext").onclick = () => openCal(calShift(ym, 1));
   $("vCal").querySelectorAll("[data-cd]").forEach(b => b.onclick = () => openCal(ym, b.dataset.cd));
@@ -988,6 +1003,9 @@ function openCal(ym, sel) {   // 선생님 '레슨 캘린더': 전체 수강생 
     goBack = () => openCal(ym, sel); openLesson(x.sid, i, () => openCal(ym, sel)); });
   const mv = (x, date) => calMoveSheet(x, date, by, () => openCal(ym, sel), (d2) => openCal(d2.slice(0, 7), d2));
   calCellWire($("vCal"), by, ym, mv, (n) => openCal(calShift(ym, n)));
+  const back = (d2) => openCal((d2 || sel || "").slice(0, 7) || ym, d2 || sel);
+  if ($("schAdd")) $("schAdd").onclick = () => schAddSheet(back, sel);
+  $("vCal").querySelectorAll("[data-se]").forEach(b => b.onclick = (e) => { e.stopPropagation(); schEditSheet(day[+b.dataset.se], by, back); });
   if (day) { calDragWire($("vCal"), day, mv); $("vCal").querySelectorAll("[data-mvb]").forEach(b => b.onclick = (e) => { e.stopPropagation(); mv(day[+b.dataset.mvb], null); }); }
   $("vCal").querySelectorAll("[data-cq]").forEach(b => b.onclick = (e) => { e.stopPropagation(); const x = day[+b.dataset.cq];
     attSheet({ k: "att", sid: x.sid, key: x.q.event_id, q: x.q, t: `❓ ${x.name} · ${attWhen(x.q.at || "")} ${ATT_KIND[x.q.kind].t}`, onDone: () => openCal(ym, sel) }); });
@@ -1470,6 +1488,116 @@ async function asgStaffCheck() {
   const seen = async () => { w.remove(); try { const c2 = await asgRead(cfg.sys), x = c2.items.find(y => y.id === it.id); if (x) { x.seen_at = new Date().toISOString(); await writeJSON(cfg.sys, ASSIGN_FILE, { items: c2.items }, c2.id); } } catch {} setTimeout(asgStaffCheck, 300); };
   w.querySelector("[data-ok]").onclick = seen;
   w.querySelector("[data-go]").onclick = async () => { await seen(); if (cfg.students?.[it.sid]) openStudent(it.sid); };
+}
+// ── 강사 레슨 캘린더(11/02 사용자 승인 2단계): 강사가 앱에서 등록·수정·이동·휴강 → 강사 구글 캘린더 + 강사 폴더 '레슨일정.json' → 원장 캘린더에 강사 색으로 ──
+const SCH_FILE = "레슨일정.json", SCH_COLORS = ["#ffb27a", "#c7a4ff", "#7fe0c0", "#ff8fb1", "#ffe066"];
+const schIso = (d) => new Date(d.getTime() + 9 * 36e5).toISOString().slice(0, 19) + "+09:00";
+const schLocal = (iso) => new Date(Date.parse(iso) + 9 * 36e5).toISOString().slice(0, 16);   // 'YYYY-MM-DDTHH:MM'(한국 시각)
+function schWeekly(dt, tm, n) { const t0 = Date.parse(`${dt}T${tm}:00+09:00`), out = []; for (let i = 0; i < Math.max(1, n); i++) out.push(schLocal(new Date(t0 + i * 7 * 864e5).toISOString())); return out; }
+function staffColor(tid) { const ids = Object.keys(staffOf()); const i = ids.indexOf(tid); return SCH_COLORS[(i < 0 ? 0 : i) % SCH_COLORS.length]; }
+async function schRead(sys) { const f = (await list(sys)).find(x => x.name === SCH_FILE); return { id: f?.id || null, items: f ? ((await (await api(`${DRIVE}/files/${f.id}?alt=media&_=${Date.now()}`, { cache: "no-store" })).json()).items || []) : [] }; }
+async function schWrite(sys, cur) { cur.id = await writeJSON(sys, SCH_FILE, { items: cur.items, updated_at: new Date().toISOString() }, cur.id); return cur; }
+function schMergeAsg(items, asg) {   // 원장이 배치한 첫 레슨도 강사 일정에(이미 있으면 그대로)
+  let add = 0; for (const a of asg || []) { if (!a?.start || items.some(x => x.asg === a.id || (a.event_id && x.event_id === a.event_id))) continue;
+    items.push({ id: "L" + Date.now().toString(36) + add, sid: a.sid, name: a.name, start: a.start, len: a.len || 50, event_id: a.event_id || null, s: "scheduled", asg: a.id, at: new Date().toISOString() }); add++; }
+  return add;
+}
+function schDays(items, o = {}) {   // → 캘린더 줄 [{date,time,s,sid,name,...}] · 지난 레슨은 '지난 레슨'(출석 연결은 3단계)
+  const now = Date.now(), out = [];
+  for (const it of items || []) { if (!it?.start || it.deleted) continue; const l = schLocal(it.start), st = (typeof cfg !== "undefined" && cfg?.students?.[it.sid]) || {};
+    out.push({ date: l.slice(0, 10), time: l.slice(11, 16), s: it.s === "cancelled" ? "cancelled" : Date.parse(it.start) + (it.len || 50) * 6e4 < now ? "past" : "scheduled",
+      sid: it.sid, name: st.name || it.name || "수강생", sch: it.id, ...(o.ro ? { ro: true, ev: it.event_id } : { event_id: it.event_id || ("sch:" + it.id) }), tid: o.tid || "", color: o.color || "", tname: o.tname || "" }); }
+  return out;
+}
+const SCH_GUIDE = `<div class="card" style="line-height:1.8"><b>레슨 캘린더 사용 방법</b><p class="muted" style="margin:6px 0 0;line-height:1.85">· <b>＋ 레슨 등록</b>: 수강생·날짜·시간·길이를 고르면 등록(매주 반복 가능)<br>· 날짜를 누르면 그날 레슨 → <b>고치기</b>로 날짜·시간 바꾸기·휴강·지우기<br>· 레슨 있는 칸을 길게 눌러 다른 날짜로 끌어 놓으면 이동(시간은 그대로, 창에서 바꿀 수도)<br>· 좌우로 밀면 지난달·다음 달<br>· 여기서 등록·수정한 것은 <b>강사님 구글 캘린더에도 같이</b> 바뀌고(시작 1시간 전·시작 때 폰 알림), <b>원장님 레슨 캘린더에도</b> 보여요<br>· 구글 캘린더 앱에서 직접 바꾼 건 여기로 돌아오지 않아요 → 바꿀 땐 이 앱에서 해 주세요<br>· 원장님이 배치한 첫 레슨도 여기 같이 보여요</p></div>`;
+let schCache = {};   // {key:{at, items, id, sys}}
+async function schLoad(force) {   // 강사 앱: 내 일정(+배치 첫 레슨) · 원장 앱: 강사마다 읽기만
+  const jobs = isStaffApp() ? [["self", cfg.sys]] : Object.entries(staffOf()).filter(([, s]) => s.sys).map(([t, s]) => [t, s.sys]);
+  let changed = false;
+  for (const [k, sys] of jobs) { if (!sys || (!force && schCache[k] && Date.now() - schCache[k].at < 60e3)) continue;
+    try { const cur = await schRead(sys);
+      if (k === "self") { const a = await asgRead(sys).catch(() => ({ items: [] })); if (schMergeAsg(cur.items, a.items)) await schWrite(sys, cur); }
+      schCache[k] = { at: Date.now(), items: cur.items, id: cur.id, sys }; changed = true; } catch {} }
+  return changed;
+}
+async function schMutate(fn) {   // 강사 앱: 최신본을 읽어 고친 뒤 저장
+  if (typeof isDemo === "function" && isDemo()) throw new Error("체험용 보기 전용이라 저장되지 않아요");
+  const cur = await schRead(cfg.sys); const r = await fn(cur.items); await schWrite(cfg.sys, cur);
+  schCache.self = { at: Date.now(), items: cur.items, id: cur.id, sys: cfg.sys }; return r;
+}
+async function schCalFetch(path, opt = {}) {
+  const tok = await calToken(), r = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events${path}`, { ...opt, headers: { Authorization: "Bearer " + tok, "Content-Type": "application/json" } });
+  if (r.status === 401) { LS.set("vn_ctok", null); throw new Error("구글 권한이 만료됐어요. 한 번 더 눌러 주세요"); }
+  if (r.status === 204 || r.status === 410) return {};
+  const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(/accessNotConfigured|has not been used|disabled/i.test(JSON.stringify(j)) ? "구글 클라우드에서 'Google Calendar API' 사용 설정이 필요해요" : "구글 캘린더에 저장하지 못했어요(" + r.status + ")"); return j;
+}
+const schEvBody = (name, startLocal, len) => { const s = new Date(startLocal + ":00+09:00"), e = new Date(s.getTime() + len * 6e4);
+  return { summary: `${name} 레슨`, description: `작품 보컬노트 · ${cfg?.name || ""} 강사`, start: { dateTime: schIso(s), timeZone: "Asia/Seoul" }, end: { dateTime: schIso(e), timeZone: "Asia/Seoul" },
+    reminders: { useDefault: false, overrides: [{ method: "popup", minutes: 60 }, { method: "popup", minutes: 0 }] } }; };
+async function schAdd(sid, starts, len) {   // starts: ['YYYY-MM-DDTHH:MM'] → 구글 캘린더에 하나씩 + 일정 파일에 한 번에
+  const name = cfg.students?.[sid]?.name || "수강생", made = [];
+  for (const l of starts) { const ev = await schCalFetch("?sendUpdates=none", { method: "POST", body: JSON.stringify(schEvBody(name, l, len)) });
+    made.push({ id: "L" + Date.now().toString(36) + made.length, sid, name, start: schIso(new Date(l + ":00+09:00")), len, event_id: ev.id || null, s: "scheduled", at: new Date().toISOString() }); }
+  await schMutate(items => { items.push(...made); }); return made.length;
+}
+async function schMove(id, dt, tm) {
+  const it = (schCache.self?.items || []).find(x => x.id === id); if (!it) throw new Error("일정을 찾지 못했어요");
+  if (it.event_id) { if (typeof calMoveEvent === "function") await calMoveEvent(it.event_id, `${dt}T${tm}`); }
+  await schMutate(items => { const x = items.find(y => y.id === id); if (x) { x.start = schIso(new Date(`${dt}T${tm}:00+09:00`)); x.moved_at = new Date().toISOString(); } });
+}
+async function schCancel(id, on) {   // 휴강: 구글 캘린더 제목에 [휴강] + 알림 끔(일정은 남겨 기록) · 다시 누르면 되돌림
+  const it = (schCache.self?.items || []).find(x => x.id === id); if (!it) throw new Error("일정을 찾지 못했어요");
+  const name = cfg.students?.[it.sid]?.name || it.name || "수강생";
+  if (it.event_id) await schCalFetch(`/${encodeURIComponent(it.event_id)}?sendUpdates=none`, { method: "PATCH", body: JSON.stringify(on ? { summary: `[휴강] ${name} 레슨`, transparency: "transparent", reminders: { useDefault: false, overrides: [] } } : { summary: `${name} 레슨`, transparency: "opaque", reminders: schEvBody(name, "2026-01-01T00:00", 50).reminders }) });
+  await schMutate(items => { const x = items.find(y => y.id === id); if (x) x.s = on ? "cancelled" : "scheduled"; });
+}
+async function schDelete(id) {
+  const it = (schCache.self?.items || []).find(x => x.id === id); if (!it) throw new Error("일정을 찾지 못했어요");
+  if (it.event_id) await schCalFetch(`/${encodeURIComponent(it.event_id)}?sendUpdates=none`, { method: "DELETE" });
+  await schMutate(items => { const i = items.findIndex(y => y.id === id); if (i >= 0) items.splice(i, 1); });
+}
+function schAddSheet(onDone, date) {
+  const opts = Object.entries(cfg.students || {}).filter(([, s]) => !isTeacher(s) && s.status !== "closed").map(([k, s]) => `<option value="${esc(k)}">${esc(s.name)}</option>`).join("");
+  if (!opts) return toast("아직 담당 수강생이 없어요 · 원장님이 배치하면 생겨요");
+  const d = document.createElement("div"); d.className = "attSheet";
+  const dd = date || new Date(Date.now() + 864e5 + 9 * 36e5).toISOString().slice(0, 10);
+  d.innerHTML = `<div class="attBox"><h3 style="margin:0 0 6px">＋ 레슨 등록</h3>
+    <label class="muted">수강생</label><select id="saS" style="width:100%;margin:3px 0 8px">${opts}</select>
+    <div class="row" style="gap:6px;flex-wrap:nowrap"><label style="flex:1.4" class="muted">날짜<input id="saD" type="date" value="${dd}" style="width:100%"></label><label style="flex:1" class="muted">시간<input id="saT" type="time" value="19:00" step="300" style="width:100%"></label><label style="flex:.8" class="muted">길이(분)<input id="saL" type="number" value="50" min="10" max="180" step="5" style="width:100%"></label></div>
+    <label class="muted" style="display:block;margin-top:8px">반복</label><select id="saR" style="width:100%;margin:3px 0 4px"><option value="1">한 번만</option><option value="4">매주 같은 요일·시간 (4회)</option><option value="8">매주 (8회)</option><option value="12">매주 (12회)</option></select>
+    <p class="muted" id="saMsg" style="margin:8px 0 0"></p>
+    <div class="row" style="gap:6px;margin-top:10px;flex-wrap:nowrap"><button type="button" class="ghost" id="saNo" style="flex:1">취소</button><button type="button" id="saOk" style="flex:2">등록 (구글 캘린더에도)</button></div>
+    <p class="muted" style="font-size:.8rem;margin:8px 0 0">강사님 구글 캘린더에 일정이 생기고(시작 1시간 전·시작 때 알림), 원장님 레슨 캘린더에도 보여요. 처음 한 번은 구글이 ‘캘린더 일정 보기·수정’ 허용을 물어봐요.</p></div>`;
+  document.body.appendChild(d);
+  const msg = d.querySelector("#saMsg"), close = () => d.remove();
+  const paint = () => { const dt = d.querySelector("#saD").value, tm = d.querySelector("#saT").value, n = +d.querySelector("#saR").value; if (!dt || !tm) { msg.textContent = "날짜와 시간을 골라 주세요"; return; }
+    const xs = schWeekly(dt, tm, n), busy = new Set(schDays(schCache.self?.items).filter(x => x.s !== "cancelled").map(x => x.date + "T" + x.time)), c = xs.filter(x => busy.has(x));
+    msg.textContent = `${calDay(dt)} ${tm}${n > 1 ? ` 부터 매주 ${n}회 (마지막 ${calDay(xs[xs.length - 1].slice(0, 10))})` : ""}${c.length ? ` · ⚠ ${c.length}번은 같은 시간에 다른 레슨이 있어요` : ""}`; };
+  d.querySelectorAll("input,select").forEach(x => x.oninput = paint); paint();
+  d.querySelector("#saNo").onclick = close; d.onclick = (e) => { if (e.target === d) close(); };
+  d.querySelector("#saOk").onclick = async () => {
+    const sid = d.querySelector("#saS").value, dt = d.querySelector("#saD").value, tm = d.querySelector("#saT").value, n = +d.querySelector("#saR").value, len = Math.max(10, Math.min(180, +d.querySelector("#saL").value || 50));
+    if (!sid || !dt || !tm) return; const b = d.querySelector("#saOk"); b.disabled = true; b.textContent = "등록하는 중…";
+    try { const k = await schAdd(sid, schWeekly(dt, tm, n), len); close(); toast(`${k}개 등록했어요 · 구글 캘린더에도 넣었어요`); onDone?.(dt); }
+    catch (e) { b.disabled = false; b.textContent = "등록 (구글 캘린더에도)"; msg.textContent = errMsg(e); }
+  };
+}
+function schEditSheet(x, by, onDone) {   // 강사 앱: 레슨 한 줄 → 시간 바꾸기·휴강·지우기
+  const d = document.createElement("div"), cx = x.s === "cancelled"; d.className = "attSheet";
+  d.innerHTML = `<div class="attBox"><h3 style="margin:0 0 6px">${esc(x.name)} 레슨</h3><p style="margin:0 0 10px">${esc(calDay(x.date))} ${esc(x.time)}${cx ? " · 휴강" : ""}</p>
+    ${cx ? "" : `<button type="button" class="full" data-a="mv" style="margin:4px 0">날짜·시간 바꾸기</button>`}
+    <button type="button" class="ghost full" data-a="cx" style="margin:4px 0">${cx ? "휴강 취소(다시 레슨으로)" : "휴강으로 표시"}</button>
+    <button type="button" class="ghost full" data-a="rm" style="margin:4px 0">일정 지우기</button>
+    <p class="muted" id="seMsg" style="margin:6px 0 0"></p>
+    <button type="button" class="ghost full" data-a="" style="margin:10px 0 0">닫기</button></div>`;
+  document.body.appendChild(d);
+  d.onclick = async (e) => { const b = e.target.closest("button[data-a]"); if (!b && e.target !== d) return; const a = b?.dataset.a;
+    if (!a) return d.remove();
+    if (a === "mv") { d.remove(); return calMoveSheet(x, null, by, null, onDone); }
+    if (a === "rm" && !b.dataset.sure) { b.dataset.sure = 1; b.textContent = "한 번 더 누르면 지워요(구글 캘린더에서도)"; return; }
+    b.disabled = true; d.querySelector("#seMsg").textContent = "저장하는 중…";
+    try { if (a === "cx") await schCancel(x.sch, !cx); else await schDelete(x.sch); d.remove(); toast(a === "rm" ? "지웠어요" : cx ? "다시 레슨으로 돌렸어요" : "휴강으로 표시했어요 · 구글 캘린더 제목에도 [휴강]"); onDone?.(x.date); }
+    catch (err) { b.disabled = false; d.querySelector("#seMsg").textContent = errMsg(err); } };
 }
 let lastJoinHtml = "";   // (2026-10-27 사용자: 목록이 늦게 밀려 엉뚱한 곳이 눌림) 지난번 가입 카드를 바로 그려 자리를 유지
 async function paintJoinRequests() {
@@ -5709,7 +5837,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-02-0908-cheer2";
+const BUILD = "2026-11-02-0914-staffcal";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
