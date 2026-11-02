@@ -255,17 +255,10 @@
     // 카운트다운
     const cx = L + (w - L) / 2, big = sec <= 3 ? 64 : 48;
     g.textAlign = "center"; g.textBaseline = "middle"; g.fillStyle = "#ffe066"; g.font = `900 ${big}px system-ui, sans-serif`; g.fillText(String(sec), cx, T + HP * 0.16 + 10);
-    g.font = "13px system-ui, sans-serif"; g.fillStyle = "#9aa3ad"; g.fillText(`초 뒤 노래 시작 · ${mmss(nx[0])}`, cx, T + HP * 0.16 + 48);
-    // 다가오는 멜로디 미리보기(오른쪽 끝, 점선) — 첫 소절 4초
-    const up = (cv.pts || []).filter(p => p[0] >= nx[0] && p[0] < nx[0] + 4), gx0 = L + (w - L) * 0.66, gw = w - 6 - gx0;
-    g.setLineDash([4, 3]); g.strokeStyle = "rgba(255,224,102,.8)"; g.lineWidth = 2; g.beginPath(); let pr = null;
-    for (const p of up) { const c = kt && p[kt] != null ? p[kt] : p[1], X = gx0 + (p[0] - nx[0]) / 4 * gw, Y = y(c); if (pr != null && p[0] - pr < 0.13) g.lineTo(X, Y); else g.moveTo(X, Y); pr = p[0]; }
-    g.stroke(); g.setLineDash([]);
-    // 첫 음 건반 깜빡임 + 안내
+    // 첫 음 건반 깜빡임
     const fm = Math.round((kt && nx[kt] != null ? nx[kt] : nx[1]) / 100), fy = y(fm * 100), blink = 0.45 + 0.55 * Math.abs(Math.sin(now / 380));
     g.fillStyle = `rgba(255,159,90,${blink.toFixed(2)})`; g.fillRect(0, fy - 9, L - 3, 18);
-    const lab = `첫 음 ${noteName(fm)} · 건반 톡 = 미리 듣기`; g.font = "bold 13px system-ui, sans-serif"; g.textAlign = "left"; const tw = g.measureText(lab).width;
-    g.fillStyle = "#ff9f5a"; g.fillRect(L + 8, fy - 13, tw + 16, 26); g.fillStyle = "#111"; g.fillText(lab, L + 16, fy + 1);
+    // (11/02 16:52 사용자) 안내 글·미리보기 점선은 뺌 — 첫 음 건반 깜빡임만
     g.restore();
   }
   function tgCol(cv) { return cv.target ? 2 + (cv.levels || []).length : 0; }   // 정음(목표음) 열(서버 v2부터)
