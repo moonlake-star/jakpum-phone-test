@@ -33,3 +33,6 @@ console.log("intro ok");
   assert.ok(t.includes("st.sel = { t0: b.t0, t1: b.t1 }; st.focusC = b.c;") && t.includes("if (full && st.focusC != null)"), "창이 뜨면 고른 막대 쪽으로");
   assert.ok(t.includes("} else if (full && st.yo) { lo += st.yo; hi += st.yo; }") && t.includes("drag.yo + dB * per * (rot ? -1 : 1)"), "1배에서도 위아래 밀기");
   assert.ok(t.includes("st.yc = null; st.yo = 0; st.panAt = 0;"), "두 번 톡 = 원래대로"); }
+// (11/02 20:22 사용자) 평소 화면도 다이어트: 세로 화면에서 스위치+이동 버튼 한 줄, 사용법 접기
+{ const t = require("fs").readFileSync(__dirname + "/../tune.js", "utf8");
+  assert.ok(t.includes('<details class="tfHint"><summary>ⓘ 사용법</summary>') && t.includes("#tuneFs .port .tfCtl{flex-direction:row;") && t.includes("#tuneFs .port .tfNt{display:none}")); }
