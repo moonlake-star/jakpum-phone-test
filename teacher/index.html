@@ -3575,11 +3575,11 @@ function growthCheer(f) {   // 정확도가 낮아졌을 때 의욕을 지키는
   if (!f || !f.prev || f.last.v >= f.prev.v) return "";
   const k = (f.last.d || "").split("").reduce((a, c) => a + c.charCodeAt(0), 0);
   const pick = (arr) => arr[k % arr.length];
-  if (f.newSong) return pick([`‘${f.last.t}’는 처음 부르는 곡이라 정확도가 잠깐 쉬어 갔어요. 새 곡을 익히는 날엔 자연스러운 일이에요 — 몇 번 부르면 금방 올라와요!`,
-    `새 곡 ‘${f.last.t}’에 도전한 날이에요. 낯선 멜로디는 처음엔 누구나 흔들려요. 다음에 다시 부를 때 차이를 느껴 보세요!`]);
-  if (f.best.v > f.last.v) return pick([`최고 기록 ${f.best.v}%를 이미 찍어 보셨어요. 그 실력은 사라지지 않아요 — 컨디션과 곡에 따라 잠깐 오르내릴 뿐이에요!`,
-    `이번엔 정확도가 조금 쉬어 갔지만, 첫 기록 ${f.first.v}% 때보다 소리의 기본이 단단해졌어요. 다음 레슨에서 다시 올려 봐요!`]);
-  return `곡마다 난이도가 달라 정확도는 오르내려요. 한 곡 한 곡 부를 때마다 실력은 쌓이고 있어요!`;
+  if (f.newSong) return pick([`‘${f.last.t}’는 처음 불러 본 곡이에요. 낯선 곡은 처음에 음이 조금 흔들리는 게 당연해요 — 몇 번 부르면 금방 익숙해져요!`,
+    `새 곡 ‘${f.last.t}’에 도전하셨어요. 처음 부르는 멜로디는 누구나 조금씩 흔들려요. 다음에 다시 부를 때 달라진 걸 느껴 보세요!`]);
+  if (f.best.v > f.last.v) return pick([`최고 기록 ${f.best.v}%를 이미 찍어 보셨어요. 그 실력은 그대로예요 — 그날 컨디션과 곡에 따라 조금씩 차이가 날 뿐이에요!`,
+    `첫 기록 ${f.first.v}% 때보다 소리의 기본은 훨씬 단단해졌어요. 다음 레슨에서 다시 쭉 올려 봐요!`]);
+  return `곡마다 난이도가 달라서 그날그날 차이가 나요. 한 곡 한 곡 부를 때마다 실력은 쌓이고 있어요!`;
 }
 function growthNote(sid) {
   const st = cfg.students[sid], f = growthFacts(st), show = { ...GR_SHOW0, ...(st.growth_show || {}) };
@@ -5709,7 +5709,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-02-0900-besthead";
+const BUILD = "2026-11-02-0902-cheer";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
