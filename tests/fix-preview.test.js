@@ -3,7 +3,7 @@ const fs = require("fs"), assert = require("assert");
 const src = fs.readFileSync(__dirname + "/../teacher/index.html", "utf8");
 const code = src.slice(src.indexOf("let mkPv = {"), src.indexOf("function mkStop() {"));
 const ctx = { mkTracks: {} };
-const f = new Function("ctx", "let mkTracks = ctx.mkTracks, mkPlaying = false; const mkNow = () => 0, mkPlay = () => {};\n" + code + "\nreturn { pvPsola, pvApply, pvRatio, get mkPv() { return mkPv; }, set mkPv(v) { mkPv = v; } };")(ctx);
+const f = new Function("ctx", "let mkTracks = ctx.mkTracks, mkPlaying = false; const mkNow = () => 0, mkPlay = () => {};\n" + code + "\nreturn { pvPsola, pvApply, pvRatio, pvClusters, get mkPv() { return mkPv; }, set mkPv(v) { mkPv = v; } };")(ctx);
 const sr = 48000, n = sr;
 // 성대 소리 비슷한 파형(배음 많은 톱니) — 음색(포먼트) 보존 확인용
 const saw = (hz, len) => { const x = new Float32Array(len); for (let i = 0; i < len; i++) { let v = 0; for (let h = 1; h <= 12; h++) v += Math.sin(2 * Math.PI * hz * h * i / sr) / h; x[i] = 0.3 * v; } return x; };
@@ -34,4 +34,9 @@ f.mkPv.fixes = []; assert.ok(f.pvApply("p3")); assert.ok(Math.abs(zc(lp(p3), 0.3
 { const c2 = { fps: 25, pts: [[0, 5705], [0.04, 5705]], _pvb: null }; const r = f.pvRatio(c2, 57, sr, 0, 100); assert.strictEqual(r[50], 1);
   const c3 = { fps: 25, pts: [[0, 5000], [0.04, 5000]] }; assert.ok(Math.abs(f.pvRatio(c3, 57, sr, 0, 100)[50] - 2 ** (200 / 1200)) < 1e-6); }
 assert.ok(src.includes("let re = false; try { re = pvApplyAll(); } catch {}") && src.includes("mkPv.cv = cv; mkPv.rendered") && src.includes("mkPv.fixes = r.target_fixes.slice(); try { pvApplyAll(); }"));
+// (11/03 03:00 사용자) 붙어 있는 고침은 한 덩어리로(이음매 줄이기)
+{ const c = f.pvClusters([{ t0: 1, t1: 1.5, midi: 60 }, { t0: 1.6, t1: 2, midi: 62 }, { t0: 3, t1: 3.4, midi: 60 }]);
+  assert.strictEqual(c.length, 2); assert.strictEqual(c[0].fx.length, 2); assert.ok(c[0].t0 === 1 && c[0].t1 === 2); }
+assert.ok(src.includes("else if (dry && r0 != null && rk != null) cor = rk - r0;"), "사이 빈 곳은 서버가 만든 높이 그대로");
+assert.ok(src.includes("X = Math.round(sr * 0.05)"), "이음매 50ms");
 console.log("fix-preview ok");
