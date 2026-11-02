@@ -493,15 +493,17 @@
       <div class="tfFixRow"><button type="button" data-d="-1" aria-label="반음 아래">▼</button><button type="button" class="tfFixN" data-p aria-label="누르는 동안 이 음 소리"></button><button type="button" data-d="1" aria-label="반음 위">▲</button>${canCut ? `<button type="button" class="tfCut" data-cut aria-label="세로줄 자리에서 두 음으로 나누기">✂</button>` : ""}</div>
       <div class="tfFixRow"><button type="button" data-r>처음 음으로</button><button type="button" data-ok class="pri">닫기</button></div></div>`;
     host.appendChild(d);
-    const stEl = d.querySelector(".tfFixSt"), paint = () => { d.querySelector(".tfFixN").innerHTML = `${noteName(m)}${m !== m0 ? `<small>← ${noteName(m0)}</small>` : ""}`; }; paint();
     const prior = (cv._fixes || []).slice(), snap = {};
     (cv.pts || []).forEach((p, i) => { if (p[0] >= b.t0 - 0.001 && p[0] <= b.t1 + 0.001 && p[kt] != null) snap[i] = p[kt]; });
-    const keepFix = () => !(m === m0 && !fixed);   // 처음 그대로(고친 적 없음)면 기록 없음
+    // (11/02 19:20 사용자) '처음 음으로' = 선생님이 고치기 전, 서버가 처음 고른 음(전에 고쳐 저장한 음이 아니라) — 서버 값은 cv._orig에 있음
+    const o0 = cv._orig || {}, ov = Object.keys(snap).map(i => (i in o0 ? o0[i] : snap[i])).sort((x, y) => x - y), mO = ov.length ? Math.round(ov[ov.length >> 1] / 100) : m0;
+    const stEl = d.querySelector(".tfFixSt"), paint = () => { d.querySelector(".tfFixN").innerHTML = `${noteName(m)}${m !== mO ? `<small>← ${noteName(mO)}</small>` : ""}`; }; paint();
+    const keepFix = () => !(m === mO && !isCut);   // 서버가 고른 음 그대로면 기록 없음(나눈 조각은 나눔 표시로 남김)
     const preview = () => { const o_ = cv._orig || (cv._orig = {}); for (const i in snap) { if (!(i in o_)) o_[i] = snap[i]; cv.pts[i][kt] = m * 100; }
-      cv._fixes = prior.filter(x => !(x.t0 < b.t1 && x.t1 > b.t0)).concat(keepFix() ? [{ t0: T0, t1: T1, midi: m, ...(isCut && m === m0 ? { cut: true } : {}) }] : []); };
+      cv._fixes = prior.filter(x => !(x.t0 < b.t1 && x.t1 > b.t0)).concat(keepFix() ? [{ t0: T0, t1: T1, midi: m, ...(isCut && m === mO ? { cut: true } : {}) }] : []); };
     let tm = null;
-    const persist = () => { clearTimeout(tm); stEl.textContent = "저장 중…"; tm = setTimeout(() => { try { onFix({ t0: T0, t1: T1, midi: keepFix() ? m : null, ...(isCut && m === m0 ? { cut: true } : {}) }); } catch {} stEl.textContent = "✓ 저장됨"; }, 450); };
-    const shut = () => { if (tm) { clearTimeout(tm); try { onFix({ t0: T0, t1: T1, midi: keepFix() ? m : null, ...(isCut && m === m0 ? { cut: true } : {}) }); } catch {} } toneOff(); if (st) st.sel = null; d.remove(); };
+    const persist = () => { clearTimeout(tm); stEl.textContent = "저장 중…"; tm = setTimeout(() => { try { onFix({ t0: T0, t1: T1, midi: keepFix() ? m : null, ...(isCut && m === mO ? { cut: true } : {}) }); } catch {} stEl.textContent = "✓ 저장됨"; }, 450); };
+    const shut = () => { if (tm) { clearTimeout(tm); try { onFix({ t0: T0, t1: T1, midi: keepFix() ? m : null, ...(isCut && m === mO ? { cut: true } : {}) }); } catch {} } toneOff(); if (st) st.sel = null; d.remove(); };
     d.addEventListener("pointerdown", (e) => e.stopPropagation()); d.addEventListener("contextmenu", (e) => e.preventDefault());
     d.querySelectorAll("[data-d]").forEach(x => x.onclick = () => { m += +x.dataset.d; paint(); preview(); persist(); tone(m); setTimeout(toneOff, 500); });
     const nb = d.querySelector("[data-p]");   // 음 이름을 누르는 동안 그 음 소리
@@ -509,11 +511,13 @@
     const cut = d.querySelector("[data-cut]");
     if (cut) cut.onclick = () => {   // 세로줄 자리에서 나누기 → 두 조각(같은 음, 노란 테두리 없음) · 조각을 눌러 따로 고침
       clearTimeout(tm); tm = null;
-      const ts = +tNow.toFixed(2), a = { t0: T0, t1: ts, midi: m, cut: m === m0 }, c = { t0: ts, t1: T1, midi: m, cut: m === m0 };
+      const ts = +tNow.toFixed(2), a = { t0: T0, t1: ts, midi: m, cut: m === mO }, c = { t0: ts, t1: T1, midi: m, cut: m === mO };
       cv._fixes = prior.filter(x => !(x.t0 < b.t1 && x.t1 > b.t0)).concat([a, c]);
       try { onFix(a); onFix(c); } catch {} toneOff(); if (st) st.sel = null; d.remove(); };
-    d.querySelector("[data-r]").onclick = () => { m = m0; paint(); for (const i in snap) cv.pts[i][kt] = snap[i]; cv._fixes = prior; clearTimeout(tm); tm = null;
-      try { onFix(fixed ? { ...fixed } : { t0: T0, t1: T1, midi: null }); } catch {} stEl.textContent = "처음 음으로"; };
+    d.querySelector("[data-r]").onclick = () => { m = mO; paint(); for (const i in snap) cv.pts[i][kt] = i in o0 ? o0[i] : snap[i]; clearTimeout(tm); tm = null;
+      const f = { t0: T0, t1: T1, midi: isCut ? mO : null, ...(isCut ? { cut: true } : {}) };
+      cv._fixes = prior.filter(x => !(x.t0 < b.t1 && x.t1 > b.t0)).concat(isCut ? [f] : []);
+      try { onFix(f); } catch {} stEl.textContent = "처음 음으로 · 저장됨"; };
     d.querySelector("[data-ok]").onclick = shut;
   }
   // ── 전체화면: 카드에서 커지며 가로로 돌아 폰 화면 가득. 상하 배율 고정(곡 전체 음역), 정음·부른 음·보정 음을 크게 ──
