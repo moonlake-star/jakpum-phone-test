@@ -4243,7 +4243,9 @@ function mkApply() {
   set("bv", raw && mkTracks.bv ? V : 0); set("bm", raw && mkTracks.bv ? M : 0);
   set("before", raw && !mkTracks.bv ? 1 : 0);
 }
-function paintTransport() {
+let mkU = null;   // 음정 판단 확인에서 마지막으로 누른 ▶ 버튼
+function paintMkU() { document.querySelectorAll("#vMkJob .mkU").forEach(x => { const on = mkPlaying && x === mkU, lab = (on ? "❚❚ " : "▶ ") + fmt(+x.dataset.t); if (x.textContent !== lab) x.textContent = lab; x.classList.toggle("on", on); }); }
+function paintTransport() { try { paintMkU(); } catch {}
   if (!$("mkPP")) return;
   $("mkPP").textContent = mkPlaying ? "❚❚" : "▶";
   const t = mkNow(); $("mkPos").textContent = `${fmt(t)} / ${fmt(mkDurS)}`;
@@ -4301,7 +4303,7 @@ async function mkRefPaint(j, r, pi, by) {
 async function openMkJob(j, backTo) {
   goBack = backTo || (() => openStudent(j.sid, "mk"));
   if (!["done", "error"].includes(j.req.status)) return showProgress(j);
-  stopProg(); mkStop(); mkTracks = {}; mkPv = { fixes: [], rendered: () => null, orig: {} }; mkDurS = 0; mkOffset = 0; mkBefore = false; mkRaw = false; mkJob = j; show("vMkJob");
+  stopProg(); mkStop(); mkU = null; mkTracks = {}; mkPv = { fixes: [], rendered: () => null, orig: {} }; mkDurS = 0; mkOffset = 0; mkBefore = false; mkRaw = false; mkJob = j; show("vMkJob");
   if (!j.files?.length) j.files = await list(j.folder.id);
   const r = j.req, by = (n) => j.files.find(f => f.name === n);
   const meas = r.result?.measure || {}, pi = r.result?.pitch || {};
@@ -4423,7 +4425,10 @@ async function openMkJob(j, backTo) {
   for (const [id, d] of Object.entries(DEF)) { const el = $(id); if (!el) continue; let prev = +el.value;
     el.addEventListener("input", () => { const now = +el.value; if (now === d && prev !== d) { try { navigator.vibrate?.(12); } catch {} } prev = now; }); }
   const dec = { ...(r.pitch_review?.decisions || {}) };
-  document.querySelectorAll("#vMkJob .mkU").forEach(b => b.onclick = () => { const t = Math.max(0, +b.dataset.t - 1); if (!mkPlaying) { mkOffset = t; $("mkPP").click(); } else mkSeekTo(t); });
+  // (11/03 02:48 사용자) ▶ 0:21 = 재생/일시정지 토글: 그 자리를 듣는 중에 다시 누르면 멈춤, 다른 자리 버튼은 그 자리로 옮겨 재생
+  document.querySelectorAll("#vMkJob .mkU").forEach(b => b.onclick = () => { const t = Math.max(0, +b.dataset.t - 1);
+    if (mkPlaying && mkU === b) { $("mkPP").click(); return; }
+    mkU = b; if (!mkPlaying) { mkOffset = t; $("mkPP").click(); } else mkSeekTo(t); paintTransport(); });
   // (11/03 02:45 사용자) 음정 판단 확인: 음 이름을 누르면 그 음 소리(사인파)로 들려줌 — 모름은 소리 없음
   const nmMidi = (nm) => { const m_ = /^([A-G])([#b]?)(-?\d)$/.exec(String(nm || "").trim()); if (!m_) return null; return 12 * (+m_[3] + 1) + { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }[m_[1]] + (m_[2] === "#" ? 1 : m_[2] === "b" ? -1 : 0); };
   let rvTm = null;
@@ -6098,7 +6103,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-03-0250-tone";
+const BUILD = "2026-11-03-0255-rvplay";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
