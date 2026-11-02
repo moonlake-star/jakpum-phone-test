@@ -52,3 +52,6 @@ console.log("intro ok");
 { const t = require("fs").readFileSync(__dirname + "/../tune.js", "utf8");
   assert.ok(t.includes("function fxSave(fn, f)") && t.includes("const close_ = (fromPop) => { core(); saveToast();") && t.includes('const done = () => { saveToast();') && t.includes('saveEl.textContent = "✓ 저장됨"'));
   assert.ok(!/[^.\w]onFix\(\{/.test(t.slice(t.indexOf("function fixSheet("), t.indexOf("function fixSheet(") + 6000)), "고치기 창의 저장은 전부 fxSave로"); }
+// (11/03 08:14 사용자) 나누면 오른쪽 조각이 바로 골라진 채로
+{ const t = require("fs").readFileSync(__dirname + "/../tune.js", "utf8");
+  assert.ok(t.includes("fixSheet(host, cv, { t0: ts, t1: T1, c: m * 100 }, onFix, getT, st); };")); }

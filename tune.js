@@ -540,7 +540,8 @@
       clearTimeout(tm); tm = null;
       const ts = +(atHead ? tNow : (b.t0 + b.t1) / 2).toFixed(2), a = { t0: T0, t1: ts, midi: m, cut: m === mO }, c = { t0: ts, t1: T1, midi: m, cut: m === mO };
       cv._fixes = prior.filter(x => !(x.t0 < b.t1 && x.t1 > b.t0)).concat([a, c]);
-      try { fxSave(onFix, a); fxSave(onFix, c); } catch {} toneOff(); if (st) st.sel = null; d.remove(); leave(); };
+      try { fxSave(onFix, a); fxSave(onFix, c); } catch {} toneOff();
+      fixSheet(host, cv, { t0: ts, t1: T1, c: m * 100 }, onFix, getT, st); };   // (11/03 08:14 사용자) 나누면 오른쪽 조각이 바로 골라진 채로(창은 그대로, 뒤로 가기 기록도 그대로)
     d.querySelector("[data-r]").onclick = () => { m = mO; paint(); for (const i in snap) cv.pts[i][kt] = i in o0 ? o0[i] : snap[i]; clearTimeout(tm); tm = null;
       const f = { t0: T0, t1: T1, midi: isCut ? mO : null, ...(isCut ? { cut: true } : {}) };
       cv._fixes = prior.filter(x => !(x.t0 < b.t1 && x.t1 > b.t0)).concat(isCut ? [f] : []);
