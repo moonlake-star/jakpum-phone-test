@@ -1150,6 +1150,16 @@ function paintList(data, stale) {
 let listGen = 0, lastTouch = 0;
 document.addEventListener("pointerdown", () => { lastTouch = Date.now(); }, true);
 document.addEventListener("scroll", () => { lastTouch = Date.now(); }, { passive: true, capture: true });
+document.addEventListener("keydown", () => { lastTouch = Date.now(); }, true);
+// (11/02 사용자 '응 넣어', 유료화 검토 H1) 레슨 1건 피드백 작업 시간: 레슨 화면이 열려 있고 화면이 켜져 있고 최근 90초 안에 만졌을 때만 5초씩 셈
+// 보냄 표시 전 = work_sec, 보낸 뒤 고친 시간 = work_after_sec. 검수.json에 같이 저장(숫자만)
+const WORK_STEP = 5, WORK_IDLE = 90e3;
+function workTick(now = Date.now()) {
+  const me = typeof cur !== "undefined" ? cur : null, rv = me?.review;
+  if (!rv || typeof document === "undefined" || document.visibilityState !== "visible" || $("vLesson")?.classList.contains("hidden") || now - lastTouch > WORK_IDLE) return false;
+  const k = rv.kakao_sent_at ? "work_after_sec" : "work_sec"; rv[k] = (+rv[k] || 0) + WORK_STEP; rv.work_first_at ??= new Date(now).toISOString(); return true;
+}
+if (typeof setInterval !== "undefined" && typeof document !== "undefined") setInterval(workTick, WORK_STEP * 1000);
 function untilIdle(ms = 1200) { return new Promise(ok => { (function w() { const d = Date.now() - lastTouch; d >= ms ? ok() : setTimeout(w, ms - d + 30); })(); }); }
 async function renderList() {
   show("vList");
@@ -2672,7 +2682,7 @@ function paintDeliver() {
   const pubOk = st === "published" || st === "published_stale";
   const kakaoBlock = `<div style="margin-top:10px;border-top:1px solid #8884;padding-top:8px"><b>② 카톡 보내기</b>
       <p class="muted" style="margin:2px 0">보낼 글 = 위 ‘수강생 노트’의 선생님 한마디(한 곳에서만 고쳐요) + 노트 링크 1번${pubOk ? "" : " · ⚠ 아직 공개 전이라 링크를 열어도 노트가 안 보여요"}</p><div id="step2Slot"></div><div id="acctSlot">${acctHTML(me, s)}</div>
-      <div style="margin-top:10px;border-top:1px solid #8884;padding-top:8px"><b>③ 보냈으면 표시</b> <button class="small ghost" id="btnKakaoMark">${sentAt ? "✓ 보냄 표시 취소" : "카톡 전송 완료 표시"}</button>
+      <div style="margin-top:10px;border-top:1px solid #8884;padding-top:8px"><b>③ 보냈으면 표시</b> <button class="small ghost" id="btnKakaoMark">${sentAt ? "✓ 보냄 표시 취소" : "카톡 전송 완료 표시"}</button>${+rv.work_sec >= 60 ? ` <span class="muted" style="font-size:.85rem">· 작업 약 ${Math.round((+rv.work_sec_at_sent || +rv.work_sec) / 60)}분</span>` : ""}
         <span class="chip ${sentAt ? "ok" : "todo"}">${sentAt ? "보냄 " + esc(fmtVisible(sentAt).kst) : "아직 안 보냄"}</span>${me.note ? ` <span id="seenChip" class="chip">아직 안 읽음</span>` : ""}
         <p class="muted" style="margin:4px 0">복사·클립 보내기만으로는 보낸 걸로 치지 않아요. 직접 보낸 뒤 눌러 주세요. 안 누르면 앱 알림으로 다시 알려 드려요.</p></div></div>`;
   if (st === "unsupported" || st === "unknown") {
@@ -2732,7 +2742,7 @@ function paintDeliver() {
   $("btnKakaoMark").onclick = async () => {   // ③ 하나로: 카톡 보냄(알림용)과 '피드백 보냄'(목록 표시)을 같이
     const on = !rv.kakao_sent_at;
     if (on && !(s.entry && s.entry.state === "published")) toast("아직 공개 전이에요. 링크를 보냈다면 ‘검수 저장’으로 공개해 주세요");
-    if (on) { rv.kakao_sent_at = new Date().toISOString(); (rv.sent ??= {}).feedback ??= rv.kakao_sent_at; } else { delete rv.kakao_sent_at; if (rv.sent) delete rv.sent.feedback; }
+    if (on) { rv.kakao_sent_at = new Date().toISOString(); (rv.sent ??= {}).feedback ??= rv.kakao_sent_at; rv.work_sec_at_sent ??= +rv.work_sec || 0; } else { delete rv.kakao_sent_at; if (rv.sent) delete rv.sent.feedback; }
     paintDeliver(); if (typeof renderSent === "function") renderSent(); try { await saveReview(true); } catch (e) { toast(e.message); } };
   if (typeof v2Paint === "function") v2Paint();
   if (!me.note) return;
@@ -5934,7 +5944,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-02-1106-listen";
+const BUILD = "2026-11-02-1150-worktime";
 async function checkBuild() {
   try {
     const t = await (await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" })).text();
