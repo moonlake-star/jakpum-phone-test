@@ -4237,14 +4237,17 @@ let vtNow = null;
 function voiceTone(t0, t1, midi) {
   try { vtNow?.stop(true); } catch {} vtNow = null;
   const src = mkTracks.p0?.buf, cv = mkPv.cv; if (!src || !cv || !mkCtx) return null;
-  const sr = src.sampleRate, c = (t0 + t1) / 2, half = Math.min(0.35, (t1 - t0) / 2 - 0.03); if (half < 0.09) return null;
-  const i0 = Math.max(0, Math.round((c - half) * sr)), n = Math.min(src.length - i0, Math.round(2 * half * sr)); if (n < sr * 0.15) return null;
+  // (11/03 13:08 사용자) 되풀이 구간을 1/5로(약 0.7초 → 0.14초): 짧을수록 '한 음'처럼 고르게 들림. 앞뒤 여유를 두고 가운데 0.3초만 다시 만듦
+  const sr = src.sampleRate, c = (t0 + t1) / 2, half = Math.min(0.15, (t1 - t0) / 2 - 0.02); if (half < 0.06) return null;
+  const i0 = Math.max(0, Math.round((c - half) * sr)), n = Math.min(src.length - i0, Math.round(2 * half * sr)); if (n < sr * 0.1) return null;
   const x = src.getChannelData(0).slice(i0, i0 + n), f0 = pvF0(cv, 1, sr, i0, n);
   if (!f0.some(v => v > 0)) return null;
   const rat = pvPerSample(cv, pvBins(cv, 1), sr, i0, n, (cc) => cc == null ? 1 : 2 ** ((midi * 100 - cc) / 1200));   // 순간 높이마다 맞춰 = 떨림·흔들림 없이 그 음
-  const sh = pvPsola(x, sr, f0, rat), K = Math.round(0.05 * sr), L = sh.length - K; if (L < K * 2) return null;
-  const loop = new Float32Array(L); loop.set(sh.subarray(0, L));
-  for (let j = 0; j < K; j++) { const a = j / K; loop[j] = sh[j] * a + sh[L + j] * (1 - a); }   // 끝을 앞에 겹쳐 이음매 없이 되풀이
+  const sh = pvPsola(x, sr, f0, rat), per = sr / (440 * 2 ** ((midi - 69) / 12));
+  const L = Math.round(Math.max(1, Math.round(0.14 * sr / per)) * per), K = Math.min(Math.round(0.015 * sr), Math.floor(L / 3)), s0 = Math.max(0, Math.floor((sh.length - L - K) / 2));   // 길이 = 그 음 주기의 정수배(이음매에서 파형이 맞물림)
+  if (s0 + L + K > sh.length || L < 2 * K) return null;
+  const loop = new Float32Array(L); loop.set(sh.subarray(s0, s0 + L));
+  for (let j = 0; j < K; j++) { const a = j / K; loop[j] = sh[s0 + j] * a + sh[s0 + L + j] * (1 - a); }   // 끝을 앞에 짧게(15ms) 겹쳐 이음매 없이 되풀이
   let pk = 0; for (const v of loop) pk = Math.max(pk, Math.abs(v));
   const b = mkCtx.createBuffer(1, L, sr); b.getChannelData(0).set(loop);
   const s = mkCtx.createBufferSource(); s.buffer = b; s.loop = true;
@@ -6159,7 +6162,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-03-1142-tip";
+const BUILD = "2026-11-03-1315-loop";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
