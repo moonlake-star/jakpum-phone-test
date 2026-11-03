@@ -19,4 +19,4 @@ console.log("app-tips ok", L.length);
 // (11/03 14:04 사용자) 로고 없이 반투명 박스 · 톡/꾹으로 붙잡기 · 4초 뒤 닫힘 · 1.8초 페이드
 { const br2 = fs.readFileSync(__dirname + "/../brand.js", "utf8");
   assert.ok(!br2.includes('<div class="lg"></div><div class="tx">') && br2.includes('<div class="bx"><div class="hd"><span class="hg" aria-hidden="true">⏳</span><b style="display:none">[Tip]</b>'), "로고 없음 · 박스");
-  assert.ok(br2.includes("const KEEP = 4000;") && br2.includes("if (long) pin = false; else pin = !pin;") && br2.includes("transition:opacity 1.8s ease,visibility 0s linear 1.8s"), "붙잡기·4초·페이드"); }
+  assert.ok(br2.includes("const LINGER = 5000, LONG = 600;") && br2.includes("if (moved || long || !pin) { pin = true; vis(el); return; } shutNow(el);") && br2.includes("transition:opacity 1.8s ease,visibility 0s linear 1.8s"), "붙잡기·4초·페이드"); }
