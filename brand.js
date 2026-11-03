@@ -10,7 +10,7 @@
 #brSplash .sb{margin-top:10px;font-size:12px;color:#8d8575;letter-spacing:.2em;opacity:0;animation:brFade .8s .6s forwards}
 /* (11/03 14:04 사용자) 불러오기 = 로고 없이 반투명 박스 하나(전체화면 팁 창과 같은 모양) · 박스를 톡 = 계속 띄움 · 다시 톡 = 닫기 · 0.7초 넘게 꾹 = 누르는 동안만 · 붙잡아도 4초 뒤 닫힘 · 닫힐 땐 1.8초 페이드 */
 #brLoad{position:fixed;inset:0;z-index:9990;display:flex;pointer-events:none;align-items:center;justify-content:center;opacity:0;visibility:hidden;transition:opacity 1.8s ease,visibility 0s linear 1.8s}#brLoad.on{opacity:1;visibility:visible;transition:opacity .2s ease}#brLoad.now{transition:none!important}#brLoad .pn{display:none;font-size:11.5px;font-weight:700;color:#5fd4ff;background:rgba(95,212,255,.12);border-radius:8px;padding:1px 7px}#brLoad.pin .pn{display:inline-block}
-#brLoad .bx{pointer-events:none;width:min(300px,80vw);box-sizing:border-box;background:rgba(17,20,26,.9);border:1px solid #3b4250;border-radius:16px;padding:12px 16px;box-shadow:0 8px 28px rgba(0,0,0,.45);-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:none}#brLoad.on .bx{pointer-events:auto}
+#brLoad .bx{pointer-events:none;width:min(300px,80vw);box-sizing:border-box;background:rgba(17,20,26,.9);border:1px solid #3b4250;border-radius:16px;padding:12px 16px;box-shadow:0 8px 28px rgba(0,0,0,.45);-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:none}#brLoad.on .bx,#brLoad.fd .bx{pointer-events:auto}
 #brLoad .hd{display:flex;align-items:center;gap:6px;font-size:12.5px;color:#c9b58a;font-weight:800}#brLoad .hg{font-size:13px;display:inline-block;animation:brHg 1.6s ease-in-out infinite}@keyframes brHg{0%,40%{transform:rotate(0)}50%,90%{transform:rotate(180deg)}100%{transform:rotate(180deg)}}#brLoad .tx{margin-left:auto;font-weight:600;color:#9aa3ad;font-size:12px}
 #brLoad .tp{margin-top:6px;font-size:14px;line-height:1.55;color:#ffd27a;word-break:keep-all;min-height:22px}
 #brLoad .br{height:3px;border-radius:2px;background:#2a2f38;margin-top:10px;overflow:hidden}#brLoad .br i{display:block;height:100%;width:0;background:linear-gradient(90deg,#c8912e,#ffd27a);border-radius:2px;position:relative;overflow:hidden}#brLoad .br i:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.55),transparent);animation:brSh 1.2s linear infinite}@keyframes brSh{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
@@ -49,19 +49,22 @@
     const pick = () => { if (pin || hold) return; tipI = (tipI + 1 + Math.floor(Math.random() * Math.max(1, L.length - 1))) % L.length; t.textContent = String(L[tipI]); };   // 붙잡아 둔 동안엔 같은 팁
     pick(); t.style.display = ""; el.querySelector(".hd b").style.display = ""; tipTm = setInterval(pick, 4500); }
   // (11/03 14:17 사용자) 안 건드리면 다 불러온 뒤 5초 있다가 서서히 사라짐 · 톡·끌기·0.6초 넘게 꾹 = 붙잡음(저절로 안 사라짐) → 다시 톡 = 바로 사라짐(페이드 없이) · 누른 채 끌면 박스가 따라 움직임
-  // (11/03 14:34 사용자) 전체화면 팁 창과 같게: 다 불러온 순간부터 5초 보이고 1.8초 페이드(이어 읽기 기다림 0.5초 + 바 채움 0.26초 포함)
-  const LONG = 600, LINGER = 5000 - GRACE - 260; let pin = false, hold = false, down = 0, lingerT = null, lingering = false, busyOn = false, grab = null;
-  function vis(el) { const v = busyOn || pin || hold || lingering; el.classList.toggle("on", v); el.classList.toggle("pin", pin);   // (11/03 14:30 사용자) 붙잡힌 동안 '톡 하면 닫혀요' 
+  // (11/03 14:34 사용자) 전체화면 팁 창과 같게: 다 불러온 순간부터 3초(14:37 사용자: 5→3초) 보이고 1.8초 페이드(이어 읽기 기다림 0.5초 + 바 채움 0.26초 포함)
+  const LONG = 600, LINGER = 3000 - GRACE - 260, FADE = 1800; let fadeT = null, pin = false, hold = false, down = 0, lingerT = null, lingering = false, busyOn = false, grab = null;
+  function vis(el) { const v = busyOn || pin || hold || lingering, was = el.classList.contains("on"); el.classList.toggle("on", v); el.classList.toggle("pin", pin);
+    clearTimeout(fadeT); if (v || el.classList.contains("now")) el.classList.remove("fd"); else if (was) { el.classList.add("fd"); fadeT = setTimeout(() => el.classList.remove("fd"), FADE); }   // (11/03 14:37 사용자) 사라지는 도중에도 붙잡을 수 있게   // (11/03 14:30 사용자) 붙잡힌 동안 '톡 하면 닫혀요' 
+    if (v) clearTimeout(vis.clr);
     if (!v) { cancelAnimationFrame(praf); clearInterval(tipTm); tipTm = null; clearTimeout(vis.clr); vis.clr = setTimeout(() => { if (!el.classList.contains("on")) tips(el, false); }, 1900); }   // 글은 페이드가 끝난 뒤에 비움(사라지는 동안 박스가 줄지 않게)
     else if (!busyOn) el.querySelector(".tx").textContent = "✓ 다 불러왔어요"; }
   function linger(el) { clearTimeout(lingerT); lingering = true; vis(el); lingerT = setTimeout(() => { lingering = false; vis(el); }, LINGER); }
   function shutNow(el) { pin = false; lingering = false; clearTimeout(lingerT); el.classList.add("now"); vis(el); setTimeout(() => el.classList.remove("now"), 80); }
   function wireBox(el) { const bx = el.querySelector(".bx");
-    bx.addEventListener("pointerdown", (e) => { e.stopPropagation(); e.preventDefault(); down = performance.now(); hold = true; grab = { x: e.clientX, y: e.clientY, dx: +bx.dataset.dx || 0, dy: +bx.dataset.dy || 0, moved: false }; try { bx.setPointerCapture(e.pointerId); } catch {} });
+    bx.addEventListener("pointerdown", (e) => { e.stopPropagation(); e.preventDefault(); const fading = !el.classList.contains("on"); down = performance.now(); hold = true;
+      grab = { x: e.clientX, y: e.clientY, dx: +bx.dataset.dx || 0, dy: +bx.dataset.dy || 0, moved: false, fading }; if (fading) { pin = true; lingering = false; clearTimeout(lingerT); vis(el); } try { bx.setPointerCapture(e.pointerId); } catch {} });
     bx.addEventListener("pointermove", (e) => { if (!down || !grab) return; const ax = e.clientX - grab.x, ay = e.clientY - grab.y; if (!grab.moved && Math.hypot(ax, ay) < 6) return; grab.moved = true;
       bx.dataset.dx = grab.dx + ax; bx.dataset.dy = grab.dy + ay; bx.style.transform = `translate(${grab.dx + ax}px,${grab.dy + ay}px)`; });
-    bx.addEventListener("pointerup", (e) => { e.stopPropagation(); if (!down) return; const long = performance.now() - down >= LONG, moved = !!(grab && grab.moved); down = 0; hold = false; grab = null;
-      if (moved || long || !pin) { pin = true; vis(el); return; } shutNow(el); });   // 붙잡은 박스를 다시 톡 = 바로 닫기
+    bx.addEventListener("pointerup", (e) => { e.stopPropagation(); if (!down) return; const long = performance.now() - down >= LONG, moved = !!(grab && grab.moved); down = 0; hold = false;
+      const fromFade = !!(grab && grab.fading); grab = null; if (moved || long || !pin || fromFade) { pin = true; vis(el); return; } shutNow(el); });   // 붙잡은 박스를 다시 톡 = 바로 닫기
     bx.addEventListener("pointercancel", () => { down = 0; hold = false; grab = null; pin = true; vis(el); });
     bx.addEventListener("click", (e) => e.stopPropagation()); bx.addEventListener("contextmenu", (e) => e.preventDefault()); }
   function hideNow(el) { const was = busyOn; busyOn = false; if (was && !pin && el.classList.contains("on")) linger(el); else vis(el); }   // 다 불러오면 5초 더 보여 주고 서서히
