@@ -4,6 +4,7 @@
 // 아래 줄 = 고친 양(위 = 올림 · 아래 = 내림, 끝까지 = 반음 ½ 이상). 확대(기본): 지금 음 근처 ±4반음, 전체: 곡 전체 음역.
 // 음정 인식은 AI 추정(숨소리·자음에서 선이 튈 수 있음) — 참고용.
 (function (G) {
+  const BAR_GAP = 0.5;   // 정음 막대 이어 붙이는 최대 틈(초) — 서버 pitch.BRIDGE_S와 같게
   const DT_JUMP = 2;   // (11/03 10:24 사용자) 그래프 두 번 톡 = 2초 이동
   const WIN = 8, HEAD = 0.4, NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"], LANE = 34, ZOOM_HALF = 400;
   function range(cv) {
@@ -333,7 +334,8 @@
       const bh = Math.max(6, (HP - 12) / ((hi - lo) / 100) * 0.55), bars = []; let run = null;
       const fxOf = (tt) => (cv._fixes || []).findIndex(x => tt >= x.t0 - 1e-6 && tt < x.t1 - 1e-6);   // 나눈·고친 구간 경계에서 막대도 끊음
       for (let i = 0; i < vis.length; i++) { const p = vis[i], q = vis[i + 1]; if (p[kt] == null) { run = null; continue; }
-        const cont = q && q[kt] === p[kt] && q[0] - p[0] < 0.13 && fxOf(q[0]) === fxOf(p[0]), x0 = xs(p[0]), x1 = cont ? xs(q[0]) : x0 + 2;
+        // (11/03 15:21 사용자) 한 음인데 가운데서 소리 높이를 못 잡은 짧은 틈(숨·자음·작아진 소리)에서 막대가 끊김 → 같은 정음이고 사이에 다른 점이 없으면 0.5초까지 한 막대(서버 BRIDGE_S와 같음)
+        const cont = q && q[kt] === p[kt] && q[0] - p[0] < BAR_GAP && fxOf(q[0]) === fxOf(p[0]), x0 = xs(p[0]), x1 = cont ? xs(q[0]) : x0 + 2;
         g.fillStyle = srcCol(cv, p[0]); { const mv = (cv._tedits || []).some(x => p[0] >= x.t0 - 1e-6 && p[0] < x.t1 - 1e-6); if (mv) g.globalAlpha = 0.22; g.fillRect(x0, y(p[kt]) - bh / 2, Math.max(1, x1 - x0 + 0.5), bh); g.globalAlpha = 1; }   // 옮기는 중인 음은 원래 자리를 흐리게
         if (!run) { run = { x0, x1, t0: p[0], t1: p[0], c: p[kt], y: y(p[kt]), h: bh }; bars.push(run); }
         run.x1 = x1; run.t1 = cont ? q[0] : p[0] + 0.04;

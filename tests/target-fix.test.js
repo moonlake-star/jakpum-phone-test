@@ -72,3 +72,4 @@ console.log("intro ok");
 // (11/03 15:16 사용자) 음 이름이 사라짐(타이밍 버튼도 tfFixN이라 거기로 들어감) → 음 이름 칸은 [data-p]로 · 목소리 되풀이는 몇 주기(20ms 안) 평균 + 낮은 소리 필터
 assert.ok(tune.includes('paint = () => { d.querySelector("[data-p]").innerHTML') && !tune.includes('paint = () => { d.querySelector(".tfFixN").innerHTML'));
 assert.ok(src.includes("k * per <= sr * 0.02") && src.includes('lp.type = "lowpass"') && src.includes("s.playbackRate.value = L / (N * per)"));
+assert.ok(tune.includes("const BAR_GAP = 0.5;") && tune.includes("q[0] - p[0] < BAR_GAP && fxOf(q[0]) === fxOf(p[0])"), "(11/03 15:21) 한 음 가운데 짧은 틈(0.5초까지)은 한 막대");
