@@ -675,7 +675,7 @@
     const d = document.createElement("div"); d.className = "tfFix tfMulti";
     d.innerHTML = `<div class="tfFixBox"><div class="tfFixHd"><b>☑ 여러 음 고르기</b><span class="tfFixTm">끌어서 고르기</span><span class="tfFixSt"></span></div>
       <div class="tfFixRow"><button type="button" class="tfMr" data-mr disabled>↺ 원본으로</button><button type="button" class="tfIc" data-mx aria-label="여러 음 고르기 끝내기">✕</button></div>
-      <div class="tfFixLab"><span class="n">다시 끌면 새로 고르기 · 빈 곳 톡 = 끝내기</span><span class="i">끝내기</span></div></div>`;
+      <div class="tfFixLab"><span class="n">꾹 누른 채 끌면 다시 고르기 · 빈 곳 톡 = 끝내기</span><span class="i">끝내기</span></div></div>`;
     const bot = host.querySelector(".tfBot");
     if (bot) { const h0 = had && bot._h0 ? bot._h0 : bot.offsetHeight; bot._h0 = h0; d.classList.add("inBot"); bot.appendChild(d);
       const gap = h0 - bot.offsetHeight; if (gap > 0) d.style.minHeight = (d.offsetHeight + gap) + "px"; }
@@ -813,8 +813,6 @@
       pts.set(e.pointerId, { a: along(e), b: across(e) }); try { cvEl.setPointerCapture(e.pointerId); } catch {}
       if (pts.size === 2) { const [p1, p2] = [...pts.values()]; drag = null; preview = null;
         pinch = { d: Math.hypot(p1.a - p2.a, p1.b - p2.b), xz: st.xz, yz: st.yz, mid: (p1.a + p2.a) / 2, t: +getT() || 0 }; return; }
-      if (pts.size === 1 && st.mMode && st.kb && st.map) { const l0 = loc(e.clientX, e.clientY, cvEl.getBoundingClientRect());   // 여러 음 고르기: 끌어서 구간
-        if (l0.x >= st.kb.L) { drag = { msel: true, x0: l0.x, id: e.pointerId, cx: e.clientX, cy: e.clientY }; return; } }
       if (pts.size === 1 && st.onBarDragX && st.fixMode === "t" && st.sel && st.kb && st.map) { const r0 = cvEl.getBoundingClientRect(), l0 = loc(e.clientX, e.clientY, r0);   // (11/03 13:08) 타이밍 모드: 고른 막대 가운데 끌기 = 옮기기, 양 끝 = 길이
         const tb = (st.tebars || []).find(x => Math.abs(x.t0 - st.sel.t0) < 0.02) || (st.tbars || []).find(x => Math.abs(x.t0 - st.sel.t0) < 0.02);
         if (tb && l0.x >= st.kb.L && Math.abs(l0.y - tb.y) <= Math.max(22, tb.h) && l0.x >= tb.x0 - 16 && l0.x <= tb.x1 + 16) {
@@ -867,7 +865,7 @@
       if (d.armed) { armTip(false); if (d.moved) { if (st.onMSel) st.onMSel(); return; } st.msel = null; if (e.type === "pointerup") { lastView = view; o.onAdd(d.armed.t); } return; }   // 끌지 않고 뗌 = 새 주석(예전과 같음)
       if (d.long) return;
       if (d.kb) { toneOff(); st.kbDown = null; return; }
-      if (d.msel && !d.moved && e.type === "pointerup" && sheetClose) { sheetClose(); lastTap = 0; return; }   // (11/03 13:58 사용자) 여러 음 고르기 중 빈 곳 톡 = 끝내기
+      if (st.mMode && !d.mode && e.type === "pointerup" && sheetClose) { sheetClose(); lastTap = 0; return; }   // (11/03 13:58 사용자) 여러 음 고르기 중 빈 곳 톡 = 끝내기 · (13:59) 끌기는 평소처럼 화면 이동, 다시 고르기는 꾹 누른 채 끌기
       if (d.bar || d.barX || d.msel) return;   // 고른 막대를 위아래(음정)·좌우(타이밍)로 옮긴 것(재생/멈춤 아님)
       if (!d.mode && e.type === "pointerup" && typeof o.onFix === "function" && isPaused() && st.tbars) {   // 멈춘 상태에서 초록 정음 막대 톡 = 정음 고치기
         const le = loc(d.cx ?? e.clientX, d.cy ?? e.clientY, cvEl.getBoundingClientRect()), hb = hitT(le) || hitBar(le);   // (11/03 10:31 아이패드) 누른 자리(뗀 자리 아님) + 손가락 크기만큼 넉넉하게
