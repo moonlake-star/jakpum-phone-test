@@ -511,7 +511,7 @@
 <div id="v2Shade" class="v2only"></div>
 <div id="toast"></div>
 <script src="../lesson-replies.js"></script>
-<script src="../tune.js?v=20261103-1522"></script>
+<script src="../tune.js?v=20261103-1525"></script>
 
 <script>
 // ── 설정 ────────────────────────────────────────────────
@@ -4279,16 +4279,19 @@ function voiceTone(t0, t1, midi) {
   const x = pvSrc(src, 0, i0, i0 + n), f0 = pvF0(cv, 1, sr, i0, n);
   if (!f0.some(v => v > 0)) return null;
   const rat = pvPerSample(cv, pvBins(cv, 1), sr, i0, n, (cc) => cc == null ? 1 : 2 ** ((midi * 100 - cc) / 1200));   // 순간 높이마다 맞춰 = 떨림·흔들림 없이 그 음
-  const sh = pvPsola(x, sr, f0, rat), per = sr / (440 * 2 ** ((midi - 69) / 12));
-  const L = Math.round(Math.max(1, Math.round(0.14 * sr / per)) * per), K = Math.min(Math.round(0.015 * sr), Math.floor(L / 3)), s0 = Math.max(0, Math.floor((sh.length - L - K) / 2));   // 길이 = 그 음 주기의 정수배(이음매에서 파형이 맞물림)
-  if (s0 + L + K > sh.length || L < 2 * K) return null;
-  const loop = new Float32Array(L); loop.set(sh.subarray(s0, s0 + L));
-  for (let j = 0; j < K; j++) { const a = j / K; loop[j] = sh[s0 + j] * a + sh[s0 + L + j] * (1 - a); }   // 끝을 앞에 짧게(15ms) 겹쳐 이음매 없이 되풀이
+  // (11/03 15:16 사용자) 아직 길게 들림 → '거의 사인파처럼, 그 음 높이가 또렷하게': 몇 주기(약 20ms 안)만 평균 내어 되풀이 + 낮은 소리만 남기는 필터
+  const sh = pvPsola(x, sr, f0, rat), hz = 440 * 2 ** ((midi - 69) / 12), per = sr / hz;
+  let N = 1, err = 1; for (let k = 1; k * per <= sr * 0.02 || k === 1; k++) { const e = Math.abs(k * per - Math.round(k * per)); if (e < err - 1e-9) { err = e; N = k; } }   // 샘플 수가 거의 딱 맞는 주기 수
+  const L = Math.max(8, Math.round(N * per)), M = Math.max(1, Math.min(6, Math.floor((sh.length * 0.6) / L))), s0 = Math.max(0, Math.floor((sh.length - M * L) / 2));
+  if (s0 + M * L > sh.length) return null;
+  const loop = new Float32Array(L); for (let m = 0; m < M; m++) for (let k = 0; k < L; k++) loop[k] += sh[s0 + m * L + k] / M;   // 몇 조각 평균 = 숨소리·흔들림이 빠진 고른 음
+  { const d0 = loop[L - 1] - loop[0], W = Math.max(2, Math.floor(L / 8)); for (let k = 0; k < W; k++) loop[k] += d0 * (1 - k / W) * 0.5, loop[L - 1 - k] -= d0 * (1 - k / W) * 0.5; }   // 이음매 튐 없게
   let pk = 0; for (const v of loop) pk = Math.max(pk, Math.abs(v));
   const b = mkCtx.createBuffer(1, L, sr); b.getChannelData(0).set(loop);
-  const s = mkCtx.createBufferSource(); s.buffer = b; s.loop = true;
-  const g = mkCtx.createGain(), now = mkCtx.currentTime, vol = pk > 1e-4 ? Math.min(3, 0.5 / pk) : 1;
-  g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(vol, now + 0.02); s.connect(g); g.connect(mkCtx.destination); s.start(now);
+  const s = mkCtx.createBufferSource(); s.buffer = b; s.loop = true; s.playbackRate.value = L / (N * per);   // 정수 샘플로 생긴 아주 작은 높이 차이도 맞춤
+  const lp = mkCtx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = Math.min(5000, hz * 2.5); lp.Q.value = 0.5;   // 바탕음 + 배음 조금 = 사인파에 가깝게, 목소리 느낌은 살짝
+  const g = mkCtx.createGain(), now = mkCtx.currentTime, vol = pk > 1e-4 ? Math.min(4, 0.6 / pk) : 1;
+  g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(vol, now + 0.02); s.connect(lp); lp.connect(g); g.connect(mkCtx.destination); s.start(now);
   const h = { stop(fast) { const t = mkCtx.currentTime; try { g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(g.gain.value, t); g.gain.linearRampToValueAtTime(0, t + (fast ? 0.02 : 0.08)); s.stop(t + 0.12); } catch {} if (vtNow === h) vtNow = null; } };
   return (vtNow = h);
 }
@@ -6261,7 +6264,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-03-1522-fsfade";
+const BUILD = "2026-11-03-1525-voice";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
