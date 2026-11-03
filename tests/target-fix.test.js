@@ -4,7 +4,7 @@ const tune = fs.readFileSync(__dirname + "/../tune.js", "utf8"), src = fs.readFi
 assert.ok(tune.includes("function tone(m)") && tune.includes("st.kbDown = m; tone(m)") && tune.includes("if (d.kb) { toneOff();"), "건반 소리");
 assert.ok(tune.includes("function fixSheet(") && tune.includes("typeof o.onFix === \"function\" && isPaused() && st.tbars"), "정음 고치기");
 assert.ok(tune.includes("noteName,") && tune.includes("cv._fixes"), "고친 곳 표시");
-assert.ok(src.includes("cv._fixes = dF();") && src.includes("onFix, onTime, voice: voiceTone, wave: () => mkTracks.mr?.buf") && src.includes('id="mkFixN"'));
+assert.ok(src.includes("cv._fixes = dF();") && src.includes("onFix, onTime, onResetRange:") && src.includes("voice: voiceTone, wave: () => mkTracks.mr?.buf") && src.includes('id="mkFixN"'));
 // 같은 구간은 바꿔 끼움
 const onFixBody = src.match(/const onFix = async \(f0_\) => \{[^\n]*\n[^\n]*\n/)[0];   // (11/03) 타이밍 고친 곡은 원래 시간으로 바꿔 저장
 assert.ok(/filter\(x => !\(x\.t0 < f\.t1 && x\.t1 > f\.t0\)\)/.test(onFixBody) && onFixBody.includes("if (f.midi != null) cur.push(f)"));

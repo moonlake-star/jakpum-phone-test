@@ -146,7 +146,7 @@
   <div id="view"><p class="muted">불러오는 중…</p></div>
 </main>
 <script src="../lesson-replies.js"></script>
-<script src="../tune.js?v=20261103-1350"></script>
+<script src="../tune.js?v=20261103-1410"></script>
 <script>
 // ── 설정(비밀값 아님): 수강생 로그인용 구글 클라이언트 ID, 노트 연결(Apps Script 웹 앱) 주소 ──
 const STUDENT_CLIENT_ID = "712936245254-2itl2rolhhcsq9cdqnhku4u43hpdv2mk.apps.googleusercontent.com";
@@ -270,6 +270,14 @@ function calGrid(ym, byDate, sel, tap) {   // byDate[YYYY-MM-DD] = [{s}] → 칸
 }
 const calDay = (iso) => { const d = new Date(iso + "T00:00:00"); return `${d.getMonth() + 1}/${d.getDate()}(${"일월화수목금토"[d.getDay()]})`; };
 const S_BADGES = [["first_lesson", "🎵", "첫 레슨"], ["four_done", "🏅", "수강권 완주"], ["pkg_streak3", "🔥", "3번 연속 완주"]];
+// (11/03 13:46 사용자) 수강생 화면 '불러오는 중' 팁 — 선생님 화면과 다른 내용 · ⚠ 기능을 바꾸면 문구도(tests/app-tips.test.js가 need 코드가 있는지 확인)
+const S_TIPS = [
+  { text: "‘오늘의 베스트’ 음정 그래프를 톡 하면 크게 보며 들을 수 있어요", need: '{ title: "오늘의 베스트", tapFull: true' },
+  { text: "🌱 나의 성장: 레슨 노래가 3번 쌓이면 정확도 변화를 보여 드려요", need: "레슨 노래가 3번 쌓이면 정확도 변화를 보여 드려요" },
+  { text: "레슨을 이어 가면 배지가 모여요 — 🏅 수강권 완주 · 🔥 3번 연속 완주", need: '["four_done", "🏅", "수강권 완주"], ["pkg_streak3", "🔥", "3번 연속 완주"]' },
+  { text: "선생님의 💌 응원 메시지는 레슨 노트 안에서 볼 수 있어요", need: "<h2>💌 응원 메시지</h2>" },
+];
+try { if (typeof Brand !== "undefined" && Brand.setTips) Brand.setTips(() => S_TIPS.map(t => t.text)); } catch {}
 function myLessons(ym) {   // '나의 레슨': 이번 달 달력 + 그 달 레슨 목록(누르면 노트) + 배지
   const s = data.status || {}, days = Array.isArray(s.days) ? s.days : [];
   ym = ym || calYm(new Date());

@@ -511,7 +511,7 @@
 <div id="v2Shade" class="v2only"></div>
 <div id="toast"></div>
 <script src="../lesson-replies.js"></script>
-<script src="../tune.js?v=20261103-1350"></script>
+<script src="../tune.js?v=20261103-1410"></script>
 
 <script>
 // ── 설정 ────────────────────────────────────────────────
@@ -4443,7 +4443,7 @@ async function openMkJob(j, backTo) {
         <div class="row" style="margin-top:6px"><button class="small" id="mkPitchOk">✓ 보정 결과가 맞게 들림 · 저장</button><span class="muted" id="mkPitchOkT"></span></div></details>` : ""}
       <p class="muted">모두 재생 중에 바로 바뀌어요. 음정 ‘끔’ = 같은 처리에서 음정만 안 맞춘 소리(연습 비교용). 마음에 들면 아래 버튼으로 완성본에 반영하세요.</p>
       <div id="mkRef" style="margin-top:10px"></div>
-      <p class="muted" id="mkFixN" style="margin:4px 0"></p><button class="full" id="mkFinal">이 설정으로 완성본 다시 만들기</button></div>
+      <p class="muted" id="mkFixN" style="margin:4px 0"></p><button class="full ghost hidden" id="mkResetAll" style="color:#ffb4a0">↺ 곡 전체 원본으로</button><button class="full" id="mkFinal">이 설정으로 완성본 다시 만들기</button></div>
       <div class="card"><h3 style="margin-top:0">완성본</h3><button class="small ghost" id="mkMix">▶ 완성본 듣기</button><audio id="mkMixAu" controls class="hidden" style="width:100%"></audio>
       <div class="row" style="margin-top:6px"><button class="small" id="mkShare">완성본 보내기(mp3)</button><span class="chip ${r.sent_at ? "ok" : ""}" id="mkSentT">${r.sent_at ? "보냄 " + new Date(r.sent_at).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "아직 안 보냄"}</span>
       <a href="https://drive.google.com/drive/folders/${esc(j.folder.id)}" target="_blank" rel="noopener">드라이브에서 wav 받기</a></div></div>`;
@@ -4489,8 +4489,25 @@ async function openMkJob(j, backTo) {
     el.value = b.dataset.ab === "1" ? String(lvOn) : "0"; el.oninput(); });
   abPaint();
   mkRefPaint(j, r, pi, by);
-  const paintFixN = () => { const n = (r.target_fixes || []).filter(x => !x.cut).length, nt = (r.time_edits || []).length, el = $("mkFixN"); if (el) el.innerHTML = n || nt ? `✏️ 선생님이 고친 ${n ? `정음 <b>${n}곳</b>` : ""}${n && nt ? " · " : ""}${nt ? `타이밍 <b>${nt}곳</b>` : ""} · 지금은 폰 미리듣기(간이)로 들려요 · 아래 버튼을 누르면 정식으로 다시 보정해요` : ""; }; paintFixN();
+  const paintFixN = () => { const n = (r.target_fixes || []).filter(x => !x.cut).length, nt = (r.time_edits || []).length, el = $("mkFixN");
+    /* (11/03 13:46 사용자 시안 승인) 고친 게 있을 때만 */ $("mkResetAll")?.classList.toggle("hidden", !((r.target_fixes || []).length || nt)); if (el) el.innerHTML = n || nt ? `✏️ 선생님이 고친 ${n ? `정음 <b>${n}곳</b>` : ""}${n && nt ? " · " : ""}${nt ? `타이밍 <b>${nt}곳</b>` : ""} · 지금은 폰 미리듣기(간이)로 들려요 · 아래 버튼을 누르면 정식으로 다시 보정해요` : ""; }; paintFixN();
   if (tuneOk) tunePending($("mkTune"));
+  let resetSome = null;   // 음정선을 받으면 채움(아래)
+  if ($("mkResetAll")) $("mkResetAll").onclick = () => {   // 확인 창: 음정·타이밍 따로 고르기(기본 둘 다)
+    const fx = r.target_fixes || [], np = fx.filter(x => !x.cut).length, nc = fx.filter(x => x.cut).length, nt = (r.time_edits || []).length;
+    document.getElementById("mkRstD")?.remove();
+    const d = document.createElement("div"); d.id = "mkRstD"; d.setAttribute("role", "dialog");
+    d.style.cssText = "position:fixed;inset:0;z-index:10005;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center";
+    const row = (k, on, lab, cnt) => `<label style="display:flex;align-items:center;gap:10px;padding:12px;border:1.5px solid #3b4250;border-radius:12px;margin:0 0 8px;font-size:15px;${cnt ? "" : "opacity:.45"}"><input type="checkbox" data-k="${k}" ${on && cnt ? "checked" : ""} ${cnt ? "" : "disabled"} style="width:20px;height:20px;accent-color:#ffd27a">${lab}<small style="margin-left:auto;color:#9aa3ad">${cnt}</small></label>`;
+    d.innerHTML = `<div style="width:min(520px,100%);box-sizing:border-box;background:#1a1e25;border:1.5px solid #3b4250;border-radius:18px 18px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));color:#e8e8ea">
+      <b style="font-size:16px">곡 전체를 원본으로 되돌릴까요?</b><p style="font-size:13.5px;color:#b6bdc7;line-height:1.55;margin:8px 0 12px">선생님이 고친 것만 지워요. 보컬 분리·기본 보정·자동 음정 보정은 그대로예요.</p>
+      ${row("p", true, "음정 고침", np || nc ? `정음 ${np}곳${nc ? ` · 나누기 ${nc}곳` : ""}` : "")}${row("t", true, "타이밍·길이 고침", nt ? `${nt}곳` : "")}
+      <div style="display:flex;gap:8px;margin-top:4px"><button type="button" data-x="0" style="flex:1;margin:0">취소</button><button type="button" data-x="1" style="flex:1;margin:0;background:#ffd27a;color:#111;border:0">원본으로</button></div></div>`;
+    const shut = () => d.remove(); d.onclick = (e) => { if (e.target === d) shut(); };
+    d.querySelector('[data-x="0"]').onclick = shut;
+    d.querySelector('[data-x="1"]').onclick = async () => { const P = !!d.querySelector('[data-k="p"]:checked'), T = !!d.querySelector('[data-k="t"]:checked'); shut();
+      if (!P && !T) return; if (!resetSome) { toast("음정선을 받은 뒤에 다시 눌러 주세요"); return; } await resetSome(P, T, null); };
+    document.body.appendChild(d); };
   let tuneWired = false;   // (11/02) 12초 안에 못 받으면 이유를 칸에 적음(빈 검은 칸으로 두지 않음)
   if (tuneOk) setTimeout(() => { if (!tuneWired && $("mkTune")) tunePending($("mkTune"), "음정선을 아직 못 받았어요 · 화면을 다시 열어 주세요"); }, 12000);
   // (11/02 15:35 사용자) 오늘의 베스트와 같은 최신 화면: 작은 그래프는 보기만 + 톡 하면 전체화면(재생·이동·주석 고치기는 거기서)
@@ -4527,9 +4544,25 @@ async function openMkJob(j, backTo) {
       r.time_edits = cur.sort((a, b) => a.t0 - b.t0); cv._tedits = teD(); mkPv.tedits = r.time_edits.slice();
       try { pvApplyAll(); } catch (e) { console.warn("타이밍 미리듣기", e); }
       try { await writeJSON(j.folder.id, MKREQ, r, j.reqId); paintFixN(); } catch (e) { toast("타이밍 저장 실패: " + errMsg(e)); } };
+    // (11/03 13:46 사용자 시안 승인) 곡 전체(또는 고른 것만) 원본으로: 선생님이 고친 것만 지움(보컬 분리·기본 보정·자동 음정 보정은 그대로) · 10초 되살리기 · 지운 것은 작업 파일에 '지난 고침'으로 보관
+    const applyAll = async (fx, te, msg) => { r.target_fixes = fx; r.time_edits = te; cv._fixes = dF(); cv._tedits = teD(); mkPv.fixes = dF(); mkPv.tedits = te.slice();
+      const kt = Tune.tgCol(cv), o_ = cv._orig || {};   // 막대도 서버가 처음 고른 음으로(남은 고침은 그 음에)
+      for (const i in o_) if (cv.pts[i]) cv.pts[i][kt] = o_[i];
+      for (const f of dF()) (cv.pts || []).forEach((p, i) => { if (kt && p[0] >= f.t0 - 0.001 && p[0] <= f.t1 + 0.001 && p[kt] != null) { if (!(i in o_)) o_[i] = p[kt]; p[kt] = f.midi * 100; } });
+      try { pvApplyAll(); } catch (e) { console.warn("미리듣기", e); }
+      try { await writeJSON(j.folder.id, MKREQ, r, j.reqId); paintFixN(); if (msg) toast(msg); } catch (e) { toast("저장 실패: " + errMsg(e)); } };
+    resetSome = async (pitch, time, range) => {   // range = [화면 t0, t1]이면 그 안의 음만(여러 음 고르기)
+      const inR = (x) => !range || (toA(x.t0) < range[1] && toA(x.t1) > range[0]);
+      const fx0 = (r.target_fixes || []).slice(), te0 = (r.time_edits || []).slice();
+      const fx = pitch ? fx0.filter(x => !inR(x)) : fx0, te = time ? te0.filter(x => !inR(x)) : te0, gone = fx0.length - fx.length + te0.length - te.length;
+      if (!gone) { toast("되돌릴 고침이 없어요"); return 0; }
+      r.fix_backup = { at: new Date().toISOString(), target_fixes: fx0, time_edits: te0 };   // 가장 최근 1개만 보관
+      await applyAll(fx, te);
+      Tune.undo(`고친 것 ${gone}곳을 지웠어요`, () => { applyAll(fx0, te0, "되살렸어요"); }, 10000, "되살리기");
+      return gone; };
     Tune.wire($("mkTune"), cv, () => mkNow(), () => (mkRaw ? 0 : lvNow()), (t, still) => { const tt = Math.max(0, Math.min(t, mkDurS ? mkDurS - 0.05 : t)); if (still) { if (mkPlaying) mkStop(); mkOffset = tt; paintTransport(); return; } if (!mkPlaying) { mkOffset = tt; $("mkPP").click(); } else mkSeekTo(t); },
       { title: `${j.st?.name || ""} · ${r.title || "메이크업"}`, tapFull: true, teacher: true, lvDef: +(r.pitch_level ?? 2), play: () => $("mkPP")?.click(), paused: () => !mkPlaying, mode: () => (lvNow() > 0 ? "p" : "o"),
-        setMode: (m) => document.querySelector(`#mkAb [data-ab="${m === "p" ? 1 : 0}"]`)?.click(), onFix, onTime, voice: voiceTone, wave: () => mkTracks.mr?.buf || mkTracks.before?.buf || null, ...tnOpts });
+        setMode: (m) => document.querySelector(`#mkAb [data-ab="${m === "p" ? 1 : 0}"]`)?.click(), onFix, onTime, onResetRange: (t0, t1) => resetSome(true, true, [t0, t1]), countRange: (a, b) => (r.target_fixes || []).concat(r.time_edits || []).filter(x => toA(x.t0) < b && toA(x.t1) > a).length, voice: voiceTone, wave: () => mkTracks.mr?.buf || mkTracks.before?.buf || null, ...tnOpts });
   }).catch((e) => { tuneWired = true; console.warn("음정선", e); const c = $("mkTune"); if (c) c.replaceWith(Object.assign(document.createElement("p"), { className: "muted", textContent: "음정선을 불러오지 못했어요 (" + String(e?.message || e).slice(0, 60) + ")" })); });
   // 슬라이더가 기본값에 닿으면 짧고 약한 진동(안드로이드). 기본값: 보컬 0dB · 리버브 30% · MR 0dB · 음정 켬
   const DEF = { mkVol: 0, mkRev: 30, mkMr: 0, mkPitch: 3 };
@@ -6228,7 +6261,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-03-1345-load";
+const BUILD = "2026-11-03-1410-reset";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
