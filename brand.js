@@ -10,7 +10,8 @@
 #brSplash .sb{margin-top:10px;font-size:12px;color:#8d8575;letter-spacing:.2em;opacity:0;animation:brFade .8s .6s forwards}
 #brLoad{position:fixed;inset:0;z-index:9990;display:none;pointer-events:none;flex-direction:column;align-items:center;justify-content:center;background:rgba(10,11,13,.72)}#brLoad.on{display:flex}
 #brLoad .lg{width:84px;height:84px;border-radius:50%;background:url(${SMALL}) center/cover;box-shadow:0 0 30px rgba(255,190,90,.3);animation:brPulse 1.6s ease-in-out infinite}
-#brLoad .tx{margin-top:12px;font-size:13px;color:#e9d7ae}#brLoad .br{height:4px;width:140px;border-radius:2px;background:#3a3325;margin-top:10px;overflow:hidden}#brLoad .br i{display:block;height:100%;width:0;background:linear-gradient(90deg,#c8912e,#ffd27a);border-radius:2px;position:relative;overflow:hidden}#brLoad .br i:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.55),transparent);animation:brSh 1.2s linear infinite}@keyframes brSh{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
+#brLoad .tx{margin-top:12px;font-size:13px;color:#e9d7ae}#brLoad .tp{margin-top:16px;max-width:min(300px,82vw);font-size:13px;line-height:1.55;color:#ffd27a;text-align:center;word-break:keep-all;min-height:40px}#brLoad .tp b{color:#c9b58a;font-weight:800;margin-right:4px}
+#brLoad .br{height:4px;width:140px;border-radius:2px;background:#3a3325;margin-top:10px;overflow:hidden}#brLoad .br i{display:block;height:100%;width:0;background:linear-gradient(90deg,#c8912e,#ffd27a);border-radius:2px;position:relative;overflow:hidden}#brLoad .br i:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.55),transparent);animation:brSh 1.2s linear infinite}@keyframes brSh{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
 #brBar{position:fixed;left:0;top:0;height:3px;width:0;z-index:9995;background:linear-gradient(90deg,#ffd27a,#c8912e);pointer-events:none}#brBar.go{animation:brBar .35s ease-out}
 .brMark{display:inline-block;width:1.5em;height:1.5em;border-radius:50%;background:url(${SMALL}) center/cover;vertical-align:-.35em;margin-right:.3em}
 .brSign{text-align:center;font-family:"Nanum Myeongjo","Noto Serif KR",serif;color:#c9b98f;font-size:.9rem;margin:18px 0 8px;line-height:1.6}
@@ -31,22 +32,38 @@
   let lt = null, ln = 0;
   // (10/30 16:50 사용자 시안 승인) 진행 바: 처음엔 빠르게, 갈수록 천천히 90%까지 차오름 → 다 불러오면 100% 채우고 사라짐
   let praf = 0, pt0 = 0;
-  function prog(el, run) { const i = el.querySelector(".br i"); cancelAnimationFrame(praf);
-    if (run) { pt0 = performance.now(); i.style.transition = "none"; i.style.width = "0";
+  function prog(el, run, keep) { const i = el.querySelector(".br i"); cancelAnimationFrame(praf);
+    if (run) { if (!keep) { pt0 = performance.now(); i.style.width = "0"; } i.style.transition = "none";
       const f = (n) => { i.style.width = (90 * (1 - Math.exp(-(n - pt0) / 1800))).toFixed(1) + "%"; praf = requestAnimationFrame(f); }; praf = requestAnimationFrame(f); }
     else { i.style.transition = "width .2s ease-out"; i.style.width = "100%"; } }
+  // (11/03 13:39 사용자) 화면 하나 여는 데 드라이브 읽기가 여러 번 차례로 이어지면 '바 다 참 → 사라짐 → 또 뜸'이 3~4번 반복됐음
+  // → 끝나도 0.5초 기다려 보고, 그 사이 다음 읽기가 시작되면 같은 창·같은 바로 이어서(한 번만 차고 한 번만 사라짐)
+  const GRACE = 500;
+  let tipFn = null, tipTm = null, tipI = -1;
+  function setTips(fn) { tipFn = typeof fn === "function" ? fn : null; }   // (11/03 13:39 사용자) 불러오는 동안 지금 화면에서 쓸 수 있는 기능 팁
+  function tips(el, on) { const t = el.querySelector(".tp"); clearInterval(tipTm); tipTm = null; let L = [];
+    if (on && tipFn) { try { L = (tipFn() || []).filter(Boolean); } catch {} }
+    if (!L.length) { t.style.display = "none"; t.textContent = ""; return; }
+    const pick = () => { tipI = (tipI + 1 + Math.floor(Math.random() * Math.max(1, L.length - 1))) % L.length; t.innerHTML = ""; const b = document.createElement("b"); b.textContent = "[Tip]"; t.append(b, document.createTextNode(String(L[tipI]))); };
+    pick(); t.style.display = ""; tipTm = setInterval(pick, 4500); }
+  function hideNow(el) { cancelAnimationFrame(praf); el.classList.remove("on"); tips(el, false); }
   function loading(on, text, delay) {   // 불러오기 표시는 이것 하나(10/30 15:24 사용자: 일관되게). 기본 0.6초 넘게 걸릴 때만
     let el = document.getElementById("brLoad");
-    if (!el) { el = document.createElement("div"); el.id = "brLoad"; el.setAttribute("role", "status"); el.innerHTML = `<div class="lg"></div><div class="tx"></div><div class="br"><i></i></div>`; document.body.appendChild(el); }
+    if (!el) { el = document.createElement("div"); el.id = "brLoad"; el.setAttribute("role", "status"); el.innerHTML = `<div class="lg"></div><div class="tx"></div><div class="br"><i></i></div><div class="tp" style="display:none"></div>`; document.body.appendChild(el); }
     ln = Math.max(0, ln + (on ? 1 : -1));
-    if (on) { el.querySelector(".tx").textContent = text || "불러오는 중..."; clearTimeout(lt); lt = setTimeout(() => { if (ln > 0 && !el.classList.contains("on")) { clearTimeout(loading.hide); el.classList.add("on"); prog(el, true); } }, delay == null ? 600 : delay);
-      clearTimeout(loading.cap); loading.cap = setTimeout(() => { ln = 0; cancelAnimationFrame(praf); el.classList.remove("on"); }, 20000); }
+    if (on) { el.querySelector(".tx").textContent = text || "불러오는 중...";
+      if (el.classList.contains("on")) {   // 이미 떠 있음(또는 사라지기 직전) → 그대로 이어서
+        if (loading.hide || loading.hide2) { const done = !!loading.hide2; clearTimeout(loading.hide); clearTimeout(loading.hide2); loading.hide = loading.hide2 = null; if (done) { pt0 = performance.now() - 4000; prog(el, true, true); } } }
+      else { clearTimeout(lt); lt = setTimeout(() => { if (ln > 0 && !el.classList.contains("on")) { el.classList.add("on"); prog(el, true); tips(el, true); } }, delay == null ? 600 : delay); }
+      clearTimeout(loading.cap); loading.cap = setTimeout(() => { ln = 0; hideNow(el); }, 20000); }
     if (ln === 0) { clearTimeout(lt);
-      if (el.classList.contains("on")) { prog(el, false); clearTimeout(loading.hide); loading.hide = setTimeout(() => { if (ln === 0) el.classList.remove("on"); }, 260); }   // 다 불러오면 꽉 채우고 사라짐
+      if (el.classList.contains("on")) { clearTimeout(loading.hide); clearTimeout(loading.hide2);
+        loading.hide = setTimeout(() => { loading.hide = null; if (ln !== 0) return; prog(el, false);   // 다 불러오면 꽉 채우고 사라짐
+          loading.hide2 = setTimeout(() => { loading.hide2 = null; if (ln === 0) hideNow(el); }, 260); }, GRACE); }
       else el.classList.remove("on"); }
   }
   function bar() { let b = document.getElementById("brBar"); if (!b) { b = document.createElement("div"); b.id = "brBar"; document.body.appendChild(b); } b.classList.remove("go"); void b.offsetWidth; b.classList.add("go"); }
   const mark = () => `<span class="brMark" aria-hidden="true"></span>`;
   const sign = () => `<div class="brSign">가장 아름다운 당신의 오늘을 ‘작품’으로..</div>`;
-  G.Brand = { splash, loading, bar, mark, sign, LOGO };
+  G.Brand = { splash, loading, setTips, bar, mark, sign, LOGO };
 })(window);
