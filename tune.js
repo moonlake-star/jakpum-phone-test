@@ -494,12 +494,18 @@
   }
   // (11/02 15:48 사용자) 건반 소리: 누르는 동안 부드러운 피아노 비슷한 소리(사인파 + 약한 배음)
   let toneCtx = null, toneNow = null;
+  // (11/03 15:48 사용자) 건반 소리 6dB 작게(0.28→0.14) · 가끔 두 번 눌린 듯 엄청 크게 나던 것: 같은 음이 아주 짧은 사이(80ms)에 또 불리면 무시 +
+  //   소리가 겹쳐도 커지지 않게 끝에 제한기(리미터) 하나를 거쳐 나가게
+  let toneOut = null;
   function tone(m) {
     try { toneCtx ??= new (G.AudioContext || G.webkitAudioContext)(); if (toneCtx.state === "suspended") toneCtx.resume(); } catch { return; }
-    toneOff(); const c = toneCtx, f = 440 * 2 ** ((m - 69) / 12), g = c.createGain(), now = c.currentTime;
-    g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(0.28, now + 0.008); g.gain.exponentialRampToValueAtTime(0.12, now + 0.6); g.connect(c.destination);
+    const c = toneCtx; if (toneNow && toneNow.m === m && performance.now() - toneNow.at < 80) return;
+    if (!toneOut) { try { toneOut = c.createDynamicsCompressor(); toneOut.threshold.value = -14; toneOut.knee.value = 0; toneOut.ratio.value = 20; toneOut.attack.value = 0.002; toneOut.release.value = 0.1; toneOut.connect(c.destination); } catch { toneOut = c.destination; } }
+    if (toneNow) { const o_ = toneNow, t_ = c.currentTime; toneNow = null; try { o_.g.gain.cancelScheduledValues(t_); o_.g.gain.setValueAtTime(o_.g.gain.value, t_); o_.g.gain.linearRampToValueAtTime(0, t_ + 0.015); o_.os.forEach(o => o.stop(t_ + 0.03)); } catch {} }   // 앞 소리는 빨리(15ms) 꺼서 겹치지 않게
+    const f = 440 * 2 ** ((m - 69) / 12), g = c.createGain(), now = c.currentTime;
+    g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(0.14, now + 0.008); g.gain.exponentialRampToValueAtTime(0.06, now + 0.6); g.connect(toneOut);
     const os = [[1, 1], [2, 0.3], [3, 0.12]].map(([k, a]) => { const o = c.createOscillator(), ga = c.createGain(); o.type = "sine"; o.frequency.value = f * k; ga.gain.value = a; o.connect(ga); ga.connect(g); o.start(now); return o; });
-    toneNow = { g, os };
+    toneNow = { g, os, m, at: performance.now() };
   }
   function toneOff() { if (!toneNow || !toneCtx) return; const { g, os } = toneNow, now = toneCtx.currentTime; toneNow = null;
     try { g.gain.cancelScheduledValues(now); g.gain.setValueAtTime(g.gain.value, now); g.gain.linearRampToValueAtTime(0, now + 0.12); os.forEach(o => o.stop(now + 0.15)); } catch {} }
