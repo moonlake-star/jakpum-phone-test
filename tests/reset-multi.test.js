@@ -5,7 +5,7 @@ assert.ok(src.includes('id="mkResetAll"') && src.includes(`$("mkResetAll")?.clas
 assert.ok(src.includes("곡 전체를 원본으로 되돌릴까요?") && src.includes('data-k="p"') && src.includes('data-k="t"'), "확인 창: 음정·타이밍 따로");
 assert.ok(src.includes("r.fix_backup = { at: new Date().toISOString(), target_fixes: fx0, time_edits: te0 }") && src.includes('10000, "되살리기"'), "보관 + 10초 되살리기");
 assert.ok(src.includes("onResetRange: (t0, t1) => resetSome(true, true, [t0, t1]), countRange:"), "여러 음 연결");
-assert.ok(tj.includes("function multiSheet(host, cv, st, keep)") && tj.includes("st.msel = [Math.max(0, Math.min(a, b)), Math.max(a, b)]") && tj.includes("if (st.mMode) { preview = Math.max(0, pinch.t"), "끌어 고르기 · 두 손가락 이동");
+assert.ok(tj.includes("function multiSheet(host, cv, st, keep, keepSel)") && tj.includes("if (d.armed) { armTip(false); if (d.moved)") && !tj.includes("data-mm") && tj.includes("st.msel = [Math.max(0, Math.min(a, b)), Math.max(a, b)]") && tj.includes("if (st.mMode) { preview = Math.max(0, pinch.t"), "끌어 고르기 · 두 손가락 이동");
 assert.ok(tj.includes('function undo(msg, onUndo, ms = 4000, label = "되돌리기")'));
 // resetSome 동작(고른 구간 안만 지움)
 { const a = src.indexOf("    resetSome = async (pitch, time, range) =>"), b = src.indexOf("      return gone; };", a) + "      return gone; };".length;
