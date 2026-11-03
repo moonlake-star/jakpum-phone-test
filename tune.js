@@ -908,7 +908,7 @@
     wrap.addEventListener("pointerup", (e) => { const q = ldTap; if (ldRe || !q || e.pointerId !== q.id) return; ldTap = null; if (q.moved || !ldShown) return;
       e.stopPropagation(); ldEat = performance.now() + 700;   // 톡: 아래에는 '취소'로 알려 정리(재생/멈춤 안 됨)
       try { q.t.dispatchEvent(new PointerEvent("pointercancel", { bubbles: true, pointerId: e.pointerId, clientX: e.clientX, clientY: e.clientY })); } catch {}
-      if (ldWas) { ldQ = q; return; } ldShut(); }, true);
+      if (ldWas && q.t !== cvEl) { ldQ = q; return; } ldShut(); }, true);   // (11/03 15:18 사용자) 불러오는 중 그래프 빈 곳 톡 = 창만 닫고 재생은 그대로 이어짐(재생/멈춤을 다시 누른 걸로 치지 않음)
     wrap.addEventListener("click", (e) => { if (!ldRe && performance.now() < ldEat) { e.stopPropagation(); e.preventDefault(); } }, true);
     const loop = () => { if (!wrap.isConnected) return;
       if (st.stopAt && !isPaused() && (+getT() || 0) >= st.stopAt) { st.stopAt = 0; toggle(); }   // 🎤 목소리 듣기: 그 음 끝에서 멈춤
