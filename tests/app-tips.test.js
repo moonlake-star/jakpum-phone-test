@@ -16,25 +16,12 @@ assert.ok(src.includes("Brand.setTips(appTips)"));
   for (const t2 of S) { assert.ok(cd.includes(t2.need), "수강생 팁 기능: " + t2.text); assert.ok(t2.text.length <= 48); }
   const tt = L.map(x => x.text).join("|"); assert.ok(!S.some(x => tt.includes(x.text)), "선생님·수강생 팁은 서로 달라야"); }
 console.log("app-tips ok", L.length);
-// (11/03 14:04 사용자) 로고 없이 반투명 박스 · 톡/꾹으로 붙잡기 · 4초 뒤 닫힘 · 1.8초 페이드
+// (11/03 22:33 사용자) 불러오는 중 팁 박스 → 원래 팝업(작은 로고 + 글 + 진행 바) · 터치 안 막음 · 연달아 읽어도 한 번만
 { const br2 = fs.readFileSync(__dirname + "/../brand.js", "utf8");
-  assert.ok(!br2.includes('<div class="lg"></div><div class="tx">') && br2.includes('<div class="bx"><div class="hd"><span class="hg" aria-hidden="true">⏳</span><b style="display:none">[Tip]</b>'), "로고 없음 · 박스"); }
-
-const b5x = (b) => b.includes('document.addEventListener("click", (e) => { if (replaying || !el.classList.contains("on") || el.classList.contains("plain") || el.contains(e.target)) return;') && !b.includes("#brLoad.on,#brLoad.eat{pointer-events:auto}");
-// (11/03 14:47 사용자) 떠 있는 동안 아래 화면 막음 · 톡(창·바깥) = 바로 닫힘 · 끌기·꾹 = 붙잡음 · 2초 · 팁 하나만
-{ const b4 = fs.readFileSync(__dirname + "/../brand.js", "utf8");
-  assert.ok(b4.includes("const LONG = 600, LINGER = Math.max(0, 1000 - GRACE - 260), FADE = 2800;") && b4.includes("if (moved || long || fromFade) { pin = true; vis(el); return; } shutNow(el);"), "2초 · 톡 = 닫기");
-  assert.ok(b5x(b4), "(11/03 15:10) 스크롤은 통과 · 톡만: 불러오는 중이면 기억했다가 실행, 다 불러온 뒤면 닫기");
-  assert.ok(!b4.includes("setInterval(pick"), "팁은 한 번에 하나(돌아가며 바뀌지 않음)");
-  assert.ok(!/\/\/[^\n]*let fadeT = null/.test(b4) && /\n\s*let fadeT = null, pin = false/.test(b4), "변수 선언이 주석에 묻히지 않음"); }
-// (11/03 15:04 사용자) 불러오는 중 아래 누름 = 기억했다가 다 불러오면 닫고 대신 눌러 줌
-{ const b5 = fs.readFileSync(__dirname + "/../brand.js", "utf8"), t5 = fs.readFileSync(__dirname + "/../tune.js", "utf8");
-  assert.ok(b5.includes('queued = { t: e.target, x: e.clientX, y: e.clientY }') && b5.includes("setTimeout(() => replay(q), 0); return; }"), "불러오는 중 박스");
-  assert.ok(t5.includes("if (ldWas && !main) { ldQ = q; return; } ldShut(); }, true);") && t5.includes("if (main && !ldWas) { ldShut(); return; }") && t5.includes("setTimeout(() => ldReplay(q), 0);"), "전체화면 팁 창"); }
+  assert.ok(br2.includes('<div class="lg"></div><div class="tx"></div><div class="br"><i></i></div>') && !br2.includes('class="bx"') && !br2.includes("queued") && !br2.includes('tipFn("load")'), "원래 팝업");
+  assert.ok(/\n\s*let lt = null, ln = 0;/.test(br2) && /\n\s*const GRACE = 500;/.test(br2), "변수 선언이 주석에 묻히지 않음"); }
 // (11/03 17:28 사용자) 화면 맨 아래 고정 팁 칸 · 누르면 그 팁이 맨 위인 목록 · 전체화면은 팝업 없이 아래 팁 한 줄/💡 팁 보기 → 목록
 { const b6 = fs.readFileSync(__dirname + "/../brand.js", "utf8"), t6 = fs.readFileSync(__dirname + "/../tune.js", "utf8");
   assert.ok(b6.includes("function tipBar(on)") && b6.includes("function tipSheet(list, first, host)") && b6.includes("order = [L[f], ...L.filter((_, i) => i !== f)]") && b6.includes("setTimeout(tipBarRefresh, 30)"));
   for (const f of ["teacher", "student"]) assert.ok(fs.readFileSync(__dirname + `/../${f}/index.html`, "utf8").includes("Brand.tipBar(true)"), f);
   assert.ok(t6.includes('tlEl.onclick = () => openTips(tipI);') && t6.includes('tb.className = "tfTipsBtn"')); }
-{ const b7 = fs.readFileSync(__dirname + "/../brand.js", "utf8"), s7 = fs.readFileSync(__dirname + "/../teacher/index.html", "utf8");
-  assert.ok(b7.includes('L = (tipFn("load") || [])') && b7.includes('el.classList.toggle("plain", !L.length)') && s7.includes('if (kind === "load" && v === "vMkJob") return [];'), "(11/03 17:56) 메이크업 화면 = 불러오는 중만"); }
