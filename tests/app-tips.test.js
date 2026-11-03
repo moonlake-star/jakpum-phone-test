@@ -16,3 +16,7 @@ assert.ok(src.includes("Brand.setTips(appTips)"));
   for (const t2 of S) { assert.ok(cd.includes(t2.need), "수강생 팁 기능: " + t2.text); assert.ok(t2.text.length <= 48); }
   const tt = L.map(x => x.text).join("|"); assert.ok(!S.some(x => tt.includes(x.text)), "선생님·수강생 팁은 서로 달라야"); }
 console.log("app-tips ok", L.length);
+// (11/03 14:04 사용자) 로고 없이 반투명 박스 · 톡/꾹으로 붙잡기 · 4초 뒤 닫힘 · 1.8초 페이드
+{ const br2 = fs.readFileSync(__dirname + "/../brand.js", "utf8");
+  assert.ok(!br2.includes('<div class="lg"></div><div class="tx">') && br2.includes('<div class="bx"><div class="hd"><span class="hg" aria-hidden="true">⏳</span><b style="display:none">[Tip]</b>'), "로고 없음 · 박스");
+  assert.ok(br2.includes("const KEEP = 4000;") && br2.includes("if (long) pin = false; else pin = !pin;") && br2.includes("transition:opacity 1.8s ease,visibility 0s linear 1.8s"), "붙잡기·4초·페이드"); }
