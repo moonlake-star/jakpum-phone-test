@@ -40,3 +40,5 @@ assert.ok(src.includes("let re = false; try { re = pvApplyAll(); } catch {}") &&
 assert.ok(src.includes("else if (dry && r0 != null && rk != null) cor = rk - r0;"), "사이 빈 곳은 서버가 만든 높이 그대로");
 assert.ok(src.includes("X = Math.round(sr * 0.05)"), "이음매 50ms");
 console.log("fix-preview ok");
+// (11/03 11:13 사용자) 멜로다인처럼 목소리로 그 음: 가운데 조각을 그 음 높이로 평평하게 맞춰 되풀이
+assert.ok(src.includes("function voiceTone(t0, t1, midi)") && src.includes("s.loop = true") && src.includes("2 ** ((midi * 100 - cc) / 1200)"));

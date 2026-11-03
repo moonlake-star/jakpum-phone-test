@@ -511,7 +511,7 @@
 <div id="v2Shade" class="v2only"></div>
 <div id="toast"></div>
 <script src="../lesson-replies.js"></script>
-<script src="../tune.js?v=20261103-1110"></script>
+<script src="../tune.js?v=20261103-1125"></script>
 
 <script>
 // ── 설정 ────────────────────────────────────────────────
@@ -4231,6 +4231,28 @@ function pvApply(name) {   // 한 트랙에 지금 고친 정음 전부 반영(�
       for (let k = 0; k < n; k++) { const a = k < X ? k / X : k > n - X ? (n - k) / X : 1; out[i0 + k] = org[k] * (1 - a) + sh[k] * a; } } }
   return true;
 }
+// (11/03 11:13 사용자) 멜로다인처럼 '목소리로 그 음 소리': 그 막대 가운데 목소리 조각을 그 음 높이로 평평하게 맞춰(떨림 없이) 끊김 없이 되풀이
+// 고르는 순간 1초, 음 이름을 누르고 있는 동안은 계속. 보정 전 보컬(p0)이 있어야 함(없으면 사인파로)
+let vtNow = null;
+function voiceTone(t0, t1, midi) {
+  try { vtNow?.stop(true); } catch {} vtNow = null;
+  const src = mkTracks.p0?.buf, cv = mkPv.cv; if (!src || !cv || !mkCtx) return null;
+  const sr = src.sampleRate, c = (t0 + t1) / 2, half = Math.min(0.35, (t1 - t0) / 2 - 0.03); if (half < 0.09) return null;
+  const i0 = Math.max(0, Math.round((c - half) * sr)), n = Math.min(src.length - i0, Math.round(2 * half * sr)); if (n < sr * 0.15) return null;
+  const x = src.getChannelData(0).slice(i0, i0 + n), f0 = pvF0(cv, 1, sr, i0, n);
+  if (!f0.some(v => v > 0)) return null;
+  const rat = pvPerSample(cv, pvBins(cv, 1), sr, i0, n, (cc) => cc == null ? 1 : 2 ** ((midi * 100 - cc) / 1200));   // 순간 높이마다 맞춰 = 떨림·흔들림 없이 그 음
+  const sh = pvPsola(x, sr, f0, rat), K = Math.round(0.05 * sr), L = sh.length - K; if (L < K * 2) return null;
+  const loop = new Float32Array(L); loop.set(sh.subarray(0, L));
+  for (let j = 0; j < K; j++) { const a = j / K; loop[j] = sh[j] * a + sh[L + j] * (1 - a); }   // 끝을 앞에 겹쳐 이음매 없이 되풀이
+  let pk = 0; for (const v of loop) pk = Math.max(pk, Math.abs(v));
+  const b = mkCtx.createBuffer(1, L, sr); b.getChannelData(0).set(loop);
+  const s = mkCtx.createBufferSource(); s.buffer = b; s.loop = true;
+  const g = mkCtx.createGain(), now = mkCtx.currentTime, vol = pk > 1e-4 ? Math.min(3, 0.5 / pk) : 1;
+  g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(vol, now + 0.02); s.connect(g); g.connect(mkCtx.destination); s.start(now);
+  const h = { stop(fast) { const t = mkCtx.currentTime; try { g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(g.gain.value, t); g.gain.linearRampToValueAtTime(0, t + (fast ? 0.02 : 0.08)); s.stop(t + 0.12); } catch {} if (vtNow === h) vtNow = null; } };
+  return (vtNow = h);
+}
 function pvApplyAll() { let ch = false; for (const n of Object.keys(mkTracks)) if (pvApply(n)) ch = true; if (ch && mkPlaying) mkPlay(mkNow()); return ch; }   // 재생 중이면 같은 자리에서 다시(바뀐 소리로)
 function mkStop() { for (const t of Object.values(mkTracks)) { try { t.src?.stop(); } catch {} t.src = null; } mkPlaying = false; }
 const mkNow = () => mkPlaying ? Math.min(mkCtx.currentTime - mkT0, mkDurS) : mkOffset;
@@ -4452,7 +4474,7 @@ async function openMkJob(j, backTo) {
       try { await writeJSON(j.folder.id, MKREQ, r, j.reqId); paintFixN(); } catch (e) { toast("정음 저장 실패: " + errMsg(e)); } };   // (11/02 17:02) 바로 저장 — 알림은 창 안 '✓ 저장됨'으로
     Tune.wire($("mkTune"), cv, () => mkNow(), () => (mkRaw ? 0 : lvNow()), (t, still) => { const tt = Math.max(0, Math.min(t, mkDurS ? mkDurS - 0.05 : t)); if (still) { if (mkPlaying) mkStop(); mkOffset = tt; paintTransport(); return; } if (!mkPlaying) { mkOffset = tt; $("mkPP").click(); } else mkSeekTo(t); },
       { title: `${j.st?.name || ""} · ${r.title || "메이크업"}`, tapFull: true, teacher: true, lvDef: +(r.pitch_level ?? 2), play: () => $("mkPP")?.click(), paused: () => !mkPlaying, mode: () => (lvNow() > 0 ? "p" : "o"),
-        setMode: (m) => document.querySelector(`#mkAb [data-ab="${m === "p" ? 1 : 0}"]`)?.click(), onFix, wave: () => mkTracks.mr?.buf || mkTracks.before?.buf || null, ...tnOpts });
+        setMode: (m) => document.querySelector(`#mkAb [data-ab="${m === "p" ? 1 : 0}"]`)?.click(), onFix, voice: voiceTone, wave: () => mkTracks.mr?.buf || mkTracks.before?.buf || null, ...tnOpts });
   }).catch((e) => { tuneWired = true; console.warn("음정선", e); const c = $("mkTune"); if (c) c.replaceWith(Object.assign(document.createElement("p"), { className: "muted", textContent: "음정선을 불러오지 못했어요 (" + String(e?.message || e).slice(0, 60) + ")" })); });
   // 슬라이더가 기본값에 닿으면 짧고 약한 진동(안드로이드). 기본값: 보컬 0dB · 리버브 30% · MR 0dB · 음정 켬
   const DEF = { mkVol: 0, mkRev: 30, mkMr: 0, mkPitch: 3 };
@@ -6137,7 +6159,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-03-1110-fine";
+const BUILD = "2026-11-03-1125-voice";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
