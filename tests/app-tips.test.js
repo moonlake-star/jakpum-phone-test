@@ -22,7 +22,7 @@ console.log("app-tips ok", L.length);
 
 // (11/03 14:47 사용자) 떠 있는 동안 아래 화면 막음 · 톡(창·바깥) = 바로 닫힘 · 끌기·꾹 = 붙잡음 · 2초 · 팁 하나만
 { const b4 = fs.readFileSync(__dirname + "/../brand.js", "utf8");
-  assert.ok(b4.includes("const LONG = 600, LINGER = Math.max(0, 2000 - GRACE - 260), FADE = 1800;") && b4.includes("if (moved || long || fromFade) { pin = true; vis(el); return; } shutNow(el);"), "2초 · 톡 = 닫기");
+  assert.ok(b4.includes("const LONG = 600, LINGER = Math.max(0, 1000 - GRACE - 260), FADE = 2800;") && b4.includes("if (moved || long || fromFade) { pin = true; vis(el); return; } shutNow(el);"), "2초 · 톡 = 닫기");
   assert.ok(b4.includes("#brLoad.on,#brLoad.eat{pointer-events:auto}") && b4.includes("#brLoad.on .bx,#brLoad.fd .bx{pointer-events:auto}") && b4.includes('if (e.target !== el) return; e.stopPropagation(); e.preventDefault(); shutNow(el);'), "아래 화면 막고 바깥 톡 = 닫기");
   assert.ok(!b4.includes("setInterval(pick"), "팁은 한 번에 하나(돌아가며 바뀌지 않음)");
   assert.ok(!/\/\/[^\n]*let fadeT = null/.test(b4) && /\n\s*let fadeT = null, pin = false/.test(b4), "변수 선언이 주석에 묻히지 않음"); }
