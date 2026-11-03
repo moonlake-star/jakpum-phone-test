@@ -30,4 +30,4 @@ const b5x = (b) => b.includes('document.addEventListener("click", (e) => { if (r
 // (11/03 15:04 사용자) 불러오는 중 아래 누름 = 기억했다가 다 불러오면 닫고 대신 눌러 줌
 { const b5 = fs.readFileSync(__dirname + "/../brand.js", "utf8"), t5 = fs.readFileSync(__dirname + "/../tune.js", "utf8");
   assert.ok(b5.includes('queued = { t: e.target, x: e.clientX, y: e.clientY }') && b5.includes("setTimeout(() => replay(q), 0); return; }"), "불러오는 중 박스");
-  assert.ok(t5.includes("if (ldWas) { ldQ = q; return; } ldShut(); }, true);") && t5.includes("setTimeout(() => ldReplay(q), 0);"), "전체화면 팁 창"); }
+  assert.ok(t5.includes("if (ldWas && q.t !== cvEl) { ldQ = q; return; } ldShut(); }, true);") && t5.includes("setTimeout(() => ldReplay(q), 0);"), "전체화면 팁 창"); }
