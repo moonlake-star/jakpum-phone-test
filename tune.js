@@ -558,7 +558,7 @@
     const o0 = cv._orig || {}, ov = Object.keys(snap).map(i => (i in o0 ? o0[i] : snap[i])).sort((x, y) => x - y), mO = ov.length ? Math.round(ov[ov.length >> 1] / 100) : m0;
     // (11/03 10:50 사용자) 센트 단위 미세 조정: 음 이름 + ±센트 · 3반음 넘게 옮기면 소리 경고
     const nmC = (x) => { const r = Math.round(x), c = Math.round((x - r) * 100); return noteName(r) + (c ? `<small class="tfC">${c > 0 ? "+" : ""}${c}¢</small>` : ""); };
-    const stEl = d.querySelector(".tfFixSt"), paint = () => { d.querySelector(".tfFixN").innerHTML = `${nmC(m)}${Math.abs(m - mO) > 0.004 ? `<small>← ${noteName(mO)}</small>` : ""}`;
+    const stEl = d.querySelector(".tfFixSt"), paint = () => { d.querySelector("[data-p]").innerHTML = `${nmC(m)}${Math.abs(m - mO) > 0.004 ? `<small>← ${noteName(mO)}</small>` : ""}`;
       if (Math.abs(m - mO) > 3) stEl.textContent = "⚠ 3반음 넘게 옮기면 소리가 어색할 수 있어요"; }; paint();
     // (11/03 11:13 사용자) 소리 = 멜로다인처럼 '목소리'로 그 음(보정 전 보컬이 있으면) · 없으면 사인파. 고르는 순간 1초, 음 이름 누르는 동안 계속
     let vh = null, vtm = null;
