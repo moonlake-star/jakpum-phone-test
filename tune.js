@@ -614,6 +614,8 @@
     const ppB = wrap.querySelector("[data-pp]"); if (ppB) ppB.onclick = () => toggle();   // (10/31 08:11 사용자) 재생/일시정지 버튼
     const fmt = (x) => `${Math.floor((x || 0) / 60)}:${String(Math.floor((x || 0) % 60)).padStart(2, "0")}`;
     // 손가락: 한 손가락 좌우 = 시간 이동(재생은 멈춤, 가운데 ▶로 다시), 위아래 = 음 높이 이동(확대했을 때), 두 손가락 = 핀치 확대, 톡 = 재생/멈춤
+    const hitBar = (le) => { if (!st.tbars || !st.tbars.length) return null; let best = null, bd = 1e9;   // 가장 가까운 정음 막대(위아래 22px·좌우 8px 안)
+      for (const b of st.tbars) { if (le.x < b.x0 - 8 || le.x > b.x1 + 8) continue; const dy = Math.abs(le.y - b.y); if (dy <= Math.max(22, b.h) && dy < bd) { bd = dy; best = b; } } return best; };
     const loc = (cx, cy, r) => (rot ? { x: cy - r.top, y: r.right - cx } : { x: cx - r.left, y: cy - r.top });   // 돌린 화면에서도 캔버스 안 좌표
     const along = (e) => (rot ? e.clientY : e.clientX), across = (e) => (rot ? e.clientX : e.clientY);
     const span = () => (cvEl.clientWidth - 44) || 1, tall = () => cvEl.clientHeight || 1;
@@ -654,10 +656,10 @@
       if (!drag || drag.id !== e.pointerId) return; const d = drag; drag = null; clearTimeout(d.lp); st.hold = null; if (d.long) return;
       if (d.kb) { toneOff(); st.kbDown = null; return; }
       if (!d.mode && e.type === "pointerup" && typeof o.onFix === "function" && isPaused() && st.tbars) {   // 멈춘 상태에서 초록 정음 막대 톡 = 정음 고치기
-        const le = loc(e.clientX, e.clientY, cvEl.getBoundingClientRect()), hb = st.tbars.find(b => le.x >= b.x0 - 4 && le.x <= b.x1 + 4 && Math.abs(le.y - b.y) <= Math.max(10, b.h));
+        const le = loc(d.cx ?? e.clientX, d.cy ?? e.clientY, cvEl.getBoundingClientRect()), hb = hitBar(le);   // (11/03 10:31 아이패드) 누른 자리(뗀 자리 아님) + 손가락 크기만큼 넉넉하게
         if (hb) { fixSheet(wrap, cv, hb, o.onFix, getT, st); return; } }
       if (!d.mode && e.type === "pointerup" && wrap.querySelector(".tfFix") && sheetClose && sheetClose._fix) {   // (11/03 02:02 사용자) 고치기 창이 떠 있으면 빈 곳 톡 = 창 닫기(재생/멈춤 아님) · 다른 막대는 위에서 바로 바뀜
-        const le = loc(e.clientX, e.clientY, cvEl.getBoundingClientRect()), onBar = st.tbars && st.tbars.find(b => le.x >= b.x0 - 4 && le.x <= b.x1 + 4 && Math.abs(le.y - b.y) <= Math.max(10, b.h));
+        const le = loc(d.cx ?? e.clientX, d.cy ?? e.clientY, cvEl.getBoundingClientRect()), onBar = hitBar(le);
         if (!onBar) { sheetClose(); lastTap = 0; return; } }
       if (!d.mode && e.type === "pointerup" && typeof o.onNote === "function") { const r = cvEl.getBoundingClientRect(), le = loc(e.clientX, e.clientY, r), hn = d.h0 || hitNote(st, le.x, le.y);   /* 누를 때 맞은 칸 우선(떼는 사이 칸이 바뀌어도) */ if (hn) { pauseNow(); if (hn.del) { o.onDelNote && o.onDelNote(hn.n); } else { lastView = view; o.onNote(hn.n); } return; } }
       if (d.mode === "time") { const t = preview; preview = null; if (t != null) seek(t, true); return; }   // 이동만, 재생은 안 함

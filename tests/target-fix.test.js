@@ -58,3 +58,6 @@ console.log("intro ok");
 // (11/03 08:39 사용자) 기준선 왼쪽 두 번 톡 = 5초 뒤로, 오른쪽 = 5초 앞으로
 { const t = require("fs").readFileSync(__dirname + "/../tune.js", "utf8");
   assert.ok(t.includes("const DT_JUMP = 2;") && t.includes("const j = le.x < hx ? -DT_JUMP : DT_JUMP") && t.includes("기준선 왼쪽·오른쪽 두 번 톡 = 2초 뒤로·앞으로")); }
+// (11/03 10:31 아이패드) 정음 막대 톡: 누른 자리 기준 + 가장 가까운 막대(위아래 22px)
+{ const t = require("fs").readFileSync(__dirname + "/../tune.js", "utf8");
+  assert.ok(t.includes("const hitBar = (le) =>") && t.includes("hb = hitBar(le);") && t.includes("loc(d.cx ?? e.clientX, d.cy ?? e.clientY")); }
