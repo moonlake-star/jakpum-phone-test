@@ -511,7 +511,7 @@
 <div id="v2Shade" class="v2only"></div>
 <div id="toast"></div>
 <script src="../lesson-replies.js"></script>
-<script src="../tune.js?v=20261103-1055"></script>
+<script src="../tune.js?v=20261103-1110"></script>
 
 <script>
 // ── 설정 ────────────────────────────────────────────────
@@ -4176,7 +4176,7 @@ function pvF0(cv, col, sr, i0, n) { return pvPerSample(cv, pvBins(cv, col), sr, 
 function pvRatio(cv, midi, sr, i0, n) {   // 서버 correction_cents와 같은 규칙: (정음 − 음 중심), 8센트 안쪽 0, ±200
   const raw = pvBins(cv, 1), key = "c" + midi, cache = cv._pvb;
   if (!cache[key]) { const m = new Map(); for (const [k, v] of raw) { let s = 0, c = 0; for (let d = -2; d <= 2; d++) { const x = raw.get(k + d); if (x != null) { s += x; c++; } }
-      let cor = midi * 100 - s / c; if (Math.abs(cor) < 8) cor = 0; m.set(k, Math.max(-200, Math.min(200, cor))); } cache[key] = m; }
+      let cor = midi * 100 - s / c; if (Math.abs(cor) < 8 && Number.isInteger(midi)) cor = 0; m.set(k, Math.max(-1200, Math.min(1200, cor))); } cache[key] = m; }
   return pvPerSample(cv, cache[key], sr, i0, n, (c) => c == null ? 1 : 2 ** (c / 1200));
 }
 function pvPsola(x, sr, f0, rat) {   // TD-PSOLA: 분석 표시(주기마다 봉우리) → 새 간격(T/비율)으로 2주기 한(Hann) 창을 겹쳐 붙임 · 길이 그대로
@@ -4207,7 +4207,7 @@ function pvClusterRatio(cv, cl, dry, lvCol, sr, i0, n) {   // 덩어리 안 칸�
   const fps = cv.fps || 25, raw = pvBins(cv, 1), ren = pvBins(cv, lvCol), m = new Map(), k0 = Math.floor(i0 / sr * fps) - 1, k1 = Math.ceil((i0 + n) / sr * fps) + 1;
   for (let k = k0; k <= k1; k++) { const tk = k / fps, f = cl.fx.find(x => tk >= x.t0 - 0.001 && tk <= x.t1 + 0.001), r0 = raw.get(k), rk = ren.get(k); let cor = 0;
     if (f) { if (dry) { if (r0 == null) continue; let s_ = 0, c_ = 0; for (let d = -2; d <= 2; d++) { const x = raw.get(k + d); if (x != null) { s_ += x; c_++; } }
-        cor = f.midi * 100 - s_ / c_; if (Math.abs(cor) < 8) cor = 0; cor = Math.max(-200, Math.min(200, cor)); }
+        cor = f.midi * 100 - s_ / c_; if (Math.abs(cor) < 8 && Number.isInteger(f.midi)) cor = 0; /* 센트로 고친 곳은 작은 차이도 반영 */ cor = Math.max(-1200, Math.min(1200, cor)); /* (11/03) 2반음 넘게도 */ }
       else { const rm = mkPv.rendered(f); cor = rm == null ? 0 : (f.midi - rm) * 100; } }
     else if (dry && r0 != null && rk != null) cor = rk - r0;   // 사이 빈 곳: 서버가 만든 높이 그대로
     m.set(k, cor); }
@@ -6137,7 +6137,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-03-1055-tips2";
+const BUILD = "2026-11-03-1110-fine";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
