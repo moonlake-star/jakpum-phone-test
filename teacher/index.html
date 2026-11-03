@@ -376,7 +376,7 @@
 </head>
 <body>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@700&display=swap">
-<script src="../brand.js?v=20261031-2339"></script>
+<script src="../brand.js?v=20261103-1345"></script>
 <script>try { Brand.splash("teacher"); } catch {}</script>
 <main>
   <header><button id="btnBack" class="ghost small hidden">← 뒤로</button><h1><span class="brMark" aria-hidden="true"></span>작품 보컬노트</h1><button id="btnUi" class="ghost small hidden" style="display:none" type="button" title="화면 방식 바꾸기">V1 화면</button></header>
@@ -4604,6 +4604,20 @@ function busy(on, msg = "불러오는 중…") {
   if (on) { el.textContent = "⏳ " + msg; clearTimeout(busyT); busyT = setTimeout(() => { busyN = 0; el.classList.remove("on"); }, 15000); }
   el.classList.toggle("on", busyN > 0);
 }
+// (11/03 13:39 사용자) '불러오는 중' 로고 창에도 지금 화면에서 쓸 수 있는 기능 팁(선생님 화면 전용 — 수강생 화면은 따로)
+// ⚠ 기능을 바꾸거나 없애면 문구도 같이 — need = 그 기능 코드 조각(tests/app-tips.test.js가 팁 목록 밖 코드에 있는지 확인)
+const APP_TIPS = [
+  { v: ["vList"], text: "‘오늘 할 일’ 🔔 검토 대기 = 확인을 기다리는 AI 초안·보정이에요", need: '<span class="chip todo">🔔 검토 대기 ${bells}</span>' },
+  { v: ["vList"], text: "‘게시됨 · 카톡 전’ = 피드백은 올렸고 카톡으로는 아직 안 보낸 레슨", need: 'c: r.pub ? "게시됨 · 카톡 전" : "피드백 전"' },
+  { v: ["vList", "vShared"], text: "카톡에서 녹음 파일을 길게 눌러 ‘공유 → 보컬노트’로 보내면 바로 받아져요", need: "‘공유 → 보컬노트’로 보내 주세요" },
+  { v: ["vCal"], text: "달력을 좌우로 밀면 지난달·다음 달로 넘어가요", need: "slide = (x, ms) =>" },
+  { v: ["vCal"], text: "레슨 있는 날짜 칸을 길게 눌러 다른 날짜로 끌어 놓으면 옮길 수 있어요", need: 'const mov = (k) => (by[k] || []).filter(x => x.event_id' },
+  { v: ["vMkJob"], text: "음정선 그래프를 톡 하면 전체화면에서 음정·타이밍을 고칠 수 있어요", need: "tapFull: true, teacher: true" },
+  { text: "폰의 뒤로 가기(갤럭시는 화면 가장자리 밀기)는 직전 화면으로 가요", need: '["vLesson","vShared","vSubs","vStu","vMkJob","vCal"].some(v =>' },
+];
+const appTips = () => { const v = ["vList", "vLesson", "vShared", "vSubs", "vStu", "vMkJob", "vCal"].find(x => { const e = document.getElementById(x); return e && !e.classList.contains("hidden"); });
+  return APP_TIPS.filter(t => !t.v || t.v.includes(v)).map(t => t.text); };
+try { if (typeof Brand !== "undefined" && Brand.setTips) Brand.setTips(appTips); } catch {}
 function popup(msg, ms = 2600) {   // 잠깐 뜨는 안내(확인 버튼 없음)
   let el = document.getElementById("pop");
   if (!el) { el = document.createElement("div"); el.id = "pop"; el.setAttribute("role", "alert"); document.body.appendChild(el); }
@@ -6214,7 +6228,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-03-1350-undo";
+const BUILD = "2026-11-03-1345-load";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
