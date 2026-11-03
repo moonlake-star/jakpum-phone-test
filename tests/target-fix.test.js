@@ -73,3 +73,4 @@ console.log("intro ok");
 assert.ok(tune.includes('paint = () => { d.querySelector("[data-p]").innerHTML') && !tune.includes('paint = () => { d.querySelector(".tfFixN").innerHTML'));
 assert.ok(src.includes("k * per <= sr * 0.02") && src.includes('lp.type = "lowpass"') && src.includes("s.playbackRate.value = L / (N * per)"));
 assert.ok(tune.includes("const BAR_GAP = 0.5;") && tune.includes("q[0] - p[0] < BAR_GAP && fxOf(q[0]) === fxOf(p[0])"), "(11/03 15:21) 한 음 가운데 짧은 틈(0.5초까지)은 한 막대");
+assert.ok(tune.includes("if ((d.bar || d.barX) && !d.moved && e.type === \"pointerup\" && st.selSnd) { st.selSnd(); return; }"), "(11/03 15:30) 고른 막대 다시 톡 = 소리");
