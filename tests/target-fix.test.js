@@ -76,3 +76,4 @@ assert.ok(tune.includes("const BAR_GAP = 0.5;") && tune.includes("q[0] - p[0] < 
 assert.ok(tune.includes("if ((d.bar || d.barX) && !d.moved && e.type === \"pointerup\" && st.selSnd) { st.selSnd(); return; }"), "(11/03 15:30) 고른 막대 다시 톡 = 소리");
 assert.ok(tune.includes("if (st && st.ghostOn) { let gr = null;") && tune.includes("bars.push({ x0: gx0, x1: gx1, t0: gr.t0, t1: gr.t1, c, y: yy, h: bh, ghost: true })") && tune.includes("const keepFix = () => !!b.ghost ||"), "(11/03 15:35) 정음 없는 곳 = 회색 막대로 고치기");
 assert.ok(src.includes("(p[kt] != null || p[1] != null)) { if (!(i in o_)) o_[i] = p[kt]; p[kt] = f.midi * 100; } });   // (11/03 15:35)") && src.includes("return v == null ? null : Math.round(v / 100);"));
+assert.ok(tune.includes("g.gain.linearRampToValueAtTime(0.14, now + 0.008)") && tune.includes("toneNow.m === m && performance.now() - toneNow.at < 80") && tune.includes("createDynamicsCompressor()"), "(11/03 15:48) 건반 소리 -6dB · 겹쳐 눌려도 안 커짐");
