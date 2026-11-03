@@ -900,8 +900,15 @@
     let ldQ = null, ldRe = false;   // (11/03 15:04 사용자) 소리 불러오는 중에 아래를 누르면: 기억해 뒀다가 다 불러오는 순간 창을 닫고 그 자리를 대신 눌러 줌
     const ldReplay = (q) => { const t = q && q.t; if (!t || !t.isConnected) return; const o = { bubbles: true, cancelable: true, clientX: q.x, clientY: q.y, pointerId: 9999, pointerType: q.pt || "touch", isPrimary: true }; ldRe = true;
       try { t.dispatchEvent(new PointerEvent("pointerdown", o)); t.dispatchEvent(new PointerEvent("pointerup", o)); } catch {} try { t.dispatchEvent(new MouseEvent("click", o)); } catch {} ldRe = false; };
-    wrap.addEventListener("pointerdown", (e) => { if (ldRe || !ldShown || ldEl.contains(e.target)) return;   /* (11/03 14:56 사용자) 사라지는 동안은 아래 화면 눌림 */ e.stopPropagation(); e.preventDefault(); ldEat = performance.now() + 700;
-      if (ldWas) { ldQ = { t: e.target, x: e.clientX, y: e.clientY, pt: e.pointerType }; return; } ldShut(); }, true);
+    // (11/03 15:10 사용자) 창이 떠 있어도 끌기(시간 이동·스크롤)는 그대로 됨 · 톡(누르고 바로 뗌)만 붙잡음:
+    //   불러오는 중 톡 = 기억했다가 다 불러오는 순간 창을 닫고 그 자리를 대신 눌러 줌 · 다 불러온 뒤 톡 = 창만 닫힘 · 사라지는 동안은 아래가 그대로 눌림
+    let ldTap = null;
+    wrap.addEventListener("pointerdown", (e) => { if (ldRe || !ldShown || ldEl.contains(e.target)) { ldTap = null; return; } ldTap = { id: e.pointerId, x: e.clientX, y: e.clientY, t: e.target, pt: e.pointerType, moved: false }; }, true);
+    wrap.addEventListener("pointermove", (e) => { if (ldTap && e.pointerId === ldTap.id && Math.hypot(e.clientX - ldTap.x, e.clientY - ldTap.y) > 8) ldTap.moved = true; }, true);
+    wrap.addEventListener("pointerup", (e) => { const q = ldTap; if (ldRe || !q || e.pointerId !== q.id) return; ldTap = null; if (q.moved || !ldShown) return;
+      e.stopPropagation(); ldEat = performance.now() + 700;   // 톡: 아래에는 '취소'로 알려 정리(재생/멈춤 안 됨)
+      try { q.t.dispatchEvent(new PointerEvent("pointercancel", { bubbles: true, pointerId: e.pointerId, clientX: e.clientX, clientY: e.clientY })); } catch {}
+      if (ldWas) { ldQ = q; return; } ldShut(); }, true);
     wrap.addEventListener("click", (e) => { if (!ldRe && performance.now() < ldEat) { e.stopPropagation(); e.preventDefault(); } }, true);
     const loop = () => { if (!wrap.isConnected) return;
       if (st.stopAt && !isPaused() && (+getT() || 0) >= st.stopAt) { st.stopAt = 0; toggle(); }   // 🎤 목소리 듣기: 그 음 끝에서 멈춤
