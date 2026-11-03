@@ -511,7 +511,7 @@
 <div id="v2Shade" class="v2only"></div>
 <div id="toast"></div>
 <script src="../lesson-replies.js"></script>
-<script src="../tune.js?v=20261103-1534"></script>
+<script src="../tune.js?v=20261103-1545"></script>
 
 <script>
 // ── 설정 ────────────────────────────────────────────────
@@ -4237,7 +4237,7 @@ function pvClusterRatio(cv, cl, dry, lvCol, sr, i0, n) {   // 덩어리 안 칸�
   for (let k = k0; k <= k1; k++) { const tk = k / fps, f = cl.fx.find(x => tk >= x.t0 - 0.001 && tk <= x.t1 + 0.001), r0 = raw.get(k), rk = ren.get(k); let cor = 0;
     if (f) { if (dry) { if (r0 == null) continue; let s_ = 0, c_ = 0; for (let d = -2; d <= 2; d++) { const x = raw.get(k + d); if (x != null) { s_ += x; c_++; } }
         cor = f.midi * 100 - s_ / c_; if (Math.abs(cor) < 8 && Number.isInteger(f.midi)) cor = 0; /* 센트로 고친 곳은 작은 차이도 반영 */ cor = Math.max(-1200, Math.min(1200, cor)); /* (11/03) 2반음 넘게도 */ }
-      else { const rm = mkPv.rendered(f); cor = rm == null ? 0 : (f.midi - rm) * 100; } }
+      else { const rm = mkPv.rendered(f); cor = rm != null ? (f.midi - rm) * 100 : r0 != null ? Math.max(-1200, Math.min(1200, f.midi * 100 - r0)) : 0; } }   // 정음이 없던 곳(서버가 안 건드림) = 부른 높이에서 바로
     else if (dry && r0 != null && rk != null) cor = rk - r0;   // 사이 빈 곳: 서버가 만든 높이 그대로
     m.set(k, cor); }
   return pvPerSample(cv, m, sr, i0, n, (c) => c == null ? 1 : 2 ** (c / 1200));
@@ -4533,8 +4533,8 @@ async function openMkJob(j, backTo) {
       return all.map(e => ({ t0: r4(toA(e.t0)), t1: r4(toA(e.t1)), nt0: r4(Tune.mapT(e.t0, M)), nt1: r4(Tune.mapT(e.t1, M)) })).filter(e => Math.abs(e.t0 - e.nt0) > 0.005 || Math.abs(e.t1 - e.nt1) > 0.005).map(e => ({ ...e, c: cAt((e.t0 + e.t1) / 2) })); };
     cv._tedits = teD(); mkPv.tedits = (r.time_edits || []).slice();
     { const kt = Tune.tgCol(cv), o_ = cv._orig || (cv._orig = {});   // 저장만 하고 아직 다시 안 만든 고침: 막대를 그 음에 두고(서버가 맞춘 음은 _orig에) 미리듣기
-      for (const f of dF()) (cv.pts || []).forEach((p, i) => { if (kt && p[0] >= f.t0 - 0.001 && p[0] <= f.t1 + 0.001 && p[kt] != null) { if (!(i in o_)) o_[i] = p[kt]; p[kt] = f.midi * 100; } });
-      mkPv.cv = cv; mkPv.rendered = (f) => { const i = (cv.pts || []).findIndex(p => p[0] >= f.t0 - 0.001 && p[0] <= f.t1 + 0.001 && p[kt] != null); return i < 0 ? null : Math.round((i in o_ ? o_[i] : cv.pts[i][kt]) / 100); };
+      for (const f of dF()) (cv.pts || []).forEach((p, i) => { if (kt && p[0] >= f.t0 - 0.001 && p[0] <= f.t1 + 0.001 && (p[kt] != null || p[1] != null)) { if (!(i in o_)) o_[i] = p[kt]; p[kt] = f.midi * 100; } });   // (11/03 15:35) 정음이 없던 곳(회색 막대)도
+      mkPv.cv = cv; mkPv.rendered = (f) => { const i = (cv.pts || []).findIndex(p => p[0] >= f.t0 - 0.001 && p[0] <= f.t1 + 0.001 && p[kt] != null); if (i < 0) return null; const v = i in o_ ? o_[i] : cv.pts[i][kt]; return v == null ? null : Math.round(v / 100); };
       mkPv.fixes = dF(); try { pvApplyAll(); } catch {} }
     cv._fixes = dF(); cv._src = (pi.ref?.segs || []).slice(); cv._midi = !!r.melody_id;   // 정음 막대 색 = 기준   // (11/02 15:48 사용자) 선생님이 고친 정음(노란 테두리)
     const onFix = async (f0_) => { const f = tmS ? { ...f0_, t0: r4(toO(f0_.t0)), t1: r4(toO(f0_.t1)) } : f0_;
@@ -4551,7 +4551,7 @@ async function openMkJob(j, backTo) {
     const applyAll = async (fx, te, msg) => { r.target_fixes = fx; r.time_edits = te; cv._fixes = dF(); cv._tedits = teD(); mkPv.fixes = dF(); mkPv.tedits = te.slice();
       const kt = Tune.tgCol(cv), o_ = cv._orig || {};   // 막대도 서버가 처음 고른 음으로(남은 고침은 그 음에)
       for (const i in o_) if (cv.pts[i]) cv.pts[i][kt] = o_[i];
-      for (const f of dF()) (cv.pts || []).forEach((p, i) => { if (kt && p[0] >= f.t0 - 0.001 && p[0] <= f.t1 + 0.001 && p[kt] != null) { if (!(i in o_)) o_[i] = p[kt]; p[kt] = f.midi * 100; } });
+      for (const f of dF()) (cv.pts || []).forEach((p, i) => { if (kt && p[0] >= f.t0 - 0.001 && p[0] <= f.t1 + 0.001 && (p[kt] != null || p[1] != null)) { if (!(i in o_)) o_[i] = p[kt]; p[kt] = f.midi * 100; } });
       try { pvApplyAll(); } catch (e) { console.warn("미리듣기", e); }
       try { await writeJSON(j.folder.id, MKREQ, r, j.reqId); paintFixN(); if (msg) toast(msg); } catch (e) { toast("저장 실패: " + errMsg(e)); } };
     resetSome = async (pitch, time, range) => {   // range = [화면 t0, t1]이면 그 안의 음만(여러 음 고르기)
@@ -6264,7 +6264,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-03-1534-retap";
+const BUILD = "2026-11-03-1545-ghost";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
