@@ -20,7 +20,7 @@ console.log("app-tips ok", L.length);
 { const br2 = fs.readFileSync(__dirname + "/../brand.js", "utf8");
   assert.ok(!br2.includes('<div class="lg"></div><div class="tx">') && br2.includes('<div class="bx"><div class="hd"><span class="hg" aria-hidden="true">⏳</span><b style="display:none">[Tip]</b>'), "로고 없음 · 박스"); }
 
-const b5x = (b) => b.includes('document.addEventListener("click", (e) => { if (replaying || !el.classList.contains("on") || el.contains(e.target)) return;') && !b.includes("#brLoad.on,#brLoad.eat{pointer-events:auto}");
+const b5x = (b) => b.includes('document.addEventListener("click", (e) => { if (replaying || !el.classList.contains("on") || el.classList.contains("plain") || el.contains(e.target)) return;') && !b.includes("#brLoad.on,#brLoad.eat{pointer-events:auto}");
 // (11/03 14:47 사용자) 떠 있는 동안 아래 화면 막음 · 톡(창·바깥) = 바로 닫힘 · 끌기·꾹 = 붙잡음 · 2초 · 팁 하나만
 { const b4 = fs.readFileSync(__dirname + "/../brand.js", "utf8");
   assert.ok(b4.includes("const LONG = 600, LINGER = Math.max(0, 1000 - GRACE - 260), FADE = 2800;") && b4.includes("if (moved || long || fromFade) { pin = true; vis(el); return; } shutNow(el);"), "2초 · 톡 = 닫기");
