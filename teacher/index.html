@@ -511,7 +511,7 @@
 <div id="v2Shade" class="v2only"></div>
 <div id="toast"></div>
 <script src="../lesson-replies.js"></script>
-<script src="../tune.js?v=20261103-1330"></script>
+<script src="../tune.js?v=20261103-1350"></script>
 
 <script>
 // ── 설정 ────────────────────────────────────────────────
@@ -4507,7 +4507,10 @@ async function openMkJob(j, backTo) {
     const tmS = Array.isArray(cv.tmap) && cv.tmap.length > 2 ? cv.tmap : null, toA = (t) => Tune.mapT(t, tmS), toO = (t) => Tune.mapT(t, tmS, true), r4 = (x) => Math.round(x * 1e4) / 1e4;
     const dF = () => (r.target_fixes || []).map(f => tmS ? { ...f, t0: r4(toA(f.t0)), t1: r4(toA(f.t1)) } : f);
     const ktT = Tune.tgCol(cv), cAt = (t) => { let best = null, bd = 1e9; for (const p of cv.pts || []) { const dd = Math.abs(p[0] - t); if (ktT && p[ktT] != null && dd < bd) { bd = dd; best = p[ktT]; } if (p[0] > t + 0.5) break; } return best ?? 6000; };
-    const teD = () => (r.time_edits || []).map(e => ({ t0: r4(toA(e.t0)), t1: r4(toA(e.t1)), nt0: e.nt0, nt1: e.nt1 })).filter(e => Math.abs(e.t0 - e.nt0) > 0.005 || Math.abs(e.t1 - e.nt1) > 0.005).map(e => ({ ...e, c: cAt((e.t0 + e.t1) / 2) }));
+    // 화면에 '옮기는 중'으로 보일 음: 지금 고침 + (원본으로 되돌려) 지운 예전 고침 — 새 자리는 지금 고침 전체로 만든 시간표(서버와 같은 규칙)로
+    const te0Snap = (r.time_edits || []).slice(), teDur = () => mkDurS || ((cv.pts || []).length ? cv.pts[cv.pts.length - 1][0] + 1 : 0);
+    const teD = () => { const cur = r.time_edits || [], M = Tune.tmapOf(cur, teDur()), all = cur.concat(te0Snap.filter(x => !cur.some(y => y.t0 < x.t1 && y.t1 > x.t0)));
+      return all.map(e => ({ t0: r4(toA(e.t0)), t1: r4(toA(e.t1)), nt0: r4(Tune.mapT(e.t0, M)), nt1: r4(Tune.mapT(e.t1, M)) })).filter(e => Math.abs(e.t0 - e.nt0) > 0.005 || Math.abs(e.t1 - e.nt1) > 0.005).map(e => ({ ...e, c: cAt((e.t0 + e.t1) / 2) })); };
     cv._tedits = teD(); mkPv.tedits = (r.time_edits || []).slice();
     { const kt = Tune.tgCol(cv), o_ = cv._orig || (cv._orig = {});   // 저장만 하고 아직 다시 안 만든 고침: 막대를 그 음에 두고(서버가 맞춘 음은 _orig에) 미리듣기
       for (const f of dF()) (cv.pts || []).forEach((p, i) => { if (kt && p[0] >= f.t0 - 0.001 && p[0] <= f.t1 + 0.001 && p[kt] != null) { if (!(i in o_)) o_[i] = p[kt]; p[kt] = f.midi * 100; } });
@@ -4520,7 +4523,7 @@ async function openMkJob(j, backTo) {
       try { await writeJSON(j.folder.id, MKREQ, r, j.reqId); paintFixN(); } catch (e) { toast("정음 저장 실패: " + errMsg(e)); } };   // (11/02 17:02) 바로 저장 — 알림은 창 안 '✓ 저장됨'으로
     // (11/03 13:08 사용자 승인) 타이밍·길이: 화면 시간 {t0,t1 → nt0,nt1} → 원래 시간으로 저장(서버 time_edits) · 겹치는 예전 고침은 바꿈 · 폰에서 바로 간이 미리듣기
     const onTime = async (f) => { const o0 = r4(toO(f.t0)), o1 = r4(toO(f.t1)), n0 = r4(f.nt0), n1 = r4(f.nt1);
-      const cur = (r.time_edits || []).filter(x => !(x.t0 < o1 && x.t1 > o0)); if (Math.abs(n0 - o0) >= 0.005 || Math.abs(n1 - o1) >= 0.005) cur.push({ t0: o0, t1: o1, nt0: n0, nt1: n1 });
+      const cur = (r.time_edits || []).filter(x => !(x.t0 < o1 && x.t1 > o0)); if (!f.reset && (Math.abs(n0 - o0) >= 0.005 || Math.abs(n1 - o1) >= 0.005)) cur.push({ t0: o0, t1: o1, nt0: n0, nt1: n1 });   // reset = 원본(원래 녹음 시간)으로
       r.time_edits = cur.sort((a, b) => a.t0 - b.t0); cv._tedits = teD(); mkPv.tedits = r.time_edits.slice();
       try { pvApplyAll(); } catch (e) { console.warn("타이밍 미리듣기", e); }
       try { await writeJSON(j.folder.id, MKREQ, r, j.reqId); paintFixN(); } catch (e) { toast("타이밍 저장 실패: " + errMsg(e)); } };
@@ -6211,7 +6214,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-03-1330-timing";
+const BUILD = "2026-11-03-1350-undo";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
