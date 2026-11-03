@@ -340,6 +340,14 @@
         if (!run) { run = { x0, x1, t0: p[0], t1: p[0], c: p[kt], y: y(p[kt]), h: bh }; bars.push(run); }
         run.x1 = x1; run.t1 = cont ? q[0] : p[0] + 0.04;
         if (!cont) { const fi = fxOf(run.t0); if (fi >= 0) { run.t0 = cv._fixes[fi].t0; run.t1 = cv._fixes[fi].t1; } run = null; } }
+      // (11/03 15:35 사용자) 부른 음 선은 있는데 정음 막대가 없는 곳(ㅅ·ㅊ·ㅎ 뒤 모음, 꺾기·짧은 음 등 자동 보정이 일부러 안 건드린 곳)도 고칠 수 있게
+      // → 선생님 화면에서만 회색 점선 막대(부른 높이에 가까운 음)로 보여 주고, 톡 하면 다른 막대처럼 고치기 창 — 고치기 전엔 자동 보정에 아무 영향 없음
+      if (st && st.ghostOn) { let gr = null;
+        const flush = () => { if (gr && gr.t1 - gr.t0 >= 0.1) { const sv = gr.v.slice().sort((a, b) => a - b), c = Math.round(sv[sv.length >> 1] / 100) * 100, gx0 = xs(gr.t0), gx1 = xs(gr.t1), yy = y(c);
+            g.save(); g.fillStyle = "rgba(160,168,180,.16)"; g.fillRect(gx0, yy - bh / 2, Math.max(3, gx1 - gx0), bh); g.setLineDash([3, 3]); g.strokeStyle = "rgba(205,210,218,.65)"; g.lineWidth = 1.2; g.strokeRect(gx0, yy - bh / 2, Math.max(3, gx1 - gx0), bh); g.restore();
+            bars.push({ x0: gx0, x1: gx1, t0: gr.t0, t1: gr.t1, c, y: yy, h: bh, ghost: true }); } gr = null; };
+        for (const p of vis) { if (p[kt] != null || p[1] == null) { flush(); continue; } if (gr && p[0] - gr.tl > 0.13) flush(); if (!gr) gr = { t0: p[0], t1: p[0], tl: p[0], v: [] }; gr.v.push(p[1]); gr.tl = p[0]; gr.t1 = p[0] + 0.04; }
+        flush(); }
       for (const b of bars) { const f = (cv._fixes || []).find(x => x.t0 < b.t1 && x.t1 > b.t0);   // 선생님이 고친 정음 = 노란 테두리(나누기만 한 조각은 경계 틈만)
         if (f && !f.cut) { g.strokeStyle = "#ffd27a"; g.lineWidth = 2; g.strokeRect(b.x0, b.y - b.h / 2, Math.max(4, b.x1 - b.x0), b.h); }
         if (f && f.cut) { g.fillStyle = "#0f1115"; g.fillRect(b.x0 - 1.5, b.y - b.h / 2 - 3, 3, b.h + 6); }
@@ -555,9 +563,9 @@
       const gap = h0 - bot.offsetHeight; if (gap > 0) d.style.minHeight = (d.offsetHeight + gap) + "px"; }
     else host.appendChild(d);
     const prior = (cv._fixes || []).slice(), snap = {};
-    (cv.pts || []).forEach((p, i) => { if (p[0] >= b.t0 - 0.001 && p[0] <= b.t1 + 0.001 && p[kt] != null) snap[i] = p[kt]; });
+    (cv.pts || []).forEach((p, i) => { if (p[0] >= b.t0 - 0.001 && p[0] <= b.t1 + 0.001 && (p[kt] != null || (b.ghost && p[1] != null))) snap[i] = p[kt]; });   // 회색 막대(정음 없음)는 원래 값 = 없음(null)
     // (11/02 19:20 사용자) '처음 음으로' = 선생님이 고치기 전, 서버가 처음 고른 음(전에 고쳐 저장한 음이 아니라) — 서버 값은 cv._orig에 있음
-    const o0 = cv._orig || {}, ov = Object.keys(snap).map(i => (i in o0 ? o0[i] : snap[i])).sort((x, y) => x - y), mO = ov.length ? Math.round(ov[ov.length >> 1] / 100) : m0;
+    const o0 = cv._orig || {}, ov = Object.keys(snap).map(i => (i in o0 ? o0[i] : snap[i])).filter(v => v != null).sort((x, y) => x - y), mO = ov.length ? Math.round(ov[ov.length >> 1] / 100) : m0;
     // (11/03 10:50 사용자) 센트 단위 미세 조정: 음 이름 + ±센트 · 3반음 넘게 옮기면 소리 경고
     const nmC = (x) => { const r = Math.round(x), c = Math.round((x - r) * 100); return noteName(r) + (c ? `<small class="tfC">${c > 0 ? "+" : ""}${c}¢</small>` : ""); };
     const stEl = d.querySelector(".tfFixSt"), paint = () => { d.querySelector("[data-p]").innerHTML = `${nmC(m)}${Math.abs(m - mO) > 0.004 ? `<small>← ${noteName(mO)}</small>` : ""}`;
@@ -570,7 +578,7 @@
     try { sndFor(m, 1000); } catch {}
     if (st) st.selSnd = () => { try { sndFor(m, 1000); } catch {} };   // (11/03 15:30 사용자) 이미 고른 막대를 다시 톡 = 처음 고를 때처럼 1초 소리
     const same = () => Math.abs(m - mO) < 0.004, rnd = (x) => Math.round(x * 100) / 100;
-    const keepFix = () => !(same() && !isCut);   // 서버가 고른 음 그대로면 기록 없음(나눈 조각은 나눔 표시로 남김)
+    const keepFix = () => !!b.ghost || !(same() && !isCut);   // 회색 막대는 같은 음이어도 '이 음으로 맞춤' 기록   // 서버가 고른 음 그대로면 기록 없음(나눈 조각은 나눔 표시로 남김)
     const preview = () => { const o_ = cv._orig || (cv._orig = {}); for (const i in snap) { if (!(i in o_)) o_[i] = snap[i]; cv.pts[i][kt] = Math.round(m * 100); }
       cv._fixes = prior.filter(x => !(x.t0 < b.t1 && x.t1 > b.t0)).concat(keepFix() ? [{ t0: T0, t1: T1, midi: rnd(m), ...(isCut && same() ? { cut: true } : {}) }] : []); };
     let tm = null;
@@ -786,6 +794,7 @@
     const showMid = (kind) => { mid.textContent = kind === "pause" ? "❚❚" : kind === "back" ? "⏪" + DT_JUMP : kind === "fwd" ? DT_JUMP + "⏩" : "▶"; mid.className = "tfMid " + (kind === "pause" ? "stay" : "flash"); void mid.offsetWidth; mid.classList.add("go"); };
     st.voice = typeof o.voice === "function" ? o.voice : null;
     st.onTime = typeof o.onTime === "function" ? o.onTime : null;
+    st.ghostOn = typeof o.onFix === "function";   // 회색 막대는 고칠 수 있는 화면(선생님)에서만
     st.o = o; st.mMode = false; st.msel = null;   // (11/03 13:08) 타이밍·길이 고치기(선생님 메이크업 화면만)
     st.playSeg = (t0, t1) => { st.panAt = 0; try { seek(Math.max(0, t0 - 0.05), true); } catch {} if (isPaused()) toggle(); st.stopAt = t1 + 0.05; };   // (11/03 10:50 사용자) 멜로다인처럼 그 음 구간만 듣기
     const toggle = () => { st.stopAt = 0; const was = isPaused(); try { o.play && o.play(); } catch {} showMid(was ? "play" : "pause"); if (was) { st.panAt = 0; st.waitAt = performance.now(); } else st.waitAt = 0; };   // (11/02 20:31) 눌렀는데 아직 안 나오면 '불러오는 중' 표시
