@@ -21,5 +21,5 @@ assert.ok(/강사님 피드백/.test(student) && /내가 부른 음/.test(studen
 assert.ok(src.includes('<p class="tfTip"></p>') && src.includes('<span>[Tip]</span>') && src.includes('class="tfHg"') && !src.includes('"💡 " + ldTips'), "(11/03 11:39) 작은 모래시계 + [안내팁]");
 console.log("loading-tips ok", FS_TIPS.length);
 // (11/03 11:31 사용자) 팁 창: 톡 = 계속 · 다시 톡 = 닫기 · 0.7초 꾹 = 누르는 동안만 · 닫힐 땐 페이드
-assert.ok(src.includes("const long = performance.now() - ldDown >= 700") && src.includes("if (long) ldPin = false; else ldPin = !ldPin;") && src.includes("const vis = on || ldPin || ldHold;"));
-assert.ok(src.includes("transition:opacity .6s ease,visibility 0s linear .6s"), "서서히 사라짐");
+assert.ok(src.includes("const long = performance.now() - ldDown >= 700") && src.includes("if (long) ldPin = false; else ldPin = !ldPin;") && src.includes("ldPin && performance.now() - ldPinAt > LD_KEEP") && src.includes("const LD_KEEP = 4000;") && src.includes("const vis = on || ldPin || ldHold;"));
+assert.ok(src.includes("transition:opacity 1.8s ease,visibility 0s linear 1.8s"), "서서히 사라짐");

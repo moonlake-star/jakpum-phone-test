@@ -334,7 +334,7 @@
       const fxOf = (tt) => (cv._fixes || []).findIndex(x => tt >= x.t0 - 1e-6 && tt < x.t1 - 1e-6);   // 나눈·고친 구간 경계에서 막대도 끊음
       for (let i = 0; i < vis.length; i++) { const p = vis[i], q = vis[i + 1]; if (p[kt] == null) { run = null; continue; }
         const cont = q && q[kt] === p[kt] && q[0] - p[0] < 0.13 && fxOf(q[0]) === fxOf(p[0]), x0 = xs(p[0]), x1 = cont ? xs(q[0]) : x0 + 2;
-        g.fillStyle = srcCol(cv, p[0]); g.fillRect(x0, y(p[kt]) - bh / 2, Math.max(1, x1 - x0 + 0.5), bh);
+        g.fillStyle = srcCol(cv, p[0]); { const mv = (cv._tedits || []).some(x => p[0] >= x.t0 - 1e-6 && p[0] < x.t1 - 1e-6); if (mv) g.globalAlpha = 0.22; g.fillRect(x0, y(p[kt]) - bh / 2, Math.max(1, x1 - x0 + 0.5), bh); g.globalAlpha = 1; }   // 옮기는 중인 음은 원래 자리를 흐리게
         if (!run) { run = { x0, x1, t0: p[0], t1: p[0], c: p[kt], y: y(p[kt]), h: bh }; bars.push(run); }
         run.x1 = x1; run.t1 = cont ? q[0] : p[0] + 0.04;
         if (!cont) { const fi = fxOf(run.t0); if (fi >= 0) { run.t0 = cv._fixes[fi].t0; run.t1 = cv._fixes[fi].t1; } run = null; } }
@@ -343,6 +343,14 @@
         if (f && f.cut) { g.fillStyle = "#0f1115"; g.fillRect(b.x0 - 1.5, b.y - b.h / 2 - 3, 3, b.h + 6); }
         if (st && st.sel && st.sel.t0 < b.t1 && st.sel.t1 > b.t0) { g.save(); g.shadowColor = "#9cc3ff"; g.shadowBlur = 10; g.strokeStyle = "#9cc3ff"; g.lineWidth = 3; g.strokeRect(b.x0 - 2, b.y - b.h / 2 - 2, Math.max(6, b.x1 - b.x0 + 4), b.h + 4); g.restore(); } }
       if (st) st.tbars = bars;
+      // (11/03 13:08 사용자 시안) 타이밍·길이 고친 음 = 새 자리에 하늘색 막대 + 원래 자리 점선
+      const tb = [];
+      for (const te of cv._tedits || []) { if (te.nt1 < t0 - 0.5 || te.nt0 > t0 + W8 + 0.5) continue; const yy = y(te.c);
+        g.save(); g.setLineDash([4, 3]); g.strokeStyle = "rgba(230,233,238,.55)"; g.lineWidth = 1.5; g.strokeRect(xs(te.t0), yy - bh / 2, Math.max(4, xs(te.t1) - xs(te.t0)), bh); g.restore();
+        const x0 = xs(te.nt0), x1 = xs(te.nt1); g.fillStyle = "#5fd4ff"; g.fillRect(x0, yy - bh / 2, Math.max(3, x1 - x0), bh);
+        if (st && st.sel && Math.abs(st.sel.t0 - te.t0) < 0.02) { g.fillStyle = "#e8f8ff"; g.fillRect(x0, yy - bh / 2, 3, bh); g.fillRect(x1 - 3, yy - bh / 2, 3, bh); }   // 고른 음: 양 끝 손잡이
+        tb.push({ x0, x1, y: yy, h: bh, t0: te.t0, t1: te.t1, c: te.c, te }); }
+      if (st) st.tebars = tb;
     }
     if (k) {   // 두 선 사이 노랑(많이 고칠수록 진하게)
       for (let i = 1; i < vis.length; i++) {
@@ -487,6 +495,33 @@
   // 정음 고치기 창: 초록 막대를 누르면(멈춘 상태) ▼▲로 고르고 저장 → onFix({t0,t1,midi}) · 원래대로 = midi:null
   // (11/02 17:02 사용자) 정음 고치기: 고른 막대는 파란 테두리 · ▼▲는 바로 저장(저장 버튼 없음) · 나누기는 ✂ 아이콘 하나 · 나눈 조각은 노란 테두리 없이 경계만
   // (11/03 02:54 사용자) 고친 정음은 바로바로 저장됨 — 창(고치기 창·전체화면)을 빠져나올 때 저장이 끝날 때까지 '저장 중…' → '✓ 저장됨' 잠깐 표시
+  // (11/03 13:08 사용자 승인) 타이밍·길이 고치기 시간표 — ⚠ 서버 app/jakpum/timing.py clusters()/tmap()과 같은 규칙(시험 tests/time-edits.test.js가 같은 값인지 확인)
+  // edits [{t0,t1,nt0,nt1}](원래 시간) → [[원래, 새], ...] (사이는 직선, 밖은 그대로)
+  const TW = 0.4, TMIN = 0.03, TMAX = 4.0;
+  function tmapOf(edits, dur) {
+    const r4 = (x) => Math.round(x * 1e4) / 1e4;
+    const eds = (edits || []).map(e => [r4(+e.t0), r4(+e.t1), r4(+e.nt0), r4(+e.nt1)]).filter(e => e.every(Number.isFinite) && e[0] >= 0 && e[0] < e[1] && e[2] >= 0 && e[2] < e[3] && e[1] - e[0] <= 30 && !(Math.abs(e[2] - e[0]) < 0.005 && Math.abs(e[3] - e[1]) < 0.005))
+      .sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2] || a[3] - b[3]);
+    const groups = [];
+    for (const e of eds) { const we = Math.max(TW, 1.5 * Math.max(Math.abs(e[2] - e[0]), Math.abs(e[3] - e[1]))), a = Math.max(0, Math.min(e[0], e[2]) - we), b = Math.min(dur, Math.max(e[1], e[3]) + we);
+      const L = groups[groups.length - 1]; if (L && a <= L[1]) { L[1] = Math.max(L[1], b); L[2].push(e); } else groups.push([a, b, [e]]); }
+    const ok = (P) => { for (let i = 0; i + 1 < P.length; i++) { const [o0, n0] = P[i], [o1, n1] = P[i + 1]; if (o1 - o0 < TMIN || n1 - n0 < TMIN) return false; const r = (n1 - n0) / (o1 - o0); if (r > TMAX || r < 1 / TMAX) return false; } return true; };
+    const out = [[0, 0]];
+    for (const [a, b, es0] of groups) { let es = es0.slice();
+      while (es.length) { let P = es.flatMap(e => [[e[0], e[2]], [e[1], e[3]]]).sort((x, y) => x[0] - y[0] || x[1] - y[1]); P = [[a, a], ...P, [b, b]];
+        if (a <= 0 && P[1][0] <= TMIN && P[1][1] <= TMIN) P = P.slice(1);
+        if (ok(P)) { out.push(...P); break; } es = es.slice(0, -1); } }
+    out.push([dur, dur]);
+    const seen = new Set(), res = [];
+    for (const [o_, n_] of out.sort((x, y) => x[0] - y[0] || x[1] - y[1])) { const k = Math.round(o_ * 1e4); if (seen.has(k)) continue; seen.add(k); res.push([r4(o_), r4(n_)]); }
+    return res;
+  }
+  function mapT(t, tm, inv) {   // 시간표로 원래 → 새(inv면 새 → 원래). 시간표가 없으면 그대로
+    if (!tm || tm.length < 2) return t; const A = inv ? 1 : 0, B = inv ? 0 : 1;
+    if (t <= tm[0][A]) return t - tm[0][A] + tm[0][B];
+    for (let i = 1; i < tm.length; i++) if (t <= tm[i][A]) { const p = tm[i - 1], q = tm[i], d = q[A] - p[A]; return d > 0 ? p[B] + (t - p[A]) / d * (q[B] - p[B]) : q[B]; }
+    const l = tm[tm.length - 1]; return t - l[A] + l[B];
+  }
   const saving = new Set(); let savedAt = 0, saveEl = null, saveTm = null;
   function fxSave(fn, f) { savedAt = Date.now(); let p; try { p = fn(f); } catch {} if (p && typeof p.then === "function") { saving.add(p); p.then(() => {}, () => {}).then(() => { saving.delete(p); saveTick(); }); } }
   function saveTick() { if (!saveEl) return; if (saving.size) { saveEl.textContent = "💾 저장 중…"; return; } saveEl.textContent = "✓ 저장됨"; clearTimeout(saveTm); saveTm = setTimeout(() => { if (saveEl) { saveEl.remove(); saveEl = null; } }, 1200); }
@@ -502,9 +537,13 @@
     const d = document.createElement("div"); d.className = "tfFix";
     const mm = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
     // (11/02 19:38 사용자 시안 승인) 다이어트: 첫 줄 = 원음/보정본 스위치 + 시간·저장 표시 / 둘째 줄 = 버튼 한 줄(▼ 음 ▲ ✂ ↺ ✓) + 작은 이름표
-    d.innerHTML = `<div class="tfFixBox"><div class="tfFixHd"><b>정음</b><span class="tfFixTm">${mm(b.t0)}~${mm(b.t1)}</span><span class="tfFixSt"></span></div>
-      <div class="tfFixRow"><button type="button" data-d="-1" aria-label="반음 내림">▼</button><button type="button" class="tfFixN" data-p aria-label="누르는 동안 이 음 소리"></button><button type="button" data-d="1" aria-label="반음 올림">▲</button>${canCut ? `<button type="button" class="tfCut tfIc" data-cut aria-label="두 음으로 나누기(세로줄 자리, 막대 밖이면 가운데)">✂</button>` : ""}<button type="button" class="tfIc" data-r aria-label="처음 음으로">↺</button></div>
-      <div class="tfFixLab"><span>톡 반음 · 꾹 미세</span><span class="n">누르면 소리</span><span>톡 반음 · 꾹 미세</span>${canCut ? `<span class="i">나누기</span>` : ""}<span class="i">처음 음</span></div></div>`;
+    // (11/03 13:08 사용자 시안 승인) 모드 [🎵 음정 | ⏱ 타이밍]: 타이밍 = ◀일찍·늦게▶(톡 0.02초, 꾹 계속) · 길이 −/+ · ↺ · 막대 가운데 끌기 = 옮기기, 끝 끌기 = 길이
+    const tOn = !!(st && typeof st.onTime === "function"), tMode = tOn && st.fixMode === "t"; let tTm = null, tSave = () => {};   // (닫을 때 쓰므로 먼저 둠)
+    d.innerHTML = `<div class="tfFixBox"><div class="tfFixHd">${tOn ? `<span class="tfFixMd" role="group" aria-label="고칠 것"><button type="button" data-md="p">🎵 음정</button><button type="button" data-md="t">⏱ 타이밍</button></span>` : "<b>정음</b>"}<span class="tfFixTm">${mm(b.t0)}~${mm(b.t1)}</span><span class="tfFixSt"></span></div>
+      ${tOn ? `<div class="tfFixRow tfT"><button type="button" data-tm="-1" aria-label="일찍(앞으로)">◀</button><button type="button" class="tfFixN tfTN" data-tp aria-label="이 음 듣기"></button><button type="button" data-tm="1" aria-label="늦게(뒤로)">▶</button><button type="button" class="tfIc" data-tl="-1" aria-label="짧게">−</button><button type="button" class="tfIc" data-tl="1" aria-label="길게">+</button><button type="button" class="tfIc" data-tr aria-label="처음 타이밍으로">↺</button></div>
+      <div class="tfFixLab tfT"><span>일찍</span><span class="n">누르면 듣기</span><span>늦게</span><span class="i">짧게</span><span class="i">길게</span><span class="i">처음</span></div>` : ""}
+      <div class="tfFixRow tfP"><button type="button" data-d="-1" aria-label="반음 내림">▼</button><button type="button" class="tfFixN" data-p aria-label="누르는 동안 이 음 소리"></button><button type="button" data-d="1" aria-label="반음 올림">▲</button>${canCut ? `<button type="button" class="tfCut tfIc" data-cut aria-label="두 음으로 나누기(세로줄 자리, 막대 밖이면 가운데)">✂</button>` : ""}<button type="button" class="tfIc" data-r aria-label="처음 음으로">↺</button></div>
+      <div class="tfFixLab tfP"><span>톡 반음 · 꾹 미세</span><span class="n">누르면 소리</span><span>톡 반음 · 꾹 미세</span>${canCut ? `<span class="i">나누기</span>` : ""}<span class="i">처음 음</span></div></div>`;
     // (11/02 19:28 사용자 시안 승인) 전체화면이면 아래 이동 버튼·안내 문구 자리에(원음/보정본 큰 버튼은 그대로 위에)
     // (11/02 02:02 사용자 시안) 스위치 아래 칸(이동 버튼·안내)만 같은 높이의 고치기 창으로 바뀜 → 그래프·주석·스위치는 그대로
     const bot = host.querySelector(".tfBot");
@@ -531,7 +570,7 @@
       cv._fixes = prior.filter(x => !(x.t0 < b.t1 && x.t1 > b.t0)).concat(keepFix() ? [{ t0: T0, t1: T1, midi: rnd(m), ...(isCut && same() ? { cut: true } : {}) }] : []); };
     let tm = null;
     const persist = () => { clearTimeout(tm); stEl.textContent = "저장 중…"; tm = setTimeout(() => { try { fxSave(onFix, { t0: T0, t1: T1, midi: keepFix() ? rnd(m) : null, ...(isCut && same() ? { cut: true } : {}) }); } catch {} stEl.textContent = "✓ 저장됨"; }, 450); };
-    const core = () => { try { sndOff(); } catch {} if (st) { st.onBarDrag = null; st.stopAt = 0; } if (tm) { clearTimeout(tm); tm = null; try { fxSave(onFix, { t0: T0, t1: T1, midi: keepFix() ? rnd(m) : null, ...(isCut && same() ? { cut: true } : {}) }); } catch {} } toneOff(); if (st) st.sel = null; d.remove(); };
+    const core = () => { try { sndOff(); } catch {} if (tTm) { clearTimeout(tTm); tTm = null; tSave(); } if (st) { st.onBarDrag = null; st.onBarDragX = null; st.stopAt = 0; } if (tm) { clearTimeout(tm); tm = null; try { fxSave(onFix, { t0: T0, t1: T1, midi: keepFix() ? rnd(m) : null, ...(isCut && same() ? { cut: true } : {}) }); } catch {} } toneOff(); if (st) st.sel = null; d.remove(); };
     // (11/02 20:26 사용자) 폰 뒤로(갤럭시 뒤로 밀기) = 고치기 창만 닫기(전체화면은 그대로) — 주석 창과 같은 방식(기록 한 칸)
     const leave = () => { if (sheetClose === close_) sheetClose = null; try { if (history.state && history.state.tuneSheet) { skipPop = true; history.back(); } } catch {} };
     const close_ = (fromPop) => { core(); saveToast(); if (bot) bot._h0 = 0; if (fromPop === true) { if (sheetClose === close_) sheetClose = null; } else leave(); };
@@ -569,6 +608,38 @@
       const f = { t0: T0, t1: T1, midi: isCut ? mO : null, ...(isCut ? { cut: true } : {}) };
       cv._fixes = prior.filter(x => !(x.t0 < b.t1 && x.t1 > b.t0)).concat(isCut ? [f] : []);
       try { fxSave(onFix, f); } catch {} stEl.textContent = "↺ 처음 음 · 저장됨"; };
+    // ── 타이밍·길이 ──
+    const setMd = (md) => { if (!tOn) return; st.fixMode = md; d.classList.toggle("tmode", md === "t"); d.querySelectorAll("[data-md]").forEach(x => { const on = x.dataset.md === md; x.classList.toggle("on", on); x.setAttribute("aria-pressed", String(on)); }); if (md === "t") sndOff(); };
+    if (tOn) { setMd(tMode ? "t" : "p"); d.querySelectorAll("[data-md]").forEach(x => x.onclick = () => setMd(x.dataset.md)); }
+    if (!tOn) return;
+    const L0 = b.t1 - b.t0, sameT = (x) => Math.abs(x.t0 - b.t0) < 0.02 && Math.abs(x.t1 - b.t1) < 0.02, te0 = (cv._tedits || []).find(sameT);
+    let n0 = te0 ? te0.nt0 : b.t0, n1 = te0 ? te0.nt1 : b.t1;
+    const r2 = (x) => Math.round(x * 100) / 100, tSame = () => Math.abs(n0 - b.t0) < 0.005 && Math.abs(n1 - b.t1) < 0.005;
+    const tClamp = (edge) => {   // 옮기기 ±0.6초 · 길이 원래의 0.5~2배(최소 0.06초) — 서버가 받아들이는 범위 안
+      const lo = Math.max(0.06, L0 * 0.5), hi = L0 * 2;
+      if (edge === "l") { n0 = Math.max(0, b.t0 - 0.6, Math.min(b.t0 + 0.6, n0, n1 - lo)); n0 = Math.max(n0, n1 - hi); }
+      else { n0 = Math.max(0, b.t0 - 0.6, Math.min(b.t0 + 0.6, n0)); n1 = Math.max(n0 + lo, Math.min(n0 + hi, n1)); }
+      n0 = r2(n0); n1 = r2(n1); };
+    const tn = d.querySelector("[data-tp]"), tPaint = () => { const dt = n0 - b.t0, dl = (n1 - n0) - L0, sg = (x) => (x > 0.004 ? "+" : x < -0.004 ? "−" : "±") + Math.abs(x).toFixed(2);
+      tn.innerHTML = `${sg(dt)}초<small>길이 ${Math.abs(dl) > 0.004 ? sg(dl) + "초" : "그대로"}</small>`; };
+    const tPreview = () => { cv._tedits = (cv._tedits || []).filter(x => !sameT(x)).concat(tSame() ? [] : [{ t0: b.t0, t1: b.t1, nt0: n0, nt1: n1, c: b.c }]); };
+    tSave = () => { try { fxSave(st.onTime, { t0: b.t0, t1: b.t1, nt0: n0, nt1: n1 }); } catch {} stEl.textContent = "✓ 저장됨"; };
+    const tPersist = () => { clearTimeout(tTm); stEl.textContent = "저장 중…"; tTm = setTimeout(() => { tTm = null; tSave(); }, 450); };
+    const tStep = (kind, dv) => { if (kind === "m") { n0 += dv; n1 += dv; tClamp("m"); } else { n1 += dv; tClamp("r"); } tPaint(); tPreview(); tPersist(); };
+    tPaint();
+    d.querySelectorAll("[data-tm],[data-tl]").forEach(x => { let hold = null, rep_ = null, long = false; const kind = x.dataset.tm ? "m" : "l", dv = +(x.dataset.tm || x.dataset.tl) * 0.02;
+      const stop = () => { clearTimeout(hold); clearInterval(rep_); hold = rep_ = null; };
+      x.addEventListener("pointerdown", (e) => { e.preventDefault(); long = false; try { x.setPointerCapture(e.pointerId); } catch {}
+        hold = setTimeout(() => { long = true; rep_ = setInterval(() => tStep(kind, dv), 90); }, 380); });
+      x.addEventListener("pointerup", () => { const wasLong = long; stop(); if (!wasLong) tStep(kind, dv); });
+      ["pointercancel", "lostpointercapture"].forEach(ev => x.addEventListener(ev, stop));
+      x.onclick = (e) => { if (e.detail === 0) tStep(kind, dv); };
+      x.addEventListener("contextmenu", (e) => e.preventDefault()); });
+    tn.onclick = () => { if (tTm) { clearTimeout(tTm); tTm = null; tSave(); } setTimeout(() => { try { st.playSeg && st.playSeg(Math.max(0, Math.min(n0, b.t0) - 0.4), Math.max(n1, b.t1) + 0.3); } catch {} }, 60); };   // 고친 소리로 그 근처만 듣기
+    d.querySelector("[data-tr]").onclick = () => { n0 = b.t0; n1 = b.t1; tPaint(); tPreview(); clearTimeout(tTm); tTm = null; tSave(); stEl.textContent = "↺ 처음 타이밍 · 저장됨"; };
+    st.onBarDragX = (dt, edge, start) => { if (start) { st._tb = [n0, n1]; return; } const [a0, a1] = st._tb || [n0, n1];
+      if (edge === "l") n0 = a0 + dt; else if (edge === "r") n1 = a1 + dt; else { n0 = a0 + dt; n1 = a1 + dt; }
+      tClamp(edge === "c" ? "m" : edge); tPaint(); tPreview(); tPersist(); };
   }
   // ── 전체화면: 카드에서 커지며 가로로 돌아 폰 화면 가득. 상하 배율 고정(곡 전체 음역), 정음·부른 음·보정 음을 크게 ──
   // (11/03 10:38 사용자) '소리 불러오는 중'에 이 화면에서 쓸 수 있는 기능 팁을 보여 줌.
@@ -585,7 +656,9 @@
     { text: () => "맨 위 막대가 위로 솟은 곳은 높게, 아래로 내려간 곳은 낮게 부른 곳이에요", need: 'g.fillText("높게", 4, top + 8)', when: (o) => !o.teacher },
     { text: () => "폰의 뒤로 가기(갤럭시는 화면 가장자리 밀기)로도 닫혀요", need: "if (fsClose) { fsClose();" },
     { text: () => "노래가 없는 전주·간주에선 '⏩ 노래 시작 1초 전으로'로 바로 넘어가요", need: "⏩ 노래 시작 1초 전으로" },
-    { text: () => "멈춘 뒤 초록 정음 막대를 톡 하면 그 음을 고칠 수 있어요(▼▲, 바로 저장)", need: "hb = hitBar(le);", when: (o) => typeof o.onFix === "function" },
+    { text: () => "멈춘 뒤 초록 정음 막대를 톡 하면 그 음을 고칠 수 있어요(▼▲, 바로 저장)", need: "hb = hitT(le) || hitBar(le);", when: (o) => typeof o.onFix === "function" },
+    { text: () => "⏱ 타이밍: ◀▶ 일찍·늦게, −/+ 길이 · 막대 가운데를 끌면 옮기기, 끝을 끌면 길이", need: "st.onBarDragX = (dt, edge, start)", when: (o) => typeof o.onTime === "function" },
+    { text: () => "타이밍 고친 음은 하늘색, 원래 자리는 점선 · 가운데 숫자를 누르면 그 근처만 들려요", need: 'g.fillStyle = "#5fd4ff"; g.fillRect(x0', when: (o) => typeof o.onTime === "function" },
     { text: () => "고치기 창에서 음 이름을 누르고 있으면 그 음이 목소리로 계속 소리 나요", need: 'nb.addEventListener("pointerdown", (e) => { e.preventDefault(); snd(m); });', when: (o) => typeof o.onFix === "function" },
     { text: () => "✂ 나누기: 세로줄이 막대 안이면 그 자리, 밖이면 가운데에서 나뉘고 오른쪽 조각이 골라져요", need: "fixSheet(host, cv, { t0: ts, t1: T1, c: Math.round(m * 100) }, onFix, getT, st)", when: (o) => typeof o.onFix === "function" },
     { text: () => "↺ 처음 음 = 선생님이 고치기 전, 서버가 처음 고른 음으로 돌아가요", need: "m = mO; paint();", when: (o) => typeof o.onFix === "function" },
@@ -654,6 +727,7 @@
     // 가운데 표시: 멈추면 ❚❚가 살짝 튀어나와 머묾, 재생하면 ▶가 잠깐 떴다가 사라짐(10/30 14:27 사용자)
     const showMid = (kind) => { mid.textContent = kind === "pause" ? "❚❚" : kind === "back" ? "⏪" + DT_JUMP : kind === "fwd" ? DT_JUMP + "⏩" : "▶"; mid.className = "tfMid " + (kind === "pause" ? "stay" : "flash"); void mid.offsetWidth; mid.classList.add("go"); };
     st.voice = typeof o.voice === "function" ? o.voice : null;
+    st.onTime = typeof o.onTime === "function" ? o.onTime : null;   // (11/03 13:08) 타이밍·길이 고치기(선생님 메이크업 화면만)
     st.playSeg = (t0, t1) => { st.panAt = 0; try { seek(Math.max(0, t0 - 0.05), true); } catch {} if (isPaused()) toggle(); st.stopAt = t1 + 0.05; };   // (11/03 10:50 사용자) 멜로다인처럼 그 음 구간만 듣기
     const toggle = () => { st.stopAt = 0; const was = isPaused(); try { o.play && o.play(); } catch {} showMid(was ? "play" : "pause"); if (was) { st.panAt = 0; st.waitAt = performance.now(); } else st.waitAt = 0; };   // (11/02 20:31) 눌렀는데 아직 안 나오면 '불러오는 중' 표시
     const pauseNow = () => { if (!isPaused()) { try { o.play && o.play(); } catch {} } showMid("pause"); };
@@ -670,6 +744,7 @@
     // 손가락: 한 손가락 좌우 = 시간 이동(재생은 멈춤, 가운데 ▶로 다시), 위아래 = 음 높이 이동(확대했을 때), 두 손가락 = 핀치 확대, 톡 = 재생/멈춤
     const hitBar = (le) => { if (!st.tbars || !st.tbars.length) return null; let best = null, bd = 1e9;   // 가장 가까운 정음 막대(위아래 22px·좌우 8px 안)
       for (const b of st.tbars) { if (le.x < b.x0 - 8 || le.x > b.x1 + 8) continue; const dy = Math.abs(le.y - b.y); if (dy <= Math.max(22, b.h) && dy < bd) { bd = dy; best = b; } } return best; };
+    const hitT = (le) => { for (const b of st.tebars || []) if (le.x >= b.x0 - 8 && le.x <= b.x1 + 8 && Math.abs(le.y - b.y) <= Math.max(22, b.h)) return b; return null; };   // 타이밍 고친 막대(새 자리)
     const loc = (cx, cy, r) => (rot ? { x: cy - r.top, y: r.right - cx } : { x: cx - r.left, y: cy - r.top });   // 돌린 화면에서도 캔버스 안 좌표
     const along = (e) => (rot ? e.clientY : e.clientX), across = (e) => (rot ? e.clientX : e.clientY);
     const span = () => (cvEl.clientWidth - 44) || 1, tall = () => cvEl.clientHeight || 1;
@@ -680,7 +755,12 @@
       pts.set(e.pointerId, { a: along(e), b: across(e) }); try { cvEl.setPointerCapture(e.pointerId); } catch {}
       if (pts.size === 2) { const [p1, p2] = [...pts.values()]; drag = null; preview = null;
         pinch = { d: Math.hypot(p1.a - p2.a, p1.b - p2.b), xz: st.xz, yz: st.yz }; return; }
-      if (pts.size === 1 && st.onBarDrag && st.sel && st.kb) { const r0 = cvEl.getBoundingClientRect(), l0 = loc(e.clientX, e.clientY, r0), hb0 = hitBar(l0);   // (11/03 10:50 사용자) 고른 막대를 누른 채 위아래 = 반음씩
+      if (pts.size === 1 && st.onBarDragX && st.fixMode === "t" && st.sel && st.kb && st.map) { const r0 = cvEl.getBoundingClientRect(), l0 = loc(e.clientX, e.clientY, r0);   // (11/03 13:08) 타이밍 모드: 고른 막대 가운데 끌기 = 옮기기, 양 끝 = 길이
+        const tb = (st.tebars || []).find(x => Math.abs(x.t0 - st.sel.t0) < 0.02) || (st.tbars || []).find(x => Math.abs(x.t0 - st.sel.t0) < 0.02);
+        if (tb && l0.x >= st.kb.L && Math.abs(l0.y - tb.y) <= Math.max(22, tb.h) && l0.x >= tb.x0 - 16 && l0.x <= tb.x1 + 16) {
+          const E = Math.min(14, (tb.x1 - tb.x0) / 3), edge = l0.x <= tb.x0 + E ? "l" : l0.x >= tb.x1 - E ? "r" : "c";
+          drag = { barX: true, x0: l0.x, edge, id: e.pointerId, cx: e.clientX, cy: e.clientY }; st.onBarDragX(0, edge, true); return; } }
+      if (pts.size === 1 && st.onBarDrag && st.sel && st.kb && st.fixMode !== "t") { const r0 = cvEl.getBoundingClientRect(), l0 = loc(e.clientX, e.clientY, r0), hb0 = hitBar(l0);   // (11/03 10:50 사용자) 고른 막대를 누른 채 위아래 = 반음씩
         if (hb0 && Math.abs(hb0.t0 - st.sel.t0) < 0.02 && l0.x >= st.kb.L) { drag = { bar: true, y0: l0.y, k: 0, id: e.pointerId, cx: e.clientX, cy: e.clientY, a: along(e), b: across(e), t: +getT() || 0, mode: null }; st.onBarDrag(0, true); return; } }
       if (pts.size === 1 && st.kb) { const r0 = cvEl.getBoundingClientRect(), l0 = loc(e.clientX, e.clientY, r0);   // 건반: 누르는 동안 그 음 소리
         if (l0.x < st.kb.L) { const m = Math.round(st.kb.inv(l0.y) / 100); st.kbDown = m; tone(m); drag = { kb: true, id: e.pointerId }; return; } }
@@ -699,6 +779,8 @@
         if (st.yz > 1 && st.yc == null) { const f = fitAt(cv, +getT() || 0, 0); st.yc = f ? f[2] : null; }
         return; }
       if (!drag || drag.id !== e.pointerId) return;
+      if (drag.barX) { const l0 = loc(e.clientX, e.clientY, cvEl.getBoundingClientRect()), mp = st.map; if (Math.abs(l0.x - drag.x0) >= 3) drag.moved = true;
+        if (drag.moved && mp && st.onBarDragX) st.onBarDragX(Math.round((l0.x - drag.x0) / Math.max(1, mp.w - mp.L) * mp.W8 * 100) / 100, drag.edge, false); return; }
       if (drag.bar) { const r0 = cvEl.getBoundingClientRect(), l0 = loc(e.clientX, e.clientY, r0), k = Math.round((st.kb.inv(l0.y) - st.kb.inv(drag.y0)) / 100);
         if (k !== drag.k) { drag.k = k; drag.moved = true; if (st.onBarDrag) st.onBarDrag(k, false); } return; }
       if (drag.kb) { const r0 = cvEl.getBoundingClientRect(), l0 = loc(e.clientX, e.clientY, r0), m = Math.round(st.kb.inv(l0.y) / 100); if (m !== st.kbDown) { st.kbDown = m; tone(m); } return; }   // 건반 위로 밀면 따라 바뀜
@@ -713,12 +795,12 @@
       if (pinch) { st.hold = null; if (pts.size === 0) pinch = null; return; }
       if (!drag || drag.id !== e.pointerId) return; const d = drag; drag = null; clearTimeout(d.lp); st.hold = null; if (d.long) return;
       if (d.kb) { toneOff(); st.kbDown = null; return; }
-      if (d.bar) return;   // 고른 막대를 위아래로 옮긴 것(재생/멈춤 아님)
+      if (d.bar || d.barX) return;   // 고른 막대를 위아래(음정)·좌우(타이밍)로 옮긴 것(재생/멈춤 아님)
       if (!d.mode && e.type === "pointerup" && typeof o.onFix === "function" && isPaused() && st.tbars) {   // 멈춘 상태에서 초록 정음 막대 톡 = 정음 고치기
-        const le = loc(d.cx ?? e.clientX, d.cy ?? e.clientY, cvEl.getBoundingClientRect()), hb = hitBar(le);   // (11/03 10:31 아이패드) 누른 자리(뗀 자리 아님) + 손가락 크기만큼 넉넉하게
+        const le = loc(d.cx ?? e.clientX, d.cy ?? e.clientY, cvEl.getBoundingClientRect()), hb = hitT(le) || hitBar(le);   // (11/03 10:31 아이패드) 누른 자리(뗀 자리 아님) + 손가락 크기만큼 넉넉하게
         if (hb) { fixSheet(wrap, cv, hb, o.onFix, getT, st); return; } }
       if (!d.mode && e.type === "pointerup" && wrap.querySelector(".tfFix") && sheetClose && sheetClose._fix) {   // (11/03 02:02 사용자) 고치기 창이 떠 있으면 빈 곳 톡 = 창 닫기(재생/멈춤 아님) · 다른 막대는 위에서 바로 바뀜
-        const le = loc(d.cx ?? e.clientX, d.cy ?? e.clientY, cvEl.getBoundingClientRect()), onBar = hitBar(le);
+        const le = loc(d.cx ?? e.clientX, d.cy ?? e.clientY, cvEl.getBoundingClientRect()), onBar = hitT(le) || hitBar(le);
         if (!onBar) { sheetClose(); lastTap = 0; return; } }
       if (!d.mode && e.type === "pointerup" && typeof o.onNote === "function") { const r = cvEl.getBoundingClientRect(), le = loc(e.clientX, e.clientY, r), hn = d.h0 || hitNote(st, le.x, le.y);   /* 누를 때 맞은 칸 우선(떼는 사이 칸이 바뀌어도) */ if (hn) { pauseNow(); if (hn.del) { o.onDelNote && o.onDelNote(hn.n); } else { lastView = view; o.onNote(hn.n); } return; } }
       if (d.mode === "time") { const t = preview; preview = null; if (t != null) seek(t, true); return; }   // 이동만, 재생은 안 함
@@ -732,14 +814,15 @@
     const ldEl = document.createElement("div"); ldEl.className = "tfLoad"; ldEl.setAttribute("aria-live", "polite"); ldEl.innerHTML = `<div class="tfTipH"><span class="tfHg" aria-label="소리 불러오는 중">⏳</span><span>[Tip]</span></div><p class="tfTip"></p>`;   // (11/03 11:39 사용자) 큰 돌림표·💡 빼고 작은 모래시계 + [Tip](11/03 11:40)
     const ldTips = fsTips(o); let tipI = Math.floor(Math.random() * Math.max(1, ldTips.length)), tipAt = 0, ldOn = false; wrap.querySelector(".tfCvBox").appendChild(ldEl);
     // (11/03 11:31 사용자) 팁 창: 톡(짧게) = 계속 띄워 둠 · 한 번 더 톡 = 닫기 · 0.7초 넘게 꾹 = 누르는 동안만 보이고 떼면 닫기 · 닫힐 땐 서서히(페이드)
-    let ldPin = false, ldHold = false, ldDown = 0, ldShown = false;
+    const LD_KEEP = 4000;
+    let ldPin = false, ldHold = false, ldDown = 0, ldShown = false, ldPinAt = 0;   // (11/03 13:26 사용자) 붙잡아 둬도(톡·꾹) 4초 뒤엔 닫힘 · 사라짐 페이드 3배(0.6→1.8초)
     ldEl.addEventListener("pointerdown", (e) => { e.stopPropagation(); e.preventDefault(); if (!ldShown) return; ldDown = performance.now(); ldHold = true; try { ldEl.setPointerCapture(e.pointerId); } catch {} });
     const ldUp = (e) => { e.stopPropagation(); if (!ldDown) return; const long = performance.now() - ldDown >= 700; ldDown = 0; ldHold = false;
-      if (long) ldPin = false; else ldPin = !ldPin; };
+      if (long) ldPin = false; else ldPin = !ldPin; if (ldPin) ldPinAt = performance.now(); };
     ldEl.addEventListener("pointerup", ldUp); ldEl.addEventListener("pointercancel", (e) => { ldDown = 0; ldHold = false; e.stopPropagation(); });
     const loop = () => { if (!wrap.isConnected) return;
       if (st.stopAt && !isPaused() && (+getT() || 0) >= st.stopAt) { st.stopAt = 0; toggle(); }   // 🎤 목소리 듣기: 그 음 끝에서 멈춤
-      { const w = st.waitAt ? performance.now() - st.waitAt : 0, on = !!st.waitAt && isPaused() && w > 350 && w < 45000; if (st.waitAt && (!isPaused() || w >= 45000)) st.waitAt = 0; const vis = on || ldPin || ldHold; ldEl.classList.toggle("on", vis); ldEl.classList.toggle("tipOnly", !on); ldShown = vis; if (ppB) ppB.classList.toggle("ld", on);
+      { const w = st.waitAt ? performance.now() - st.waitAt : 0, on = !!st.waitAt && isPaused() && w > 350 && w < 45000; if (st.waitAt && (!isPaused() || w >= 45000)) st.waitAt = 0; if (ldPin && performance.now() - ldPinAt > LD_KEEP) ldPin = false; if (ldHold && performance.now() - ldDown > LD_KEEP) ldHold = false; const vis = on || ldPin || ldHold; ldEl.classList.toggle("on", vis); ldEl.classList.toggle("tipOnly", !on); ldShown = vis; if (ppB) ppB.classList.toggle("ld", on);
         if (vis && ldTips.length && (!ldOn || (!ldPin && !ldHold && performance.now() - tipAt > 4500))) {   // 붙잡아 둔 동안엔 같은 팁(읽을 수 있게)
           tipI = (tipI + (ldOn ? 1 : 0)) % ldTips.length; ldEl.querySelector(".tfTip").textContent = ldTips[tipI].text(); tipAt = performance.now(); } if (!vis && ldOn) tipI++; ldOn = vis; }
       if (ppB) { const s = ppB.classList.contains("ld") ? "⏳" : isPaused() ? "▶" : "❚❚"; if (ppB.textContent !== s) { ppB.textContent = s; ppB.setAttribute("aria-label", isPaused() ? "재생" : "일시정지"); } } const t = preview ?? (+getT() || 0); draw(cvEl, cv, t, +getLv() || 0, st); mid.style.visibility = st.hits && st.hits.length ? "hidden" : "";
@@ -785,7 +868,7 @@
 @media (prefers-reduced-motion: reduce){#tuneFs .tfBox{animation:none}}
 .tuneWrap{position:relative}.tuneMid{position:absolute;left:50%;top:44%;width:60px;height:60px;margin:-30px 0 0 -30px;border-radius:50%;background:rgba(156,195,255,.18);color:rgba(255,255,255,.8);font-size:22px;display:grid;place-items:center;pointer-events:none;opacity:0;transform:scale(.6)}
 .tuneMid.stay.go{animation:tfPop .22s cubic-bezier(.3,1.5,.5,1) forwards}.tuneMid.flash.go{animation:tfFlash .3s ease-out forwards}
-/* (11/02 20:26 사용자) '듣는 소리' 빼고 아래 버튼 높이만 70%로(46→32) */#tuneFs .tfAbL{display:none}#tuneFs,#tuneFs button,#tuneFs .tfFix,#tuneFs .tfFix *{touch-action:manipulation}#tuneFs .tfCv{touch-action:none}#tuneFs .tfBot .tfVoice{height:28px;min-height:0;padding:0 10px;margin:0 0 0 8px;border-radius:14px;border:1.5px solid #3b4250;background:#11141a;color:#eceff3;font-size:12.5px;font-weight:800}#tuneFs .tfC{font-size:12px;color:#ffd27a;margin-left:3px}.tuneSaveT{position:fixed;left:50%;bottom:calc(28px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:10003;background:rgba(24,28,35,.96);border:1.5px solid #3b4250;color:#eceff3;font-weight:800;font-size:14px;border-radius:20px;padding:10px 18px;box-shadow:0 6px 20px rgba(0,0,0,.5);pointer-events:none;white-space:nowrap}/* (11/03 02:13 사용자) 앱 전체 button 최소 높이(52px)가 덮어써서 줄인 게 안 보였음 → 높이를 직접 고정: 닫기 28 · 스위치 46 · 재생 버튼 40(지금 스위치 높이) */#tuneFs .port .tfXp{height:28px!important;min-height:0!important;padding:0 10px!important;font-size:12.5px!important}#tuneFs .port .tfXp i{font-size:13px!important}#tuneFs .port .tfCtl .tfAb{height:46px;box-sizing:border-box}#tuneFs .port .tfCtl .tfAb button{min-height:0!important;height:38px!important;font-size:15px}#tuneFs .port .tfNav button{min-height:0!important;height:40px!important}#tuneFs .tfCtl .tfAb .tfSwap{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:2;width:24px;height:24px;border-radius:50%;background:#1a1e25;border:1.5px solid #3b4250;color:#cfd3da;font-style:normal;font-size:13px;font-weight:900;display:grid;place-items:center;pointer-events:none;box-shadow:0 1px 4px rgba(0,0,0,.6)}#tuneFs .tfCtl .tfAb button[data-m="o"]{padding-right:16px!important}#tuneFs .tfCtl .tfAb button[data-m="p"]{padding-left:16px!important}#tuneFs .tfLoad{position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);z-index:6;display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:12px 16px!important;width:min(300px,78%);box-sizing:border-box;background:rgba(17,20,26,.92);border:1px solid #3b4250;border-radius:16px;padding:16px 20px;pointer-events:none;text-align:center;opacity:0;visibility:hidden;transition:opacity .6s ease,visibility 0s linear .6s;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:none}#tuneFs .tfLoad.on{opacity:1;visibility:visible;pointer-events:auto;transition:opacity .2s ease}#tuneFs .tfLoad.tipOnly .tfHg{display:none}#tuneFs .tfTipH{display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:800;color:#9aa3ad;align-self:flex-start}#tuneFs .tfHg{display:inline-block;font-size:14px;animation:tfHg 1.6s ease-in-out infinite}@keyframes tfHg{0%,40%{transform:rotate(0)}50%,90%{transform:rotate(180deg)}100%{transform:rotate(360deg)}}#tuneFs .tfLoad i{width:30px;height:30px;border-radius:50%;border:3px solid #3b4250;border-top-color:#9cc3ff;animation:tfSpin .9s linear infinite}#tuneFs .tfLoad b{font-size:15px}#tuneFs .tfLoad .tfTip{margin:2px 0 0;max-width:280px;font-size:14px;line-height:1.55;color:#ffd27a;word-break:keep-all;text-align:left}#tuneFs .tfLoad .tfTip:empty{display:none}#tuneFs .tfLoad small{font-size:12px;color:#9aa3ad}@keyframes tfSpin{to{transform:rotate(360deg)}}#tuneFs .port .tfCtl .tfAb button{min-height:32px}#tuneFs .port .tfNav button{height:32px}#tuneFs .port .tfCtl{gap:7px}#tuneFs:has(.tfFix) .tfNav,#tuneFs:has(.tfFix) .tfAbH,#tuneFs:has(.tfFix) .tfHint,#tuneFs:has(.tfFix) .tfNote,#tuneFs:has(.tfFix) .tfSkip{display:none}#tuneFs .tfFix.inBot{display:flex!important;flex-direction:column}#tuneFs .tfFix.inBot .tfFixBox{flex:1;display:flex;flex-direction:column;justify-content:center}#tuneFs .tfFixHd b{font-size:14px}#tuneFs .tfFixTm{margin-left:8px!important}#tuneFs .tfFixSt{margin-left:auto}#tuneFs .tfFixTip{position:absolute;left:50%;top:14px;transform:translateX(-50%);z-index:7;background:rgba(17,20,26,.92);border:1.5px dashed #ffd27a;color:#ffd27a;font-size:12.5px;font-weight:700;border-radius:12px;padding:6px 12px;pointer-events:none;white-space:nowrap;animation:tfTipIn .25s ease}@keyframes tfTipIn{from{opacity:0}to{opacity:1}}#tuneFs .tfTitle{display:none}#tuneFs .port .tfBr{display:none!important}#tuneFs .port .tfTop{flex-wrap:nowrap}#tuneFs .port .tfLeg{order:1;flex-wrap:nowrap;gap:10px}#tuneFs .port .tfTime{order:2;font-size:12px}#tuneFs .port .tfXp{order:3;margin-left:auto;height:32px;padding:0 12px;font-size:13px;border-width:1.5px;border-radius:16px}#tuneFs .port .tfXp i{font-size:15px}#tuneFs .tfX:not(.tfXp){height:34px;padding:0 12px;font-size:13px;border-width:1.5px}#tuneFs .tfFixHd{display:flex;align-items:center;gap:8px}#tuneFs .tfFixTm{margin-left:auto;font-size:12.5px;color:#9aa3ad;white-space:nowrap}#tuneFs .tfFixSt{color:#7fd99a;font-size:12px;white-space:nowrap}#tuneFs .tfFixAb{position:relative;display:flex;width:178px;flex:none;border-radius:20px;background:#0b0d11;border:1.5px solid #3b4250;padding:3px;box-shadow:inset 0 2px 5px rgba(0,0,0,.7);box-sizing:border-box;overflow:visible}#tuneFs .tfFixAb::before{content:"";position:absolute;top:3px;bottom:3px;left:3px;width:calc(50% - 3px);border-radius:17px;background:#e8e8ea;transition:left .22s ease,background .22s}#tuneFs .tfFixAb:has([data-m="p"].on)::before{left:50%;background:linear-gradient(135deg,#c7a4ff,#8f6cf0)}#tuneFs .tfBot .tfFixAb button{position:relative;flex:1;height:auto;min-width:0;min-height:36px;padding:0 4px;border:0;border-radius:17px;background:transparent;color:#7d8590;font-size:13.5px;font-weight:800;white-space:nowrap}#tuneFs .tfBot .tfFixAb button.on{color:#111}#tuneFs .tfBot .tfFixRow{gap:6px;margin-top:8px}#tuneFs .tfBot .tfFixRow button{flex:1;padding:0;min-height:48px;font-size:17px}#tuneFs .tfBot .tfFixRow button.tfFixN{flex:2.1;font-size:21px}#tuneFs .tfBot .tfFixRow button.tfIc{flex:.9;font-size:20px}#tuneFs .tfFixLab{display:flex;gap:6px;margin-top:3px;font-size:10.5px;color:#7d8590;line-height:1.2}#tuneFs .tfFixLab span{flex:1;text-align:center;white-space:nowrap;overflow:hidden}#tuneFs .tfFixLab .n{flex:2.1}#tuneFs .tfFixLab .i{flex:.9}#tuneFs .tfFix.inBot .tfFixBox{padding:8px 10px}#tuneFs .tfFix.inBot{position:static;padding:0;display:block;flex:1 1 auto}#tuneFs .tfFix.inBot .tfFixBox{width:100%;box-sizing:border-box;box-shadow:none}#tuneFs .tfBot .tfFixRow button{height:auto;min-width:0;min-height:46px;border:1.5px solid #3b4250;border-radius:12px;background:#11141a;color:#e8e8ea;font-size:16px}#tuneFs .tfBot .tfFixRow button.pri{background:#9cc3ff;color:#111;border:none}#tuneFs .tfBot .tfFixRow button.tfFixN{font-size:22px;font-weight:900;color:#7fd99a;background:#0f1a14;border-color:#2f5a40}#tuneFs .tfBot .tfFixRow button.tfCut{font-size:20px}
+/* (11/02 20:26 사용자) '듣는 소리' 빼고 아래 버튼 높이만 70%로(46→32) */#tuneFs .tfAbL{display:none}#tuneFs,#tuneFs button,#tuneFs .tfFix,#tuneFs .tfFix *{touch-action:manipulation}#tuneFs .tfCv{touch-action:none}#tuneFs .tfBot .tfVoice{height:28px;min-height:0;padding:0 10px;margin:0 0 0 8px;border-radius:14px;border:1.5px solid #3b4250;background:#11141a;color:#eceff3;font-size:12.5px;font-weight:800}#tuneFs .tfC{font-size:12px;color:#ffd27a;margin-left:3px}.tuneSaveT{position:fixed;left:50%;bottom:calc(28px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:10003;background:rgba(24,28,35,.96);border:1.5px solid #3b4250;color:#eceff3;font-weight:800;font-size:14px;border-radius:20px;padding:10px 18px;box-shadow:0 6px 20px rgba(0,0,0,.5);pointer-events:none;white-space:nowrap}/* (11/03 02:13 사용자) 앱 전체 button 최소 높이(52px)가 덮어써서 줄인 게 안 보였음 → 높이를 직접 고정: 닫기 28 · 스위치 46 · 재생 버튼 40(지금 스위치 높이) */#tuneFs .port .tfXp{height:28px!important;min-height:0!important;padding:0 10px!important;font-size:12.5px!important}#tuneFs .port .tfXp i{font-size:13px!important}#tuneFs .port .tfCtl .tfAb{height:46px;box-sizing:border-box}#tuneFs .port .tfCtl .tfAb button{min-height:0!important;height:38px!important;font-size:15px}#tuneFs .port .tfNav button{min-height:0!important;height:40px!important}#tuneFs .tfCtl .tfAb .tfSwap{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:2;width:24px;height:24px;border-radius:50%;background:#1a1e25;border:1.5px solid #3b4250;color:#cfd3da;font-style:normal;font-size:13px;font-weight:900;display:grid;place-items:center;pointer-events:none;box-shadow:0 1px 4px rgba(0,0,0,.6)}#tuneFs .tfCtl .tfAb button[data-m="o"]{padding-right:16px!important}#tuneFs .tfCtl .tfAb button[data-m="p"]{padding-left:16px!important}#tuneFs .tfLoad{position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);z-index:6;display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:12px 16px!important;width:min(300px,78%);box-sizing:border-box;background:rgba(17,20,26,.92);border:1px solid #3b4250;border-radius:16px;padding:16px 20px;pointer-events:none;text-align:center;opacity:0;visibility:hidden;transition:opacity 1.8s ease,visibility 0s linear 1.8s;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:none}#tuneFs .tfLoad.on{opacity:1;visibility:visible;pointer-events:auto;transition:opacity .2s ease}#tuneFs .tfLoad.tipOnly .tfHg{display:none}#tuneFs .tfTipH{display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:800;color:#9aa3ad;align-self:flex-start}#tuneFs .tfHg{display:inline-block;font-size:14px;animation:tfHg 1.6s ease-in-out infinite}@keyframes tfHg{0%,40%{transform:rotate(0)}50%,90%{transform:rotate(180deg)}100%{transform:rotate(360deg)}}#tuneFs .tfLoad i{width:30px;height:30px;border-radius:50%;border:3px solid #3b4250;border-top-color:#9cc3ff;animation:tfSpin .9s linear infinite}#tuneFs .tfLoad b{font-size:15px}#tuneFs .tfLoad .tfTip{margin:2px 0 0;max-width:280px;font-size:14px;line-height:1.55;color:#ffd27a;word-break:keep-all;text-align:left}#tuneFs .tfLoad .tfTip:empty{display:none}#tuneFs .tfLoad small{font-size:12px;color:#9aa3ad}@keyframes tfSpin{to{transform:rotate(360deg)}}#tuneFs .port .tfCtl .tfAb button{min-height:32px}#tuneFs .port .tfNav button{height:32px}#tuneFs .port .tfCtl{gap:7px}#tuneFs:has(.tfFix) .tfNav,#tuneFs:has(.tfFix) .tfAbH,#tuneFs:has(.tfFix) .tfHint,#tuneFs:has(.tfFix) .tfNote,#tuneFs:has(.tfFix) .tfSkip{display:none}#tuneFs .tfFix.inBot{display:flex!important;flex-direction:column}#tuneFs .tfFix.inBot .tfFixBox{flex:1;display:flex;flex-direction:column;justify-content:center}#tuneFs .tfFixHd b{font-size:14px}#tuneFs .tfFixTm{margin-left:8px!important}#tuneFs .tfFixSt{margin-left:auto}#tuneFs .tfFixTip{position:absolute;left:50%;top:14px;transform:translateX(-50%);z-index:7;background:rgba(17,20,26,.92);border:1.5px dashed #ffd27a;color:#ffd27a;font-size:12.5px;font-weight:700;border-radius:12px;padding:6px 12px;pointer-events:none;white-space:nowrap;animation:tfTipIn .25s ease}@keyframes tfTipIn{from{opacity:0}to{opacity:1}}#tuneFs .tfTitle{display:none}#tuneFs .port .tfBr{display:none!important}#tuneFs .port .tfTop{flex-wrap:nowrap}#tuneFs .port .tfLeg{order:1;flex-wrap:nowrap;gap:10px}#tuneFs .port .tfTime{order:2;font-size:12px}#tuneFs .port .tfXp{order:3;margin-left:auto;height:32px;padding:0 12px;font-size:13px;border-width:1.5px;border-radius:16px}#tuneFs .port .tfXp i{font-size:15px}#tuneFs .tfX:not(.tfXp){height:34px;padding:0 12px;font-size:13px;border-width:1.5px}#tuneFs .tfFixHd{display:flex;align-items:center;gap:8px}#tuneFs .tfFixTm{margin-left:auto;font-size:12.5px;color:#9aa3ad;white-space:nowrap}#tuneFs .tfFixSt{color:#7fd99a;font-size:12px;white-space:nowrap}#tuneFs .tfFixAb{position:relative;display:flex;width:178px;flex:none;border-radius:20px;background:#0b0d11;border:1.5px solid #3b4250;padding:3px;box-shadow:inset 0 2px 5px rgba(0,0,0,.7);box-sizing:border-box;overflow:visible}#tuneFs .tfFixAb::before{content:"";position:absolute;top:3px;bottom:3px;left:3px;width:calc(50% - 3px);border-radius:17px;background:#e8e8ea;transition:left .22s ease,background .22s}#tuneFs .tfFixAb:has([data-m="p"].on)::before{left:50%;background:linear-gradient(135deg,#c7a4ff,#8f6cf0)}#tuneFs .tfBot .tfFixAb button{position:relative;flex:1;height:auto;min-width:0;min-height:36px;padding:0 4px;border:0;border-radius:17px;background:transparent;color:#7d8590;font-size:13.5px;font-weight:800;white-space:nowrap}#tuneFs .tfBot .tfFixAb button.on{color:#111}#tuneFs .tfBot .tfFixRow{gap:6px;margin-top:8px}#tuneFs .tfBot .tfFixRow button{flex:1;padding:0;min-height:48px;font-size:17px}#tuneFs .tfBot .tfFixRow button.tfFixN{flex:2.1;font-size:21px}#tuneFs .tfBot .tfFixRow button.tfIc{flex:.9;font-size:20px}.tfFix .tfT{display:none}.tfFix.tmode .tfT{display:flex}.tfFix.tmode .tfP{display:none}.tfFixMd{display:inline-flex;border:1px solid #363c45;border-radius:14px;padding:2px;background:#11141a;margin-right:8px}.tfFixMd button{border:0;margin:0;border-radius:12px;background:transparent;color:#a9b1bc;font-weight:800;font-size:12.5px;min-height:0!important;height:26px;padding:0 9px;white-space:nowrap}.tfFixMd button.on{background:#7fd99a;color:#10201a}.tfFixMd button[data-md="t"].on{background:#5fd4ff;color:#06222c}.tfFixRow button.tfTN{color:#5fd4ff;background:#0d1a20;border-color:#2b5566;font-size:19px;line-height:1.1}.tfTN small{display:block;font-size:11px;margin:2px 0 0}#tuneFs .tfFix .tfT{display:none!important}#tuneFs .tfFix.tmode .tfT{display:flex!important}#tuneFs .tfFix.tmode .tfP{display:none!important}#tuneFs .tfFixMd button{min-height:0!important;height:28px!important;padding:0 10px!important;background:transparent!important;color:#a9b1bc!important;border:0!important;font-size:12.5px!important}#tuneFs .tfFixMd button.on{background:#7fd99a!important;color:#10201a!important}#tuneFs .tfFixMd button[data-md="t"].on{background:#5fd4ff!important;color:#06222c!important}#tuneFs .tfBot .tfFixRow button.tfTN{color:#5fd4ff!important;background:#0d1a20!important;border-color:#2b5566!important;font-size:18px;line-height:1.1}#tuneFs .tfTN small{display:block;font-size:10.5px!important;margin:2px 0 0!important;color:#9aa3ad}#tuneFs .tfFixLab{display:flex;gap:6px;margin-top:3px;font-size:10.5px;color:#7d8590;line-height:1.2}#tuneFs .tfFixLab span{flex:1;text-align:center;white-space:nowrap;overflow:hidden}#tuneFs .tfFixLab .n{flex:2.1}#tuneFs .tfFixLab .i{flex:.9}#tuneFs .tfFix.inBot .tfFixBox{padding:8px 10px}#tuneFs .tfFix.inBot{position:static;padding:0;display:block;flex:1 1 auto}#tuneFs .tfFix.inBot .tfFixBox{width:100%;box-sizing:border-box;box-shadow:none}#tuneFs .tfBot .tfFixRow button{height:auto;min-width:0;min-height:46px;border:1.5px solid #3b4250;border-radius:12px;background:#11141a;color:#e8e8ea;font-size:16px}#tuneFs .tfBot .tfFixRow button.pri{background:#9cc3ff;color:#111;border:none}#tuneFs .tfBot .tfFixRow button.tfFixN{font-size:22px;font-weight:900;color:#7fd99a;background:#0f1a14;border-color:#2f5a40}#tuneFs .tfBot .tfFixRow button.tfCut{font-size:20px}
 #tuneFs .tfAbW{display:flex;flex-direction:column;align-items:center;gap:5px}#tuneFs .tfAbL,#tuneFs .tfAbH{font-size:12px;color:#9aa3ad;line-height:1}#tuneFs .tfAbH{font-size:11.5px;color:#7d8590}#tuneFs:not(:has(.port)) .tfAbL,#tuneFs:not(:has(.port)) .tfAbH{display:none}
 #tuneFs .tfCtl .tfAb{position:relative;display:flex;width:250px;max-width:70vw;border-radius:26px;background:#0b0d11;border:1.5px solid #3b4250;padding:4px;box-shadow:inset 0 2px 6px rgba(0,0,0,.7);box-sizing:border-box}
 #tuneFs .tfCtl .tfAb::before{content:"";position:absolute;top:4px;bottom:4px;left:4px;width:calc(50% - 4px);border-radius:22px;background:#e8e8ea;box-shadow:0 3px 8px rgba(0,0,0,.6);transition:left .22s ease,background .22s}
@@ -806,5 +889,5 @@
 #tuneSheet .tsRow{display:flex;gap:8px;margin-top:10px}#tuneSheet .tsRow button{flex:1;min-height:46px;border-radius:22px;border:1px solid #3a3f49;background:#11141a;color:#eceff3;font-weight:800;font-size:15px;margin:0}#tuneSheet .tsRow .tsOk{background:#7fd99a;color:#10201a;border:0}#tuneSheet .tsRow .tsDel{color:#ff9a9a}`;
   if (typeof document !== "undefined" && document.head) { const s2 = document.createElement("style"); s2.textContent = css2; document.head.appendChild(s2); }
   if (typeof document !== "undefined" && document.head) { const s = document.createElement("style"); s.textContent = css; document.head.appendChild(s); }
-  G.Tune = { tone, toneOff, draw, wire, load, legend, range, col, tgCol, centerAt, fitAt, delta, semiLabel, sangLabel, sheet, undo, openFull, noteName, WIN, HEAD, ZOOM_HALF };
+  G.Tune = { tone, toneOff, draw, wire, load, legend, range, col, tgCol, centerAt, fitAt, delta, semiLabel, sangLabel, sheet, undo, openFull, noteName, WIN, HEAD, ZOOM_HALF, tmapOf, mapT };
 })(typeof window !== "undefined" ? window : globalThis);

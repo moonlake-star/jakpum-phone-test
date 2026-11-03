@@ -4,9 +4,9 @@ const tune = fs.readFileSync(__dirname + "/../tune.js", "utf8"), src = fs.readFi
 assert.ok(tune.includes("function tone(m)") && tune.includes("st.kbDown = m; tone(m)") && tune.includes("if (d.kb) { toneOff();"), "건반 소리");
 assert.ok(tune.includes("function fixSheet(") && tune.includes("typeof o.onFix === \"function\" && isPaused() && st.tbars"), "정음 고치기");
 assert.ok(tune.includes("noteName,") && tune.includes("cv._fixes"), "고친 곳 표시");
-assert.ok(src.includes("cv._fixes = (r.target_fixes || []).slice();") && src.includes("onFix, voice: voiceTone, wave: () => mkTracks.mr?.buf") && src.includes('id="mkFixN"'));
+assert.ok(src.includes("cv._fixes = dF();") && src.includes("onFix, onTime, voice: voiceTone, wave: () => mkTracks.mr?.buf") && src.includes('id="mkFixN"'));
 // 같은 구간은 바꿔 끼움
-const onFixBody = src.match(/const onFix = async \(f\) => \{ const cur = [^\n]*\n/)[0];
+const onFixBody = src.match(/const onFix = async \(f0_\) => \{[^\n]*\n[^\n]*\n/)[0];   // (11/03) 타이밍 고친 곡은 원래 시간으로 바꿔 저장
 assert.ok(/filter\(x => !\(x\.t0 < f\.t1 && x\.t1 > f\.t0\)\)/.test(onFixBody) && onFixBody.includes("if (f.midi != null) cur.push(f)"));
 console.log("target-fix ok");
 assert.ok(tune.includes("data-cut") && tune.includes("fxOf(q[0]) === fxOf(p[0])"), "세로줄 자리에서 나누기 + 막대가 나눈 경계에서 끊김");
@@ -60,7 +60,7 @@ console.log("intro ok");
   assert.ok(t.includes("const DT_JUMP = 2;") && t.includes("const j = le.x < hx ? -DT_JUMP : DT_JUMP") && t.includes("기준선 왼쪽·오른쪽 두 번 톡 = 2초 뒤로·앞으로")); }
 // (11/03 10:31 아이패드) 정음 막대 톡: 누른 자리 기준 + 가장 가까운 막대(위아래 22px)
 { const t = require("fs").readFileSync(__dirname + "/../tune.js", "utf8");
-  assert.ok(t.includes("const hitBar = (le) =>") && t.includes("hb = hitBar(le);") && t.includes("loc(d.cx ?? e.clientX, d.cy ?? e.clientY")); }
+  assert.ok(t.includes("const hitBar = (le) =>") && t.includes("hb = hitT(le) || hitBar(le);") && t.includes("loc(d.cx ?? e.clientX, d.cy ?? e.clientY")); }
 // (11/03 10:50 사용자) 막대 고르면 사인파 · 🎤 목소리 구간 듣기 · ▼▲ 톡=반음 꾹=5센트씩 · 막대 누른 채 위아래=반음 · 2반음 넘게도 · 음 이름 떼면 소리 끔 · 연타 확대 막기
 { const t = require("fs").readFileSync(__dirname + "/../tune.js", "utf8");
   assert.ok(t.includes("try { sndFor(m, 1000); } catch {}") && t.includes("vh = st.voice(b.t0, b.t1, mm)"), "(11/03 11:13) 고르면 목소리(없으면 사인파)로 1초");

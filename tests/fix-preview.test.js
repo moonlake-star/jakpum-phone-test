@@ -33,7 +33,7 @@ f.mkPv.fixes = []; assert.ok(f.pvApply("p3")); assert.ok(Math.abs(zc(lp(p3), 0.3
 // ⑤ 서버와 같은 규칙: 8센트 안쪽 그대로, 최대 ±2반음
 { const c2 = { fps: 25, pts: [[0, 5705], [0.04, 5705]], _pvb: null }; const r = f.pvRatio(c2, 57, sr, 0, 100); assert.strictEqual(r[50], 1);
   const c3 = { fps: 25, pts: [[0, 5000], [0.04, 5000]] }; assert.ok(Math.abs(f.pvRatio(c3, 57, sr, 0, 100)[50] - 2 ** (700 / 1200)) < 1e-6); }   // (11/03) 한 옥타브까지
-assert.ok(src.includes("let re = false; try { re = pvApplyAll(); } catch {}") && src.includes("mkPv.cv = cv; mkPv.rendered") && src.includes("mkPv.fixes = r.target_fixes.slice(); try { pvApplyAll(); }"));
+assert.ok(src.includes("let re = false; try { re = pvApplyAll(); } catch {}") && src.includes("mkPv.cv = cv; mkPv.rendered") && src.includes("mkPv.fixes = dF(); try { pvApplyAll(); }"));
 // (11/03 03:00 사용자) 붙어 있는 고침은 한 덩어리로(이음매 줄이기)
 { const c = f.pvClusters([{ t0: 1, t1: 1.5, midi: 60 }, { t0: 1.6, t1: 2, midi: 62 }, { t0: 3, t1: 3.4, midi: 60 }]);
   assert.strictEqual(c.length, 2); assert.strictEqual(c[0].fx.length, 2); assert.ok(c[0].t0 === 1 && c[0].t1 === 2); }
