@@ -12,6 +12,8 @@
 #brLoad{position:fixed;inset:0;z-index:9990;display:block;pointer-events:none;opacity:0;visibility:hidden;transition:opacity 2.8s ease,visibility 0s linear 2.8s}#brLoad.on{opacity:1;visibility:visible;transition:opacity .2s ease}#brLoad.now{transition:none!important}#brLoad .pn{display:inline-block;font-size:11.5px;font-weight:700;color:#5fd4ff;background:rgba(95,212,255,.12);border-radius:8px;padding:1px 7px}#brLoad.pin .pn{display:inline-block}
 #brLoad .bx{position:absolute;left:50%;top:53%;transform:translate(calc(-50% + var(--dx,0px)),calc(-100% + var(--dy,0px)));pointer-events:none;width:min(300px,80vw);box-sizing:border-box;background:rgba(17,20,26,.9);border:1px solid #3b4250;border-radius:16px;padding:12px 16px;box-shadow:0 8px 28px rgba(0,0,0,.45);-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:none}#brLoad.on .bx,#brLoad.fd .bx{pointer-events:auto}
 #brLoad .hd{display:flex;align-items:center;gap:6px;font-size:12.5px;color:#c9b58a;font-weight:800}#brLoad .hg{font-size:13px;display:inline-block;animation:brHg 1.6s ease-in-out infinite}@keyframes brHg{0%,40%{transform:rotate(0)}50%,90%{transform:rotate(180deg)}100%{transform:rotate(180deg)}}#brLoad .tx{margin-left:auto;font-weight:600;color:#9aa3ad;font-size:12px}
+#brTipBar{position:fixed;left:0;right:0;bottom:0;z-index:38;display:flex;align-items:center;gap:8px;width:100%;max-width:760px;margin:0 auto;box-sizing:border-box;min-height:40px;padding:6px 14px calc(6px + env(safe-area-inset-bottom));border:0;border-top:1px solid #2e333c;border-radius:0;background:rgba(17,20,26,.97);color:#ffd27a;font:600 13px system-ui,sans-serif;text-align:left;cursor:pointer}#brTipBar[hidden]{display:none}#brTipBar b{color:#c9b58a;flex:none;font-size:12px}#brTipBar span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#brTipBar i{font-style:normal;color:#7d8590;flex:none}body.brTipOn{padding-bottom:calc(44px + env(safe-area-inset-bottom))}body.miniOn #brTipBar{bottom:calc(128px + env(safe-area-inset-bottom))}body:has(#v2Dock:not(.hidden)) #brTipBar,body:has(#fullBar:not(.hidden)) #brTipBar{display:none}
+#brTipSheet{position:fixed;inset:0;z-index:10020;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center}#brTipSheet.in{position:absolute}#brTipSheet .sh{width:min(520px,100%);max-height:70%;overflow:auto;box-sizing:border-box;background:#1a1e25;border:1.5px solid #3b4250;border-radius:16px 16px 0 0;padding:14px 16px calc(14px + env(safe-area-inset-bottom));color:#e8e8ea}#brTipSheet .hd{display:flex;align-items:center;margin-bottom:8px}#brTipSheet .hd b{font-size:15px;color:#ffd27a}#brTipSheet .x{margin:0 0 0 auto;min-height:0;height:32px;width:32px;border:0;border-radius:16px;background:#2a2f38;color:#e8e8ea;font-size:15px;padding:0}#brTipSheet ol{margin:0;padding:0 0 0 20px}#brTipSheet li{font-size:14px;line-height:1.55;padding:7px 0;border-bottom:1px solid #262b33;color:#cfd5de;word-break:keep-all}#brTipSheet li.first{color:#ffd27a;font-weight:700}
 #brLoad .tp{margin-top:6px;font-size:14px;line-height:1.55;color:#ffd27a;word-break:keep-all;min-height:22px}
 #brLoad .br{height:3px;border-radius:2px;background:#2a2f38;margin-top:10px;overflow:hidden}#brLoad .br i{display:block;height:100%;width:0;background:linear-gradient(90deg,#c8912e,#ffd27a);border-radius:2px;position:relative;overflow:hidden}#brLoad .br i:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.55),transparent);animation:brSh 1.2s linear infinite}@keyframes brSh{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
 #brBar{position:fixed;left:0;top:0;height:3px;width:0;z-index:9995;background:linear-gradient(90deg,#ffd27a,#c8912e);pointer-events:none}#brBar.go{animation:brBar .35s ease-out}
@@ -99,8 +101,26 @@
       else if (busyOn) { clearTimeout(loading.hide); loading.hide = setTimeout(() => { loading.hide = null; if (ln === 0) hideNow(el); }, GRACE); }   // 닫아 둔 채 끝남 → 정리(다음엔 다시 뜸)
       else el.classList.remove("on"); }
   }
-  function bar() { let b = document.getElementById("brBar"); if (!b) { b = document.createElement("div"); b.id = "brBar"; document.body.appendChild(b); } b.classList.remove("go"); void b.offsetWidth; b.classList.add("go"); }
+  // (11/03 17:28 사용자) 화면 맨 아래 늘 붙어 있는 팁 칸(스크롤해도 그대로) · 누르면 그 팁이 맨 위, 나머지 팁이 이어지는 목록 창
+  let tbEl = null, tbI = -1, tbOn = false;
+  function tipList() { let L = []; if (tipFn) { try { L = (tipFn() || []).filter(Boolean).map(String); } catch {} } return L; }
+  function tipBarRefresh() { if (!tbOn) return; const L = tipList();
+    if (!tbEl) { tbEl = document.createElement("button"); tbEl.type = "button"; tbEl.id = "brTipBar"; tbEl.innerHTML = `<b>💡 Tip</b><span></span><i aria-hidden="true">›</i>`; tbEl.onclick = () => { const L2 = tipList(); if (L2.length) tipSheet(L2, Math.max(0, L2.indexOf(tbEl.dataset.t))); }; document.body.appendChild(tbEl); }
+    if (!L.length) { tbEl.hidden = true; document.body.classList.remove("brTipOn"); return; }
+    let k = Math.floor(Math.random() * L.length); if (L.length > 1 && L[k] === tbEl.dataset.t) k = (k + 1) % L.length;
+    tbEl.dataset.t = L[k]; tbEl.querySelector("span").textContent = L[k]; tbEl.hidden = false; document.body.classList.add("brTipOn"); }
+  function tipBar(on) { tbOn = on !== false; if (!tbOn) { if (tbEl) tbEl.remove(); tbEl = null; document.body.classList.remove("brTipOn"); return; } tipBarRefresh(); }
+  function tipSheet(list, first, host) {   // 팁 목록 창: 고른 팁이 맨 위(강조), 나머지가 아래로 · 바깥 톡·✕ = 닫기
+    document.getElementById("brTipSheet")?.remove(); const L = (list || []).map(String); if (!L.length) return;
+    const f = Math.min(Math.max(0, first | 0), L.length - 1), order = [L[f], ...L.filter((_, i) => i !== f)];
+    const d = document.createElement("div"); d.id = "brTipSheet"; d.setAttribute("role", "dialog"); if (host) d.classList.add("in");
+    d.innerHTML = `<div class="sh"><div class="hd"><b>💡 이 화면에서 쓸 수 있는 팁</b><button type="button" class="x" aria-label="닫기">✕</button></div><ol></ol></div>`;
+    const ol = d.querySelector("ol"); order.forEach((t, i) => { const li = document.createElement("li"); li.textContent = t; if (i === 0) li.className = "first"; ol.appendChild(li); });
+    const shut = () => d.remove(); d.addEventListener("pointerdown", (e) => e.stopPropagation()); d.addEventListener("click", (e) => { e.stopPropagation(); if (e.target === d) shut(); });
+    d.querySelector(".x").onclick = shut; (host || document.body).appendChild(d); }
+  function bar() { setTimeout(tipBarRefresh, 30);   // 화면이 바뀌면 그 화면 팁으로
+    let b = document.getElementById("brBar"); if (!b) { b = document.createElement("div"); b.id = "brBar"; document.body.appendChild(b); } b.classList.remove("go"); void b.offsetWidth; b.classList.add("go"); }
   const mark = () => `<span class="brMark" aria-hidden="true"></span>`;
   const sign = () => `<div class="brSign">가장 아름다운 당신의 오늘을 ‘작품’으로..</div>`;
-  G.Brand = { splash, loading, setTips, bar, mark, sign, LOGO };
+  G.Brand = { splash, loading, setTips, tipBar, tipSheet, bar, mark, sign, LOGO };
 })(window);
