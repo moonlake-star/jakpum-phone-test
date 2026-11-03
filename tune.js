@@ -938,7 +938,7 @@
     // (11/03 17:23 사용자 C안) 전체화면에선 팁을 그래프 위 박스 대신 아래 안내 문구 자리에 한 줄로 — 그래프를 가리지 않고 터치도 막지 않음
     const TIP_LINE = true; let tlOn = false, tlEl = null;
     // (11/03 18:06 사용자) 이 화면은 팁 UI 전의 '소리 불러오는 중…' 표시로 되돌림(돌림표 + 문구, 터치 안 막음, 소리가 나오면 바로 사라짐) — 팁은 아래 [💡 팁 보기]로만
-    const OLD_LOAD = true, ldOld = document.createElement("div"); ldOld.className = "tfLoadOld"; ldOld.setAttribute("aria-live", "polite"); ldOld.innerHTML = `<i></i><b>소리 불러오는 중…</b><small>긴 곡은 처음 한 번 조금 걸려요</small>`;
+    const OLD_LOAD = true, ldOld = document.createElement("div"); ldOld.className = "tfLoadOld"; ldOld.setAttribute("aria-live", "polite"); ldOld.innerHTML = `<i></i><b>노래 불러오는 중…</b><small>긴 곡은 처음 한 번 조금 걸려요</small>`;
     { const cb = wrap.querySelector(".tfCvBox"); if (cb) cb.appendChild(ldOld); }
     const openTips = (k) => { const L = ldTips.map(t => t.text()); if (!L.length) return; if (G.Brand && G.Brand.tipSheet) G.Brand.tipSheet(L, k >= 0 ? k : 0, wrap.querySelector(".tfBox") || wrap); };   // 돌린 화면 안에 띄워 같은 방향으로
     { const hint = wrap.querySelector(".tfHint"); if (hint && ldTips.length) { const tb = document.createElement("button"); tb.type = "button"; tb.className = "tfTipsBtn"; tb.textContent = "💡 팁 보기"; tb.addEventListener("pointerdown", (e) => e.stopPropagation()); tb.onclick = () => openTips(-1); hint.appendChild(tb); } }   // 언제든 팁 목록
