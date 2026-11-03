@@ -936,7 +936,7 @@
     // (11/03 17:23 사용자 C안) 전체화면에선 팁을 그래프 위 박스 대신 아래 안내 문구 자리에 한 줄로 — 그래프를 가리지 않고 터치도 막지 않음
     const TIP_LINE = true; let tlOn = false, tlEl = null;
     const openTips = (k) => { const L = ldTips.map(t => t.text()); if (!L.length) return; if (G.Brand && G.Brand.tipSheet) G.Brand.tipSheet(L, k >= 0 ? k : 0, wrap.querySelector(".tfBox") || wrap); };   // 돌린 화면 안에 띄워 같은 방향으로
-    { const hint = wrap.querySelector(".tfHint"); if (hint && ldTips.length) { const tb = document.createElement("button"); tb.type = "button"; tb.className = "tfTipsBtn"; tb.textContent = "💡 사용팁"; tb.addEventListener("pointerdown", (e) => e.stopPropagation()); tb.onclick = () => openTips(-1); hint.appendChild(tb); } }   // 언제든 팁 목록
+    { const hint = wrap.querySelector(".tfHint"); if (hint && ldTips.length) { const tb = document.createElement("button"); tb.type = "button"; tb.className = "tfTipsBtn"; tb.textContent = "💡 팁 보기"; tb.addEventListener("pointerdown", (e) => e.stopPropagation()); tb.onclick = () => openTips(-1); hint.appendChild(tb); } }   // 언제든 팁 목록
     const tipLine = (v) => { const bot = wrap.querySelector(".tfBot"), hint = bot && bot.querySelector(".tfHint"); if (!bot || !hint) return;
       if (!tlEl) { tlEl = document.createElement("span"); tlEl.className = "tfTipLine"; tlEl.setAttribute("aria-live", "polite"); tlEl.setAttribute("role", "button"); tlEl.innerHTML = "<b>⏳ [Tip]</b> <span></span>"; bot.appendChild(tlEl);
         tlEl.addEventListener("pointerdown", (e) => e.stopPropagation()); tlEl.onclick = () => openTips(tipI); }   // (11/03 17:28 사용자) 아래 팁 한 줄 톡 = 팁 목록
