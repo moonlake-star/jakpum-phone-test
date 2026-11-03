@@ -300,7 +300,7 @@
       if (st.lo != null) { lo = st.lo; hi = st.hi; }
     }
     // (10/31 07:57 사용자) 주석 칸이 음정선을 가리지 않게: 주석이 있으면 아래쪽은 칸 자리로 비워 두고 음정선은 그 위에만 그림
-    const hasN = full && !!(st && typeof st.notes === "function" && (st.notes() || []).length) && H > 200;   // 작은 화면은 덮개(전체화면으로 보기) 아래라 그대로
+    const hasN = full && !!(st && typeof st.notes === "function" && (st.notes() || []).length) && H > 200 && !(st && st.notesHidden);   // (11/03 16:55 사용자 시안 승인) 강사 화면 보정본 = 주석 숨김   // 작은 화면은 덮개(전체화면으로 보기) 아래라 그대로
     const RB = hasN ? noteBand(st, full) : 0, HP = H - RB;
     const L = full ? 44 : 30, y = (c) => T + HP - 6 - (c - lo) / (hi - lo) * (HP - 12);
     const t0 = t - W8 * HEAD, xs = (tt) => L + (tt - t0) / W8 * (w - L), sc = cv.scale;
@@ -424,7 +424,8 @@
       else if (msg) { g.save(); g.font = (full ? "bold 16px" : "bold 13px") + " system-ui, sans-serif"; g.textAlign = "center"; const mx = L + (w - L) / 2, my = T + HP / 2, tw = g.measureText(msg).width;
         g.fillStyle = "rgba(17,20,26,.88)"; g.fillRect(mx - tw / 2 - 10, my - 15, tw + 20, 30); g.fillStyle = "#ffe066"; g.fillText(msg, mx, my); g.restore(); }
     }
-    if (st) { let oy0 = 1e9, oy1 = -1e9; for (const p of vis) { for (const kk of [1, k]) { if (!kk || p[kk] == null) continue; const Y = y(p[kk]); if (Y < oy0) oy0 = Y; if (Y > oy1) oy1 = Y; } }   // 지금 화면의 음정선 높이 범위
+    if (st && st.notesHidden) st.hits = [];
+    else if (st) { let oy0 = 1e9, oy1 = -1e9; for (const p of vis) { for (const kk of [1, k]) { if (!kk || p[kk] == null) continue; const Y = y(p[kk]); if (Y < oy0) oy0 = Y; if (Y > oy1) oy1 = Y; } }   // 지금 화면의 음정선 높이 범위
       drawNotes(g, st, t, xs, L, w, T, H, full, tagB, oy0 <= oy1 ? [oy0, oy1] : null, vis, y); }
     if (full && st && st.kbDown != null) {   // (11/02 16:28 사용자) 누른 건반은 손가락에 가려서 → 오른쪽에 음 이름 말풍선
       const m = st.kbDown, yy = Math.max(T + 22, Math.min(T + HP - 22, y(m * 100))), txt = NAMES[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1);
@@ -735,6 +736,7 @@
     { text: () => "노래가 없는 전주·간주에선 '⏩ 노래 시작 1초 전으로'로 바로 넘어가요", need: "⏩ 노래 시작 1초 전으로" },
     { text: () => "멈춘 뒤 초록 정음 막대를 톡 하면 그 음을 고칠 수 있어요(▼▲, 바로 저장)", need: "hb = hitT(le) || hitBar(le);", when: (o) => typeof o.onFix === "function" },
     { text: () => "빈 곳·음을 꾹 누른 채 좌우로 끌면 여러 음 고르기 · 그냥 떼면 새 주석", need: "d0.armed = { x: l0.x, t: tt }; st.msel = [tt, tt]; armTip(true);", when: (o) => typeof o.onResetRange === "function" },
+    { text: () => "보정본에선 주석이 숨겨져요 · 위 💬 주석 버튼(지나갈 때 반짝)으로 보기", need: "st.notesHidden = pm && !st.noteShow;", when: (o) => !!o.teacher && typeof o.onNote === "function" },
     { text: () => "⏱ 타이밍: ◀▶ 일찍·늦게, −/+ 길이 · 막대 가운데를 끌면 옮기기, 끝을 끌면 길이", need: "st.onBarDragX = (dt, edge, start)", when: (o) => typeof o.onTime === "function" },
     { text: () => "타이밍 고친 음은 하늘색, 원래 자리는 점선 · 가운데 숫자를 누르면 그 근처만 들려요", need: 'g.fillStyle = "#5fd4ff"; g.fillRect(x0', when: (o) => typeof o.onTime === "function" },
     { text: () => "고치기 창에서 음 이름을 누르고 있으면 그 음이 목소리로 계속 소리 나요", need: 'nb.addEventListener("pointerdown", (e) => { e.preventDefault(); snd(m); });', when: (o) => typeof o.onFix === "function" },
@@ -757,6 +759,7 @@
     const hasAb = typeof o.setMode === "function";
     wrap.innerHTML = `<div class="tfBox"><div class="tfTop"><b class="tfTitle">${String(o.title || "음정선").replace(/[<>&]/g, "")}</b><span class="tfTime"></span>
       <button type="button" class="tfX tfXp" aria-label="닫기"><i>✕</i>닫기</button><span class="tfBr"></span><span class="tfLeg"><span><i style="background:rgba(127,217,154,.6);height:8px"></i>정음</span><span><i style="background:#ffe066"></i>부른 음</span><span><i style="background:#7fd9ff"></i>보정 후</span><span class="tfLegC"><i style="background:#ffd27a;opacity:.6"></i>고친 곳</span></span>
+      <button type="button" class="tfNoteChip" hidden aria-label="주석 보기">💬 주석 <b></b></button>
       <button type="button" class="tfX" aria-label="닫기"><i>✕</i>닫기</button></div>
       <div class="tfCvBox"><canvas class="tfCv"></canvas><span class="tfMid" aria-hidden="true"></span><button type="button" class="tfSkip off">⏩ 노래 시작 1초 전으로</button><span class="tfBye" aria-live="polite">닫을 때는 <b>✕</b> 또는 폰의 <b>뒤로 가기</b></span></div>
       <div class="tfBot"><span class="tfHint">톡 = 재생·멈춤 · 좌우로 밀면 이동<span class="tfSep"> · </span><br>두 손가락으로 벌리면 확대 · 기준선 왼쪽·오른쪽 두 번 톡 = 2초 뒤로·앞으로<span class="tfSep"> · </span><br>${typeof o.onFix === "function" ? "건반 = 그 음 소리 · 멈춘 뒤 초록 정음 막대 톡 = 정음 고치기" : "왼쪽 건반을 누르면 그 음 소리"}</span>
@@ -807,6 +810,7 @@
     st.voice = typeof o.voice === "function" ? o.voice : null;
     st.onTime = typeof o.onTime === "function" ? o.onTime : null;
     st.ghostOn = typeof o.onFix === "function";   // 회색 막대는 고칠 수 있는 화면(선생님)에서만
+    st.noteShow = false;   // 보정본에서 [💬 주석]으로 켜 둔 동안은 계속 보임(이 화면을 닫을 때까지)
     st.o = o; st.mMode = false; st.msel = null;   // (11/03 13:08) 타이밍·길이 고치기(선생님 메이크업 화면만)
     st.playSeg = (t0, t1) => { st.panAt = 0; try { seek(Math.max(0, t0 - 0.05), true); } catch {} if (isPaused()) toggle(); st.stopAt = t1 + 0.05; };   // (11/03 10:50 사용자) 멜로다인처럼 그 음 구간만 듣기
     const toggle = () => { st.stopAt = 0; const was = isPaused(); try { o.play && o.play(); } catch {} showMid(was ? "play" : "pause"); if (was) { st.panAt = 0; st.waitAt = performance.now(); } else st.waitAt = 0; };   // (11/02 20:31) 눌렀는데 아직 안 나오면 '불러오는 중' 표시
@@ -819,6 +823,8 @@
       const j = +b.dataset.j, now = +getT() || 0, t = j === 0 ? 0 : Math.max(0, Math.min(endT(), now + j));
       st.panAt = 0; try { seek(t, isPaused()); } catch {} });
     wrap.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { try { const cur = o.mode ? o.mode() : "p", want = b.dataset.m === cur ? (cur === "o" ? "p" : "o") : b.dataset.m; o.setMode(want); } catch {} });   // (11/02 19:30) 켜진 쪽을 눌러도 바뀜(진짜 스위치)
+    const nChip = wrap.querySelector(".tfNoteChip");
+    if (nChip) { nChip.addEventListener("pointerdown", (e) => e.stopPropagation()); nChip.onclick = () => { st.noteShow = !st.noteShow; }; }
     const ppB = wrap.querySelector("[data-pp]"); if (ppB) ppB.onclick = () => toggle();   // (10/31 08:11 사용자) 재생/일시정지 버튼
     const fmt = (x) => `${Math.floor((x || 0) / 60)}:${String(Math.floor((x || 0) % 60)).padStart(2, "0")}`;
     // 손가락: 한 손가락 좌우 = 시간 이동(재생은 멈춤, 가운데 ▶로 다시), 위아래 = 음 높이 이동(확대했을 때), 두 손가락 = 핀치 확대, 톡 = 재생/멈춤
@@ -886,7 +892,7 @@
       if (!pts.has(e.pointerId)) return; pts.delete(e.pointerId);
       if (pinch) { st.hold = null; if (pts.size === 0) { pinch = null; if (st.mMode && preview != null) { const t_ = preview; preview = null; try { seek(t_, true); } catch {} } } return; }
       if (!drag || drag.id !== e.pointerId) return; const d = drag; drag = null; clearTimeout(d.lp); st.hold = null;
-      if (d.armed) { armTip(false); if (d.moved) { if (st.onMSel) st.onMSel(); return; } st.msel = null; if (e.type === "pointerup") { lastView = view; o.onAdd(d.armed.t); } return; }   // 끌지 않고 뗌 = 새 주석(예전과 같음)
+      if (d.armed) { armTip(false); if (d.moved) { if (st.onMSel) st.onMSel(); return; } st.msel = null; if (e.type === "pointerup") { if (st.notesHidden) st.noteShow = true; lastView = view; o.onAdd(d.armed.t); } return; }   // 숨긴 채 새 주석 = 주석 칸 보이기   // 끌지 않고 뗌 = 새 주석(예전과 같음)
       if (d.long) return;
       if (d.kb) { toneOff(); st.kbDown = null; return; }
       if (st.mMode && !d.mode && e.type === "pointerup" && sheetClose) { sheetClose(); lastTap = 0; return; }   // (11/03 13:58 사용자) 여러 음 고르기 중 빈 곳 톡 = 끝내기 · (13:59) 끌기는 평소처럼 화면 이동, 다시 고르기는 꾹 누른 채 끌기
@@ -942,6 +948,12 @@
         if (vis && ldTips.length && !ldOn) {   // 새로 뜰 때 팁 하나(아무거나, 바로 전 것과는 다르게) — 떠 있는 동안엔 안 바뀜
           let k = Math.floor(Math.random() * ldTips.length); if (ldTips.length > 1 && k === tipI) k = (k + 1 + Math.floor(Math.random() * (ldTips.length - 1))) % ldTips.length; tipI = k;
           ldEl.querySelector(".tfTip").textContent = ldTips[k].text(); } ldOn = vis; }
+      if (nChip) {   // 강사 화면 + 보정본 + 주석 있음 → 주석 칸 숨기고 [💬 주석 N] · 숨긴 주석 자리를 지날 때 버튼이 반짝(11/03 16:55 사용자)
+        const ns = typeof o.notes === "function" ? (o.notes() || []) : [], tNow = +getT() || 0, pm = !!o.teacher && ns.length > 0 && (typeof o.mode === "function" ? o.mode() === "p" : false);
+        st.notesHidden = pm && !st.noteShow; if (nChip.hidden === pm) nChip.hidden = !pm;
+        if (pm) { const cnt = String(ns.length), bE = nChip.querySelector("b"); if (bE.textContent !== cnt) bE.textContent = cnt; nChip.classList.toggle("on", st.noteShow);
+          nChip.classList.toggle("blink", st.notesHidden && ns.some(n => tNow >= +n.t0 - 0.3 && tNow <= Math.max(+n.t1 || 0, +n.t0 + 1.5))); }
+        else nChip.classList.remove("blink"); }
       if (ppB) { const s = ppB.classList.contains("ld") ? "⏳" : isPaused() ? "▶" : "❚❚"; if (ppB.textContent !== s) { ppB.textContent = s; ppB.setAttribute("aria-label", isPaused() ? "재생" : "일시정지"); } } const t = preview ?? (+getT() || 0); draw(cvEl, cv, t, +getLv() || 0, st); mid.style.visibility = st.hits && st.hits.length ? "hidden" : "";
       tm.textContent = fmt(t) + (st.yz > 1.05 ? ` · ×${st.yz.toFixed(1)}` : "");
       { const show = st.gapNext != null && st.gapNext - t > 2; if (skipB.classList.contains("off") === show) skipB.classList.toggle("off", !show); }   // (11/03 16:19 사용자) 사라질 땐 1.8초 페이드
@@ -967,7 +979,7 @@
 @keyframes tfPop{from{opacity:0;transform:scale(.6)}to{opacity:.8;transform:scale(1)}}@keyframes tfFlash{0%{opacity:0;transform:scale(.7)}25%{opacity:.8;transform:scale(1.05)}100%{opacity:0;transform:scale(1.2)}}
 #tuneFs .tfBot{justify-content:space-between;align-items:flex-end;gap:16px}#tuneFs .tfHint{font-size:11.5px;color:#7d8590;line-height:1.4;word-break:keep-all;text-wrap:balance;max-width:34%}
 #tuneFs .tfNote{font-size:11.5px;color:#c9b98f;text-align:right;line-height:1.45;word-break:keep-all;text-wrap:balance;max-width:36%}
-#tuneFs .tfTop .tfLeg{margin-left:10px}#tuneFs .tfXp,#tuneFs .tfBr{display:none}
+#tuneFs .tfTop .tfLeg{margin-left:10px}#tuneFs .tfNoteChip{margin:0 0 0 auto!important;min-height:0!important;height:26px!important;padding:0 10px!important;border-radius:13px!important;border:1.5px solid #4a505c!important;background:#11141a!important;color:#e8e8ea!important;font-size:12.5px!important;font-weight:800;white-space:nowrap}#tuneFs .tfNoteChip[hidden]{display:none}#tuneFs .tfNoteChip+.tfX{margin-left:8px!important}#tuneFs .port .tfNoteChip{order:3;margin-left:auto!important}#tuneFs .port .tfTop .tfXp{order:4!important}#tuneFs .port .tfNoteChip:not([hidden]){margin-right:6px!important}#tuneFs .port .tfTop:has(.tfNoteChip:not([hidden])) .tfLeg span{white-space:nowrap;font-size:11px}#tuneFs .port .tfTop:has(.tfNoteChip:not([hidden])) .tfLeg{gap:6px}#tuneFs .port .tfTop .tfLeg span{white-space:nowrap}#tuneFs .tfNoteChip.on{background:#c7a4ff!important;color:#1a1030!important;border-color:#c7a4ff!important}#tuneFs .tfNoteChip.blink{animation:tfChipBlink .55s ease-in-out infinite alternate}@keyframes tfChipBlink{from{box-shadow:0 0 0 0 rgba(199,164,255,0);border-color:#4a505c}to{box-shadow:0 0 12px 2px rgba(199,164,255,.85);border-color:#c7a4ff;color:#fff}}#tuneFs .tfXp,#tuneFs .tfBr{display:none}
 #tuneFs .tfBye{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);background:rgba(30,34,42,.85);border:1px solid rgba(255,255,255,.18);padding:8px 16px;border-radius:20px;font-size:14px;white-space:nowrap;pointer-events:none;opacity:0}#tuneFs .tfBye b{color:#ffd27a}#tuneFs .tfRot{position:absolute;inset:0;z-index:5;background:rgba(8,10,13,.45);display:flex;align-items:center;justify-content:center;animation:rpIn .25s ease-out}#tuneFs .tfRot.out{opacity:0;transition:opacity .3s}
 #tuneFs .rpBox{color:#f1f1f1;width:min(260px,80vw);background:rgba(24,28,35,.97);border:1px solid rgba(255,210,122,.45);border-radius:18px;padding:18px 16px 14px;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,.5)}#tuneFs .rpBox b{display:block;font-size:16px;margin-bottom:4px}#tuneFs .rpBox p{margin:0;font-size:13.5px;color:#b9bec7}
 #tuneFs .rpIc{width:60px;height:56px;margin:0 auto 10px;position:relative}#tuneFs .rpIc i{position:absolute;left:18px;top:4px;width:22px;height:40px;border:3px solid #ffd27a;border-radius:6px;animation:rpTurn 1.4s ease-in-out infinite}#tuneFs .rpIc span{position:absolute;right:0;top:-6px;font-size:22px;color:#ffd27a}
