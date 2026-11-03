@@ -9,7 +9,7 @@
 #brSplash .cp{margin-top:26px;font-family:"Nanum Myeongjo","Noto Serif KR",serif;font-size:19px;color:#f3dfb4;text-align:center;line-height:1.6;opacity:0;animation:brFade .8s .35s forwards}#brSplash .cp b{color:#ffd27a}
 #brSplash .sb{margin-top:10px;font-size:12px;color:#8d8575;letter-spacing:.2em;opacity:0;animation:brFade .8s .6s forwards}
 /* (11/03 14:04 사용자) 불러오기 = 로고 없이 반투명 박스 하나(전체화면 팁 창과 같은 모양) · 박스를 톡 = 계속 띄움 · 다시 톡 = 닫기 · 0.7초 넘게 꾹 = 누르는 동안만 · 붙잡아도 4초 뒤 닫힘 · 닫힐 땐 1.8초 페이드 */
-#brLoad{position:fixed;inset:0;z-index:9990;display:flex;pointer-events:none;align-items:center;justify-content:center;opacity:0;visibility:hidden;transition:opacity 1.8s ease,visibility 0s linear 1.8s}#brLoad.on{opacity:1;visibility:visible;transition:opacity .2s ease}#brLoad.now{transition:none!important}#brLoad .pn{display:inline-block;font-size:11.5px;font-weight:700;color:#5fd4ff;background:rgba(95,212,255,.12);border-radius:8px;padding:1px 7px}#brLoad.pin .pn{display:inline-block}
+#brLoad{position:fixed;inset:0;z-index:9990;display:flex;pointer-events:none;align-items:center;justify-content:center;opacity:0;visibility:hidden;transition:opacity 2.8s ease,visibility 0s linear 2.8s}#brLoad.on{opacity:1;visibility:visible;transition:opacity .2s ease}#brLoad.now{transition:none!important}#brLoad .pn{display:inline-block;font-size:11.5px;font-weight:700;color:#5fd4ff;background:rgba(95,212,255,.12);border-radius:8px;padding:1px 7px}#brLoad.pin .pn{display:inline-block}
 #brLoad .bx{pointer-events:none;width:min(300px,80vw);box-sizing:border-box;background:rgba(17,20,26,.9);border:1px solid #3b4250;border-radius:16px;padding:12px 16px;box-shadow:0 8px 28px rgba(0,0,0,.45);-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:none}#brLoad.on,#brLoad.eat{pointer-events:auto}#brLoad.eat{visibility:visible}#brLoad.eat .bx{pointer-events:none}#brLoad.on .bx,#brLoad.fd .bx{pointer-events:auto}
 #brLoad .hd{display:flex;align-items:center;gap:6px;font-size:12.5px;color:#c9b58a;font-weight:800}#brLoad .hg{font-size:13px;display:inline-block;animation:brHg 1.6s ease-in-out infinite}@keyframes brHg{0%,40%{transform:rotate(0)}50%,90%{transform:rotate(180deg)}100%{transform:rotate(180deg)}}#brLoad .tx{margin-left:auto;font-weight:600;color:#9aa3ad;font-size:12px}
 #brLoad .tp{margin-top:6px;font-size:14px;line-height:1.55;color:#ffd27a;word-break:keep-all;min-height:22px}
@@ -51,12 +51,12 @@
     t.textContent = String(L[k]); t.style.display = ""; el.querySelector(".hd b").style.display = ""; }
   // (11/03 14:17·14:37·14:47 사용자) 박스가 떠 있는 동안(사라지는 중 포함) 아래 화면은 눌리지 않음 · 박스든 바깥이든 톡 = 바로 닫힘(페이드 없이)
   //   누른 채 끌기(박스가 따라 움직임)·0.6초 넘게 꾹 = 붙잡음(저절로 안 사라짐) · 안 건드리면 다 불러온 순간부터 2초 보이고 1.8초 페이드
-  const LONG = 600, LINGER = Math.max(0, 2000 - GRACE - 260), FADE = 1800;
+  const LONG = 600, LINGER = Math.max(0, 1000 - GRACE - 260), FADE = 2800;   /* (11/03 15:02 사용자) 대기 1초 · 페이드 2.8초 */
   let fadeT = null, pin = false, hold = false, down = 0, lingerT = null, lingering = false, busyOn = false, grab = null, dismissed = false;
   function vis(el) { const v = (busyOn && !dismissed) || pin || hold || lingering, was = el.classList.contains("on"); el.classList.toggle("on", v); el.classList.toggle("pin", pin);
     clearTimeout(fadeT); if (v || el.classList.contains("now")) el.classList.remove("fd"); else if (was) { el.classList.add("fd"); fadeT = setTimeout(() => el.classList.remove("fd"), FADE); }   // (11/03 14:56·14:57 사용자) 사라지는 1.8초 동안은 아래 화면 눌림 · 그때 팁 박스를 누르면 다시 또렷해지며 고정
     if (v) clearTimeout(vis.clr);
-    if (!v) { cancelAnimationFrame(praf); clearTimeout(vis.clr); vis.clr = setTimeout(() => { if (!el.classList.contains("on")) tips(el, false); }, 1900); }   // 글은 페이드가 끝난 뒤에 비움
+    if (!v) { cancelAnimationFrame(praf); clearTimeout(vis.clr); vis.clr = setTimeout(() => { if (!el.classList.contains("on")) tips(el, false); }, FADE + 100); }   // 글은 페이드가 끝난 뒤에 비움
     else if (!busyOn) el.querySelector(".tx").textContent = "✓ 다 불러왔어요"; }
   function linger(el) { clearTimeout(lingerT); lingering = true; vis(el); lingerT = setTimeout(() => { lingering = false; vis(el); }, LINGER); }
   function shutNow(el) { pin = false; hold = false; lingering = false; clearTimeout(lingerT); if (busyOn) dismissed = true; el.classList.add("now"); el.classList.remove("fd"); vis(el); setTimeout(() => el.classList.remove("now"), 80);
