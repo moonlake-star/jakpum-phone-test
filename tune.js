@@ -541,7 +541,7 @@
     // (11/02 19:38 사용자 시안 승인) 다이어트: 첫 줄 = 원음/보정본 스위치 + 시간·저장 표시 / 둘째 줄 = 버튼 한 줄(▼ 음 ▲ ✂ ↺ ✓) + 작은 이름표
     // (11/03 13:08 사용자 시안 승인) 모드 [🎵 음정 | ⏱ 타이밍]: 타이밍 = ◀일찍·늦게▶(톡 0.02초, 꾹 계속) · 길이 −/+ · ↺ · 막대 가운데 끌기 = 옮기기, 끝 끌기 = 길이
     const tOn = !!(st && typeof st.onTime === "function"), tMode = tOn && st.fixMode === "t"; let tTm = null, tSave = () => {};   // (닫을 때 쓰므로 먼저 둠)
-    d.innerHTML = `<div class="tfFixBox"><div class="tfFixHd">${tOn ? `<span class="tfFixMd" role="group" aria-label="고칠 것"><button type="button" data-md="p">🎵 음정</button><button type="button" data-md="t">⏱ 타이밍</button></span>` : "<b>정음</b>"}<span class="tfFixTm">${mm(b.t0)}~${mm(b.t1)}</span><span class="tfFixSt"></span>${st && st.o && typeof st.o.onResetRange === "function" ? `<button type="button" class="tfMm" data-mm aria-label="여러 음 고르기">☐ 여러 음</button>` : ""}</div>
+    d.innerHTML = `<div class="tfFixBox"><div class="tfFixHd">${tOn ? `<span class="tfFixMd" role="group" aria-label="고칠 것"><button type="button" data-md="p">🎵 음정</button><button type="button" data-md="t">⏱ 타이밍</button></span>` : "<b>정음</b>"}<span class="tfFixTm">${mm(b.t0)}~${mm(b.t1)}</span><span class="tfFixSt"></span></div>
       ${tOn ? `<div class="tfFixRow tfT"><button type="button" data-tm="-1" aria-label="일찍(앞으로)">◀</button><button type="button" class="tfFixN tfTN" data-tp aria-label="이 음 듣기"></button><button type="button" data-tm="1" aria-label="늦게(뒤로)">▶</button><button type="button" class="tfIc" data-tl="-1" aria-label="짧게">−</button><button type="button" class="tfIc" data-tl="1" aria-label="길게">+</button><button type="button" class="tfIc" data-tr aria-label="톡 = 직전 저장으로, 1초 꾹 = 원본으로">↺</button></div>
       <div class="tfFixLab tfT"><span>일찍</span><span class="n">누르면 듣기</span><span>늦게</span><span class="i">짧게</span><span class="i">길게</span><span class="i">되돌리기</span></div>` : ""}
       <div class="tfFixRow tfP"><button type="button" data-d="-1" aria-label="반음 내림">▼</button><button type="button" class="tfFixN" data-p aria-label="누르는 동안 이 음 소리"></button><button type="button" data-d="1" aria-label="반음 올림">▲</button>${canCut ? `<button type="button" class="tfCut tfIc" data-cut aria-label="두 음으로 나누기(세로줄 자리, 막대 밖이면 가운데)">✂</button>` : ""}<button type="button" class="tfIc" data-r aria-label="톡 = 직전 저장으로, 1초 꾹 = 원본으로">↺</button></div>
@@ -635,7 +635,6 @@
     // ── 타이밍·길이 ──
     const setMd = (md) => { if (!tOn) return; st.fixMode = md; d.classList.toggle("tmode", md === "t"); d.querySelectorAll("[data-md]").forEach(x => { const on = x.dataset.md === md; x.classList.toggle("on", on); x.setAttribute("aria-pressed", String(on)); }); if (md === "t") sndOff(); };
     if (tOn) { setMd(tMode ? "t" : "p"); d.querySelectorAll("[data-md]").forEach(x => x.onclick = () => setMd(x.dataset.md)); }
-    { const mmB = d.querySelector("[data-mm]"); if (mmB) mmB.onclick = () => { core(); multiSheet(host, cv, st, true); }; }   // (11/03 13:46 사용자) 여러 음 고르기로(같은 자리·뒤로 가기 기록 그대로)
     if (!tOn) { saved = curS(); return; }
     const L0 = b.t1 - b.t0, sameT = (x) => Math.abs(x.t0 - b.t0) < 0.02 && Math.abs(x.t1 - b.t1) < 0.02, te0 = (cv._tedits || []).find(sameT);
     let n0 = te0 ? te0.nt0 : b.t0, n1 = te0 ? te0.nt1 : b.t1;
@@ -670,20 +669,20 @@
       tClamp(edge === "c" ? "m" : edge); tPaint(); tPreview(); tPersist(); };
   }
   // (11/03 13:46 사용자 승인) 여러 음 고르기: 켜 둔 동안 그래프를 좌우로 끌면 그 구간의 음들이 골라짐(시간 이동은 두 손가락) → [↺ 원본으로] = 그 안의 음정·타이밍 고침만 지움(10초 되살리기)
-  function multiSheet(host, cv, st, keep) {
+  function multiSheet(host, cv, st, keep, keepSel) {
     const o = st.o || {}, mm = (x) => `${Math.floor(x / 60)}:${String(Math.floor(x % 60)).padStart(2, "0")}`;
     const had = keep || !!host.querySelector(".tfFix"); host.querySelectorAll(".tfFix").forEach(x => x.remove());
     const d = document.createElement("div"); d.className = "tfFix tfMulti";
     d.innerHTML = `<div class="tfFixBox"><div class="tfFixHd"><b>☑ 여러 음 고르기</b><span class="tfFixTm">끌어서 고르기</span><span class="tfFixSt"></span></div>
       <div class="tfFixRow"><button type="button" class="tfMr" data-mr disabled>↺ 원본으로</button><button type="button" class="tfIc" data-mx aria-label="여러 음 고르기 끝내기">✕</button></div>
-      <div class="tfFixLab"><span class="n">끌어서 고르기 · 이동은 두 손가락</span><span class="i">끝내기</span></div></div>`;
+      <div class="tfFixLab"><span class="n">다시 끌면 새로 고르기 · 이동은 두 손가락</span><span class="i">끝내기</span></div></div>`;
     const bot = host.querySelector(".tfBot");
     if (bot) { const h0 = had && bot._h0 ? bot._h0 : bot.offsetHeight; bot._h0 = h0; d.classList.add("inBot"); bot.appendChild(d);
       const gap = h0 - bot.offsetHeight; if (gap > 0) d.style.minHeight = (d.offsetHeight + gap) + "px"; }
     else host.appendChild(d);
     d.addEventListener("pointerdown", (e) => e.stopPropagation());
     const tmEl = d.querySelector(".tfFixTm"), stEl = d.querySelector(".tfFixSt"), rb = d.querySelector("[data-mr]");
-    st.mMode = true; st.msel = null; st.sel = null;
+    st.mMode = true; if (!keepSel) st.msel = null; st.sel = null;
     const paint = () => { const m_ = st.msel; if (!m_) { tmEl.textContent = "끌어서 고르기"; rb.disabled = true; rb.textContent = "↺ 원본으로"; return; }
       let n = 0; try { n = typeof o.countRange === "function" ? o.countRange(m_[0], m_[1]) : 0; } catch {}
       tmEl.textContent = `${mm(m_[0])}~${mm(m_[1])}`; rb.disabled = !n; rb.textContent = n ? `↺ 고른 ${n}곳 원본으로` : "고친 음이 없어요"; };
@@ -712,7 +711,7 @@
     { text: () => "폰의 뒤로 가기(갤럭시는 화면 가장자리 밀기)로도 닫혀요", need: "if (fsClose) { fsClose();" },
     { text: () => "노래가 없는 전주·간주에선 '⏩ 노래 시작 1초 전으로'로 바로 넘어가요", need: "⏩ 노래 시작 1초 전으로" },
     { text: () => "멈춘 뒤 초록 정음 막대를 톡 하면 그 음을 고칠 수 있어요(▼▲, 바로 저장)", need: "hb = hitT(le) || hitBar(le);", when: (o) => typeof o.onFix === "function" },
-    { text: () => "고치기 창 ☐ 여러 음: 그래프를 끌어 여러 음을 골라 한 번에 원본으로", need: "if (mmB) mmB.onclick = () => { core(); multiSheet(host, cv, st, true); };", when: (o) => typeof o.onResetRange === "function" },
+    { text: () => "빈 곳·음을 꾹 누른 채 좌우로 끌면 여러 음 고르기 · 그냥 떼면 새 주석", need: "d0.armed = { x: l0.x, t: tt }; st.msel = [tt, tt]; armTip(true);", when: (o) => typeof o.onResetRange === "function" },
     { text: () => "⏱ 타이밍: ◀▶ 일찍·늦게, −/+ 길이 · 막대 가운데를 끌면 옮기기, 끝을 끌면 길이", need: "st.onBarDragX = (dt, edge, start)", when: (o) => typeof o.onTime === "function" },
     { text: () => "타이밍 고친 음은 하늘색, 원래 자리는 점선 · 가운데 숫자를 누르면 그 근처만 들려요", need: 'g.fillStyle = "#5fd4ff"; g.fillRect(x0', when: (o) => typeof o.onTime === "function" },
     { text: () => "고치기 창에서 음 이름을 누르고 있으면 그 음이 목소리로 계속 소리 나요", need: 'nb.addEventListener("pointerdown", (e) => { e.preventDefault(); snd(m); });', when: (o) => typeof o.onFix === "function" },
@@ -801,6 +800,8 @@
     // 손가락: 한 손가락 좌우 = 시간 이동(재생은 멈춤, 가운데 ▶로 다시), 위아래 = 음 높이 이동(확대했을 때), 두 손가락 = 핀치 확대, 톡 = 재생/멈춤
     const hitBar = (le) => { if (!st.tbars || !st.tbars.length) return null; let best = null, bd = 1e9;   // 가장 가까운 정음 막대(위아래 22px·좌우 8px 안)
       for (const b of st.tbars) { if (le.x < b.x0 - 8 || le.x > b.x1 + 8) continue; const dy = Math.abs(le.y - b.y); if (dy <= Math.max(22, b.h) && dy < bd) { bd = dy; best = b; } } return best; };
+    let armEl = null; const armTip = (on) => { if (armEl) { armEl.remove(); armEl = null; } if (!on) return; const cb = wrap.querySelector(".tfCvBox"); if (!cb) return;
+      armEl = document.createElement("div"); armEl.className = "tfFixTip"; armEl.textContent = "떼면 새 주석 · 그대로 좌우로 끌면 여러 음 고르기"; cb.appendChild(armEl); };
     const hitT = (le) => { for (const b of st.tebars || []) if (le.x >= b.x0 - 8 && le.x <= b.x1 + 8 && Math.abs(le.y - b.y) <= Math.max(22, b.h)) return b; return null; };   // 타이밍 고친 막대(새 자리)
     const loc = (cx, cy, r) => (rot ? { x: cy - r.top, y: r.right - cx } : { x: cx - r.left, y: cy - r.top });   // 돌린 화면에서도 캔버스 안 좌표
     const along = (e) => (rot ? e.clientY : e.clientX), across = (e) => (rot ? e.clientX : e.clientY);
@@ -828,8 +829,11 @@
           d0.h0 = h0;
           if (h0) { if (!h0.del) { st.hold = { n: h0.n, at: performance.now() }; d0.lp = setTimeout(() => { st.hold = null; if (drag !== d0 || d0.mode) return; d0.long = true; pauseNow(); lastView = view; o.onNote(h0.n); }, 600); } }   // 주석 칸 0.6초 꾹 = 고치기(10/30 19:48 사용자)
           else if (typeof o.onAdd === "function") d0.lp = setTimeout(() => { if (drag !== d0 || d0.mode) return;
+            const tt = timeAt(st, l0.x);
+            // (11/03 13:53 사용자) 꾹 누른 뒤: 그냥 떼면 새 주석 · 떼지 않고 좌우로 끌면 여러 음 고르기(따로 버튼 없이) — 선생님 화면만
+            if (typeof o.onResetRange === "function" && st.map && tt != null) { pauseNow(); d0.armed = { x: l0.x, t: tt }; st.msel = [tt, tt]; armTip(true); return; }
             d0.long = true; pauseNow();
-            const tt = timeAt(st, l0.x); if (tt != null) { lastView = view; o.onAdd(tt); } }, 390); } }
+            if (tt != null) { lastView = view; o.onAdd(tt); } }, 390); } }
     });
     cvEl.addEventListener("pointermove", (e) => {
       if (!pts.has(e.pointerId)) return; pts.set(e.pointerId, { a: along(e), b: across(e) });
@@ -847,6 +851,10 @@
         if (k !== drag.k) { drag.k = k; drag.moved = true; if (st.onBarDrag) st.onBarDrag(k, false); } return; }
       if (drag.kb) { const r0 = cvEl.getBoundingClientRect(), l0 = loc(e.clientX, e.clientY, r0), m = Math.round(st.kb.inv(l0.y) / 100); if (m !== st.kbDown) { st.kbDown = m; tone(m); } return; }   // 건반 위로 밀면 따라 바뀜
       const dA = along(e) - drag.a, dB = across(e) - drag.b;
+      if (drag.armed) { const l0 = loc(e.clientX, e.clientY, cvEl.getBoundingClientRect()), mp = st.map; if (!mp) return;   // 꾹 누른 채 끌기 = 여러 음 고르기
+        if (!drag.moved && Math.abs(l0.x - drag.armed.x) < 12) return; drag.moved = true; armTip(false);
+        const tx = (x) => mp.t0 + (Math.max(mp.L, Math.min(mp.w, x)) - mp.L) / Math.max(1, mp.w - mp.L) * mp.W8, a = drag.armed.t, b = tx(l0.x); st.msel = [Math.max(0, Math.min(a, b)), Math.max(a, b)];
+        if (!wrap.querySelector(".tfMulti")) multiSheet(wrap, cv, st, false, true); else if (st.onMSel) st.onMSel(); return; }
       if (!drag.mode) { if (Math.max(Math.abs(dA), Math.abs(dB)) < 8) return; clearTimeout(drag.lp); st.hold = null; drag.mode = Math.abs(dA) >= Math.abs(dB) ? "time" : "pitch"; if (drag.mode === "time") pauseNow(); }
       if (drag.mode === "time") preview = Math.max(0, drag.t - dA / span() * ((st.win || 6) / st.xz));
       else if (st.yz > 1) { const [lo, hi] = range(cv), per = (hi - lo) / st.yz / tall(); st.yc = (drag.yc ?? (lo + hi) / 2) + dB * per * (rot ? -1 : 1); st.panAt = Date.now(); }
@@ -855,7 +863,9 @@
     const end = (e) => {
       if (!pts.has(e.pointerId)) return; pts.delete(e.pointerId);
       if (pinch) { st.hold = null; if (pts.size === 0) { pinch = null; if (st.mMode && preview != null) { const t_ = preview; preview = null; try { seek(t_, true); } catch {} } } return; }
-      if (!drag || drag.id !== e.pointerId) return; const d = drag; drag = null; clearTimeout(d.lp); st.hold = null; if (d.long) return;
+      if (!drag || drag.id !== e.pointerId) return; const d = drag; drag = null; clearTimeout(d.lp); st.hold = null;
+      if (d.armed) { armTip(false); if (d.moved) { if (st.onMSel) st.onMSel(); return; } st.msel = null; if (e.type === "pointerup") { lastView = view; o.onAdd(d.armed.t); } return; }   // 끌지 않고 뗌 = 새 주석(예전과 같음)
+      if (d.long) return;
       if (d.kb) { toneOff(); st.kbDown = null; return; }
       if (d.bar || d.barX || d.msel) return;   // 고른 막대를 위아래(음정)·좌우(타이밍)로 옮긴 것(재생/멈춤 아님)
       if (!d.mode && e.type === "pointerup" && typeof o.onFix === "function" && isPaused() && st.tbars) {   // 멈춘 상태에서 초록 정음 막대 톡 = 정음 고치기
