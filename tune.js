@@ -736,7 +736,7 @@
     { text: () => "노래가 없는 전주·간주에선 '⏩ 노래 시작 1초 전으로'로 바로 넘어가요", need: "⏩ 노래 시작 1초 전으로" },
     { text: () => "멈춘 뒤 초록 정음 막대를 톡 하면 그 음을 고칠 수 있어요(▼▲, 바로 저장)", need: "hb = hitT(le) || hitBar(le);", when: (o) => typeof o.onFix === "function" },
     { text: () => "빈 곳·음을 꾹 누른 채 좌우로 끌면 여러 음 고르기 · 그냥 떼면 새 주석", need: "d0.armed = { x: l0.x, t: tt }; st.msel = [tt, tt]; armTip(true);", when: (o) => typeof o.onResetRange === "function" },
-    { text: () => "보정본에선 주석이 숨겨져요 · 위 💬 주석 버튼(지나갈 때 반짝)으로 보기", need: "st.notesHidden = pm && !st.noteShow;", when: (o) => !!o.teacher && typeof o.onNote === "function" },
+    { text: () => "보정본에선 주석이 숨겨져요 · 위 💬 한마디 버튼(지나갈 때 반짝)으로 보기", need: "st.notesHidden = pm && !st.noteShow;", when: (o) => !!o.teacher && typeof o.onNote === "function" },
     { text: () => "⏱ 타이밍: ◀▶ 일찍·늦게, −/+ 길이 · 막대 가운데를 끌면 옮기기, 끝을 끌면 길이", need: "st.onBarDragX = (dt, edge, start)", when: (o) => typeof o.onTime === "function" },
     { text: () => "타이밍 고친 음은 하늘색, 원래 자리는 점선 · 가운데 숫자를 누르면 그 근처만 들려요", need: 'g.fillStyle = "#5fd4ff"; g.fillRect(x0', when: (o) => typeof o.onTime === "function" },
     { text: () => "고치기 창에서 음 이름을 누르고 있으면 그 음이 목소리로 계속 소리 나요", need: 'nb.addEventListener("pointerdown", (e) => { e.preventDefault(); snd(m); });', when: (o) => typeof o.onFix === "function" },
@@ -759,7 +759,7 @@
     const hasAb = typeof o.setMode === "function";
     wrap.innerHTML = `<div class="tfBox"><div class="tfTop"><b class="tfTitle">${String(o.title || "음정선").replace(/[<>&]/g, "")}</b><span class="tfTime"></span>
       <button type="button" class="tfX tfXp" aria-label="닫기"><i>✕</i>닫기</button><span class="tfBr"></span><span class="tfLeg"><span><i style="background:rgba(127,217,154,.6);height:8px"></i>정음</span><span><i style="background:#ffe066"></i>부른 음</span><span><i style="background:#7fd9ff"></i>보정 후</span><span class="tfLegC"><i style="background:#ffd27a;opacity:.6"></i>고친 곳</span></span>
-      <button type="button" class="tfNoteChip" hidden aria-label="주석 보기">💬 주석 <b></b></button>
+      <button type="button" class="tfNoteChip" hidden aria-label="선생님 한마디 보기">💬 한마디 <b></b></button>
       <button type="button" class="tfX" aria-label="닫기"><i>✕</i>닫기</button></div>
       <div class="tfCvBox"><canvas class="tfCv"></canvas><span class="tfMid" aria-hidden="true"></span><button type="button" class="tfSkip off">⏩ 노래 시작 1초 전으로</button><span class="tfBye" aria-live="polite">닫을 때는 <b>✕</b> 또는 폰의 <b>뒤로 가기</b></span></div>
       <div class="tfBot"><span class="tfHint">톡 = 재생·멈춤 · 좌우로 밀면 이동<span class="tfSep"> · </span><br>두 손가락으로 벌리면 확대 · 기준선 왼쪽·오른쪽 두 번 톡 = 2초 뒤로·앞으로<span class="tfSep"> · </span><br>${typeof o.onFix === "function" ? "건반 = 그 음 소리 · 멈춘 뒤 초록 정음 막대 톡 = 정음 고치기" : "왼쪽 건반을 누르면 그 음 소리"}</span>
