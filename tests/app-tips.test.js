@@ -23,6 +23,10 @@ console.log("app-tips ok", L.length);
 // (11/03 14:47 사용자) 떠 있는 동안 아래 화면 막음 · 톡(창·바깥) = 바로 닫힘 · 끌기·꾹 = 붙잡음 · 2초 · 팁 하나만
 { const b4 = fs.readFileSync(__dirname + "/../brand.js", "utf8");
   assert.ok(b4.includes("const LONG = 600, LINGER = Math.max(0, 1000 - GRACE - 260), FADE = 2800;") && b4.includes("if (moved || long || fromFade) { pin = true; vis(el); return; } shutNow(el);"), "2초 · 톡 = 닫기");
-  assert.ok(b4.includes("#brLoad.on,#brLoad.eat{pointer-events:auto}") && b4.includes("#brLoad.on .bx,#brLoad.fd .bx{pointer-events:auto}") && b4.includes('if (e.target !== el) return; e.stopPropagation(); e.preventDefault(); shutNow(el);'), "아래 화면 막고 바깥 톡 = 닫기");
+  assert.ok(b4.includes("#brLoad.on,#brLoad.eat{pointer-events:auto}") && b4.includes("#brLoad.on .bx,#brLoad.fd .bx{pointer-events:auto}") && b4.includes('if (e.target !== el) return; e.stopPropagation(); e.preventDefault();') && b4.includes('      shutNow(el); });   // 다 불러온 뒤 바깥 톡'), "아래 화면 막고 바깥 톡 = 닫기");
   assert.ok(!b4.includes("setInterval(pick"), "팁은 한 번에 하나(돌아가며 바뀌지 않음)");
   assert.ok(!/\/\/[^\n]*let fadeT = null/.test(b4) && /\n\s*let fadeT = null, pin = false/.test(b4), "변수 선언이 주석에 묻히지 않음"); }
+// (11/03 15:04 사용자) 불러오는 중 아래 누름 = 기억했다가 다 불러오면 닫고 대신 눌러 줌
+{ const b5 = fs.readFileSync(__dirname + "/../brand.js", "utf8"), t5 = fs.readFileSync(__dirname + "/../tune.js", "utf8");
+  assert.ok(b5.includes('queued = { t, x: e.clientX, y: e.clientY, pt: e.pointerType }') && b5.includes("setTimeout(() => replay(q), 0); return; }"), "불러오는 중 박스");
+  assert.ok(t5.includes("if (ldWas) { ldQ = { t: e.target, x: e.clientX, y: e.clientY, pt: e.pointerType }; return; }") && t5.includes("setTimeout(() => ldReplay(q), 0);"), "전체화면 팁 창"); }

@@ -62,7 +62,11 @@
   function shutNow(el) { pin = false; hold = false; lingering = false; clearTimeout(lingerT); if (busyOn) dismissed = true; el.classList.add("now"); el.classList.remove("fd"); vis(el); setTimeout(() => el.classList.remove("now"), 80);
     el.classList.add("eat"); clearTimeout(shutNow.t); shutNow.t = setTimeout(() => el.classList.remove("eat"), 500); }   // 닫은 그 손가락의 떼기·클릭도 아래 화면에 안 닿게 잠깐 더 막음
   function wireBox(el) { const bx = el.querySelector(".bx");
-    el.addEventListener("pointerdown", (e) => { if (e.target !== el) return; e.stopPropagation(); e.preventDefault(); shutNow(el); });   // 바깥(아래 화면 자리) 톡 = 닫기 · 아래로는 안 넘어감
+    el.addEventListener("pointerdown", (e) => { if (e.target !== el) return; e.stopPropagation(); e.preventDefault();
+      if (busyOn) {   // (11/03 15:04 사용자) 불러오는 중에 아래를 누르면: 기억해 뒀다가 다 불러오는 순간 박스를 닫고 그 자리를 대신 눌러 줌
+        const t = (document.elementsFromPoint(e.clientX, e.clientY) || []).find(x => x !== el && !el.contains(x)); if (t) { queued = { t, x: e.clientX, y: e.clientY, pt: e.pointerType }; el.querySelector(".tx").textContent = "⏩ 다 불러오면 바로 실행"; }
+        eatClick(el); return; }
+      shutNow(el); });   // 다 불러온 뒤 바깥 톡 = 닫기 · 아래로는 안 넘어감
     el.addEventListener("click", (e) => { e.stopPropagation(); e.preventDefault(); });
     bx.addEventListener("pointerdown", (e) => { e.stopPropagation(); e.preventDefault(); const fading = !el.classList.contains("on"); down = performance.now(); hold = true;
       grab = { x: e.clientX, y: e.clientY, dx: +bx.dataset.dx || 0, dy: +bx.dataset.dy || 0, moved: false, fading }; if (fading) pin = true; lingering = false; clearTimeout(lingerT); vis(el); try { bx.setPointerCapture(e.pointerId); } catch {} });
@@ -72,7 +76,12 @@
       if (moved || long || fromFade) { pin = true; vis(el); return; } shutNow(el); });   // 사라지는 중에 누른 것 = 고정   // 톡 = 바로 닫기
     bx.addEventListener("pointercancel", () => { down = 0; hold = false; grab = null; pin = true; vis(el); });
     bx.addEventListener("contextmenu", (e) => e.preventDefault()); }
-  function hideNow(el) { const was = busyOn; busyOn = false; const dis = dismissed; dismissed = false; if (was && !dis && !pin && el.classList.contains("on")) linger(el); else vis(el); }   // 다 불러오면 2초 더 보여 주고 서서히
+  let queued = null;
+  function eatClick(el) { el.classList.add("eat"); clearTimeout(shutNow.t); shutNow.t = setTimeout(() => el.classList.remove("eat"), 500); }
+  function replay(q) { const t = q && q.t; if (!t || !t.isConnected) return; const o = { bubbles: true, cancelable: true, clientX: q.x, clientY: q.y, pointerId: 9999, pointerType: q.pt || "touch", isPrimary: true };
+    try { t.dispatchEvent(new PointerEvent("pointerdown", o)); t.dispatchEvent(new PointerEvent("pointerup", o)); } catch {} try { t.dispatchEvent(new MouseEvent("click", o)); } catch {} }
+  function hideNow(el) { const q = queued; queued = null; if (q) { busyOn = false; dismissed = false; pin = false; lingering = false; clearTimeout(lingerT); el.classList.add("now"); el.classList.remove("fd"); vis(el); setTimeout(() => el.classList.remove("now"), 80); setTimeout(() => replay(q), 0); return; }   // 눌러 둔 것 실행
+    const was = busyOn; busyOn = false; const dis = dismissed; dismissed = false; if (was && !dis && !pin && el.classList.contains("on")) linger(el); else vis(el); }   // 다 불러오면 2초 더 보여 주고 서서히
   function loading(on, text, delay) {   // 불러오기 표시는 이것 하나(10/30 15:24 사용자: 일관되게). 기본 0.6초 넘게 걸릴 때만
     let el = document.getElementById("brLoad");
     if (!el) { el = document.createElement("div"); el.id = "brLoad"; el.setAttribute("role", "status"); el.innerHTML = `<div class="bx"><div class="hd"><span class="hg" aria-hidden="true">⏳</span><b style="display:none">[Tip]</b><span class="pn">톡 하면 닫혀요</span><span class="tx"></span></div><div class="tp" style="display:none"></div><div class="br"><i></i></div></div>`; document.body.appendChild(el); wireBox(el); }
