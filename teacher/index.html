@@ -563,7 +563,7 @@ function getToken(interactive) {
       callback: (r) => { pending = null;
         if (r.error) return reject(new Error("로그인 실패: " + r.error));
         token = r.access_token; LS.set("vn_tok", { t: token, exp: Date.now() + (r.expires_in - 120) * 1000 }); resolve(token); },
-      error_callback: (e) => { pending = null; if (e.type !== "popup_closed") $("btnLoginRd")?.classList.remove("hidden");
+      error_callback: (e) => { pending = null; if (e.type !== "popup_closed") { $("btnLoginRd")?.classList.remove("hidden"); LS.set("vn_popup_bad", 1); }
         reject(new Error(e.type === "popup_closed" ? "로그인 창이 닫혔어요" : IOS_APP ? "홈 화면 앱에서는 구글 로그인 창이 막혀요 — 아래 [페이지 이동으로 로그인]을 눌러 주세요"
           : "로그인 창을 열지 못했어요 — 아래 [페이지 이동으로 로그인]을 누르거나, 아이패드·아이폰은 설정 › Safari › '팝업 차단'을 끄고 다시 눌러 주세요")); },
     });
@@ -608,7 +608,8 @@ function resumeOnTap() {
   const go = (e) => { e.preventDefault(); e.stopPropagation(); document.removeEventListener("click", go, true);
     bar.textContent = "연결 중…";
     resumeMode = false;
-    getToken(false).then(() => { bar.remove(); start(); }).catch(err => { bar.remove(); $("loginMsg").textContent = err.message; show("vLogin"); }); };
+    if (IOS_APP || LS.get("vn_popup_bad")) { bar.textContent = "구글로 이동 중…"; return loginRedirect(); }   // (11/03 10:20 사용자) 이 기기는 창이 막힘 → 바로 페이지 이동 로그인(돌아오면 이어서)
+    getToken(false).then(() => { bar.remove(); start(); }).catch(err => { bar.remove(); $("loginMsg").textContent = err.message; $("btnLoginRd")?.classList.remove("hidden"); show("vLogin"); }); };
   document.addEventListener("click", go, true);
 }
 async function start() {
