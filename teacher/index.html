@@ -376,7 +376,7 @@
 </head>
 <body>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@700&display=swap">
-<script src="../brand.js?v=20261103-1802"></script>
+<script src="../brand.js?v=20261103-2240"></script>
 <script>try { Brand.splash("teacher"); } catch {}</script>
 <main>
   <header><button id="btnBack" class="ghost small hidden">← 뒤로</button><h1><span class="brMark" aria-hidden="true"></span>작품 보컬노트</h1><button id="btnUi" class="ghost small hidden" style="display:none" type="button" title="화면 방식 바꾸기">V1 화면</button></header>
@@ -511,7 +511,7 @@
 <div id="v2Shade" class="v2only"></div>
 <div id="toast"></div>
 <script src="../lesson-replies.js"></script>
-<script src="../tune.js?v=20261103-1812"></script>
+<script src="../tune.js?v=20261103-2240"></script>
 
 <script>
 // ── 설정 ────────────────────────────────────────────────
@@ -538,7 +538,7 @@ function syncBackHistory(view) {
   } catch {}
 }
 window.addEventListener("popstate", (e) => {
-  if (e && e.tuneClosed) return;   // 음정선 전체화면만 닫힘(tune.js)
+  if (e && (e.tuneClosed || e.layerClosed)) return;   // 음정선 전체화면·맨 위 작은 창만 닫힘(tune.js·Brand.layer)
   if (backSkip) { backSkip = false; return; }
   if (typeof v2SheetClose === "function" && v2SheetClose(true)) return;   // 전달하기 시트가 열려 있으면 뒤로 가기 = 시트만 닫기
   const sh = typeof document !== "undefined" && document.querySelector?.(".attSheet"); if (sh) { sh.remove(); try { history.pushState({ jakpumSub: true }, ""); } catch {} return; }   // (11/02 07:50) 옮기기·확인 창이 열려 있으면 창만 닫기
@@ -4506,7 +4506,8 @@ async function openMkJob(j, backTo) {
       <b style="font-size:16px">곡 전체를 원본으로 되돌릴까요?</b><p style="font-size:13.5px;color:#b6bdc7;line-height:1.55;margin:8px 0 12px">선생님이 고친 것만 지워요. 보컬 분리·기본 보정·자동 음정 보정은 그대로예요.</p>
       ${row("p", true, "음정 고침", np || nc ? `정음 ${np}곳${nc ? ` · 나누기 ${nc}곳` : ""}` : "")}${row("t", true, "타이밍·길이 고침", nt ? `${nt}곳` : "")}
       <div style="display:flex;gap:8px;margin-top:4px"><button type="button" data-x="0" style="flex:1;margin:0">취소</button><button type="button" data-x="1" style="flex:1;margin:0;background:#ffd27a;color:#111;border:0">원본으로</button></div></div>`;
-    const shut = () => d.remove(); d.onclick = (e) => { if (e.target === d) shut(); };
+    const ly = typeof Brand !== "undefined" && Brand.layer ? Brand.layer(() => d.remove()) : { close: () => d.remove() }, shut = () => ly.close();   // 뒤로 가기 = 이 창만 닫힘
+    d.onclick = (e) => { if (e.target === d) shut(); };
     d.querySelector('[data-x="0"]').onclick = shut;
     d.querySelector('[data-x="1"]').onclick = async () => { const P = !!d.querySelector('[data-k="p"]:checked'), T = !!d.querySelector('[data-k="t"]:checked'); shut();
       if (!P && !T) return; if (!resetSome) { toast("음정선을 받은 뒤에 다시 눌러 주세요"); return; } await resetSome(P, T, null); };
@@ -6267,7 +6268,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-03-1812-songload";
+const BUILD = "2026-11-03-2240-backlayers";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {

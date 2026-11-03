@@ -139,14 +139,14 @@
 </head>
 <body>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@700&display=swap">
-<script src="../brand.js?v=20261103-1802"></script>
+<script src="../brand.js?v=20261103-2240"></script>
 <script>try { Brand.splash("student"); } catch {}</script>
 <main>
   <h1><button type="button" class="fzBtn" id="fzBtn" aria-label="글씨 크기 바꾸기"><small>가</small><b>가</b></button><span class="brMark" aria-hidden="true"></span>내 보컬 노트 <span class="muted" style="font-size:.85rem">뮤직스튜디오 작품</span></h1>
   <div id="view"><p class="muted">불러오는 중…</p></div>
 </main>
 <script src="../lesson-replies.js"></script>
-<script src="../tune.js?v=20261103-1812"></script>
+<script src="../tune.js?v=20261103-2240"></script>
 <script>
 // ── 설정(비밀값 아님): 수강생 로그인용 구글 클라이언트 ID, 노트 연결(Apps Script 웹 앱) 주소 ──
 const STUDENT_CLIENT_ID = "712936245254-2itl2rolhhcsq9cdqnhku4u43hpdv2mk.apps.googleusercontent.com";
@@ -159,8 +159,9 @@ const LS = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch 
 // 처음 1~2번 열 때만 안내를 한 번 띄우고, 크기를 한 번이라도 바꾸면 다시 안 띄움(sn_fz_hint)
 const FZ = [["작게", 0.9, 15], ["보통", 1, 18], ["크게", 1.15, 21], ["아주 크게", 1.3, 24]];
 function fzApply(v) { const ok = FZ.some(x => x[1] === v) ? v : 1; document.documentElement.style.setProperty("--fz", String(ok)); return ok; }
+let fzLy = null;
 function fzOpen() {
-  fzClose(); const now = fzApply(LS.get("sn_fz") ?? 1);
+  fzClose(); fzLy = typeof Brand !== "undefined" && Brand.layer ? Brand.layer(() => { document.getElementById("fzSheet")?.remove(); document.getElementById("fzShade")?.remove(); fzLy = null; }) : null; const now = fzApply(LS.get("sn_fz") ?? 1);
   const sh = document.createElement("div"); sh.id = "fzShade"; sh.onclick = fzClose;
   const d = document.createElement("div"); d.id = "fzSheet"; d.setAttribute("role", "dialog"); d.setAttribute("aria-label", "글씨 크기");
   d.innerHTML = `<h3>글씨 크기</h3><div class="fzRow">${FZ.map(([n, v, px]) => `<button type="button" data-fz="${v}" class="${v === now ? "on" : ""}" aria-pressed="${v === now}"><b style="font-size:${px}px">가</b>${n}</button>`).join("")}</div>
@@ -170,7 +171,7 @@ function fzOpen() {
     if (e.target.closest(".fzClose")) fzClose(); };
   document.body.append(sh, d); document.getElementById("fzHint")?.remove();
 }
-function fzClose() { document.getElementById("fzSheet")?.remove(); document.getElementById("fzShade")?.remove(); }
+function fzClose() { if (fzLy) { const l = fzLy; fzLy = null; l.close(); return; } document.getElementById("fzSheet")?.remove(); document.getElementById("fzShade")?.remove(); }   // 뒤로 가기 = 글씨 크기 창만 닫힘
 function fzHint() {
   const n = +(LS.get("sn_fz_hint") || 0); if (n >= 2 || LS.get("sn_fz") != null) return;
   LS.set("sn_fz_hint", n + 1);
