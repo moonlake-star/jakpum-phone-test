@@ -386,6 +386,7 @@
     <p class="muted">구글 계정(드라이브의 작품보컬노트 폴더)으로 로그인합니다. 자료는 선생님 드라이브에만 있고 이 페이지에는 저장되지 않습니다.</p>
     <button id="btnLogin" class="full">구글로 로그인</button>
     <p id="loginMsg" class="muted"></p>
+    <button id="btnLoginRd" class="ghost full hidden" style="margin-top:6px">창이 안 열리면: 페이지 이동으로 로그인</button>
   </section>
 
   <section id="vList" class="hidden"></section>
@@ -562,12 +563,30 @@ function getToken(interactive) {
       callback: (r) => { pending = null;
         if (r.error) return reject(new Error("로그인 실패: " + r.error));
         token = r.access_token; LS.set("vn_tok", { t: token, exp: Date.now() + (r.expires_in - 120) * 1000 }); resolve(token); },
-      error_callback: (e) => { pending = null; reject(new Error(e.type === "popup_closed" ? "로그인 창이 닫혔어요" : "로그인 창을 열지 못했어요(다시 눌러 주세요)")); },
+      error_callback: (e) => { pending = null; if (e.type !== "popup_closed") $("btnLoginRd")?.classList.remove("hidden");
+        reject(new Error(e.type === "popup_closed" ? "로그인 창이 닫혔어요" : IOS_APP ? "홈 화면 앱에서는 구글 로그인 창이 막혀요 — 아래 [페이지 이동으로 로그인]을 눌러 주세요"
+          : "로그인 창을 열지 못했어요 — 아래 [페이지 이동으로 로그인]을 누르거나, 아이패드·아이폰은 설정 › Safari › '팝업 차단'을 끄고 다시 눌러 주세요")); },
     });
     tokenClient.requestAccessToken({ prompt: interactive && !LS.get("vn_hint") ? "select_account" : "" });
   });
   return pending;
 }
+// (11/03 10:18 사용자) 아이패드에서 구글 로그인 창(팝업)이 안 열림 → 창 없이 '페이지 이동' 방식 로그인도 둠
+// 구글 클라우드 OAuth 클라이언트의 '승인된 리디렉션 URI'에 이 주소(…/teacher/)가 있어야 함
+const IOS_APP = !!navigator.standalone;
+function loginRedirect() {
+  const u = new URL("https://accounts.google.com/o/oauth2/v2/auth"), hint = LS.get("vn_hint");
+  u.search = new URLSearchParams({ client_id: CLIENT_ID, redirect_uri: location.origin + location.pathname, response_type: "token", scope: SCOPE,
+    include_granted_scopes: "true", state: "vn_rd", ...(hint ? { login_hint: hint } : { prompt: "select_account" }) }).toString();
+  location.href = u.toString();
+}
+(function takeRedirectToken() {   // 페이지 이동 로그인에서 돌아왔을 때: 주소 뒤 #access_token=… 을 출입증으로 저장하고 주소에서 지움
+  if (!location.hash.includes("access_token=")) return;
+  const h = new URLSearchParams(location.hash.slice(1)); if (h.get("state") !== "vn_rd") return;
+  const t = h.get("access_token"), ex = +h.get("expires_in") || 3600;
+  if (t) LS.set("vn_tok", { t, exp: Date.now() + (ex - 120) * 1000 });
+  try { history.replaceState(history.state, "", location.pathname + location.search); } catch {}
+})();
 function savedToken() { const v = LS.get("vn_tok"); return v && v.exp > Date.now() ? v.t : null; }
 // (2026-10-27 사용자: 매번 로그인 화면) 구글 출입증은 1시간짜리이고, 새 출입증 창은 '화면을 누를 때'만 열 수 있다(브라우저 정책).
 // 그래서 ① 쓰는 동안 아무 곳이나 누를 때 남은 시간이 15분 안쪽이면 조용히 미리 새로 받고 ② 오래 쉬었다 열면 로그인 화면 대신
@@ -604,6 +623,7 @@ async function start() {
 }
 async function login() {
   $("loginMsg").textContent = "";
+  if (!window.google?.accounts) { $("loginMsg").textContent = "구글 로그인 준비 중이에요 — 2~3초 뒤 다시 눌러 주세요"; $("btnLoginRd")?.classList.remove("hidden"); gisReady().catch(() => {}); return; }   // 준비 전에 기다렸다 열면 '누른 순간'이 지나 창이 막힘
   try { await getToken(true); await start(); } catch (e) { $("loginMsg").textContent = e.message; }
 }
 // ── 드라이브 호출 재시도 ─────────────────────────────────
@@ -6111,12 +6131,12 @@ document.addEventListener("click", (e) => {
   detailsAnimate(d, d._anim ? !d._want : !d.open);   // 움직이는 중에 또 누르면 반대로
 }, true);
 // ── 버튼 ────────────────────────────────────────────────
-$("btnLogin").onclick = login;
+$("btnLogin").onclick = login; $("btnLoginRd").onclick = loginRedirect; if (IOS_APP) $("btnLoginRd").classList.remove("hidden");
 $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-03-0845-dtap";
+const BUILD = "2026-11-03-1030-login";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
