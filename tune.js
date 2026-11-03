@@ -4,6 +4,7 @@
 // 아래 줄 = 고친 양(위 = 올림 · 아래 = 내림, 끝까지 = 반음 ½ 이상). 확대(기본): 지금 음 근처 ±4반음, 전체: 곡 전체 음역.
 // 음정 인식은 AI 추정(숨소리·자음에서 선이 튈 수 있음) — 참고용.
 (function (G) {
+  const DT_JUMP = 2;   // (11/03 10:24 사용자) 그래프 두 번 톡 = 2초 이동
   const WIN = 8, HEAD = 0.4, NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"], LANE = 34, ZOOM_HALF = 400;
   function range(cv) {
     if (cv._rng) return cv._rng;
@@ -556,7 +557,7 @@
       <button type="button" class="tfX tfXp" aria-label="닫기"><i>✕</i>닫기</button><span class="tfBr"></span><span class="tfLeg"><span><i style="background:rgba(127,217,154,.6);height:8px"></i>정음</span><span><i style="background:#ffe066"></i>부른 음</span><span><i style="background:#7fd9ff"></i>보정 후</span><span class="tfLegC"><i style="background:#ffd27a;opacity:.6"></i>고친 곳</span></span>
       <button type="button" class="tfX" aria-label="닫기"><i>✕</i>닫기</button></div>
       <div class="tfCvBox"><canvas class="tfCv"></canvas><span class="tfMid" aria-hidden="true"></span><button type="button" class="tfSkip" hidden>⏩ 노래 시작 1초 전으로</button><span class="tfBye" aria-live="polite">닫을 때는 <b>✕</b> 또는 폰의 <b>뒤로 가기</b></span></div>
-      <div class="tfBot"><span class="tfHint">톡 = 재생·멈춤 · 좌우로 밀면 이동<span class="tfSep"> · </span><br>두 손가락으로 벌리면 확대 · 기준선 왼쪽·오른쪽 두 번 톡 = 5초 뒤로·앞으로<span class="tfSep"> · </span><br>${typeof o.onFix === "function" ? "건반 = 그 음 소리 · 멈춘 뒤 초록 정음 막대 톡 = 정음 고치기" : "왼쪽 건반을 누르면 그 음 소리"}</span>
+      <div class="tfBot"><span class="tfHint">톡 = 재생·멈춤 · 좌우로 밀면 이동<span class="tfSep"> · </span><br>두 손가락으로 벌리면 확대 · 기준선 왼쪽·오른쪽 두 번 톡 = 2초 뒤로·앞으로<span class="tfSep"> · </span><br>${typeof o.onFix === "function" ? "건반 = 그 음 소리 · 멈춘 뒤 초록 정음 막대 톡 = 정음 고치기" : "왼쪽 건반을 누르면 그 음 소리"}</span>
       <span class="tfCtl">${hasAb ? `<span class="tfAbW"><span class="tfAbL">듣는 소리</span><span class="tfAb" role="group" aria-label="듣는 소리: 원음·보정본"><button type="button" data-m="o">🎤 원음</button><i class="tfSwap" aria-hidden="true">⇄</i><button type="button" data-m="p">✨ 보정본</button></span></span>` : ""}<span class="tfNav"><button type="button" data-j="0" aria-label="처음으로">⏮ 처음</button><button type="button" data-j="-5" aria-label="5초 뒤로">-5초</button><button type="button" class="tfPP" data-pp="1" aria-label="재생/일시정지">▶</button><button type="button" data-j="5" aria-label="5초 앞으로">+5초</button></span></span>
       <span class="tfNote">자동 단순 보정이라 정확하지 않을 수 있어요.<br>정식 음원은 전문 엔지니어가 한 음 한 음 더 정밀하게 다듬어요.</span></div></div>`;
     document.body.appendChild(wrap);
@@ -599,7 +600,7 @@
     skipB.onclick = () => { if (st.gapNext != null) { st.panAt = 0; try { seek(Math.max(0, st.gapNext - 1), typeof o.paused === "function" ? o.paused() : true); } catch {} } };
     const isPaused = () => (typeof o.paused === "function" ? o.paused() : true);
     // 가운데 표시: 멈추면 ❚❚가 살짝 튀어나와 머묾, 재생하면 ▶가 잠깐 떴다가 사라짐(10/30 14:27 사용자)
-    const showMid = (kind) => { mid.textContent = kind === "pause" ? "❚❚" : kind === "back" ? "⏪5" : kind === "fwd" ? "5⏩" : "▶"; mid.className = "tfMid " + (kind === "pause" ? "stay" : "flash"); void mid.offsetWidth; mid.classList.add("go"); };
+    const showMid = (kind) => { mid.textContent = kind === "pause" ? "❚❚" : kind === "back" ? "⏪" + DT_JUMP : kind === "fwd" ? DT_JUMP + "⏩" : "▶"; mid.className = "tfMid " + (kind === "pause" ? "stay" : "flash"); void mid.offsetWidth; mid.classList.add("go"); };
     const toggle = () => { const was = isPaused(); try { o.play && o.play(); } catch {} showMid(was ? "play" : "pause"); if (was) { st.panAt = 0; st.waitAt = performance.now(); } else st.waitAt = 0; };   // (11/02 20:31) 눌렀는데 아직 안 나오면 '불러오는 중' 표시
     const pauseNow = () => { if (!isPaused()) { try { o.play && o.play(); } catch {} } showMid("pause"); };
     let lastTap = 0;
@@ -660,10 +661,10 @@
         if (!onBar) { sheetClose(); lastTap = 0; return; } }
       if (!d.mode && e.type === "pointerup" && typeof o.onNote === "function") { const r = cvEl.getBoundingClientRect(), le = loc(e.clientX, e.clientY, r), hn = d.h0 || hitNote(st, le.x, le.y);   /* 누를 때 맞은 칸 우선(떼는 사이 칸이 바뀌어도) */ if (hn) { pauseNow(); if (hn.del) { o.onDelNote && o.onDelNote(hn.n); } else { lastView = view; o.onNote(hn.n); } return; } }
       if (d.mode === "time") { const t = preview; preview = null; if (t != null) seek(t, true); return; }   // 이동만, 재생은 안 함
-      if (!d.mode && e.type === "pointerup") { const now = Date.now();   // 톡 = 재생/멈춤 · (11/03 08:39 사용자) 기준선 왼쪽 두 번 톡 = 5초 뒤로, 오른쪽 = 5초 앞으로
+      if (!d.mode && e.type === "pointerup") { const now = Date.now();   // 톡 = 재생/멈춤 · 기준선 왼쪽 두 번 톡 = 2초 뒤로, 오른쪽 = 2초 앞으로(11/03 10:24)
         if (now - lastTap < 320) { toggle(); lastTap = 0;   // 첫 톡의 재생/멈춤은 되돌리고
           const r0 = cvEl.getBoundingClientRect(), le = loc(e.clientX, e.clientY, r0), L = (st.kb && st.kb.L) || 44, hx = L + HEAD * ((rot ? r0.height : r0.width) - L);
-          const jb = wrap.querySelector(`[data-j="${le.x < hx ? -5 : 5}"]`); if (jb) jb.click(); showMid(le.x < hx ? "back" : "fwd"); }
+          const j = le.x < hx ? -DT_JUMP : DT_JUMP, nt = Math.max(0, Math.min(endT(), (+getT() || 0) + j)); st.panAt = 0; try { seek(nt, isPaused()); } catch {} showMid(j < 0 ? "back" : "fwd"); }
         else { toggle(); lastTap = now; } }
     };
     cvEl.addEventListener("pointerup", end); cvEl.addEventListener("pointercancel", (e) => { preview = null; end(e); });
