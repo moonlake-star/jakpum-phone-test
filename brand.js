@@ -9,8 +9,8 @@
 #brSplash .cp{margin-top:26px;font-family:"Nanum Myeongjo","Noto Serif KR",serif;font-size:19px;color:#f3dfb4;text-align:center;line-height:1.6;opacity:0;animation:brFade .8s .35s forwards}#brSplash .cp b{color:#ffd27a}
 #brSplash .sb{margin-top:10px;font-size:12px;color:#8d8575;letter-spacing:.2em;opacity:0;animation:brFade .8s .6s forwards}
 /* (11/03 14:04 사용자) 불러오기 = 로고 없이 반투명 박스 하나(전체화면 팁 창과 같은 모양) · 박스를 톡 = 계속 띄움 · 다시 톡 = 닫기 · 0.7초 넘게 꾹 = 누르는 동안만 · 붙잡아도 4초 뒤 닫힘 · 닫힐 땐 1.8초 페이드 */
-#brLoad{position:fixed;inset:0;z-index:9990;display:flex;pointer-events:none;align-items:center;justify-content:center;opacity:0;visibility:hidden;transition:opacity 1.8s ease,visibility 0s linear 1.8s}#brLoad.on{opacity:1;visibility:visible;transition:opacity .2s ease}#brLoad.now{transition:none!important}#brLoad .pn{display:none;font-size:11.5px;font-weight:700;color:#5fd4ff;background:rgba(95,212,255,.12);border-radius:8px;padding:1px 7px}#brLoad.pin .pn{display:inline-block}
-#brLoad .bx{pointer-events:none;width:min(300px,80vw);box-sizing:border-box;background:rgba(17,20,26,.9);border:1px solid #3b4250;border-radius:16px;padding:12px 16px;box-shadow:0 8px 28px rgba(0,0,0,.45);-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:none}#brLoad.on .bx,#brLoad.fd .bx{pointer-events:auto}
+#brLoad{position:fixed;inset:0;z-index:9990;display:flex;pointer-events:none;align-items:center;justify-content:center;opacity:0;visibility:hidden;transition:opacity 1.8s ease,visibility 0s linear 1.8s}#brLoad.on{opacity:1;visibility:visible;transition:opacity .2s ease}#brLoad.now{transition:none!important}#brLoad .pn{display:inline-block;font-size:11.5px;font-weight:700;color:#5fd4ff;background:rgba(95,212,255,.12);border-radius:8px;padding:1px 7px}#brLoad.pin .pn{display:inline-block}
+#brLoad .bx{pointer-events:none;width:min(300px,80vw);box-sizing:border-box;background:rgba(17,20,26,.9);border:1px solid #3b4250;border-radius:16px;padding:12px 16px;box-shadow:0 8px 28px rgba(0,0,0,.45);-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:none}#brLoad.on,#brLoad.fd,#brLoad.eat{pointer-events:auto}#brLoad.eat{visibility:visible}#brLoad.eat .bx{pointer-events:none}#brLoad.on .bx,#brLoad.fd .bx{pointer-events:auto}
 #brLoad .hd{display:flex;align-items:center;gap:6px;font-size:12.5px;color:#c9b58a;font-weight:800}#brLoad .hg{font-size:13px;display:inline-block;animation:brHg 1.6s ease-in-out infinite}@keyframes brHg{0%,40%{transform:rotate(0)}50%,90%{transform:rotate(180deg)}100%{transform:rotate(180deg)}}#brLoad .tx{margin-left:auto;font-weight:600;color:#9aa3ad;font-size:12px}
 #brLoad .tp{margin-top:6px;font-size:14px;line-height:1.55;color:#ffd27a;word-break:keep-all;min-height:22px}
 #brLoad .br{height:3px;border-radius:2px;background:#2a2f38;margin-top:10px;overflow:hidden}#brLoad .br i{display:block;height:100%;width:0;background:linear-gradient(90deg,#c8912e,#ffd27a);border-radius:2px;position:relative;overflow:hidden}#brLoad .br i:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.55),transparent);animation:brSh 1.2s linear infinite}@keyframes brSh{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
@@ -41,49 +41,56 @@
   // (11/03 13:39 사용자) 화면 하나 여는 데 드라이브 읽기가 여러 번 차례로 이어지면 '바 다 참 → 사라짐 → 또 뜸'이 3~4번 반복됐음
   // → 끝나도 0.5초 기다려 보고, 그 사이 다음 읽기가 시작되면 같은 창·같은 바로 이어서(한 번만 차고 한 번만 사라짐)
   const GRACE = 500;
-  let tipFn = null, tipTm = null, tipI = -1;
+  let tipFn = null, tipI = -1;
   function setTips(fn) { tipFn = typeof fn === "function" ? fn : null; }   // (11/03 13:39 사용자) 불러오는 동안 지금 화면에서 쓸 수 있는 기능 팁
-  function tips(el, on) { const t = el.querySelector(".tp"); clearInterval(tipTm); tipTm = null; let L = [];
+  // (11/03 14:47 사용자) 팁은 한 번 뜰 때 하나만, 아무거나(바로 전 것과는 다르게)
+  function tips(el, on) { const t = el.querySelector(".tp"); let L = [];
     if (on && tipFn) { try { L = (tipFn() || []).filter(Boolean); } catch {} }
     if (!L.length) { t.style.display = "none"; t.textContent = ""; el.querySelector(".hd b").style.display = "none"; return; }
-    const pick = () => { if (pin || hold) return; tipI = (tipI + 1 + Math.floor(Math.random() * Math.max(1, L.length - 1))) % L.length; t.textContent = String(L[tipI]); };   // 붙잡아 둔 동안엔 같은 팁
-    pick(); t.style.display = ""; el.querySelector(".hd b").style.display = ""; tipTm = setInterval(pick, 4500); }
-  // (11/03 14:17 사용자) 안 건드리면 다 불러온 뒤 5초 있다가 서서히 사라짐 · 톡·끌기·0.6초 넘게 꾹 = 붙잡음(저절로 안 사라짐) → 다시 톡 = 바로 사라짐(페이드 없이) · 누른 채 끌면 박스가 따라 움직임
-  // (11/03 14:34 사용자) 전체화면 팁 창과 같게: 다 불러온 순간부터 3초(14:37 사용자: 5→3초) 보이고 1.8초 페이드(이어 읽기 기다림 0.5초 + 바 채움 0.26초 포함)
-  const LONG = 600, LINGER = 3000 - GRACE - 260, FADE = 1800; let fadeT = null, pin = false, hold = false, down = 0, lingerT = null, lingering = false, busyOn = false, grab = null;
-  function vis(el) { const v = busyOn || pin || hold || lingering, was = el.classList.contains("on"); el.classList.toggle("on", v); el.classList.toggle("pin", pin);
-    clearTimeout(fadeT); if (v || el.classList.contains("now")) el.classList.remove("fd"); else if (was) { el.classList.add("fd"); fadeT = setTimeout(() => el.classList.remove("fd"), FADE); }   // (11/03 14:37 사용자) 사라지는 도중에도 붙잡을 수 있게   // (11/03 14:30 사용자) 붙잡힌 동안 '톡 하면 닫혀요' 
+    let k = Math.floor(Math.random() * L.length); if (L.length > 1 && k === tipI) k = (k + 1 + Math.floor(Math.random() * (L.length - 1))) % L.length; tipI = k;
+    t.textContent = String(L[k]); t.style.display = ""; el.querySelector(".hd b").style.display = ""; }
+  // (11/03 14:17·14:37·14:47 사용자) 박스가 떠 있는 동안(사라지는 중 포함) 아래 화면은 눌리지 않음 · 박스든 바깥이든 톡 = 바로 닫힘(페이드 없이)
+  //   누른 채 끌기(박스가 따라 움직임)·0.6초 넘게 꾹 = 붙잡음(저절로 안 사라짐) · 안 건드리면 다 불러온 순간부터 2초 보이고 1.8초 페이드
+  const LONG = 600, LINGER = Math.max(0, 2000 - GRACE - 260), FADE = 1800;
+  let fadeT = null, pin = false, hold = false, down = 0, lingerT = null, lingering = false, busyOn = false, grab = null, dismissed = false;
+  function vis(el) { const v = (busyOn && !dismissed) || pin || hold || lingering, was = el.classList.contains("on"); el.classList.toggle("on", v); el.classList.toggle("pin", pin);
+    clearTimeout(fadeT); if (v || el.classList.contains("now")) el.classList.remove("fd"); else if (was) { el.classList.add("fd"); fadeT = setTimeout(() => el.classList.remove("fd"), FADE); }   // 사라지는 동안에도 아래 화면 막음
     if (v) clearTimeout(vis.clr);
-    if (!v) { cancelAnimationFrame(praf); clearInterval(tipTm); tipTm = null; clearTimeout(vis.clr); vis.clr = setTimeout(() => { if (!el.classList.contains("on")) tips(el, false); }, 1900); }   // 글은 페이드가 끝난 뒤에 비움(사라지는 동안 박스가 줄지 않게)
+    if (!v) { cancelAnimationFrame(praf); clearTimeout(vis.clr); vis.clr = setTimeout(() => { if (!el.classList.contains("on")) tips(el, false); }, 1900); }   // 글은 페이드가 끝난 뒤에 비움
     else if (!busyOn) el.querySelector(".tx").textContent = "✓ 다 불러왔어요"; }
   function linger(el) { clearTimeout(lingerT); lingering = true; vis(el); lingerT = setTimeout(() => { lingering = false; vis(el); }, LINGER); }
-  function shutNow(el) { pin = false; lingering = false; clearTimeout(lingerT); el.classList.add("now"); vis(el); setTimeout(() => el.classList.remove("now"), 80); }
+  function shutNow(el) { pin = false; hold = false; lingering = false; clearTimeout(lingerT); if (busyOn) dismissed = true; el.classList.add("now"); el.classList.remove("fd"); vis(el); setTimeout(() => el.classList.remove("now"), 80);
+    el.classList.add("eat"); clearTimeout(shutNow.t); shutNow.t = setTimeout(() => el.classList.remove("eat"), 500); }   // 닫은 그 손가락의 떼기·클릭도 아래 화면에 안 닿게 잠깐 더 막음
   function wireBox(el) { const bx = el.querySelector(".bx");
-    bx.addEventListener("pointerdown", (e) => { e.stopPropagation(); e.preventDefault(); const fading = !el.classList.contains("on"); down = performance.now(); hold = true;
-      grab = { x: e.clientX, y: e.clientY, dx: +bx.dataset.dx || 0, dy: +bx.dataset.dy || 0, moved: false, fading }; if (fading) { pin = true; lingering = false; clearTimeout(lingerT); vis(el); } try { bx.setPointerCapture(e.pointerId); } catch {} });
+    el.addEventListener("pointerdown", (e) => { if (e.target !== el) return; e.stopPropagation(); e.preventDefault(); shutNow(el); });   // 바깥(아래 화면 자리) 톡 = 닫기 · 아래로는 안 넘어감
+    el.addEventListener("click", (e) => { e.stopPropagation(); e.preventDefault(); });
+    bx.addEventListener("pointerdown", (e) => { e.stopPropagation(); e.preventDefault(); down = performance.now(); hold = true;
+      grab = { x: e.clientX, y: e.clientY, dx: +bx.dataset.dx || 0, dy: +bx.dataset.dy || 0, moved: false }; lingering = false; clearTimeout(lingerT); vis(el); try { bx.setPointerCapture(e.pointerId); } catch {} });
     bx.addEventListener("pointermove", (e) => { if (!down || !grab) return; const ax = e.clientX - grab.x, ay = e.clientY - grab.y; if (!grab.moved && Math.hypot(ax, ay) < 6) return; grab.moved = true;
       bx.dataset.dx = grab.dx + ax; bx.dataset.dy = grab.dy + ay; bx.style.transform = `translate(${grab.dx + ax}px,${grab.dy + ay}px)`; });
-    bx.addEventListener("pointerup", (e) => { e.stopPropagation(); if (!down) return; const long = performance.now() - down >= LONG, moved = !!(grab && grab.moved); down = 0; hold = false;
-      const fromFade = !!(grab && grab.fading); grab = null; if (moved || long || !pin || fromFade) { pin = true; vis(el); return; } shutNow(el); });   // 붙잡은 박스를 다시 톡 = 바로 닫기
+    bx.addEventListener("pointerup", (e) => { e.stopPropagation(); if (!down) return; const long = performance.now() - down >= LONG, moved = !!(grab && grab.moved); down = 0; hold = false; grab = null;
+      if (moved || long) { pin = true; vis(el); return; } shutNow(el); });   // 톡 = 바로 닫기
     bx.addEventListener("pointercancel", () => { down = 0; hold = false; grab = null; pin = true; vis(el); });
-    bx.addEventListener("click", (e) => e.stopPropagation()); bx.addEventListener("contextmenu", (e) => e.preventDefault()); }
-  function hideNow(el) { const was = busyOn; busyOn = false; if (was && !pin && el.classList.contains("on")) linger(el); else vis(el); }   // 다 불러오면 5초 더 보여 주고 서서히
+    bx.addEventListener("contextmenu", (e) => e.preventDefault()); }
+  function hideNow(el) { const was = busyOn; busyOn = false; const dis = dismissed; dismissed = false; if (was && !dis && !pin && el.classList.contains("on")) linger(el); else vis(el); }   // 다 불러오면 2초 더 보여 주고 서서히
   function loading(on, text, delay) {   // 불러오기 표시는 이것 하나(10/30 15:24 사용자: 일관되게). 기본 0.6초 넘게 걸릴 때만
     let el = document.getElementById("brLoad");
     if (!el) { el = document.createElement("div"); el.id = "brLoad"; el.setAttribute("role", "status"); el.innerHTML = `<div class="bx"><div class="hd"><span class="hg" aria-hidden="true">⏳</span><b style="display:none">[Tip]</b><span class="pn">톡 하면 닫혀요</span><span class="tx"></span></div><div class="tp" style="display:none"></div><div class="br"><i></i></div></div>`; document.body.appendChild(el); wireBox(el); }
     ln = Math.max(0, ln + (on ? 1 : -1));
     if (on) { el.querySelector(".tx").textContent = text || "불러오는 중...";
+      if (busyOn && dismissed) { clearTimeout(loading.hide); loading.hide = null; }   // 닫아 둔 채 이어 읽기: 계속 닫힌 채로
       if (el.classList.contains("on")) {   // 이미 떠 있음(사라지기 직전이거나 붙잡아 둔 상태) → 그대로 이어서
         clearTimeout(lingerT); lingering = false;
-        if (!busyOn && !loading.hide && !loading.hide2) { busyOn = true; prog(el, true); if (!tipTm) tips(el, true); }
+        if (!busyOn && !loading.hide && !loading.hide2) { busyOn = true; prog(el, true); }
         busyOn = true;
         if (loading.hide || loading.hide2) { const done = !!loading.hide2; clearTimeout(loading.hide); clearTimeout(loading.hide2); loading.hide = loading.hide2 = null; if (done) { pt0 = performance.now() - 4000; prog(el, true, true); } } }
-      else { clearTimeout(lt); lt = setTimeout(() => { if (ln > 0 && !el.classList.contains("on")) { busyOn = true; const bx = el.querySelector(".bx"); bx.dataset.dx = bx.dataset.dy = 0; bx.style.transform = ""; el.classList.add("on"); prog(el, true); tips(el, true); } }, delay == null ? 600 : delay); }
+      else { clearTimeout(lt); lt = setTimeout(() => { if (ln > 0 && !el.classList.contains("on") && !(busyOn && dismissed)) { busyOn = true; dismissed = false; const bx = el.querySelector(".bx"); bx.dataset.dx = bx.dataset.dy = 0; bx.style.transform = ""; el.classList.add("on"); prog(el, true); tips(el, true); } }, delay == null ? 600 : delay); }
       clearTimeout(loading.cap); loading.cap = setTimeout(() => { ln = 0; hideNow(el); }, 20000); }
     if (ln === 0) { clearTimeout(lt);
       if (el.classList.contains("on")) { clearTimeout(loading.hide); clearTimeout(loading.hide2);
         loading.hide = setTimeout(() => { loading.hide = null; if (ln !== 0) return; prog(el, false);   // 다 불러오면 꽉 채우고 사라짐
           loading.hide2 = setTimeout(() => { loading.hide2 = null; if (ln === 0) hideNow(el); }, 260); }, GRACE); }
+      else if (busyOn) { clearTimeout(loading.hide); loading.hide = setTimeout(() => { loading.hide = null; if (ln === 0) hideNow(el); }, GRACE); }   // 닫아 둔 채 끝남 → 정리(다음엔 다시 뜸)
       else el.classList.remove("on"); }
   }
   function bar() { let b = document.getElementById("brBar"); if (!b) { b = document.createElement("div"); b.id = "brBar"; document.body.appendChild(b); } b.classList.remove("go"); void b.offsetWidth; b.classList.add("go"); }
