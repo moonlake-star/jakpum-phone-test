@@ -194,7 +194,7 @@
     if (!sheetClose) try { history.pushState(Object.assign({}, history.state || {}, { tuneSheet: true }), ""); } catch {}
     let closed = false;
     const close = (fromPop) => { if (closed) return; closed = true; el.remove(); V && V.done(); if (lastView === V) lastView = null; if (sheetClose === close) sheetClose = null;
-      if (fromPop !== true) try { if (history.state && history.state.tuneSheet) { skipPop = true; history.back(); } } catch {} };
+      if (fromPop !== true) try { if (history.state && history.state.tuneSheet) { const nl = dropL(); skipPop = true; history.go(-1 - nl); } } catch {} };
     sheetClose = close;
     // (10/31 08:09 버그) 위 칸을 톡 하면 창이 뜬 직후 같은 손가락의 'click'이 창 바깥(어두운 곳)에 떨어져 바로 닫혔음 → 뜬 뒤 0.45초 안의 바깥 클릭은 무시
     const openedAt = performance.now();
@@ -598,7 +598,7 @@
     const persist = () => { clearTimeout(tm); stEl.textContent = "저장 중…"; tm = setTimeout(() => { tm = null; try { fxSave(onFix, { t0: T0, t1: T1, midi: keepFix() ? rnd(m) : null, ...(isCut && same() ? { cut: true } : {}) }); } catch {} commit(); stEl.textContent = "✓ 저장됨"; }, 450); };
     const core = () => { if (st) st.selSnd = null; try { sndOff(); } catch {} if (tTm) { clearTimeout(tTm); tTm = null; tSave(); commit(); } if (st) { st.onBarDrag = null; st.onBarDragX = null; st.stopAt = 0; } if (tm) { clearTimeout(tm); tm = null; try { fxSave(onFix, { t0: T0, t1: T1, midi: keepFix() ? rnd(m) : null, ...(isCut && same() ? { cut: true } : {}) }); } catch {} commit(); } toneOff(); if (st) st.sel = null; d.remove(); };
     // (11/02 20:26 사용자) 폰 뒤로(갤럭시 뒤로 밀기) = 고치기 창만 닫기(전체화면은 그대로) — 주석 창과 같은 방식(기록 한 칸)
-    const leave = () => { if (sheetClose === close_) sheetClose = null; try { if (history.state && history.state.tuneSheet) { skipPop = true; history.back(); } } catch {} };
+    const leave = () => { if (sheetClose === close_) sheetClose = null; try { if (history.state && history.state.tuneSheet) { const nl = dropL(); skipPop = true; history.go(-1 - nl); } } catch {} };
     const close_ = (fromPop) => { core(); saveToast(); if (bot) bot._h0 = 0; if (fromPop === true) { if (sheetClose === close_) sheetClose = null; } else leave(); };
     if (!had && !sheetClose) try { history.pushState(Object.assign({}, history.state || {}, { tuneSheet: true }), ""); } catch {}
     sheetClose = close_; close_._fix = true;
@@ -646,8 +646,9 @@
       const cf = document.createElement("div"); cf.className = "tfCfm"; cf.setAttribute("role", "dialog");
       cf.innerHTML = `<div class="tfCfmBox"><b>원본으로 되돌릴까요?</b><p>이 음의 음정·타이밍 고침을 모두 지우고, 보컬 분리 후 기본 보정만 한 상태로 돌아가요.</p><div class="tfCfmRow"><button type="button" data-cf="0">취소</button><button type="button" class="pri" data-cf="1">확인</button></div></div>`;
       cf.addEventListener("pointerdown", (e) => e.stopPropagation());
-      cf.addEventListener("click", (e) => { if (e.target === cf) cf.remove(); });   // 바깥 톡 = 취소
-      cf.querySelectorAll("[data-cf]").forEach(x => x.onclick = (e) => { e.stopPropagation(); cf.remove(); if (x.dataset.cf === "1") toOrig(); });
+      const ly = G.Brand && G.Brand.layer ? G.Brand.layer(() => cf.remove()) : { close: () => cf.remove() };   // 뒤로 가기 = 이 확인 창만 닫힘
+      cf.addEventListener("click", (e) => { if (e.target === cf) ly.close(); });
+      cf.querySelectorAll("[data-cf]").forEach(x => x.onclick = (e) => { e.stopPropagation(); ly.close(); if (x.dataset.cf === "1") toOrig(); });
       host.appendChild(cf); };
     d.querySelectorAll("[data-r],[data-tr]").forEach(x => { let hold = null, fired = false;
       const stop = () => { clearTimeout(hold); hold = null; x.classList.remove("hold"); };
@@ -713,7 +714,7 @@
     st.onMSel = paint; paint();
     rb.onclick = async () => { const m_ = st.msel; if (!m_) return; let n = 0; try { n = await o.onResetRange(m_[0], m_[1]); } catch {} st.msel = null; paint(); if (n) stEl.textContent = `↺ ${n}곳 원본으로`; };
     const core = () => { st.mMode = false; st.msel = null; st.onMSel = null; d.remove(); };
-    const leave = () => { if (sheetClose === close_) sheetClose = null; try { if (history.state && history.state.tuneSheet) { skipPop = true; history.back(); } } catch {} };
+    const leave = () => { if (sheetClose === close_) sheetClose = null; try { if (history.state && history.state.tuneSheet) { const nl = dropL(); skipPop = true; history.go(-1 - nl); } } catch {} };
     const close_ = (fromPop) => { core(); saveToast(); if (bot) bot._h0 = 0; if (fromPop === true) { if (sheetClose === close_) sheetClose = null; } else leave(); };
     if (!had && !sheetClose) try { history.pushState(Object.assign({}, history.state || {}, { tuneSheet: true }), ""); } catch {}
     sheetClose = close_;
@@ -801,7 +802,7 @@
         setTimeout(() => { if (!wrap.isConnected) return; wrap.appendChild(rp); setTimeout(shut, 3500); }, 400); } }
     const done = () => { saveToast(); G.removeEventListener("resize", layout); G.removeEventListener("orientationchange", layout); wrap.remove(); if (fsClose === done) fsClose = null; };
     fsClose = done;
-    const close = () => { const sh = !!sheetClose; if (sh) sheetClose(true); done(); try { if (history.state && history.state.tuneFs) { skipPop = true; history.go(sh && history.state.tuneSheet ? -2 : -1); } } catch {} };   // 주석 창이 열린 채 닫으면 그 기록까지 같이 정리
+    const close = () => { const sh = !!sheetClose, nl = dropL(); if (sh) sheetClose(true); done(); try { if (history.state && history.state.tuneFs) { skipPop = true; history.go(-1 - nl - (sh && history.state.tuneSheet ? 1 : 0)); } } catch {} };   // 주석 창·팁 목록이 열린 채 닫으면 그 기록까지 같이 정리
     wrap.querySelectorAll(".tfX").forEach(b => b.onclick = close);
     const tm = wrap.querySelector(".tfTime"), mid = wrap.querySelector(".tfMid"), skipB = wrap.querySelector(".tfSkip");
     skipB.addEventListener("pointerdown", (e) => e.stopPropagation());
@@ -983,7 +984,9 @@
   }
   // 뒤로 가기: 열린 전체화면만 닫고, 앱 쪽 뒤로 가기 처리는 건너뛰게 e.tuneClosed 표시(선생님 앱 popstate가 확인)
   let fsClose = null, skipPop = false, sheetClose = null;
+  const dropL = () => { try { return G.Brand && G.Brand.dropLayers ? G.Brand.dropLayers() : 0; } catch { return 0; } };
   if (typeof G.addEventListener === "function") G.addEventListener("popstate", (e) => {
+    if (e && e.layerClosed) return;   // 맨 위 작은 창(Brand.layer)만 닫힘 — 고치기 창·전체화면은 그대로
     if (skipPop) { skipPop = false; try { e.tuneClosed = true; } catch {} return; }
     if (sheetClose) { sheetClose(true); try { e.tuneClosed = true; } catch {} return; }   // 주석 창이 열려 있으면 그것만 닫음
     if (fsClose) { fsClose(); try { e.tuneClosed = true; } catch {} }

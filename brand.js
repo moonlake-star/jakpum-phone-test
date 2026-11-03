@@ -111,17 +111,27 @@
     let k = Math.floor(Math.random() * L.length); if (L.length > 1 && L[k] === tbEl.dataset.t) k = (k + 1) % L.length;
     tbEl.dataset.t = L[k]; tbEl.querySelector("span").textContent = L[k]; tbEl.hidden = false; document.body.classList.add("brTipOn"); }
   function tipBar(on) { tbOn = on !== false; if (!tbOn) { if (tbEl) tbEl.remove(); tbEl = null; document.body.classList.remove("brTipOn"); return; } tipBarRefresh(); }
+  // (11/03 22:22 사용자) 뒤로 가기(갤럭시 뒤로 밀기)는 어느 화면에서나 같은 규칙: '맨 위에 떠 있는 것 하나만' 닫힘
+  //   (팁 목록·확인 창 같은 작은 창 → 고치기 창 → 전체화면 → 화면). 새 창·시트·팝업은 꼭 Brand.layer(닫는 함수)로 열 것 — AGENTS.md 규칙
+  const layers = []; let lSkip = 0;
+  function layer(closeFn) { const L = { id: Math.random().toString(36).slice(2), closeFn }; layers.push(L);
+    try { history.pushState(Object.assign({}, history.state || {}, { brLayer: L.id }), ""); } catch {}
+    return { close() { const i = layers.indexOf(L); if (i < 0) return; layers.splice(i, 1); try { L.closeFn(false); } catch {}   // 화면 버튼(✕·바깥 톡)으로 닫음 → 기록 한 칸도 정리
+      try { if (history.state && history.state.brLayer === L.id) { lSkip++; history.back(); } } catch {} } }; }
+  function dropLayers() { const n = layers.length; while (layers.length) { const L = layers.pop(); try { L.closeFn(false); } catch {} } return n; }   // 아래 창(전체화면 등)이 버튼으로 닫힐 때: 위 작은 창들을 기록 없이 닫고 개수 알려줌 → 그만큼 더 뒤로
+  const lMark = (e) => { try { e.layerClosed = true; e.tuneClosed = true; } catch {} };   // 다른 뒤로 가기 처리(전체화면·화면 이동)는 건너뛰게
+  if (typeof G.addEventListener === "function") G.addEventListener("popstate", (e) => { if (lSkip > 0) { lSkip--; lMark(e); return; } if (layers.length) { const L = layers.pop(); try { L.closeFn(true); } catch {} lMark(e); } });
   function tipSheet(list, first, host) {   // 팁 목록 창: 고른 팁이 맨 위(강조), 나머지가 아래로 · 바깥 톡·✕ = 닫기
     document.getElementById("brTipSheet")?.remove(); const L = (list || []).map(String); if (!L.length) return;
     const f = Math.min(Math.max(0, first | 0), L.length - 1), order = [L[f], ...L.filter((_, i) => i !== f)];
     const d = document.createElement("div"); d.id = "brTipSheet"; d.setAttribute("role", "dialog"); if (host) d.classList.add("in");
     d.innerHTML = `<div class="sh"><div class="hd"><b>💡 이 화면에서 쓸 수 있는 팁</b><button type="button" class="x" aria-label="닫기">✕</button></div><ol></ol></div>`;
     const ol = d.querySelector("ol"); order.forEach((t, i) => { const li = document.createElement("li"); li.textContent = t; if (i === 0) li.className = "first"; ol.appendChild(li); });
-    const shut = () => d.remove(); d.addEventListener("pointerdown", (e) => e.stopPropagation()); d.addEventListener("click", (e) => { e.stopPropagation(); if (e.target === d) shut(); });
+    const ly = layer(() => d.remove()), shut = () => ly.close(); d.addEventListener("pointerdown", (e) => e.stopPropagation()); d.addEventListener("click", (e) => { e.stopPropagation(); if (e.target === d) shut(); });
     d.querySelector(".x").onclick = shut; (host || document.body).appendChild(d); }
   function bar() { setTimeout(tipBarRefresh, 30);   // 화면이 바뀌면 그 화면 팁으로
     let b = document.getElementById("brBar"); if (!b) { b = document.createElement("div"); b.id = "brBar"; document.body.appendChild(b); } b.classList.remove("go"); void b.offsetWidth; b.classList.add("go"); }
   const mark = () => `<span class="brMark" aria-hidden="true"></span>`;
   const sign = () => `<div class="brSign">가장 아름다운 당신의 오늘을 ‘작품’으로..</div>`;
-  G.Brand = { splash, loading, setTips, tipBar, tipSheet, bar, mark, sign, LOGO };
+  G.Brand = { splash, loading, setTips, tipBar, tipSheet, layer, dropLayers, bar, mark, sign, LOGO };
 })(window);
