@@ -54,10 +54,18 @@ console.log("intro ok");
   assert.ok(!/[^.\w]onFix\(\{/.test(t.slice(t.indexOf("function fixSheet("), t.indexOf("function fixSheet(") + 6000)), "고치기 창의 저장은 전부 fxSave로"); }
 // (11/03 08:14 사용자) 나누면 오른쪽 조각이 바로 골라진 채로
 { const t = require("fs").readFileSync(__dirname + "/../tune.js", "utf8");
-  assert.ok(t.includes("fixSheet(host, cv, { t0: ts, t1: T1, c: m * 100 }, onFix, getT, st); };")); }
+  assert.ok(t.includes("fixSheet(host, cv, { t0: ts, t1: T1, c: Math.round(m * 100) }, onFix, getT, st); };")); }
 // (11/03 08:39 사용자) 기준선 왼쪽 두 번 톡 = 5초 뒤로, 오른쪽 = 5초 앞으로
 { const t = require("fs").readFileSync(__dirname + "/../tune.js", "utf8");
   assert.ok(t.includes("const DT_JUMP = 2;") && t.includes("const j = le.x < hx ? -DT_JUMP : DT_JUMP") && t.includes("기준선 왼쪽·오른쪽 두 번 톡 = 2초 뒤로·앞으로")); }
 // (11/03 10:31 아이패드) 정음 막대 톡: 누른 자리 기준 + 가장 가까운 막대(위아래 22px)
 { const t = require("fs").readFileSync(__dirname + "/../tune.js", "utf8");
   assert.ok(t.includes("const hitBar = (le) =>") && t.includes("hb = hitBar(le);") && t.includes("loc(d.cx ?? e.clientX, d.cy ?? e.clientY")); }
+// (11/03 10:50 사용자) 막대 고르면 사인파 · 🎤 목소리 구간 듣기 · ▼▲ 톡=반음 꾹=5센트씩 · 막대 누른 채 위아래=반음 · 2반음 넘게도 · 음 이름 떼면 소리 끔 · 연타 확대 막기
+{ const t = require("fs").readFileSync(__dirname + "/../tune.js", "utf8");
+  assert.ok(t.includes("try { tone(m); setTimeout(toneOff, 450); } catch {}"), "고르면 소리");
+  assert.ok(t.includes("st.playSeg = (t0, t1) =>") && t.includes("if (st.stopAt && !isPaused() && (+getT() || 0) >= st.stopAt)"), "목소리 구간 듣기");
+  assert.ok(t.includes("step(+x.dataset.d * 0.05, false)") && t.includes("if (!wasLong) step(+x.dataset.d, true);"), "톡 반음 · 꾹 미세");
+  assert.ok(t.includes("if (hb0 && Math.abs(hb0.t0 - st.sel.t0) < 0.02") && t.includes("if (st.onBarDrag) st.onBarDrag(k, false);"), "막대 끌어 반음");
+  assert.ok(t.includes('["pointerup", "pointerleave", "pointercancel", "touchend", "touchcancel"].forEach(ev => nb.addEventListener(ev, toneOff));'), "떼면 소리 끔");
+  assert.ok(t.includes('wrap.addEventListener("dblclick", (e) => e.preventDefault());') && t.includes("#tuneFs button,#tuneFs .tfFix,#tuneFs .tfFix *{touch-action:manipulation}"), "연타 확대 막기"); }
