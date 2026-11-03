@@ -10,7 +10,7 @@ for (const t of L) { assert.ok(code.includes(t.need), "기능이 바뀌었으면
 const br = fs.readFileSync(__dirname + "/../brand.js", "utf8");
 assert.ok(br.includes("const GRACE = 500;") && br.includes("loading.hide = setTimeout(() => { loading.hide = null; if (ln !== 0) return; prog(el, false);") && br.includes("setTips"), "연달아 읽어도 한 번만");
 assert.ok(src.includes("Brand.setTips(appTips)"));
-{ const ss = fs.readFileSync(__dirname + "/../student/index.html", "utf8"), a2 = ss.indexOf("const S_TIPS = ["), b2 = ss.indexOf("try { if (typeof Brand !== \"undefined\" && Brand.setTips) Brand.setTips(() => S_TIPS");
+{ const ss = fs.readFileSync(__dirname + "/../student/index.html", "utf8"), a2 = ss.indexOf("const S_TIPS = ["), b2 = ss.indexOf("try { if (typeof Brand !== \"undefined\" && Brand.setTips) Brand.setTips(() => (typeof data");
   assert.ok(a2 > 0 && b2 > a2, "수강생 팁");
   const blk = ss.slice(a2, b2), cd = ss.slice(0, a2) + ss.slice(b2), S = new Function("return " + blk.slice(blk.indexOf("["), blk.lastIndexOf("]") + 1))();
   for (const t2 of S) { assert.ok(cd.includes(t2.need), "수강생 팁 기능: " + t2.text); assert.ok(t2.text.length <= 48); }
@@ -31,3 +31,8 @@ const b5x = (b) => b.includes('document.addEventListener("click", (e) => { if (r
 { const b5 = fs.readFileSync(__dirname + "/../brand.js", "utf8"), t5 = fs.readFileSync(__dirname + "/../tune.js", "utf8");
   assert.ok(b5.includes('queued = { t: e.target, x: e.clientX, y: e.clientY }') && b5.includes("setTimeout(() => replay(q), 0); return; }"), "불러오는 중 박스");
   assert.ok(t5.includes("if (ldWas && !main) { ldQ = q; return; } ldShut(); }, true);") && t5.includes("if (main && !ldWas) { ldShut(); return; }") && t5.includes("setTimeout(() => ldReplay(q), 0);"), "전체화면 팁 창"); }
+// (11/03 17:28 사용자) 화면 맨 아래 고정 팁 칸 · 누르면 그 팁이 맨 위인 목록 · 전체화면은 팝업 없이 아래 팁 한 줄/💡 팁 보기 → 목록
+{ const b6 = fs.readFileSync(__dirname + "/../brand.js", "utf8"), t6 = fs.readFileSync(__dirname + "/../tune.js", "utf8");
+  assert.ok(b6.includes("function tipBar(on)") && b6.includes("function tipSheet(list, first, host)") && b6.includes("order = [L[f], ...L.filter((_, i) => i !== f)]") && b6.includes("setTimeout(tipBarRefresh, 30)"));
+  for (const f of ["teacher", "student"]) assert.ok(fs.readFileSync(__dirname + `/../${f}/index.html`, "utf8").includes("Brand.tipBar(true)"), f);
+  assert.ok(t6.includes('tlEl.onclick = () => openTips(tipI);') && t6.includes('tb.className = "tfTipsBtn"')); }
