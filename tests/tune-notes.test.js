@@ -24,7 +24,7 @@ assert.ok(stu.includes("notes: () => tnOk(mk.tune_notes)"), "수강생 화면은
 assert.ok(!/onNote|onAdd/.test(stu), "수강생 화면엔 고치기·추가 없음");
 assert.strictEqual(typeof T.undo, "function");
 const tj = fs.readFileSync(path.join(__dirname, "..", "tune.js"), "utf8");
-assert.ok((tj.match(/}, 300\); }/g) || []).length >= 2, "꾹 = 0.3초(작은 화면·전체화면)");
+assert.ok((tj.match(/}, 390\); }/g) || []).length >= 2, "꾹 = 0.39초(작은 화면·전체화면)");
 assert.ok(tj.includes('class="tsClr">전체 지우기'), "고치는 창 = AI 글 그대로 + 전체 지우기");
 assert.ok(html.includes("onDelNote:"), "말풍선 ✕ = 바로 삭제(되돌리기)");
 const tnKeepAi = new Function(grab("tnKeepAi") + "; return tnKeepAi;")(), tnRemove = new Function(grab("tnRemove") + "; return tnRemove;")();
