@@ -333,20 +333,26 @@
     if (full && kt) {   // 정음(목표음) = 초록 막대: 보정이 맞추려는 바로 그 음
       const bh = Math.max(6, (HP - 12) / ((hi - lo) / 100) * 0.55), bars = []; let run = null;
       const fxOf = (tt) => (cv._fixes || []).findIndex(x => tt >= x.t0 - 1e-6 && tt < x.t1 - 1e-6);   // 나눈·고친 구간 경계에서 막대도 끊음
+      // 1) 막대 조각 모으기 → 2) 아주 짧은 조각(0.1초 미만, 선생님이 안 고친 것)은 막대로 안 그리고 옆 회색 막대에 합침(11/03 15:52 사용자: 가는 막대 하나가 따로 보임)
+      const runs = [];
       for (let i = 0; i < vis.length; i++) { const p = vis[i], q = vis[i + 1]; if (p[kt] == null) { run = null; continue; }
         // (11/03 15:21 사용자) 한 음인데 가운데서 소리 높이를 못 잡은 짧은 틈(숨·자음·작아진 소리)에서 막대가 끊김 → 같은 정음이고 사이에 다른 점이 없으면 0.5초까지 한 막대(서버 BRIDGE_S와 같음)
         const cont = q && q[kt] === p[kt] && q[0] - p[0] < BAR_GAP && fxOf(q[0]) === fxOf(p[0]), x0 = xs(p[0]), x1 = cont ? xs(q[0]) : x0 + 2;
-        g.fillStyle = srcCol(cv, p[0]); { const mv = (cv._tedits || []).some(x => p[0] >= x.t0 - 1e-6 && p[0] < x.t1 - 1e-6); if (mv) g.globalAlpha = 0.22; g.fillRect(x0, y(p[kt]) - bh / 2, Math.max(1, x1 - x0 + 0.5), bh); g.globalAlpha = 1; }   // 옮기는 중인 음은 원래 자리를 흐리게
-        if (!run) { run = { x0, x1, t0: p[0], t1: p[0], c: p[kt], y: y(p[kt]), h: bh }; bars.push(run); }
-        run.x1 = x1; run.t1 = cont ? q[0] : p[0] + 0.04;
-        if (!cont) { const fi = fxOf(run.t0); if (fi >= 0) { run.t0 = cv._fixes[fi].t0; run.t1 = cv._fixes[fi].t1; } run = null; } }
+        if (!run) { run = { x0, x1, t0: p[0], t1: p[0], c: p[kt], y: y(p[kt]), h: bh, seg: [] }; runs.push(run); }
+        run.seg.push([p, x0, x1]); run.x1 = x1; run.t1 = cont ? q[0] : p[0] + 0.04;
+        if (!cont) { const fi = fxOf(run.t0); if (fi >= 0) { run.t0 = cv._fixes[fi].t0; run.t1 = cv._fixes[fi].t1; run.fx = true; } run = null; } }
+      const tiny = new Set();
+      for (const r of runs) {
+        if (!r.fx && r.t1 - r.t0 < 0.1) { r.seg.forEach(([p]) => tiny.add(p)); continue; }
+        for (const [p, x0, x1] of r.seg) { g.fillStyle = srcCol(cv, p[0]); const mv = (cv._tedits || []).some(x => p[0] >= x.t0 - 1e-6 && p[0] < x.t1 - 1e-6); if (mv) g.globalAlpha = 0.22; g.fillRect(x0, y(p[kt]) - bh / 2, Math.max(1, x1 - x0 + 0.5), bh); g.globalAlpha = 1; }   // 옮기는 중인 음은 원래 자리를 흐리게
+        delete r.seg; bars.push(r); }
       // (11/03 15:35 사용자) 부른 음 선은 있는데 정음 막대가 없는 곳(ㅅ·ㅊ·ㅎ 뒤 모음, 꺾기·짧은 음 등 자동 보정이 일부러 안 건드린 곳)도 고칠 수 있게
       // → 선생님 화면에서만 회색 점선 막대(부른 높이에 가까운 음)로 보여 주고, 톡 하면 다른 막대처럼 고치기 창 — 고치기 전엔 자동 보정에 아무 영향 없음
       if (st && st.ghostOn) { let gr = null;
         const flush = () => { if (gr && gr.t1 - gr.t0 >= 0.1) { const sv = gr.v.slice().sort((a, b) => a - b), c = Math.round(sv[sv.length >> 1] / 100) * 100, gx0 = xs(gr.t0), gx1 = xs(gr.t1), yy = y(c);
             g.save(); g.fillStyle = "rgba(160,168,180,.16)"; g.fillRect(gx0, yy - bh / 2, Math.max(3, gx1 - gx0), bh); g.setLineDash([3, 3]); g.strokeStyle = "rgba(205,210,218,.65)"; g.lineWidth = 1.2; g.strokeRect(gx0, yy - bh / 2, Math.max(3, gx1 - gx0), bh); g.restore();
             bars.push({ x0: gx0, x1: gx1, t0: gr.t0, t1: gr.t1, c, y: yy, h: bh, ghost: true }); } gr = null; };
-        for (const p of vis) { if (p[kt] != null || p[1] == null) { flush(); continue; } if (gr && p[0] - gr.tl > 0.13) flush(); if (!gr) gr = { t0: p[0], t1: p[0], tl: p[0], v: [] }; gr.v.push(p[1]); gr.tl = p[0]; gr.t1 = p[0] + 0.04; }
+        for (const p of vis) { if ((p[kt] != null && !tiny.has(p)) || p[1] == null) { flush(); continue; } if (gr && p[0] - gr.tl > 0.13) flush(); if (!gr) gr = { t0: p[0], t1: p[0], tl: p[0], v: [] }; gr.v.push(p[1]); gr.tl = p[0]; gr.t1 = p[0] + 0.04; }
         flush(); }
       for (const b of bars) { const f = (cv._fixes || []).find(x => x.t0 < b.t1 && x.t1 > b.t0);   // 선생님이 고친 정음 = 노란 테두리(나누기만 한 조각은 경계 틈만)
         if (f && !f.cut) { g.strokeStyle = "#ffd27a"; g.lineWidth = 2; g.strokeRect(b.x0, b.y - b.h / 2, Math.max(4, b.x1 - b.x0), b.h); }
