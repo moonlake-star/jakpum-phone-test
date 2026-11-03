@@ -1,7 +1,7 @@
 // (11/03 13:39 사용자) '불러오는 중' 로고 창 팁 — 기능이 바뀌면 실패해서 문구도 같이 고치게 함 · 끊김 없이 한 번만 뜨기
 const fs = require("fs"), assert = require("assert");
 const src = fs.readFileSync(__dirname + "/../teacher/index.html", "utf8");
-const a = src.indexOf("const APP_TIPS = ["), b = src.indexOf("const appTips = () =>");
+const a = src.indexOf("const APP_TIPS = ["), b = src.indexOf("const appTips = (kind) =>");
 assert.ok(a > 0 && b > a);
 const block = src.slice(a, b), code = src.slice(0, a) + src.slice(b);
 const L = new Function("return " + block.slice(block.indexOf("["), block.lastIndexOf("]") + 1))();
@@ -36,3 +36,5 @@ const b5x = (b) => b.includes('document.addEventListener("click", (e) => { if (r
   assert.ok(b6.includes("function tipBar(on)") && b6.includes("function tipSheet(list, first, host)") && b6.includes("order = [L[f], ...L.filter((_, i) => i !== f)]") && b6.includes("setTimeout(tipBarRefresh, 30)"));
   for (const f of ["teacher", "student"]) assert.ok(fs.readFileSync(__dirname + `/../${f}/index.html`, "utf8").includes("Brand.tipBar(true)"), f);
   assert.ok(t6.includes('tlEl.onclick = () => openTips(tipI);') && t6.includes('tb.className = "tfTipsBtn"')); }
+{ const b7 = fs.readFileSync(__dirname + "/../brand.js", "utf8"), s7 = fs.readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  assert.ok(b7.includes('L = (tipFn("load") || [])') && b7.includes('el.classList.toggle("plain", !L.length)') && s7.includes('if (kind === "load" && v === "vMkJob") return [];'), "(11/03 17:56) 메이크업 화면 = 불러오는 중만"); }
