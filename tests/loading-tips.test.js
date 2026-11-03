@@ -15,7 +15,8 @@ for (const t of FS_TIPS) {
 assert.ok(FS_TIPS[0].text().includes(DT_JUMP + "초"), "숫자는 기능 값에서 바로 가져옴(바뀌면 문구도 자동으로)");
 // 화면별: 수강생 화면(고치기·주석 없음)엔 고치기 팁이 안 나옴
 const fsTips = (o) => FS_TIPS.filter(x => !x.when || x.when(o));
-const student = fsTips({ setMode() {} }).map(t => t.text()).join("|"), teacher = fsTips({ setMode() {}, onFix() {}, onNote() {}, onAdd() {} }).map(t => t.text()).join("|");
-assert.ok(!/정음 막대를 톡|✂|주석을 달/.test(student) && /정음 막대를 톡/.test(teacher) && /주석을 달/.test(teacher));
+const student = fsTips({ setMode() {}, notes() { return []; } }).map(t => t.text()).join("|"), teacher = fsTips({ teacher: true, setMode() {}, onFix() {}, onNote() {}, onAdd() {}, notes() { return []; } }).map(t => t.text()).join("|");
+assert.ok(!/정음 막대를 톡|✂|주석을 달|고친 양/.test(student) && /정음 막대를 톡/.test(teacher) && /주석을 달/.test(teacher), "선생님 전용은 수강생에게 안 나옴");
+assert.ok(/강사님 피드백/.test(student) && /내가 부른 음/.test(student) && !/강사님 피드백|내가 부른 음/.test(teacher), "(11/03 10:42) 수강생 전용 팁은 선생님에게 안 나옴");
 assert.ok(src.includes('<p class="tfTip"></p>') && src.includes('"💡 " + ldTips[tipI].text()'));
 console.log("loading-tips ok", FS_TIPS.length);
