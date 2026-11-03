@@ -889,15 +889,15 @@
     const LD_LINGER = 2000, LD_LONG = 600, LD_FADE = 1800;
     let ldPin = false, ldDown = 0, ldShown = false, ldLinger = 0, ldWas = false, ldG = null, ldFadeTo = 0, ldDis = false, ldEat = 0;
     const ldShut = () => { ldPin = false; ldLinger = 0; ldFadeTo = 0; ldDown = 0; ldG = null; ldDis = true; ldEl.classList.add("now"); ldEl.classList.remove("fd"); setTimeout(() => ldEl.classList.remove("now"), 80); };
-    ldEl.addEventListener("pointerdown", (e) => { e.stopPropagation(); e.preventDefault(); if (!ldShown && !(performance.now() < ldFadeTo)) return; ldDown = performance.now();
-      ldG = { x: e.clientX, y: e.clientY, dx: +ldEl.dataset.dx || 0, dy: +ldEl.dataset.dy || 0, moved: false }; ldLinger = 0; try { ldEl.setPointerCapture(e.pointerId); } catch {} });
+    ldEl.addEventListener("pointerdown", (e) => { e.stopPropagation(); e.preventDefault(); const fading = !ldShown && performance.now() < ldFadeTo; if (!ldShown && !fading) return; ldDown = performance.now();   // (11/03 14:57 사용자) 사라지는 중에 팁 창을 누르면 다시 또렷해지며 고정
+      ldG = { x: e.clientX, y: e.clientY, dx: +ldEl.dataset.dx || 0, dy: +ldEl.dataset.dy || 0, moved: false, fading }; if (fading) { ldPin = true; ldFadeTo = 0; } ldLinger = 0; try { ldEl.setPointerCapture(e.pointerId); } catch {} });
     ldEl.addEventListener("pointermove", (e) => { if (!ldDown || !ldG) return; e.stopPropagation(); const ax = e.clientX - ldG.x, ay = e.clientY - ldG.y; if (!ldG.moved && Math.hypot(ax, ay) < 6) return; ldG.moved = true;
       const dx = ldG.dx + (rot ? ay : ax), dy = ldG.dy + (rot ? -ax : ay); ldEl.dataset.dx = dx; ldEl.dataset.dy = dy; ldEl.style.setProperty("--dx", dx + "px"); ldEl.style.setProperty("--dy", dy + "px"); });   // 돌린 화면에서도 손가락 방향대로
-    const ldUp = (e) => { e.stopPropagation(); if (!ldDown) return; const long = performance.now() - ldDown >= LD_LONG, moved = !!(ldG && ldG.moved); ldDown = 0; ldG = null;
-      if (moved || long) { ldPin = true; return; } ldShut(); };   // 톡 = 바로 닫기
+    const ldUp = (e) => { e.stopPropagation(); if (!ldDown) return; const long = performance.now() - ldDown >= LD_LONG, moved = !!(ldG && ldG.moved), fromFade = !!(ldG && ldG.fading); ldDown = 0; ldG = null;
+      if (moved || long || fromFade) { ldPin = true; return; } ldShut(); };   // 톡 = 바로 닫기
     ldEl.addEventListener("pointerup", ldUp); ldEl.addEventListener("pointercancel", (e) => { ldDown = 0; ldG = null; ldPin = true; e.stopPropagation(); });
     // 창이 떠 있으면 아래 화면 터치는 '창 닫기'로만(버튼·그래프에 안 닿음)
-    wrap.addEventListener("pointerdown", (e) => { if (!(ldShown || performance.now() < ldFadeTo) || ldEl.contains(e.target)) return; e.stopPropagation(); e.preventDefault(); ldEat = performance.now() + 700; ldShut(); }, true);
+    wrap.addEventListener("pointerdown", (e) => { if (!ldShown || ldEl.contains(e.target)) return;   /* (11/03 14:56 사용자) 사라지는 1.8초 동안은 아래 화면 눌림 */ e.stopPropagation(); e.preventDefault(); ldEat = performance.now() + 700; ldShut(); }, true);
     wrap.addEventListener("click", (e) => { if (performance.now() < ldEat) { e.stopPropagation(); e.preventDefault(); } }, true);
     const loop = () => { if (!wrap.isConnected) return;
       if (st.stopAt && !isPaused() && (+getT() || 0) >= st.stopAt) { st.stopAt = 0; toggle(); }   // 🎤 목소리 듣기: 그 음 끝에서 멈춤
