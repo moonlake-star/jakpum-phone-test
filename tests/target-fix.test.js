@@ -4,7 +4,7 @@ const tune = fs.readFileSync(__dirname + "/../tune.js", "utf8"), src = fs.readFi
 assert.ok(tune.includes("function tone(m)") && tune.includes("st.kbDown = m; tone(m)") && tune.includes("if (d.kb) { toneOff();"), "건반 소리");
 assert.ok(tune.includes("function fixSheet(") && tune.includes("typeof o.onFix === \"function\" && isPaused() && st.tbars"), "정음 고치기");
 assert.ok(tune.includes("noteName,") && tune.includes("cv._fixes"), "고친 곳 표시");
-assert.ok(src.includes("cv._fixes = (r.target_fixes || []).slice();") && src.includes("onFix, wave: () => mkTracks.mr?.buf") && src.includes('id="mkFixN"'));
+assert.ok(src.includes("cv._fixes = (r.target_fixes || []).slice();") && src.includes("onFix, voice: voiceTone, wave: () => mkTracks.mr?.buf") && src.includes('id="mkFixN"'));
 // 같은 구간은 바꿔 끼움
 const onFixBody = src.match(/const onFix = async \(f\) => \{ const cur = [^\n]*\n/)[0];
 assert.ok(/filter\(x => !\(x\.t0 < f\.t1 && x\.t1 > f\.t0\)\)/.test(onFixBody) && onFixBody.includes("if (f.midi != null) cur.push(f)"));
@@ -17,7 +17,7 @@ assert.ok(tune.includes("function introDraw(") && tune.includes("function waveOf
 assert.ok(/#tuneFs \.tfMid\{position:absolute;left:50%;top:9%;width:48px/.test(tune), "일시정지 표시는 작게 위로(그래프 안 가림)");
 assert.ok(src.includes("wave: () => mkTracks.mr?.buf"));
 assert.ok(tune.includes("g.globalAlpha = Math.max(0, Math.min(1, (left - 0.4) / 2.6))"), "3초 전 페이드");
-assert.ok(tune.includes("paint(); preview(); persist(); tone(m)") && tune.includes("st.sel = { t0: b.t0, t1: b.t1 }") && tune.includes("if (f && !f.cut)") && tune.includes('class="tfCut tfIc" data-cut'), "바로 저장·선택 표시·나눈 조각 테두리 없음·✂ 아이콘");
+assert.ok(tune.includes("paint(); preview(); persist(); if (beep) sndFor(m, 500);") && tune.includes("st.sel = { t0: b.t0, t1: b.t1 }") && tune.includes("if (f && !f.cut)") && tune.includes('class="tfCut tfIc" data-cut'), "바로 저장·선택 표시·나눈 조각 테두리 없음·✂ 아이콘");
 console.log("intro ok");
 // (11/02 19:28·19:30 사용자 시안 승인) 고치기 창은 아래 이동 버튼·안내 자리에, 원음/보정본은 큰 스위치(B안) 그대로
 { const t = require("fs").readFileSync(__dirname + "/../tune.js", "utf8");
@@ -63,9 +63,9 @@ console.log("intro ok");
   assert.ok(t.includes("const hitBar = (le) =>") && t.includes("hb = hitBar(le);") && t.includes("loc(d.cx ?? e.clientX, d.cy ?? e.clientY")); }
 // (11/03 10:50 사용자) 막대 고르면 사인파 · 🎤 목소리 구간 듣기 · ▼▲ 톡=반음 꾹=5센트씩 · 막대 누른 채 위아래=반음 · 2반음 넘게도 · 음 이름 떼면 소리 끔 · 연타 확대 막기
 { const t = require("fs").readFileSync(__dirname + "/../tune.js", "utf8");
-  assert.ok(t.includes("try { tone(m); setTimeout(toneOff, 450); } catch {}"), "고르면 소리");
+  assert.ok(t.includes("try { sndFor(m, 1000); } catch {}") && t.includes("vh = st.voice(b.t0, b.t1, mm)"), "(11/03 11:13) 고르면 목소리(없으면 사인파)로 1초");
   assert.ok(t.includes("st.playSeg = (t0, t1) =>") && t.includes("if (st.stopAt && !isPaused() && (+getT() || 0) >= st.stopAt)"), "목소리 구간 듣기");
   assert.ok(t.includes("step(+x.dataset.d * 0.05, false)") && t.includes("if (!wasLong) step(+x.dataset.d, true);"), "톡 반음 · 꾹 미세");
   assert.ok(t.includes("if (hb0 && Math.abs(hb0.t0 - st.sel.t0) < 0.02") && t.includes("if (st.onBarDrag) st.onBarDrag(k, false);"), "막대 끌어 반음");
-  assert.ok(t.includes('["pointerup", "pointerleave", "pointercancel", "touchend", "touchcancel"].forEach(ev => nb.addEventListener(ev, toneOff));'), "떼면 소리 끔");
+  assert.ok(t.includes('["pointerup", "pointerleave", "pointercancel", "touchend", "touchcancel"].forEach(ev => nb.addEventListener(ev, sndOff));'), "떼면 소리 끔");
   assert.ok(t.includes('wrap.addEventListener("dblclick", (e) => e.preventDefault());') && t.includes("#tuneFs button,#tuneFs .tfFix,#tuneFs .tfFix *{touch-action:manipulation}"), "연타 확대 막기"); }

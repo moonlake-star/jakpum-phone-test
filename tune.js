@@ -502,7 +502,7 @@
     const d = document.createElement("div"); d.className = "tfFix";
     const mm = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
     // (11/02 19:38 사용자 시안 승인) 다이어트: 첫 줄 = 원음/보정본 스위치 + 시간·저장 표시 / 둘째 줄 = 버튼 한 줄(▼ 음 ▲ ✂ ↺ ✓) + 작은 이름표
-    d.innerHTML = `<div class="tfFixBox"><div class="tfFixHd"><b>정음</b><span class="tfFixTm">${mm(b.t0)}~${mm(b.t1)}</span>${st && st.playSeg ? `<button type="button" class="tfVoice" data-v aria-label="이 음을 목소리로 듣기">🎤 목소리</button>` : ""}<span class="tfFixSt"></span></div>
+    d.innerHTML = `<div class="tfFixBox"><div class="tfFixHd"><b>정음</b><span class="tfFixTm">${mm(b.t0)}~${mm(b.t1)}</span><span class="tfFixSt"></span></div>
       <div class="tfFixRow"><button type="button" data-d="-1" aria-label="반음 내림">▼</button><button type="button" class="tfFixN" data-p aria-label="누르는 동안 이 음 소리"></button><button type="button" data-d="1" aria-label="반음 올림">▲</button>${canCut ? `<button type="button" class="tfCut tfIc" data-cut aria-label="두 음으로 나누기(세로줄 자리, 막대 밖이면 가운데)">✂</button>` : ""}<button type="button" class="tfIc" data-r aria-label="처음 음으로">↺</button></div>
       <div class="tfFixLab"><span>톡 반음 · 꾹 미세</span><span class="n">누르면 소리</span><span>톡 반음 · 꾹 미세</span>${canCut ? `<span class="i">나누기</span>` : ""}<span class="i">처음 음</span></div></div>`;
     // (11/02 19:28 사용자 시안 승인) 전체화면이면 아래 이동 버튼·안내 문구 자리에(원음/보정본 큰 버튼은 그대로 위에)
@@ -519,14 +519,19 @@
     const nmC = (x) => { const r = Math.round(x), c = Math.round((x - r) * 100); return noteName(r) + (c ? `<small class="tfC">${c > 0 ? "+" : ""}${c}¢</small>` : ""); };
     const stEl = d.querySelector(".tfFixSt"), paint = () => { d.querySelector(".tfFixN").innerHTML = `${nmC(m)}${Math.abs(m - mO) > 0.004 ? `<small>← ${noteName(mO)}</small>` : ""}`;
       if (Math.abs(m - mO) > 3) stEl.textContent = "⚠ 3반음 넘게 옮기면 소리가 어색할 수 있어요"; }; paint();
-    try { tone(m); setTimeout(toneOff, 450); } catch {}   // (11/03 10:50 사용자) 막대를 고르면 그 음 소리(사인파)
+    // (11/03 11:13 사용자) 소리 = 멜로다인처럼 '목소리'로 그 음(보정 전 보컬이 있으면) · 없으면 사인파. 고르는 순간 1초, 음 이름 누르는 동안 계속
+    let vh = null, vtm = null;
+    const snd = (mm) => { clearTimeout(vtm); if (vh) { try { vh.stop(true); } catch {} vh = null; } toneOff(); if (st && st.voice) { try { vh = st.voice(b.t0, b.t1, mm); } catch { vh = null; } } if (!vh) tone(mm); };
+    const sndOff = () => { clearTimeout(vtm); if (vh) { try { vh.stop(); } catch {} vh = null; } toneOff(); };
+    const sndFor = (mm, ms) => { snd(mm); vtm = setTimeout(sndOff, ms); };
+    try { sndFor(m, 1000); } catch {}
     const same = () => Math.abs(m - mO) < 0.004, rnd = (x) => Math.round(x * 100) / 100;
     const keepFix = () => !(same() && !isCut);   // 서버가 고른 음 그대로면 기록 없음(나눈 조각은 나눔 표시로 남김)
     const preview = () => { const o_ = cv._orig || (cv._orig = {}); for (const i in snap) { if (!(i in o_)) o_[i] = snap[i]; cv.pts[i][kt] = Math.round(m * 100); }
       cv._fixes = prior.filter(x => !(x.t0 < b.t1 && x.t1 > b.t0)).concat(keepFix() ? [{ t0: T0, t1: T1, midi: rnd(m), ...(isCut && same() ? { cut: true } : {}) }] : []); };
     let tm = null;
     const persist = () => { clearTimeout(tm); stEl.textContent = "저장 중…"; tm = setTimeout(() => { try { fxSave(onFix, { t0: T0, t1: T1, midi: keepFix() ? rnd(m) : null, ...(isCut && same() ? { cut: true } : {}) }); } catch {} stEl.textContent = "✓ 저장됨"; }, 450); };
-    const core = () => { if (st) { st.onBarDrag = null; st.stopAt = 0; } if (tm) { clearTimeout(tm); tm = null; try { fxSave(onFix, { t0: T0, t1: T1, midi: keepFix() ? rnd(m) : null, ...(isCut && same() ? { cut: true } : {}) }); } catch {} } toneOff(); if (st) st.sel = null; d.remove(); };
+    const core = () => { try { sndOff(); } catch {} if (st) { st.onBarDrag = null; st.stopAt = 0; } if (tm) { clearTimeout(tm); tm = null; try { fxSave(onFix, { t0: T0, t1: T1, midi: keepFix() ? rnd(m) : null, ...(isCut && same() ? { cut: true } : {}) }); } catch {} } toneOff(); if (st) st.sel = null; d.remove(); };
     // (11/02 20:26 사용자) 폰 뒤로(갤럭시 뒤로 밀기) = 고치기 창만 닫기(전체화면은 그대로) — 주석 창과 같은 방식(기록 한 칸)
     const leave = () => { if (sheetClose === close_) sheetClose = null; try { if (history.state && history.state.tuneSheet) { skipPop = true; history.back(); } } catch {} };
     const close_ = (fromPop) => { core(); saveToast(); if (bot) bot._h0 = 0; if (fromPop === true) { if (sheetClose === close_) sheetClose = null; } else leave(); };
@@ -537,29 +542,28 @@
       const cb = host.querySelector(".tfCvBox"), tip = document.createElement("div"); tip.className = "tfFixTip"; tip.textContent = "빈 곳 톡 = 고치기 창 닫기"; if (cb) { cb.appendChild(tip); setTimeout(() => tip.remove(), 2600); } } }
     d.addEventListener("pointerdown", (e) => e.stopPropagation()); d.addEventListener("contextmenu", (e) => e.preventDefault());
    // 아래 큰 스위치(창이 뜨면 숨김)와 같은 동작 · 켜짐 표시는 그림 그릴 때 같이
-    const step = (dm, snd) => { m = rnd(m + dm); paint(); preview(); persist(); if (snd) { tone(m); setTimeout(toneOff, 500); } };
+    const step = (dm, beep) => { m = rnd(m + dm); paint(); preview(); persist(); if (beep) sndFor(m, 500); };
     // (11/03 10:50 사용자) ▼▲ 톡 = 반음 · 꾹 누르고 있으면 5센트씩 조금씩(소리 따라감) · 반음 단위는 막대를 누른 채 위아래로도
     d.querySelectorAll("[data-d]").forEach(x => { let hold = null, rep_ = null, long = false;
-      const stop = () => { clearTimeout(hold); clearInterval(rep_); hold = rep_ = null; if (long) toneOff(); };
+      const stop = () => { clearTimeout(hold); clearInterval(rep_); hold = rep_ = null; if (long) sndOff(); };
       x.addEventListener("pointerdown", (e) => { e.preventDefault(); long = false; try { x.setPointerCapture(e.pointerId); } catch {}
-        hold = setTimeout(() => { long = true; tone(m); rep_ = setInterval(() => { step(+x.dataset.d * 0.05, false); tone(m); }, 90); }, 380); });
+        hold = setTimeout(() => { long = true; snd(m); rep_ = setInterval(() => { step(+x.dataset.d * 0.05, false); snd(m); }, 90); }, 380); });
       x.addEventListener("pointerup", () => { const wasLong = long; stop(); if (!wasLong) step(+x.dataset.d, true); });
       ["pointercancel", "lostpointercapture"].forEach(ev => x.addEventListener(ev, stop));
       x.onclick = (e) => { if (e.detail === 0) step(+x.dataset.d, true); };   // 키보드(Enter)
       x.addEventListener("contextmenu", (e) => e.preventDefault()); });
-    if (st) st.onBarDrag = (k, start) => { if (start) st._dragBase = m; const nm_ = rnd(st._dragBase + k); if (nm_ !== m) { m = nm_; paint(); preview(); persist(); tone(m); setTimeout(toneOff, 300); } };
-    const vb = d.querySelector("[data-v]"); if (vb) vb.onclick = () => st.playSeg(b.t0, b.t1);   // 🎤 이 음 구간만 목소리로(보정본이면 고친 높이로)
+    if (st) st.onBarDrag = (k, start) => { if (start) st._dragBase = m; const nm_ = rnd(st._dragBase + k); if (nm_ !== m) { m = nm_; paint(); preview(); persist(); sndFor(m, 400); } };
     const nb = d.querySelector("[data-p]");   // 음 이름을 누르는 동안 그 음 소리
-    nb.addEventListener("pointerdown", (e) => { e.preventDefault(); tone(m); });
+    nb.addEventListener("pointerdown", (e) => { e.preventDefault(); snd(m); });
     nb.addEventListener("touchstart", (e) => { if (e.cancelable) e.preventDefault(); }, { passive: false });   // (11/03) 길게 눌러도 폰 진동(길게 누르기 반응) 안 나게 — 누르는 동안 소리만
     // (11/03 10:50 아이패드) 손을 떼도 소리가 안 멈추던 문제: 위 줄 주석에 떼기 처리가 묻혀 빠져 있었음 → 떼기·취소·터치 끝 모두에서 끔
-    ["pointerup", "pointerleave", "pointercancel", "touchend", "touchcancel"].forEach(ev => nb.addEventListener(ev, toneOff));
+    ["pointerup", "pointerleave", "pointercancel", "touchend", "touchcancel"].forEach(ev => nb.addEventListener(ev, sndOff));
     const cut = d.querySelector("[data-cut]");
     if (cut) cut.onclick = () => {   // 세로줄 자리에서 나누기 → 두 조각(같은 음, 노란 테두리 없음) · 조각을 눌러 따로 고침
       clearTimeout(tm); tm = null;
       const ts = +(atHead ? tNow : (b.t0 + b.t1) / 2).toFixed(2), a = { t0: T0, t1: ts, midi: rnd(m), cut: same() }, c = { t0: ts, t1: T1, midi: rnd(m), cut: same() };
       cv._fixes = prior.filter(x => !(x.t0 < b.t1 && x.t1 > b.t0)).concat([a, c]);
-      try { fxSave(onFix, a); fxSave(onFix, c); } catch {} toneOff();
+      try { fxSave(onFix, a); fxSave(onFix, c); } catch {} sndOff();
       fixSheet(host, cv, { t0: ts, t1: T1, c: Math.round(m * 100) }, onFix, getT, st); };   // (11/03 08:14 사용자) 나누면 오른쪽 조각이 바로 골라진 채로(창은 그대로, 뒤로 가기 기록도 그대로)
     d.querySelector("[data-r]").onclick = () => { m = mO; paint(); for (const i in snap) cv.pts[i][kt] = i in o0 ? o0[i] : snap[i]; clearTimeout(tm); tm = null;
       const f = { t0: T0, t1: T1, midi: isCut ? mO : null, ...(isCut ? { cut: true } : {}) };
@@ -582,7 +586,7 @@
     { text: () => "폰의 뒤로 가기(갤럭시는 화면 가장자리 밀기)로도 닫혀요", need: "if (fsClose) { fsClose();" },
     { text: () => "노래가 없는 전주·간주에선 '⏩ 노래 시작 1초 전으로'로 바로 넘어가요", need: "⏩ 노래 시작 1초 전으로" },
     { text: () => "멈춘 뒤 초록 정음 막대를 톡 하면 그 음을 고칠 수 있어요(▼▲, 바로 저장)", need: "hb = hitBar(le);", when: (o) => typeof o.onFix === "function" },
-    { text: () => "고치기 창에서 음 이름을 누르고 있으면 그 음이 소리 나요", need: 'nb.addEventListener("pointerdown", (e) => { e.preventDefault(); tone(m); });', when: (o) => typeof o.onFix === "function" },
+    { text: () => "고치기 창에서 음 이름을 누르고 있으면 그 음이 목소리로 계속 소리 나요", need: 'nb.addEventListener("pointerdown", (e) => { e.preventDefault(); snd(m); });', when: (o) => typeof o.onFix === "function" },
     { text: () => "✂ 나누기: 세로줄이 막대 안이면 그 자리, 밖이면 가운데에서 나뉘고 오른쪽 조각이 골라져요", need: "fixSheet(host, cv, { t0: ts, t1: T1, c: Math.round(m * 100) }, onFix, getT, st)", when: (o) => typeof o.onFix === "function" },
     { text: () => "↺ 처음 음 = 선생님이 고치기 전, 서버가 처음 고른 음으로 돌아가요", need: "m = mO; paint();", when: (o) => typeof o.onFix === "function" },
     { text: () => "고치기 창은 그래프 빈 곳 톡·뒤로 가기로 닫혀요 — 고친 건 자동 저장돼요", need: "if (!onBar) { sheetClose(); lastTap = 0; return; }", when: (o) => typeof o.onFix === "function" },
@@ -649,6 +653,7 @@
     const isPaused = () => (typeof o.paused === "function" ? o.paused() : true);
     // 가운데 표시: 멈추면 ❚❚가 살짝 튀어나와 머묾, 재생하면 ▶가 잠깐 떴다가 사라짐(10/30 14:27 사용자)
     const showMid = (kind) => { mid.textContent = kind === "pause" ? "❚❚" : kind === "back" ? "⏪" + DT_JUMP : kind === "fwd" ? DT_JUMP + "⏩" : "▶"; mid.className = "tfMid " + (kind === "pause" ? "stay" : "flash"); void mid.offsetWidth; mid.classList.add("go"); };
+    st.voice = typeof o.voice === "function" ? o.voice : null;
     st.playSeg = (t0, t1) => { st.panAt = 0; try { seek(Math.max(0, t0 - 0.05), true); } catch {} if (isPaused()) toggle(); st.stopAt = t1 + 0.05; };   // (11/03 10:50 사용자) 멜로다인처럼 그 음 구간만 듣기
     const toggle = () => { st.stopAt = 0; const was = isPaused(); try { o.play && o.play(); } catch {} showMid(was ? "play" : "pause"); if (was) { st.panAt = 0; st.waitAt = performance.now(); } else st.waitAt = 0; };   // (11/02 20:31) 눌렀는데 아직 안 나오면 '불러오는 중' 표시
     const pauseNow = () => { if (!isPaused()) { try { o.play && o.play(); } catch {} } showMid("pause"); };
