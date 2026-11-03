@@ -897,11 +897,15 @@
       if (moved || long || fromFade) { ldPin = true; return; } ldShut(); };   // 톡 = 바로 닫기
     ldEl.addEventListener("pointerup", ldUp); ldEl.addEventListener("pointercancel", (e) => { ldDown = 0; ldG = null; ldPin = true; e.stopPropagation(); });
     // 창이 떠 있으면 아래 화면 터치는 '창 닫기'로만(버튼·그래프에 안 닿음)
-    wrap.addEventListener("pointerdown", (e) => { if (!ldShown || ldEl.contains(e.target)) return;   /* (11/03 14:56 사용자) 사라지는 1.8초 동안은 아래 화면 눌림 */ e.stopPropagation(); e.preventDefault(); ldEat = performance.now() + 700; ldShut(); }, true);
-    wrap.addEventListener("click", (e) => { if (performance.now() < ldEat) { e.stopPropagation(); e.preventDefault(); } }, true);
+    let ldQ = null, ldRe = false;   // (11/03 15:04 사용자) 소리 불러오는 중에 아래를 누르면: 기억해 뒀다가 다 불러오는 순간 창을 닫고 그 자리를 대신 눌러 줌
+    const ldReplay = (q) => { const t = q && q.t; if (!t || !t.isConnected) return; const o = { bubbles: true, cancelable: true, clientX: q.x, clientY: q.y, pointerId: 9999, pointerType: q.pt || "touch", isPrimary: true }; ldRe = true;
+      try { t.dispatchEvent(new PointerEvent("pointerdown", o)); t.dispatchEvent(new PointerEvent("pointerup", o)); } catch {} try { t.dispatchEvent(new MouseEvent("click", o)); } catch {} ldRe = false; };
+    wrap.addEventListener("pointerdown", (e) => { if (ldRe || !ldShown || ldEl.contains(e.target)) return;   /* (11/03 14:56 사용자) 사라지는 동안은 아래 화면 눌림 */ e.stopPropagation(); e.preventDefault(); ldEat = performance.now() + 700;
+      if (ldWas) { ldQ = { t: e.target, x: e.clientX, y: e.clientY, pt: e.pointerType }; return; } ldShut(); }, true);
+    wrap.addEventListener("click", (e) => { if (!ldRe && performance.now() < ldEat) { e.stopPropagation(); e.preventDefault(); } }, true);
     const loop = () => { if (!wrap.isConnected) return;
       if (st.stopAt && !isPaused() && (+getT() || 0) >= st.stopAt) { st.stopAt = 0; toggle(); }   // 🎤 목소리 듣기: 그 음 끝에서 멈춤
-      { const w = st.waitAt ? performance.now() - st.waitAt : 0, on = !!st.waitAt && isPaused() && w > 350 && w < 45000; if (st.waitAt && (!isPaused() || w >= 45000)) st.waitAt = 0; if (!on) { if (ldWas && ldShown && !ldPin && !ldDis) ldLinger = performance.now() + LD_LINGER; ldDis = false; } else ldLinger = 0; ldWas = on; const vis = (on && !ldDis) || ldPin || ldDown > 0 || performance.now() < ldLinger;
+      { const w = st.waitAt ? performance.now() - st.waitAt : 0, on = !!st.waitAt && isPaused() && w > 350 && w < 45000; if (st.waitAt && (!isPaused() || w >= 45000)) st.waitAt = 0; if (!on) { if (ldQ && ldWas) { const q = ldQ; ldQ = null; ldShut(); ldDis = false; setTimeout(() => ldReplay(q), 0); } else if (ldWas && ldShown && !ldPin && !ldDis) ldLinger = performance.now() + LD_LINGER; ldDis = false; } else ldLinger = 0; ldWas = on; const vis = (on && !ldDis) || ldPin || ldDown > 0 || performance.now() < ldLinger;
         if (vis && !ldShown && !ldEl.classList.contains("on")) { ldEl.dataset.dx = ldEl.dataset.dy = 0; ldEl.style.setProperty("--dx", "0px"); ldEl.style.setProperty("--dy", "0px"); }   /* 새로 뜰 땐 제자리 */ if (ldShown && !vis && !ldEl.classList.contains("now")) ldFadeTo = performance.now() + LD_FADE; ldEl.classList.toggle("on", vis); ldEl.classList.toggle("pin", ldPin); ldEl.classList.toggle("fd", !vis && performance.now() < ldFadeTo); ldEl.classList.toggle("tipOnly", !on); ldShown = vis; if (ppB) ppB.classList.toggle("ld", on);
         if (vis && ldTips.length && !ldOn) {   // 새로 뜰 때 팁 하나(아무거나, 바로 전 것과는 다르게) — 떠 있는 동안엔 안 바뀜
           let k = Math.floor(Math.random() * ldTips.length); if (ldTips.length > 1 && k === tipI) k = (k + 1 + Math.floor(Math.random() * (ldTips.length - 1))) % ldTips.length; tipI = k;
