@@ -559,7 +559,8 @@
     { text: () => "그래프를 위아래로 밀면 화면 밖의 높은 음·낮은 음도 볼 수 있어요", need: "drag.yo + dB * per * (rot ? -1 : 1)" },
     { text: () => "왼쪽 건반을 누르고 있으면 그 음이 소리 나요 — 위아래로 밀면 따라 바뀌어요", need: "st.kbDown = m; tone(m);" },
     { text: () => "원음/보정본 스위치는 아무 쪽이나 톡 하면 바뀌어요 — 재생 중에도 같은 자리에서", need: 'want = b.dataset.m === cur ? (cur === "o" ? "p" : "o") : b.dataset.m', when: (o) => typeof o.setMode === "function" },
-    { text: () => "맨 위 '고친 양' 막대: 위로 솟으면 높게 불러 내린 곳, 아래로 내려가면 낮게 불러 올린 곳이에요", need: 'g.fillText("높게", 4, top + 8)' },
+    { text: () => "맨 위 '고친 양' 막대: 위로 솟으면 높게 불러 내린 곳, 아래로 내려가면 낮게 불러 올린 곳이에요", need: 'g.fillText("높게", 4, top + 8)', when: (o) => !!o.teacher },
+    { text: () => "맨 위 막대가 위로 솟은 곳은 높게, 아래로 내려간 곳은 낮게 부른 곳이에요", need: 'g.fillText("높게", 4, top + 8)', when: (o) => !o.teacher },
     { text: () => "폰의 뒤로 가기(갤럭시는 화면 가장자리 밀기)로도 닫혀요", need: "if (fsClose) { fsClose();" },
     { text: () => "노래가 없는 전주·간주에선 '⏩ 노래 시작 1초 전으로'로 바로 넘어가요", need: "⏩ 노래 시작 1초 전으로" },
     { text: () => "멈춘 뒤 초록 정음 막대를 톡 하면 그 음을 고칠 수 있어요(▼▲, 바로 저장)", need: "hb = hitBar(le);", when: (o) => typeof o.onFix === "function" },
@@ -568,6 +569,11 @@
     { text: () => "↺ 처음 음 = 선생님이 고치기 전, 서버가 처음 고른 음으로 돌아가요", need: "m = mO; paint();", when: (o) => typeof o.onFix === "function" },
     { text: () => "고치기 창은 그래프 빈 곳 톡·뒤로 가기로 닫혀요 — 고친 건 자동 저장돼요", need: "if (!onBar) { sheetClose(); lastTap = 0; return; }", when: (o) => typeof o.onFix === "function" },
     { text: () => "정음 막대 색 = 기준: 노랑 선생님 · 보라 MIDI · 초록 악보 · 하늘 원곡 · 회색 키·스케일만", need: "const SRC_C = {", when: (o) => typeof o.onFix === "function" },
+    // (11/03 10:42 사용자) 수강생 화면은 보이는 것·할 수 있는 것이 달라서 팁도 따로
+    { text: () => "노란 선 = 내가 부른 음 · 하늘색 = 보정한 음 · 초록 막대 = 맞춰야 할 음이에요", need: '<i style="background:#ffe066"></i>부른 음', when: (o) => !o.teacher },
+    { text: () => "기준선 위 말풍선이 지금 몇 반음 높게·낮게 불렀는지 알려줘요", need: "반음 높게 불렀어요", when: (o) => !o.teacher },
+    { text: () => "번호가 붙은 카드는 강사님 피드백이에요 — 그 자리를 들으며 하나씩 확인해 보세요", need: "function hitNote", when: (o) => !o.teacher && typeof o.notes === "function" },
+    { text: () => "원음과 보정본을 번갈아 들어 보면 어느 음이 어긋났는지 귀로 바로 느껴져요", need: 'want = b.dataset.m === cur ? (cur === "o" ? "p" : "o") : b.dataset.m', when: (o) => !o.teacher && typeof o.setMode === "function" },
     { text: () => "그래프 빈 곳을 길게 누르면 그 자리에 주석을 달 수 있어요", need: 'typeof o.onAdd === "function") d0.lp = setTimeout', when: (o) => typeof o.onAdd === "function" },
     { text: () => "주석 칸을 0.6초 꾹 누르면 내용을 고치거나 지울 수 있어요", need: "주석 칸 0.6초 꾹 = 고치기", when: (o) => typeof o.onNote === "function" },
   ];
