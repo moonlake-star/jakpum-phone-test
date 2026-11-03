@@ -18,7 +18,7 @@ const fsTips = (o) => FS_TIPS.filter(x => !x.when || x.when(o));
 const student = fsTips({ setMode() {}, notes() { return []; } }).map(t => t.text()).join("|"), teacher = fsTips({ teacher: true, setMode() {}, onFix() {}, onNote() {}, onAdd() {}, notes() { return []; } }).map(t => t.text()).join("|");
 assert.ok(!/정음 막대를 톡|✂|주석을 달|고친 양/.test(student) && /정음 막대를 톡/.test(teacher) && /주석을 달/.test(teacher), "선생님 전용은 수강생에게 안 나옴");
 assert.ok(/강사님 피드백/.test(student) && /내가 부른 음/.test(student) && !/강사님 피드백|내가 부른 음/.test(teacher), "(11/03 10:42) 수강생 전용 팁은 선생님에게 안 나옴");
-assert.ok(src.includes('<p class="tfTip"></p>') && src.includes('<span>[Tip]</span>') && src.includes('class="tfHg"') && !src.includes('"💡 " + ldTips'), "(11/03 11:39) 작은 모래시계 + [안내팁]");
+assert.ok(src.includes('<p class="tfTip"></p>') && src.includes("<span>[Tip]</span><span class=\"tfPn\">톡 하면 닫혀요</span>") && src.includes('class="tfHg"') && !src.includes('"💡 " + ldTips'), "(11/03 11:39) 작은 모래시계 + [안내팁]");
 console.log("loading-tips ok", FS_TIPS.length);
 // (11/03 11:31 사용자) 팁 창: 톡 = 계속 · 다시 톡 = 닫기 · 0.7초 꾹 = 누르는 동안만 · 닫힐 땐 페이드
 assert.ok(src.includes("const LD_LINGER = 5000, LD_LONG = 600;") && src.includes("if (moved || long || !ldPin) { ldPin = true; return; }") && src.includes('ldEl.classList.add("now")') && src.includes("const vis = on || ldPin || ldDown > 0 || performance.now() < ldLinger;"), "(11/03 14:17) 5초 뒤 페이드 · 톡/끌기/꾹 = 붙잡음 · 다시 톡 = 바로 닫기");
