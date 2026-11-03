@@ -49,7 +49,8 @@
     const pick = () => { if (pin || hold) return; tipI = (tipI + 1 + Math.floor(Math.random() * Math.max(1, L.length - 1))) % L.length; t.textContent = String(L[tipI]); };   // 붙잡아 둔 동안엔 같은 팁
     pick(); t.style.display = ""; el.querySelector(".hd b").style.display = ""; tipTm = setInterval(pick, 4500); }
   // (11/03 14:17 사용자) 안 건드리면 다 불러온 뒤 5초 있다가 서서히 사라짐 · 톡·끌기·0.6초 넘게 꾹 = 붙잡음(저절로 안 사라짐) → 다시 톡 = 바로 사라짐(페이드 없이) · 누른 채 끌면 박스가 따라 움직임
-  const LINGER = 5000, LONG = 600; let pin = false, hold = false, down = 0, lingerT = null, lingering = false, busyOn = false, grab = null;
+  // (11/03 14:34 사용자) 전체화면 팁 창과 같게: 다 불러온 순간부터 5초 보이고 1.8초 페이드(이어 읽기 기다림 0.5초 + 바 채움 0.26초 포함)
+  const LONG = 600, LINGER = 5000 - GRACE - 260; let pin = false, hold = false, down = 0, lingerT = null, lingering = false, busyOn = false, grab = null;
   function vis(el) { const v = busyOn || pin || hold || lingering; el.classList.toggle("on", v); el.classList.toggle("pin", pin);   // (11/03 14:30 사용자) 붙잡힌 동안 '톡 하면 닫혀요' 
     if (!v) { cancelAnimationFrame(praf); clearInterval(tipTm); tipTm = null; clearTimeout(vis.clr); vis.clr = setTimeout(() => { if (!el.classList.contains("on")) tips(el, false); }, 1900); }   // 글은 페이드가 끝난 뒤에 비움(사라지는 동안 박스가 줄지 않게)
     else if (!busyOn) el.querySelector(".tx").textContent = "✓ 다 불러왔어요"; }
