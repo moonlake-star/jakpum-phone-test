@@ -24,4 +24,16 @@ for (const diff of ["easy", "normal", "hard"]) for (const st of [0, 1, 2]) for (
   assert.ok(a.minM >= 36 && a.maxM <= 84, `음역 ${diff} s${st} ${seed}: ${a.minM}-${a.maxM}`);
   for (let i = 1; i < a.notes.length; i++) assert.ok(a.notes[i].t0 >= a.notes[i - 1].t0 + a.notes[i - 1].d - 1e-9, "음이 겹치지 않음");
 }
+
+// 6) 발성 스케일(믹스보이스): 성별·스케일·난이도 조합마다 겹치지 않고, 음역이 코스 레인(28음) 안이며, 같은 설정이면 같은 라인
+const genScale = new Function(prelude + body + "\nreturn genScaleLine;")();
+for (const g of ["m", "f"]) for (const k of ["five", "tri", "arp"]) for (const off of [-4, 0, 4]) for (const diff of ["easy", "normal", "hard"]) {
+  const a = genScale({ g, k, off }, diff), b = genScale({ g, k, off }, diff);
+  assert.deepStrictEqual(a.notes, b.notes, "스케일: 같은 설정 → 같은 라인");
+  assert.ok(a.reps >= 1 && a.end < 200, `스케일 길이 ${g}${k}${off}${diff}`);
+  assert.ok(a.maxM - a.minM <= 26, `스케일 음역 ${g}${k}${off}${diff}: ${a.maxM - a.minM}`);
+  for (let i = 1; i < a.notes.length; i++) assert.ok(a.notes[i].t0 >= a.notes[i - 1].t0 + a.notes[i - 1].d - 1e-9, "스케일: 음이 겹치지 않음");
+  assert.ok(a.notes.every(n => n.m >= 36 && n.m <= 84), "스케일: 음역 범위");
+}
+assert.ok(js.includes("id=\"v-scale\"") || src.includes('id="v-scale"'), "발성 탭 화면 누락");
 console.log("pitch-page ok");
