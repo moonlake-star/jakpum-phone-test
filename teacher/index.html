@@ -517,8 +517,8 @@
 <div id="v2Shade" class="v2only"></div>
 <div id="toast"></div>
 <script src="../lesson-replies.js"></script>
-<script src="../tune.js?v=20261105-0300"></script>
-<script src="../adv.js?v=20261105-0300"></script>
+<script src="../tune.js?v=20261105-0330"></script>
+<script src="../adv.js?v=20261105-0330"></script>
 
 <script>
 // ── 설정 ────────────────────────────────────────────────
@@ -1858,13 +1858,6 @@ async function segPeaks(t0, t1) {
   try { const r = await api(`${DRIVE}/files/${listenFile.id}?alt=media`, { headers: { Range: `bytes=${Math.floor(t0 * BPS)}-${Math.floor(t1 * BPS) - 1}` } });
     const pk = await peaksOf(await r.blob()); if (pk) wavePeaks[k] = pk; return pk; } catch { return null; }
 }
-function segTimesOf(note) {   // 수강생 화면이 '레슨 녹음 구간 버튼'으로 그릴 줄(· m:ss, 소리 조각 없음)의 [t0, t1]
-  const out = [], clips = note.clips || [], ct = (c) => { if (Number.isFinite(+c.t)) return +c.t; const q = String(c.label || "").match(/(\d{1,2}):([0-5]\d)/); return q ? +q[1] * 60 + +q[2] : null; };
-  for (const ln of String(note.feedback || "").split("\n")) { if (!/^[ \t]*[·•\-]/.test(ln)) continue; const q = ln.match(/(^|[\s·(])(\d{1,2}):([0-5]\d)(?![\d:~])/); if (!q) continue;
-    const tt = +q[2] * 60 + +q[3]; if (clips.some(c => ct(c) != null && Math.abs(ct(c) - tt) <= 5)) continue;
-    out.push(rangeAt(tt, note.full?.rng, (note.full?.segs || []).map(x => Array.isArray(x) ? +x[0] : NaN))); }
-  return out.slice(0, 6);
-}
 // (10/29 13:35 사용자) '더 들어 보기'에 3~5개: 선생님이 보내기로 고른 클립이 적으면 칭찬 점수가 높은 후보 클립으로 채움(선생님이 '빼기'한 건 제외, 미리보기에서 확인)
 function moreClipsForNote(clips) {
   const rv = cur?.review || {}, have = new Set((clips || []).map(c => c.file_id)), out = [], bsp = typeof bestDupSpans === "function" ? bestDupSpans() : [];
@@ -2202,7 +2195,7 @@ function updateFeedbackDraft(value, fromPreview = false) {
   if (typeof sentRepaint === "function") { clearTimeout(sentRepaint.tm); sentRepaint.tm = setTimeout(() => { sentRepaint(); if (typeof sentWire === "function" && cur) sentWire(cur); if (typeof v2Count === "function" && cur) v2Count(cur); }, 400); }
 }
 // 수강생 미리보기 글칸 높이: 접힘 5줄 / 펼침 12줄 (CSS: 줄높이 24px + 위아래 패딩 16px + 테두리 2px)
-const PV_ROWS = { closed: 5, open: 12 }, PV_MS = 250;
+const PV_ROWS = { closed: 5, open: 12 };
 const pvH = (rows) => rows * 24 + 18;
 // 글이 있는 줄까지만 높이를 맞춤(10/28 23:03 사용자: 빈 칸까지 펼치지 말 것). 재기 어려운 환경(시험)은 줄 수 상한 그대로
 function pvFit(el, rows) {
@@ -3571,7 +3564,7 @@ async function openShared() {
       <input class="shTitle" data-i="${i}" placeholder="곡명_내용 (예: 그리움만쌓이네_후렴끝음)" style="width:100%">
       <div class="muted shPrev" data-i="${i}"></div></div>`).join("") : `<p class="muted">받은 파일이 없어요. 카톡에서 파일을 길게 눌러 ‘공유 → 보컬노트’로 보내 주세요.</p>`;
   const last = LS.get("vn_last_sub_stu");
-  $("shStu").innerHTML = Object.entries(cfg.students).filter(([, st]) => st.status !== "test" || true)
+  $("shStu").innerHTML = Object.entries(cfg.students)
     .map(([sid, st]) => `<option value="${esc(sid)}" ${sid === last ? "selected" : ""}>${esc(st.name)}${st.status === "test" ? " (연습용)" : ""}</option>`).join("");
   $("shDate").value = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
   $("shMemo").value = meta.text && !/^https?:/.test(meta.text) ? meta.text.slice(0, 80) : "";
@@ -6801,7 +6794,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-05-0300-uv";
+const BUILD = "2026-11-05-0330-tidy";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
