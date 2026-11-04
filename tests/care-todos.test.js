@@ -2,7 +2,7 @@
 const fs = require("fs"), assert = require("assert");
 const t = fs.readFileSync(__dirname + "/../teacher/index.html", "utf8");
 const g = (re) => { const m = t.match(re); assert.ok(m, String(re)); return m[0]; };
-const careTodos = new Function(g(/const MO_MILES = [^\n]*\n/) + g(/const annLabel = [^\n]*\n/) + g(/function annivDate\([^\n]*\n[^\n]*\n/) + g(/function annivNext\([\s\S]*?\n\}\n/) + g(/function careTodos\([\s\S]*?\n\}\n/) + "return careTodos;")();
+const careTodos = new Function(g(/const MO_MILES = [^\n]*\n/) + g(/const packLeft = [^\n]*\n/) + g(/const annLabel = [^\n]*\n/) + g(/function annivDate\([^\n]*\n[^\n]*\n/) + g(/function annivNext\([\s\S]*?\n\}\n/) + g(/function careTodos\([\s\S]*?\n\}\n/) + "return careTodos;")();
 const now = Date.parse("2026-11-05T10:00:00+09:00"), row = (d) => ({ l: { name: d + "_회차" } });
 const data = [{ sid: "a", rows: ["2026-10-01", "2026-10-15"].map(row) }, { sid: "b", rows: ["2026-10-01", "2026-10-08", "2026-10-15", "2026-10-22", "2026-11-01"].map(row) }, { sid: "c", rows: [row("2026-10-20")] }, { sid: "t", rows: [row("2026-09-01")] }];
 const students = { a: { name: "가" }, b: { name: "나" }, c: { name: "다" }, t: { name: "선생", isTeacher: true } };
