@@ -40,7 +40,7 @@ console.log("pitch-page ok");
 
 // 연습(기록 안 됨) / 기록 도전(기록됨) 구분, 옥타브 버튼 제거(자동 스크롤), 미리 듣기·새 라인 버튼 제거
 {
-  assert.ok(src.includes('id="startBtn" class="cta">기록 도전<') && src.includes("'▶ 연습'") && src.includes("'▶ 도전'"), "연습/기록 도전 버튼");
+  assert.ok(src.includes('id="startBtn" class="cta">기록 도전<') && src.includes("'연습'") && src.includes("'도전'") && src.includes('<span class="ic">▶</span>'), "연습/기록 도전 버튼");
   assert.ok(!src.includes("'오늘 연습 시작'") && !src.includes('연습 끝내기"를'), "옛 문구 제거");
   assert.ok(src.includes("C.warm = !P.running") && src.includes("!c.warm && stars === 3"), "연습은 기록·새 라인 갱신 안 함");
   assert.ok(!src.includes('id="octUp"') && !src.includes('id="octDn"') && src.includes("function courseFollow("), "옥타브 버튼 제거 + 자동 스크롤");
@@ -121,13 +121,32 @@ console.log("pitch-page ok");
   assert.ok(src.includes("function pianoVoice(") && src.includes("createPeriodicWave") && src.includes("createDynamicsCompressor"), "피아노 음색 + 컴프레서");
   assert.ok(!src.includes("o.type = 'sine'; o.frequency.value = mFreq(m)"), "사인파 안내음 제거");
   assert.ok(src.includes("function guideChord(") && src.includes("[0, 4, 7].forEach(d => pianoVoice("), "도미솔 코드");
-  assert.ok(src.includes("if (P.earphone) { guideTone(n.m, n.d, 0, true); n.mute = 0; } else { guideTone(n.m, .45); n.mute = .57; }"), "스케일 음마다 안내(이어폰: 끝까지 / 스피커: 시작 부분만)");
+  assert.ok(src.includes("const PING = .14, PING_MUTE = .2;") && src.includes("guideTone(n.m, PING, 0, false, true); P.toneUntil = Math.max(P.toneUntil, now0 + PING_MUTE * 1000); n.mute = PING_MUTE; return;") && !src.includes("if (P.earphone) guideTone(n.m, n.d, 0, true);"), "스케일: 코드 1회 + 음마다 짧은 피아노(이어폰·스피커 구분 없음), 그 구간은 마이크·점수 제외");
+  assert.ok(src.includes("const COUNT_IN = 1.5;") && src.includes("C.t = -COUNT_IN;"), "시작 대기 1.5초");
   console.log("pitch-page: 피아노 음색·스케일 안내 ok");
 }
 
 // 코스 모드: 연습 버튼은 레인 중앙의 동그란 버튼, '전환 구간' → '브릿지 구간'
 {
-  assert.ok(src.includes("#cOv.mid") && src.includes("el.classList.add('mid')") && src.includes("border-radius:50%"), "연습 버튼 중앙 원형");
+  assert.ok(src.includes("#cOv.mid{left:0;right:0;") && src.includes("el.classList.add('mid')") && src.includes("border-radius:50%"), "연습 버튼: 화면 가로 중앙 원형");
   assert.ok(src.includes("브릿지 구간") && !src.includes("전환 구간"), "전환 구간 → 브릿지 구간");
   console.log("pitch-page: 중앙 원형 연습 버튼·브릿지 용어 ok");
+}
+
+// 영상 박자 스케일(코드 1회 → 0.465초 간격 1-3-5-8-8-8-8-5-3-1 → 약 5.6초마다 +1반음) + 스케일 전용 화면
+{
+  assert.ok(src.includes("const SC_PRE = .53, SC_STEP = .465, SC_LAST = .8, SC_NEXT = .885;"), "영상 박자 상수");
+  assert.ok(src.includes("iv: [0, 4, 7, 12, 12, 12, 12, 7, 4, 0]") && src.includes("? o.k : 'arp'"), "기본 스케일 = 아르페지오(영상)");
+  assert.ok(src.includes("n.gr != null ? n.gr : D().grace") && src.includes("Math.max(n.gr != null ? .12 : .25"), "음별 여유 시간");
+  assert.ok(src.includes("#v-practice.scaleView #segMode") && src.includes("id=\"scHead\"") && src.includes("classList.toggle('scaleView', sv)"), "스케일 전용 화면");
+  assert.ok(src.includes("b.dataset.t === 'practice' && cur !== 'practice' && C.stage === 3"), "연습 탭은 일반 화면으로");
+  console.log("pitch-page: 영상 박자 스케일·전용 화면 ok");
+}
+
+// 비브라토 예시(도-레), 코스 일시정지, 3초 단위 유지 성공 + 피아노 안내
+{
+  assert.ok(src.includes("function renderVwEx(") && src.includes('id="vwEx"') && src.includes("const SOLFA"), "비브라토 두 음 예시");
+  assert.ok(src.includes("function setPause(") && src.includes('id="pauseOv"') && src.includes("PTAP"), "코스 일시정지");
+  assert.ok(src.includes("const MILE = [3, 6, 9, 12, 15, 18, 21];") && src.includes("const thrAt = i => 3 * (i + 1);") && src.includes("HOLD_KEYS"), "3초 단위 성공 시간");
+  console.log("pitch-page: 비브라토 예시·일시정지·3초 단위 ok");
 }
