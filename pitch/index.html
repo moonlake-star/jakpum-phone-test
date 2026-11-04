@@ -786,12 +786,14 @@ try { if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) nav
 const sfxOn = () => CFG.sfx === 'on' || (CFG.sfx === 'auto' && P.earphone);
 const SFX = { mile: [[660, 0], [880, .07], [1175, .14]], big: [[660, 0], [880, .07], [1175, .14], [1568, .22]], hit: [[988, 0]], tick: [[520, 0]], go: [[880, 0]],
   clear: [[523, 0], [659, .1], [784, .2], [1047, .3]], star: [[784, 0], [1047, .09]], rec: [[880, 0], [1175, .1], [1568, .2], [2093, .3]], combo: [[784, 0], [988, .06]] };
+// (11/05 사용자 '클리어 효과음이 너무 크지 않게') 클리어·기록·마일스톤 효과음은 작게, 높은 음(1.4kHz↑)은 더 작게(귀에는 더 크게 들려서)
+const SFX_VOL = { clear: .04, rec: .035, big: .04, mile: .045 };
 function sfx(kind) {
   if (!sfxOn()) return;
   try {
     const ctx = actx(), t0 = ctx.currentTime, seq = SFX[kind] || SFX.hit; let end = 0;
     seq.forEach(([f, d]) => { const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'triangle'; o.frequency.value = f;
-      g.gain.setValueAtTime(0, t0 + d); g.gain.linearRampToValueAtTime(.11, t0 + d + .012); g.gain.exponentialRampToValueAtTime(.0008, t0 + d + .22);
+      g.gain.setValueAtTime(0, t0 + d); g.gain.linearRampToValueAtTime((SFX_VOL[kind] || .11) * (f > 1400 ? .65 : 1), t0 + d + .012); g.gain.exponentialRampToValueAtTime(.0008, t0 + d + .22);
       o.connect(g).connect(ctx.destination); o.start(t0 + d); o.stop(t0 + d + .25); end = d + .25; });
     if (!P.earphone) P.sfxUntil = performance.now() + end * 1000 + 120;   // speaker: don't let the chime be heard as a note
   } catch (e) {}
