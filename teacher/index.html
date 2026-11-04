@@ -651,7 +651,7 @@ function retryDelay(r, n) {
 let lastTap = 0;
 if (typeof document !== "undefined") document.addEventListener("pointerdown", () => { lastTap = Date.now(); }, true);
 function autoBusy(p) {
-  if (typeof busy !== "function" || Date.now() - lastTap > 4000) return p;
+  if (typeof busy !== "function" || Date.now() - lastTap > 4000 || globalThis.__quiet > 0) return p;   // (11/05) 맞아요/아니에요 배경 저장 중에는 전체 화면 안내를 띄우지 않음
   let shown = false; const t = setTimeout(() => { shown = true; busy(true); }, 700);
   return p.finally(() => { clearTimeout(t); if (shown) busy(false); });
 }
@@ -5847,7 +5847,7 @@ function patchSaid(rec, k, value) {   // 종류+말+날짜+레슨이 같은 '그
 // (자동 수집기가 그사이 추가한 레슨·말·선곡을 지키려고). saveSubFolder와 같은 방식으로 읽는 동안/쓰기 직전 version을 확인하고
 // 쓴 직후 다시 읽어 반영을 확인한다. 남는 위험: Drive에는 조건부 쓰기가 없어, 쓰기 직전 확인과 실제 쓰기 사이 1~2초 안에
 // 수집기가 같은 파일을 저장하면 둘 중 하나가 덮일 수 있다(수집기 쪽이 이기면 쓴 직후 확인에서 걸려 다시 시도).
-async function setSaid(sid, k, value) {
+async function setSaidMany(sid, pairs) {   // pairs = [[k, value], ...] — 여러 개를 한 번 읽고 한 번 쓴다(11/05: 연속으로 누른 것을 묶어 저장)
   const st = cfg.students[sid];
   const f = st?.folder && (await list(st.folder)).find(x => x.name === SAID_REC);
   if (!f) throw new Error("수강생기록 파일을 찾지 못해 저장하지 않았어요");
@@ -5856,14 +5856,39 @@ async function setSaid(sid, k, value) {
   for (let n = 0; n < 3; n++) {
     const v1 = await ver(), rec = await fresh();
     if (await ver() !== v1) continue;                       // 읽는 도중 바뀜
-    if (!patchSaid(rec, k, value)) throw new Error("최신 기록에서 이 말을 찾지 못했어요. 화면을 다시 열어 주세요");
+    const missing = pairs.filter(([k, v]) => !patchSaid(rec, k, v)), good = pairs.filter(p => !missing.includes(p));
+    if (!good.length) throw new Error("최신 기록에서 이 말을 찾지 못했어요. 화면을 다시 열어 주세요");
     if (await ver() !== v1) continue;                       // 쓰기 직전 다시 확인
     await writeJSON(null, SAID_REC, rec, f.id);
     const after = await fresh();                            // 쓴 직후 확인
-    if ((after.profile?.[k.kind] || []).find(y => saidSame(y, k))?.approved === value) { if (st._root) delete st._root[SAID_REC]; return after; }
+    if (good.every(([k, v]) => (after.profile?.[k.kind] || []).find(y => saidSame(y, k))?.approved === v)) { if (st._root) delete st._root[SAID_REC]; return { after, missing }; }
   }
   throw new Error("기록이 지금 자동 정리 중이라 저장하지 못했어요. 잠시 뒤 다시 눌러 주세요");
 }
+async function setSaid(sid, k, value) { return (await setSaidMany(sid, [[k, value]])).after; }
+// (11/05 사용자 '하나 체크할 때마다 불러오는 중이 떠서 다음 걸 못 누른다') 누르면 화면은 바로 넘어가고, 저장은 뒤에서 줄 서서 한꺼번에.
+// 저장 중에는 전체 화면 '불러오는 중'을 띄우지 않고(__quiet), 실패한 것만 되돌리고 알려 준다. 저장이 끝나기 전에 화면을 닫으면 경고.
+const saidQ = { list: [], fly: [], on: false };
+const saidQueued = (k) => [...saidQ.list, ...saidQ.fly].some(x => saidSame(x.k, k));
+async function saidFlush() {
+  if (saidQ.on) return; saidQ.on = true; let okN = 0, last = null;
+  try {
+    while (saidQ.list.length) {
+      const sid = saidQ.list[0].sid, batch = saidQ.list.filter(x => x.sid === sid);
+      saidQ.list = saidQ.list.filter(x => x.sid !== sid); saidQ.fly = batch;
+      globalThis.__quiet = (globalThis.__quiet || 0) + 1;
+      try {
+        const r = await setSaidMany(sid, batch.map(x => [x.k, x.value]));
+        const lost = batch.filter(x => r.missing.some(m => m[0] === x.k));
+        okN += batch.length - lost.length; last = batch.at(-1);
+        if (lost.length) { toast("최신 기록에서 찾지 못한 말이 있어 되돌렸어요 · 화면을 다시 열어 주세요"); lost.forEach(x => x.undo?.()); }
+      } catch (e) { toast(errMsg(e)); batch.forEach(x => x.undo?.()); }
+      finally { globalThis.__quiet--; saidQ.fly = []; }
+    }
+  } finally { saidQ.on = false; }
+  if (okN) { toast(okN > 1 ? `${okN}개 저장했어요` : "저장했어요"); if (!saidQ.list.length) { globalThis.__quiet = (globalThis.__quiet || 0) + 1; try { await last?.after?.(); } catch {} finally { globalThis.__quiet--; } } }
+}
+if (typeof window !== "undefined") window.addEventListener("beforeunload", (e) => { if (saidQ.list.length || saidQ.fly.length) { e.preventDefault(); e.returnValue = ""; } });
 // (11/01 21:10 사용자 '하나씩 들어볼 수 있어야 해') 수강생 화면(레슨을 안 연 상태)에서도: 그 레슨 듣기용 녹음의 그 자리 14초만 받아 바로 재생 · 다시 누르면 멈춤
 let saidAud = null, saidBtn = null; const saidListen = {};
 async function saidPlay(b, x) {
@@ -5898,28 +5923,30 @@ async function paintSaid(el, sid, lesson, rec) {
   if (!el) return;
   try {
     rec ??= await rootFile(cfg.students[sid], SAID_REC);
-    const items = saidPending(rec, lesson);
+    const items = saidPending(rec, lesson).filter(x => !saidQueued(x));   // 저장 줄에 있는 것은 이미 누른 것
     el.innerHTML = saidBoxHTML(items, !!lesson && cur?.folder?.id === lesson);
     const here = !!lesson && cur?.folder?.id === lesson;
     el.querySelectorAll("[data-saidplay]").forEach(b => b.onclick = () => { const x = items[+b.dataset.saidplay]; if (x?.t == null) return;
       if (here && x.lesson === lesson) playAt(Math.max(0, x.t - 2)).catch(e => toast(e.message)); else saidPlay(b, x); });
-    el.querySelectorAll("[data-said]").forEach(b => b.onclick = async () => {
+    el.querySelectorAll("[data-said]").forEach(b => b.onclick = () => {
       const k = items[+b.dataset.said], yes = b.dataset.v === "yes", row = b.closest(".saidItem"), box = b.closest(".warnbox");
-      el.querySelectorAll("[data-said]").forEach(x => x.disabled = true);
+      if (!k || row?.classList.contains("saidDone")) return;
+      const chip = () => { const c = box?.querySelector(".chip.todo"), n = el.querySelectorAll(".saidItem:not(.saidDone)").length; if (c) c.textContent = `확인 전 ${n}개`; return n; };
+      row?.classList.add("saidDone"); row?.querySelectorAll("[data-said]").forEach(x => x.disabled = true);   // 다른 말은 바로 이어서 누를 수 있음
       b.classList.add("saidHit", yes ? "yes" : "no"); b.textContent = yes ? "✓ 맞아요" : "✓ 뺐어요";   // (10/29 10:52 사용자) 눌렸다는 표시
+      const left = chip();
       // (11/02 07:57 사용자) 사라질 때 애니메이션: 누르자마자(저장 기다리지 않고) 0.25초 뒤 옆으로 밀리며 흐려지고 → 높이가 접힘. 저장 실패면 되돌림
       const rm = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches, wait = (ms) => new Promise(r => setTimeout(r, rm ? 0 : ms));
-      const tgt = row ? (items.length === 1 && box ? box : row) : null;
+      const tgt = row ? (!left && box ? box : row) : null;
       const anim = (async () => { if (!tgt) return; await wait(250); tgt.style.transition = "transform 320ms ease-in, opacity 320ms ease-in"; tgt.style.transform = `translateX(${yes ? 70 : -70}px)`; tgt.style.opacity = "0";
         await wait(320); tgt.style.maxHeight = tgt.scrollHeight + "px"; void tgt.offsetHeight; tgt.style.transition = ""; tgt.classList.add("saidGone");
         const below = []; for (let s = tgt.nextElementSibling; s; s = s.nextElementSibling) below.push(s);
         await wait(300); below.forEach((s, i) => { s.style.animationDelay = i * 40 + "ms"; s.classList.add("saidRise"); }); await wait(420); })();
-      let ok = false;
-      try { await setSaid(sid, k, yes ? true : "rejected"); ok = true; toast(yes ? "확인했어요. 다음 브리핑부터 이 말을 써요" : "빼 두었어요. 브리핑과 AI 정리에 쓰지 않아요"); }
-      catch (e) { toast(errMsg(e)); }
-      await anim;
-      if (!ok && tgt) { tgt.classList.remove("saidGone"); tgt.style.cssText = tgt.style.cssText.replace(/transform[^;]*;|opacity[^;]*;|max-height[^;]*;/g, ""); el.querySelectorAll("[data-said]").forEach(x => x.disabled = false); b.classList.remove("saidHit", "yes", "no"); b.textContent = yes ? "👍 맞아요" : "✋ 아니에요"; return; }
-      if (!lesson && stuCur?.sid === sid) paintBriefing(sid); else paintSaid(el, sid, lesson);
+      saidQ.list.push({ sid, k, value: yes ? true : "rejected",
+        undo: async () => { await anim; if (tgt) { tgt.classList.remove("saidGone"); tgt.style.cssText = tgt.style.cssText.replace(/transform[^;]*;|opacity[^;]*;|max-height[^;]*;/g, ""); }
+          row?.classList.remove("saidDone"); row?.querySelectorAll("[data-said]").forEach(x => x.disabled = false); b.classList.remove("saidHit", "yes", "no"); b.textContent = yes ? "👍 맞아요" : "✋ 아니에요"; chip(); },
+        after: async () => { if (!lesson && stuCur?.sid === sid) await paintBriefing(sid); else await paintSaid(el, sid, lesson); } });
+      saidFlush();
     });
   } catch { el.innerHTML = ""; }
 }
