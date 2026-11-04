@@ -121,7 +121,7 @@ console.log("pitch-page ok");
   assert.ok(src.includes("function pianoVoice(") && src.includes("createPeriodicWave") && src.includes("createDynamicsCompressor"), "피아노 음색 + 컴프레서");
   assert.ok(!src.includes("o.type = 'sine'; o.frequency.value = mFreq(m)"), "사인파 안내음 제거");
   assert.ok(src.includes("function guideChord(") && src.includes("[0, 4, 7].forEach(d => pianoVoice("), "도미솔 코드");
-  assert.ok(src.includes("guideTone(n.m, n.d, n.pre, true, true); return; }") && src.includes("guideTone(n.m, n.d, 0, true, true); n.mute = 0; return;") && !src.includes("if (P.earphone) guideTone(n.m, n.d, 0, true);"), "스케일: 회차 첫머리 코드 1회, 음마다 피아노(이어폰·스피커 구분 없음, 마이크 유지)");
+  assert.ok(src.includes("const PING = .14, PING_MUTE = .2;") && src.includes("guideTone(n.m, PING, 0, false, true); P.toneUntil = Math.max(P.toneUntil, now0 + PING_MUTE * 1000); n.mute = PING_MUTE; return;") && !src.includes("if (P.earphone) guideTone(n.m, n.d, 0, true);"), "스케일: 코드 1회 + 음마다 짧은 피아노(이어폰·스피커 구분 없음), 그 구간은 마이크·점수 제외");
   assert.ok(src.includes("const COUNT_IN = 1.5;") && src.includes("C.t = -COUNT_IN;"), "시작 대기 1.5초");
   console.log("pitch-page: 피아노 음색·스케일 안내 ok");
 }
@@ -137,7 +137,7 @@ console.log("pitch-page ok");
 {
   assert.ok(src.includes("const SC_PRE = .53, SC_STEP = .465, SC_LAST = .8, SC_NEXT = .885;"), "영상 박자 상수");
   assert.ok(src.includes("iv: [0, 4, 7, 12, 12, 12, 12, 7, 4, 0]") && src.includes("? o.k : 'arp'"), "기본 스케일 = 아르페지오(영상)");
-  assert.ok(src.includes("n.gr != null ? n.gr : D().grace"), "음별 여유 시간");
+  assert.ok(src.includes("n.gr != null ? n.gr : D().grace") && src.includes("Math.max(n.gr != null ? .12 : .25"), "음별 여유 시간");
   assert.ok(src.includes("#v-practice.scaleView #segMode") && src.includes("id=\"scHead\"") && src.includes("classList.toggle('scaleView', sv)"), "스케일 전용 화면");
   assert.ok(src.includes("b.dataset.t === 'practice' && cur !== 'practice' && C.stage === 3"), "연습 탭은 일반 화면으로");
   console.log("pitch-page: 영상 박자 스케일·전용 화면 ok");

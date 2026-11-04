@@ -861,13 +861,14 @@ function askVoice() {
 }
 const scaleSig = sc => { const c = scaleCfg(sc); return [c.k, c.g, c.off, c.zs, c.ze].join('-'); };
 /* 기준 영상 박자: 코드 '짠' 한 번 → 0.53초 뒤 첫 음 → 0.465초 간격으로 한 음씩 → 마지막 음은 길게 → 약 5.6초마다 다음 키(+1반음)의 코드 */
+const PING = .14, PING_MUTE = .2;   // 스케일 음마다 나는 피아노 길이 / 그동안 마이크 쉬는 시간(초)
 const SC_PRE = .53, SC_STEP = .465, SC_LAST = .8, SC_NEXT = .885;
 function genScaleLine(sc, diff) {
   const c = scaleCfg(sc), V = VOICE[c.g], S = SCALES.find(x => x.k === c.k), top = Math.max(...S.iv), base = V.start + c.off;
   const reps = clamp(c.ze + 2 - top - base + 1, 1, 24), n = S.iv.length;
   let t = .35 + SC_PRE, end = 0; const notes = [];
   for (let r = 0; r < reps; r++) {
-    S.iv.forEach((d, i) => { const last = i === n - 1; notes.push({ m: base + r + d, t0: t + i * SC_STEP, d: last ? SC_LAST : SC_STEP - .045, rep: r, pre: i === 0 ? SC_PRE : 0, gr: .12 }); });
+    S.iv.forEach((d, i) => { const last = i === n - 1; notes.push({ m: base + r + d, t0: t + i * SC_STEP, d: last ? SC_LAST : SC_STEP - .045, rep: r, pre: i === 0 ? SC_PRE : 0, gr: 0 }); });
     end = t + (n - 1) * SC_STEP + SC_LAST + .1; t += (n - 1) * SC_STEP + SC_NEXT + SC_PRE;
   }
   const ms = notes.map(x => x.m), mn = Math.min(...ms), mx = Math.max(...ms);
@@ -1215,14 +1216,16 @@ function guideChord(m, dur) {                                  // do-mi-sol: the
     if (!P.earphone) P.toneUntil = Math.max(P.toneUntil, performance.now() + dur * 1000 + 120);
   } catch (e) {}
 }
-const reqOf = n => Math.max(.25, n.d - (n.gr != null ? n.gr : D().grace) - (n.mute || 0));
+const reqOf = n => Math.max(n.gr != null ? .12 : .25, n.d - (n.gr != null ? n.gr : D().grace) - (n.mute || 0));
 function guideNote(n, first, now) {
   if (n.guided) return; n.guided = true;
   const L = C.line, sc = L && L.scale;
   if (sc) {
     // 영상처럼: 각 회차 첫머리에 코드(도미솔)를 한 번 '짠' → 이어폰·스피커 구분 없이 음마다 피아노가 따라 나와요
-    if (n.pre) { guideChord(n.m, .48); n.mute = Math.max(0, .6 - n.pre); guideTone(n.m, n.d, n.pre, true, true); return; }
-    guideTone(n.m, n.d, 0, true, true); n.mute = 0; return;   // 음마다 나는 피아노는 마이크를 끄지 않아요(소리는 조금 작게)
+    // 이어폰·스피커 구분 없이: 음마다 짧은 피아노(0.14초)가 나고, 그 순간(PING_MUTE)은 마이크를 쉬며 점수에서도 빼요
+    const now0 = performance.now();
+    if (n.pre) { guideChord(n.m, .48); guideTone(n.m, PING, n.pre, false, true); P.toneUntil = Math.max(P.toneUntil, now0 + (n.pre + PING_MUTE) * 1000); n.mute = PING_MUTE; return; }
+    guideTone(n.m, PING, 0, false, true); P.toneUntil = Math.max(P.toneUntil, now0 + PING_MUTE * 1000); n.mute = PING_MUTE; return;
   }
   if (n.pre) { guideTone(n.m, .8); n.mute = 0; return; }
   if (first) { const dur = Math.min(1.1, Math.max(.4, n.t0 - .05)); guideTone(n.m, dur); n.mute = Math.max(0, now + dur + .12 - n.t0); return; }
@@ -1302,9 +1305,9 @@ function rr(x, y, w, h, r) { g2.beginPath(); if (g2.roundRect) g2.roundRect(x, y
 /* 안내음(프리뷰)이 나오는 구간: 막대 앞부분(또는 막대 앞 빈 구간)에 보라색으로 표시. 이 시간엔 마이크를 쉬어요 */
 function pvOf(n, i, L) {
   if (CFG.guide === 'off') return null;
-  if (n.pre) return [n.t0 - n.pre, n.t0 - n.pre + (L.scale ? .6 : .8)];
+  if (n.pre) return [n.t0 - n.pre, L.scale ? n.t0 + PING_MUTE : n.t0 - n.pre + .8];
   if (i === 0) return [0, Math.min(1.1, Math.max(.4, n.t0 - .05))];
-  if (L.scale) return null;
+  if (L.scale) return [n.t0, n.t0 + PING_MUTE];
   if (n.d < .75) return null;
   return [n.t0, n.t0 + clamp(n.d * .4, .5, .7) + .12];
 }
