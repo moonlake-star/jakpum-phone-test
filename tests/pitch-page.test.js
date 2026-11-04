@@ -3,7 +3,11 @@ const fs = require("fs"), assert = require("assert");
 const src = fs.readFileSync(__dirname + "/../pitch/index.html", "utf8");
 // 1) 외부로 나가는 코드 없음(스크립트·이미지·통신) — 데이터는 이 폰의 localStorage에만
 assert.ok(!/<script[^>]+src=/i.test(src), "외부 스크립트 금지");
-assert.ok(!/\bfetch\(|XMLHttpRequest|sendBeacon|WebSocket/.test(src), "네트워크 전송 금지");
+assert.ok(!/XMLHttpRequest|sendBeacon|WebSocket|MediaRecorder|createMediaStreamDestination/.test(src), "녹음·다른 전송 방식 금지");
+// 네트워크 전송은 '수강생 앱에서 연 내 계정 모드'의 날짜별 요약 한 곳뿐
+assert.strictEqual((src.match(/\bfetch\(/g) || []).length, 1, "fetch는 한 곳만");
+assert.ok(src.includes("fetch(PORTAL_URL, { method: 'POST'") && src.includes("action: 'pitch_save'") && src.includes("if (!SN || P.syncing) return;"), "요약 전송은 내 계정 모드에서만");
+assert.ok(src.includes("const PORTAL_URL = 'https://script.google.com/macros/s/") && require("fs").readFileSync(__dirname + "/../student/index.html", "utf8").includes(src.match(/const PORTAL_URL = '([^']+)'/)[1]), "전송 주소는 수강생 앱과 같은 노트 서버");
 assert.ok(/name="robots" content="noindex"/.test(src), "검색 노출 금지");
 // 2) 공개 저장소: 데모 이름은 가명만
 for (const real of ["김하늘", "정우진", "최예린", "한도윤", "송지아", "이서연", "박민준"]) assert.ok(!src.includes(real), "실명 의심: " + real);
@@ -149,4 +153,17 @@ console.log("pitch-page ok");
   assert.ok(src.includes("function setPause(") && src.includes('id="pauseOv"') && src.includes("PTAP"), "코스 일시정지");
   assert.ok(src.includes("const MILE = [3, 6, 9, 12, 15, 18, 21];") && src.includes("const thrAt = i => 3 * (i + 1);") && src.includes("HOLD_KEYS"), "3초 단위 성공 시간");
   console.log("pitch-page: 비브라토 예시·일시정지·3초 단위 ok");
+}
+
+// 수강생 앱 연결: ?from=student + 로그인 기록 → 내 계정 모드(샘플 없음·별도 저장소·요약만 전송)
+{
+  assert.ok(src.includes("FROM_STUDENT = new URLSearchParams(location.search).get('from') === 'student', SN = FROM_STUDENT ? snToken() : null"), "내 계정 모드 조건");
+  assert.ok(src.includes("const KEY = SN ? 'vn_pitch_me' : 'vn_pitch_v1';"), "별도 저장소");
+  assert.ok(src.includes("if (FROM_STUDENT && !SN) {") && src.includes("먼저 내 노트에서 로그인해 주세요"), "로그인 안 됐으면 안내");
+  assert.ok(src.includes("users: [{ id: 'me', name: SN.name || '나', role: 'student' }]") && src.includes("else if (!DB || !DB.users || !user(DB.me)) seedDemo();"), "샘플 없이 본인 한 명");
+  assert.ok(src.includes("'← 내 노트'") && src.includes("location.href = '../student/'"), "내 노트로 돌아가기");
+  assert.ok(src.includes("function snNotice()") && src.includes("연습 기록은 선생님께 전달돼요") && src.includes("녹음과 목소리는 저장도 전송도 하지 않아요"), "처음 한 번 안내");
+  assert.ok(src.includes("const sum = { sec:") && src.includes("co: co.slice(-30)") && !/body: JSON\.stringify\(\{ action: 'pitch_save'[^}]*(audio|wav|pcm)/i.test(src), "날짜별 숫자 요약만");
+  assert.ok(src.includes("DB.sync = DB.sync || []") && src.includes("q.splice(q.indexOf(day), 1)"), "실패하면 큐에 남겨 다시 시도");
+  console.log("pitch-page: 수강생 앱 연결(내 계정 모드) ok");
 }

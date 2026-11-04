@@ -138,6 +138,8 @@
   .cal .dy.sel { outline:2px solid var(--accent); } .cal .dy .tm { display:block; font-size:.68rem; color:var(--muted, #9a9ca3); margin-top:1px; letter-spacing:-.02em; }
   .calNav { display:flex; align-items:center; justify-content:space-between; gap:8px; } .calNav b { font-size:1.15rem; }
   .calNav button { min-height:44px; min-width:52px; padding:0 10px; }
+  .pitchGo { display:flex; align-items:center; gap:12px; color:inherit; text-decoration:none; min-height:64px; border-color:rgba(228,141,22,.45); background:linear-gradient(180deg, rgba(228,141,22,.10), transparent 80%), var(--card); }
+  .pitchGo .pgIc { font-size:1.7rem; } .pitchGo .pgTx { flex:1; display:flex; flex-direction:column; gap:2px; } .pitchGo .pgTx small { color:var(--muted); font-size:.85rem; line-height:1.4; }
   .calLeg { display:flex; flex-wrap:wrap; gap:6px 12px; font-size:.85rem; color:var(--muted); margin-top:8px; }
   .calRow { display:flex; align-items:center; gap:8px; padding:10px 0; border-top:1px solid var(--line); }
   .calRow .w { flex:1; } .calRow.tap { cursor:pointer; } .calRow button { min-height:44px; padding:0 12px; font-size:.95rem; }
@@ -409,12 +411,14 @@ function monthHtml(ms) {
   if (!Array.isArray(ms) || !ms.length) return "";
   return monthCard(ms[0], true) + (ms.length > 1 ? `<details class="card more"><summary>지난 성장 리포트 ${ms.length - 1}개</summary>${ms.slice(1, 12).map(m => monthCard(m, false)).join("")}</details>` : "");
 }
+// (11/05 사용자 승인) 🎤 음정 연습 — 같은 사이트의 음정 연습 화면(../pitch/)을 내 계정으로 엶. '기록 도전' 요약만 선생님께 전달(녹음 없음)
+const pitchLinkHtml = () => `<a class="card pitchGo" href="../pitch/?from=student" aria-label="음정 연습 열기"><span class="pgIc" aria-hidden="true">🎤</span><span class="pgTx"><b>음정 연습</b><small>목소리를 마이크로 듣고 음정을 맞춰 봐요 · 기록 도전은 선생님께 전달돼요</small></span><span aria-hidden="true">›</span></a>`;
 function timeline() {
   try { Brand.bar(); } catch {}
   history.replaceState(null, "", location.pathname);
   const ls = data.lessons, seen = seenLocal();
   const bests = ls.filter(l => l.best?.file_id);
-  $("view").innerHTML = `${statusHtml(data.status)}${typeof goalHtml === "function" ? goalHtml(data.goal) : ""}${typeof monthHtml === "function" ? monthHtml(data.months) : ""}${growthHtml(data.growth)}<div class="card"><h2>${esc(data.name)}님의 레슨 노트</h2>
+  $("view").innerHTML = `${statusHtml(data.status)}${typeof goalHtml === "function" ? goalHtml(data.goal) : ""}${typeof monthHtml === "function" ? monthHtml(data.months) : ""}${growthHtml(data.growth)}${pitchLinkHtml()}<div class="card"><h2>${esc(data.name)}님의 레슨 노트</h2>
       <p class="muted" style="margin:0">레슨 ${ls.length}회 · 최근 ${md(ls[0]?.date)}</p>
       ${bests.length > 1 && !albumTracks(ls).length ? `<button class="ghost full" id="playAll" style="margin-top:10px">▶ 그동안의 베스트 가창 이어 듣기 (${bests.length}곡)</button>` : ""}</div>
     ${albumHtml(ls)}

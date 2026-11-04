@@ -4027,8 +4027,9 @@ async function pushGrowthAll() {   // 음정성향 파일이 바뀐 수강생만
 }
 async function paintGrowthTab(sid) {
   const st = cfg.students[sid];
-  $("stuTab").innerHTML = `<div id="grUse"></div><div id="grTop"></div><div id="grGoal"></div><div id="grPack"></div><div id="grMonth"></div><div id="grShare"></div><div id="mkHabit"><p class="muted">불러오는 중…</p></div><div id="stuGrowth4"></div>`;
+  $("stuTab").innerHTML = `<div id="grUse"></div><div id="grPitch"></div><div id="grTop"></div><div id="grGoal"></div><div id="grPack"></div><div id="grMonth"></div><div id="grShare"></div><div id="mkHabit"><p class="muted">불러오는 중…</p></div><div id="stuGrowth4"></div>`;
   usageOf().then(u => { if (stuCur?.sid === sid && stuCur.tab === "growth" && $("grUse")) $("grUse").innerHTML = usageCard(u?.[sid]); }).catch(() => {});
+  portal("t_pitch", { sid, days: 14 }).then(j => { if (stuCur?.sid === sid && stuCur.tab === "growth" && $("grPitch")) $("grPitch").innerHTML = pitchCard(j.days); }).catch(() => {});
   paintHabit(sid, "growth").then(() => { if (stuCur?.sid === sid && stuCur.tab === "growth") { if (st._habit) { wireGrowthShare(sid); pushGrowth(sid).catch(() => {}); } wireMonth(sid); try { wirePack(sid); } catch (e) { console.warn("pack", e); } try { wireGoal(sid); } catch (e) { console.warn("goal", e); } } });
   try { const rec = await rootFile(st, "수강생기록.json"); if (stuCur?.sid === sid && stuCur.tab === "growth") paintGrowth4(rec, st); } catch {}
 }
@@ -4355,6 +4356,16 @@ function usageCard(u) {
   return `<div class="card usageCard"><b>📱 수강생 앱 사용</b>${warn}
     <p style="margin:6px 0 0">마지막 접속 <b>${ago === 0 ? "오늘" : ago + "일 전"}</b> · 연 날 <b>${u.days7}</b>일(7일) / <b>${u.days30}</b>일(30일)</p>
     <p class="muted" style="margin:4px 0 0">녹음 재생 ${u.plays7}번 · ${min(u.listen7)} 들음(7일) · 끝까지 ${u.done30}번 · 음정선 화면 ${u.tune30}번(30일)</p></div>`;
+}
+// (11/05 사용자 승인) 🎤 음정 연습 기록 — 수강생이 앱의 '음정 연습'에서 '기록 도전'으로 한 연습의 날짜별 요약(녹음은 없음). 서버 t_pitch
+function pitchCard(days) {
+  days = Array.isArray(days) ? days : [];
+  if (!days.length) return `<div class="card pitchCard"><b>🎤 음정 연습</b><p class="muted" style="margin:4px 0 0">아직 기록이 없어요 · 수강생이 앱의 ‘음정 연습’에서 ‘기록 도전’으로 연습하면 날짜별로 쌓여요</p></div>`;
+  const mm = (s) => s >= 60 ? `${Math.round(s / 60)}분` : `${Math.round(s)}초`, md = (d) => `${+String(d).slice(5, 7)}/${+String(d).slice(8, 10)}`;
+  const tot = days.reduce((a, d) => a + (d.sec || 0), 0), sc = days.filter(d => d.score != null);
+  return `<div class="card pitchCard"><b>🎤 음정 연습</b> <span class="muted" style="font-size:.85rem">최근 ${days.length}일 기록 · 합계 ${mm(tot)}${sc.length ? ` · 평균 점수 ${Math.round(sc.reduce((a, d) => a + d.score, 0) / sc.length)}점` : ""}</span>
+    ${days.slice(0, 14).map(d => `<p style="margin:6px 0 0"><b>${md(d.day)}</b> · ${mm(d.sec || 0)}${d.score != null ? ` · ${Math.round(d.score)}점` : ""}${d.hold ? ` · 최고 유지 ${d.hold}초` : ""}${(d.co || []).length ? ` · 코스 ${"★".repeat(Math.max(...d.co.map(x => x.s || 0)))}` : ""}</p>`).join("")}
+    <p class="muted" style="margin:8px 0 0;font-size:.85rem">점수는 목표음에 맞은 시간 비율이에요. 녹음은 저장하지 않아요.</p></div>`;
 }
 function growthLine(st) {   // 레슨 탭 맨 위 한 줄 → 누르면 성장 탭
   const songs = (st._habit?.songs || []).slice().sort((a, b) => (a.date || "").localeCompare(b.date || "")), S = songs.filter(x => !keyShaky(x)).map(x => songStats(x)).filter(Boolean);
