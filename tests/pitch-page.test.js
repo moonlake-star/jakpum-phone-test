@@ -109,7 +109,7 @@ console.log("pitch-page ok");
   console.log("pitch-page: 음 검출 안정화·스크롤 ok");
 }
 
-// 발성 탭 다이어트: 스케일 고르기 → 회차 차트 → (접힌) 시작음·전환 구간 → 고정된 시작 버튼
+// 발성 탭 다이어트: 스케일 고르기 → 회차 차트 → (접힌) 시작음·브릿지 구간 → 고정된 시작 버튼
 {
   assert.ok(src.includes('class="goBar"') && src.includes("position:sticky;bottom:-14px") && src.includes('<details id="scAdv"'), "발성 탭 시작 버튼 고정 + 고급 설정 접기");
   assert.ok(!src.includes('id="scG"') && !src.includes("<h2>발성 스케일</h2>"), "발성 탭 중복 성별 카드·제목 제거");
@@ -123,4 +123,11 @@ console.log("pitch-page ok");
   assert.ok(src.includes("function guideChord(") && src.includes("[0, 4, 7].forEach(d => pianoVoice("), "도미솔 코드");
   assert.ok(src.includes("if (P.earphone) { guideTone(n.m, n.d, 0, true); n.mute = 0; } else { guideTone(n.m, .45); n.mute = .57; }"), "스케일 음마다 안내(이어폰: 끝까지 / 스피커: 시작 부분만)");
   console.log("pitch-page: 피아노 음색·스케일 안내 ok");
+}
+
+// 코스 모드: 연습 버튼은 레인 중앙의 동그란 버튼, '전환 구간' → '브릿지 구간'
+{
+  assert.ok(src.includes("#cOv.mid") && src.includes("el.classList.add('mid')") && src.includes("border-radius:50%"), "연습 버튼 중앙 원형");
+  assert.ok(src.includes("브릿지 구간") && !src.includes("전환 구간"), "전환 구간 → 브릿지 구간");
+  console.log("pitch-page: 중앙 원형 연습 버튼·브릿지 용어 ok");
 }
