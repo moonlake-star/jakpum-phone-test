@@ -2,8 +2,8 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#22282c">
 <title>보컬노트 · 음정 연습</title>
 <style>
@@ -519,6 +519,32 @@ function yin(buf, sr, thr) {
   return { freq: sr / (tau + clamp(sh, -1, 1)), clarity: 1 - x1 };
 }
 
+/* octave-jump filter: a single-frame jump of ~1 or 2 octaves that comes back is a detector error, not the voice.
+   It is folded back to the octave of the stable pitch; a real octave move is accepted after OCT_N consecutive frames. */
+const OCT = { st: null, t: 0, alt: 0, k: 0 }, OCT_N = 8;
+function octFix(m, now) {
+  if (OCT.st != null && now - OCT.t > 350) { OCT.st = null; OCT.alt = 0; OCT.k = 0; }
+  if (m == null) return null;
+  OCT.t = now;
+  if (OCT.st == null) { OCT.st = m; return m; }
+  const d = m - OCT.st, k = Math.round(d / 12), r = d - 12 * k;
+  if (k !== 0 && Math.abs(r) < 1.8) {
+    if (OCT.k === k) OCT.alt++; else { OCT.k = k; OCT.alt = 1; }
+    if (OCT.alt >= OCT_N) { OCT.st = m; OCT.alt = 0; OCT.k = 0; return m; }
+    const c = m - 12 * k; OCT.st += (c - OCT.st) * .5; return c;
+  }
+  OCT.alt = 0; OCT.k = 0; OCT.st += (m - OCT.st) * .5; return m;
+}
+function octReset() { OCT.st = null; OCT.alt = 0; OCT.k = 0; CALM.v = null; }
+/* calm smoothing for the on-screen pitch (time constant ~110 ms); leaps of more than 1.2 semitones pass through at once */
+const CALM = { v: null, t: 0 };
+function calm(v, now, dt) {
+  if (v == null) { if (now - CALM.t > 250) CALM.v = null; return null; }
+  if (CALM.v == null || now - CALM.t > 250 || Math.abs(v - CALM.v) > 1.2) CALM.v = v;
+  else CALM.v += (v - CALM.v) * (1 - Math.exp(-dt / 110));
+  CALM.t = now; return CALM.v;
+}
+
 /* ============ practice engine ============ */
 const PIANO_W = 54, ROW_H = 20, HIST_S = 6;
 const P = { running: false, ctx: null, stream: null, an: null, buf: null, raf: 0, hist: [], recent: [], low: 43, lowF: 43, rows: 28,
@@ -644,9 +670,26 @@ function releaseKey() {
 }
 const yToMidi = y => clamp(Math.floor(P.lowF + (P.H - y) / rowH()), 12, 108);
 const cpos = e => { const r = cv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
-cv.addEventListener('pointerdown', e => { const p = cpos(e); if (p.x <= PIANO_W) { e.preventDefault(); let m = yToMidi(p.y); if (C.mode === 'vib') { m = P.target != null ? P.target : (V.ctr != null && performance.now() - V.lastT < 3000 ? Math.round(V.ctr) : null); if (m == null) { toast('먼저 한 음을 내 주세요. 그 음을 기준으로 맞춰요'); return; } } try { cv.setPointerCapture(e.pointerId); } catch (_) {} P.pid = e.pointerId; pressKey(m); } });
-cv.addEventListener('pointermove', e => { if (C.mode !== 'vib' && P.pressed != null && e.pointerId === P.pid) { const m = yToMidi(cpos(e).y); if (m !== P.pressed) pressKey(m); } });
-['pointerup', 'pointercancel'].forEach(t => cv.addEventListener(t, e => { if (e.pointerId === P.pid) releaseKey(); }));
+const SCR = { id: null, y0: 0, low0: 0, on: false, hold: 0, tm: 0, pend: null };
+const canScroll = () => C.mode !== 'vib' && !(C.mode === 'course' && (C.phase === 'play' || C.phase === 'count'));
+function startPress(m, pid) { P.pid = pid; if (canScroll()) { SCR.pend = m; SCR.tm = setTimeout(flushPress, 70); } else pressKey(m); }   // tone starts 70 ms late so a scroll drag from the piano stays silent
+function flushPress() { clearTimeout(SCR.tm); if (SCR.pend != null) { const m = SCR.pend; SCR.pend = null; pressKey(m); } }
+cv.addEventListener('pointerdown', e => {
+  const p = cpos(e);
+  if (canScroll() && SCR.id == null) { SCR.id = e.pointerId; SCR.y0 = p.y; SCR.low0 = P.low; SCR.on = false; try { cv.setPointerCapture(e.pointerId); } catch (_) {} }
+  if (p.x <= PIANO_W) { e.preventDefault(); let m = yToMidi(p.y); if (C.mode === 'vib') { m = P.target != null ? P.target : (V.ctr != null && performance.now() - V.lastT < 3000 ? Math.round(V.ctr) : null); if (m == null) { toast('먼저 한 음을 내 주세요. 그 음을 기준으로 맞춰요'); return; } } try { cv.setPointerCapture(e.pointerId); } catch (_) {} startPress(m, e.pointerId); }
+});
+cv.addEventListener('pointermove', e => {
+  if (e.pointerId === SCR.id) {
+    const dy = cpos(e).y - SCR.y0;
+    if (!SCR.on && Math.abs(dy) > 8) { SCR.on = true; clearTimeout(SCR.tm); SCR.pend = null; if (P.pressed != null) releaseKey(); P.pid = null; }
+    if (SCR.on) { P.low = P.lowF = clamp(SCR.low0 + dy / rowH(), 12, 108 - P.rows); }
+  } else if (C.mode !== 'vib' && P.pressed != null && e.pointerId === P.pid) { const m = yToMidi(cpos(e).y); if (m !== P.pressed) pressKey(m); }
+});
+['pointerup', 'pointercancel'].forEach(t => cv.addEventListener(t, e => {
+  if (e.pointerId === SCR.id) { if (SCR.on) { P.low = clamp(Math.round(P.low), 12, 108 - P.rows); SCR.hold = performance.now() + 1500; } SCR.id = null; SCR.on = false; }
+  if (e.pointerId === P.pid) { flushPress(); releaseKey(); }
+}));
 function updateTargetChip() {
   const c = $('#targetChip'); c.hidden = P.target == null || (typeof C !== 'undefined' && C.mode === 'course');
   if (P.target != null) $('#targetName').textContent = midiName(P.target);
@@ -838,12 +881,12 @@ function renderCOv() {
   if (C.phase === 'idle' && L.scale) {
     const sc = scaleCfg(CFG.sc), S = SCALES.find(x => x.k === sc.k);
     el.innerHTML = `<div class="ccard">${g ? `<div class="cghost" style="margin:0 0 8px">👻 ${esc(g.label)} ${g.cov}% ${starTxt(g.stars)}</div>` : ''}
-      <div class="crow"><button class="btn sm" id="cSet">⚙ 설정</button><button class="btn pri sm" id="cGo" style="flex:1">${P.running ? '▶ 도전' : '▶ 목풀기'}</button></div></div>`;
+      <div class="crow"><button class="btn sm" id="cSet">⚙ 설정</button><button class="btn pri sm" id="cGo" style="flex:1">${P.running ? '▶ 도전' : '▶ 연습'}</button></div></div>`;
     el.querySelector('#cGo').onclick = startStage; el.querySelector('#cSet').onclick = () => go('scale'); return;
   }
   if (C.phase === 'idle') {
     el.innerHTML = `<div class="ccard">${g ? `<div class="cghost" style="margin:0 0 8px">👻 ${esc(g.label)} ${g.cov}% ${starTxt(g.stars)}</div>` : ''}
-      <div class="crow"><button class="btn pri sm" id="cGo" style="flex:1">${P.running ? '▶ 도전' : '▶ 목풀기'}</button></div></div>`;
+      <div class="crow"><button class="btn pri sm" id="cGo" style="flex:1">${P.running ? '▶ 도전' : '▶ 연습'}</button></div></div>`;
   } else {
     const r = C.res, cp = r.prev;
     el.innerHTML = `<div class="ccard"><div class="note2" style="text-align:center">${L.scale ? '발성 스케일 · ' + SCALES.find(x => x.k === L.k).t + ' · ' + VOICE[L.g].name : '스테이지 ' + (C.stage + 1) + ' · ' + stg[0]}</div>
@@ -851,8 +894,8 @@ function renderCOv() {
       <div style="text-align:center;font-size:13px;color:var(--ink)">${r.stars === 3 ? '완벽해요! ' : r.stars ? '클리어! ' : '아쉬워요. '}음 ${r.cleared}/${r.n} 성공 · 일치율 <b>${r.cov}%</b></div>
       ${r.zone ? `<div class="cvs"><span>전환 구간 안 <b>${r.zone.inOk}/${r.zone.inN}</b> · 밖 <b>${r.zone.outOk}/${r.zone.outN}</b></span>${r.zone.worst.length ? `<span>자주 놓친 음 <b>${r.zone.worst.join(' ')}</b></span>` : ''}</div>` : ''}
       ${cp ? `<div class="cvs"><span>👻 ${esc(cp.label)} ${cp.cov}% ${starTxt(cp.stars)}</span><b class="${r.cov > cp.cov ? 'up' : r.cov < cp.cov ? 'dn' : ''}">${r.cov > cp.cov ? '▲ +' + (r.cov - cp.cov) : r.cov < cp.cov ? '▼ ' + (r.cov - cp.cov) : '동점'}%p</b></div>` : ''}
-      ${r.warm ? '<div class="note2" style="text-align:center;margin-top:4px">목풀기라 기록되지 않았어요 · 기록하려면 "기록 도전"을 누르고 도전하세요</div>' : ''}${r.stars < 3 ? `<div class="note2" style="text-align:center;margin-top:4px">다음 별까지 일치율 ${Math.round(D().stars[r.stars] * 100)}% 필요해요</div>` : ''}
-      <div class="crow" style="margin-top:8px">${L.scale ? '<button class="btn sm" id="cSet">⚙ 설정</button>' : ''}<button class="btn sm" id="cGo">${C.nextFresh ? '새 라인' : '다시'}</button>${C.stage < 2 ? '<button class="btn pri sm" id="cNext" style="flex:1">다음 스테이지 ▶</button>' : '<button class="btn pri sm" id="cEnd" style="flex:1">' + (r.warm ? '목풀기 마치기' : '연습 끝내고 리포트 ▶') + '</button>'}</div></div>`;
+      ${r.warm ? '<div class="note2" style="text-align:center;margin-top:4px">연습이라 기록되지 않았어요 · 기록하려면 "기록 도전"을 누르고 도전하세요</div>' : ''}${r.stars < 3 ? `<div class="note2" style="text-align:center;margin-top:4px">다음 별까지 일치율 ${Math.round(D().stars[r.stars] * 100)}% 필요해요</div>` : ''}
+      <div class="crow" style="margin-top:8px">${L.scale ? '<button class="btn sm" id="cSet">⚙ 설정</button>' : ''}<button class="btn sm" id="cGo">${C.nextFresh ? '새 라인' : '다시'}</button>${C.stage < 2 ? '<button class="btn pri sm" id="cNext" style="flex:1">다음 스테이지 ▶</button>' : '<button class="btn pri sm" id="cEnd" style="flex:1">' + (r.warm ? '연습 마치기' : '연습 끝내고 리포트 ▶') + '</button>'}</div></div>`;
   }
   const q = id => el.querySelector(id);
   if (q('#cSet')) q('#cSet').onclick = () => go('scale');
@@ -896,7 +939,7 @@ function popBanner(t, sub, col, small) {
 function fireMilestone(T, rec) {
   if (P.running) { const k = T <= 30 ? T : 30; P.st.hold[k] = (P.st.hold[k] || 0) + 1; }
   const fx = MILE_FX[T] || [`${T}초!`, 'LEGEND 👑', '#ffd27a'];
-  popBanner(fx[0], fx[1], fx[2], rec ? `🏅 유지 시간 개인 최고 갱신! (이전 ${P.pbHold.toFixed(1)}초)` : (!P.running && !P.warnedMon ? '지금은 목풀기예요 · ‘기록 도전’을 눌러야 기록돼요' : ''));
+  popBanner(fx[0], fx[1], fx[2], rec ? `🏅 유지 시간 개인 최고 갱신! (이전 ${P.pbHold.toFixed(1)}초)` : (!P.running && !P.warnedMon ? '지금은 연습 중이에요 · ‘기록 도전’을 눌러야 기록돼요' : ''));
   if (!P.running) P.warnedMon = true;
   const c = cursorXY(); burst(c.x, c.y, T >= 15 ? 60 : T >= 10 ? 46 : 28, T >= 10 ? ['#ffd27a', '#ff9f43', '#ffffff', '#7fe3ff'] : ['#ffd27a', '#ffffff', '#e48d16']);
   try { if (navigator.vibrate) navigator.vibrate(T >= 10 ? [30, 40, 30] : 25); } catch (e) {}
@@ -1027,7 +1070,7 @@ function vibXY() { const last = V.tr[V.tr.length - 1]; return { x: PIANO_W + (P.
 function fireVib(n) {
   const k = VM[n] ? n : (n > 20 && n % 10 === 0 ? 20 : 0); if (!k) return;
   const fx = VM[k], c = vibXY();
-  popBanner(n > 20 ? n + '연속!!' : fx[0], fx[1], fx[2], !P.running && !P.warnedMon ? '지금은 목풀기예요 · ‘기록 도전’을 눌러야 기록돼요' : '');
+  popBanner(n > 20 ? n + '연속!!' : fx[0], fx[1], fx[2], !P.running && !P.warnedMon ? '지금은 연습 중이에요 · ‘기록 도전’을 눌러야 기록돼요' : '');
   if (!P.running) P.warnedMon = true;
   burst(c.x, c.y, k >= 10 ? 50 : 28, k >= 10 ? ['#ffd27a', '#ff9f43', '#ffffff', '#7fe3ff'] : ['#7fe3a8', '#ffffff', '#ffd27a']);
   sfx(k >= 10 ? 'big' : 'mile'); if (k >= 5) flash(fx[2]);
@@ -1101,7 +1144,7 @@ function guideNote(n, first, now) {
 const courseRef = () => { const L = C.line, n = L.notes[Math.min(C.i, L.notes.length - 1)]; return n.m; };
 async function startStage() {
   if (!P.mon && !(await startMonitor(true))) return;
-  C.warm = !P.running;   // 목풀기: 기록 도전(세션)이 켜져 있지 않으면 기록 없이 진행
+  C.warm = !P.running;   // 연습: 기록 도전(세션)이 켜져 있지 않으면 기록 없이 진행
   endHold(); P.hd = newHold(); P.st.combo = 0; C.nextFresh = false;
   C.line.notes.forEach(n => { n.guided = false; n.mute = 0; n.on = 0; n.vm = 0; n.es = 0; n.ok = false; n.fin = false; n.ratio = 0; n.bins = new Uint8Array(Math.ceil(n.d / .05)); });
   C.t = -3; C.i = 0; C.act = null; C.cleared = 0; C.cnt = 3; C.rec = []; C.res = null; C.ghost = ghostFor(); C.phase = 'count';
@@ -1167,18 +1210,32 @@ function updateCprog() {
   setTxt('cptxt', C.phase === 'play' ? `${C.stage === 3 ? '발성' : '스테이지 ' + (C.stage + 1)} · ${C.cleared}/${L.notes.length} 성공` : C.phase === 'count' ? '준비하세요!' : C.phase === 'result' ? `${C.stage === 3 ? '발성' : '스테이지 ' + (C.stage + 1)} 결과 · ${starTxt(C.res.stars)}` : L.scale ? (() => { const sc = scaleCfg(CFG.sc), S = SCALES.find(x => x.k === sc.k); return `발성 · ${S.t} · ${VOICE[sc.g].name} · 전환 ${midiName(sc.zs)}~${midiName(sc.ze)} · 약 ${Math.max(1, Math.round(L.end / 60))}분`; })() : `스테이지 ${C.stage + 1} · ${STAGES[C.stage][0]} · 시작음 ${midiName(L.notes[0].m)} · ${L.notes.length}음 · 약 ${Math.round(L.end - .8)}초`);
 }
 function rr(x, y, w, h, r) { g2.beginPath(); if (g2.roundRect) g2.roundRect(x, y, w, h, r); else g2.rect(x, y, w, h); }
+/* 안내음(프리뷰)이 나오는 구간: 막대 앞부분(또는 막대 앞 빈 구간)에 보라색으로 표시. 이 시간엔 마이크를 쉬어요 */
+function pvOf(n, i, L) {
+  if (CFG.guide === 'off') return null;
+  if (n.pre) return [n.t0 - n.pre, n.t0 - n.pre + .8];
+  if (i === 0) return [0, Math.min(1.1, Math.max(.4, n.t0 - .05))];
+  if (n.d < .75 || L.scale) return null;
+  return [n.t0, n.t0 + clamp(n.d * .4, .5, .7) + .12];
+}
 function drawCourse(rh, nowX, pps, W, H) {
   const c = C;
   if (c.mode === 'course' && c.line && c.line.scale) { const y0 = yMid(c.line.ze) - rh / 2, y1 = yMid(c.line.zs) + rh / 2; g2.save(); g2.fillStyle = 'rgba(255,180,58,.11)'; g2.fillRect(PIANO_W, y0, W - PIANO_W, y1 - y0); g2.fillStyle = 'rgba(255,200,110,.85)'; g2.font = '700 10px system-ui,sans-serif'; g2.textAlign = 'right'; g2.textBaseline = 'top'; g2.fillText('전환 구간', W - 6, y0 + 3); g2.restore(); }
   if (c.mode !== 'course' || !c.line || (c.phase !== 'count' && c.phase !== 'play' && c.phase !== 'result')) return;
   const tNow = c.phase === 'result' ? c.line.end - 1.2 : c.t;
   g2.save(); g2.beginPath(); g2.rect(PIANO_W, 0, W - PIANO_W, H); g2.clip();
-  for (const n of c.line.notes) {
-    const x0 = nowX + (n.t0 - tNow) * pps, w = n.d * pps; if (x0 + w < PIANO_W || x0 > W) continue;
-    const y = yMid(n.m) - rh / 2 + 2, h = rh - 4, act = c.act === n, past = n.fin;
+  const drawPv = (n, pv, y, h, ghost) => { const a = Math.max(nowX + (pv[0] - tNow) * pps, PIANO_W), b = nowX + (pv[1] - tNow) * pps; if (b <= a) return;
+    g2.save(); g2.fillStyle = n.fin ? 'rgba(176,150,255,.18)' : 'rgba(176,150,255,.55)'; rr(a, y, b - a, h, 5); g2.fill();
+    if (ghost) { g2.setLineDash([4, 3]); g2.lineWidth = 1.2; g2.strokeStyle = 'rgba(190,170,255,.9)'; g2.stroke(); } g2.restore(); };
+  for (let ni = 0; ni < c.line.notes.length; ni++) {
+    const n = c.line.notes[ni], pv = pvOf(n, ni, c.line), y = yMid(n.m) - rh / 2 + 2, h = rh - 4, act = c.act === n, past = n.fin;
+    const x0 = nowX + (n.t0 - tNow) * pps, w = n.d * pps, barVis = !(x0 + w < PIANO_W || x0 > W), pvVis = pv && !(nowX + (pv[1] - tNow) * pps < PIANO_W || nowX + (pv[0] - tNow) * pps > W);
+    if (pv && pvVis && pv[1] <= n.t0 + .001) drawPv(n, pv, y, h, true);      // 막대 앞 빈 구간에서 나오는 안내음
+    if (!barVis) continue;
     const zn = c.line.scale && n.m >= c.line.zs && n.m <= c.line.ze;
     g2.fillStyle = past ? (n.ok ? 'rgba(255,210,122,.22)' : 'rgba(255,255,255,.05)') : zn ? (act ? 'rgba(255,180,58,.45)' : 'rgba(255,180,58,.26)') : act ? 'rgba(92,200,255,.38)' : 'rgba(92,200,255,.2)'; rr(x0, y, w, h, 5); g2.fill();
     g2.lineWidth = act ? 2 : 1.2; g2.strokeStyle = past ? (n.ok ? '#ffd27a' : '#5b6672') : zn ? '#ffb43a' : act ? '#a8e4ff' : '#5cc8ff'; g2.stroke();
+    if (pv && pv[1] > n.t0 + .001) drawPv(n, pv, y, h, false);                // 막대 앞부분에서 나오는 안내음
     if (n.bins) { g2.fillStyle = act ? '#ffc04d' : '#e48d16'; const bw = .05 * pps; for (let b = 0; b < n.bins.length; b++) if (n.bins[b]) g2.fillRect(x0 + b * bw, y + 2, bw + .6, h - 4); }
     if (w > 30) { g2.save(); g2.fillStyle = past && !n.ok ? '#7b8691' : '#fff'; g2.font = '700 11px system-ui,sans-serif'; g2.textAlign = 'left'; g2.textBaseline = 'middle'; g2.shadowColor = 'rgba(0,0,0,.85)'; g2.shadowBlur = 3; g2.fillText(midiName(n.m), Math.max(x0 + 5, PIANO_W + 4), y + h / 2 + .5); g2.restore(); }
   }
@@ -1218,10 +1275,12 @@ function loop(ts) {
     if (!tone && now < P.sfxUntil) { if (P.lastM != null && now - P.lastMT < 600) m = P.lastM; }   // chime playing through speakers: carry the last pitch
     else if (!tone && rms > Math.max(P.sens, P.gate)) { const vbm = C.mode === 'vib', r = yin(P.buf, P.ctx.sampleRate, vbm ? .24 : .15); if (r && r.clarity > (vbm ? .68 : .8)) m = freqM(r.freq); }
   }
+  m = octFix(m, now);
   // median-of-3 smoothing
   P.recent.push(m); if (P.recent.length > 3) P.recent.shift();
   let sm = null; const vs = P.recent.filter(v => v != null);
   if (m != null && vs.length >= 2) { vs.sort((a, b) => a - b); sm = vs[Math.floor(vs.length / 2)]; }
+  if (C.mode !== 'vib') sm = calm(sm, now, dt);
   const cp = C.mode === 'course' && (C.phase === 'play' || C.phase === 'count');
   if (cp) { courseAdvance(dt); courseFollow(C.t); }
   const vb = C.mode === 'vib';
@@ -1235,7 +1294,7 @@ function loop(ts) {
     if (P.running) { if (scored) { P.vms += dt; P.sfs += dt * Math.max(0, 1 - err / 30); } P.lastVoiced = now; }
     P.lastM = sm; P.lastMT = now; P.lastDev = dev;
     // auto-follow (not while a course stage is running: the lane is fixed)
-    if (!cp && !vb && (sm < P.low + 3 || sm > P.low + P.rows - 4)) { if (!P.shiftT) P.shiftT = now; else if (now - P.shiftT > 120) { P.low = clamp(Math.round(sm - P.rows / 2), 12, 108 - P.rows); P.shiftT = 0; } } else P.shiftT = 0;
+    if (!cp && !vb && SCR.id == null && now > SCR.hold && (sm < P.low + 3 || sm > P.low + P.rows - 4)) { if (!P.shiftT) P.shiftT = now; else if (now - P.shiftT > 120) { P.low = clamp(Math.round(sm - P.rows / 2), 12, 108 - P.rows); P.shiftT = 0; } } else P.shiftT = 0;
   } else if (now - P.lastMT > 400) P.shiftT = 0;
   if (cp) courseTick(now, dt, sm); else if (vb) { if (sm != null) P.lastVoiceT = now; } else gameTick(now, dt, sm, dev);
   if (P.running && now - P.lastVoiced < 4000 && document.visibilityState === 'visible') P.activeMs += dt;
@@ -1244,7 +1303,7 @@ function loop(ts) {
   // HUD
   const showN = P.lastM != null && now - P.lastMT < 350;
   if (showN) {
-    const nn = Math.round(P.lastM), d = P.lastDev, c = Math.round(d * 100), good = Math.abs(c) <= 10;
+    const nn = Math.round(P.lastM), d = P.lastDev, c = Math.round(d * 20) * 5, good = Math.abs(c) <= 10;
     setTxt('note', midiName(nn), good ? 'good' : '');
     setTxt('centsTxt', (c > 0 ? '+' : '') + c + ' cent' + (tgt != null ? ' (목표 대비)' : ''));
     const dot = $('#mdot'); const left = 50 + clamp(c, -50, 50); if (cache.dotL !== left) { dot.style.left = left + '%'; cache.dotL = left; }
@@ -1273,7 +1332,7 @@ function updateGoal() {
 /* session lifecycle */
 const startBtn = $('#startBtn');
 startBtn.onclick = () => P.running ? stopSession() : startSession();
-const HINT_MON = "목풀기 중 · 기록하려면 ‘기록 도전’을 누르세요";
+const HINT_MON = "연습 중 · 기록하려면 ‘기록 도전’을 누르세요";
 const HINT_VIB1 = '한 음을 길게 내면서 물결처럼 흔들어 보세요 · 왼쪽 "기준음"을 누르면 기준 소리';
 const vibHint = () => CFG.vw === 1 ? HINT_VIB1 : `${VR().name} 폭: 한 음을 길게 내면서 위아래로 ±${vibMid()}센트 흔들어 보세요 · 폭이 클수록 속도는 느려져요`;
 const HINT_REC = '소리 낸 시간만 연습으로 계산돼요 (4초까지 쉬는 건 인정)';
@@ -1292,7 +1351,7 @@ async function startMonitor(manual) {
     if (cur !== 'practice') { P.stream.getTracks().forEach(t => t.stop()); P.stream = null; return false; }   // left the tab while the prompt was open
     P.src = ctx.createMediaStreamSource(P.stream);
     P.an = ctx.createAnalyser(); P.an.fftSize = 2048; P.an.smoothingTimeConstant = 0; P.src.connect(P.an);
-    P.buf = new Float32Array(P.an.fftSize); P.mon = true; P.monDenied = false; P.monOff = false; P.recent = []; detectEar(); startCal();
+    P.buf = new Float32Array(P.an.fftSize); P.mon = true; P.monDenied = false; P.monOff = false; P.recent = []; octReset(); detectEar(); startCal();
     return true;
   } catch (e) {
     P.monDenied = true;
@@ -1320,7 +1379,7 @@ function finishCal() {
 }
 function stopMonitor() {
   try { if (P.stream) P.stream.getTracks().forEach(t => t.stop()); if (P.src) P.src.disconnect(); } catch (e) {}
-  endHold(); P.stream = null; P.src = null; P.an = null; P.mon = false; P.recent = []; P.cal = null; P.hello = false; hideMicPop(); setMonUI();
+  endHold(); P.stream = null; P.src = null; P.an = null; P.mon = false; P.recent = []; octReset(); P.cal = null; P.hello = false; hideMicPop(); setMonUI();
 }
 $('#monState').onclick = async () => {
   if (P.running) { toast('연습 기록 중에는 끌 수 없어요'); return; }
