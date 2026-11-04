@@ -88,7 +88,7 @@ input,select{font:inherit;color:var(--ink)}
 #cbar{display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px 12px 6px;background:var(--surface)}
 .seg.big{width:100%;max-width:440px;gap:8px}.seg.big button{height:44px;font-size:17px;font-weight:700;border-radius:12px;letter-spacing:-.3px}
 #subBar{display:flex;flex-wrap:wrap;justify-content:center;width:100%}
-#vwEx{width:100%;text-align:center;font-size:13px;color:var(--ink2);margin-top:5px}#vwEx b{color:var(--accent);font-size:16px;margin-right:4px}#vwEx[hidden]{display:none}
+#vwEx{cursor:pointer;width:100%;text-align:center;font-size:13px;color:var(--ink2);margin-top:5px}#vwEx b{color:var(--accent);font-size:16px;margin-right:4px}#vwEx[hidden]{display:none}
 #segVW{width:100%;max-width:440px}#segVW[hidden]{display:none}#segVW button{height:34px;font-size:15px;font-weight:600;border-radius:10px}
 .scgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}.scgrid button{height:auto;padding:8px 10px;text-align:left;border-radius:10px;background:#1b2024;border:1px solid var(--line);color:var(--ink2);font-size:13px;line-height:1.35}.scgrid button small{display:block;font-size:11px;color:var(--muted)}.scgrid button.on{border-color:var(--accent);color:var(--accent);font-weight:700}
 .goBar{position:sticky;bottom:-14px;margin:10px -14px -24px;padding:10px 14px 12px;background:linear-gradient(to top,var(--surface) 70%,transparent)}
@@ -869,7 +869,7 @@ function setVoice(g) { CFG.sc = CFG.sc || {}; if (CFG.sc.g !== g) { CFG.sc.g = g
 function voiceChanged() { renderVoiceSeg(); if (C.mode === 'course' && C.phase !== 'play' && C.phase !== 'count') loadStage(C.stage); else renderCourseUI(); }
 function renderVoiceSeg() { const h = $('#segVoice'), g = scaleCfg(CFG.sc).g; h.innerHTML = Object.keys(VOICE).map(k => `<button data-v="${k}" class="${k === g ? 'on' : ''}">${VOICE[k].name}</button>`).join(''); h.querySelectorAll('button').forEach(b => b.onclick = () => { setVoice(b.dataset.v); voiceChanged(); }); }
 /* 성별을 고른 직후: 주변 소리 확인이 끝나면 잠깐 '소리를 내 보세요' 안내 */
-function sayHello() { if (P.cal || !P.mon) { P.hello = true; return; } micPop('🎤 소리를 내 보세요', '', 3000); }
+function sayHello() { if (P.cal || !P.mon) { P.hello = true; return; } micPop('🎤 소리를 내 보세요', '', 1500); }
 /* 처음 한 번만: 목소리 성별(남/여)를 팝업으로 물어봐요. 이후엔 설정(⚙)에서 바꿔요 */
 function snNotice() {
   if (!SN || localStorage.getItem('vn_me_notice') || $('#voicePop')) return false;
@@ -933,7 +933,8 @@ function setMode(v) {
   if (v === 'vib' && !vibUnlocked()) { const u = me(); toast(`한 음을 10초 유지하면 열려요 (내 최고 ${pbHoldOf(u.id).toFixed(1)}초)`, 3500); return; }
   if (C.phase === 'play' || C.phase === 'count') abortCourse();
   if (P.pressed != null) releaseKey(); vibReset(); if (v === 'vib') endHold();
-  C.mode = v; CFG.mode = v; saveCfg(); if (P.ghostHold !== undefined) renderGhostMark();
+  C.mode = v; CFG.mode = v; if (v === 'vib' && !CFG.vibDemo) { CFG.vibDemo = 1; setTimeout(() => { if (C.mode === 'vib') vibCue(); }, 300); }   // 처음 들어오면 한 번 들려줘요
+  saveCfg(); if (P.ghostHold !== undefined) renderGhostMark();
   if (v === 'course') { if (C.stage === 3) C.stage = 0; loadStage(C.stage); } else { C.phase = 'idle'; renderCourseUI(); }
 }
 function setPause(on) {
@@ -1108,17 +1109,44 @@ CFG.vw = VLV[CFG.vw] ? +CFG.vw : 1;
 const VR = () => VLV[CFG.vw];
 const vibMid = () => Math.round((VR().ext[0] + VR().ext[1]) / 2);
 const SOLFA = ['도', '도#', '레', '레#', '미', '파', '파#', '솔', '솔#', '라', '라#', '시'];
+/* (11/05 사용자) 비브라토 기준음 '따당': 기준음 → 폭만큼 위의 음을 피아노로 차례로 들려줘요.
+   연습 때는 고른 성별에 맞춘 '도'(남 C3 / 여 C4), 기록 도전에서는 성별 음역 안에서 판마다 랜덤. 처음 들어올 때·폭 버튼을 누를 때·숨 쉬려고 멈춘 뒤에 다시 들려줘요 */
+const VIB_ROOT = { m: 48, f: 60 };
+const vibVoiceG = () => scaleCfg(CFG.sc).g;
+const vibRange = () => { const rc = VOICE_RC[vibVoiceG()]; return [rc - 7, rc + 2]; };   // 남성 C3~A3 / 여성 G3~E4
+const vibRoot = () => (P.running && V.root != null) ? V.root : VIB_ROOT[vibVoiceG()];
+function vibPickRoot() { const [a, b] = vibRange(); let m = a; for (let i = 0; i < 8; i++) { m = a + Math.floor(Math.random() * (b - a + 1)); if (m !== V.lastRoot) break; } V.lastRoot = m; V.root = m; return m; }
+const VIB_CUE = 1.55;
+function vibCue() {
+  try {
+    const ctx = actx(), t0 = ctx.currentTime + .02, r = vibRoot(), w = CFG.vw, now = performance.now();
+    pianoVoice(ctx, mFreq(r), t0, { dur: .8, vol: .5 }); pianoVoice(ctx, mFreq(r + w), t0 + .55, { dur: 1, vol: .5 });
+    if (!P.earphone) P.toneUntil = Math.max(P.toneUntil, now + VIB_CUE * 1000 + 150);   // 스피커: 마이크가 기준음을 듣지 않게
+    V.cueUntil = now + VIB_CUE * 1000; V.cueArm = false; V.voicedMs = 0; V.silMs = 0;
+    (P.cues = P.cues || []).push([r, r + w]); if (P.cues.length > 40) P.cues.shift();
+    renderVwEx();
+  } catch (e) {}
+}
+function vibBreath(now, dt, m) {                       // 노래하다(1초 이상) 숨 쉬려고 1.6초 멈추면 기준음을 다시
+  if (now < (V.cueUntil || 0) + 300 || P.cal) { V.silMs = 0; return; }
+  if (m != null) { V.voicedMs = (V.voicedMs || 0) + dt; V.silMs = 0; if (V.voicedMs >= 1000) V.cueArm = true; return; }
+  V.silMs = (V.silMs || 0) + dt;
+  if (V.cueArm && V.silMs >= 1600 && P.mon && cur === 'practice') vibCue();
+}
 function renderVwEx() {
   const el = $('#vwEx'); if (!el) return; const vm = C.mode === 'vib'; el.hidden = !vm; if (!vm) return;
-  const w = CFG.vw; el.innerHTML = `<b>${SOLFA[0]} ↔ ${SOLFA[w % 12]}</b> ${VLV[w].name} 폭으로 오르내려요`;
+  const w = CFG.vw, r = vibRoot();
+  el.innerHTML = `<b>${SOLFA[mod(r, 12)]} ↔ ${SOLFA[mod(r + w, 12)]}</b> ${VLV[w].name} 폭으로 오르내려요 <span style="white-space:nowrap">🔊 ${P.running ? '이번 기준음 ' + midiName(r) : '눌러서 듣기'}</span>`;
 }
-function setVW(w) { w = +w; if (!VLV[w] || w === CFG.vw) return; CFG.vw = w; saveCfg(); vibReset(); V.tr = []; renderCourseUI(); }
+$('#vwEx').onclick = () => { if (C.mode === 'vib') vibCue(); };
+function setVW(w) { w = +w; if (!VLV[w]) return; if (w === CFG.vw) { vibCue(); return; } CFG.vw = w; saveCfg(); vibReset(); V.tr = []; renderCourseUI(); vibCue(); }
 const newVs = () => ({ cyc: 0, ok: 0, best: 0, sR: 0, sE: 0, lv: {} });
-const V = { lastAn: 0, cyc: 0, lastExtT: 0, buf: [], ctr: null, base: null, lastT: 0, fz: 0, tr: [], dir: 0, hi: null, lo: null, ext: [], streak: 0, rate: null, extent: null, verdict: '', out: 0, pd: null, s: newVs() };
+const V = { root: null, lastRoot: null, cueUntil: 0, cueArm: false, voicedMs: 0, silMs: 0, lastAn: 0, cyc: 0, lastExtT: 0, buf: [], ctr: null, base: null, lastT: 0, fz: 0, tr: [], dir: 0, hi: null, lo: null, ext: [], streak: 0, rate: null, extent: null, verdict: '', out: 0, pd: null, s: newVs() };
 const vpc = () => (P.H / 2 - 14) / VR().max;
 function vibUnlocked() { return true; }   // 비브라토 모드는 항상 열려 있어요
 function vibReset() { V.buf = []; V.ctr = null; V.base = null; V.dir = 0; V.hi = V.lo = null; V.ext = []; V.rate = null; V.extent = null; V.streak = 0; V.verdict = ''; V.pd = null; V.out = 0; V.lastExtT = 0; V.cyc = 0; }
 function vibTick(now, dt, m) {
+  vibBreath(now, dt, m);
   if (now < P.sfxUntil) { V.fz = now; V.lastExtT = now; V.ext = []; V.dir = 0; V.hi = V.lo = null; V.pd = null; return; }      // chime playing through speakers
   if (m == null) { if (V.lastT && now - V.lastT > 200 && (V.buf.length || V.streak)) vibReset(); return; }
   let l = V.buf[V.buf.length - 1];
@@ -1470,7 +1498,9 @@ async function startMonitor(manual) {
     if (cur !== 'practice') { P.stream.getTracks().forEach(t => t.stop()); P.stream = null; return false; }   // left the tab while the prompt was open
     P.src = ctx.createMediaStreamSource(P.stream);
     P.an = ctx.createAnalyser(); P.an.fftSize = 2048; P.an.smoothingTimeConstant = 0; P.src.connect(P.an);
-    P.buf = new Float32Array(P.an.fftSize); P.mon = true; P.monDenied = false; P.monOff = false; P.recent = []; octReset(); detectEar(); startCal();
+    P.buf = new Float32Array(P.an.fftSize); P.mon = true; P.monDenied = false; P.monOff = false; P.recent = []; octReset(); detectEar();
+    if (!P.calOnce) { P.calOnce = true; startCal(); }   // (11/05 사용자) 주변 소리 확인은 음정 연습 창을 열 때 한 번만(다른 탭에 갔다 오거나 화면이 꺼졌다 켜져도 다시 안 함. 필요하면 설정의 '다시 맞추기')
+    else if (P.hello) { P.hello = false; micPop('🎤 소리를 내 보세요', '', 1500); }
     return true;
   } catch (e) {
     P.monDenied = true;
@@ -1485,16 +1515,16 @@ function micPop(title, sub, ms) { let d = $('#micPop'); if (!d) { d = document.c
   d.innerHTML = `<b>${title}</b>${sub ? `<span>${sub}</span>` : ''}`; void d.offsetWidth; d.classList.add('show'); clearTimeout(micPopT); if (ms) micPopT = setTimeout(hideMicPop, ms); }
 function hideMicPop() { clearTimeout(micPopT); const d = $('#micPop'); if (d) d.classList.remove('show'); }
 function startCal() { P.cal = { t0: performance.now(), v: [] }; P.gate = 0; micPop('🎤 주변 소리를 확인하고 있어요', '잠깐만 조용히 해 주세요'); }
-function calStep(now, rms, skip) { const c = P.cal; if (!skip) c.v.push(rms); if (now - c.t0 >= 1500) finishCal(); }
-function calDone(status, ms) { if (P.hello) { P.hello = false; micPop('🎤 소리를 내 보세요', status, 3200); } else micPop(status, '', ms); }
+function calStep(now, rms, skip) { const c = P.cal; if (!skip) c.v.push(rms); if (now - c.t0 >= 750) finishCal(); }   /* (11/05) 확인 시간 절반 */
+function calDone(status, ms) { if (P.hello) { P.hello = false; micPop('🎤 소리를 내 보세요', status, 1600); } else micPop(status, '', ms); }
 function finishCal() {
   const c = P.cal; P.cal = null;
-  if (!c || c.v.length < 20) { P.gate = 0; calDone('준비됐어요', 1500); return; }
+  if (!c || c.v.length < 20) { P.gate = 0; calDone('준비됐어요', 750); return; }
   const v = c.v.slice().sort((a, b) => a - b), floor = v[Math.floor(v.length * .25)], want = floor * 3;   // 하위 25%(말·소리가 섞여도 바닥 소음 기준) × 3
   P.noise = floor; P.gate = Math.min(want, .04);
-  if (want > .04) calDone('주변이 꽤 시끄러워요 · 조용한 곳이나 이어폰 마이크를 쓰면 더 정확해요', 4200);
-  else if (P.gate > P.sens * 1.2) calDone('주변 소리에 맞춰 마이크를 조정했어요', 2000);
-  else calDone('주변이 조용해요 · 준비됐어요', 1800);
+  if (want > .04) calDone('주변이 꽤 시끄러워요 · 조용한 곳이나 이어폰 마이크를 쓰면 더 정확해요', 2100);
+  else if (P.gate > P.sens * 1.2) calDone('주변 소리에 맞춰 마이크를 조정했어요', 1000);
+  else calDone('주변이 조용해요 · 준비됐어요', 900);
 }
 function stopMonitor() {
   try { if (P.stream) P.stream.getTracks().forEach(t => t.stop()); if (P.src) P.src.disconnect(); } catch (e) {}
@@ -1517,6 +1547,7 @@ async function startSession() {
   const u = me(); P.reminderAt = u.role === 'student' ? effTime(u.id) : ''; P.pbHold = u.role === 'student' ? pbHoldOf(u.id) : 0;
   refreshToday(); const b = P.todayBase; P.avgStart = b.vms > 500 ? Math.round(100 * b.sfs / b.vms) : null;
   P.running = true; startBtn.classList.add('run'); startBtn.textContent = '기록 끝내기'; setMonUI();
+  if (C.mode === 'vib') { vibPickRoot(); vibCue(); }   // 기록 도전: 성별 음역 안에서 랜덤 기준음
   closeBanner(); renderCourseUI();
 }
 /* 날짜별 요약만 서버로(본인 토큰으로 본인 칸에만 저장). 실패하면 큐에 남겨 다음에 다시 시도 */
@@ -1940,7 +1971,7 @@ renderVoiceSeg();
 if (SN) { pitchSync(); document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') pitchSync(); }); }
 if (C.mode === 'vib' && !vibUnlocked()) C.mode = 'free';
 resize(); if (C.mode === 'course') loadStage(0); else renderCourseUI(); P.raf = requestAnimationFrame(loop); setTimeout(checkReminder, 1500);
-window.__vn = { pianoVoice, pianoOut, mFreq, guideNote, setVW, VLV, follow: courseFollow, genScaleLine, scaleCfg, P, C, CFG, V, VR, genLine, loadStage, startStage, setMode, DB: () => DB, go, switchUser, badgeList, daysOf, streakInfo, stopSession, startSession, pitchSync };
+window.__vn = { vibCue, vibRoot, vibPickRoot, vibRange, pianoVoice, pianoOut, mFreq, guideNote, setVW, VLV, follow: courseFollow, genScaleLine, scaleCfg, P, C, CFG, V, VR, genLine, loadStage, startStage, setMode, DB: () => DB, go, switchUser, badgeList, daysOf, streakInfo, stopSession, startSession, pitchSync };
 })();
 </script>
 </body>
