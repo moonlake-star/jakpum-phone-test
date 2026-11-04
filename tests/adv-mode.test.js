@@ -30,3 +30,7 @@ console.log("adv-mode ok", md.toFixed(4));
 // (11/05 00:06 사용자) 고급 보정을 켜도 음표를 누르면 🎵 음정(기본: 위아래·나누기)부터
 { const tj = require("fs").readFileSync(__dirname + "/../tune.js", "utf8");
   require("assert").ok(tj.includes('setMd(tMode ? "t" : "p")') && !tj.includes('st.advOn = true; st.fixMode = "a"'), "고급 켜도 기본 탭부터"); }
+// (11/05 00:14) 오늘의 베스트 전체화면 → ✏️ 음표 고치기(메이크업 화면 전체화면으로)
+{ const fs_ = require("fs"), tj = fs_.readFileSync(__dirname + "/../tune.js", "utf8"), th = fs_.readFileSync(__dirname + "/../teacher/index.html", "utf8"), A = require("assert");
+  A.ok(tj.includes("el._openFull = () =>") && tj.includes('"✏️ 음표 고치기"') && tj.includes('typeof o.onFix !== "function" && typeof o.onEdit === "function"'));
+  A.ok(th.includes("onEdit: (t) => { try { player.pause(); } catch {} editFromBest(job, t); }") && th.includes("async function editFromBest(job, t)")); }

@@ -452,6 +452,7 @@
     if (!o0.tapFull) box && box.parentNode && box.parentNode.insertBefore(bar, box);   // (10/30 17:43 사용자) tapFull: 전체화면 버튼 없이 그래프를 누르면 전체화면
     const o = opts || {}, ctl = typeof o.play === "function" && typeof o.paused === "function";
     bar.querySelector("[data-fs]").onclick = () => openFull(el, cv, getT, getLv, seek, o);
+    el._openFull = () => openFull(el, cv, getT, getLv, seek, o);   // (11/05) 다른 화면에서 바로 전체화면으로(오늘의 베스트 → ✏️ 음표 고치기)
     let drag = null, preview = null, shown = null;
     const view = mkView(st, () => preview, (v) => { preview = v; }, getT, seek);
     const showMid = (kind) => { mid.textContent = kind === "pause" ? "❚❚" : "▶"; mid.className = "tuneMid " + (kind === "pause" ? "stay" : "flash"); void mid.offsetWidth; mid.classList.add("go"); shown = kind; };
@@ -839,6 +840,11 @@
       off.onclick = () => { st.advOn = false; if (st.fixMode === "a") st.fixMode = "p"; paintAdv(); wrap.querySelectorAll(".tfFix").forEach(x => x.remove()); };
       gl.onclick = () => { try { G.TuneAdv.globalSheet(wrap.querySelector(".tfBox") || wrap, st, cv); } catch (e) { console.warn("고급 보정", e); } };
       paintAdv(); }
+    const editGo = typeof o.onFix !== "function" && typeof o.onEdit === "function" ? () => { const t = +getT() || 0; close(); try { o.onEdit(t); } catch (e) { console.warn("편집", e); } } : null;
+    if (editGo) {   // (11/05 00:14 사용자 '고급 버튼이 어디 있냐') 고치기 기능이 없는 전체화면(레슨 '오늘의 베스트')에서 → 음표 고치기 화면으로
+      const xb = wrap.querySelector(".tfTop .tfX:not(.tfXp)") || wrap.querySelector(".tfTop .tfX"), b = document.createElement("button");
+      b.type = "button"; b.className = "tfAdvG tfEditB"; b.textContent = "✏️ 음표 고치기"; b.addEventListener("pointerdown", (e) => e.stopPropagation()); b.onclick = editGo;
+      if (xb && xb.parentNode) xb.parentNode.insertBefore(b, xb); }
     if (nChip) { nChip.addEventListener("pointerdown", (e) => e.stopPropagation()); nChip.onclick = () => { st.noteShow = !st.noteShow; }; }
     const ppB = wrap.querySelector("[data-pp]"); if (ppB) ppB.onclick = () => toggle();   // (10/31 08:11 사용자) 재생/일시정지 버튼
     const fmt = (x) => `${Math.floor((x || 0) / 60)}:${String(Math.floor((x || 0) % 60)).padStart(2, "0")}`;
@@ -916,6 +922,7 @@
       if (!d.mode && e.type === "pointerup" && typeof o.onFix === "function" && isPaused() && st.tbars) {   // 멈춘 상태에서 초록 정음 막대 톡 = 정음 고치기
         const le = loc(d.cx ?? e.clientX, d.cy ?? e.clientY, cvEl.getBoundingClientRect()), hb = hitT(le) || hitBar(le);   // (11/03 10:31 아이패드) 누른 자리(뗀 자리 아님) + 손가락 크기만큼 넉넉하게
         if (hb) { fixSheet(wrap, cv, hb, o.onFix, getT, st); return; } }
+      if (editGo && !d.mode && e.type === "pointerup" && isPaused() && st.tbars) { const le = loc(d.cx ?? e.clientX, d.cy ?? e.clientY, cvEl.getBoundingClientRect()); if (hitT(le) || hitBar(le)) { editGo(); return; } }   // 멈춘 채 초록 막대 톡 = 음표 고치기 화면으로
       if (!d.mode && e.type === "pointerup" && wrap.querySelector(".tfFix") && sheetClose && sheetClose._fix) {   // (11/03 02:02 사용자) 고치기 창이 떠 있으면 빈 곳 톡 = 창 닫기(재생/멈춤 아님) · 다른 막대는 위에서 바로 바뀜
         const le = loc(d.cx ?? e.clientX, d.cy ?? e.clientY, cvEl.getBoundingClientRect()), onBar = hitT(le) || hitBar(le);
         if (!onBar) { sheetClose(); lastTap = 0; return; } }
