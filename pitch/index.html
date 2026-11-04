@@ -80,14 +80,17 @@ input,select{font:inherit;color:var(--ink)}
 .seg{display:flex;gap:4px}
 .seg button{flex:1;min-width:0;height:32px;padding:0 4px;border-radius:8px;background:#1b2024;border:1px solid var(--line);color:var(--ink2);font-size:12px}
 .seg button.on{background:var(--accent);border-color:var(--accent);color:var(--accentInk);font-weight:700}
+#voicePop{position:fixed;inset:0;z-index:80;background:rgba(10,12,14,.84);display:flex;align-items:center;justify-content:center;padding:20px}
+.vpc{width:100%;max-width:360px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:22px 20px;text-align:center}
+.vpc b{font-size:18px}.vpc .seg{margin-top:16px;gap:10px}.vpc .seg button{height:64px;font-size:20px;font-weight:700;border-radius:14px}
 #cbar{display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px 12px 6px;background:var(--surface)}
-.seg.big{width:100%;max-width:440px;gap:8px}.seg.big button{height:46px;font-size:17px;font-weight:700;border-radius:12px;letter-spacing:-.3px}
+.seg.big{width:100%;max-width:440px;gap:8px}.seg.big button{height:44px;font-size:17px;font-weight:700;border-radius:12px;letter-spacing:-.3px}
 #subBar{display:flex;justify-content:center;width:100%}
-#segVW{width:100%;max-width:440px}#segVW[hidden]{display:none}#segVW button{height:38px;font-size:15px;font-weight:600;border-radius:10px}
+#segVW{width:100%;max-width:440px}#segVW[hidden]{display:none}#segVW button{height:34px;font-size:15px;font-weight:600;border-radius:10px}
 .scgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}.scgrid button{height:auto;padding:8px 10px;text-align:left;border-radius:10px;background:#1b2024;border:1px solid var(--line);color:var(--ink2);font-size:13px;line-height:1.35}.scgrid button small{display:block;font-size:11px;color:var(--muted)}.scgrid button.on{border-color:var(--accent);color:var(--accent);font-weight:700}
 .scst{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:13px}.scst .k{flex:1;color:var(--ink2)}.scst b{min-width:38px;text-align:center;color:var(--ink)}.scst button{width:34px;height:30px;border-radius:8px;background:#1b2024;border:1px solid var(--line);color:var(--ink);font-size:16px}
 #stTabs{display:flex;gap:6px;justify-content:center;width:100%;max-width:440px}#stTabs[hidden]{display:none}
-#stTabs button{flex:1;height:38px;padding:0 8px;border-radius:10px;font-size:15px;background:#1b2024;border:1px solid var(--line);color:var(--ink2)}
+#stTabs button{flex:1;height:34px;padding:0 8px;border-radius:10px;font-size:15px;background:#1b2024;border:1px solid var(--line);color:var(--ink2)}
 #stTabs button.on{border-color:var(--accent);color:var(--accent);font-weight:800}
 #cOv{position:absolute;left:62px;right:8px;bottom:10px;z-index:3;pointer-events:none}
 .ccard{pointer-events:auto;background:rgba(24,29,33,.95);border:1px solid var(--line);border-radius:14px;padding:10px 12px;box-shadow:0 8px 30px rgba(0,0,0,.5)}
@@ -296,6 +299,7 @@ summary{cursor:pointer;color:var(--ink2)}
         <div id="setPanel">
           <div class="setHead">설정 <button class="btn sm" id="setClose">닫기</button></div>
           <div class="sl" style="margin-top:0">효과음</div><div class="seg" id="segSfx"></div><div class="note2" id="sfxDesc"></div>
+          <div class="sgroup"><div class="sl">목소리 종류</div><div class="seg" id="segVoice"></div><div class="note2">코스의 음 높이와 발성 스케일이 맞춰져요.</div></div>
           <div class="sgroup"><div class="sl" style="display:flex;justify-content:space-between">마이크 감도 <span id="sensTxt"></span></div>
           <input type="range" id="sens" min="1" max="10" value="5">
           <div class="note2">연습 화면에 들어오면 주변 소리를 잠깐 듣고 자동으로 맞춰요. 그래도 안 맞으면 여기서 조절하세요. 이어폰을 쓰면 건반 소리가 마이크에 섞이지 않아요.</div>
@@ -752,7 +756,16 @@ function scaleCfg(sc) {
 }
 const VOICE_RC = { m: 55, f: 62 };   // 코스 음역 중심: 남성 G3 / 여성 D4 (코스는 중심 -6 ~ +8 반음)
 CFG.guide = 'on'; CFG.vibOpen = 'always'; CFG.rcMe = 0; CFG.rc = VOICE_RC[scaleCfg(CFG.sc).g];
-function setVoice(g) { CFG.sc = CFG.sc || {}; if (CFG.sc.g !== g) { CFG.sc.g = g; CFG.sc.off = 0; } CFG.rc = VOICE_RC[g]; saveCfg(); }
+function setVoice(g) { CFG.sc = CFG.sc || {}; if (CFG.sc.g !== g) { CFG.sc.g = g; CFG.sc.off = 0; } CFG.rc = VOICE_RC[g]; CFG.vset = 1; saveCfg(); }
+function voiceChanged() { renderVoiceSeg(); if (C.mode === 'course' && C.phase !== 'play' && C.phase !== 'count') loadStage(C.stage); else renderCourseUI(); }
+function renderVoiceSeg() { const h = $('#segVoice'), g = scaleCfg(CFG.sc).g; h.innerHTML = Object.keys(VOICE).map(k => `<button data-v="${k}" class="${k === g ? 'on' : ''}">${VOICE[k].name}</button>`).join(''); h.querySelectorAll('button').forEach(b => b.onclick = () => { setVoice(b.dataset.v); voiceChanged(); }); }
+/* 처음 한 번만: 목소리 종류(남/여)를 팝업으로 물어봐요. 이후엔 설정(⚙)에서 바꿔요 */
+function askVoice() {
+  if (CFG.vset || $('#voicePop')) return;
+  const d = document.createElement('div'); d.id = 'voicePop';
+  d.innerHTML = `<div class="vpc"><b>목소리 종류를 골라 주세요</b><div class="note2" style="margin-top:8px">코스의 음 높이와 발성 스케일이 여기에 맞춰져요.<br>나중에 설정(⚙)에서 바꿀 수 있어요.</div><div class="seg">${Object.keys(VOICE).map(k => `<button data-v="${k}">${VOICE[k].name}</button>`).join('')}</div></div>`;
+  document.body.appendChild(d); d.querySelectorAll('button').forEach(b => b.onclick = () => { setVoice(b.dataset.v); d.remove(); voiceChanged(); });
+}
 const scaleSig = sc => { const c = scaleCfg(sc); return [c.k, c.g, c.off, c.zs, c.ze].join('-'); };
 function genScaleLine(sc, diff) {
   const c = scaleCfg(sc), V = VOICE[c.g], S = SCALES.find(x => x.k === c.k), top = Math.max(...S.iv), base = V.start + c.off;
@@ -818,23 +831,15 @@ function renderCOv() {
   const el = $('#cOv'); el.style.top = ''; el.style.bottom = '';
   if (C.mode !== 'course' || C.phase === 'count' || C.phase === 'play' || !C.line) { el.innerHTML = ''; return; }
   const L = C.line, stg = STAGES[C.stage], g = C.ghost, bs = starsBest(C.stage, CFG.diff);
-  const vg = scaleCfg(CFG.sc).g, voiceSeg = `<div class="seg s2" id="cVoice">${Object.keys(VOICE).map(k => `<button data-v="${k}" class="${k === vg ? 'on' : ''}">${VOICE[k].name}</button>`).join('')}</div>`;
-  const bindVoice = () => { const b = el.querySelector('#cVoice'); if (b) b.querySelectorAll('button').forEach(x => x.onclick = () => { setVoice(x.dataset.v); loadStage(C.stage); }); };
   if (C.phase === 'idle' && L.scale) {
     const sc = scaleCfg(CFG.sc), S = SCALES.find(x => x.k === sc.k);
-    el.innerHTML = `<div class="ccard"><div class="crow"><b>발성 · ${S.t} · ${VOICE[sc.g].name}</b><span class="cst">${starTxt(bs)}</span></div>
-      <div class="note2">전환 구간 ${midiName(sc.zs)}~${midiName(sc.ze)} · ${midiName(L.base)}부터 ${L.reps}회 · 약 ${Math.max(1, Math.round(L.end / 60))}분</div>${voiceSeg}
-      ${g ? `<div class="cghost">👻 ${esc(g.label)} ${g.cov}% ${starTxt(g.stars)} · 같은 설정으로 대결해요</div>` : ''}
-      <div class="crow" style="margin-top:8px"><button class="btn sm" id="cSet">⚙ 설정</button><button class="btn pri sm" id="cGo" style="flex:1">${P.running ? '▶ 도전' : '▶ 목풀기'}</button></div>
-      ${P.running ? '' : '<div class="note2" style="margin-top:5px">지금은 목풀기 · 기록되지 않아요. 기록하려면 아래 "기록 도전"을 먼저 누르세요</div>'}</div>`;
-    el.querySelector('#cGo').onclick = startStage; el.querySelector('#cSet').onclick = () => go('scale'); bindVoice(); return;
+    el.innerHTML = `<div class="ccard">${g ? `<div class="cghost" style="margin:0 0 8px">👻 ${esc(g.label)} ${g.cov}% ${starTxt(g.stars)}</div>` : ''}
+      <div class="crow"><button class="btn sm" id="cSet">⚙ 설정</button><button class="btn pri sm" id="cGo" style="flex:1">${P.running ? '▶ 도전' : '▶ 목풀기'}</button></div></div>`;
+    el.querySelector('#cGo').onclick = startStage; el.querySelector('#cSet').onclick = () => go('scale'); return;
   }
   if (C.phase === 'idle') {
-    el.innerHTML = `<div class="ccard"><div class="crow"><b>스테이지 ${C.stage + 1} · ${stg[0]}</b><span class="cst">${starTxt(bs)}</span></div>
-      <div class="note2">${stg[1]} · 시작음 ${midiName(L.notes[0].m)} · ${L.notes.length}음 · 약 ${Math.round(L.end - .8)}초${L.minor ? ' · 단조' : ''} · 별 3개면 새 라인</div>${voiceSeg}
-      ${g ? `<div class="cghost">👻 ${esc(g.label)} ${g.cov}% ${starTxt(g.stars)} · 같은 라인으로 대결해요</div>` : ''}
-      <div class="crow" style="margin-top:8px"><button class="btn pri sm" id="cGo" style="flex:1">${P.running ? '▶ 도전' : '▶ 목풀기'}</button></div>
-      ${P.running ? '' : '<div class="note2" style="margin-top:5px">지금은 목풀기 · 기록되지 않아요. 기록하려면 아래 "기록 도전"을 먼저 누르세요</div>'}</div>`;
+    el.innerHTML = `<div class="ccard">${g ? `<div class="cghost" style="margin:0 0 8px">👻 ${esc(g.label)} ${g.cov}% ${starTxt(g.stars)}</div>` : ''}
+      <div class="crow"><button class="btn pri sm" id="cGo" style="flex:1">${P.running ? '▶ 도전' : '▶ 목풀기'}</button></div></div>`;
   } else {
     const r = C.res, cp = r.prev;
     el.innerHTML = `<div class="ccard"><div class="note2" style="text-align:center">${L.scale ? '발성 스케일 · ' + SCALES.find(x => x.k === L.k).t + ' · ' + VOICE[L.g].name : '스테이지 ' + (C.stage + 1) + ' · ' + stg[0]}</div>
@@ -845,7 +850,7 @@ function renderCOv() {
       ${r.warm ? '<div class="note2" style="text-align:center;margin-top:4px">목풀기라 기록되지 않았어요 · 기록하려면 "기록 도전"을 누르고 도전하세요</div>' : ''}${r.stars < 3 ? `<div class="note2" style="text-align:center;margin-top:4px">다음 별까지 일치율 ${Math.round(D().stars[r.stars] * 100)}% 필요해요</div>` : ''}
       <div class="crow" style="margin-top:8px">${L.scale ? '<button class="btn sm" id="cSet">⚙ 설정</button>' : ''}<button class="btn sm" id="cGo">${C.nextFresh ? '새 라인' : '다시'}</button>${C.stage < 2 ? '<button class="btn pri sm" id="cNext" style="flex:1">다음 스테이지 ▶</button>' : '<button class="btn pri sm" id="cEnd" style="flex:1">' + (r.warm ? '목풀기 마치기' : '연습 끝내고 리포트 ▶') + '</button>'}</div></div>`;
   }
-  const q = id => el.querySelector(id); bindVoice();
+  const q = id => el.querySelector(id);
   if (q('#cSet')) q('#cSet').onclick = () => go('scale');
   if (q('#cGo')) q('#cGo').onclick = () => { if (C.nextFresh) loadStage(C.stage); startStage(); };
   if (q('#cNext')) q('#cNext').onclick = () => loadStage(C.stage + 1);
@@ -1155,7 +1160,7 @@ function updateCprog() {
   if (C.mode !== 'course' || !C.line) return;
   const L = C.line, f = C.phase === 'play' ? clamp(C.t / L.end, 0, 1) : C.phase === 'result' ? 1 : 0, w = (f * 100).toFixed(1) + '%';
   if (cache.cpw !== w) { $('#cpfill').style.width = w; cache.cpw = w; }
-  setTxt('cptxt', C.phase === 'play' ? `${C.stage === 3 ? '발성' : '스테이지 ' + (C.stage + 1)} · ${C.cleared}/${L.notes.length} 성공` : C.phase === 'count' ? '준비하세요!' : C.phase === 'result' ? `${C.stage === 3 ? '발성' : '스테이지 ' + (C.stage + 1)} 결과 · ${starTxt(C.res.stars)}` : `${C.stage === 3 ? '발성' : '스테이지 ' + (C.stage + 1)} · ${STAGES[C.stage][0]}`);
+  setTxt('cptxt', C.phase === 'play' ? `${C.stage === 3 ? '발성' : '스테이지 ' + (C.stage + 1)} · ${C.cleared}/${L.notes.length} 성공` : C.phase === 'count' ? '준비하세요!' : C.phase === 'result' ? `${C.stage === 3 ? '발성' : '스테이지 ' + (C.stage + 1)} 결과 · ${starTxt(C.res.stars)}` : L.scale ? (() => { const sc = scaleCfg(CFG.sc), S = SCALES.find(x => x.k === sc.k); return `발성 · ${S.t} · ${VOICE[sc.g].name} · 전환 ${midiName(sc.zs)}~${midiName(sc.ze)} · 약 ${Math.max(1, Math.round(L.end / 60))}분`; })() : `스테이지 ${C.stage + 1} · ${STAGES[C.stage][0]} · 시작음 ${midiName(L.notes[0].m)} · ${L.notes.length}음 · 약 ${Math.round(L.end - .8)}초`);
 }
 function rr(x, y, w, h, r) { g2.beginPath(); if (g2.roundRect) g2.roundRect(x, y, w, h, r); else g2.rect(x, y, w, h); }
 function drawCourse(rh, nowX, pps, W, H) {
@@ -1264,7 +1269,7 @@ function updateGoal() {
 /* session lifecycle */
 const startBtn = $('#startBtn');
 startBtn.onclick = () => P.running ? stopSession() : startSession();
-const HINT_MON = "지금은 목풀기예요 (기록 안 됨) · 기록은 '기록 도전'부터<br>건반을 누르면 기준음 · 한 음을 길게 유지해 보세요!";
+const HINT_MON = "목풀기 중 · 기록하려면 ‘기록 도전’을 누르세요";
 const HINT_VIB1 = '한 음을 길게 내면서 물결처럼 흔들어 보세요 · 왼쪽 "기준음"을 누르면 기준 소리';
 const vibHint = () => CFG.vw === 1 ? HINT_VIB1 : `${VR().name} 폭: 한 음을 길게 내면서 위아래로 ±${vibMid()}센트 흔들어 보세요 · 폭이 클수록 속도는 느려져요`;
 const HINT_REC = '소리 낸 시간만 연습으로 계산돼요 (4초까지 쉬는 건 인정)';
@@ -1709,7 +1714,7 @@ function go(t) {
   else if (t === 'remind') renderRemind(el);
   else if (t === 'roster') renderRoster(el);
   else if (t === 'detail') renderDetail(el);
-  else if (t === 'practice') { cache = {}; requestAnimationFrame(resize); refreshToday(); setMonUI(); if (C.mode === 'course' && C.phase !== 'play' && C.phase !== 'count') loadStage(C.stage); else renderCourseUI(); if (!P.monOff) startMonitor(false); }
+  else if (t === 'practice') { askVoice(); cache = {}; requestAnimationFrame(resize); refreshToday(); setMonUI(); if (C.mode === 'course' && C.phase !== 'play' && C.phase !== 'count') loadStage(C.stage); else renderCourseUI(); if (!P.monOff) startMonitor(false); }
   if (t !== 'practice') el.scrollTop = 0;
 }
 let rzT; window.addEventListener('resize', () => { clearTimeout(rzT); rzT = setTimeout(() => { if (['progress', 'detail'].includes(cur) && !P.running) go(cur); }, 250); });
@@ -1719,6 +1724,7 @@ DB = loadDB();
 if (!DB || !DB.users || !user(DB.me)) seedDemo();
 if (!DB.runs) DB.runs = {};
 buildTabs(); go(me().role === 'student' ? 'practice' : 'roster');
+renderVoiceSeg();
 if (C.mode === 'vib' && !vibUnlocked()) C.mode = 'free';
 resize(); if (C.mode === 'course') loadStage(0); else renderCourseUI(); P.raf = requestAnimationFrame(loop); setTimeout(checkReminder, 1500);
 window.__vn = { setVW, VLV, follow: courseFollow, genScaleLine, scaleCfg, P, C, CFG, V, VR, genLine, loadStage, startStage, setMode, DB: () => DB, go, switchUser, badgeList, daysOf, streakInfo, stopSession, startSession };

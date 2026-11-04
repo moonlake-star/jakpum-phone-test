@@ -58,7 +58,7 @@ console.log("pitch-page ok");
 {
   for (const id of ["segGuide", "segVib", "segRange"]) assert.ok(!src.includes('id="' + id + '"'), id + " 제거");
   assert.ok(src.includes("function vibUnlocked() { return true; }") && src.includes("CFG.guide = 'on'"), "안내음·비브라토 고정");
-  assert.ok(src.includes("const VOICE_RC = { m: 55, f: 62 }") && src.includes('id="cVoice"'), "남/여 선택으로 음역 결정");
+  assert.ok(src.includes("const VOICE_RC = { m: 55, f: 62 }") && src.includes('id="segVoice"') && src.includes("function askVoice()") && !src.includes('id="cVoice"'), "남/여는 첫 진입 팝업 + 설정에서만 선택");
   assert.ok(src.includes("function startCal()") && src.includes("Math.min(want, .04)") && src.includes("Math.max(P.sens, P.gate)"), "주변 소리 자동 맞춤");
   assert.equal((src.match(/<div/g) || []).length, (src.match(/<\/div>/g) || []).length, "div 짝 안 맞음(설정 패널 깨짐 방지)");
   console.log("pitch-page: 설정 단순화·소음 맞춤 ok");
@@ -71,4 +71,11 @@ console.log("pitch-page ok");
   assert.deepStrictEqual(Object.keys(lv), ["1", "2", "3", "4"]); assert.deepStrictEqual(Object.values(lv).map(v => v.name), ["반음", "2반음", "3반음", "4반음"]);
   Object.values(lv).forEach((v, i, a) => { assert.ok(v.ext[0] < v.ext[1] && v.rate[0] < v.rate[1] && v.ext[1] < v.max, "폭 단계 범위 " + v.name); if (i) { assert.ok(v.ext[0] > a[i - 1].ext[0] && v.rate[1] <= a[i - 1].rate[1], "단계가 커질수록 폭↑ 속도↓: " + v.name); } });
   console.log("pitch-page: 비브라토 폭 단계·모드 바 ok");
+}
+
+// 화면 정리: 코스 시작 카드는 버튼 중심(설명·중복 안내 문구 없음), 안내는 상단 한 줄에만
+{
+  assert.ok(!src.includes("별 3개면 새 라인</div>") && !src.includes('지금은 목풀기 · 기록되지 않아요'), "카드 안 중복 문구 제거");
+  assert.ok(src.includes("const HINT_MON = \"목풀기 중"), "하단 안내 한 줄");
+  console.log("pitch-page: 화면 정리·성별 팝업 ok");
 }
