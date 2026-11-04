@@ -1,0 +1,22 @@
+// (11/04 19:10) 🤝 챙기기: 오래 못 본 수강생·노트 안 여는 수강생·다음 레슨 기념 회차·이번 달 리포트, ✕ 7일 숨김
+const fs = require("fs"), assert = require("assert");
+const t = fs.readFileSync(__dirname + "/../teacher/index.html", "utf8");
+const g = (re) => { const m = t.match(re); assert.ok(m, String(re)); return m[0]; };
+const careTodos = new Function(g(/const MO_MILES = [^\n]*\n/) + g(/function careTodos\([\s\S]*?\n\}\n/) + "return careTodos;")();
+const now = Date.parse("2026-11-05T10:00:00+09:00"), row = (d) => ({ l: { name: d + "_회차" } });
+const data = [{ sid: "a", rows: ["2026-10-01", "2026-10-15"].map(row) }, { sid: "b", rows: ["2026-10-01", "2026-10-08", "2026-10-15", "2026-10-22", "2026-11-01"].map(row) }, { sid: "c", rows: [row("2026-10-20")] }, { sid: "t", rows: [row("2026-09-01")] }];
+const students = { a: { name: "가" }, b: { name: "나" }, c: { name: "다" }, t: { name: "선생", isTeacher: true } };
+const ctx = { now, students, ym: "2026-10", att: { b: { next_lesson: "2026-11-08T19:00:00+09:00" } }, usage: { b: { last_at: "2026-10-25T10:00:00Z" } }, hide: {}, sent: { "c:2026-10": "x" } };
+const xs = careTodos(data, ctx), T = xs.map(x => x.t).join("\n");
+assert.ok(/가 · 마지막 레슨 2\d일 전/.test(T), "2주 넘게 레슨 없음");
+assert.ok(!/나 · 마지막 레슨/.test(T), "다음 레슨 잡힌 사람은 안 띄움");
+assert.ok(/나 · 1\d일째 노트를 안 열어 봄/.test(T));
+assert.ok(/나 · 다음 레슨이 6회차/.test(T) === false && !/다음 레슨이/.test(T), "6회차는 기념 아님");
+assert.ok(/가 · 10월 성장 리포트/.test(T) && /나 · 10월 성장 리포트/.test(T) && !/다 · 10월/.test(T), "보낸 사람 제외");
+assert.ok(!/선생/.test(T), "선생님 본인 제외");
+const d2 = [{ sid: "b", rows: Array.from({ length: 9 }, (_, i) => row(`2026-10-${String(i + 1).padStart(2, "0")}`)) }];
+assert.ok(careTodos(d2, ctx).some(x => /다음 레슨이 10회차/.test(x.t)), "다음이 10회차면 축하 준비");
+assert.ok(!careTodos(data, { ...ctx, hide: { "a:gap": now + 1000 } }).some(x => x.sid === "a" && x.ck === "gap"), "✕ 숨김");
+assert.ok(!careTodos(data, { ...ctx, now: Date.parse("2026-11-20T10:00:00+09:00"), ym: "2026-11" }).some(x => /리포트/.test(x.t) && x.sid === "a"), "11일 이후엔 리포트 알림 없음");
+assert.ok(t.includes('<div id="careBox"></div>') && t.includes("paintCare(data)"));
+console.log("care-todos ok");
