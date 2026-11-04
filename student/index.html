@@ -263,8 +263,9 @@ async function load() {
     // 출석·수강권 현황(선생님 앱이 '_status' 칸으로 보냄, 2026-10-29): 레슨 목록에서는 빼고 맨 위 카드로
     const sx = (j.lessons || []).find(l => l && l.id === "_status"); data.status = sx && sx.kind === "status" ? sx : null;
     const gx = (j.lessons || []).find(l => l && l.id === "_growth"); data.growth = gx && gx.kind === "growth" ? gx : null;   // (11/02) 나의 성장
-    data.months = (j.lessons || []).filter(l => l && String(l.id).startsWith("_month_") && l.kind === "month" && /^\d{4}-\d{2}$/.test(l.ym || "")).sort((a, b) => b.ym.localeCompare(a.ym));   // (11/04) 월간 성장 리포트
-    data.lessons = (j.lessons || []).filter(l => l && l.id !== "_status" && l.id !== "_growth" && !String(l.id).startsWith("_month_"));
+    data.months = (j.lessons || []).filter(l => l && ((String(l.id).startsWith("_month_") && l.kind === "month" && /^\d{4}-\d{2}$/.test(l.ym || "")) || (String(l.id).startsWith("_pack_") && l.kind === "pack")))
+      .sort((a, b) => String(b.updated_at || b.ym || "").localeCompare(String(a.updated_at || a.ym || "")));   // (11/04) 월간 성장 리포트 · (11/05) 수강권 돌아보기 — 최근에 보낸 것이 위
+    data.lessons = (j.lessons || []).filter(l => l && l.id !== "_status" && l.id !== "_growth" && !String(l.id).startsWith("_month_") && !String(l.id).startsWith("_pack_"));
     const want = params.get("l");
     if (want && data.lessons.some(l => l.id === want)) openLesson(want); else timeline();
   } catch (e) {   // 로그인 문제일 때만 저장된 로그인을 지움(오프라인·일시 오류로 매번 다시 로그인하지 않게)
@@ -388,7 +389,7 @@ function monthCard(m, open) {
   const body = `${miles.length ? `<div class="moMiles">${miles.map(x => `<div class="moMile"><span aria-hidden="true">${esc(x.ic || "🎉")}</span> <b>${esc(x.text)}</b></div>`).join("")}</div>` : ""}
     ${rest.length ? `<ul class="moList">${rest.map(x => `<li><span aria-hidden="true">${esc(x.ic || "·")}</span> ${esc(x.text)}</li>`).join("")}</ul>` : ""}
     ${typeof m.say === "string" && m.say.trim() ? `<div class="moSay"><div class="muted" style="font-size:.85rem">💬 선생님 한마디</div><p class="pre" style="margin:2px 0 0">${esc(m.say.trim())}</p></div>` : ""}`;
-  const head = `📅 ${esc(m.title || (+String(m.ym).slice(5) + "월 성장 리포트"))}${m.total ? ` <span class="muted" style="font-size:.85rem;font-weight:400">누적 ${+m.total}회</span>` : ""}`;
+  const head = `${m.kind === "pack" ? "💳" : "📅"} ${esc(m.title || (+String(m.ym).slice(5) + "월 성장 리포트"))}${m.total ? ` <span class="muted" style="font-size:.85rem;font-weight:400">누적 ${+m.total}회</span>` : ""}`;
   return open ? `<div class="card month${miles.length ? " cele" : ""}" role="region" aria-label="월간 성장 리포트"><h2>${head}</h2>${body}</div>`
     : `<details class="card month"><summary><b>${head}</b></summary>${body}</details>`;
 }

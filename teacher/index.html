@@ -4025,9 +4025,9 @@ async function pushGrowthAll() {   // 음정성향 파일이 바뀐 수강생만
 }
 async function paintGrowthTab(sid) {
   const st = cfg.students[sid];
-  $("stuTab").innerHTML = `<div id="grUse"></div><div id="grTop"></div><div id="grMonth"></div><div id="grShare"></div><div id="mkHabit"><p class="muted">불러오는 중…</p></div><div id="stuGrowth4"></div>`;
+  $("stuTab").innerHTML = `<div id="grUse"></div><div id="grTop"></div><div id="grPack"></div><div id="grMonth"></div><div id="grShare"></div><div id="mkHabit"><p class="muted">불러오는 중…</p></div><div id="stuGrowth4"></div>`;
   usageOf().then(u => { if (stuCur?.sid === sid && stuCur.tab === "growth" && $("grUse")) $("grUse").innerHTML = usageCard(u?.[sid]); }).catch(() => {});
-  paintHabit(sid, "growth").then(() => { if (stuCur?.sid === sid && stuCur.tab === "growth") { if (st._habit) { wireGrowthShare(sid); pushGrowth(sid).catch(() => {}); } wireMonth(sid); } });
+  paintHabit(sid, "growth").then(() => { if (stuCur?.sid === sid && stuCur.tab === "growth") { if (st._habit) { wireGrowthShare(sid); pushGrowth(sid).catch(() => {}); } wireMonth(sid); try { wirePack(sid); } catch (e) { console.warn("pack", e); } } });
   try { const rec = await rootFile(st, "수강생기록.json"); if (stuCur?.sid === sid && stuCur.tab === "growth") paintGrowth4(rec, st); } catch {}
 }
 // ── 🤝 챙기기(11/04 19:10 사용자 '오케이 고고' — 장기 수강생 프로젝트: 레슨 사이 소통) ──
@@ -4044,6 +4044,8 @@ function careTodos(data, ctx) {
     const gap = Math.round(day(last + "T12:00:00+09:00")), iv = dates.slice(1).map((x, i) => (Date.parse(x) - Date.parse(dates[i])) / 864e5).filter(v => v > 0).sort((a, b) => a - b);
     const usual = iv.length ? iv[Math.floor(iv.length / 2)] : 7;
     if (gap >= Math.max(8, Math.round(usual * 1.5)) && gap <= 35 && !nextOk) push("gap", `💬 ${st.name} · 마지막 레슨 ${gap}일 전(평소 ${Math.round(usual)}일 간격) · 다음 예약 없음`, "안부 한마디", "lesson");
+    { const pk = a.package, left = packLeft(pk); if (left != null && left <= 1 && pk.start && !(ctx.sent || {})[d.sid + ":pack:" + String(pk.start).slice(0, 10)])
+      push("pack" + String(pk.start).slice(0, 10), `💳 ${st.name} · 수강권 ${Math.min(+pk.done || 0, +pk.need)}/${+pk.need}회${left ? ` · ${left}회 남음` : " · 완주"}`, "이번 수강권 돌아보기 보내기", "growth"); }
     { const an = annivNext(dates[0], now); if (an && an.inDays <= 10) push("anniv" + an.m, `🎂 ${st.name} · ${an.inDays <= 0 ? "오늘" : an.inDays + "일 뒤"} 함께한 지 ${an.label}`, "그날 레슨 노트에 기념", "lesson"); }
     const u = ctx.usage?.[d.sid]; if (u?.last_at) { const g = Math.floor(day(u.last_at)); if (g >= 7) push("open", `📱 ${st.name} · ${g}일째 노트를 안 열어 봄`, "지난 노트 다시 보내기", "lesson"); }
     const nx = dates.length + 1; if (nextOk && MO_MILES.includes(nx)) push("mile" + nx, `🎉 ${st.name} · 다음 레슨이 ${nx}회차`, "축하 준비", "growth");
@@ -4149,6 +4151,50 @@ function monthInput(st) {
 function monthNote(f, pick, say) {
   return { kind: "month", ym: f.ym, title: f.title, total: f.total, items: f.items.filter(x => pick[x.k] ?? x.on).map(({ ic, text, k }) => ({ ic, text, mile: /^(mile|anniv|best|fresh)/.test(k) })),
     say: String(say || "").trim().slice(0, 400), updated_at: new Date().toISOString() };
+}
+// ── 💳 수강권 돌아보기(11/05 00:00 사용자 순서: 재결제 직전 알림 먼저) ──
+// 성인 수강생은 대개 재결제 때 그만둠 → 남은 회차 1회 이하일 때 '이번 수강권에서 달라진 것'을 선생님이 골라 보냄(_pack_시작일). 결제 권유 문구는 넣지 않음
+const packLeft = (pk) => pk && +pk.need > 0 ? Math.max(0, +pk.need - +(pk.done || 0)) : null;
+function packFacts(inp, pk) {
+  if (!pk || !/^\d{4}-\d{2}-\d{2}/.test(pk.start || "") || !(+pk.need > 0)) return null;
+  const from = pk.start.slice(0, 10), need = +pk.need, done = Math.min(+pk.done || 0, need), left = need - done;
+  const ls = [...new Set((inp.lessons || []).map(moDate))].filter(d => d >= from).sort(), items = [];
+  const title = pk.plan === "month" && pk.month ? `${+pk.month.slice(5)}월 수강 돌아보기` : `${need}회 수강권 돌아보기`;
+  items.push({ k: "count", ic: "📅", text: `${need}회 중 ${done}회 레슨${left ? ` · ${left}회 남음` : " · 완주"}${ls.length ? ` (${ls.map(d => `${+d.slice(5, 7)}/${+d.slice(8)}`).join("·")})` : ""}`, on: true });
+  const songs = (inp.songs || []).filter(x => x && moDate(x.date) >= from).sort((a, b) => moDate(a.date).localeCompare(moDate(b.date)));
+  const before = new Set((inp.songs || []).filter(x => x && moDate(x.date) < from).map(x => normTitle(x.title)));
+  const titles = [...new Map(songs.filter(x => x.title).map(x => [normTitle(x.title), x.title])).values()], fresh = titles.filter(t => !before.has(normTitle(t)));
+  const full = [...new Map((inp.full || []).filter(x => x && moDate(x.date) >= from && x.title).map(x => [normTitle(x.title), x.title])).values()];
+  const miles = [];
+  if (full.length) miles.push({ k: "full", ic: "🎤", text: `끝까지 부른 곡: ${full.map(t => `‘${t}’`).join(", ")}`, on: true });
+  const A = songs.filter(x => Number.isFinite(x.acc));
+  if (A.length >= 2) { const a = Math.round(A[0].acc * 100), b = Math.round(A.at(-1).acc * 100), best = Math.round(Math.max(...A.map(x => x.acc)) * 100);
+    items.push({ k: "acc", ic: "🎯", text: `음 정확도 처음 ${a}% → 최근 ${b}%${best > Math.max(a, b) ? ` (최고 ${best}%)` : ""}`, on: b >= a }); }
+  if (titles.length) items.push({ k: "songs", ic: "🎵", text: `함께한 곡: ${titles.slice(0, 5).map(t => `‘${t}’`).join(", ")}${titles.length > 5 ? ` 외 ${titles.length - 5}곡` : ""}`, on: true });
+  if (fresh.length) miles.push({ k: "fresh", ic: "✨", text: `새 곡 ${fresh.length}곡에 도전`, on: true });
+  const sb = (inp.subs || []).filter(d => moDate(d) >= from).length; if (sb) items.push({ k: "subs", ic: "📝", text: `연습 녹음 ${sb}번 보냄`, on: true });
+  return { key: from, title, left, need, done, items: [...miles, ...items] };
+}
+function wirePack(sid) {
+  const box = $("grPack"), st = cfg.students[sid]; if (!box || !st) return;
+  const pk = att?.students?.[sid]?.package, inp = { ...monthInput(st), full: (st._rows || []).filter(r => r.full_song).map(r => ({ date: r.l.name.slice(0, 10), title: r.full_song })) };
+  const f = packFacts(inp, pk); if (!f) { box.innerHTML = ""; return; }
+  const k = sid + ":pack:" + f.key, sent = (LS.get("vn_mo_sent") || {})[k], dr = (LS.get("vn_mo_draft") || {})[k] || {}, pick = dr.pick || {}, hot = f.left <= 1;
+  box.innerHTML = `<details class="card"${hot && !sent ? " open" : ""}><summary><b>💳 ${esc(f.title)}</b> ${hot ? `<span class="chip todo">${f.left ? `${f.left}회 남음` : "완주"}</span>` : `<span class="muted">${f.left}회 남음</span>`}${sent ? ` <span class="chip ok">보냄</span>` : ""}</summary>
+    <p class="muted" style="margin:4px 0 8px">이번 수강권에서 달라진 것 · 남은 회차가 1회 이하일 때 보내면 좋아요(성인 수강생은 대개 다시 결제할 때 그만둬요) · 결제 얘기는 넣지 않았어요</p>
+    ${f.items.map(x => `<label style="display:block;margin:3px 0"><input type="checkbox" data-pk="${esc(x.k)}"${(pick[x.k] ?? x.on) ? " checked" : ""}> ${x.ic} ${esc(x.text)}</label>`).join("")}
+    <textarea id="pkSay" rows="3" maxlength="400" style="width:100%;margin-top:6px" placeholder="선생님 한마디 (예: 처음엔 고음에서 목이 조였는데 이젠 편하게 올라가요. 다음엔 ‘○○’ 완곡해 봐요!)">${esc(dr.say || "")}</textarea>
+    <div class="row" style="margin-top:6px"><button type="button" class="small" id="pkSend">${sent ? "다시 보내기" : "수강생 페이지에 보내기"}</button><span class="muted" id="pkMsg"></span></div></details>`;
+  const save = () => { const all = LS.get("vn_mo_draft") || {}, p = {}; box.querySelectorAll("[data-pk]").forEach(c => p[c.dataset.pk] = c.checked); all[k] = { pick: p, say: $("pkSay").value }; LS.set("vn_mo_draft", all); return all[k]; };
+  box.querySelectorAll("[data-pk]").forEach(c => c.onchange = save); $("pkSay").oninput = save;
+  $("pkSend").onclick = async () => { const d = save(), b = $("pkSend");
+    const n = { kind: "pack", key: f.key, title: f.title, items: f.items.filter(x => d.pick[x.k] ?? x.on).map(({ ic, text, k: kk }) => ({ ic, text, mile: kk === "full" || kk === "fresh" })), say: String(d.say || "").trim().slice(0, 400), updated_at: new Date().toISOString() };
+    if (!n.items.length && !n.say) return toast("보낼 줄을 하나 이상 고르거나 한마디를 써 주세요");
+    if (isStaffApp() || !portalUrl()) return toast("수강생 노트 서버가 연결된 원장 앱에서 보낼 수 있어요");
+    b.disabled = true; $("pkMsg").textContent = "보내는 중…";
+    try { await portal("t_note", { sid, lesson_id: "_pack_" + f.key, date: "", published_at: n.updated_at, note: n, _nb: true });
+      const S = LS.get("vn_mo_sent") || {}; S[k] = n.updated_at; LS.set("vn_mo_sent", S); wirePack(sid); toast("보냈어요 · 수강생 노트 맨 위"); }
+    catch (e) { $("pkMsg").textContent = errMsg(e); b.disabled = false; } };
 }
 function wireMonth(sid, ym) {
   const box = $("grMonth"), st = cfg.students[sid]; if (!box || !st) return;
@@ -6614,7 +6660,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-04-2300-celeb";
+const BUILD = "2026-11-05-0030-pack";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
