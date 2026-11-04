@@ -1131,7 +1131,7 @@ function paintList(data, stale) {
   const todoHtml = `<div class="card"><h3 style="margin:0 0 4px">오늘 할 일 ${bells ? `<span class="chip todo">🔔 검토 대기 ${bells}</span>` : ""}</h3>` + (todo.length ? todo.map((x, n) =>
       `<div class="todo-item" data-n="${n}"><span>${esc(x.t)}</span><span class="chip ${x.c.includes("완성") ? "ok" : "todo"}">${esc(x.c)}</span></div>`).join("")
     : `<p class="muted" style="margin:4px 0">할 일 없음 👍</p>`) + `</div>`;
-  const order = data.slice().sort((a, b) => (isTeacher(cfg.students[a.sid] || {}) - isTeacher(cfg.students[b.sid] || {})));
+  const order = data.slice().sort((a, b) => (isTeacher(cfg.students[a.sid] || {}) - isTeacher(cfg.students[b.sid] || {})) || ((enrollOf(cfg.students[a.sid]) !== "active") - (enrollOf(cfg.students[b.sid]) !== "active")));   // 쉬는 중·그만둠은 아래로
   const blocks = order.map((d) => {
     const st = cfg.students[d.sid]; if (!st) return "";
     const fbN = d.rows.filter(r => !r.fb && !r.err).length, errN = d.rows.filter(r => r.err).length, pend = (d.subs || []).filter(x => !x.replied_at).length;
@@ -1140,7 +1140,7 @@ function paintList(data, stale) {
     const a = attOf(d.sid);
     const sub = isTeacher(st) ? "선생님 본인 곡·작업" : a?.line ? `${esc(a.line)}${a.next_lesson ? ` · 다음 ${esc(attWhen(a.next_lesson))}` : ""}`
       : pay ? `최근 결제 ${esc(pay.date)} · ${esc(pay.sessions)}회 묶음` : "결제 기록 없음";
-    const tag = st.status === "test" ? ` <span class="chip">연습용</span>` : isTeacher(st) ? ` <span class="chip">선생님</span>` : "";
+    const tag = st.status === "test" ? ` <span class="chip">연습용</span>` : isTeacher(st) ? ` <span class="chip">선생님</span>` : enrollOf(st) !== "active" ? ` <span class="chip">${esc(ENROLL[enrollOf(st)])}</span>` : "";
     const chips = [
       d.err ? `<span class="chip todo retry" title="${esc(d.err)}">불러오기 실패(다시 시도)</span>` : "",
       errN && !d.err ? `<span class="chip todo retry" title="일부 레슨을 못 불러왔어요">레슨 ${errN}개 불러오기 실패(다시 시도)</span>` : "",
@@ -1219,9 +1219,11 @@ async function openStudent(sid, tab) {
   const tabs = isTeacher(st) ? [["mk", "🪄 메이크업·커버"]] : [["lesson", "📋 레슨"], ["subs", "📝 과제"], ["growth", "📈 성장"], ["mk", "🪄 메이크업"]];   // (11/02 사용자 시안 승인) 성장 탭
   $("vStu").innerHTML = `<div class="card stuCard"><div class="stuHead"><h3>${esc(st.name)} <span class="muted">${esc(sid)}</span></h3>
       <div class="muted">${isTeacher(st) ? "선생님 본인 곡·작업" : pay ? `최근 결제 ${esc(pay.date)} · ${esc(pay.sessions)}회 묶음` : "결제 기록 없음"} · <a href="https://drive.google.com/drive/folders/${esc(st.folder)}" target="_blank" rel="noopener">드라이브 폴더</a></div></div></div>
+    ${isTeacher(st) ? "" : `<div class="row" style="margin:4px 0 0"><button type="button" class="small ghost" id="enrollBtn">${esc(enrollLabel(st))}</button></div>`}
     <div class="tabs">${tabs.map(([k, n]) => `<button class="small ${k === tab ? "on" : ""}" data-tab="${k}">${n}</button>`).join("")}</div>
     <div id="stuTab"><p class="muted">불러오는 중…</p></div>`;
   $("vStu").querySelectorAll("[data-tab]").forEach(b => b.onclick = () => openStudent(sid, b.dataset.tab));
+  if ($("enrollBtn")) $("enrollBtn").onclick = () => enrollSheet(sid);
   if (!st._rows) {
     try { attach(await studentData(sid)); }
     catch (e) { $("stuTab").innerHTML = `<div class="card"><p class="muted">불러오기 실패: ${esc(errMsg(e))}</p><button class="small" id="stuRetry">다시 시도</button></div>`;
@@ -4030,13 +4032,42 @@ async function paintGrowthTab(sid) {
   paintHabit(sid, "growth").then(() => { if (stuCur?.sid === sid && stuCur.tab === "growth") { if (st._habit) { wireGrowthShare(sid); pushGrowth(sid).catch(() => {}); } wireMonth(sid); try { wirePack(sid); } catch (e) { console.warn("pack", e); } } });
   try { const rec = await rootFile(st, "수강생기록.json"); if (stuCur?.sid === sid && stuCur.tab === "growth") paintGrowth4(rec, st); } catch {}
 }
+// ── 다니는 중 / 쉬는 중 / 그만둠(11/04 22:26 사용자 '이미 그만둔 사람에게 알림') — 챙기기에서 빼고, 그만둔 이유를 한 줄 남겨 나중에 무엇이 효과 있었는지 봄 ──
+const ENROLL = { active: "다니는 중", paused: "쉬는 중", left: "그만둠" };
+const enrollOf = (st) => ENROLL[st?.enroll?.state] ? st.enroll.state : "active";
+const enrollLabel = (st) => { const e = st?.enroll || {}, k = enrollOf(st); return k === "active" ? "🟢 다니는 중 ▾" : `${k === "paused" ? "⏸" : "⏹"} ${ENROLL[k]}${e.at ? ` · ${String(e.at).slice(5, 10).replace("-", "/")}부터` : ""} ▾`; };
+const ENROLL_WHY = ["시간·일정", "비용", "건강·목 상태", "이사·거리", "목표 이룸", "실력이 안 는다고 느낌", "레슨이 안 맞음", "연락 끊김", "기타"];
+function enrollSheet(sid) {
+  const st = cfg.students[sid], e = st.enroll || {}, d = document.createElement("div"); d.className = "attSheet";
+  const today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+  d.innerHTML = `<div class="attBox"><h3 style="margin:0 0 6px">${esc(st.name)} · 수강 상태</h3>
+    ${Object.entries(ENROLL).map(([k, n]) => `<label style="display:block;margin:6px 0"><input type="radio" name="enS" value="${k}"${enrollOf(st) === k ? " checked" : ""}> ${n}</label>`).join("")}
+    <div id="enMore"><label class="muted" style="display:block;margin-top:6px">언제부터 <input type="date" id="enAt" value="${esc(e.at || today)}"></label>
+      <label class="muted" style="display:block;margin-top:6px">이유(선생님만 봄 · 무엇이 효과 있는지 나중에 보려고)</label>
+      <div class="row" style="flex-wrap:wrap;gap:4px;margin:4px 0">${ENROLL_WHY.map(w => `<button type="button" class="small ${e.why_tag === w ? "" : "ghost"}" data-why="${esc(w)}">${esc(w)}</button>`).join("")}</div>
+      <input id="enWhy" maxlength="120" placeholder="한 줄 메모 (예: 회사 야근 많아져서 1~2달 쉼)" value="${esc(e.why || "")}" style="width:100%"></div>
+    <p class="muted" style="font-size:.85rem;margin:6px 0 0">쉬는 중·그만둠이면 🤝 챙기기와 수강권 알림에서 빠져요. 수강생 페이지는 그대로 열려요.</p>
+    <button type="button" class="full" id="enOk" style="margin-top:10px">저장</button><button type="button" class="ghost full" id="enNo" style="margin-top:6px">취소</button></div>`;
+  document.body.appendChild(d);
+  let tag = e.why_tag || "";
+  const paint = () => { const k = d.querySelector('input[name="enS"]:checked')?.value; $("enMore").classList.toggle("hidden", k === "active"); };
+  d.querySelectorAll('input[name="enS"]').forEach(x => x.onchange = paint); paint();
+  d.querySelectorAll("[data-why]").forEach(b => b.onclick = () => { tag = tag === b.dataset.why ? "" : b.dataset.why; d.querySelectorAll("[data-why]").forEach(x => x.classList.toggle("ghost", x.dataset.why !== tag)); });
+  const close = () => d.remove(); $("enNo").onclick = close; d.addEventListener("click", (ev) => { if (ev.target === d) close(); });
+  $("enOk").onclick = async () => { const k = d.querySelector('input[name="enS"]:checked')?.value || "active", b = $("enOk"); b.disabled = true;
+    const v = k === "active" ? { state: "active", at: today, prev: e.state && e.state !== "active" ? { state: e.state, at: e.at || "", why_tag: e.why_tag || "", why: e.why || "" } : undefined }
+      : { state: k, at: $("enAt").value || today, why_tag: tag, why: $("enWhy").value.trim().slice(0, 120) };
+    try { await cfgUpdate(l => { const x = l.students?.[sid]; if (!x) return; const hist = (x.enroll_log || []).slice(-19); hist.push({ ...v, prev: undefined, saved_at: new Date().toISOString() }); x.enroll = JSON.parse(JSON.stringify(v)); x.enroll_log = hist; });
+      if (st.teacher_id) staffSync(st.teacher_id).catch(() => {}); close(); toast("저장했어요"); openStudent(sid, stuCur?.tab); }
+    catch (err) { b.disabled = false; toast(errMsg(err)); } };
+}
 // ── 🤝 챙기기(11/04 19:10 사용자 '오케이 고고' — 장기 수강생 프로젝트: 레슨 사이 소통) ──
 // 급한 일(오늘 할 일)과 따로: 오래 못 본 수강생·노트를 안 여는 수강생·다음 레슨이 기념 회차·이번 달 리포트. ✕ = 7일 동안 숨김
 function careTodos(data, ctx) {
   const now = ctx.now ?? Date.now(), out = [], hide = ctx.hide || {}, day = (iso) => (now - Date.parse(iso)) / 864e5;
   const ym = ctx.ym, kd = new Date(now + 9 * 3600e3).getUTCDate();
   for (const d of data) {
-    const st = ctx.students[d.sid]; if (!st || st.isTeacher || st.status === "test" || st.consent_withdrawn) continue;
+    const st = ctx.students[d.sid]; if (!st || st.isTeacher || st.status === "test" || st.consent_withdrawn || (st.enroll && st.enroll.state && st.enroll.state !== "active")) continue;
     const dates = (d.rows || []).filter(r => !r.err && r.l?.name).map(r => r.l.name.slice(0, 10)).filter(x => /^\d{4}-\d{2}-\d{2}$/.test(x)).sort(), last = dates.at(-1);
     if (!last) continue;
     const a = ctx.att?.[d.sid] || {}, nextOk = a.next_lesson && Date.parse(a.next_lesson) > now, push = (k, t, c, tab) => { if (!(hide[d.sid + ":" + k] > now)) out.push({ k: "care", ck: k, sid: d.sid, t, c, tab }); };
@@ -6660,7 +6691,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-05-0030-pack";
+const BUILD = "2026-11-05-0045-enroll";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
