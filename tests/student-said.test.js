@@ -17,7 +17,7 @@ function makeDrive(initial, hooks = {}) {
   return d;
 }
 const mk = (cfg, drive) => new Function("cfg", "api", "writeJSON", "list", "DRIVE", "esc", "toast", "errMsg", "rootFile", "paintBriefing", "stuCur", "fmt",
-  `${body}\n; return { saidUsed, saidPending, patchSaid, setSaid, saidBoxHTML };`)(cfg, drive.api, drive.writeJSON, drive.list, "DRIVE",
+  `${body}\n; return { saidUsed, saidPending, patchSaid, setSaid, setSaidMany, saidBoxHTML };`)(cfg, drive.api, drive.writeJSON, drive.list, "DRIVE",
   (s) => String(s ?? ""), () => {}, (e) => e.message, async () => null, () => {}, null, (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`);
 const rec0 = () => ({
   briefing: "지난 레슨 요약",
@@ -45,6 +45,17 @@ const K = { kind: "goal", quote: "축가 부르고 싶어요", date: "2026-10-20
     assert.strictEqual(d.file.profile.goal[2].approved, false);
     assert.strictEqual(d.writes, 1);
     assert.ok(!c.students.s1._root["수강생기록.json"], "캐시를 비워 다음 화면에서 새로 읽음");
+  }
+  // 1-2. (11/05) 연속으로 누른 여러 개는 한 번 읽고 한 번만 쓴다 · 일부만 못 찾으면 나머지는 저장하고 못 찾은 것만 알려 줌
+  {
+    const d = makeDrive(rec0()), app = mk(cfg(), d);
+    const K2 = { kind: "goal", quote: "축가 부르고 싶어요", date: "2026-10-25", lesson: "L3" }, K3 = { kind: "worry", quote: "목이 쉬어요", date: "2026-10-20", lesson: "L2" };
+    const r = await app.setSaidMany("s1", [[K, true], [K2, "rejected"], [K3, true]]);
+    assert.strictEqual(d.writes, 1, "세 개를 한 번에 저장");
+    assert.deepStrictEqual([d.file.profile.goal[1].approved, d.file.profile.goal[2].approved, d.file.profile.worry[0].approved], [true, "rejected", true]);
+    assert.strictEqual(r.missing.length, 0);
+    const d2 = makeDrive(rec0()), r2 = await mk(cfg(), d2).setSaidMany("s1", [[K, true], [{ ...K3, quote: "없는 말" }, true]]);
+    assert.strictEqual(d2.writes, 1); assert.strictEqual(d2.file.profile.goal[1].approved, true); assert.strictEqual(r2.missing.length, 1);
   }
   // 2. 화면을 연 뒤(앱이 읽은 뒤) 수집기가 새 레슨·새 말을 저장 → 클릭해도 그 변경 유지
   {
