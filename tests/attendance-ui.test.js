@@ -9,7 +9,7 @@ const h = statusHtml({ kind: "status", line: "11월 레슨 ●●●◌ 3/4 · �
 assert.ok(h.includes("🌿 연습하는 가수") && h.includes("레슨 5회") && h.includes("다음 칭호까지 7회") && h.includes("●●●◌"), h);
 assert.ok(!/원|미납|소멸|결제/.test(h.replace(/<[^>]+>/g, "")), "금액·미납·소멸 문구 없음");
 assert.ok(statusHtml({ kind: "status", lessons_confirmed: 48 }).includes("👑 작품 가수"));
-assert.ok(s.includes('data.lessons = (j.lessons || []).filter(l => l && l.id !== "_status" && l.id !== "_growth" && !String(l.id).startsWith("_month_") && !String(l.id).startsWith("_pack_"))'), "_status·_growth·_month_·_pack_ 칸은 레슨 목록에서 뺌");
+assert.ok(s.includes('data.lessons = (j.lessons || []).filter(l => l && l.id !== "_status" && l.id !== "_growth" && l.id !== "_goal" && !String(l.id).startsWith("_month_") && !String(l.id).startsWith("_pack_"))'), "_status·_growth·_month_·_pack_ 칸은 레슨 목록에서 뺌");
 const t = fs.readFileSync(__dirname + "/../teacher/index.html", "utf8");
 assert.ok(/same_day_cancel: \{ t: "오늘 레슨 취소됨", btn: \[\["makeup", "보강일 잡기", 1\], \["forfeit", "소멸로 처리", 0\]\]/.test(t), "당일 취소: 보강 기본");
 assert.ok(t.includes('lesson_id: "_status"') && !/note = \{[^}]*amount/.test(t), "수강생에게 보내는 상태에 금액 없음");

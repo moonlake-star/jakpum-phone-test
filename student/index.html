@@ -122,6 +122,7 @@
   .moList { list-style:none; padding:0; margin:6px 0; } .moList li { padding:6px 0; border-top:1px solid rgba(255,255,255,.07); } .moList li:first-child { border-top:0; }
   .moSay { margin-top:8px; padding:10px 12px; border-radius:12px; background:rgba(255,255,255,.05); }
   .card.celeb { text-align:center; background:linear-gradient(160deg, rgba(255,200,90,.18), rgba(255,140,170,.08)); box-shadow:inset 0 0 0 1px rgba(255,200,90,.28); } .card.celeb .celIc { font-size:2.2rem; line-height:1; margin-bottom:4px; } .card.celeb .gcPair { display:grid; grid-template-columns:1fr 1fr; gap:8px; text-align:left; } .card.celeb .gcPair .lp, .card.celeb .lp.seg { width:100%; }
+  .glSteps { display:grid; grid-template-columns:repeat(4, 1fr); gap:6px; } .glStep { text-align:center; padding:8px 4px; border-radius:12px; background:rgba(255,255,255,.05); } .glStep span { display:flex; width:26px; height:26px; margin:0 auto 4px; border-radius:50%; align-items:center; justify-content:center; box-shadow:inset 0 0 0 2px rgba(255,255,255,.2); font-weight:700; } .glStep.on span { background:#8fe3a8; color:#10291a; box-shadow:none; } .glStep small { font-size:.75rem; line-height:1.2; display:block; } .glStep.on small { color:#c9f2d6; }
   @media (prefers-reduced-motion: reduce) { .lp { transition:none; } }
   .wave svg { position:absolute; inset:0; width:100%; height:100%; } .wave .on { position:absolute; inset:0; clip-path:inset(0 100% 0 0); }
   .story-item { border-top:1px solid var(--line); padding:12px 0; } .story-item .when { font-weight:700; } .story-item p { margin:4px 0 8px; }
@@ -265,7 +266,8 @@ async function load() {
     const gx = (j.lessons || []).find(l => l && l.id === "_growth"); data.growth = gx && gx.kind === "growth" ? gx : null;   // (11/02) 나의 성장
     data.months = (j.lessons || []).filter(l => l && ((String(l.id).startsWith("_month_") && l.kind === "month" && /^\d{4}-\d{2}$/.test(l.ym || "")) || (String(l.id).startsWith("_pack_") && l.kind === "pack")))
       .sort((a, b) => String(b.updated_at || b.ym || "").localeCompare(String(a.updated_at || a.ym || "")));   // (11/04) 월간 성장 리포트 · (11/05) 수강권 돌아보기 — 최근에 보낸 것이 위
-    data.lessons = (j.lessons || []).filter(l => l && l.id !== "_status" && l.id !== "_growth" && !String(l.id).startsWith("_month_") && !String(l.id).startsWith("_pack_"));
+    const gl = (j.lessons || []).find(l => l && l.id === "_goal"); data.goal = gl && gl.kind === "goal" && gl.title ? gl : null;   // (11/05) 🎯 목표곡
+    data.lessons = (j.lessons || []).filter(l => l && l.id !== "_status" && l.id !== "_growth" && l.id !== "_goal" && !String(l.id).startsWith("_month_") && !String(l.id).startsWith("_pack_"));
     const want = params.get("l");
     if (want && data.lessons.some(l => l.id === want)) openLesson(want); else timeline();
   } catch (e) {   // 로그인 문제일 때만 저장된 로그인을 지움(오프라인·일시 오류로 매번 다시 로그인하지 않게)
@@ -384,6 +386,16 @@ if (typeof document !== "undefined") document.addEventListener("click", (e) => {
   b.textContent = "❚❚ 멈춤"; grAud.play().catch(() => { b.textContent = b.dataset.lab; });
 });
 // (11/04 19:02 사용자 '응 고고') 📅 월간 성장 리포트 + 🎉 달성 — 선생님이 골라 보낸 것만(_month_YYYY-MM). 최신 달은 펼쳐서, 지난 달은 접어서
+// (11/05) 🎯 나의 목표곡 — 선생님이 적은 곡과 진도(처음 불러 봄 → 3번 연습 → 완곡 → 내 목소리 완성본)
+function goalHtml(g) {
+  if (!g || typeof g.title !== "string" || !g.title.trim()) return "";
+  const st = (Array.isArray(g.steps) ? g.steps : []).filter(x => x && typeof x.text === "string").slice(0, 6), n = st.filter(x => x.done).length;
+  const next = st.find(x => !x.done);
+  return `<div class="card goal" role="region" aria-label="나의 목표곡"><div class="muted" style="font-size:.85rem">🎯 나의 목표곡</div><h2 style="margin:2px 0 4px">‘${esc(g.title.trim())}’</h2>
+    ${typeof g.why === "string" && g.why.trim() ? `<p class="muted" style="margin:0 0 8px">${esc(g.why.trim())}</p>` : ""}
+    <div class="glSteps" aria-label="진도 ${n}/${st.length}">${st.map(x => `<div class="glStep${x.done ? " on" : ""}"><span aria-hidden="true">${x.done ? "✓" : ""}</span><small>${esc(x.text)}</small></div>`).join("")}</div>
+    <p style="margin:8px 0 0">${n === st.length && st.length ? "목표를 이뤘어요! 🎉 다음 곡도 같이 정해 봐요" : next ? `다음: <b>${esc(next.text)}</b>` : ""}${Number.isFinite(+g.n) && +g.n ? ` <span class="muted">· 레슨에서 ${+g.n}번 불렀어요</span>` : ""}${g.acc && Number.isFinite(+g.acc.first) && Number.isFinite(+g.acc.last) && +g.acc.last > +g.acc.first ? ` <span class="muted">· 음 정확도 ${+g.acc.first}% → ${+g.acc.last}%</span>` : ""}</p></div>`;
+}
 function monthCard(m, open) {
   const items = (Array.isArray(m.items) ? m.items : []).filter(x => x && typeof x.text === "string").slice(0, 12), miles = items.filter(x => x.mile), rest = items.filter(x => !x.mile);
   const body = `${miles.length ? `<div class="moMiles">${miles.map(x => `<div class="moMile"><span aria-hidden="true">${esc(x.ic || "🎉")}</span> <b>${esc(x.text)}</b></div>`).join("")}</div>` : ""}
@@ -402,7 +414,7 @@ function timeline() {
   history.replaceState(null, "", location.pathname);
   const ls = data.lessons, seen = seenLocal();
   const bests = ls.filter(l => l.best?.file_id);
-  $("view").innerHTML = `${statusHtml(data.status)}${typeof monthHtml === "function" ? monthHtml(data.months) : ""}${growthHtml(data.growth)}<div class="card"><h2>${esc(data.name)}님의 레슨 노트</h2>
+  $("view").innerHTML = `${statusHtml(data.status)}${typeof goalHtml === "function" ? goalHtml(data.goal) : ""}${typeof monthHtml === "function" ? monthHtml(data.months) : ""}${growthHtml(data.growth)}<div class="card"><h2>${esc(data.name)}님의 레슨 노트</h2>
       <p class="muted" style="margin:0">레슨 ${ls.length}회 · 최근 ${md(ls[0]?.date)}</p>
       ${bests.length > 1 && !albumTracks(ls).length ? `<button class="ghost full" id="playAll" style="margin-top:10px">▶ 그동안의 베스트 가창 이어 듣기 (${bests.length}곡)</button>` : ""}</div>
     ${albumHtml(ls)}
@@ -709,11 +721,13 @@ function celebHtml(l, all) {
   const cs = (Array.isArray(l?.celebrate) ? l.celebrate : []).filter(c => c && typeof c === "object").slice(0, 3); if (!cs.length) return "";
   const out = [];
   for (const c of cs) {
-    if (c.kind === "anniv" && Number.isFinite(+c.m)) {
-      const lab = typeof c.label === "string" && c.label ? c.label : (+c.m % 12 ? `${+c.m}개월` : `${+c.m / 12}년`);
+    if ((c.kind === "anniv" && Number.isFinite(+c.m)) || c.kind === "first4") {
+      const f4 = c.kind === "first4", lab = f4 ? "" : typeof c.label === "string" && c.label ? c.label : (+c.m % 12 ? `${+c.m}개월` : `${+c.m / 12}년`);
       const first = (all || []).filter(x => x && x.best?.file_id && String(x.date || "") < String(l.date || "")).sort((a, b) => String(a.date).localeCompare(String(b.date)))[0];
       const pair = first && l.best?.file_id ? `<p class="muted" style="margin:8px 0 4px">첫 레슨 베스트와 오늘 베스트</p><div class="gcPair"><div>${pill(first.best.file_id + "#c", "처음 " + md(first.date))}</div><div>${pill(l.best.file_id + "#c", "오늘 " + md(l.date))}</div></div>` : "";
-      out.push(`<div class="card celeb" role="region" aria-label="기념"><div class="celIc" aria-hidden="true">🎂</div><h2>함께 노래한 지 ${esc(lab)}</h2>
+      out.push(f4 ? `<div class="card celeb" role="region" aria-label="첫 4회 완주"><div class="celIc" aria-hidden="true">🌱</div><h2>첫 4회 완주!</h2>
+        <p style="margin:2px 0 0">처음이 제일 어려운데 잘 오셨어요. 첫 레슨 소리와 오늘 소리, 나란히 들어 보세요.</p>${pair}</div>`
+        : `<div class="card celeb" role="region" aria-label="기념"><div class="celIc" aria-hidden="true">🎂</div><h2>함께 노래한 지 ${esc(lab)}</h2>
         <p style="margin:2px 0 0">${c.first ? `${esc(String(c.first).slice(0, 10).replaceAll("-", "."))} 첫 레슨부터 ` : ""}꾸준히 와 주셔서 고마워요. 그동안 쌓인 소리, 한번 들어 보세요.</p>${pair}</div>`);
     } else if (c.kind === "full_song" && typeof c.title === "string" && c.title.trim()) {
       const fid = l.full && typeof l.full.file_id === "string" ? l.full.file_id : "";

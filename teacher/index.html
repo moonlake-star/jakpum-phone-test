@@ -1163,7 +1163,7 @@ function paintList(data, stale) {
   else if (Object.keys(staffOf()).length) asgOwnerTodos().then(xs => { const box = $("vList").querySelector(".card"); if (!xs.length || !box) return;
     box.insertAdjacentHTML("beforeend", xs.map(x => `<div class="todo-item"><span>${esc(x.t)}</span><span class="chip todo">${esc(x.c)}</span></div>`).join("")); }).catch(() => {});
   $("vList").querySelectorAll("[data-tf]").forEach(b => b.onclick = () => { LS.set("vn_tfilter", b.dataset.tf); paintList(allData, stale); });
-  $("vList").insertAdjacentHTML("beforeend", `<div id="prefsBox"></div><div id="advPermBox"></div><div id="laBox"></div>`); paintPrefs(); paintAdvPerm(); paintLaBox(); if (laIsOn()) laStart();
+  $("vList").insertAdjacentHTML("beforeend", `<div id="retBox"></div><div id="prefsBox"></div><div id="advPermBox"></div><div id="laBox"></div>`); try { paintRetention(allData); } catch (e) { console.warn("유지 지표", e); } paintPrefs(); paintAdvPerm(); paintLaBox(); if (laIsOn()) laStart();
   paintJoinRequests();
   try { paintCare(data); if (!isStaffApp() && portalUrl()) usageOf().then(() => paintCare(data)).catch(() => {}); } catch {}
   $("vList").querySelectorAll(".stuCard.tap").forEach(el => el.onclick = () => openStudent(el.dataset.s));
@@ -4027,10 +4027,45 @@ async function pushGrowthAll() {   // 음정성향 파일이 바뀐 수강생만
 }
 async function paintGrowthTab(sid) {
   const st = cfg.students[sid];
-  $("stuTab").innerHTML = `<div id="grUse"></div><div id="grTop"></div><div id="grPack"></div><div id="grMonth"></div><div id="grShare"></div><div id="mkHabit"><p class="muted">불러오는 중…</p></div><div id="stuGrowth4"></div>`;
+  $("stuTab").innerHTML = `<div id="grUse"></div><div id="grTop"></div><div id="grGoal"></div><div id="grPack"></div><div id="grMonth"></div><div id="grShare"></div><div id="mkHabit"><p class="muted">불러오는 중…</p></div><div id="stuGrowth4"></div>`;
   usageOf().then(u => { if (stuCur?.sid === sid && stuCur.tab === "growth" && $("grUse")) $("grUse").innerHTML = usageCard(u?.[sid]); }).catch(() => {});
-  paintHabit(sid, "growth").then(() => { if (stuCur?.sid === sid && stuCur.tab === "growth") { if (st._habit) { wireGrowthShare(sid); pushGrowth(sid).catch(() => {}); } wireMonth(sid); try { wirePack(sid); } catch (e) { console.warn("pack", e); } } });
+  paintHabit(sid, "growth").then(() => { if (stuCur?.sid === sid && stuCur.tab === "growth") { if (st._habit) { wireGrowthShare(sid); pushGrowth(sid).catch(() => {}); } wireMonth(sid); try { wirePack(sid); } catch (e) { console.warn("pack", e); } try { wireGoal(sid); } catch (e) { console.warn("goal", e); } } });
   try { const rec = await rootFile(st, "수강생기록.json"); if (stuCur?.sid === sid && stuCur.tab === "growth") paintGrowth4(rec, st); } catch {}
+}
+// ── 📊 수강 유지(11/05 사용자 '4번 빼고 다 진행') — 재등록률·평균 수강 기간·첫 2달 안 그만둠·그만둔 이유. 원장 앱만 ──
+function retentionStats(list, now = Date.now()) {   // list: [{name, enroll, dates[], packages[]}]
+  const day = 864e5, out = { active: 0, paused: 0, left: 0, renew: { yes: 0, no: 0, wait: 0 }, tenure: [], early: 0, why: {}, memos: [] };
+  for (const x of list) {
+    const k = ENROLL[x.enroll?.state] ? x.enroll.state : "active"; out[k]++;
+    const ds = (x.dates || []).filter(Boolean).sort(); if (!ds.length) continue;
+    const end = k === "left" && x.enroll.at ? Date.parse(x.enroll.at) : now, ten = Math.max(0, (end - Date.parse(ds[0])) / day);
+    out.tenure.push({ name: x.name, days: Math.round(ten), state: k });
+    if (k === "left" && ten <= 60) out.early++;
+    if (k !== "active" && x.enroll.why_tag) out.why[x.enroll.why_tag] = (out.why[x.enroll.why_tag] || 0) + 1;
+    if (k !== "active" && x.enroll.why) out.memos.push({ name: x.name, state: k, at: x.enroll.at || "", why: x.enroll.why });
+    const pk = (x.packages || []).filter(p => p && p.start).sort((a, b) => String(a.start).localeCompare(String(b.start)));
+    pk.forEach((p, i) => { if (p.state !== "complete" && p.state !== "ended_short") return;
+      if (i < pk.length - 1) out.renew.yes++; else if (k === "left") out.renew.no++; else out.renew.wait++; });
+  }
+  const avg = (a) => a.length ? Math.round(a.reduce((s, v) => s + v, 0) / a.length) : null;
+  out.avgDays = avg(out.tenure.map(t => t.days)); out.avgLeftDays = avg(out.tenure.filter(t => t.state === "left").map(t => t.days));
+  out.renewRate = out.renew.yes + out.renew.no ? Math.round(out.renew.yes / (out.renew.yes + out.renew.no) * 100) : null;
+  return out;
+}
+function paintRetention(data) {
+  const box = $("retBox"); if (!box || isStaffApp()) { if (box) box.innerHTML = ""; return; }
+  const list = data.map(d => { const st = cfg.students[d.sid]; if (!st || isTeacher(st) || st.status === "test") return null;
+    return { name: st.name, enroll: st.enroll, dates: (d.rows || []).filter(r => !r.err && r.l?.name).map(r => r.l.name.slice(0, 10)), packages: att?.students?.[d.sid]?.packages || [] }; }).filter(Boolean);
+  if (!list.length) { box.innerHTML = ""; return; }
+  const r = retentionStats(list), mo = (d) => d == null ? "–" : d >= 60 ? `${(d / 30).toFixed(1)}개월` : `${d}일`;
+  const why = Object.entries(r.why).sort((a, b) => b[1] - a[1]);
+  box.innerHTML = `<details class="card" data-fold="ret"><summary><b>📊 수강 유지</b> <span class="muted">다니는 중 ${r.active} · 쉬는 중 ${r.paused} · 그만둠 ${r.left}</span></summary>
+    <div style="margin:8px 0 0">
+      <div>💳 재등록률 <b>${r.renewRate == null ? "아직 모름" : r.renewRate + "%"}</b> <span class="muted">(끝난 수강권 다음에 또 등록 ${r.renew.yes} · 안 함 ${r.renew.no}${r.renew.wait ? ` · 기다리는 중 ${r.renew.wait}` : ""})</span></div>
+      <div>⏳ 평균 수강 기간 <b>${mo(r.avgDays)}</b>${r.left ? ` <span class="muted">· 그만둔 사람 평균 ${mo(r.avgLeftDays)} · 첫 2달 안에 그만둠 ${r.early}명</span>` : ""}</div>
+      ${why.length ? `<div style="margin-top:6px">❓ 쉬거나 그만둔 이유: ${why.map(([w, n]) => `${esc(w)} ${n}`).join(" · ")}</div>` : ""}
+      ${r.memos.length ? `<details style="margin-top:4px"><summary class="muted">메모 ${r.memos.length}개</summary>${r.memos.slice(-12).reverse().map(m => `<div class="muted" style="margin:2px 0">${esc(m.name)} · ${esc(ENROLL[m.state])} ${esc(String(m.at).slice(5).replace("-", "/"))} — ${esc(m.why)}</div>`).join("")}</details>` : ""}
+      <p class="muted" style="margin:6px 0 0;font-size:.82rem">앱 기록(레슨 날짜·캘린더 수강권·수강 상태)으로 셈 · 앱 쓰기 전 기간은 빠져서 실제보다 짧아요 · 수강생이 적을 땐 숫자보다 이유가 더 쓸모 있어요 · 그만둔 수강생은 수강생 화면 위 상태 버튼으로 표시해 주세요</p></div></details>`;
 }
 // ── 다니는 중 / 쉬는 중 / 그만둠(11/04 22:26 사용자 '이미 그만둔 사람에게 알림') — 챙기기에서 빼고, 그만둔 이유를 한 줄 남겨 나중에 무엇이 효과 있었는지 봄 ──
 const ENROLL = { active: "다니는 중", paused: "쉬는 중", left: "그만둠" };
@@ -4075,6 +4110,8 @@ function careTodos(data, ctx) {
     const gap = Math.round(day(last + "T12:00:00+09:00")), iv = dates.slice(1).map((x, i) => (Date.parse(x) - Date.parse(dates[i])) / 864e5).filter(v => v > 0).sort((a, b) => a - b);
     const usual = iv.length ? iv[Math.floor(iv.length / 2)] : 7;
     if (gap >= Math.max(8, Math.round(usual * 1.5)) && gap <= 35 && !nextOk) push("gap", `💬 ${st.name} · 마지막 레슨 ${gap}일 전(평소 ${Math.round(usual)}일 간격) · 다음 예약 없음`, "안부 한마디", "lesson");
+    { const n = Math.max(dates.length, +(a.lessons_confirmed || 0)), age = day(dates[0] + "T12:00:00+09:00");
+      if (n <= 4 && age <= 45 && !(st.goal && st.goal.title)) push("goal", `🌱 ${st.name} · 첫 달(${n}회) — 목표곡을 같이 정해 보기`, "부르고 싶은 곡 물어보기", "growth"); }
     { const pk = a.package, left = packLeft(pk); if (left != null && left <= 1 && pk.start && !(ctx.sent || {})[d.sid + ":pack:" + String(pk.start).slice(0, 10)])
       push("pack" + String(pk.start).slice(0, 10), `💳 ${st.name} · 수강권 ${Math.min(+pk.done || 0, +pk.need)}/${+pk.need}회${left ? ` · ${left}회 남음` : " · 완주"}`, "이번 수강권 돌아보기 보내기", "growth"); }
     { const an = annivNext(dates[0], now); if (an && an.inDays <= 10) push("anniv" + an.m, `🎂 ${st.name} · ${an.inDays <= 0 ? "오늘" : an.inDays + "일 뒤"} 함께한 지 ${an.label}`, "그날 레슨 노트에 기념", "lesson"); }
@@ -4113,11 +4150,14 @@ function celebFacts() {
   const st = cur?.st || cfg.students[cur?.sid] || {}, dates = (st._rows || []).filter(r => !r.err && r.l?.name).map(r => r.l.name.slice(0, 10)), date = cur?.folder?.name?.slice(0, 10) || "";
   const o = typeof bestPicked === "function" ? bestPicked() : null, fr = o?.base === "fullrun" && Number.isFinite(+o.fullrun?.start) ? { t0: +o.fullrun.start, len: +o.fullrun.len || +o.len || 0 } : null;
   const done = new Set((st._rows || []).filter(r => r.full_song && r.l?.id !== cur?.folder?.id).map(r => normTitle(r.full_song)));
-  return { anniv: annivOfLesson(dates, date), fr, done, song: String(cur?.ana?.songs?.[0]?.title || "").trim() };
+  const ds = [...new Set(dates)].sort(), before = +(att?.students?.[cur?.sid]?.lessons_confirmed || 0) - ds.filter(x => x <= date).length;   // 앱 쓰기 전 레슨이 있으면 '첫 달'이 아님
+  const first4 = ds.indexOf(date) === 3 && before <= 0 && (Date.parse(date) - Date.parse(ds[0])) / 864e5 <= 75 ? { first: ds[0] } : null;   // (11/05) 첫 4회 = 이탈이 가장 많은 때
+  return { anniv: annivOfLesson(dates, date), first4, fr, done, song: String(cur?.ana?.songs?.[0]?.title || "").trim() };
 }
 function celebForNote() {
   const rv = cur?.review || {}, c = rv.celeb || {}, out = [];
   if (c.anniv?.on && c.anniv.m) out.push({ kind: "anniv", m: +c.anniv.m, label: annLabel(+c.anniv.m), first: c.anniv.first || "" });
+  if (c.first4?.on) out.push({ kind: "first4", first: c.first4.first || "" });
   if (c.full?.on && String(c.full.title || "").trim()) out.push({ kind: "full_song", title: String(c.full.title).trim().slice(0, 40), ...(Number.isFinite(+c.full.t0) && +c.full.len > 0 ? { t0: Math.round(+c.full.t0), t1: Math.round(+c.full.t0 + +c.full.len) } : {}) });
   return out;
 }
@@ -4126,15 +4166,19 @@ function renderCeleb() {
   const f = celebFacts(), rv = cur.review, c = (rv.celeb ??= {});
   if (f.anniv && !c.anniv) c.anniv = { on: true, m: f.anniv.m, first: f.anniv.first };   // 사실이라 기본 켬(공개 전 미리보기에서 선생님이 확인)
   if (!f.anniv && c.anniv && !c.anniv.manual) delete c.anniv;
+  if (f.first4 && !c.first4) c.first4 = { on: true, first: f.first4.first };
+  if (!f.first4 && c.first4 && !c.first4.manual) delete c.first4;
   c.full ??= { on: false, title: f.song, ...(f.fr ? { t0: f.fr.t0, len: f.fr.len } : {}) };
   const again = c.full.title && f.done.has(normTitle(c.full.title));
   card.classList.remove("hidden");
   card.innerHTML = `<b>🎉 기념</b> <span class="muted" style="font-size:.85rem">켠 것만 수강생 노트에 · 수강생에겐 축하 카드로 보여요</span>
     ${c.anniv ? `<label style="display:block;margin:6px 0"><input type="checkbox" id="celAnn" ${c.anniv.on ? "checked" : ""}> 🎂 이 레슨으로 <b>함께 노래한 지 ${esc(annLabel(c.anniv.m))}</b> (첫 레슨 ${esc(String(c.anniv.first || "").slice(2).replaceAll("-", "."))}) — 첫 레슨 베스트와 오늘 베스트를 나란히</label>` : ""}
+    ${c.first4 ? `<label style="display:block;margin:6px 0"><input type="checkbox" id="celF4" ${c.first4.on ? "checked" : ""}> 🌱 <b>첫 4회 완주</b> — 첫 레슨 베스트와 오늘 베스트를 나란히(첫 달이 그만두는 사람이 가장 많은 때라 ‘달라진 것’을 들려줘요)</label>` : ""}
     <div style="margin:6px 0"><label><input type="checkbox" id="celFull" ${c.full.on ? "checked" : ""}> 🎤 오늘 한 곡을 <b>처음부터 끝까지</b> 불렀어요(완곡 기념)</label>
       <input id="celTitle" placeholder="곡 제목" maxlength="40" value="${esc(c.full.title || "")}" style="width:100%;margin-top:4px">
       <p class="muted" style="margin:2px 0 0;font-size:.85rem">${f.fr ? `가장 길게 이어 부른 곳 약 ${Math.round(f.fr.len)}초 <button type="button" class="small ghost" id="celPlay">▶ ${fmt(f.fr.t0)}</button> · 1절만이면 끄세요 · 수강생은 그 부분을 들을 수 있어요` : "이어 부른 긴 구간을 못 찾았어요 — 끝까지 부른 게 맞으면 직접 켜 주세요"}${again ? " · ⚠ 전에 완곡 기념한 곡이에요" : ""}</p></div>`;
   const upd = () => { markDirty(); if (typeof paintDeliver === "function") paintDeliver(); };
+  if ($("celF4")) $("celF4").onchange = (e) => { c.first4.on = e.target.checked; c.first4.manual = true; upd(); };
   if ($("celAnn")) $("celAnn").onchange = (e) => { c.anniv.on = e.target.checked; c.anniv.manual = true; upd(); };
   $("celFull").onchange = (e) => { c.full.on = e.target.checked; if (c.full.on && !String(c.full.title || "").trim()) toast("곡 제목을 써 주세요"); upd(); };
   $("celTitle").oninput = (e) => { c.full.title = e.target.value; markDirty(); }; $("celTitle").onchange = () => { renderCeleb(); upd(); };
@@ -4182,6 +4226,51 @@ function monthInput(st) {
 function monthNote(f, pick, say) {
   return { kind: "month", ym: f.ym, title: f.title, total: f.total, items: f.items.filter(x => pick[x.k] ?? x.on).map(({ ic, text, k }) => ({ ic, text, mile: /^(mile|anniv|best|fresh)/.test(k) })),
     say: String(say || "").trim().slice(0, 400), updated_at: new Date().toISOString() };
+}
+// ── 🎯 목표곡(11/05 사용자 '4번 빼고 다 진행') — 수강생이 부르고 싶다고 한 곡을 선생님이 적어 두면, 진도(처음 불러 봄→3번 연습→완곡→녹음본)가 수강생 페이지 맨 위에 ──
+// 근거: 스스로 고른 목표·진도를 기록으로 보이게 할수록 지속·달성↑(프로젝트 문서 '수강생_오래_다니게_하기')
+const goalMatch = (a, b) => { const x = normTitle(a).toLowerCase(), y = normTitle(b).toLowerCase(); return !!x && !!y && (x === y || (x.length >= 2 && y.includes(x)) || (y.length >= 2 && x.includes(y))); };
+function goalFacts(goal, inp) {
+  if (!goal || !String(goal.title || "").trim()) return null;
+  const T = String(goal.title).trim(), from = moDate(goal.set_at || "") || "0000";
+  const sung = (inp.songs || []).filter(x => x && x.title && goalMatch(T, x.title)).sort((a, b) => moDate(a.date).localeCompare(moDate(b.date)));
+  const full = (inp.full || []).filter(x => x && goalMatch(T, x.title)).sort((a, b) => moDate(a.date).localeCompare(moDate(b.date)));
+  const rec = (inp.made || []).filter(x => x && goalMatch(T, x.title)).sort((a, b) => moDate(a.date).localeCompare(moDate(b.date)));
+  const A = sung.filter(x => Number.isFinite(x.acc));
+  const steps = [{ k: "try", text: "처음 불러 봄", done: sung.length >= 1 || full.length >= 1, date: moDate(sung[0]?.date || full[0]?.date || "") },
+    { k: "prac", text: "3번 연습", done: sung.length >= 3, date: moDate(sung[2]?.date || "") },
+    { k: "full", text: "처음부터 끝까지(완곡)", done: full.length >= 1, date: moDate(full[0]?.date || "") },
+    { k: "rec", text: "내 목소리 완성본", done: rec.length >= 1, date: moDate(rec[0]?.date || "") }];
+  return { kind: "goal", title: T.slice(0, 40), why: String(goal.why || "").trim().slice(0, 120), set_at: from === "0000" ? "" : from, n: sung.length, steps,
+    acc: A.length >= 2 ? { first: Math.round(A[0].acc * 100), last: Math.round(A.at(-1).acc * 100) } : null };
+}
+function goalInput(st) {
+  return { ...monthInput(st), full: (st._rows || []).filter(r => r.full_song).map(r => ({ date: r.l.name.slice(0, 10), title: r.full_song })),
+    made: (st._jobs || []).filter(j => j.req?.status === "done").map(j => ({ date: j.req.done_at || "", title: j.req.title || "" })) };
+}
+async function pushGoal(sid, force) {
+  if (isStaffApp() || !portalUrl()) return;
+  const st = cfg.students[sid], g = goalFacts(st.goal, goalInput(st)), sent = LS.get("vn_goal_pushed") || {};
+  const note = g ? { ...g, updated_at: new Date().toISOString() } : { kind: "goal", title: "", steps: [], updated_at: new Date().toISOString() }, h = JSON.stringify({ ...note, updated_at: null });
+  if (!force && sent[sid] === h) return; if (!g && !sent[sid]) return;
+  await portal("t_note", { sid, lesson_id: "_goal", date: "", published_at: note.updated_at, note, _nb: true }); sent[sid] = h; LS.set("vn_goal_pushed", sent);
+}
+function wireGoal(sid) {
+  const box = $("grGoal"), st = cfg.students[sid]; if (!box || !st) return;
+  const g = goalFacts(st.goal, goalInput(st));
+  box.innerHTML = `<div class="card"><h3 style="margin:0 0 4px">🎯 목표곡 <span class="muted" style="font-size:.8rem;font-weight:400">수강생이 ‘이 곡 부르고 싶다’고 한 곡 · 수강생 페이지 맨 위에 진도로 보여요</span></h3>
+    <input id="glT" maxlength="40" placeholder="곡 제목 (예: 사랑으로)" value="${esc(st.goal?.title || "")}" style="width:100%">
+    <input id="glW" maxlength="120" placeholder="왜 이 곡? 수강생이 한 말 (예: 딸 결혼식에서 부르고 싶어요)" value="${esc(st.goal?.why || "")}" style="width:100%;margin-top:4px">
+    ${g ? `<div style="margin:8px 0 0">${g.steps.map(x => `<div style="margin:2px 0">${x.done ? "✅" : "⬜"} ${esc(x.text)}${x.date ? ` <span class="muted">${esc(x.date.slice(5).replace("-", "/"))}</span>` : ""}</div>`).join("")}
+      <p class="muted" style="margin:4px 0 0;font-size:.85rem">분석된 노래 ${g.n}번${g.acc ? ` · 정확도 처음 ${g.acc.first}% → 최근 ${g.acc.last}%` : ""} · 곡 제목이 레슨 분석·메이크업 곡 이름과 비슷하면 자동으로 이어져요 · 완곡은 레슨 화면 🎉 기념에서 켠 것</p></div>` : ""}
+    <div class="row" style="margin-top:8px"><button type="button" class="small" id="glSave">저장하고 수강생 페이지에 반영</button>${st.goal?.title ? `<button type="button" class="small ghost" id="glDel">목표 지우기</button>` : ""}<span class="muted" id="glMsg"></span></div></div>`;
+  const go = async (goal) => { $("glMsg").textContent = "저장 중…";
+    try { await cfgUpdate(l => { const x = l.students?.[sid]; if (!x) return; if (goal) { const prev = x.goal; x.goal = goal; if (prev?.title && !goalMatch(prev.title, goal.title)) (x.goal_log ||= []).push({ ...prev, ended_at: new Date().toISOString() }); } else { if (x.goal) (x.goal_log ||= []).push({ ...x.goal, ended_at: new Date().toISOString() }); delete x.goal; } });
+      if (st.teacher_id) staffSync(st.teacher_id).catch(() => {}); await pushGoal(sid, true); $("glMsg").textContent = "✓ 반영했어요"; wireGoal(sid); } catch (e) { $("glMsg").textContent = errMsg(e); } };
+  $("glSave").onclick = () => { const t = $("glT").value.trim(); if (!t) return toast("곡 제목을 써 주세요");
+    go({ title: t, why: $("glW").value.trim(), set_at: st.goal?.title && goalMatch(st.goal.title, t) ? st.goal.set_at : new Date().toISOString().slice(0, 10) }); };
+  if ($("glDel")) $("glDel").onclick = () => go(null);
+  pushGoal(sid).catch(() => {});   // 진도가 바뀌었으면 조용히 반영
 }
 // ── 💳 수강권 돌아보기(11/05 00:00 사용자 순서: 재결제 직전 알림 먼저) ──
 // 성인 수강생은 대개 재결제 때 그만둠 → 남은 회차 1회 이하일 때 '이번 수강권에서 달라진 것'을 선생님이 골라 보냄(_pack_시작일). 결제 권유 문구는 넣지 않음
@@ -6700,7 +6789,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-05-0130-edit";
+const BUILD = "2026-11-05-0215-goal";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
