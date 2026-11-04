@@ -299,7 +299,7 @@ summary{cursor:pointer;color:var(--ink2)}
         <div id="setPanel">
           <div class="setHead">설정 <button class="btn sm" id="setClose">닫기</button></div>
           <div class="sl" style="margin-top:0">효과음</div><div class="seg" id="segSfx"></div><div class="note2" id="sfxDesc"></div>
-          <div class="sgroup"><div class="sl">목소리 종류</div><div class="seg" id="segVoice"></div><div class="note2">코스의 음 높이와 발성 스케일이 맞춰져요.</div></div>
+          <div class="sgroup"><div class="sl">목소리 성별</div><div class="seg" id="segVoice"></div><div class="note2">코스의 음 높이와 발성 스케일이 맞춰져요.</div></div>
           <div class="sgroup"><div class="sl" style="display:flex;justify-content:space-between">마이크 감도 <span id="sensTxt"></span></div>
           <input type="range" id="sens" min="1" max="10" value="5">
           <div class="note2">연습 화면에 들어오면 주변 소리를 잠깐 듣고 자동으로 맞춰요. 그래도 안 맞으면 여기서 조절하세요. 이어폰을 쓰면 건반 소리가 마이크에 섞이지 않아요.</div>
@@ -759,11 +759,11 @@ CFG.guide = 'on'; CFG.vibOpen = 'always'; CFG.rcMe = 0; CFG.rc = VOICE_RC[scaleC
 function setVoice(g) { CFG.sc = CFG.sc || {}; if (CFG.sc.g !== g) { CFG.sc.g = g; CFG.sc.off = 0; } CFG.rc = VOICE_RC[g]; CFG.vset = 1; saveCfg(); }
 function voiceChanged() { renderVoiceSeg(); if (C.mode === 'course' && C.phase !== 'play' && C.phase !== 'count') loadStage(C.stage); else renderCourseUI(); }
 function renderVoiceSeg() { const h = $('#segVoice'), g = scaleCfg(CFG.sc).g; h.innerHTML = Object.keys(VOICE).map(k => `<button data-v="${k}" class="${k === g ? 'on' : ''}">${VOICE[k].name}</button>`).join(''); h.querySelectorAll('button').forEach(b => b.onclick = () => { setVoice(b.dataset.v); voiceChanged(); }); }
-/* 처음 한 번만: 목소리 종류(남/여)를 팝업으로 물어봐요. 이후엔 설정(⚙)에서 바꿔요 */
+/* 처음 한 번만: 목소리 성별(남/여)를 팝업으로 물어봐요. 이후엔 설정(⚙)에서 바꿔요 */
 function askVoice() {
   if (CFG.vset || $('#voicePop')) return;
   const d = document.createElement('div'); d.id = 'voicePop';
-  d.innerHTML = `<div class="vpc"><b>목소리 종류를 골라 주세요</b><div class="note2" style="margin-top:8px">코스의 음 높이와 발성 스케일이 여기에 맞춰져요.<br>나중에 설정(⚙)에서 바꿀 수 있어요.</div><div class="seg">${Object.keys(VOICE).map(k => `<button data-v="${k}">${VOICE[k].name}</button>`).join('')}</div></div>`;
+  d.innerHTML = `<div class="vpc"><b>목소리 성별을 골라 주세요</b><div class="note2" style="margin-top:8px">코스의 음 높이와 발성 스케일이 여기에 맞춰져요.<br>나중에 설정(⚙)에서 바꿀 수 있어요.</div><div class="seg">${Object.keys(VOICE).map(k => `<button data-v="${k}">${VOICE[k].name}</button>`).join('')}</div></div>`;
   document.body.appendChild(d); d.querySelectorAll('button').forEach(b => b.onclick = () => { setVoice(b.dataset.v); d.remove(); voiceChanged(); });
 }
 const scaleSig = sc => { const c = scaleCfg(sc); return [c.k, c.g, c.off, c.zs, c.ze].join('-'); };
@@ -1678,7 +1678,7 @@ function renderScale(el) {
   if (!el) return; const sc = scaleCfg(CFG.sc), L = genScaleLine(CFG.sc, CFG.diff), S = SCALES.find(x => x.k === sc.k), top = Math.max(...S.iv);
   const first = (() => { for (let r = 1; r <= L.reps; r++) if (L.base + r - 1 + top >= L.zs) return r; return L.reps; })(); if (!scRep || scRep > L.reps) scRep = first;
   el.innerHTML = `<h2>발성 스케일</h2>
-  <div class="card"><div class="note2">목소리 종류</div><div class="seg" id="scG" style="margin-top:6px">${Object.keys(VOICE).map(k => `<button data-v="${k}" class="${k === sc.g ? 'on' : ''}" style="height:38px;font-size:14px">${VOICE[k].name}</button>`).join('')}</div></div>
+  <div class="card"><div class="note2">목소리 성별</div><div class="seg" id="scG" style="margin-top:6px">${Object.keys(VOICE).map(k => `<button data-v="${k}" class="${k === sc.g ? 'on' : ''}" style="height:38px;font-size:14px">${VOICE[k].name}</button>`).join('')}</div></div>
   <div class="card"><div class="note2">믹스보이스 스케일</div><div class="seg" id="scEx" style="margin-top:6px">${SCALES.map(x => `<button data-v="${x.k}" class="${x.k === sc.k ? 'on' : ''}" style="height:38px;font-size:13px">${x.n}</button>`).join('')}</div><div class="note2" style="margin-top:6px">${S.s}</div></div>
   <div class="card"><div class="crow"><span class="note2">반음씩 올라가요 · 회차 보기</span><b style="font-size:13px">${scRep} / ${L.reps}회</b></div>
     ${scRoll(L, scRep)}<input type="range" id="scRep" min="1" max="${L.reps}" value="${scRep}" step="1" style="width:100%;margin-top:6px">
