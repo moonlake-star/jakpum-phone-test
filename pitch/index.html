@@ -90,11 +90,19 @@ input,select{font:inherit;color:var(--ink)}
 #subBar{display:flex;justify-content:center;width:100%}
 #segVW{width:100%;max-width:440px}#segVW[hidden]{display:none}#segVW button{height:34px;font-size:15px;font-weight:600;border-radius:10px}
 .scgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}.scgrid button{height:auto;padding:8px 10px;text-align:left;border-radius:10px;background:#1b2024;border:1px solid var(--line);color:var(--ink2);font-size:13px;line-height:1.35}.scgrid button small{display:block;font-size:11px;color:var(--muted)}.scgrid button.on{border-color:var(--accent);color:var(--accent);font-weight:700}
+.goBar{position:sticky;bottom:-14px;margin:10px -14px -24px;padding:10px 14px 12px;background:linear-gradient(to top,var(--surface) 70%,transparent)}
 .scst{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:13px}.scst .k{flex:1;color:var(--ink2)}.scst b{min-width:38px;text-align:center;color:var(--ink)}.scst button{width:34px;height:30px;border-radius:8px;background:#1b2024;border:1px solid var(--line);color:var(--ink);font-size:16px}
 #stTabs{display:flex;gap:6px;justify-content:center;width:100%;max-width:440px}#stTabs[hidden]{display:none}
 #stTabs button{flex:1;height:34px;padding:0 8px;border-radius:10px;font-size:15px;background:#1b2024;border:1px solid var(--line);color:var(--ink2)}
 #stTabs button.on{border-color:var(--accent);color:var(--accent);font-weight:800}
 #cOv{position:absolute;left:62px;right:8px;bottom:10px;z-index:3;pointer-events:none}
+#cOv.mid{top:50%;bottom:auto;transform:translateY(-50%);display:flex;flex-direction:column;align-items:center;gap:10px}
+#cOv.mid .cgo{pointer-events:auto;width:104px;height:104px;border-radius:50%;padding:0;font-size:17px;font-weight:800;box-shadow:0 8px 26px rgba(0,0,0,.55),0 0 0 6px rgba(228,141,22,.22)}
+#cOv.mid .cghost,#cOv.mid .cset{pointer-events:auto}
+#cOv.mid .cghost,#cOv.mid .cset{position:absolute;left:50%;transform:translateX(-50%);white-space:nowrap;margin:0}
+#cOv.mid .cghost{background:rgba(24,29,33,.92);padding:4px 10px;border-radius:999px;top:calc(100% + 10px)}
+#cOv.mid .cset{top:calc(100% + 10px)}
+#cOv.mid .cghost+.cset{top:calc(100% + 46px)}
 .ccard{pointer-events:auto;background:rgba(24,29,33,.95);border:1px solid var(--line);border-radius:14px;padding:10px 12px;box-shadow:0 8px 30px rgba(0,0,0,.5)}
 .crow{display:flex;align-items:center;justify-content:space-between;gap:8px}.crow b{font-size:14px;color:var(--ink)}
 .cst{color:#ffd27a;letter-spacing:2px;font-size:15px}
@@ -206,6 +214,7 @@ label.t{display:flex;align-items:center;gap:8px}
 .switch::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:.2s}
 .switch.on{background:var(--accent)}.switch.on::after{left:21px}
 .note2{font-size:12px;color:var(--muted)}
+.demoBar{display:flex;align-items:center;gap:8px;justify-content:space-between;background:var(--surface2,#2b3238);border:1px dashed var(--line);border-radius:10px;padding:8px 10px;margin:0 0 12px;font-size:12px;color:var(--ink2)}
 details{margin-top:8px;font-size:13px;color:var(--ink2)}
 summary{cursor:pointer;color:var(--ink2)}
 
@@ -520,22 +529,30 @@ function yin(buf, sr, thr) {
 }
 
 /* octave-jump filter: a single-frame jump of ~1 or 2 octaves that comes back is a detector error, not the voice.
-   It is folded back to the octave of the stable pitch; a real octave move is accepted after OCT_N consecutive frames. */
-const OCT = { st: null, t: 0, alt: 0, k: 0 }, OCT_N = 8;
+   It is folded back to the octave of the stable pitch; a real octave move is accepted once it lasts OCT_MS. */
+const OCT = { st: null, t: 0, t0: 0, k: 0, pend: null, pn: 0 }, OCT_MS = 320;
 function octFix(m, now) {
-  if (OCT.st != null && now - OCT.t > 350) { OCT.st = null; OCT.alt = 0; OCT.k = 0; }
+  if (OCT.st != null && now - OCT.t > 500) { OCT.st = null; OCT.k = 0; OCT.pend = null; }
   if (m == null) return null;
   OCT.t = now;
-  if (OCT.st == null) { OCT.st = m; return m; }
+  if (OCT.st == null) {                                   // note onset: wait for two agreeing frames (attack transients are the most error-prone)
+    if (OCT.pend != null && Math.abs(m - OCT.pend) < 1.5) { OCT.st = m; OCT.pend = null; OCT.k = 0; return m; }
+    OCT.pend = m; return null;
+  }
   const d = m - OCT.st, k = Math.round(d / 12), r = d - 12 * k;
-  if (k !== 0 && Math.abs(r) < 1.8) {
-    if (OCT.k === k) OCT.alt++; else { OCT.k = k; OCT.alt = 1; }
-    if (OCT.alt >= OCT_N) { OCT.st = m; OCT.alt = 0; OCT.k = 0; return m; }
+  if (k !== 0 && Math.abs(r) < 2.5) {                     // octave-like jump (±2.5 semitones around 1 or 2 octaves)
+    if (OCT.k !== k) { OCT.k = k; OCT.t0 = now; }
+    if (now - OCT.t0 >= OCT_MS) { OCT.st = m; OCT.k = 0; return m; }   // lasts > 0.3 s: the singer really moved
     const c = m - 12 * k; OCT.st += (c - OCT.st) * .5; return c;
   }
-  OCT.alt = 0; OCT.k = 0; OCT.st += (m - OCT.st) * .5; return m;
+  if (Math.abs(d) > 12 && Math.abs(d) % 12 > 5.5 && Math.abs(d) % 12 < 8.5) {            // 12 + 7: third-harmonic mistake
+    if (OCT.k !== 99) { OCT.k = 99; OCT.t0 = now; }
+    if (now - OCT.t0 >= OCT_MS) { OCT.st = m; OCT.k = 0; return m; }
+    return null;
+  }
+  OCT.k = 0; OCT.st += (m - OCT.st) * .5; return m;
 }
-function octReset() { OCT.st = null; OCT.alt = 0; OCT.k = 0; CALM.v = null; }
+function octReset() { OCT.st = null; OCT.k = 0; OCT.pend = null; CALM.v = null; }
 /* calm smoothing for the on-screen pitch (time constant ~110 ms); leaps of more than 1.2 semitones pass through at once */
 const CALM = { v: null, t: 0 };
 function calm(v, now, dt) {
@@ -649,23 +666,36 @@ function draw(now) {
   g2.fillStyle = '#12161a'; g2.fillRect(PIANO_W, 0, 1, H);
 }
 
-/* piano tone */
+/* piano tone: additive-synth piano (not a sine). Low notes push energy into harmonics 2-6 because phone speakers can't play the fundamental
+   (the ear still hears the right pitch). Everything goes through a master gain + compressor so it is louder without clipping. */
+function pianoOut(ctx) {
+  if (P.out && P.outCtx === ctx) return P.out;
+  const pre = ctx.createGain(); pre.gain.value = 1.8;
+  const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -12; comp.knee.value = 8; comp.ratio.value = 12; comp.attack.value = .003; comp.release.value = .2;
+  pre.connect(comp); comp.connect(ctx.destination); P.out = pre; P.outCtx = ctx; return pre;
+}
+function pianoWave(ctx, f) {
+  const N = 12, re = new Float32Array(N + 1), im = new Float32Array(N + 1), low = clamp((260 - f) / 150, 0, 1);
+  for (let k = 1; k <= N; k++) { let a = Math.pow(k, -1.15); if (k === 1) a *= 1 - .75 * low; else if (k <= 6) a *= 1 + 1.6 * low; if (f * k > 7000) a = 0; im[k] = a; }
+  return ctx.createPeriodicWave(re, im);
+}
+function pianoVoice(ctx, f, t0, o) {
+  o = o || {}; const g = ctx.createGain(), w = pianoWave(ctx, f), vol = o.vol || .5, A = .006, hold = !!o.hold;
+  const oscs = [0, 4].map(c => { const s = ctx.createOscillator(); s.setPeriodicWave(w); s.frequency.value = f; s.detune.value = c; s.connect(g); s.start(t0); return s; });
+  g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(vol, t0 + A); g.gain.setTargetAtTime(vol * (hold ? .5 : .14), t0 + A, hold ? .4 : .22);
+  g.connect(pianoOut(ctx));
+  const v = { f, stop(at) { at = Math.max(at, ctx.currentTime); try { g.gain.cancelScheduledValues(at); g.gain.setTargetAtTime(0, at, .035); oscs.forEach(s => s.stop(at + .3)); } catch (e) {} setTimeout(() => { try { g.disconnect(); } catch (e) {} }, (at - ctx.currentTime + .5) * 1000); } };
+  if (o.dur) v.stop(t0 + o.dur);
+  return v;
+}
 function pressKey(m) {
   const ctx = actx(), f = mFreq(m);
-  if (!P.osc) {
-    P.osc = ctx.createOscillator(); P.g = ctx.createGain();
-    P.osc.type = 'sine'; P.osc.frequency.value = f;
-    P.g.gain.setValueAtTime(0, ctx.currentTime); P.g.gain.linearRampToValueAtTime(.3, ctx.currentTime + .03);
-    P.osc.connect(P.g).connect(ctx.destination); P.osc.start();
-  } else P.osc.frequency.setTargetAtTime(f, ctx.currentTime, .015);
+  if (P.osc) P.osc.stop(ctx.currentTime);                                   // a new key replaces the old one
+  P.osc = pianoVoice(ctx, f, ctx.currentTime, { vol: .7, hold: true });
   P.pressed = m; P.target = m; updateTargetChip();
 }
 function releaseKey() {
-  if (P.osc) {
-    const ctx = P.ctx, o = P.osc, g = P.g; g.gain.cancelScheduledValues(ctx.currentTime); g.gain.setTargetAtTime(0, ctx.currentTime, .03);
-    setTimeout(() => { try { o.stop(); o.disconnect(); g.disconnect(); } catch (e) {} }, 200);
-    P.osc = null; P.g = null; P.toneUntil = performance.now() + 350;
-  }
+  if (P.osc) { P.osc.stop(P.ctx.currentTime + .05); P.osc = null; P.g = null; P.toneUntil = performance.now() + 350; }
   P.pressed = null; P.pid = null;
 }
 const yToMidi = y => clamp(Math.floor(P.lowF + (P.H - y) / rowH()), 12, 108);
@@ -793,7 +823,7 @@ const SCALES = [
   { k: 'tri', n: '3음', t: '3음 왕복', s: '1-2-3-2-1', iv: [0, 2, 4, 2, 0] },
   { k: 'arp', n: '아르페지오', t: '옥타브 아르페지오', s: '1-3-5-8-5-3-1', iv: [0, 4, 7, 12, 7, 4, 0] }
 ];
-STAGES.push(['발성 스케일', '반음씩 올라가며 전환 구간을 지나가요']);
+STAGES.push(['발성 스케일', '반음씩 올라가며 브릿지 구간을 지나가요']);
 function scaleCfg(sc) {
   const o = sc || {}, g = VOICE[o.g] ? o.g : 'm', V = VOICE[g], z = (o.z && o.z[g]) || [V.zs, V.ze];
   const zs = clamp(Math.round(z[0]), 50, 84), ze = clamp(Math.round(z[1]), zs, 88);
@@ -875,24 +905,24 @@ function renderCourseUI() {
   updateTargetChip(); renderCOv();
 }
 function renderCOv() {
-  const el = $('#cOv'); el.style.top = ''; el.style.bottom = '';
+  const el = $('#cOv'); el.style.top = ''; el.style.bottom = ''; el.classList.remove('mid');
   if (C.mode !== 'course' || C.phase === 'count' || C.phase === 'play' || !C.line) { el.innerHTML = ''; return; }
   const L = C.line, stg = STAGES[C.stage], g = C.ghost, bs = starsBest(C.stage, CFG.diff);
   if (C.phase === 'idle' && L.scale) {
     const sc = scaleCfg(CFG.sc), S = SCALES.find(x => x.k === sc.k);
-    el.innerHTML = `<div class="ccard">${g ? `<div class="cghost" style="margin:0 0 8px">👻 ${esc(g.label)} ${g.cov}% ${starTxt(g.stars)}</div>` : ''}
-      <div class="crow"><button class="btn sm" id="cSet">⚙ 설정</button><button class="btn pri sm" id="cGo" style="flex:1">${P.running ? '▶ 도전' : '▶ 연습'}</button></div></div>`;
+    el.classList.add('mid');
+    el.innerHTML = `<button class="btn pri cgo" id="cGo">${P.running ? '▶ 도전' : '▶ 연습'}</button>${g ? `<div class="cghost">👻 ${esc(g.label)} ${g.cov}% ${starTxt(g.stars)}</div>` : ''}<button class="btn sm cset" id="cSet">⚙ 설정</button>`;
     el.querySelector('#cGo').onclick = startStage; el.querySelector('#cSet').onclick = () => go('scale'); return;
   }
   if (C.phase === 'idle') {
-    el.innerHTML = `<div class="ccard">${g ? `<div class="cghost" style="margin:0 0 8px">👻 ${esc(g.label)} ${g.cov}% ${starTxt(g.stars)}</div>` : ''}
-      <div class="crow"><button class="btn pri sm" id="cGo" style="flex:1">${P.running ? '▶ 도전' : '▶ 연습'}</button></div></div>`;
+    el.classList.add('mid');
+    el.innerHTML = `<button class="btn pri cgo" id="cGo">${P.running ? '▶ 도전' : '▶ 연습'}</button>${g ? `<div class="cghost">👻 ${esc(g.label)} ${g.cov}% ${starTxt(g.stars)}</div>` : ''}`;
   } else {
     const r = C.res, cp = r.prev;
     el.innerHTML = `<div class="ccard"><div class="note2" style="text-align:center">${L.scale ? '발성 스케일 · ' + SCALES.find(x => x.k === L.k).t + ' · ' + VOICE[L.g].name : '스테이지 ' + (C.stage + 1) + ' · ' + stg[0]}</div>
       <div class="bigstars">${[0, 1, 2].map(i => `<i class="${i < r.stars ? 'on' : ''}">★</i>`).join('')}</div>
       <div style="text-align:center;font-size:13px;color:var(--ink)">${r.stars === 3 ? '완벽해요! ' : r.stars ? '클리어! ' : '아쉬워요. '}음 ${r.cleared}/${r.n} 성공 · 일치율 <b>${r.cov}%</b></div>
-      ${r.zone ? `<div class="cvs"><span>전환 구간 안 <b>${r.zone.inOk}/${r.zone.inN}</b> · 밖 <b>${r.zone.outOk}/${r.zone.outN}</b></span>${r.zone.worst.length ? `<span>자주 놓친 음 <b>${r.zone.worst.join(' ')}</b></span>` : ''}</div>` : ''}
+      ${r.zone ? `<div class="cvs"><span>브릿지 구간 안 <b>${r.zone.inOk}/${r.zone.inN}</b> · 밖 <b>${r.zone.outOk}/${r.zone.outN}</b></span>${r.zone.worst.length ? `<span>자주 놓친 음 <b>${r.zone.worst.join(' ')}</b></span>` : ''}</div>` : ''}
       ${cp ? `<div class="cvs"><span>👻 ${esc(cp.label)} ${cp.cov}% ${starTxt(cp.stars)}</span><b class="${r.cov > cp.cov ? 'up' : r.cov < cp.cov ? 'dn' : ''}">${r.cov > cp.cov ? '▲ +' + (r.cov - cp.cov) : r.cov < cp.cov ? '▼ ' + (r.cov - cp.cov) : '동점'}%p</b></div>` : ''}
       ${r.warm ? '<div class="note2" style="text-align:center;margin-top:4px">연습이라 기록되지 않았어요 · 기록하려면 "기록 도전"을 누르고 도전하세요</div>' : ''}${r.stars < 3 ? `<div class="note2" style="text-align:center;margin-top:4px">다음 별까지 일치율 ${Math.round(D().stars[r.stars] * 100)}% 필요해요</div>` : ''}
       <div class="crow" style="margin-top:8px">${L.scale ? '<button class="btn sm" id="cSet">⚙ 설정</button>' : ''}<button class="btn sm" id="cGo">${C.nextFresh ? '새 라인' : '다시'}</button>${C.stage < 2 ? '<button class="btn pri sm" id="cNext" style="flex:1">다음 스테이지 ▶</button>' : '<button class="btn pri sm" id="cEnd" style="flex:1">' + (r.warm ? '연습 마치기' : '연습 끝내고 리포트 ▶') + '</button>'}</div></div>`;
@@ -1124,21 +1154,39 @@ function drawVib(now) {
 }
 
 /* ============ course engine ============ */
-function guideTone(m, dur, at) {
+function guideTone(m, dur, at, hold) {
   at = at || 0;
   try {
-    const ctx = actx(), t0 = ctx.currentTime + at, o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sine'; o.frequency.value = mFreq(m);
-    g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(.22, t0 + .02); g.gain.setValueAtTime(.22, t0 + Math.max(.03, dur - .06)); g.gain.linearRampToValueAtTime(0, t0 + dur);
-    o.connect(g).connect(ctx.destination); o.start(t0); o.stop(t0 + dur + .02);
+    const ctx = actx(), t0 = ctx.currentTime + at;
+    pianoVoice(ctx, mFreq(m), t0, { dur, vol: .6, hold });
     if (!P.earphone && !at) P.toneUntil = Math.max(P.toneUntil, performance.now() + dur * 1000 + 120);   // speaker: the mic would hear the guide tone
+  } catch (e) {}
+}
+function guideChord(m, dur) {                                  // do-mi-sol: the tonic triad of the coming repetition
+  try {
+    const ctx = actx(), t0 = ctx.currentTime;
+    [0, 4, 7].forEach(d => pianoVoice(ctx, mFreq(m + d), t0, { dur, vol: .36 }));
+    if (!P.earphone) P.toneUntil = Math.max(P.toneUntil, performance.now() + dur * 1000 + 120);
   } catch (e) {}
 }
 const reqOf = n => Math.max(.25, n.d - D().grace - (n.mute || 0));
 function guideNote(n, first, now) {
   if (n.guided) return; n.guided = true;
-  if (n.pre) { guideTone(n.m, .8); n.mute = 0; return; }                  // scale: sound the start note of every repetition during the rest
+  const L = C.line, sc = L && L.scale;
+  if (sc) {
+    // scale: tonic chord before every repetition; then a piano tone on every note (earphones: held for the whole note; speaker: only the start, so the mic still hears the voice)
+    if (n.pre || first) {
+      const dur = n.pre ? .9 : Math.min(1.1, Math.max(.4, n.t0 - .05));
+      guideChord(n.m, dur); n.mute = n.pre ? 0 : Math.max(0, now + dur + .12 - n.t0);
+      if (P.earphone) guideTone(n.m, n.d, Math.max(0, n.t0 - now), true);
+      return;
+    }
+    if (P.earphone) { guideTone(n.m, n.d, 0, true); n.mute = 0; } else { guideTone(n.m, .45); n.mute = .57; }
+    return;
+  }
+  if (n.pre) { guideTone(n.m, .8); n.mute = 0; return; }
   if (first) { const dur = Math.min(1.1, Math.max(.4, n.t0 - .05)); guideTone(n.m, dur); n.mute = Math.max(0, now + dur + .12 - n.t0); return; }
-  if (n.d < .75 || (C.line && C.line.scale)) return;           // short notes: no room for a guide tone
+  if (n.d < .75) return;                                         // short notes: no room for a guide tone
   const dur = clamp(n.d * .4, .5, .7); guideTone(n.m, dur); n.mute = dur + .12;
 }
 const courseRef = () => { const L = C.line, n = L.notes[Math.min(C.i, L.notes.length - 1)]; return n.m; };
@@ -1207,20 +1255,21 @@ function updateCprog() {
   if (C.mode !== 'course' || !C.line) return;
   const L = C.line, f = C.phase === 'play' ? clamp(C.t / L.end, 0, 1) : C.phase === 'result' ? 1 : 0, w = (f * 100).toFixed(1) + '%';
   if (cache.cpw !== w) { $('#cpfill').style.width = w; cache.cpw = w; }
-  setTxt('cptxt', C.phase === 'play' ? `${C.stage === 3 ? '발성' : '스테이지 ' + (C.stage + 1)} · ${C.cleared}/${L.notes.length} 성공` : C.phase === 'count' ? '준비하세요!' : C.phase === 'result' ? `${C.stage === 3 ? '발성' : '스테이지 ' + (C.stage + 1)} 결과 · ${starTxt(C.res.stars)}` : L.scale ? (() => { const sc = scaleCfg(CFG.sc), S = SCALES.find(x => x.k === sc.k); return `발성 · ${S.t} · ${VOICE[sc.g].name} · 전환 ${midiName(sc.zs)}~${midiName(sc.ze)} · 약 ${Math.max(1, Math.round(L.end / 60))}분`; })() : `스테이지 ${C.stage + 1} · ${STAGES[C.stage][0]} · 시작음 ${midiName(L.notes[0].m)} · ${L.notes.length}음 · 약 ${Math.round(L.end - .8)}초`);
+  setTxt('cptxt', C.phase === 'play' ? `${C.stage === 3 ? '발성' : '스테이지 ' + (C.stage + 1)} · ${C.cleared}/${L.notes.length} 성공` : C.phase === 'count' ? '준비하세요!' : C.phase === 'result' ? `${C.stage === 3 ? '발성' : '스테이지 ' + (C.stage + 1)} 결과 · ${starTxt(C.res.stars)}` : L.scale ? (() => { const sc = scaleCfg(CFG.sc), S = SCALES.find(x => x.k === sc.k); return `발성 · ${S.t} · ${VOICE[sc.g].name} · 브릿지 ${midiName(sc.zs)}~${midiName(sc.ze)} · 약 ${Math.max(1, Math.round(L.end / 60))}분`; })() : `스테이지 ${C.stage + 1} · ${STAGES[C.stage][0]} · 시작음 ${midiName(L.notes[0].m)} · ${L.notes.length}음 · 약 ${Math.round(L.end - .8)}초`);
 }
 function rr(x, y, w, h, r) { g2.beginPath(); if (g2.roundRect) g2.roundRect(x, y, w, h, r); else g2.rect(x, y, w, h); }
 /* 안내음(프리뷰)이 나오는 구간: 막대 앞부분(또는 막대 앞 빈 구간)에 보라색으로 표시. 이 시간엔 마이크를 쉬어요 */
 function pvOf(n, i, L) {
   if (CFG.guide === 'off') return null;
-  if (n.pre) return [n.t0 - n.pre, n.t0 - n.pre + .8];
+  if (n.pre) return [n.t0 - n.pre, n.t0 - n.pre + (L.scale ? .9 : .8)];
   if (i === 0) return [0, Math.min(1.1, Math.max(.4, n.t0 - .05))];
-  if (n.d < .75 || L.scale) return null;
+  if (L.scale) return P.earphone ? null : [n.t0, n.t0 + .57];
+  if (n.d < .75) return null;
   return [n.t0, n.t0 + clamp(n.d * .4, .5, .7) + .12];
 }
 function drawCourse(rh, nowX, pps, W, H) {
   const c = C;
-  if (c.mode === 'course' && c.line && c.line.scale) { const y0 = yMid(c.line.ze) - rh / 2, y1 = yMid(c.line.zs) + rh / 2; g2.save(); g2.fillStyle = 'rgba(255,180,58,.11)'; g2.fillRect(PIANO_W, y0, W - PIANO_W, y1 - y0); g2.fillStyle = 'rgba(255,200,110,.85)'; g2.font = '700 10px system-ui,sans-serif'; g2.textAlign = 'right'; g2.textBaseline = 'top'; g2.fillText('전환 구간', W - 6, y0 + 3); g2.restore(); }
+  if (c.mode === 'course' && c.line && c.line.scale) { const y0 = yMid(c.line.ze) - rh / 2, y1 = yMid(c.line.zs) + rh / 2; g2.save(); g2.fillStyle = 'rgba(255,180,58,.11)'; g2.fillRect(PIANO_W, y0, W - PIANO_W, y1 - y0); g2.fillStyle = 'rgba(255,200,110,.85)'; g2.font = '700 10px system-ui,sans-serif'; g2.textAlign = 'right'; g2.textBaseline = 'top'; g2.fillText('브릿지 구간', W - 6, y0 + 3); g2.restore(); }
   if (c.mode !== 'course' || !c.line || (c.phase !== 'count' && c.phase !== 'play' && c.phase !== 'result')) return;
   const tNow = c.phase === 'result' ? c.line.end - 1.2 : c.t;
   g2.save(); g2.beginPath(); g2.rect(PIANO_W, 0, W - PIANO_W, H); g2.clip();
@@ -1701,6 +1750,13 @@ function addStudentModal() {
 
 /* ============ user switch ============ */
 const ROLE_KO = { student: '수강생', teacher: '강사', director: '원장' };
+function clearDemo() {
+  const demoIds = new Set(DB.users.filter(u => u.demo).map(u => u.id)); DB.users = DB.users.filter(u => !u.demo); DB.sessions = DB.sessions.filter(s => !demoIds.has(s.uid));
+  demoIds.forEach(id => delete DB.settings[id]);
+  if (!DB.users.some(u => u.role === 'director')) { DB.users.unshift({ id: 'd1', name: '원장님', role: 'director' }); DB.settings.d1 = defSettings(); }
+  if (!DB.users.some(u => u.role === 'student')) { DB.users.push({ id: 's' + Date.now(), name: '내 계정', role: 'student', teacherId: DB.users.find(u => u.role === 'director').id }); }
+  const st = DB.users.find(u => u.role === 'student'); DB.me = st.id; saveDB(); switchUser(DB.me); toast('샘플 기록을 지우고 처음부터 시작해요');
+}
 function userModal() {
   const grp = r => DB.users.filter(u => u.role === r);
   const li = u => `<button class="btn sm" style="width:100%;justify-content:flex-start;margin-bottom:6px;${u.id === DB.me ? 'border-color:var(--accent);color:var(--accent)' : ''}" data-u="${u.id}">${esc(u.name)} <span class="note2" style="margin-left:6px">${ROLE_KO[u.role]}${u.demo ? ' · 데모' : ''}</span></button>`;
@@ -1711,12 +1767,7 @@ function userModal() {
   $('#modal').querySelectorAll('[data-u]').forEach(b => b.onclick = () => { switchUser(b.dataset.u); closeModal(); });
   $('#uX').onclick = closeModal; $('#uAdd').onclick = () => { if (me().role === 'student') { toast('강사/원장 계정으로 전환하면 수강생을 추가할 수 있어요'); return; } addStudentModal(); };
   const bd = $('#uDemo'); let armed = false;
-  bd.onclick = () => { if (!armed) { armed = true; bd.textContent = '정말 지울까요? 한 번 더'; return; }
-    const demoIds = new Set(DB.users.filter(u => u.demo).map(u => u.id)); DB.users = DB.users.filter(u => !u.demo); DB.sessions = DB.sessions.filter(s => !demoIds.has(s.uid));
-    demoIds.forEach(id => delete DB.settings[id]);
-    if (!DB.users.some(u => u.role === 'director')) { DB.users.unshift({ id: 'd1', name: '원장님', role: 'director' }); DB.settings.d1 = defSettings(); }
-    if (!DB.users.some(u => u.role === 'student')) { DB.users.push({ id: 's' + Date.now(), name: '내 계정', role: 'student', teacherId: DB.users.find(u => u.role === 'director').id }); }
-    const st = DB.users.find(u => u.role === 'student'); DB.me = st.id; saveDB(); closeModal(); switchUser(DB.me); toast('데모 데이터를 지웠어요'); };
+  bd.onclick = () => { if (!armed) { armed = true; bd.textContent = '정말 지울까요? 한 번 더'; return; } clearDemo(); closeModal(); };
 }
 $('#userBtn').onclick = userModal;
 function switchUser(id) { if (P.running) { toast('연습 중에는 전환할 수 없어요'); return; } DB.me = id; saveDB(); cache = {}; buildTabs(); go(me().role === 'student' ? 'practice' : 'roster'); checkReminder(); }
@@ -1736,29 +1787,29 @@ let cur = 'practice';
 let scRep = 0;
 function scSet(fn) { CFG.sc = CFG.sc || {}; fn(CFG.sc); scRep = 0; saveCfg(); renderScale($('#v-scale')); }
 function scRoll(L, r) {
-  const W = 340, H = 180, PW = 30, lo = L.base - 2, hi = L.ze + 6, y = p => H - 4 - ((p - lo) / (hi - lo)) * (H - 8), s0 = L.base + r - 1, S = SCALES.find(x => x.k === L.k), top = Math.max(...S.iv), x0 = PW + 8, x1 = W - 8;
-  let o = `<rect x="${PW}" y="${y(L.ze + 1)}" width="${W - PW}" height="${y(L.zs) - y(L.ze + 1)}" fill="rgba(255,180,58,.14)"/><text x="${W - 4}" y="${y(L.ze + 1) + 12}" text-anchor="end" font-size="11" fill="#ffc46e">전환 구간</text>`;
+  const W = 340, H = 132, PW = 30, lo = L.base - 2, hi = L.ze + 6, y = p => H - 4 - ((p - lo) / (hi - lo)) * (H - 8), s0 = L.base + r - 1, S = SCALES.find(x => x.k === L.k), top = Math.max(...S.iv), x0 = PW + 8, x1 = W - 8;
+  let o = `<rect x="${PW}" y="${y(L.ze + 1)}" width="${W - PW}" height="${y(L.zs) - y(L.ze + 1)}" fill="rgba(255,180,58,.14)"/><text x="${W - 4}" y="${y(L.ze + 1) + 12}" text-anchor="end" font-size="11" fill="#ffc46e">브릿지 구간</text>`;
   for (let p = Math.ceil(lo / 12) * 12; p <= hi; p += 12) o += `<line x1="${PW}" x2="${W}" y1="${y(p)}" y2="${y(p)}" stroke="rgba(255,255,255,.12)" stroke-width=".5"/><text x="2" y="${y(p) + 4}" font-size="11" fill="#8a95a1">${midiName(p)}</text>`;
   const k = S.iv.length, bw = (x1 - x0) / k;
   S.iv.forEach((d, i) => { const p = s0 + d, z = p >= L.zs && p <= L.ze; o += `<rect x="${x0 + i * bw + 1}" y="${y(p) - 3}" width="${bw - 2}" height="7" rx="3" fill="${z ? '#ffb43a' : '#5cc8ff'}"/>`; });
   o += `<text x="${x0}" y="${y(s0) + 18}" font-size="11" fill="#8a95a1">${midiName(s0)}</text><text x="${x0 + S.iv.indexOf(top) * bw}" y="${y(s0 + top) - 9}" font-size="11" fill="#e8ecf1">${midiName(s0 + top)}</text>`;
-  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="스케일 음과 전환 구간">${o}</svg>`;
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="스케일 음과 브릿지 구간">${o}</svg>`;
 }
+let scAdvOpen = false;
 function renderScale(el) {
   if (!el) return; const sc = scaleCfg(CFG.sc), L = genScaleLine(CFG.sc, CFG.diff), S = SCALES.find(x => x.k === sc.k), top = Math.max(...S.iv);
   const first = (() => { for (let r = 1; r <= L.reps; r++) if (L.base + r - 1 + top >= L.zs) return r; return L.reps; })(); if (!scRep || scRep > L.reps) scRep = first;
-  el.innerHTML = `<h2>발성 스케일</h2>
-  <div class="card"><div class="note2">목소리 성별</div><div class="seg" id="scG" style="margin-top:6px">${Object.keys(VOICE).map(k => `<button data-v="${k}" class="${k === sc.g ? 'on' : ''}" style="height:38px;font-size:14px">${VOICE[k].name}</button>`).join('')}</div></div>
-  <div class="card"><div class="note2">믹스보이스 스케일</div><div class="seg" id="scEx" style="margin-top:6px">${SCALES.map(x => `<button data-v="${x.k}" class="${x.k === sc.k ? 'on' : ''}" style="height:38px;font-size:13px">${x.n}</button>`).join('')}</div><div class="note2" style="margin-top:6px">${S.s}</div></div>
-  <div class="card"><div class="crow"><span class="note2">반음씩 올라가요 · 회차 보기</span><b style="font-size:13px">${scRep} / ${L.reps}회</b></div>
-    ${scRoll(L, scRep)}<input type="range" id="scRep" min="1" max="${L.reps}" value="${scRep}" step="1" style="width:100%;margin-top:6px">
+  el.innerHTML = `<div class="seg" id="scEx">${SCALES.map(x => `<button data-v="${x.k}" class="${x.k === sc.k ? 'on' : ''}" style="height:38px;font-size:13px">${x.n}</button>`).join('')}</div>
+  <div class="note2" style="margin:5px 2px 8px">${S.s} · 총 ${L.reps}회 · 약 ${Math.max(1, Math.round(L.end / 60))}분</div>
+  <div class="card" style="padding:10px 12px"><div class="crow"><span class="note2">반음씩 올라가요 · 회차 보기</span><b style="font-size:13px">${scRep} / ${L.reps}회</b></div>
+    ${scRoll(L, scRep)}<input type="range" id="scRep" min="1" max="${L.reps}" value="${scRep}" step="1" style="width:100%;margin-top:2px"></div>
+  <details id="scAdv" class="card" style="padding:8px 12px"${scAdvOpen ? ' open' : ''}><summary class="note2" style="cursor:pointer">시작음 · 브릿지 구간 바꾸기 (${midiName(L.base)} · ${midiName(sc.zs)}~${midiName(sc.ze)})</summary>
     <div class="scst"><span class="k">시작음</span><button data-a="off-">−</button><b>${midiName(L.base)}</b><button data-a="off+">+</button></div>
-    <div class="scst"><span class="k">전환 구간 시작</span><button data-a="zs-">−</button><b>${midiName(sc.zs)}</b><button data-a="zs+">+</button></div>
-    <div class="scst"><span class="k">전환 구간 끝</span><button data-a="ze-">−</button><b>${midiName(sc.ze)}</b><button data-a="ze+">+</button></div>
-    <div class="note2" style="margin-top:8px">전환 구간은 일반적인 추정값이에요. 사람마다 달라서, 선생님과 정한 음으로 바꿔 쓰세요. 총 ${L.reps}회 · 약 ${Math.max(1, Math.round(L.end / 60))}분 · 난이도 ${DF[CFG.diff].name}</div></div>
-  <div class="row" style="gap:8px;margin-bottom:12px"><button class="btn pri" id="scGo" style="flex:1">▶ 스케일 시작</button></div>
-  <div class="note2" style="line-height:1.6">앱이 보는 것: 음정 정확도, 전환 구간 안/밖 성공 비율, 자주 놓친 음<br>못 보는 것: 믹스 소리의 질(진성·두성 비율) — 선생님이 판단해요</div>`;
-  $('#scG', el).querySelectorAll('button').forEach(b => b.onclick = () => scSet(o => { o.g = b.dataset.v; o.off = 0; CFG.rc = VOICE_RC[o.g]; }));
+    <div class="scst"><span class="k">브릿지 구간 시작</span><button data-a="zs-">−</button><b>${midiName(sc.zs)}</b><button data-a="zs+">+</button></div>
+    <div class="scst"><span class="k">브릿지 구간 끝</span><button data-a="ze-">−</button><b>${midiName(sc.ze)}</b><button data-a="ze+">+</button></div>
+    <div class="note2" style="margin-top:8px">브릿지 구간은 일반적인 추정값이에요. 사람마다 달라서, 선생님과 정한 음으로 바꿔 쓰세요. 앱은 음정 정확도와 브릿지 구간 안/밖 성공 비율을 봐요. 믹스 소리의 질(진성·두성 비율)은 선생님이 판단해요. 목소리 성별은 ⚙ 설정에서 바꿔요.</div></details>
+  <div class="goBar"><button class="btn pri" id="scGo" style="width:100%">▶ 스케일 시작</button></div>`;
+  $('#scAdv', el).ontoggle = e => { scAdvOpen = e.target.open; };
   $('#scEx', el).querySelectorAll('button').forEach(b => b.onclick = () => scSet(o => { o.k = b.dataset.v; }));
   $('#scRep', el).oninput = e => { scRep = +e.target.value; renderScale(el); };
   el.querySelectorAll('.scst button').forEach(b => b.onclick = () => scSet(o => { const a = b.dataset.a, d = a.endsWith('+') ? 1 : -1, z = o.z = o.z || {}, cur = z[sc.g] = (z[sc.g] || [sc.zs, sc.ze]).slice();
@@ -1778,7 +1829,8 @@ function go(t) {
   cur = t; document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'v-' + t));
   const tabId = t === 'detail' ? 'roster' : t; $('#tabs').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.t === tabId));
   const el = $('#v-' + t), u = me();
-  if (t === 'progress') { renderProgress(el, u.id, { head: '<h2>나의 성장 기록</h2><button class="btn sm" id="repBtn" style="margin:-4px 0 12px">📊 오늘 리포트 보기</button>' }); $('#repBtn', el).onclick = () => showReport(u.id, {}); }
+  if (t === 'progress') { renderProgress(el, u.id, { head: (u.demo ? '<div class="demoBar"><span>지금 보이는 날짜·점수는 <b>샘플(데모)</b>이에요</span><button class="btn sm" id="demoClr">샘플 지우고 시작</button></div>' : '') + '<h2>나의 성장 기록</h2><button class="btn sm" id="repBtn" style="margin:-4px 0 12px">📊 오늘 리포트 보기</button>' }); $('#repBtn', el).onclick = () => showReport(u.id, {});
+    const dc = $('#demoClr', el); if (dc) { let arm = false; dc.onclick = () => { if (!arm) { arm = true; dc.textContent = '정말 지울까요? 한 번 더'; return; } clearDemo(); }; } }
   else if (t === 'scale') renderScale(el);
   else if (t === 'badges') renderBadges(el, u.id);
   else if (t === 'remind') renderRemind(el);
@@ -1797,7 +1849,7 @@ buildTabs(); go(me().role === 'student' ? 'practice' : 'roster');
 renderVoiceSeg();
 if (C.mode === 'vib' && !vibUnlocked()) C.mode = 'free';
 resize(); if (C.mode === 'course') loadStage(0); else renderCourseUI(); P.raf = requestAnimationFrame(loop); setTimeout(checkReminder, 1500);
-window.__vn = { setVW, VLV, follow: courseFollow, genScaleLine, scaleCfg, P, C, CFG, V, VR, genLine, loadStage, startStage, setMode, DB: () => DB, go, switchUser, badgeList, daysOf, streakInfo, stopSession, startSession };
+window.__vn = { pianoVoice, pianoOut, mFreq, guideNote, setVW, VLV, follow: courseFollow, genScaleLine, scaleCfg, P, C, CFG, V, VR, genLine, loadStage, startStage, setMode, DB: () => DB, go, switchUser, badgeList, daysOf, streakInfo, stopSession, startSession };
 })();
 </script>
 </body>
