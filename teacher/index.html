@@ -3893,9 +3893,24 @@ async function pushGrowthAll() {   // 음정성향 파일이 바뀐 수강생만
 }
 async function paintGrowthTab(sid) {
   const st = cfg.students[sid];
-  $("stuTab").innerHTML = `<div id="grTop"></div><div id="grShare"></div><div id="mkHabit"><p class="muted">불러오는 중…</p></div><div id="stuGrowth4"></div>`;
+  $("stuTab").innerHTML = `<div id="grUse"></div><div id="grTop"></div><div id="grShare"></div><div id="mkHabit"><p class="muted">불러오는 중…</p></div><div id="stuGrowth4"></div>`;
+  usageOf().then(u => { if (stuCur?.sid === sid && stuCur.tab === "growth" && $("grUse")) $("grUse").innerHTML = usageCard(u?.[sid]); }).catch(() => {});
   paintHabit(sid, "growth").then(() => { if (stuCur?.sid === sid && stuCur.tab === "growth" && st._habit) { wireGrowthShare(sid); pushGrowth(sid).catch(() => {}); } });
   try { const rec = await rootFile(st, "수강생기록.json"); if (stuCur?.sid === sid && stuCur.tab === "growth") paintGrowth4(rec, st); } catch {}
+}
+// (11/04 사용자 승인) 수강생 앱 사용 기록 — 장기 수강에 무엇이 효과 있는지 보려고. 서버(수강생노트) t_usage, 5분 동안 다시 안 물음
+let usageCache = null;
+async function usageOf() {
+  if (usageCache && Date.now() - usageCache.at < 300000) return usageCache.u;
+  const j = await portal("t_usage"); usageCache = { at: Date.now(), u: j.usage || {} }; return usageCache.u;
+}
+function usageCard(u) {
+  if (!u) return `<div class="card usageCard"><b>📱 수강생 앱 사용</b><p class="muted" style="margin:4px 0 0">아직 기록이 없어요 · 11월 4일부터 모아요(열기·재생·끝까지 듣기)</p></div>`;
+  const ago = Math.floor((Date.now() - Date.parse(u.last_at)) / 864e5), min = (s) => s >= 60 ? `${Math.round(s / 60)}분` : `${Math.round(s)}초`;
+  const warn = ago >= 7 ? ` <span class="chip todo">${ago}일째 안 열어 봄</span>` : "";
+  return `<div class="card usageCard"><b>📱 수강생 앱 사용</b>${warn}
+    <p style="margin:6px 0 0">마지막 접속 <b>${ago === 0 ? "오늘" : ago + "일 전"}</b> · 연 날 <b>${u.days7}</b>일(7일) / <b>${u.days30}</b>일(30일)</p>
+    <p class="muted" style="margin:4px 0 0">녹음 재생 ${u.plays7}번 · ${min(u.listen7)} 들음(7일) · 끝까지 ${u.done30}번 · 음정선 화면 ${u.tune30}번(30일)</p></div>`;
 }
 function growthLine(st) {   // 레슨 탭 맨 위 한 줄 → 누르면 성장 탭
   const songs = (st._habit?.songs || []).slice().sort((a, b) => (a.date || "").localeCompare(b.date || "")), S = songs.filter(x => !keyShaky(x)).map(x => songStats(x)).filter(Boolean);
@@ -6268,7 +6283,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-03-2245-oldload";
+const BUILD = "2026-11-04-1600-usage";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
