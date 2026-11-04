@@ -27,7 +27,7 @@ assert.ok(!lessonHtml(L, null, "simple").includes("P1#p") && !lessonHtml(L, null
   assert.ok(j("오늘의 핵심 포인트") < j('data-lp="P1#p"') && j('data-lp="P1#p"') < j("다음 미션") && j('data-lp="K1"') < j("다음 미션"));
   assert.ok(!h2.includes("더 들어 보기") && !h2.includes("ZZ") && !h2.includes("YY"), "다 붙으면 더 들어 보기 없음");
   assert.ok(!lessonHtml({ ...L, point_snd: [{ p: 0, kind: "pair", file_id: "P1" }] }, null, "simple").includes("P1#p")); }
-assert.ok(stu.includes('replace(/#[bsmp]$/, "")'));
+assert.ok(stu.includes('replace(/#[bsmpc]$/, "")'));
 assert.ok(stu.includes('chips.forEach(c => c.onclick = () => go(+c.dataset.ftc'), "▶ 시각은 아래 재생바");
 // 선생님 쪽: 지도 전→후는 '카톡에 같이 보내기'(pairSend) 고른 것만, 공개 때 링크 열고 지문에 포함
 const pf = new Function("cur", grab(src, /function pairsForNote\(\) \{[\s\S]*?\n}\n/) + "; return pairsForNote();");

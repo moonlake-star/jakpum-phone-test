@@ -121,6 +121,7 @@
   .moMiles { display:grid; gap:6px; margin:6px 0 10px; } .moMile { padding:10px 12px; border-radius:12px; background:rgba(255,200,90,.12); font-size:1.02rem; }
   .moList { list-style:none; padding:0; margin:6px 0; } .moList li { padding:6px 0; border-top:1px solid rgba(255,255,255,.07); } .moList li:first-child { border-top:0; }
   .moSay { margin-top:8px; padding:10px 12px; border-radius:12px; background:rgba(255,255,255,.05); }
+  .card.celeb { text-align:center; background:linear-gradient(160deg, rgba(255,200,90,.18), rgba(255,140,170,.08)); box-shadow:inset 0 0 0 1px rgba(255,200,90,.28); } .card.celeb .celIc { font-size:2.2rem; line-height:1; margin-bottom:4px; } .card.celeb .gcPair { display:grid; grid-template-columns:1fr 1fr; gap:8px; text-align:left; } .card.celeb .gcPair .lp, .card.celeb .lp.seg { width:100%; }
   @media (prefers-reduced-motion: reduce) { .lp { transition:none; } }
   .wave svg { position:absolute; inset:0; width:100%; height:100%; } .wave .on { position:absolute; inset:0; clip-path:inset(0 100% 0 0); }
   .story-item { border-top:1px solid var(--line); padding:12px 0; } .story-item .when { font-weight:700; } .story-item p { margin:4px 0 8px; }
@@ -404,6 +405,7 @@ function timeline() {
       <p class="muted" style="margin:0">레슨 ${ls.length}회 · 최근 ${md(ls[0]?.date)}</p>
       ${bests.length > 1 && !albumTracks(ls).length ? `<button class="ghost full" id="playAll" style="margin-top:10px">▶ 그동안의 베스트 가창 이어 듣기 (${bests.length}곡)</button>` : ""}</div>
     ${albumHtml(ls)}
+    ${typeof fullSongsHtml === "function" ? fullSongsHtml(ls) : ""}
     ${storyHtml(ls)}
     ${ls.map(l => `<button class="lesson" data-l="${esc(l.id)}"><b>${md(l.date)} 레슨</b> ${!seen[l.id] && !l.seen_at ? `<span class="new">● 새 노트</span>` : ""}
       <div class="muted">${esc((l.highlight || l.points?.[0] || "").slice(0, 40))}</div></button>`).join("") || `<div class="card"><p>아직 올라온 노트가 없어요.</p></div>`}
@@ -475,7 +477,7 @@ function wirePills() {
       if (!b.classList.contains("open")) { document.querySelectorAll(".lp.open").forEach(x => x !== b && lpClose(x)); lpOpen(b); }
       else if (e.target.closest(".wv") && au.duration) { const r = b.querySelector(".wv").getBoundingClientRect(); au.currentTime = Math.min(1, Math.max(0, (e.clientX - r.left) / (r.width || 1))) * au.duration; if (au.paused) au.play().catch(() => {}); return; }
       else if (!au.paused) { au.pause(); return; }
-      try { if (!au.getAttribute("src")) { ic.textContent = "…"; au.src = await audioUrl(b.dataset.lp.replace(/#[bsmp]$/, "")); } await au.play(); } catch { paint(); }
+      try { if (!au.getAttribute("src")) { ic.textContent = "…"; au.src = await audioUrl(b.dataset.lp.replace(/#[bsmpc]$/, "")); } await au.play(); } catch { paint(); }
     };
   });
 }
@@ -545,11 +547,11 @@ function wirePlayers() {
       for (const ev of ["play", "pause", "ended", "timeupdate", "loadedmetadata"]) au.addEventListener(ev, ico);
       au.onerror = () => { b.textContent = "!"; if (tm) tm.textContent = "소리를 불러오지 못했어요. 선생님께 알려 주세요"; };
       b.onclick = async () => {
-        try { if (!au.getAttribute("src")) { b.textContent = "…"; au.src = await audioUrl(b.dataset.au.replace(/#[bsmp]$/, "")); }
+        try { if (!au.getAttribute("src")) { b.textContent = "…"; au.src = await audioUrl(b.dataset.au.replace(/#[bsmpc]$/, "")); }
           if (au.paused) await au.play(); else au.pause(); } catch (e) { ico(); }
       };
     } else b.onclick = async () => {
-      try { b.textContent = "불러오는 중…"; au.src = await audioUrl(b.dataset.au.replace(/#[bsmp]$/, "")); au.classList.remove("hidden"); b.classList.add("hidden"); await au.play(); }
+      try { b.textContent = "불러오는 중…"; au.src = await audioUrl(b.dataset.au.replace(/#[bsmpc]$/, "")); au.classList.remove("hidden"); b.classList.add("hidden"); await au.play(); }
       catch (e) { if (au.error) return; b.textContent = label; au.classList.add("hidden"); b.classList.remove("hidden"); }
     };
     const wv = [...document.querySelectorAll("[data-wv]")].find(x => x.dataset.wv === b.dataset.au);
@@ -698,6 +700,34 @@ const listHtml = (a) => `<ul>${a.map(x => `<li>${esc(x)}</li>`).join("")}</ul>`;
 const sidOk = (x) => typeof x === "string" && x.trim() !== "";
 const makeupOk = (m, best) => !!m && sidOk(m.file_id) && sidOk(m.source_file_id) && m.file_id !== best?.file_id && (!best?.file_id || m.source_file_id === best.file_id);
 // 보기 방식(10/28 승인 시안): 심플 = 베스트·한마디·핵심 포인트·미션 / 보통(기본) = + 순간·메이크업·추천곡·응원·더 들여다보기(접힘) / 자세히 = 더 들여다보기를 펼친 채
+// (11/04 22:28 사용자) 🎂 기간 기념 · 🎤 완곡 기념 — 선생님이 켠 것만 노트 celebrate에
+function segPill(fid, t0, t1, label) {
+  return `<button type="button" class="lp seg" data-lps="${esc(fid)}" data-t0="${+t0 || 0}" data-t1="${+t1 || (+t0 || 0) + 30}" aria-label="${esc(label)}"><span class="ic" aria-hidden="true">▶</span><span class="lab">${esc(label)}</span><span class="wv"><i class="flat"></i><i class="prog"></i></span><span class="tm"></span></button>`;
+}
+function celebHtml(l, all) {
+  const cs = (Array.isArray(l?.celebrate) ? l.celebrate : []).filter(c => c && typeof c === "object").slice(0, 3); if (!cs.length) return "";
+  const out = [];
+  for (const c of cs) {
+    if (c.kind === "anniv" && Number.isFinite(+c.m)) {
+      const lab = typeof c.label === "string" && c.label ? c.label : (+c.m % 12 ? `${+c.m}개월` : `${+c.m / 12}년`);
+      const first = (all || []).filter(x => x && x.best?.file_id && String(x.date || "") < String(l.date || "")).sort((a, b) => String(a.date).localeCompare(String(b.date)))[0];
+      const pair = first && l.best?.file_id ? `<p class="muted" style="margin:8px 0 4px">첫 레슨 베스트와 오늘 베스트</p><div class="gcPair"><div>${pill(first.best.file_id + "#c", "처음 " + md(first.date))}</div><div>${pill(l.best.file_id + "#c", "오늘 " + md(l.date))}</div></div>` : "";
+      out.push(`<div class="card celeb" role="region" aria-label="기념"><div class="celIc" aria-hidden="true">🎂</div><h2>함께 노래한 지 ${esc(lab)}</h2>
+        <p style="margin:2px 0 0">${c.first ? `${esc(String(c.first).slice(0, 10).replaceAll("-", "."))} 첫 레슨부터 ` : ""}꾸준히 와 주셔서 고마워요. 그동안 쌓인 소리, 한번 들어 보세요.</p>${pair}</div>`);
+    } else if (c.kind === "full_song" && typeof c.title === "string" && c.title.trim()) {
+      const fid = l.full && typeof l.full.file_id === "string" ? l.full.file_id : "";
+      out.push(`<div class="card celeb" role="region" aria-label="완곡 기념"><div class="celIc" aria-hidden="true">🎤</div><h2>‘${esc(c.title.trim())}’ 완곡!</h2>
+        <p style="margin:2px 0 0">오늘 이 곡을 처음부터 끝까지 불렀어요.</p>${fid && Number.isFinite(+c.t0) && +c.t1 > +c.t0 ? `<div style="margin-top:8px">${segPill(fid, c.t0, c.t1, "끝까지 부른 소리 듣기")}</div>` : ""}</div>`);
+    }
+  }
+  return out.join("");
+}
+function fullSongsHtml(ls) {   // 타임라인: 내가 끝까지 부른 노래 모음
+  const xs = []; for (const l of ls || []) for (const c of (Array.isArray(l?.celebrate) ? l.celebrate : [])) if (c?.kind === "full_song" && typeof c.title === "string" && c.title.trim()) xs.push({ t: c.title.trim(), d: l.date, id: l.id });
+  if (!xs.length) return "";
+  return `<div class="card fullSongs"><h2>🎤 끝까지 부른 노래 <span class="muted" style="font-size:.9rem;font-weight:400">${xs.length}곡</span></h2>
+    ${xs.map(x => `<button type="button" class="lesson" data-l="${esc(x.id)}"><b>‘${esc(x.t)}’</b> <span class="muted">${md(x.d)}</span></button>`).join("")}</div>`;
+}
 // (11/04 17:49 사용자 시안 승인) 같은 구절, 그때와 지금: 선생님이 들어 보고 넣은 것만 노트에 있음(compare). 원음 그대로
 const GCN = ["도", "도#", "레", "레#", "미", "파", "파#", "솔", "솔#", "라", "라#", "시"], GCL = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 function gcHtml(c) {
@@ -791,6 +821,7 @@ function lessonHtml(l, prev, mode = "normal") {
   ].filter(Boolean).join("");
   return `<button class="ghost" id="back">← 전체 노트</button>
     <h2 style="margin:14px 0 4px">${md(l.date)} 레슨</h2>
+    ${typeof celebHtml === "function" ? celebHtml(l, typeof data !== "undefined" ? data?.lessons : []) : ""}
     ${has(l.feedback) ? `<div class="card letter"><h2>💬 ${l.teacher_name ? esc(l.teacher_name) + " " : ""}선생님 한마디</h2>${letter}${bestBlock}</div>` : bestBlock ? `<div class="card">${bestBlock}</div>` : ""}
     ${full && moment && !clips.some(c => (c.note || "").trim() === moment) && !points.some(t => t.trim() === moment) ? `<div class="card moment" role="region" aria-label="선생님이 발견한 오늘의 순간"><div class="muted">🔎 선생님이 발견한 오늘의 순간</div><p class="big">${esc(moment)}</p></div>` : ""}
     ${!ptsIn && points.length ? `<div class="card"><h2>⭐ 오늘의 핵심 포인트</h2>${ptsHtml(points)}</div>` : ""}
@@ -824,7 +855,7 @@ function openLesson(id) {
       request: (action, extra = {}) => call(action, { lesson: id, ...extra }),
       getClip: () => {
         const a = [...document.querySelectorAll("audio")].find(a => !a.paused && a.id.startsWith("au_"));
-        const file_id = a?.id.slice(3).replace(/#[bsmp]$/, "");
+        const file_id = a?.id.slice(3).replace(/#[bsmpc]$/, "");
         return allowed.includes(file_id) && Number.isFinite(a.currentTime) ? { file_id, seconds: Math.floor(a.currentTime) } : null;
       },
       playClip: async clip => {
