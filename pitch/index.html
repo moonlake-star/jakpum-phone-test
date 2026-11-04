@@ -875,6 +875,7 @@ function genScaleLine(sc, diff) {
 }
 
 /* ============ course state + UI ============ */
+const COUNT_IN = 1.5;   // 시작 버튼 → 첫 음까지 대기(초). 예전 3초의 절반
 const C = { mode: ['course', 'vib'].includes(CFG.mode) ? CFG.mode : 'free', stage: 0, phase: 'idle', t: -3, line: null, i: 0, act: null, ghost: null, rec: [], recT: 0, res: null, local: {}, cnt: 3 };
 const runKey = (uid, st, diff, seed, rc) => [uid, st, diff, seed, rc, 'v2'].join('|');
 const curKey = () => C.stage === 3 ? runKey(me().id, 3, CFG.diff, scaleSig(CFG.sc), 0) : runKey(me().id, C.stage, CFG.diff, SEEDS[C.stage], CFG.rc);
@@ -1199,12 +1200,12 @@ function drawVib(now) {
 }
 
 /* ============ course engine ============ */
-function guideTone(m, dur, at, hold) {
+function guideTone(m, dur, at, hold, keepMic) {
   at = at || 0;
   try {
     const ctx = actx(), t0 = ctx.currentTime + at;
-    pianoVoice(ctx, mFreq(m), t0, { dur, vol: .6, hold });
-    if (!P.earphone && !at) P.toneUntil = Math.max(P.toneUntil, performance.now() + dur * 1000 + 120);   // speaker: the mic would hear the guide tone
+    pianoVoice(ctx, mFreq(m), t0, { dur, vol: keepMic ? .4 : .6, hold });
+    if (!P.earphone && !at && !keepMic) P.toneUntil = Math.max(P.toneUntil, performance.now() + dur * 1000 + 120);   // speaker: the mic would hear the guide tone
   } catch (e) {}
 }
 function guideChord(m, dur) {                                  // do-mi-sol: the tonic triad of the coming repetition
@@ -1219,10 +1220,9 @@ function guideNote(n, first, now) {
   if (n.guided) return; n.guided = true;
   const L = C.line, sc = L && L.scale;
   if (sc) {
-    // 영상처럼: 각 회차 첫머리에 코드(도미솔)를 한 번 '짠' → 이어폰이면 음마다 피아노가 따라 나와요. 스피커면 코드만(마이크가 피아노를 목소리로 착각하지 않게)
-    if (n.pre) { guideChord(n.m, .48); n.mute = P.earphone ? 0 : Math.max(0, .6 - n.pre); if (P.earphone) guideTone(n.m, n.d, n.pre, true); return; }
-    if (P.earphone) guideTone(n.m, n.d, 0, true);
-    n.mute = 0; return;
+    // 영상처럼: 각 회차 첫머리에 코드(도미솔)를 한 번 '짠' → 이어폰·스피커 구분 없이 음마다 피아노가 따라 나와요
+    if (n.pre) { guideChord(n.m, .48); n.mute = Math.max(0, .6 - n.pre); guideTone(n.m, n.d, n.pre, true, true); return; }
+    guideTone(n.m, n.d, 0, true, true); n.mute = 0; return;   // 음마다 나는 피아노는 마이크를 끄지 않아요(소리는 조금 작게)
   }
   if (n.pre) { guideTone(n.m, .8); n.mute = 0; return; }
   if (first) { const dur = Math.min(1.1, Math.max(.4, n.t0 - .05)); guideTone(n.m, dur); n.mute = Math.max(0, now + dur + .12 - n.t0); return; }
@@ -1236,7 +1236,7 @@ async function startStage() {
   C.warm = !P.running;   // 연습: 기록 도전(세션)이 켜져 있지 않으면 기록 없이 진행
   endHold(); P.hd = newHold(); P.st.combo = 0; C.nextFresh = false;
   C.line.notes.forEach(n => { n.guided = false; n.mute = 0; n.on = 0; n.vm = 0; n.es = 0; n.ok = false; n.fin = false; n.ratio = 0; n.bins = new Uint8Array(Math.ceil(n.d / .05)); });
-  C.t = -3; C.i = 0; C.act = null; C.cleared = 0; C.cnt = 3; C.rec = []; C.res = null; C.ghost = ghostFor(); C.phase = 'count';
+  C.t = -COUNT_IN; C.i = 0; C.act = null; C.cleared = 0; C.cnt = Math.ceil(COUNT_IN); C.rec = []; C.res = null; C.ghost = ghostFor(); C.phase = 'count';
   sfx('tick'); renderCourseUI();
 }
 function courseAdvance(dt) {

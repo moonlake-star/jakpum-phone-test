@@ -121,7 +121,8 @@ console.log("pitch-page ok");
   assert.ok(src.includes("function pianoVoice(") && src.includes("createPeriodicWave") && src.includes("createDynamicsCompressor"), "피아노 음색 + 컴프레서");
   assert.ok(!src.includes("o.type = 'sine'; o.frequency.value = mFreq(m)"), "사인파 안내음 제거");
   assert.ok(src.includes("function guideChord(") && src.includes("[0, 4, 7].forEach(d => pianoVoice("), "도미솔 코드");
-  assert.ok(src.includes("if (n.pre) { guideChord(n.m, .48); n.mute = P.earphone ? 0 : Math.max(0, .6 - n.pre); if (P.earphone) guideTone(n.m, n.d, n.pre, true); return; }") && src.includes("if (P.earphone) guideTone(n.m, n.d, 0, true);"), "스케일: 회차 첫머리 코드 1회, 이어폰이면 음마다 피아노");
+  assert.ok(src.includes("guideTone(n.m, n.d, n.pre, true, true); return; }") && src.includes("guideTone(n.m, n.d, 0, true, true); n.mute = 0; return;") && !src.includes("if (P.earphone) guideTone(n.m, n.d, 0, true);"), "스케일: 회차 첫머리 코드 1회, 음마다 피아노(이어폰·스피커 구분 없음, 마이크 유지)");
+  assert.ok(src.includes("const COUNT_IN = 1.5;") && src.includes("C.t = -COUNT_IN;"), "시작 대기 1.5초");
   console.log("pitch-page: 피아노 음색·스케일 안내 ok");
 }
 
