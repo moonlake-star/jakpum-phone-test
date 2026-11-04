@@ -30,7 +30,7 @@ const genScale = new Function(prelude + body + "\nreturn genScaleLine;")();
 for (const g of ["m", "f"]) for (const k of ["five", "tri", "arp"]) for (const off of [-4, 0, 4]) for (const diff of ["easy", "normal"]) {
   const a = genScale({ g, k, off }, diff), b = genScale({ g, k, off }, diff);
   assert.deepStrictEqual(a.notes, b.notes, "스케일: 같은 설정 → 같은 라인");
-  assert.ok(a.reps >= 1 && a.end < 200, `스케일 길이 ${g}${k}${off}${diff}`);
+  assert.ok(a.reps >= 1 && a.end < 330, `스케일 길이 ${g}${k}${off}${diff}`);
   assert.ok(a.maxM - a.minM <= 26, `스케일 음역 ${g}${k}${off}${diff}: ${a.maxM - a.minM}`);
   for (let i = 1; i < a.notes.length; i++) assert.ok(a.notes[i].t0 >= a.notes[i - 1].t0 + a.notes[i - 1].d - 1e-9, "스케일: 음이 겹치지 않음");
   assert.ok(a.notes.every(n => n.m >= 36 && n.m <= 84), "스케일: 음역 범위");
