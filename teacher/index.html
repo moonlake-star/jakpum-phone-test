@@ -517,8 +517,8 @@
 <div id="v2Shade" class="v2only"></div>
 <div id="toast"></div>
 <script src="../lesson-replies.js"></script>
-<script src="../tune.js?v=20261105-0130"></script>
-<script src="../adv.js?v=20261104-1800"></script>
+<script src="../tune.js?v=20261105-0300"></script>
+<script src="../adv.js?v=20261105-0300"></script>
 
 <script>
 // ── 설정 ────────────────────────────────────────────────
@@ -5016,8 +5016,9 @@ async function openMkJob(j, backTo) {
       try { pvApplyAll(); } catch (e) { console.warn("타이밍 미리듣기", e); }
       try { await writeJSON(j.folder.id, MKREQ, r, j.reqId); paintFixN(); } catch (e) { toast("타이밍 저장 실패: " + errMsg(e)); } };
     // (11/04 사용자) 고급 보정 모드: 음별·곡 전체 고침(adv.js) → 원래 녹음 시간으로 바꿔 note_edits에 저장(서버 note_edits.py) · 화면에선 지금 시간
-    const advGet = () => { const ne = r.note_edits || {}; return { notes: (ne.notes || []).map(n => ({ ...n, t0: r4(toA(n.t0)), t1: r4(toA(n.t1)) })), global: { ...(ne.global || {}) } }; };
-    const onAdv = async (ne) => { const notes = (ne.notes || []).map(n => ({ ...n, t0: r4(toO(n.t0)), t1: r4(toO(n.t1)) })), g = ne.global || {};
+    const uvT = (g, f) => { const o = { ...g }; for (const k of ["uv_fix", "uv_gain"]) if (Array.isArray(o[k])) o[k] = o[k].map(x => ({ ...x, t0: r4(f(x.t0)), t1: r4(f(x.t1)) })); return o; };   // (11/04) 치찰음·호흡 구간도 화면 시간 ↔ 원래 녹음 시간
+    const advGet = () => { const ne = r.note_edits || {}; return { notes: (ne.notes || []).map(n => ({ ...n, t0: r4(toA(n.t0)), t1: r4(toA(n.t1)) })), global: uvT(ne.global || {}, toA) }; };
+    const onAdv = async (ne) => { const notes = (ne.notes || []).map(n => ({ ...n, t0: r4(toO(n.t0)), t1: r4(toO(n.t1)) })), g = uvT(ne.global || {}, toO);
       if (notes.length || Object.keys(g).length) r.note_edits = { notes, global: g }; else delete r.note_edits;
       try { await writeJSON(j.folder.id, MKREQ, r, j.reqId); paintFixN(); } catch (e) { toast("고급 보정 저장 실패: " + errMsg(e)); } };
     // (11/03 13:46 사용자 시안 승인) 곡 전체(또는 고른 것만) 원본으로: 선생님이 고친 것만 지움(보컬 분리·기본 보정·자동 음정 보정은 그대로) · 10초 되살리기 · 지운 것은 작업 파일에 '지난 고침'으로 보관
@@ -6789,7 +6790,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-05-0215-goal";
+const BUILD = "2026-11-05-0300-uv";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {

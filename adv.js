@@ -34,6 +34,8 @@
     const g = A.ne.global;
     for (const [k, d] of [["ref_hz", 440], ["flat", 1], ["sib_db", 0], ["formant", 0], ["strength", 1], ["near", 8]]) if (k in g && Math.abs(g[k] - d) < 1e-9) delete g[k];
     if (g.level && !g.level.quiet && !g.level.loud) delete g.level;
+    if (Array.isArray(g.uv_gain)) { g.uv_gain = g.uv_gain.filter(r => r && (r.s_db || r.b_db)); if (!g.uv_gain.length) delete g.uv_gain; }
+    if (Array.isArray(g.uv_fix) && !g.uv_fix.length) delete g.uv_fix;
   }
   function change(A, st, cv, fn) {   // 고침 1번 = 되돌리기 1칸 · 그림 바로 · 저장은 0.4초 모아서
     A.hist.push(JSON.stringify(A.ne)); if (A.hist.length > 100) A.hist.shift();
@@ -162,6 +164,55 @@
     return el;
   }
 
+
+  // ── 치찰음·호흡(11/04 23:41 사용자: 멜로다인처럼 구분 · 구간 골라 위아래로 끌면 치찰음만 볼륨) ──
+  // 서버(consonants.py)가 찾은 자리 = cv.uv [[t0,t1,"s"|"b"]] (화면 시간). 선생님 이름표 고침 = global.uv_fix, 구간 볼륨 = global.uv_gain
+  const UV_NAME = { s: "치찰음", b: "호흡", n: "아님" };
+  function uvList(cv, st) {
+    let out = (cv && Array.isArray(cv.uv) ? cv.uv : []).filter(u => Array.isArray(u) && u[1] > u[0] && (u[2] === "s" || u[2] === "b")).map(u => [u[0], u[1], u[2], false]);
+    const fx = st && st._adv ? (st._adv.ne.global.uv_fix || []) : (st && typeof st.advGet === "function" ? ((st.advGet() || {}).global || {}).uv_fix || [] : []);
+    for (const f of fx) { if (!(f.t1 > f.t0)) continue; out = out.filter(u => u[1] <= f.t0 || u[0] >= f.t1); out.push([f.t0, f.t1, f.kind, true]); }
+    return out.sort((a, b) => a[0] - b[0]);
+  }
+  function relabel(st, cv, u) {   // 빗금 톡: 치찰음 → 호흡 → 아님 → 치찰음
+    const A = state(st), nx = { s: "b", b: "n", n: "s" }[u[2]] || "s";
+    change(A, st, cv, () => { const g = A.ne.global, L = (g.uv_fix || []).filter(f => !(near(f.t0, u[0]) && near(f.t1, u[1]))); L.push({ t0: r2(u[0]), t1: r2(u[1]), kind: nx }); g.uv_fix = L; });
+    return nx;
+  }
+  function uvSheet(host, st, cv, rg) {
+    const A = state(st), a = Math.min(rg[0], rg[1]), b = Math.max(rg[0], rg[1]);
+    document.getElementById("advUv")?.remove();
+    const segs = uvList(cv, st).filter(u => u[2] !== "n" && u[1] > a && u[0] < b), ns = segs.filter(u => u[2] === "s").length, nb = segs.filter(u => u[2] === "b").length;
+    const rule = () => (A.ne.global.uv_gain || []).find(r => near(r.t0, a) && near(r.t1, b));
+    const val = (k) => (rule() || {})[k] || 0;
+    const set = (k, v) => change(A, st, cv, () => { const g = A.ne.global; g.uv_gain = g.uv_gain || []; let r = rule(); if (!r) { r = { t0: r2(a), t1: r2(b), s_db: 0, b_db: 0 }; g.uv_gain.push(r); } r[k] = v; });
+    let kind = ns || !nb ? "s_db" : "b_db";
+    const fmt = (v) => `${v > 0 ? "+" : ""}${Math.round(v)}dB`, lim = { s_db: [-18, 9], b_db: [-24, 9] };
+    const d = document.createElement("div"); d.id = "advUv"; d.className = "advG";
+    const mm = (x) => `${Math.floor(x / 60)}:${String(Math.floor(x % 60)).padStart(2, "0")}.${Math.floor((x % 1) * 10)}`;
+    d.innerHTML = `<div class="advGBox" role="dialog" aria-label="치찰음·호흡 볼륨"><div class="advGHd"><b>🌬 ${mm(a)}~${mm(b)}</b><span class="advGN">치찰음 ${ns}곳 · 호흡 ${nb}곳</span><button type="button" class="advX" aria-label="닫기">✕</button></div>
+      <div class="advChips" style="margin:8px 0"><button type="button" data-k="s_db">ㅅ·ㅊ 치찰음</button><button type="button" data-k="b_db">숨소리</button></div>
+      <div class="advPad" role="slider" aria-label="위아래로 끌어 크기 조절" tabindex="0"><b class="advPadV"></b><small>↕ 위아래로 끌기 · 두 번 톡 = 0dB</small></div>
+      <div class="advBody"></div>
+      <p class="advTip">고른 구간 안의 그 소리만 크게·작게(다른 소리는 그대로) · 빗금을 톡 하면 이름이 바뀌어요(치찰음 → 호흡 → 아님) · 진짜 소리는 완성본 다시 만들기 뒤</p></div>`;
+    const pad = d.querySelector(".advPad"), pv = d.querySelector(".advPadV"), body = d.querySelector(".advBody");
+    const row = stepper("크기", () => val(kind), (v) => set(kind, v), { step: 1, min: -24, max: 9, def: 0, fmt });
+    body.appendChild(row);
+    const paint = () => { pv.textContent = `${kind === "s_db" ? "치찰음" : "숨소리"} ${fmt(val(kind))}`; d.querySelectorAll("[data-k]").forEach(x => x.classList.toggle("on", x.dataset.k === kind)); row._paint(); };
+    d.querySelectorAll("[data-k]").forEach(x => x.onclick = (e) => { e.stopPropagation(); kind = x.dataset.k; paint(); });
+    let dr = null, lastTap = 0;
+    pad.addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); try { pad.setPointerCapture(e.pointerId); } catch {} dr = { y: e.clientY, v: val(kind), moved: false };
+      const now = Date.now(); if (now - lastTap < 320) { set(kind, 0); paint(); dr = null; } lastTap = now; });
+    pad.addEventListener("pointermove", (e) => { if (!dr) return; const dv = Math.round((dr.y - e.clientY) / 12), [lo, hi] = lim[kind], v = Math.max(lo, Math.min(hi, dr.v + dv));
+      if (Math.abs(dr.y - e.clientY) > 4) dr.moved = true; if (v !== val(kind)) { set(kind, v); paint(); } });
+    ["pointerup", "pointercancel"].forEach(ev => pad.addEventListener(ev, () => { dr = null; }));
+    const ly = G.Brand && G.Brand.layer ? G.Brand.layer(() => { d.remove(); st.uvSel = null; }) : { close: () => { d.remove(); st.uvSel = null; } };
+    d.querySelector(".advX").onclick = () => ly.close();
+    d.addEventListener("click", (e) => { if (e.target === d) ly.close(); });
+    d.addEventListener("pointerdown", (e) => e.stopPropagation());
+    host.appendChild(d); paint();
+    return d;
+  }
   // ── 곡 전체(전체화면 위 '🎛 곡 전체') ──
   function globalSheet(host, st, cv) {
     const A = state(st), g = () => A.ne.global;
@@ -244,8 +295,10 @@
 .advG{position:absolute;inset:0;z-index:30;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center}.advGBox{width:min(760px,100%);max-height:86%;overflow:auto;box-sizing:border-box;background:#1a1e25;border:1.5px solid #3b4250;border-radius:18px 18px 0 0;padding:12px 14px calc(14px + env(safe-area-inset-bottom));color:#e8e8ea}
 .advGHd{display:flex;align-items:center;gap:10px}.advGN{color:#9aa3ad;font-size:12.5px}.advX{margin-left:auto!important;min-height:0!important;height:34px!important;width:40px;padding:0!important;border-radius:12px!important;background:#11141a!important;border:1.5px solid #3b4250!important;color:#e8e8ea!important}
 .advGBtns{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.advGBtns button{flex:1;min-width:150px;min-height:0!important;height:44px!important;margin:0!important;border-radius:12px!important;border:1.5px solid #3b4250!important;background:#11141a!important;color:#e8e8ea!important;font-weight:800;font-size:14px!important}
+.advPad{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;height:120px;border-radius:16px;border:1.5px dashed #ffb86b;background:#21170b;color:#ffcf99;touch-action:none;user-select:none;-webkit-user-select:none;cursor:ns-resize}.advPad b{font-size:22px}.advPad small{color:#b9a58a;font-size:12px}
+#tuneFs .tfAdvG.on{background:#ffb86b!important;color:#2a1500!important}
 #tuneFs .tfAdvG{margin:0 0 0 8px!important;min-height:0!important;height:28px!important;padding:0 11px!important;border-radius:14px!important;border:1.5px solid #ffb86b!important;background:#2a1a08!important;color:#ffcf99!important;font-size:12.5px!important;font-weight:800;white-space:nowrap}`;
   try { const s = document.createElement("style"); s.textContent = css; document.head.appendChild(s); } catch {}
 
-  G.TuneAdv = { panel, globalSheet, preview, state, _t: { shapeNote, notesFromCurve, midiBytes, clean, N_DEF } };
+  G.TuneAdv = { panel, globalSheet, preview, state, uvList, relabel, uvSheet, UV_NAME, undoLast: (st, cv) => undo(state(st), st, cv), _t: { shapeNote, notesFromCurve, midiBytes, clean, N_DEF } };
 })(typeof window !== "undefined" ? window : globalThis);
