@@ -17,7 +17,7 @@ const body = js.slice(js.indexOf("const LM ="), js.indexOf("/* ============ cour
 const prelude = "const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));const mod=(a,n)=>((a%n)+n)%n;" + js.match(/function rng\(seed\)[^\n]*\n/)[0] +
   js.match(/const DF = \{[\s\S]*?\n\};\n/)[0];
 const genLine = new Function(prelude + body + "\nreturn genLine;")();
-for (const diff of ["easy", "normal"]) for (const st of [0, 1, 2]) for (const seed of [11, 23, 37, 4242]) {
+for (const diff of ["normal"]) for (const st of [0, 1, 2]) for (const seed of [11, 23, 37, 4242]) {
   const a = genLine(st, seed, diff, 55), b = genLine(st, seed, diff, 55);
   assert.deepStrictEqual(a.notes, b.notes, "같은 씨앗 → 같은 라인");
   assert.ok(a.notes.length >= 3, "음 개수");
@@ -27,7 +27,7 @@ for (const diff of ["easy", "normal"]) for (const st of [0, 1, 2]) for (const se
 
 // 6) 발성 스케일(믹스보이스): 성별·스케일·난이도 조합마다 겹치지 않고, 음역이 코스 레인(28음) 안이며, 같은 설정이면 같은 라인
 const genScale = new Function(prelude + body + "\nreturn genScaleLine;")();
-for (const g of ["m", "f"]) for (const k of ["five", "tri", "arp"]) for (const off of [-4, 0, 4]) for (const diff of ["easy", "normal"]) {
+for (const g of ["m", "f"]) for (const k of ["five", "tri", "arp"]) for (const off of [-4, 0, 4]) for (const diff of ["normal"]) {
   const a = genScale({ g, k, off }, diff), b = genScale({ g, k, off }, diff);
   assert.deepStrictEqual(a.notes, b.notes, "스케일: 같은 설정 → 같은 라인");
   assert.ok(a.reps >= 1 && a.end < 330, `스케일 길이 ${g}${k}${off}${diff}`);
@@ -45,4 +45,11 @@ console.log("pitch-page ok");
   assert.ok(src.includes("C.warm = !P.running") && src.includes("!c.warm && stars === 3"), "목풀기는 기록·새 라인 갱신 안 함");
   assert.ok(!src.includes('id="octUp"') && !src.includes('id="octDn"') && src.includes("function courseFollow("), "옥타브 버튼 제거 + 자동 스크롤");
   console.log("pitch-page: 목풀기/기록 도전 ok");
+}
+
+// 난이도는 한 가지(쉬움/어려움 선택 제거). 예전 기록(diff:'easy')이 남아 있어도 화면이 깨지지 않아야 함
+{
+  assert.ok(!src.includes('id="segDiff"') && !src.includes('id="cDiff"') && !src.includes("name: '쉬움'") && !src.includes("name: '어려움'"), "난이도 선택 제거");
+  assert.ok(!/DF\[c\.diff\]/.test(src) && src.includes("CFG.diff = 'normal'"), "옛 난이도 기록 대응");
+  console.log("pitch-page: 난이도 단일화 ok");
 }

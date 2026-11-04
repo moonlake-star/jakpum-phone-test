@@ -294,8 +294,7 @@ summary{cursor:pointer;color:var(--ink2)}
         <div id="setBack"></div>
         <div id="setPanel">
           <div class="setHead">설정 <button class="btn sm" id="setClose">닫기</button></div>
-          <div class="sl" style="margin-top:0">난이도</div><div class="seg" id="segDiff"></div><div class="note2" id="diffDesc"></div>
-          <div class="sgroup"><div class="sl">효과음</div><div class="seg" id="segSfx"></div><div class="note2" id="sfxDesc"></div></div>
+          <div class="sl" style="margin-top:0">효과음</div><div class="seg" id="segSfx"></div><div class="note2" id="sfxDesc"></div></div>
           <div class="sgroup"><div class="sl">코스 안내음</div><div class="seg" id="segGuide"></div><div class="note2">코스에서 음이 시작될 때 그 음을 짧게 들려줘요. 소리가 나는 동안 마이크는 잠깐 쉬어요.</div></div>
           <div class="sgroup"><div class="sl">비브라토 모드</div><div class="seg" id="segVib"></div><div class="note2">한 음을 10초 유지하면 열려요. 테스트용으로 항상 열 수도 있어요.</div></div>
           <div class="sgroup"><div class="sl">코스 음역 <span id="rangeDesc"></span></div><div class="seg" id="segRange"></div></div>
@@ -479,7 +478,6 @@ function badgeList(uid) {
   add('star3', '🌟', '별 셋!', '한 스테이지에서 별 3개를 모았어요', coDate(c => c.stars === 3));
   let allD = null; { const bd = {}; coS.forEach(c => { if (c.stars >= 1) { const k = c.sday + '|' + c.diff; (bd[k] = bd[k] || new Set()).add(c.stage); } }); Object.keys(bd).sort().forEach(k => { if (bd[k].size >= 3 && !allD) allD = k.split('|')[0]; }); }
   add('allclear', '🏁', '올 클리어', '같은 날 3개 스테이지를 모두 클리어했어요', allD);
-  add('hardclr', '🔥', '어려움 도전', '어려움 난이도 스테이지를 클리어했어요', coDate(c => (c.diff === 'normal' || c.diff === 'hard') && c.stars >= 1));
   const bestV = Math.max(0, ...sess.map(x => (x.st && x.st.vib && x.st.vib.best) || 0)), vbS = n => { const x = sess.find(y => y.st && y.st.vib && y.st.vib.best >= n); return x && x.day; };
   add('vib5', '🌊', '비브라토 입문', '속도·폭이 맞는 사이클을 5번 연속', vbS(5), { cur: Math.min(bestV, 5), max: 5, unit: '회' });
   add('vib15', '🌈', '비브라토 15연속', '속도·폭이 맞는 사이클을 15번 연속', vbS(15), { cur: Math.min(bestV, 15), max: 15, unit: '회' });
@@ -659,13 +657,12 @@ setSens(+$('#sens').value);
 
 /* ============ difficulty / settings / sound effects ============ */
 const DF = {
-  easy:   { name: '쉬움',  enter: .35, stay: .50, j: [12, 22, 35], tol: .50, grace: .35, bpm: 56, stars: [.40, .60, .78], hint: '음정 허용폭이 넓고 템포가 느려요. 처음이라면 여기서 시작하세요.' },
-  normal: { name: '어려움', enter: .25, stay: .35, j: [8, 15, 25],  tol: .35, grace: .30, bpm: 72, stars: [.50, .70, .85], hint: '허용폭 ±35센트(코스 기준). 쉬움보다 판정이 엄격하고 템포가 빨라요.' }
+  normal: { name: '기본', enter: .25, stay: .35, j: [8, 15, 25],  tol: .35, grace: .30, bpm: 72, stars: [.50, .70, .85], hint: '목표음 ±35센트 안에서, 길게 흔들림 없이 유지하는 연습이에요.' }
 };
-const CFG = Object.assign({ diff: 'easy', sfx: 'auto', rc: 55 }, (() => { try { return JSON.parse(localStorage.getItem('vn_cfg') || '{}'); } catch (e) { return {}; } })());
-if (!DF[CFG.diff]) CFG.diff = 'normal';
+const CFG = Object.assign({ diff: 'normal', sfx: 'auto', rc: 55 }, (() => { try { return JSON.parse(localStorage.getItem('vn_cfg') || '{}'); } catch (e) { return {}; } })());
+CFG.diff = 'normal';   // 난이도는 한 가지(예전 쉬움 설정은 무시)
 const saveCfg = () => { try { localStorage.setItem('vn_cfg', JSON.stringify(CFG)); } catch (e) {} };
-const D = () => DF[CFG.diff];
+const D = () => DF.normal;
 P.earphone = false; P.earKnown = false; P.sfxUntil = 0; P.onCfg = () => {};
 const EAR_RE = /head(phone|set)|ear(phone|bud|pod)|airpods|buds|bluetooth|bt[ -]|이어폰|헤드폰|헤드셋|블루투스|wired/i;
 async function detectEar() {
@@ -693,8 +690,6 @@ function flash(col) { const st = $('#stage'), d = document.createElement('div');
 const RANGES = [['낮은', 48], ['중간', 55], ['높은', 62]];
 function renderSettings() {
   const seg = (id, items, curV, fn) => { const h = $('#' + id); h.innerHTML = items.map(([v, l]) => `<button data-v="${v}" class="${v == curV ? 'on' : ''}">${l}</button>`).join(''); h.querySelectorAll('button').forEach(b => b.onclick = () => fn(b.dataset.v)); };
-  seg('segDiff', Object.keys(DF).map(k => [k, DF[k].name]), CFG.diff, v => { CFG.diff = v; saveCfg(); renderSettings(); P.onCfg('diff'); });
-  $('#diffDesc').textContent = D().hint + ' 난이도는 판정과 코스에 모두 적용돼요.';
   seg('segSfx', [['auto', '자동'], ['on', '항상 켬'], ['off', '끔']], CFG.sfx, v => { CFG.sfx = v; saveCfg(); renderSettings(); if (v !== 'off') sfx('mile'); });
   seg('segGuide', [['on', '켬'], ['off', '끔']], CFG.guide || 'on', v => { CFG.guide = v; saveCfg(); renderSettings(); });
   seg('segVib', [['cond', '조건 충족 시'], ['always', '항상 열기']], CFG.vibOpen || 'cond', v => { CFG.vibOpen = v; saveCfg(); renderSettings(); renderCourseUI(); });
@@ -718,7 +713,7 @@ const saveSeeds = () => { try { localStorage.setItem('vn_seeds', JSON.stringify(
 const hsh = (a, b) => { let h = Math.imul(a ^ 0x9E3779B9, 0x85EBCA6B) ^ Math.imul(b + 0x7F4A7C15, 0xC2B2AE35); h ^= h >>> 15; h = Math.imul(h, 0x2C1B3C6D); h ^= h >>> 12; return h | 0; };
 function genLine(stage, seed, diff, rc) {
   const R = rng(hsh(seed, stage)); R(); R(); R();
-  const dfn = DF[diff], beat = 60 / dfn.bpm * LM, minLen = (diff === 'easy' ? .95 : .62) * LM, seq = [];
+  const dfn = DF.normal, beat = 60 / dfn.bpm * LM, minLen = (diff === 'easy' ? .95 : .62) * LM, seq = [];
   const minor = stage >= 1 && diff !== 'easy' && R() < .25, sc = minor ? MIN : MAJ, pc = Math.floor(R() * 12), cl = d => clamp(d, -1, 8), pick = a => a[Math.floor(R() * a.length)];
   if (stage === 0) {                                   // hold single notes: tonic / third / fifth
     const V = diff === 'easy' ? [[0, 2, 4], [0, 4, 2], [2, 4, 0]] : diff === 'normal' ? [[0, 2, 4, 0], [0, 4, 2, 0], [0, 2, 4, 2], [2, 0, 4, 0]] : [[0, 2, 4, 7], [0, 4, 2, 0], [0, 4, 7, 4], [2, 4, 7, 0]];
@@ -827,26 +822,24 @@ function renderCOv() {
   const el = $('#cOv'); el.style.top = ''; el.style.bottom = '';
   if (C.mode !== 'course' || C.phase === 'count' || C.phase === 'play' || !C.line) { el.innerHTML = ''; return; }
   const L = C.line, stg = STAGES[C.stage], g = C.ghost, bs = starsBest(C.stage, CFG.diff);
-  const diffSeg = `<div class="seg s2" id="cDiff">${Object.keys(DF).map(k => `<button data-v="${k}" class="${k === CFG.diff ? 'on' : ''}">${DF[k].name}</button>`).join('')}</div>`;
   if (C.phase === 'idle' && L.scale) {
     const sc = scaleCfg(CFG.sc), S = SCALES.find(x => x.k === sc.k);
     el.innerHTML = `<div class="ccard"><div class="crow"><b>발성 · ${S.t} · ${VOICE[sc.g].name}</b><span class="cst">${starTxt(bs)}</span></div>
-      <div class="note2">전환 구간 ${midiName(sc.zs)}~${midiName(sc.ze)} · ${midiName(L.base)}부터 ${L.reps}회 · 약 ${Math.max(1, Math.round(L.end / 60))}분 · 안내음 ${CFG.guide === 'off' ? '끔' : '켬'}</div>${diffSeg}
+      <div class="note2">전환 구간 ${midiName(sc.zs)}~${midiName(sc.ze)} · ${midiName(L.base)}부터 ${L.reps}회 · 약 ${Math.max(1, Math.round(L.end / 60))}분 · 안내음 ${CFG.guide === 'off' ? '끔' : '켬'}</div>
       ${g ? `<div class="cghost">👻 ${esc(g.label)} ${g.cov}% ${starTxt(g.stars)} · 같은 설정으로 대결해요</div>` : ''}
       <div class="crow" style="margin-top:8px"><button class="btn sm" id="cSet">⚙ 설정</button><button class="btn pri sm" id="cGo" style="flex:1">${P.running ? '▶ 도전' : '▶ 목풀기'}</button></div>
       ${P.running ? '' : '<div class="note2" style="margin-top:5px">지금은 목풀기 · 기록되지 않아요. 기록하려면 아래 "기록 도전"을 먼저 누르세요</div>'}</div>`;
-    el.querySelector('#cDiff').querySelectorAll('button').forEach(b => b.onclick = () => { CFG.diff = b.dataset.v; saveCfg(); renderSettings(); loadStage(C.stage); });
     el.querySelector('#cGo').onclick = startStage; el.querySelector('#cSet').onclick = () => go('scale'); return;
   }
   if (C.phase === 'idle') {
     el.innerHTML = `<div class="ccard"><div class="crow"><b>스테이지 ${C.stage + 1} · ${stg[0]}</b><span class="cst">${starTxt(bs)}</span></div>
-      <div class="note2">${stg[1]} · 안내음 ${CFG.guide === 'off' ? '끔' : '켬'} · 시작음 ${midiName(L.notes[0].m)} · ${L.notes.length}음 · 약 ${Math.round(L.end - .8)}초${L.minor ? ' · 단조' : ''} · 별 3개면 새 라인</div>${diffSeg}
+      <div class="note2">${stg[1]} · 안내음 ${CFG.guide === 'off' ? '끔' : '켬'} · 시작음 ${midiName(L.notes[0].m)} · ${L.notes.length}음 · 약 ${Math.round(L.end - .8)}초${L.minor ? ' · 단조' : ''} · 별 3개면 새 라인</div>
       ${g ? `<div class="cghost">👻 ${esc(g.label)} ${g.cov}% ${starTxt(g.stars)} · 같은 라인으로 대결해요</div>` : ''}
       <div class="crow" style="margin-top:8px"><button class="btn pri sm" id="cGo" style="flex:1">${P.running ? '▶ 도전' : '▶ 목풀기'}</button></div>
       ${P.running ? '' : '<div class="note2" style="margin-top:5px">지금은 목풀기 · 기록되지 않아요. 기록하려면 아래 "기록 도전"을 먼저 누르세요</div>'}</div>`;
   } else {
     const r = C.res, cp = r.prev;
-    el.innerHTML = `<div class="ccard"><div class="note2" style="text-align:center">${L.scale ? '발성 스케일 · ' + SCALES.find(x => x.k === L.k).t + ' · ' + VOICE[L.g].name : '스테이지 ' + (C.stage + 1) + ' · ' + stg[0]} · ${DF[CFG.diff].name}</div>
+    el.innerHTML = `<div class="ccard"><div class="note2" style="text-align:center">${L.scale ? '발성 스케일 · ' + SCALES.find(x => x.k === L.k).t + ' · ' + VOICE[L.g].name : '스테이지 ' + (C.stage + 1) + ' · ' + stg[0]}</div>
       <div class="bigstars">${[0, 1, 2].map(i => `<i class="${i < r.stars ? 'on' : ''}">★</i>`).join('')}</div>
       <div style="text-align:center;font-size:13px;color:var(--ink)">${r.stars === 3 ? '완벽해요! ' : r.stars ? '클리어! ' : '아쉬워요. '}음 ${r.cleared}/${r.n} 성공 · 일치율 <b>${r.cov}%</b></div>
       ${r.zone ? `<div class="cvs"><span>전환 구간 안 <b>${r.zone.inOk}/${r.zone.inN}</b> · 밖 <b>${r.zone.outOk}/${r.zone.outN}</b></span>${r.zone.worst.length ? `<span>자주 놓친 음 <b>${r.zone.worst.join(' ')}</b></span>` : ''}</div>` : ''}
@@ -855,7 +848,6 @@ function renderCOv() {
       <div class="crow" style="margin-top:8px">${L.scale ? '<button class="btn sm" id="cSet">⚙ 설정</button>' : ''}<button class="btn sm" id="cGo">${C.nextFresh ? '새 라인' : '다시'}</button>${C.stage < 2 ? '<button class="btn pri sm" id="cNext" style="flex:1">다음 스테이지 ▶</button>' : '<button class="btn pri sm" id="cEnd" style="flex:1">' + (r.warm ? '목풀기 마치기' : '연습 끝내고 리포트 ▶') + '</button>'}</div></div>`;
   }
   const q = id => el.querySelector(id);
-  if (q('#cDiff')) q('#cDiff').querySelectorAll('button').forEach(b => b.onclick = () => { CFG.diff = b.dataset.v; saveCfg(); renderSettings(); loadStage(C.stage); });
   if (q('#cSet')) q('#cSet').onclick = () => go('scale');
   if (q('#cGo')) q('#cGo').onclick = () => { if (C.nextFresh) loadStage(C.stage); startStage(); };
   if (q('#cNext')) q('#cNext').onclick = () => loadStage(C.stage + 1);
@@ -959,7 +951,7 @@ function updateTrack(hs) {
 
 /* ============ vibrato mode ============ */
 const VIBR = { easy: { rate: [4.0, 7.5], ext: [20, 80] }, normal: { rate: [4.5, 7.0], ext: [25, 70] }, hard: { rate: [5.0, 6.5], ext: [30, 60] } };
-const VR = () => VIBR[CFG.diff];
+const VR = () => VIBR.easy;   // 비브라토는 넉넉한 범위 하나만
 const newVs = () => ({ cyc: 0, ok: 0, best: 0, sR: 0, sE: 0 });
 const V = { lastAn: 0, cyc: 0, lastExtT: 0, buf: [], ctr: null, base: null, lastT: 0, fz: 0, tr: [], dir: 0, hi: null, lo: null, ext: [], streak: 0, rate: null, extent: null, verdict: '', out: 0, pd: null, s: newVs() };
 const vpc = () => (P.H / 2 - 14) / 130;
@@ -1149,7 +1141,7 @@ function endStage() {
     DB.runs = DB.runs || {}; const k = curKey(), arr = DB.runs[k] = DB.runs[k] || [];
     arr.push({ day: dayKey(), at: Date.now(), cov: covP, stars, tr: c.rec.slice(0, Math.ceil(L.end * 10)) }); while (arr.length > 6) arr.shift(); saveDB();
   }
-  if (stars > 0) { sfx(stars === 3 ? 'rec' : 'clear'); flash(stars === 3 ? '#ffd27a' : '#7fe3ff'); popBanner(stars === 3 ? 'PERFECT STAGE!' : 'STAGE CLEAR!', starTxt(stars), '#ffd27a', c.res.newBest ? '⭐ 이 난이도 최고 별 갱신!' : ''); burst(PIANO_W + (P.W - PIANO_W) * .72, P.H * .4, 50 + stars * 20, ['#ffd27a', '#ffffff', '#7fe3ff', '#ff9f43']); try { if (navigator.vibrate) navigator.vibrate([30, 40, 30, 40, 60]); } catch (e) {} }
+  if (stars > 0) { sfx(stars === 3 ? 'rec' : 'clear'); flash(stars === 3 ? '#ffd27a' : '#7fe3ff'); popBanner(stars === 3 ? 'PERFECT STAGE!' : 'STAGE CLEAR!', starTxt(stars), '#ffd27a', c.res.newBest ? '⭐ 이 스테이지 최고 별 갱신!' : ''); burst(PIANO_W + (P.W - PIANO_W) * .72, P.H * .4, 50 + stars * 20, ['#ffd27a', '#ffffff', '#7fe3ff', '#ff9f43']); try { if (navigator.vibrate) navigator.vibrate([30, 40, 30, 40, 60]); } catch (e) {} }
   renderCourseUI();
 }
 function updateCprog() {
@@ -1384,20 +1376,20 @@ function showReport(uid, ctx) {
     <div class="vsrow"><span class="k">목표에 맞은 사이클</span><b>${vt.ok} / ${vt.cyc}</b><em>${Math.round(100 * vt.ok / vt.cyc)}%</em></div>
     <div class="vsrow"><span class="k">최고 연속</span><b>${vt.best}회</b><em></em></div>
     <div class="vsrow"><span class="k">평균 속도 · 폭</span><b>${(vt.sR / vt.cyc).toFixed(1)}Hz · ±${Math.round(vt.sE / vt.cyc)}c</b><em></em></div>
-    <div class="note2" style="margin-top:6px">목표(${D().name}): ${VR().rate[0]}~${VR().rate[1]}Hz · ±${VR().ext[0]}~${VR().ext[1]}cent. 참고용 측정이고, 정답 판정은 아니에요.</div></div>` : '';
+    <div class="note2" style="margin-top:6px">목표: ${VR().rate[0]}~${VR().rate[1]}Hz · ±${VR().ext[0]}~${VR().ext[1]}cent. 참고용 측정이고, 정답 판정은 아니에요.</div></div>` : '';
   const cos = DB.sessions.filter(x => x.uid === uid && x.day === today && x.st && x.st.co).flatMap(x => x.st.co), coBest = {};
   cos.forEach(c => { const k = c.stage + '|' + c.diff; const b = coBest[k]; if (!b || c.stars > b.stars || (c.stars === b.stars && c.cov > b.cov)) coBest[k] = c; });
   const prevCo = c => { let b = null; DB.sessions.forEach(x => { if (x.uid === uid && x.day < today && x.st && x.st.co) x.st.co.forEach(y => { if (y.stage === c.stage && y.diff === c.diff && y.seed === c.seed && (!b || y.cov > b.cov)) b = y; }); }); return b; };
   const coList = Object.values(coBest).sort((a, b) => a.stage - b.stage), coStars = coList.reduce((a, c) => a + c.stars, 0);
-  const coCard = coList.length ? `<div class="card"><b>🎮 오늘의 코스</b>${coList.map(c => { const pc = prevCo(c); return `<div class="vsrow"><span class="k">${c.stage + 1}. ${STAGES[c.stage][0]} <small style="color:var(--muted)">${DF[c.diff].name}</small></span><span class="cst" style="font-size:13px">${starTxt(c.stars)}</span><b>${c.cov}%</b>${pc ? dl(pc.cov, c.cov, v => Math.round(v) + '%p') : '<em></em>'}</div>`; }).join('')}
+  const coCard = coList.length ? `<div class="card"><b>🎮 오늘의 코스</b>${coList.map(c => { const pc = prevCo(c); return `<div class="vsrow"><span class="k">${c.stage + 1}. ${STAGES[c.stage][0]}</span><span class="cst" style="font-size:13px">${starTxt(c.stars)}</span><b>${c.cov}%</b>${pc ? dl(pc.cov, c.cov, v => Math.round(v) + '%p') : '<em></em>'}</div>`; }).join('')}
     <div class="note2" style="margin-top:6px">▲▼는 같은 라인으로 한 지난 기록 대비예요.</div></div>` : '';
   if (vt.cyc) L.splice(1, 0, vt.best >= 5 ? `비브라토 ${vt.best}사이클 연속 성공 🌊` : '비브라토는 속도와 폭이 한 번에 맞기 어려워요. 하나씩 맞춰 보세요.');
-  if (coList.length) L.splice(1, 0, coStars ? `코스에서 별 ${coStars}개를 모았어요 ⭐` : '코스는 아직 별이 없어요. 쉬움 난이도로 먼저 감을 잡아 보세요.');
+  if (coList.length) L.splice(1, 0, coStars ? `코스에서 별 ${coStars}개를 모았어요 ⭐` : '코스는 아직 별이 없어요. 한 음을 길게, 흔들림 없이 유지해 보세요.');
   let cch; { const bs = [0, 1, 2].map(i => starsBest(i, CFG.diff)), w = bs.findIndex(v => v < 3);
-    cch = w >= 0 ? ['🎮', `코스 ${w + 1} · ${STAGES[w][0]}에서 별 ${bs[w] + 1}개에 도전`, `지금 ★${bs[w]} (${D().name}) · 같은 라인으로 지난 나와 겨뤄 보세요`] : ['🔥', `${D().name} 코스를 모두 별 3개로 클리어했어요`, '난이도를 한 단계 올려 보세요']; }
+    cch = w >= 0 ? ['🎮', `코스 ${w + 1} · ${STAGES[w][0]}에서 별 ${bs[w] + 1}개에 도전`, `지금 ★${bs[w]} · 같은 라인으로 지난 나와 겨뤄 보세요`] : ['🔥', `코스를 모두 별 3개로 클리어했어요`, '새 라인이 계속 나와요. 이어서 도전해 보세요']; }
   const nh = [3, 5, 10, 15, 20, 30, 40, 50].find(t => t > best) || 60, nc = [10, 20, 30, 50, 100].find(t => t > td.maxCombo) || 150;
   openModal(`<div class="repbody">
-    <div class="note2">오늘의 연습 리포트 · ${fmtDay(today)}${ctx.session ? ' · ' + D().name + ' 난이도' : ''}${ctx.shortNote ? ' · 방금 도전은 10초 미만이라 기록에서 제외했어요' : ''}</div>
+    <div class="note2">오늘의 연습 리포트 · ${fmtDay(today)}${ctx.shortNote ? ' · 방금 도전은 10초 미만이라 기록에서 제외했어요' : ''}</div>
     <div class="rep-head" style="margin-top:8px"><div class="rk ${rk} pop">${rk}</div>
       <div class="sp"><div class="note2">오늘 평균 점수</div><div><span class="rep-avg">${avg}</span><span style="font-size:16px;color:var(--ink2)">점</span>${dChip}</div>
       <div class="bar"><i style="width:${rp.toFixed(0)}%"></i></div><div class="note2" style="margin-top:3px">${nr ? `다음 랭크 ${nr[0]}까지 ${nr[1] - avg}점` : '최고 랭크예요!'}</div></div></div>
