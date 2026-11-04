@@ -294,13 +294,11 @@ summary{cursor:pointer;color:var(--ink2)}
         <div id="setBack"></div>
         <div id="setPanel">
           <div class="setHead">설정 <button class="btn sm" id="setClose">닫기</button></div>
-          <div class="sl" style="margin-top:0">효과음</div><div class="seg" id="segSfx"></div><div class="note2" id="sfxDesc"></div></div>
-          <div class="sgroup"><div class="sl">코스 안내음</div><div class="seg" id="segGuide"></div><div class="note2">코스에서 음이 시작될 때 그 음을 짧게 들려줘요. 소리가 나는 동안 마이크는 잠깐 쉬어요.</div></div>
-          <div class="sgroup"><div class="sl">비브라토 모드</div><div class="seg" id="segVib"></div><div class="note2">한 음을 10초 유지하면 열려요. 테스트용으로 항상 열 수도 있어요.</div></div>
-          <div class="sgroup"><div class="sl">코스 음역 <span id="rangeDesc"></span></div><div class="seg" id="segRange"></div></div>
+          <div class="sl" style="margin-top:0">효과음</div><div class="seg" id="segSfx"></div><div class="note2" id="sfxDesc"></div>
           <div class="sgroup"><div class="sl" style="display:flex;justify-content:space-between">마이크 감도 <span id="sensTxt"></span></div>
           <input type="range" id="sens" min="1" max="10" value="5">
-          <div class="note2">주변이 시끄러워 소리가 안 잡히거나 잡음에 반응하면 조절하세요. 이어폰을 쓰면 건반 소리가 마이크에 섞이지 않아요.</div></div>
+          <div class="note2">연습 화면에 들어오면 주변 소리를 잠깐 듣고 자동으로 맞춰요. 그래도 안 맞으면 여기서 조절하세요. 이어폰을 쓰면 건반 소리가 마이크에 섞이지 않아요.</div>
+          <button class="btn sm" id="recal" style="margin-top:8px">주변 소리 다시 맞추기</button></div>
         </div>
         <p class="hint" id="hint"></p>
       </div>
@@ -517,7 +515,7 @@ function yin(buf, sr, thr) {
 /* ============ practice engine ============ */
 const PIANO_W = 54, ROW_H = 20, HIST_S = 6;
 const P = { running: false, ctx: null, stream: null, an: null, buf: null, raf: 0, hist: [], recent: [], low: 43, lowF: 43, rows: 28,
-  target: null, pressed: null, pid: null, osc: null, g: null, toneUntil: 0, sens: 0.012,
+  cal: null, gate: 0, target: null, pressed: null, pid: null, osc: null, g: null, toneUntil: 0, sens: 0.012,
   vms: 0, sfs: 0, activeMs: 0, lastVoiced: -1e9, lastT: 0, startAt: 0, reminderAt: '', lastM: null, lastMT: 0, W: 0, H: 0, dpr: 1, shiftT: 0 };
 const cv = $('#roll'), g2 = cv.getContext('2d');
 P.mon = false; P.monBusy = false; P.monDenied = false; P.monOff = false;
@@ -687,21 +685,13 @@ function sfx(kind) {
   } catch (e) {}
 }
 function flash(col) { const st = $('#stage'), d = document.createElement('div'); d.className = 'flash'; d.style.setProperty('--fc', col || '#ffd27a'); st.appendChild(d); setTimeout(() => d.remove(), 800); }
-const RANGES = [['낮은', 48], ['중간', 55], ['높은', 62]];
 function renderSettings() {
   const seg = (id, items, curV, fn) => { const h = $('#' + id); h.innerHTML = items.map(([v, l]) => `<button data-v="${v}" class="${v == curV ? 'on' : ''}">${l}</button>`).join(''); h.querySelectorAll('button').forEach(b => b.onclick = () => fn(b.dataset.v)); };
   seg('segSfx', [['auto', '자동'], ['on', '항상 켬'], ['off', '끔']], CFG.sfx, v => { CFG.sfx = v; saveCfg(); renderSettings(); if (v !== 'off') sfx('mile'); });
-  seg('segGuide', [['on', '켬'], ['off', '끔']], CFG.guide || 'on', v => { CFG.guide = v; saveCfg(); renderSettings(); });
-  seg('segVib', [['cond', '조건 충족 시'], ['always', '항상 열기']], CFG.vibOpen || 'cond', v => { CFG.vibOpen = v; saveCfg(); renderSettings(); renderCourseUI(); });
   $('#sfxDesc').textContent = CFG.sfx === 'auto' ? (P.earphone ? '이어폰이 연결된 것으로 감지돼 효과음을 켰어요.' : P.earKnown ? '이어폰이 감지되지 않아 효과음은 꺼져 있어요 (화면 연출만).' : '이 브라우저에선 이어폰 연결을 알 수 없어 효과음은 꺼져 있어요. 이어폰을 쓰면 "항상 켬"을 선택하세요.') : CFG.sfx === 'on' ? '항상 재생해요. 스피커로 들으면 마이크에 섞일 수 있어요.' : '효과음 없이 화면 연출만 보여 줘요.';
-  const near = RANGES.reduce((a, r) => Math.abs(r[1] - CFG.rc) < Math.abs(a[1] - CFG.rc) ? r : a);
-  seg('segRange', RANGES.map(r => [r[1], r[0]]).concat([['me', '내 음으로']]), CFG.rcMe ? 'me' : near[1], v => {
-    if (v === 'me') { if (P.lastM != null && performance.now() - P.lastMT < 3000) { CFG.rc = clamp(Math.round(P.lastM), 40, 72); CFG.rcMe = 1; toast(`방금 낸 ${midiName(CFG.rc)} 중심으로 맞췄어요`); } else { toast('편한 음을 낸 직후에 눌러 주세요'); return; } }
-    else { CFG.rc = +v; CFG.rcMe = 0; }
-    saveCfg(); renderSettings(); P.onCfg('range'); });
-  $('#rangeDesc').textContent = `· ${midiName(CFG.rc - 6)} ~ ${midiName(CFG.rc + 8)}`;
 }
 renderSettings();
+$('#recal').onclick = () => { if (!P.mon) { toast('마이크가 켜져 있어야 맞출 수 있어요'); return; } startCal(); };
 
 /* ============ course: seeded musical line generator ============ */
 const LM = 2;                                           // note-length multiplier (user request 2026-11-04: notes and guide tones twice as long)
@@ -759,6 +749,9 @@ function scaleCfg(sc) {
   const zs = clamp(Math.round(z[0]), 50, 84), ze = clamp(Math.round(z[1]), zs, 88);
   return { g, k: SCALES.some(x => x.k === o.k) ? o.k : 'five', off: clamp(Math.round(o.off || 0), -4, 4), zs, ze };
 }
+const VOICE_RC = { m: 55, f: 62 };   // 코스 음역 중심: 남성 G3 / 여성 D4 (코스는 중심 -6 ~ +8 반음)
+CFG.guide = 'on'; CFG.vibOpen = 'always'; CFG.rcMe = 0; CFG.rc = VOICE_RC[scaleCfg(CFG.sc).g];
+function setVoice(g) { CFG.sc = CFG.sc || {}; if (CFG.sc.g !== g) { CFG.sc.g = g; CFG.sc.off = 0; } CFG.rc = VOICE_RC[g]; saveCfg(); }
 const scaleSig = sc => { const c = scaleCfg(sc); return [c.k, c.g, c.off, c.zs, c.ze].join('-'); };
 function genScaleLine(sc, diff) {
   const c = scaleCfg(sc), V = VOICE[c.g], S = SCALES.find(x => x.k === c.k), top = Math.max(...S.iv), base = V.start + c.off;
@@ -822,18 +815,20 @@ function renderCOv() {
   const el = $('#cOv'); el.style.top = ''; el.style.bottom = '';
   if (C.mode !== 'course' || C.phase === 'count' || C.phase === 'play' || !C.line) { el.innerHTML = ''; return; }
   const L = C.line, stg = STAGES[C.stage], g = C.ghost, bs = starsBest(C.stage, CFG.diff);
+  const vg = scaleCfg(CFG.sc).g, voiceSeg = `<div class="seg s2" id="cVoice">${Object.keys(VOICE).map(k => `<button data-v="${k}" class="${k === vg ? 'on' : ''}">${VOICE[k].name}</button>`).join('')}</div>`;
+  const bindVoice = () => { const b = el.querySelector('#cVoice'); if (b) b.querySelectorAll('button').forEach(x => x.onclick = () => { setVoice(x.dataset.v); loadStage(C.stage); }); };
   if (C.phase === 'idle' && L.scale) {
     const sc = scaleCfg(CFG.sc), S = SCALES.find(x => x.k === sc.k);
     el.innerHTML = `<div class="ccard"><div class="crow"><b>발성 · ${S.t} · ${VOICE[sc.g].name}</b><span class="cst">${starTxt(bs)}</span></div>
-      <div class="note2">전환 구간 ${midiName(sc.zs)}~${midiName(sc.ze)} · ${midiName(L.base)}부터 ${L.reps}회 · 약 ${Math.max(1, Math.round(L.end / 60))}분 · 안내음 ${CFG.guide === 'off' ? '끔' : '켬'}</div>
+      <div class="note2">전환 구간 ${midiName(sc.zs)}~${midiName(sc.ze)} · ${midiName(L.base)}부터 ${L.reps}회 · 약 ${Math.max(1, Math.round(L.end / 60))}분</div>${voiceSeg}
       ${g ? `<div class="cghost">👻 ${esc(g.label)} ${g.cov}% ${starTxt(g.stars)} · 같은 설정으로 대결해요</div>` : ''}
       <div class="crow" style="margin-top:8px"><button class="btn sm" id="cSet">⚙ 설정</button><button class="btn pri sm" id="cGo" style="flex:1">${P.running ? '▶ 도전' : '▶ 목풀기'}</button></div>
       ${P.running ? '' : '<div class="note2" style="margin-top:5px">지금은 목풀기 · 기록되지 않아요. 기록하려면 아래 "기록 도전"을 먼저 누르세요</div>'}</div>`;
-    el.querySelector('#cGo').onclick = startStage; el.querySelector('#cSet').onclick = () => go('scale'); return;
+    el.querySelector('#cGo').onclick = startStage; el.querySelector('#cSet').onclick = () => go('scale'); bindVoice(); return;
   }
   if (C.phase === 'idle') {
     el.innerHTML = `<div class="ccard"><div class="crow"><b>스테이지 ${C.stage + 1} · ${stg[0]}</b><span class="cst">${starTxt(bs)}</span></div>
-      <div class="note2">${stg[1]} · 안내음 ${CFG.guide === 'off' ? '끔' : '켬'} · 시작음 ${midiName(L.notes[0].m)} · ${L.notes.length}음 · 약 ${Math.round(L.end - .8)}초${L.minor ? ' · 단조' : ''} · 별 3개면 새 라인</div>
+      <div class="note2">${stg[1]} · 시작음 ${midiName(L.notes[0].m)} · ${L.notes.length}음 · 약 ${Math.round(L.end - .8)}초${L.minor ? ' · 단조' : ''} · 별 3개면 새 라인</div>${voiceSeg}
       ${g ? `<div class="cghost">👻 ${esc(g.label)} ${g.cov}% ${starTxt(g.stars)} · 같은 라인으로 대결해요</div>` : ''}
       <div class="crow" style="margin-top:8px"><button class="btn pri sm" id="cGo" style="flex:1">${P.running ? '▶ 도전' : '▶ 목풀기'}</button></div>
       ${P.running ? '' : '<div class="note2" style="margin-top:5px">지금은 목풀기 · 기록되지 않아요. 기록하려면 아래 "기록 도전"을 먼저 누르세요</div>'}</div>`;
@@ -847,7 +842,7 @@ function renderCOv() {
       ${r.warm ? '<div class="note2" style="text-align:center;margin-top:4px">목풀기라 기록되지 않았어요 · 기록하려면 "기록 도전"을 누르고 도전하세요</div>' : ''}${r.stars < 3 ? `<div class="note2" style="text-align:center;margin-top:4px">다음 별까지 일치율 ${Math.round(D().stars[r.stars] * 100)}% 필요해요</div>` : ''}
       <div class="crow" style="margin-top:8px">${L.scale ? '<button class="btn sm" id="cSet">⚙ 설정</button>' : ''}<button class="btn sm" id="cGo">${C.nextFresh ? '새 라인' : '다시'}</button>${C.stage < 2 ? '<button class="btn pri sm" id="cNext" style="flex:1">다음 스테이지 ▶</button>' : '<button class="btn pri sm" id="cEnd" style="flex:1">' + (r.warm ? '목풀기 마치기' : '연습 끝내고 리포트 ▶') + '</button>'}</div></div>`;
   }
-  const q = id => el.querySelector(id);
+  const q = id => el.querySelector(id); bindVoice();
   if (q('#cSet')) q('#cSet').onclick = () => go('scale');
   if (q('#cGo')) q('#cGo').onclick = () => { if (C.nextFresh) loadStage(C.stage); startStage(); };
   if (q('#cNext')) q('#cNext').onclick = () => loadStage(C.stage + 1);
@@ -955,7 +950,7 @@ const VR = () => VIBR.easy;   // 비브라토는 넉넉한 범위 하나만
 const newVs = () => ({ cyc: 0, ok: 0, best: 0, sR: 0, sE: 0 });
 const V = { lastAn: 0, cyc: 0, lastExtT: 0, buf: [], ctr: null, base: null, lastT: 0, fz: 0, tr: [], dir: 0, hi: null, lo: null, ext: [], streak: 0, rate: null, extent: null, verdict: '', out: 0, pd: null, s: newVs() };
 const vpc = () => (P.H / 2 - 14) / 130;
-function vibUnlocked() { const u = me(); if (CFG.vibOpen === 'always' || !u || u.role !== 'student') return true; return Math.max(pbHoldOf(u.id), P.st.bestHold) >= 10; }
+function vibUnlocked() { return true; }   // 비브라토 모드는 항상 열려 있어요
 function vibReset() { V.buf = []; V.ctr = null; V.base = null; V.dir = 0; V.hi = V.lo = null; V.ext = []; V.rate = null; V.extent = null; V.streak = 0; V.verdict = ''; V.pd = null; V.out = 0; V.lastExtT = 0; V.cyc = 0; }
 function vibTick(now, dt, m) {
   if (now < P.sfxUntil) { V.fz = now; V.lastExtT = now; V.ext = []; V.dir = 0; V.hi = V.lo = null; V.pd = null; return; }      // chime playing through speakers
@@ -1076,11 +1071,11 @@ function guideTone(m, dur, at) {
 }
 const reqOf = n => Math.max(.25, n.d - D().grace - (n.mute || 0));
 function guideNote(n, first, now) {
-  if (n.guided || CFG.guide === 'off') return; n.guided = true;
+  if (n.guided) return; n.guided = true;
   if (n.pre) { guideTone(n.m, .8); n.mute = 0; return; }                  // scale: sound the start note of every repetition during the rest
   if (first) { const dur = Math.min(1.1, Math.max(.4, n.t0 - .05)); guideTone(n.m, dur); n.mute = Math.max(0, now + dur + .12 - n.t0); return; }
   if (n.d < .75 || (C.line && C.line.scale)) return;           // short notes: no room for a guide tone
-  const dur = clamp(n.d * .5, .3, .48); guideTone(n.m, dur); n.mute = dur + .12;
+  const dur = clamp(n.d * .4, .5, .7); guideTone(n.m, dur); n.mute = dur + .12;
 }
 const courseRef = () => { const L = C.line, n = L.notes[Math.min(C.i, L.notes.length - 1)]; return n.m; };
 async function startStage() {
@@ -1198,8 +1193,9 @@ function loop(ts) {
     P.an.getFloatTimeDomainData(P.buf);
     let rms = 0; for (let i = 0; i < P.buf.length; i++) rms += P.buf[i] * P.buf[i]; rms = Math.sqrt(rms / P.buf.length);
     const tone = P.pressed != null || now < P.toneUntil;
+    if (P.cal) calStep(now, rms, tone || now < P.sfxUntil);
     if (!tone && now < P.sfxUntil) { if (P.lastM != null && now - P.lastMT < 600) m = P.lastM; }   // chime playing through speakers: carry the last pitch
-    else if (!tone && rms > P.sens) { const vbm = C.mode === 'vib', r = yin(P.buf, P.ctx.sampleRate, vbm ? .24 : .15); if (r && r.clarity > (vbm ? .68 : .8)) m = freqM(r.freq); }
+    else if (!tone && rms > Math.max(P.sens, P.gate)) { const vbm = C.mode === 'vib', r = yin(P.buf, P.ctx.sampleRate, vbm ? .24 : .15); if (r && r.clarity > (vbm ? .68 : .8)) m = freqM(r.freq); }
   }
   // median-of-3 smoothing
   P.recent.push(m); if (P.recent.length > 3) P.recent.shift();
@@ -1274,7 +1270,7 @@ async function startMonitor(manual) {
     if (cur !== 'practice') { P.stream.getTracks().forEach(t => t.stop()); P.stream = null; return false; }   // left the tab while the prompt was open
     P.src = ctx.createMediaStreamSource(P.stream);
     P.an = ctx.createAnalyser(); P.an.fftSize = 2048; P.an.smoothingTimeConstant = 0; P.src.connect(P.an);
-    P.buf = new Float32Array(P.an.fftSize); P.mon = true; P.monDenied = false; P.monOff = false; P.recent = []; detectEar();
+    P.buf = new Float32Array(P.an.fftSize); P.mon = true; P.monDenied = false; P.monOff = false; P.recent = []; detectEar(); startCal();
     return true;
   } catch (e) {
     P.monDenied = true;
@@ -1282,9 +1278,20 @@ async function startMonitor(manual) {
     return false;
   } finally { P.monBusy = false; setMonUI(); }
 }
+/* 주변 소리 자동 맞춤: 연습 화면에 들어와 마이크가 켜지면 1.5초 동안 배경 소리 크기를 재고, 그보다 확실히 큰 소리만 목소리로 봐요 */
+function startCal() { P.cal = { t0: performance.now(), v: [] }; P.gate = 0; toast('주변 소리를 확인하고 있어요 · 잠깐만 조용히 해 주세요', 1800); }
+function calStep(now, rms, skip) { const c = P.cal; if (!skip) c.v.push(rms); if (now - c.t0 >= 1500) finishCal(); }
+function finishCal() {
+  const c = P.cal; P.cal = null; if (!c || c.v.length < 20) { P.gate = 0; return; }
+  const v = c.v.slice().sort((a, b) => a - b), floor = v[Math.floor(v.length * .25)], want = floor * 3;   // 하위 25%(말·소리가 섞여도 바닥 소음 기준) × 3
+  P.noise = floor; P.gate = Math.min(want, .04);
+  if (want > .04) toast('주변이 꽤 시끄러워요 · 조용한 곳이나 이어폰 마이크를 쓰면 더 정확해요', 4200);
+  else if (P.gate > P.sens * 1.2) toast('주변 소리에 맞춰 마이크를 조정했어요', 2200);
+  else toast('주변이 조용해요 · 준비됐어요', 1800);
+}
 function stopMonitor() {
   try { if (P.stream) P.stream.getTracks().forEach(t => t.stop()); if (P.src) P.src.disconnect(); } catch (e) {}
-  endHold(); P.stream = null; P.src = null; P.an = null; P.mon = false; P.recent = []; setMonUI();
+  endHold(); P.stream = null; P.src = null; P.an = null; P.mon = false; P.recent = []; P.cal = null; setMonUI();
 }
 $('#monState').onclick = async () => {
   if (P.running) { toast('연습 기록 중에는 끌 수 없어요'); return; }
@@ -1660,7 +1667,7 @@ function renderScale(el) {
     <div class="note2" style="margin-top:8px">전환 구간은 일반적인 추정값이에요. 사람마다 달라서, 선생님과 정한 음으로 바꿔 쓰세요. 총 ${L.reps}회 · 약 ${Math.max(1, Math.round(L.end / 60))}분 · 난이도 ${DF[CFG.diff].name}</div></div>
   <div class="row" style="gap:8px;margin-bottom:12px"><button class="btn pri" id="scGo" style="flex:1">▶ 스케일 시작</button></div>
   <div class="note2" style="line-height:1.6">앱이 보는 것: 음정 정확도, 전환 구간 안/밖 성공 비율, 자주 놓친 음<br>못 보는 것: 믹스 소리의 질(진성·두성 비율) — 선생님이 판단해요</div>`;
-  $('#scG', el).querySelectorAll('button').forEach(b => b.onclick = () => scSet(o => { o.g = b.dataset.v; o.off = 0; }));
+  $('#scG', el).querySelectorAll('button').forEach(b => b.onclick = () => scSet(o => { o.g = b.dataset.v; o.off = 0; CFG.rc = VOICE_RC[o.g]; }));
   $('#scEx', el).querySelectorAll('button').forEach(b => b.onclick = () => scSet(o => { o.k = b.dataset.v; }));
   $('#scRep', el).oninput = e => { scRep = +e.target.value; renderScale(el); };
   el.querySelectorAll('.scst button').forEach(b => b.onclick = () => scSet(o => { const a = b.dataset.a, d = a.endsWith('+') ? 1 : -1, z = o.z = o.z || {}, cur = z[sc.g] = (z[sc.g] || [sc.zs, sc.ze]).slice();

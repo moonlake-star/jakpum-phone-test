@@ -14,7 +14,7 @@ new Function(js);
 for (const k of ["getUserMedia", "function yin(", "function genLine(", "function vibTick(", "function stopSession("]) assert.ok(js.includes(k), "누락: " + k);
 // 5) 코스 라인 생성: 같은 씨앗이면 같은 라인, 난이도·스테이지마다 음이 있고 음역이 합리적
 const body = js.slice(js.indexOf("const LM ="), js.indexOf("/* ============ course state + UI"));
-const prelude = "const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));const mod=(a,n)=>((a%n)+n)%n;" + js.match(/function rng\(seed\)[^\n]*\n/)[0] +
+const prelude = "const CFG={sc:{}};const saveCfg=()=>{};const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));const mod=(a,n)=>((a%n)+n)%n;" + js.match(/function rng\(seed\)[^\n]*\n/)[0] +
   js.match(/const DF = \{[\s\S]*?\n\};\n/)[0];
 const genLine = new Function(prelude + body + "\nreturn genLine;")();
 for (const diff of ["normal"]) for (const st of [0, 1, 2]) for (const seed of [11, 23, 37, 4242]) {
@@ -52,4 +52,14 @@ console.log("pitch-page ok");
   assert.ok(!src.includes('id="segDiff"') && !src.includes('id="cDiff"') && !src.includes("name: '쉬움'") && !src.includes("name: '어려움'"), "난이도 선택 제거");
   assert.ok(!/DF\[c\.diff\]/.test(src) && src.includes("CFG.diff = 'normal'"), "옛 난이도 기록 대응");
   console.log("pitch-page: 난이도 단일화 ok");
+}
+
+// 설정 단순화: 안내음 항상 켬 · 비브라토 항상 열림 · 코스 음역은 남/여만 · 주변 소리 자동 맞춤
+{
+  for (const id of ["segGuide", "segVib", "segRange"]) assert.ok(!src.includes('id="' + id + '"'), id + " 제거");
+  assert.ok(src.includes("function vibUnlocked() { return true; }") && src.includes("CFG.guide = 'on'"), "안내음·비브라토 고정");
+  assert.ok(src.includes("const VOICE_RC = { m: 55, f: 62 }") && src.includes('id="cVoice"'), "남/여 선택으로 음역 결정");
+  assert.ok(src.includes("function startCal()") && src.includes("Math.min(want, .04)") && src.includes("Math.max(P.sens, P.gate)"), "주변 소리 자동 맞춤");
+  assert.equal((src.match(/<div/g) || []).length, (src.match(/<\/div>/g) || []).length, "div 짝 안 맞음(설정 패널 깨짐 방지)");
+  console.log("pitch-page: 설정 단순화·소음 맞춤 ok");
 }
