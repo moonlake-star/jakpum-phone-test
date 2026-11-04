@@ -80,13 +80,17 @@ input,select{font:inherit;color:var(--ink)}
 .seg{display:flex;gap:4px}
 .seg button{flex:1;min-width:0;height:32px;padding:0 4px;border-radius:8px;background:#1b2024;border:1px solid var(--line);color:var(--ink2);font-size:12px}
 .seg button.on{background:var(--accent);border-color:var(--accent);color:var(--accentInk);font-weight:700}
-#cbar{position:absolute;left:60px;top:6px;right:8px;display:flex;gap:6px;align-items:center;z-index:3;pointer-events:none}
-#cbar>*{pointer-events:auto}
-.seg.mini{flex:none;width:auto}.seg.mini button{flex:none;padding:0 9px;height:26px;font-size:11px;white-space:nowrap;background:rgba(20,24,28,.82)}.seg.mini button.on{background:var(--accent)}
+#voicePop{position:fixed;inset:0;z-index:80;background:rgba(10,12,14,.84);display:flex;align-items:center;justify-content:center;padding:20px}
+.vpc{width:100%;max-width:360px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:22px 20px;text-align:center}
+.vpc b{font-size:18px}.vpc .seg{margin-top:16px;gap:10px}.vpc .seg button{height:64px;font-size:20px;font-weight:700;border-radius:14px}
+#cbar{display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px 12px 6px;background:var(--surface)}
+.seg.big{width:100%;max-width:440px;gap:8px}.seg.big button{height:44px;font-size:17px;font-weight:700;border-radius:12px;letter-spacing:-.3px}
+#subBar{display:flex;justify-content:center;width:100%}
+#segVW{width:100%;max-width:440px}#segVW[hidden]{display:none}#segVW button{height:34px;font-size:15px;font-weight:600;border-radius:10px}
 .scgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}.scgrid button{height:auto;padding:8px 10px;text-align:left;border-radius:10px;background:#1b2024;border:1px solid var(--line);color:var(--ink2);font-size:13px;line-height:1.35}.scgrid button small{display:block;font-size:11px;color:var(--muted)}.scgrid button.on{border-color:var(--accent);color:var(--accent);font-weight:700}
 .scst{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:13px}.scst .k{flex:1;color:var(--ink2)}.scst b{min-width:38px;text-align:center;color:var(--ink)}.scst button{width:34px;height:30px;border-radius:8px;background:#1b2024;border:1px solid var(--line);color:var(--ink);font-size:16px}
-#stTabs{display:flex;gap:4px}#stTabs[hidden]{display:none}
-#stTabs button{height:26px;padding:0 8px;border-radius:8px;font-size:11px;background:rgba(20,24,28,.82);border:1px solid var(--line);color:var(--ink2);letter-spacing:-.3px}
+#stTabs{display:flex;gap:6px;justify-content:center;width:100%;max-width:440px}#stTabs[hidden]{display:none}
+#stTabs button{flex:1;height:34px;padding:0 8px;border-radius:10px;font-size:15px;background:#1b2024;border:1px solid var(--line);color:var(--ink2)}
 #stTabs button.on{border-color:var(--accent);color:var(--accent);font-weight:800}
 #cOv{position:absolute;left:62px;right:8px;bottom:10px;z-index:3;pointer-events:none}
 .ccard{pointer-events:auto;background:rgba(24,29,33,.95);border:1px solid var(--line);border-radius:14px;padding:10px 12px;box-shadow:0 8px 30px rgba(0,0,0,.5)}
@@ -280,9 +284,9 @@ summary{cursor:pointer;color:var(--ink2)}
           <div><div class="vk">폭 (한쪽) <b id="vExt">--</b></div><div class="vtrack"><i class="vzone" id="vEz"></i><u id="vEd"></u></div></div></div>
           <div class="vstreak"><span>고른 사이클 연속</span><span class="vp" id="vPips"><i></i><i></i><i></i><i></i><i></i></span><b id="vCnt">0</b><span class="vfb" id="vFb"></span></div></div>
       </div>
+      <div id="cbar"><div class="seg big" id="segMode"><button data-v="free">자유</button><button data-v="course">코스</button><button data-v="vib">비브라토</button></div><div id="subBar"><div id="stTabs" hidden></div><div class="seg" id="segVW" hidden></div></div></div>
       <div id="stage"><canvas id="roll"></canvas>
         <div id="targetChip" class="tchip ov" hidden>목표음 <b id="targetName"></b><small>옥타브 무관</small><button id="targetClear" aria-label="목표음 해제">✕</button></div>
-        <div id="cbar"><div class="seg mini" id="segMode"><button data-v="free">자유</button><button data-v="course">코스</button><button data-v="vib">비브라토</button></div><div id="stTabs" hidden></div></div>
         <div id="cOv"></div>
         <div id="fx"></div></div>
       <div class="dock">
@@ -294,14 +298,12 @@ summary{cursor:pointer;color:var(--ink2)}
         <div id="setBack"></div>
         <div id="setPanel">
           <div class="setHead">설정 <button class="btn sm" id="setClose">닫기</button></div>
-          <div class="sl" style="margin-top:0">난이도</div><div class="seg" id="segDiff"></div><div class="note2" id="diffDesc"></div>
-          <div class="sgroup"><div class="sl">효과음</div><div class="seg" id="segSfx"></div><div class="note2" id="sfxDesc"></div></div>
-          <div class="sgroup"><div class="sl">코스 안내음</div><div class="seg" id="segGuide"></div><div class="note2">코스에서 음이 시작될 때 그 음을 짧게 들려줘요. 소리가 나는 동안 마이크는 잠깐 쉬어요.</div></div>
-          <div class="sgroup"><div class="sl">비브라토 모드</div><div class="seg" id="segVib"></div><div class="note2">한 음을 10초 유지하면 열려요. 테스트용으로 항상 열 수도 있어요.</div></div>
-          <div class="sgroup"><div class="sl">코스 음역 <span id="rangeDesc"></span></div><div class="seg" id="segRange"></div></div>
+          <div class="sl" style="margin-top:0">효과음</div><div class="seg" id="segSfx"></div><div class="note2" id="sfxDesc"></div>
+          <div class="sgroup"><div class="sl">목소리 성별</div><div class="seg" id="segVoice"></div><div class="note2">코스의 음 높이와 발성 스케일이 맞춰져요.</div></div>
           <div class="sgroup"><div class="sl" style="display:flex;justify-content:space-between">마이크 감도 <span id="sensTxt"></span></div>
           <input type="range" id="sens" min="1" max="10" value="5">
-          <div class="note2">주변이 시끄러워 소리가 안 잡히거나 잡음에 반응하면 조절하세요. 이어폰을 쓰면 건반 소리가 마이크에 섞이지 않아요.</div></div>
+          <div class="note2">연습 화면에 들어오면 주변 소리를 잠깐 듣고 자동으로 맞춰요. 그래도 안 맞으면 여기서 조절하세요. 이어폰을 쓰면 건반 소리가 마이크에 섞이지 않아요.</div>
+          <button class="btn sm" id="recal" style="margin-top:8px">주변 소리 다시 맞추기</button></div>
         </div>
         <p class="hint" id="hint"></p>
       </div>
@@ -479,7 +481,6 @@ function badgeList(uid) {
   add('star3', '🌟', '별 셋!', '한 스테이지에서 별 3개를 모았어요', coDate(c => c.stars === 3));
   let allD = null; { const bd = {}; coS.forEach(c => { if (c.stars >= 1) { const k = c.sday + '|' + c.diff; (bd[k] = bd[k] || new Set()).add(c.stage); } }); Object.keys(bd).sort().forEach(k => { if (bd[k].size >= 3 && !allD) allD = k.split('|')[0]; }); }
   add('allclear', '🏁', '올 클리어', '같은 날 3개 스테이지를 모두 클리어했어요', allD);
-  add('hardclr', '🔥', '어려움 도전', '어려움 난이도 스테이지를 클리어했어요', coDate(c => (c.diff === 'normal' || c.diff === 'hard') && c.stars >= 1));
   const bestV = Math.max(0, ...sess.map(x => (x.st && x.st.vib && x.st.vib.best) || 0)), vbS = n => { const x = sess.find(y => y.st && y.st.vib && y.st.vib.best >= n); return x && x.day; };
   add('vib5', '🌊', '비브라토 입문', '속도·폭이 맞는 사이클을 5번 연속', vbS(5), { cur: Math.min(bestV, 5), max: 5, unit: '회' });
   add('vib15', '🌈', '비브라토 15연속', '속도·폭이 맞는 사이클을 15번 연속', vbS(15), { cur: Math.min(bestV, 15), max: 15, unit: '회' });
@@ -519,7 +520,7 @@ function yin(buf, sr, thr) {
 /* ============ practice engine ============ */
 const PIANO_W = 54, ROW_H = 20, HIST_S = 6;
 const P = { running: false, ctx: null, stream: null, an: null, buf: null, raf: 0, hist: [], recent: [], low: 43, lowF: 43, rows: 28,
-  target: null, pressed: null, pid: null, osc: null, g: null, toneUntil: 0, sens: 0.012,
+  cal: null, gate: 0, target: null, pressed: null, pid: null, osc: null, g: null, toneUntil: 0, sens: 0.012,
   vms: 0, sfs: 0, activeMs: 0, lastVoiced: -1e9, lastT: 0, startAt: 0, reminderAt: '', lastM: null, lastMT: 0, W: 0, H: 0, dpr: 1, shiftT: 0 };
 const cv = $('#roll'), g2 = cv.getContext('2d');
 P.mon = false; P.monBusy = false; P.monDenied = false; P.monOff = false;
@@ -659,13 +660,12 @@ setSens(+$('#sens').value);
 
 /* ============ difficulty / settings / sound effects ============ */
 const DF = {
-  easy:   { name: '쉬움',  enter: .35, stay: .50, j: [12, 22, 35], tol: .50, grace: .35, bpm: 56, stars: [.40, .60, .78], hint: '음정 허용폭이 넓고 템포가 느려요. 처음이라면 여기서 시작하세요.' },
-  normal: { name: '어려움', enter: .25, stay: .35, j: [8, 15, 25],  tol: .35, grace: .30, bpm: 72, stars: [.50, .70, .85], hint: '허용폭 ±35센트(코스 기준). 쉬움보다 판정이 엄격하고 템포가 빨라요.' }
+  normal: { name: '기본', enter: .25, stay: .35, j: [8, 15, 25],  tol: .35, grace: .30, bpm: 72, stars: [.50, .70, .85], hint: '목표음 ±35센트 안에서, 길게 흔들림 없이 유지하는 연습이에요.' }
 };
-const CFG = Object.assign({ diff: 'easy', sfx: 'auto', rc: 55 }, (() => { try { return JSON.parse(localStorage.getItem('vn_cfg') || '{}'); } catch (e) { return {}; } })());
-if (!DF[CFG.diff]) CFG.diff = 'normal';
+const CFG = Object.assign({ diff: 'normal', sfx: 'auto', rc: 55 }, (() => { try { return JSON.parse(localStorage.getItem('vn_cfg') || '{}'); } catch (e) { return {}; } })());
+CFG.diff = 'normal';   // 난이도는 한 가지(예전 쉬움 설정은 무시)
 const saveCfg = () => { try { localStorage.setItem('vn_cfg', JSON.stringify(CFG)); } catch (e) {} };
-const D = () => DF[CFG.diff];
+const D = () => DF.normal;
 P.earphone = false; P.earKnown = false; P.sfxUntil = 0; P.onCfg = () => {};
 const EAR_RE = /head(phone|set)|ear(phone|bud|pod)|airpods|buds|bluetooth|bt[ -]|이어폰|헤드폰|헤드셋|블루투스|wired/i;
 async function detectEar() {
@@ -690,23 +690,13 @@ function sfx(kind) {
   } catch (e) {}
 }
 function flash(col) { const st = $('#stage'), d = document.createElement('div'); d.className = 'flash'; d.style.setProperty('--fc', col || '#ffd27a'); st.appendChild(d); setTimeout(() => d.remove(), 800); }
-const RANGES = [['낮은', 48], ['중간', 55], ['높은', 62]];
 function renderSettings() {
   const seg = (id, items, curV, fn) => { const h = $('#' + id); h.innerHTML = items.map(([v, l]) => `<button data-v="${v}" class="${v == curV ? 'on' : ''}">${l}</button>`).join(''); h.querySelectorAll('button').forEach(b => b.onclick = () => fn(b.dataset.v)); };
-  seg('segDiff', Object.keys(DF).map(k => [k, DF[k].name]), CFG.diff, v => { CFG.diff = v; saveCfg(); renderSettings(); P.onCfg('diff'); });
-  $('#diffDesc').textContent = D().hint + ' 난이도는 판정과 코스에 모두 적용돼요.';
   seg('segSfx', [['auto', '자동'], ['on', '항상 켬'], ['off', '끔']], CFG.sfx, v => { CFG.sfx = v; saveCfg(); renderSettings(); if (v !== 'off') sfx('mile'); });
-  seg('segGuide', [['on', '켬'], ['off', '끔']], CFG.guide || 'on', v => { CFG.guide = v; saveCfg(); renderSettings(); });
-  seg('segVib', [['cond', '조건 충족 시'], ['always', '항상 열기']], CFG.vibOpen || 'cond', v => { CFG.vibOpen = v; saveCfg(); renderSettings(); renderCourseUI(); });
   $('#sfxDesc').textContent = CFG.sfx === 'auto' ? (P.earphone ? '이어폰이 연결된 것으로 감지돼 효과음을 켰어요.' : P.earKnown ? '이어폰이 감지되지 않아 효과음은 꺼져 있어요 (화면 연출만).' : '이 브라우저에선 이어폰 연결을 알 수 없어 효과음은 꺼져 있어요. 이어폰을 쓰면 "항상 켬"을 선택하세요.') : CFG.sfx === 'on' ? '항상 재생해요. 스피커로 들으면 마이크에 섞일 수 있어요.' : '효과음 없이 화면 연출만 보여 줘요.';
-  const near = RANGES.reduce((a, r) => Math.abs(r[1] - CFG.rc) < Math.abs(a[1] - CFG.rc) ? r : a);
-  seg('segRange', RANGES.map(r => [r[1], r[0]]).concat([['me', '내 음으로']]), CFG.rcMe ? 'me' : near[1], v => {
-    if (v === 'me') { if (P.lastM != null && performance.now() - P.lastMT < 3000) { CFG.rc = clamp(Math.round(P.lastM), 40, 72); CFG.rcMe = 1; toast(`방금 낸 ${midiName(CFG.rc)} 중심으로 맞췄어요`); } else { toast('편한 음을 낸 직후에 눌러 주세요'); return; } }
-    else { CFG.rc = +v; CFG.rcMe = 0; }
-    saveCfg(); renderSettings(); P.onCfg('range'); });
-  $('#rangeDesc').textContent = `· ${midiName(CFG.rc - 6)} ~ ${midiName(CFG.rc + 8)}`;
 }
 renderSettings();
+$('#recal').onclick = () => { if (!P.mon) { toast('마이크가 켜져 있어야 맞출 수 있어요'); return; } startCal(); };
 
 /* ============ course: seeded musical line generator ============ */
 const LM = 2;                                           // note-length multiplier (user request 2026-11-04: notes and guide tones twice as long)
@@ -718,7 +708,7 @@ const saveSeeds = () => { try { localStorage.setItem('vn_seeds', JSON.stringify(
 const hsh = (a, b) => { let h = Math.imul(a ^ 0x9E3779B9, 0x85EBCA6B) ^ Math.imul(b + 0x7F4A7C15, 0xC2B2AE35); h ^= h >>> 15; h = Math.imul(h, 0x2C1B3C6D); h ^= h >>> 12; return h | 0; };
 function genLine(stage, seed, diff, rc) {
   const R = rng(hsh(seed, stage)); R(); R(); R();
-  const dfn = DF[diff], beat = 60 / dfn.bpm * LM, minLen = (diff === 'easy' ? .95 : .62) * LM, seq = [];
+  const dfn = DF.normal, beat = 60 / dfn.bpm * LM, minLen = (diff === 'easy' ? .95 : .62) * LM, seq = [];
   const minor = stage >= 1 && diff !== 'easy' && R() < .25, sc = minor ? MIN : MAJ, pc = Math.floor(R() * 12), cl = d => clamp(d, -1, 8), pick = a => a[Math.floor(R() * a.length)];
   if (stage === 0) {                                   // hold single notes: tonic / third / fifth
     const V = diff === 'easy' ? [[0, 2, 4], [0, 4, 2], [2, 4, 0]] : diff === 'normal' ? [[0, 2, 4, 0], [0, 4, 2, 0], [0, 2, 4, 2], [2, 0, 4, 0]] : [[0, 2, 4, 7], [0, 4, 2, 0], [0, 4, 7, 4], [2, 4, 7, 0]];
@@ -763,6 +753,18 @@ function scaleCfg(sc) {
   const o = sc || {}, g = VOICE[o.g] ? o.g : 'm', V = VOICE[g], z = (o.z && o.z[g]) || [V.zs, V.ze];
   const zs = clamp(Math.round(z[0]), 50, 84), ze = clamp(Math.round(z[1]), zs, 88);
   return { g, k: SCALES.some(x => x.k === o.k) ? o.k : 'five', off: clamp(Math.round(o.off || 0), -4, 4), zs, ze };
+}
+const VOICE_RC = { m: 55, f: 62 };   // 코스 음역 중심: 남성 G3 / 여성 D4 (코스는 중심 -6 ~ +8 반음)
+CFG.guide = 'on'; CFG.vibOpen = 'always'; CFG.rcMe = 0; CFG.rc = VOICE_RC[scaleCfg(CFG.sc).g];
+function setVoice(g) { CFG.sc = CFG.sc || {}; if (CFG.sc.g !== g) { CFG.sc.g = g; CFG.sc.off = 0; } CFG.rc = VOICE_RC[g]; CFG.vset = 1; saveCfg(); }
+function voiceChanged() { renderVoiceSeg(); if (C.mode === 'course' && C.phase !== 'play' && C.phase !== 'count') loadStage(C.stage); else renderCourseUI(); }
+function renderVoiceSeg() { const h = $('#segVoice'), g = scaleCfg(CFG.sc).g; h.innerHTML = Object.keys(VOICE).map(k => `<button data-v="${k}" class="${k === g ? 'on' : ''}">${VOICE[k].name}</button>`).join(''); h.querySelectorAll('button').forEach(b => b.onclick = () => { setVoice(b.dataset.v); voiceChanged(); }); }
+/* 처음 한 번만: 목소리 성별(남/여)를 팝업으로 물어봐요. 이후엔 설정(⚙)에서 바꿔요 */
+function askVoice() {
+  if (CFG.vset || $('#voicePop')) return;
+  const d = document.createElement('div'); d.id = 'voicePop';
+  d.innerHTML = `<div class="vpc"><b>목소리 성별을 골라 주세요</b><div class="note2" style="margin-top:8px">코스의 음 높이와 발성 스케일이 여기에 맞춰져요.<br>나중에 설정(⚙)에서 바꿀 수 있어요.</div><div class="seg">${Object.keys(VOICE).map(k => `<button data-v="${k}">${VOICE[k].name}</button>`).join('')}</div></div>`;
+  document.body.appendChild(d); d.querySelectorAll('button').forEach(b => b.onclick = () => { setVoice(b.dataset.v); d.remove(); voiceChanged(); });
 }
 const scaleSig = sc => { const c = scaleCfg(sc); return [c.k, c.g, c.off, c.zs, c.ze].join('-'); };
 function genScaleLine(sc, diff) {
@@ -818,7 +820,9 @@ function renderCourseUI() {
   $('#segMode').querySelectorAll('button').forEach(b => { b.classList.toggle('on', b.dataset.v === C.mode); if (b.dataset.v === 'vib') b.textContent = vibUnlocked() ? '비브라토' : '🔒 비브라토'; b.onclick = () => { if (b.dataset.v !== C.mode) setMode(b.dataset.v); }; });
   const tb = $('#stTabs'); tb.hidden = !cm || C.stage === 3;
   if (cm && C.stage !== 3) { tb.innerHTML = STAGES.slice(0, 3).map((s, i) => `<button data-i="${i}" class="${i === C.stage ? 'on' : ''}" aria-label="스테이지 ${i + 1} ${s[0]}">${i + 1} ${starsBest(i, CFG.diff) ? '★' + starsBest(i, CFG.diff) : '☆'}</button>`).join(''); tb.querySelectorAll('button').forEach(b => b.onclick = () => { if (C.phase === 'play' || C.phase === 'count') return; loadStage(+b.dataset.i); }); }
-  const vm = C.mode === 'vib';
+  const vm = C.mode === 'vib', sw = $('#segVW'); sw.hidden = !vm;
+  if (vm) { sw.innerHTML = Object.keys(VLV).map(k => `<button data-v="${k}" class="${+k === CFG.vw ? 'on' : ''}">${VLV[k].name}</button>`).join(''); sw.querySelectorAll('button').forEach(b => b.onclick = () => setVW(b.dataset.v)); }
+  $('#subBar').style.display = (!tb.hidden || vm) ? 'flex' : 'none';
   $('#ctrack').style.display = (cm || vm) ? 'none' : ''; $('#cprog').style.display = cm ? '' : 'none'; $('#vibHud').style.display = vm ? 'block' : 'none';
   $('#sBest').previousElementSibling.textContent = vm ? '최고 연속' : '최고 유지'; if (vm) renderVibZones(); setMonUI();
   updateTargetChip(); renderCOv();
@@ -827,26 +831,18 @@ function renderCOv() {
   const el = $('#cOv'); el.style.top = ''; el.style.bottom = '';
   if (C.mode !== 'course' || C.phase === 'count' || C.phase === 'play' || !C.line) { el.innerHTML = ''; return; }
   const L = C.line, stg = STAGES[C.stage], g = C.ghost, bs = starsBest(C.stage, CFG.diff);
-  const diffSeg = `<div class="seg s2" id="cDiff">${Object.keys(DF).map(k => `<button data-v="${k}" class="${k === CFG.diff ? 'on' : ''}">${DF[k].name}</button>`).join('')}</div>`;
   if (C.phase === 'idle' && L.scale) {
     const sc = scaleCfg(CFG.sc), S = SCALES.find(x => x.k === sc.k);
-    el.innerHTML = `<div class="ccard"><div class="crow"><b>발성 · ${S.t} · ${VOICE[sc.g].name}</b><span class="cst">${starTxt(bs)}</span></div>
-      <div class="note2">전환 구간 ${midiName(sc.zs)}~${midiName(sc.ze)} · ${midiName(L.base)}부터 ${L.reps}회 · 약 ${Math.max(1, Math.round(L.end / 60))}분 · 안내음 ${CFG.guide === 'off' ? '끔' : '켬'}</div>${diffSeg}
-      ${g ? `<div class="cghost">👻 ${esc(g.label)} ${g.cov}% ${starTxt(g.stars)} · 같은 설정으로 대결해요</div>` : ''}
-      <div class="crow" style="margin-top:8px"><button class="btn sm" id="cSet">⚙ 설정</button><button class="btn pri sm" id="cGo" style="flex:1">${P.running ? '▶ 도전' : '▶ 목풀기'}</button></div>
-      ${P.running ? '' : '<div class="note2" style="margin-top:5px">지금은 목풀기 · 기록되지 않아요. 기록하려면 아래 "기록 도전"을 먼저 누르세요</div>'}</div>`;
-    el.querySelector('#cDiff').querySelectorAll('button').forEach(b => b.onclick = () => { CFG.diff = b.dataset.v; saveCfg(); renderSettings(); loadStage(C.stage); });
+    el.innerHTML = `<div class="ccard">${g ? `<div class="cghost" style="margin:0 0 8px">👻 ${esc(g.label)} ${g.cov}% ${starTxt(g.stars)}</div>` : ''}
+      <div class="crow"><button class="btn sm" id="cSet">⚙ 설정</button><button class="btn pri sm" id="cGo" style="flex:1">${P.running ? '▶ 도전' : '▶ 목풀기'}</button></div></div>`;
     el.querySelector('#cGo').onclick = startStage; el.querySelector('#cSet').onclick = () => go('scale'); return;
   }
   if (C.phase === 'idle') {
-    el.innerHTML = `<div class="ccard"><div class="crow"><b>스테이지 ${C.stage + 1} · ${stg[0]}</b><span class="cst">${starTxt(bs)}</span></div>
-      <div class="note2">${stg[1]} · 안내음 ${CFG.guide === 'off' ? '끔' : '켬'} · 시작음 ${midiName(L.notes[0].m)} · ${L.notes.length}음 · 약 ${Math.round(L.end - .8)}초${L.minor ? ' · 단조' : ''} · 별 3개면 새 라인</div>${diffSeg}
-      ${g ? `<div class="cghost">👻 ${esc(g.label)} ${g.cov}% ${starTxt(g.stars)} · 같은 라인으로 대결해요</div>` : ''}
-      <div class="crow" style="margin-top:8px"><button class="btn pri sm" id="cGo" style="flex:1">${P.running ? '▶ 도전' : '▶ 목풀기'}</button></div>
-      ${P.running ? '' : '<div class="note2" style="margin-top:5px">지금은 목풀기 · 기록되지 않아요. 기록하려면 아래 "기록 도전"을 먼저 누르세요</div>'}</div>`;
+    el.innerHTML = `<div class="ccard">${g ? `<div class="cghost" style="margin:0 0 8px">👻 ${esc(g.label)} ${g.cov}% ${starTxt(g.stars)}</div>` : ''}
+      <div class="crow"><button class="btn pri sm" id="cGo" style="flex:1">${P.running ? '▶ 도전' : '▶ 목풀기'}</button></div></div>`;
   } else {
     const r = C.res, cp = r.prev;
-    el.innerHTML = `<div class="ccard"><div class="note2" style="text-align:center">${L.scale ? '발성 스케일 · ' + SCALES.find(x => x.k === L.k).t + ' · ' + VOICE[L.g].name : '스테이지 ' + (C.stage + 1) + ' · ' + stg[0]} · ${DF[CFG.diff].name}</div>
+    el.innerHTML = `<div class="ccard"><div class="note2" style="text-align:center">${L.scale ? '발성 스케일 · ' + SCALES.find(x => x.k === L.k).t + ' · ' + VOICE[L.g].name : '스테이지 ' + (C.stage + 1) + ' · ' + stg[0]}</div>
       <div class="bigstars">${[0, 1, 2].map(i => `<i class="${i < r.stars ? 'on' : ''}">★</i>`).join('')}</div>
       <div style="text-align:center;font-size:13px;color:var(--ink)">${r.stars === 3 ? '완벽해요! ' : r.stars ? '클리어! ' : '아쉬워요. '}음 ${r.cleared}/${r.n} 성공 · 일치율 <b>${r.cov}%</b></div>
       ${r.zone ? `<div class="cvs"><span>전환 구간 안 <b>${r.zone.inOk}/${r.zone.inN}</b> · 밖 <b>${r.zone.outOk}/${r.zone.outN}</b></span>${r.zone.worst.length ? `<span>자주 놓친 음 <b>${r.zone.worst.join(' ')}</b></span>` : ''}</div>` : ''}
@@ -855,7 +851,6 @@ function renderCOv() {
       <div class="crow" style="margin-top:8px">${L.scale ? '<button class="btn sm" id="cSet">⚙ 설정</button>' : ''}<button class="btn sm" id="cGo">${C.nextFresh ? '새 라인' : '다시'}</button>${C.stage < 2 ? '<button class="btn pri sm" id="cNext" style="flex:1">다음 스테이지 ▶</button>' : '<button class="btn pri sm" id="cEnd" style="flex:1">' + (r.warm ? '목풀기 마치기' : '연습 끝내고 리포트 ▶') + '</button>'}</div></div>`;
   }
   const q = id => el.querySelector(id);
-  if (q('#cDiff')) q('#cDiff').querySelectorAll('button').forEach(b => b.onclick = () => { CFG.diff = b.dataset.v; saveCfg(); renderSettings(); loadStage(C.stage); });
   if (q('#cSet')) q('#cSet').onclick = () => go('scale');
   if (q('#cGo')) q('#cGo').onclick = () => { if (C.nextFresh) loadStage(C.stage); startStage(); };
   if (q('#cNext')) q('#cNext').onclick = () => loadStage(C.stage + 1);
@@ -958,12 +953,21 @@ function updateTrack(hs) {
 }
 
 /* ============ vibrato mode ============ */
-const VIBR = { easy: { rate: [4.0, 7.5], ext: [20, 80] }, normal: { rate: [4.5, 7.0], ext: [25, 70] }, hard: { rate: [5.0, 6.5], ext: [30, 60] } };
-const VR = () => VIBR[CFG.diff];
-const newVs = () => ({ cyc: 0, ok: 0, best: 0, sR: 0, sE: 0 });
+/* 폭 단계: 반음/2반음/3반음/4반음 = 위아래로 흔드는 한쪽 폭 약 ±50/±100/±150/±200센트. 폭이 클수록 사람은 더 천천히 흔들 수 있어서 속도 목표도 낮춰요 */
+const VLV = {
+  1: { name: '반음',  rate: [4.0, 7.5], ext: [25, 75],   max: 130, ticks: [50, 100],      lo: 3,    win: 1200 },
+  2: { name: '2반음', rate: [3.5, 6.5], ext: [75, 125],  max: 190, ticks: [50, 100, 150], lo: 2.5,  win: 1400 },
+  3: { name: '3반음', rate: [3.0, 5.5], ext: [120, 180], max: 250, ticks: [100, 200],     lo: 2.25, win: 1700 },
+  4: { name: '4반음', rate: [2.5, 5.0], ext: [165, 235], max: 310, ticks: [100, 200, 300], lo: 2,    win: 2000 }
+};
+CFG.vw = VLV[CFG.vw] ? +CFG.vw : 1;
+const VR = () => VLV[CFG.vw];
+const vibMid = () => Math.round((VR().ext[0] + VR().ext[1]) / 2);
+function setVW(w) { w = +w; if (!VLV[w] || w === CFG.vw) return; CFG.vw = w; saveCfg(); vibReset(); V.tr = []; renderCourseUI(); }
+const newVs = () => ({ cyc: 0, ok: 0, best: 0, sR: 0, sE: 0, lv: {} });
 const V = { lastAn: 0, cyc: 0, lastExtT: 0, buf: [], ctr: null, base: null, lastT: 0, fz: 0, tr: [], dir: 0, hi: null, lo: null, ext: [], streak: 0, rate: null, extent: null, verdict: '', out: 0, pd: null, s: newVs() };
-const vpc = () => (P.H / 2 - 14) / 130;
-function vibUnlocked() { const u = me(); if (CFG.vibOpen === 'always' || !u || u.role !== 'student') return true; return Math.max(pbHoldOf(u.id), P.st.bestHold) >= 10; }
+const vpc = () => (P.H / 2 - 14) / VR().max;
+function vibUnlocked() { return true; }   // 비브라토 모드는 항상 열려 있어요
 function vibReset() { V.buf = []; V.ctr = null; V.base = null; V.dir = 0; V.hi = V.lo = null; V.ext = []; V.rate = null; V.extent = null; V.streak = 0; V.verdict = ''; V.pd = null; V.out = 0; V.lastExtT = 0; V.cyc = 0; }
 function vibTick(now, dt, m) {
   if (now < P.sfxUntil) { V.fz = now; V.lastExtT = now; V.ext = []; V.dir = 0; V.hi = V.lo = null; V.pd = null; return; }      // chime playing through speakers
@@ -971,24 +975,24 @@ function vibTick(now, dt, m) {
   let l = V.buf[V.buf.length - 1];
   if (l && now - Math.max(l.t, V.fz) > 200) { vibReset(); l = null; }
   if (l && Math.abs(m - l.m) > 2) { if (++V.out < 6) return; vibReset(); }
-  V.out = 0; V.lastT = now; V.buf.push({ t: now, m }); while (V.buf[0].t < now - 1000) V.buf.shift();
+  V.out = 0; V.lastT = now; V.buf.push({ t: now, m }); while (V.buf[0].t < now - Math.max(1000, VR().win - 200)) V.buf.shift();
   let sum = 0; for (const x of V.buf) sum += x.m; const mean = sum / V.buf.length; V.ctr = mean;
   const tg = P.target; V.base = tg != null ? tg + 12 * Math.round((mean - tg) / 12) : mean;
   const d = (m - V.base) * 100, ds = V.pd == null ? d : (d + V.pd) / 2; V.pd = d;
-  V.tr.push({ t: now, d }); while (V.tr.length && V.tr[0].t < now - 1800) V.tr.shift();
+  V.tr.push({ t: now, d }); while (V.tr.length && V.tr[0].t < now - (VR().win + 600)) V.tr.shift();
   if (now - V.lastAn >= 100) { V.lastAn = now; vibStep(now); }
   if (V.rate != null && V.verdict && V.verdict !== 'none') {           // count finished cycles at the measured speed
     V.cyc += V.rate * dt / 1000;
-    while (V.cyc >= 1) { V.cyc -= 1; V.s.cyc++; V.s.sR += V.rate; V.s.sE += V.extent;
-      if (V.verdict === 'ok') { V.streak++; V.s.ok++; V.s.best = Math.max(V.s.best, V.streak); fireVib(V.streak); } else V.streak = 0; }
+    while (V.cyc >= 1) { V.cyc -= 1; V.s.cyc++; V.s.sR += V.rate; V.s.sE += V.extent; const lq = V.s.lv[CFG.vw] = V.s.lv[CFG.vw] || { cyc: 0, ok: 0 }; lq.cyc++;
+      if (V.verdict === 'ok') { V.streak++; V.s.ok++; lq.ok++; V.s.best = Math.max(V.s.best, V.streak); fireVib(V.streak); } else V.streak = 0; }
   }
 }
-/* Speed/width come from a 1.2 s spectrum of the pitch track (robust against jitter), not from raw peaks. */
+/* Speed/width come from a 1.2 s (wider levels: up to 2 s) spectrum of the pitch track (robust against jitter), not from raw peaks. */
 function vibAnalyze() {
   const tr = V.tr, n = tr.length; if (n < 12) return null;
   let i0 = n - 1; while (i0 > 0 && tr[i0].t - tr[i0 - 1].t < 160 && tr[i0 - 1].t > V.fz) i0--;
-  const tEnd = tr[n - 1].t; if (tEnd - tr[i0].t < 900) return null;
-  const FS = 50, tS = Math.max(tr[i0].t, tEnd - 1200), N = Math.floor((tEnd - tS) / 1000 * FS) + 1; if (N < 40) return null;
+  const RW = VR(), WIN = RW.win, tEnd = tr[n - 1].t; if (tEnd - tr[i0].t < WIN * .75) return null;
+  const FS = 50, tS = Math.max(tr[i0].t, tEnd - WIN), N = Math.floor((tEnd - tS) / 1000 * FS) + 1; if (N < WIN * .033) return null;
   const md = []; for (let k = i0; k < n; k++) { const a = tr[Math.max(i0, k - 1)].d, b = tr[k].d, c = tr[Math.min(n - 1, k + 1)].d; md.push(Math.max(Math.min(a, b), Math.min(Math.max(a, b), c))); }   // median-of-3 kills one-frame octave glitches
   const x = new Float64Array(N); let j = i0;
   for (let q = 0; q < N; q++) { const t = tS + q * 1000 / FS; while (j < n - 2 && tr[j + 1].t < t) j++; const t0 = tr[j].t, t1 = tr[j + 1].t, f = t1 > t0 ? clamp((t - t0) / (t1 - t0), 0, 1) : 0; x[q] = md[j - i0] * (1 - f) + md[j + 1 - i0] * f; }
@@ -997,7 +1001,7 @@ function vibAnalyze() {
   let sw = 0, sw2 = 0, e2 = 0; for (let q = 0; q < N; q++) { const w = .5 - .5 * Math.cos(2 * Math.PI * q / (N - 1)); x[q] = (x[q] - ic - sl * q) * w; sw += w; sw2 += w * w; e2 += x[q] * x[q]; }
   const sig2 = e2 / sw2, F = [], Pw = []; let tot = 0;
   for (let f = 2; f <= 20.001; f += .25) { let re = 0, im = 0; const wv = 2 * Math.PI * f / FS; for (let q = 0; q < N; q++) { re += x[q] * Math.cos(wv * q); im += x[q] * Math.sin(wv * q); } F.push(f); Pw.push(re * re + im * im); tot += re * re + im * im; }
-  let pk = -1, pv = 0; for (let k = 0; k < F.length; k++) if (F[k] >= 3 && F[k] <= 9 && Pw[k] > pv) { pv = Pw[k]; pk = k; } if (pk < 1 || pk > F.length - 2 || tot <= 0) return null;
+  let pk = -1, pv = 0; for (let k = 0; k < F.length; k++) if (F[k] >= RW.lo && F[k] <= 9 && Pw[k] > pv) { pv = Pw[k]; pk = k; } if (pk < 1 || pk > F.length - 2 || tot <= 0) return null;
   const d2 = Pw[pk - 1] + Pw[pk + 1] - 2 * Pw[pk], off = d2 ? clamp((Pw[pk - 1] - Pw[pk + 1]) / (2 * d2), -.5, .5) : 0, rate = F[pk] + off * .25;
   let band = 0; for (let k = 0; k < F.length; k++) if (Math.abs(F[k] - rate) <= 1.25) band += Pw[k];
   const Q = band / tot, qn = clamp((Q - .14) / .86, 0, 1);
@@ -1027,14 +1031,14 @@ function fireVib(n) {
 }
 const VFB = { ok: '속도·폭 좋아요', slow: '조금 빠르게', fast: '조금 천천히', narrow: '폭을 조금 크게', wide: '폭을 조금 작게', none: '', '': '' };
 function renderVibZones() {
-  const R = VR(), pr = v => clamp((v - 2) / 8, 0, 1) * 100, pe = v => clamp(v / 100, 0, 1) * 100;
+  const R = VR(), pr = v => clamp((v - 2) / 8, 0, 1) * 100, pe = v => clamp(v / R.max, 0, 1) * 100;
   const z = (id, a, b, f) => { const el = $('#' + id); el.style.left = f(a) + '%'; el.style.width = (f(b) - f(a)) + '%'; };
   z('vRz', R.rate[0], R.rate[1], pr); z('vEz', R.ext[0], R.ext[1], pe);
 }
 function updateVibHud() {
   const live = performance.now() - V.lastT < 900 && V.rate != null;
   setTxt('vRate', live ? V.rate.toFixed(1) + ' Hz' : '--'); setTxt('vExt', live ? '±' + Math.round(V.extent) + ' cent' : '--');
-  const rl = live ? clamp((V.rate - 2) / 8, 0, 1) * 100 : 50, el = live ? clamp(V.extent / 100, 0, 1) * 100 : 50;
+  const rl = live ? clamp((V.rate - 2) / 8, 0, 1) * 100 : 50, el = live ? clamp(V.extent / VR().max, 0, 1) * 100 : 50;
   const a = rl.toFixed(0) + '%', b = el.toFixed(0) + '%', op = live ? 1 : .25;
   if (cache.vrd !== a) { $('#vRd').style.left = a; cache.vrd = a; } if (cache.ved !== b) { $('#vEd').style.left = b; cache.ved = b; }
   if (cache.vop !== op) { $('#vRd').style.opacity = op; $('#vEd').style.opacity = op; cache.vop = op; }
@@ -1048,26 +1052,26 @@ function drawVib(now) {
   const W = P.W, H = P.H, L = PIANO_W, nowX = L + (W - L) * .8, WIN = 1.6, pps = (nowX - L) / WIN, cy = H / 2, pc = vpc(), R = VR();
   g2.setTransform(P.dpr, 0, 0, P.dpr, 0, 0); g2.fillStyle = '#22282c'; g2.fillRect(0, 0, W, H);
   g2.fillStyle = 'rgba(76,195,138,.15)'; g2.fillRect(L, cy - R.ext[1] * pc, W - L, (R.ext[1] - R.ext[0]) * pc); g2.fillRect(L, cy + R.ext[0] * pc, W - L, (R.ext[1] - R.ext[0]) * pc);
-  g2.strokeStyle = 'rgba(255,255,255,.07)'; g2.lineWidth = 1; for (const c of [-100, -50, 50, 100]) { const y = Math.round(cy - c * pc) + .5; g2.beginPath(); g2.moveTo(L, y); g2.lineTo(W, y); g2.stroke(); }
+  g2.strokeStyle = 'rgba(255,255,255,.07)'; g2.lineWidth = 1; for (const c of R.ticks.flatMap(v => [-v, v])) { const y = Math.round(cy - c * pc) + .5; g2.beginPath(); g2.moveTo(L, y); g2.lineTo(W, y); g2.stroke(); }
   g2.strokeStyle = '#5cc8ff'; g2.lineWidth = 1.2; g2.setLineDash([5, 4]); g2.beginPath(); g2.moveTo(L, cy); g2.lineTo(W, cy); g2.stroke(); g2.setLineDash([]);
   const tr = V.tr, live = tr.length && now - V.lastT < 400, col = V.verdict === 'ok' ? '#7fe3a8' : '#ffb43a';
   g2.save(); g2.beginPath(); g2.rect(L, 0, W - L, H); g2.clip(); g2.lineJoin = 'round'; g2.lineCap = 'round';
   for (const pass of [0, 1]) {
     g2.strokeStyle = pass ? '#fff' : col; g2.globalAlpha = pass ? .9 : .45; g2.lineWidth = pass ? 1.5 : 5; g2.beginPath(); let pen = false, pt = 0;
-    for (const q of tr) { const age = (now - q.t) / 1000; if (age > WIN + .1) continue; const x = nowX - age * pps, y = cy - clamp(q.d, -125, 125) * pc; if (pen && q.t - pt > 150) pen = false; if (!pen) { g2.moveTo(x, y); pen = true; } else g2.lineTo(x, y); pt = q.t; }
+    for (const q of tr) { const age = (now - q.t) / 1000; if (age > WIN + .1) continue; const x = nowX - age * pps, y = cy - clamp(q.d, -(R.max - 5), R.max - 5) * pc; if (pen && q.t - pt > 150) pen = false; if (!pen) { g2.moveTo(x, y); pen = true; } else g2.lineTo(x, y); pt = q.t; }
     g2.stroke();
   }
   g2.globalAlpha = 1; g2.restore();
   g2.fillStyle = 'rgba(255,255,255,.5)'; g2.fillRect(nowX, 0, 1, H);
   if (live) { const y = vibXY().y; g2.fillStyle = col; g2.globalAlpha = .35; g2.beginPath(); g2.arc(nowX, y, 13, 0, 6.2832); g2.fill(); g2.globalAlpha = 1; g2.fillStyle = '#fff'; g2.beginPath(); g2.arc(nowX, y, 5.5, 0, 6.2832); g2.fill(); }
-  else { g2.save(); g2.textAlign = 'center'; g2.textBaseline = 'middle'; g2.fillStyle = 'rgba(255,255,255,.55)'; g2.font = '600 13px system-ui,sans-serif'; g2.fillText('한 음을 길게 내면서', L + (W - L) / 2, cy - 54); g2.fillText('소리를 물결치듯 흔들어 보세요', L + (W - L) / 2, cy - 34); g2.restore(); }
+  else { g2.save(); g2.textAlign = 'center'; g2.textBaseline = 'middle'; g2.fillStyle = 'rgba(255,255,255,.55)'; g2.font = '600 13px system-ui,sans-serif'; g2.fillText('한 음을 길게 내면서', L + (W - L) / 2, cy - 54); g2.fillText(CFG.vw === 1 ? '소리를 물결치듯 흔들어 보세요' : `${R.name} 폭(±${vibMid()}센트)으로 크게 흔들어 보세요`, L + (W - L) / 2, cy - 34); g2.restore(); }
   g2.save(); g2.font = '600 10px system-ui,sans-serif'; g2.textAlign = 'right'; g2.fillStyle = '#7fd9a8'; g2.textBaseline = 'bottom'; g2.fillText('초록 = 목표 폭', W - 8, cy - R.ext[1] * pc - 3); g2.restore();
   const dts = Math.min(.05, (now - (P.pT || now)) / 1000); P.pT = now;
   for (let i = P.parts.length - 1; i >= 0; i--) { const q = P.parts[i]; q.life += dts; if (q.life > q.max) { P.parts.splice(i, 1); continue; } q.x += q.vx * dts; q.y += q.vy * dts; q.vy += 360 * dts; g2.globalAlpha = 1 - q.life / q.max; g2.fillStyle = q.c; g2.fillRect(q.x, q.y, q.s, q.s); }
   g2.globalAlpha = 1;
   g2.fillStyle = P.pressed != null ? '#e48d16' : '#2c3238'; g2.fillRect(0, 0, L, H);
   g2.textAlign = 'right'; g2.textBaseline = 'middle'; g2.font = '500 10px system-ui,sans-serif'; g2.fillStyle = P.pressed != null ? '#1a1000' : '#9aa5b1';
-  for (const c of [100, 50, 0, -50, -100]) g2.fillText((c > 0 ? '+' : '') + c, L - 6, cy - c * pc);
+  for (const c of R.ticks.flatMap(v => [v, -v]).concat(0)) { if (cy - c * pc < 40) continue; g2.fillText((c > 0 ? '+' : '') + c, L - 6, cy - c * pc); }   // top-left holds the 기준음 button
   g2.textAlign = 'center'; g2.font = '700 11px system-ui,sans-serif'; g2.fillText('🔊', L / 2, 14); g2.font = '500 10px system-ui,sans-serif'; g2.fillText('기준음', L / 2, 28);
   g2.fillStyle = '#12161a'; g2.fillRect(L, 0, 1, H);
 }
@@ -1084,11 +1088,11 @@ function guideTone(m, dur, at) {
 }
 const reqOf = n => Math.max(.25, n.d - D().grace - (n.mute || 0));
 function guideNote(n, first, now) {
-  if (n.guided || CFG.guide === 'off') return; n.guided = true;
+  if (n.guided) return; n.guided = true;
   if (n.pre) { guideTone(n.m, .8); n.mute = 0; return; }                  // scale: sound the start note of every repetition during the rest
   if (first) { const dur = Math.min(1.1, Math.max(.4, n.t0 - .05)); guideTone(n.m, dur); n.mute = Math.max(0, now + dur + .12 - n.t0); return; }
   if (n.d < .75 || (C.line && C.line.scale)) return;           // short notes: no room for a guide tone
-  const dur = clamp(n.d * .5, .3, .48); guideTone(n.m, dur); n.mute = dur + .12;
+  const dur = clamp(n.d * .4, .5, .7); guideTone(n.m, dur); n.mute = dur + .12;
 }
 const courseRef = () => { const L = C.line, n = L.notes[Math.min(C.i, L.notes.length - 1)]; return n.m; };
 async function startStage() {
@@ -1149,14 +1153,14 @@ function endStage() {
     DB.runs = DB.runs || {}; const k = curKey(), arr = DB.runs[k] = DB.runs[k] || [];
     arr.push({ day: dayKey(), at: Date.now(), cov: covP, stars, tr: c.rec.slice(0, Math.ceil(L.end * 10)) }); while (arr.length > 6) arr.shift(); saveDB();
   }
-  if (stars > 0) { sfx(stars === 3 ? 'rec' : 'clear'); flash(stars === 3 ? '#ffd27a' : '#7fe3ff'); popBanner(stars === 3 ? 'PERFECT STAGE!' : 'STAGE CLEAR!', starTxt(stars), '#ffd27a', c.res.newBest ? '⭐ 이 난이도 최고 별 갱신!' : ''); burst(PIANO_W + (P.W - PIANO_W) * .72, P.H * .4, 50 + stars * 20, ['#ffd27a', '#ffffff', '#7fe3ff', '#ff9f43']); try { if (navigator.vibrate) navigator.vibrate([30, 40, 30, 40, 60]); } catch (e) {} }
+  if (stars > 0) { sfx(stars === 3 ? 'rec' : 'clear'); flash(stars === 3 ? '#ffd27a' : '#7fe3ff'); popBanner(stars === 3 ? 'PERFECT STAGE!' : 'STAGE CLEAR!', starTxt(stars), '#ffd27a', c.res.newBest ? '⭐ 이 스테이지 최고 별 갱신!' : ''); burst(PIANO_W + (P.W - PIANO_W) * .72, P.H * .4, 50 + stars * 20, ['#ffd27a', '#ffffff', '#7fe3ff', '#ff9f43']); try { if (navigator.vibrate) navigator.vibrate([30, 40, 30, 40, 60]); } catch (e) {} }
   renderCourseUI();
 }
 function updateCprog() {
   if (C.mode !== 'course' || !C.line) return;
   const L = C.line, f = C.phase === 'play' ? clamp(C.t / L.end, 0, 1) : C.phase === 'result' ? 1 : 0, w = (f * 100).toFixed(1) + '%';
   if (cache.cpw !== w) { $('#cpfill').style.width = w; cache.cpw = w; }
-  setTxt('cptxt', C.phase === 'play' ? `${C.stage === 3 ? '발성' : '스테이지 ' + (C.stage + 1)} · ${C.cleared}/${L.notes.length} 성공` : C.phase === 'count' ? '준비하세요!' : C.phase === 'result' ? `${C.stage === 3 ? '발성' : '스테이지 ' + (C.stage + 1)} 결과 · ${starTxt(C.res.stars)}` : `${C.stage === 3 ? '발성' : '스테이지 ' + (C.stage + 1)} · ${STAGES[C.stage][0]}`);
+  setTxt('cptxt', C.phase === 'play' ? `${C.stage === 3 ? '발성' : '스테이지 ' + (C.stage + 1)} · ${C.cleared}/${L.notes.length} 성공` : C.phase === 'count' ? '준비하세요!' : C.phase === 'result' ? `${C.stage === 3 ? '발성' : '스테이지 ' + (C.stage + 1)} 결과 · ${starTxt(C.res.stars)}` : L.scale ? (() => { const sc = scaleCfg(CFG.sc), S = SCALES.find(x => x.k === sc.k); return `발성 · ${S.t} · ${VOICE[sc.g].name} · 전환 ${midiName(sc.zs)}~${midiName(sc.ze)} · 약 ${Math.max(1, Math.round(L.end / 60))}분`; })() : `스테이지 ${C.stage + 1} · ${STAGES[C.stage][0]} · 시작음 ${midiName(L.notes[0].m)} · ${L.notes.length}음 · 약 ${Math.round(L.end - .8)}초`);
 }
 function rr(x, y, w, h, r) { g2.beginPath(); if (g2.roundRect) g2.roundRect(x, y, w, h, r); else g2.rect(x, y, w, h); }
 function drawCourse(rh, nowX, pps, W, H) {
@@ -1206,8 +1210,9 @@ function loop(ts) {
     P.an.getFloatTimeDomainData(P.buf);
     let rms = 0; for (let i = 0; i < P.buf.length; i++) rms += P.buf[i] * P.buf[i]; rms = Math.sqrt(rms / P.buf.length);
     const tone = P.pressed != null || now < P.toneUntil;
+    if (P.cal) calStep(now, rms, tone || now < P.sfxUntil);
     if (!tone && now < P.sfxUntil) { if (P.lastM != null && now - P.lastMT < 600) m = P.lastM; }   // chime playing through speakers: carry the last pitch
-    else if (!tone && rms > P.sens) { const vbm = C.mode === 'vib', r = yin(P.buf, P.ctx.sampleRate, vbm ? .24 : .15); if (r && r.clarity > (vbm ? .68 : .8)) m = freqM(r.freq); }
+    else if (!tone && rms > Math.max(P.sens, P.gate)) { const vbm = C.mode === 'vib', r = yin(P.buf, P.ctx.sampleRate, vbm ? .24 : .15); if (r && r.clarity > (vbm ? .68 : .8)) m = freqM(r.freq); }
   }
   // median-of-3 smoothing
   P.recent.push(m); if (P.recent.length > 3) P.recent.shift();
@@ -1264,13 +1269,14 @@ function updateGoal() {
 /* session lifecycle */
 const startBtn = $('#startBtn');
 startBtn.onclick = () => P.running ? stopSession() : startSession();
-const HINT_MON = "지금은 목풀기예요 (기록 안 됨) · 기록은 '기록 도전'부터<br>건반을 누르면 기준음 · 한 음을 길게 유지해 보세요!";
-const HINT_VIB = '한 음을 길게 내면서 물결처럼 흔들어 보세요 · 왼쪽 "기준음"을 누르면 기준 소리';
+const HINT_MON = "목풀기 중 · 기록하려면 ‘기록 도전’을 누르세요";
+const HINT_VIB1 = '한 음을 길게 내면서 물결처럼 흔들어 보세요 · 왼쪽 "기준음"을 누르면 기준 소리';
+const vibHint = () => CFG.vw === 1 ? HINT_VIB1 : `${VR().name} 폭: 한 음을 길게 내면서 위아래로 ±${vibMid()}센트 흔들어 보세요 · 폭이 클수록 속도는 느려져요`;
 const HINT_REC = '소리 낸 시간만 연습으로 계산돼요 (4초까지 쉬는 건 인정)';
 function setMonUI() {
   const b = $('#monState'); b.className = 'mon ' + (P.running ? 'rec' : P.mon ? 'on' : '');
   b.innerHTML = P.running ? '<i></i>기록 중' : P.mon ? '<i></i>모니터' : '<i></i>마이크 꺼짐';
-  $('#hint').innerHTML = P.running ? HINT_REC : C.mode === 'vib' ? HINT_VIB : HINT_MON;
+  $('#hint').innerHTML = P.running ? HINT_REC : C.mode === 'vib' ? vibHint() : HINT_MON;
 }
 async function startMonitor(manual) {
   if (P.mon || P.monBusy) return true;
@@ -1282,7 +1288,7 @@ async function startMonitor(manual) {
     if (cur !== 'practice') { P.stream.getTracks().forEach(t => t.stop()); P.stream = null; return false; }   // left the tab while the prompt was open
     P.src = ctx.createMediaStreamSource(P.stream);
     P.an = ctx.createAnalyser(); P.an.fftSize = 2048; P.an.smoothingTimeConstant = 0; P.src.connect(P.an);
-    P.buf = new Float32Array(P.an.fftSize); P.mon = true; P.monDenied = false; P.monOff = false; P.recent = []; detectEar();
+    P.buf = new Float32Array(P.an.fftSize); P.mon = true; P.monDenied = false; P.monOff = false; P.recent = []; detectEar(); startCal();
     return true;
   } catch (e) {
     P.monDenied = true;
@@ -1290,9 +1296,20 @@ async function startMonitor(manual) {
     return false;
   } finally { P.monBusy = false; setMonUI(); }
 }
+/* 주변 소리 자동 맞춤: 연습 화면에 들어와 마이크가 켜지면 1.5초 동안 배경 소리 크기를 재고, 그보다 확실히 큰 소리만 목소리로 봐요 */
+function startCal() { P.cal = { t0: performance.now(), v: [] }; P.gate = 0; toast('주변 소리를 확인하고 있어요 · 잠깐만 조용히 해 주세요', 1800); }
+function calStep(now, rms, skip) { const c = P.cal; if (!skip) c.v.push(rms); if (now - c.t0 >= 1500) finishCal(); }
+function finishCal() {
+  const c = P.cal; P.cal = null; if (!c || c.v.length < 20) { P.gate = 0; return; }
+  const v = c.v.slice().sort((a, b) => a - b), floor = v[Math.floor(v.length * .25)], want = floor * 3;   // 하위 25%(말·소리가 섞여도 바닥 소음 기준) × 3
+  P.noise = floor; P.gate = Math.min(want, .04);
+  if (want > .04) toast('주변이 꽤 시끄러워요 · 조용한 곳이나 이어폰 마이크를 쓰면 더 정확해요', 4200);
+  else if (P.gate > P.sens * 1.2) toast('주변 소리에 맞춰 마이크를 조정했어요', 2200);
+  else toast('주변이 조용해요 · 준비됐어요', 1800);
+}
 function stopMonitor() {
   try { if (P.stream) P.stream.getTracks().forEach(t => t.stop()); if (P.src) P.src.disconnect(); } catch (e) {}
-  endHold(); P.stream = null; P.src = null; P.an = null; P.mon = false; P.recent = []; setMonUI();
+  endHold(); P.stream = null; P.src = null; P.an = null; P.mon = false; P.recent = []; P.cal = null; setMonUI();
 }
 $('#monState').onclick = async () => {
   if (P.running) { toast('연습 기록 중에는 끌 수 없어요'); return; }
@@ -1323,7 +1340,7 @@ function stopSession() {
   const today = dayKey(), pd = daysOf(u.id)[today], short = sec < 10 || P.vms < 3000;
   const ctx = { saved: !short, shortNote: short, avgBefore: pd && pd.vms ? 100 * pd.sfs / pd.vms : null, wasMet: !!(pd && pd.met), pbBefore: pbHoldOf(u.id), before: earnedIds(u.id), newly: [] };
   if (!short) {
-    const rec = { perfect: st.perfect, great: st.great, good: st.good, miss: st.miss, maxCombo: st.maxCombo, bestHold: Math.round(st.bestHold * 10) / 10, holdMs: Math.round(st.holdMs), hold: st.hold, co: (P.co || []).slice(), vib: V.s.cyc ? { cyc: V.s.cyc, ok: V.s.ok, best: V.s.best, rate: Math.round(V.s.sR / V.s.cyc * 10) / 10, ext: Math.round(V.s.sE / V.s.cyc) } : undefined };
+    const rec = { perfect: st.perfect, great: st.great, good: st.good, miss: st.miss, maxCombo: st.maxCombo, bestHold: Math.round(st.bestHold * 10) / 10, holdMs: Math.round(st.holdMs), hold: st.hold, co: (P.co || []).slice(), vib: V.s.cyc ? { cyc: V.s.cyc, ok: V.s.ok, best: V.s.best, rate: Math.round(V.s.sR / V.s.cyc * 10) / 10, ext: Math.round(V.s.sE / V.s.cyc), lv: JSON.parse(JSON.stringify(V.s.lv || {})) } : undefined };
     DB.sessions.push({ id: 'u' + Date.now(), uid: u.id, day: today, start: P.startAt, activeSec: sec, vms: P.vms, sfs: P.sfs, reminderAt: P.reminderAt, diff: CFG.diff, st: rec });
     saveDB();
     ctx.session = { score: Math.round(100 * P.sfs / P.vms), sec };
@@ -1380,24 +1397,27 @@ function showReport(uid, ctx) {
     <div class="note2" style="margin-top:6px">다른 사람이 아니라 지난 나와만 비교해요.</div></div>` : '';
   const vs = DB.sessions.filter(x => x.uid === uid && x.day === today && x.st && x.st.vib).map(x => x.st.vib);
   const vt = vs.reduce((a, v) => ({ cyc: a.cyc + v.cyc, ok: a.ok + v.ok, best: Math.max(a.best, v.best), sR: a.sR + v.rate * v.cyc, sE: a.sE + v.ext * v.cyc }), { cyc: 0, ok: 0, best: 0, sR: 0, sE: 0 });
+  const lvT = {}; vs.forEach(v => { if (v.lv) Object.keys(v.lv).forEach(k => { const q = lvT[k] = lvT[k] || { cyc: 0, ok: 0 }; q.cyc += v.lv[k].cyc; q.ok += v.lv[k].ok; }); });
+  const lvK = Object.keys(lvT).filter(k => VLV[k]).sort();
   const vibCard = vt.cyc ? `<div class="card"><b>🌊 오늘의 비브라토</b>
     <div class="vsrow"><span class="k">목표에 맞은 사이클</span><b>${vt.ok} / ${vt.cyc}</b><em>${Math.round(100 * vt.ok / vt.cyc)}%</em></div>
     <div class="vsrow"><span class="k">최고 연속</span><b>${vt.best}회</b><em></em></div>
     <div class="vsrow"><span class="k">평균 속도 · 폭</span><b>${(vt.sR / vt.cyc).toFixed(1)}Hz · ±${Math.round(vt.sE / vt.cyc)}c</b><em></em></div>
-    <div class="note2" style="margin-top:6px">목표(${D().name}): ${VR().rate[0]}~${VR().rate[1]}Hz · ±${VR().ext[0]}~${VR().ext[1]}cent. 참고용 측정이고, 정답 판정은 아니에요.</div></div>` : '';
+    ${lvK.length ? `<div class="vsrow"><span class="k">폭별 맞은 사이클</span><b>${lvK.map(k => VLV[k].name + ' ' + lvT[k].ok + '/' + lvT[k].cyc).join(' · ')}</b><em></em></div>` : ''}
+    <div class="note2" style="margin-top:6px">목표: ${(lvK.length ? lvK : [String(CFG.vw)]).map(k => `${VLV[k] ? VLV[k].name : ''} ${VLV[k].rate[0]}~${VLV[k].rate[1]}Hz · ±${VLV[k].ext[0]}~${VLV[k].ext[1]}c`).join(' / ')}. 참고용 측정이고, 정답 판정은 아니에요.</div></div>` : '';
   const cos = DB.sessions.filter(x => x.uid === uid && x.day === today && x.st && x.st.co).flatMap(x => x.st.co), coBest = {};
   cos.forEach(c => { const k = c.stage + '|' + c.diff; const b = coBest[k]; if (!b || c.stars > b.stars || (c.stars === b.stars && c.cov > b.cov)) coBest[k] = c; });
   const prevCo = c => { let b = null; DB.sessions.forEach(x => { if (x.uid === uid && x.day < today && x.st && x.st.co) x.st.co.forEach(y => { if (y.stage === c.stage && y.diff === c.diff && y.seed === c.seed && (!b || y.cov > b.cov)) b = y; }); }); return b; };
   const coList = Object.values(coBest).sort((a, b) => a.stage - b.stage), coStars = coList.reduce((a, c) => a + c.stars, 0);
-  const coCard = coList.length ? `<div class="card"><b>🎮 오늘의 코스</b>${coList.map(c => { const pc = prevCo(c); return `<div class="vsrow"><span class="k">${c.stage + 1}. ${STAGES[c.stage][0]} <small style="color:var(--muted)">${DF[c.diff].name}</small></span><span class="cst" style="font-size:13px">${starTxt(c.stars)}</span><b>${c.cov}%</b>${pc ? dl(pc.cov, c.cov, v => Math.round(v) + '%p') : '<em></em>'}</div>`; }).join('')}
+  const coCard = coList.length ? `<div class="card"><b>🎮 오늘의 코스</b>${coList.map(c => { const pc = prevCo(c); return `<div class="vsrow"><span class="k">${c.stage + 1}. ${STAGES[c.stage][0]}</span><span class="cst" style="font-size:13px">${starTxt(c.stars)}</span><b>${c.cov}%</b>${pc ? dl(pc.cov, c.cov, v => Math.round(v) + '%p') : '<em></em>'}</div>`; }).join('')}
     <div class="note2" style="margin-top:6px">▲▼는 같은 라인으로 한 지난 기록 대비예요.</div></div>` : '';
   if (vt.cyc) L.splice(1, 0, vt.best >= 5 ? `비브라토 ${vt.best}사이클 연속 성공 🌊` : '비브라토는 속도와 폭이 한 번에 맞기 어려워요. 하나씩 맞춰 보세요.');
-  if (coList.length) L.splice(1, 0, coStars ? `코스에서 별 ${coStars}개를 모았어요 ⭐` : '코스는 아직 별이 없어요. 쉬움 난이도로 먼저 감을 잡아 보세요.');
+  if (coList.length) L.splice(1, 0, coStars ? `코스에서 별 ${coStars}개를 모았어요 ⭐` : '코스는 아직 별이 없어요. 한 음을 길게, 흔들림 없이 유지해 보세요.');
   let cch; { const bs = [0, 1, 2].map(i => starsBest(i, CFG.diff)), w = bs.findIndex(v => v < 3);
-    cch = w >= 0 ? ['🎮', `코스 ${w + 1} · ${STAGES[w][0]}에서 별 ${bs[w] + 1}개에 도전`, `지금 ★${bs[w]} (${D().name}) · 같은 라인으로 지난 나와 겨뤄 보세요`] : ['🔥', `${D().name} 코스를 모두 별 3개로 클리어했어요`, '난이도를 한 단계 올려 보세요']; }
+    cch = w >= 0 ? ['🎮', `코스 ${w + 1} · ${STAGES[w][0]}에서 별 ${bs[w] + 1}개에 도전`, `지금 ★${bs[w]} · 같은 라인으로 지난 나와 겨뤄 보세요`] : ['🔥', `코스를 모두 별 3개로 클리어했어요`, '새 라인이 계속 나와요. 이어서 도전해 보세요']; }
   const nh = [3, 5, 10, 15, 20, 30, 40, 50].find(t => t > best) || 60, nc = [10, 20, 30, 50, 100].find(t => t > td.maxCombo) || 150;
   openModal(`<div class="repbody">
-    <div class="note2">오늘의 연습 리포트 · ${fmtDay(today)}${ctx.session ? ' · ' + D().name + ' 난이도' : ''}${ctx.shortNote ? ' · 방금 도전은 10초 미만이라 기록에서 제외했어요' : ''}</div>
+    <div class="note2">오늘의 연습 리포트 · ${fmtDay(today)}${ctx.shortNote ? ' · 방금 도전은 10초 미만이라 기록에서 제외했어요' : ''}</div>
     <div class="rep-head" style="margin-top:8px"><div class="rk ${rk} pop">${rk}</div>
       <div class="sp"><div class="note2">오늘 평균 점수</div><div><span class="rep-avg">${avg}</span><span style="font-size:16px;color:var(--ink2)">점</span>${dChip}</div>
       <div class="bar"><i style="width:${rp.toFixed(0)}%"></i></div><div class="note2" style="margin-top:3px">${nr ? `다음 랭크 ${nr[0]}까지 ${nr[1] - avg}점` : '최고 랭크예요!'}</div></div></div>
@@ -1658,7 +1678,7 @@ function renderScale(el) {
   if (!el) return; const sc = scaleCfg(CFG.sc), L = genScaleLine(CFG.sc, CFG.diff), S = SCALES.find(x => x.k === sc.k), top = Math.max(...S.iv);
   const first = (() => { for (let r = 1; r <= L.reps; r++) if (L.base + r - 1 + top >= L.zs) return r; return L.reps; })(); if (!scRep || scRep > L.reps) scRep = first;
   el.innerHTML = `<h2>발성 스케일</h2>
-  <div class="card"><div class="note2">목소리 종류</div><div class="seg" id="scG" style="margin-top:6px">${Object.keys(VOICE).map(k => `<button data-v="${k}" class="${k === sc.g ? 'on' : ''}" style="height:38px;font-size:14px">${VOICE[k].name}</button>`).join('')}</div></div>
+  <div class="card"><div class="note2">목소리 성별</div><div class="seg" id="scG" style="margin-top:6px">${Object.keys(VOICE).map(k => `<button data-v="${k}" class="${k === sc.g ? 'on' : ''}" style="height:38px;font-size:14px">${VOICE[k].name}</button>`).join('')}</div></div>
   <div class="card"><div class="note2">믹스보이스 스케일</div><div class="seg" id="scEx" style="margin-top:6px">${SCALES.map(x => `<button data-v="${x.k}" class="${x.k === sc.k ? 'on' : ''}" style="height:38px;font-size:13px">${x.n}</button>`).join('')}</div><div class="note2" style="margin-top:6px">${S.s}</div></div>
   <div class="card"><div class="crow"><span class="note2">반음씩 올라가요 · 회차 보기</span><b style="font-size:13px">${scRep} / ${L.reps}회</b></div>
     ${scRoll(L, scRep)}<input type="range" id="scRep" min="1" max="${L.reps}" value="${scRep}" step="1" style="width:100%;margin-top:6px">
@@ -1668,7 +1688,7 @@ function renderScale(el) {
     <div class="note2" style="margin-top:8px">전환 구간은 일반적인 추정값이에요. 사람마다 달라서, 선생님과 정한 음으로 바꿔 쓰세요. 총 ${L.reps}회 · 약 ${Math.max(1, Math.round(L.end / 60))}분 · 난이도 ${DF[CFG.diff].name}</div></div>
   <div class="row" style="gap:8px;margin-bottom:12px"><button class="btn pri" id="scGo" style="flex:1">▶ 스케일 시작</button></div>
   <div class="note2" style="line-height:1.6">앱이 보는 것: 음정 정확도, 전환 구간 안/밖 성공 비율, 자주 놓친 음<br>못 보는 것: 믹스 소리의 질(진성·두성 비율) — 선생님이 판단해요</div>`;
-  $('#scG', el).querySelectorAll('button').forEach(b => b.onclick = () => scSet(o => { o.g = b.dataset.v; o.off = 0; }));
+  $('#scG', el).querySelectorAll('button').forEach(b => b.onclick = () => scSet(o => { o.g = b.dataset.v; o.off = 0; CFG.rc = VOICE_RC[o.g]; }));
   $('#scEx', el).querySelectorAll('button').forEach(b => b.onclick = () => scSet(o => { o.k = b.dataset.v; }));
   $('#scRep', el).oninput = e => { scRep = +e.target.value; renderScale(el); };
   el.querySelectorAll('.scst button').forEach(b => b.onclick = () => scSet(o => { const a = b.dataset.a, d = a.endsWith('+') ? 1 : -1, z = o.z = o.z || {}, cur = z[sc.g] = (z[sc.g] || [sc.zs, sc.ze]).slice();
@@ -1694,7 +1714,7 @@ function go(t) {
   else if (t === 'remind') renderRemind(el);
   else if (t === 'roster') renderRoster(el);
   else if (t === 'detail') renderDetail(el);
-  else if (t === 'practice') { cache = {}; requestAnimationFrame(resize); refreshToday(); setMonUI(); if (C.mode === 'course' && C.phase !== 'play' && C.phase !== 'count') loadStage(C.stage); else renderCourseUI(); if (!P.monOff) startMonitor(false); }
+  else if (t === 'practice') { askVoice(); cache = {}; requestAnimationFrame(resize); refreshToday(); setMonUI(); if (C.mode === 'course' && C.phase !== 'play' && C.phase !== 'count') loadStage(C.stage); else renderCourseUI(); if (!P.monOff) startMonitor(false); }
   if (t !== 'practice') el.scrollTop = 0;
 }
 let rzT; window.addEventListener('resize', () => { clearTimeout(rzT); rzT = setTimeout(() => { if (['progress', 'detail'].includes(cur) && !P.running) go(cur); }, 250); });
@@ -1704,9 +1724,10 @@ DB = loadDB();
 if (!DB || !DB.users || !user(DB.me)) seedDemo();
 if (!DB.runs) DB.runs = {};
 buildTabs(); go(me().role === 'student' ? 'practice' : 'roster');
+renderVoiceSeg();
 if (C.mode === 'vib' && !vibUnlocked()) C.mode = 'free';
 resize(); if (C.mode === 'course') loadStage(0); else renderCourseUI(); P.raf = requestAnimationFrame(loop); setTimeout(checkReminder, 1500);
-window.__vn = { follow: courseFollow, genScaleLine, scaleCfg, P, C, CFG, V, VR, genLine, loadStage, startStage, setMode, DB: () => DB, go, switchUser, badgeList, daysOf, streakInfo, stopSession, startSession };
+window.__vn = { setVW, VLV, follow: courseFollow, genScaleLine, scaleCfg, P, C, CFG, V, VR, genLine, loadStage, startStage, setMode, DB: () => DB, go, switchUser, badgeList, daysOf, streakInfo, stopSession, startSession };
 })();
 </script>
 </body>
