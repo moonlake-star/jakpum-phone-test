@@ -63,3 +63,12 @@ console.log("pitch-page ok");
   assert.equal((src.match(/<div/g) || []).length, (src.match(/<\/div>/g) || []).length, "div 짝 안 맞음(설정 패널 깨짐 방지)");
   console.log("pitch-page: 설정 단순화·소음 맞춤 ok");
 }
+
+// 모드 버튼(자유/코스/비브라토)은 캔버스 밖 가운데에 크게, 비브라토는 폭 4단계(반음~4반음)
+{
+  assert.ok(src.indexOf('id="cbar"') < src.indexOf('id="stage"') && src.includes('class="seg big" id="segMode"') && src.includes('id="segVW"'), "모드 바 위치/폭 선택");
+  const lv = new Function("const CFG={};" + js.match(/const VLV = \{[\s\S]*?\n\};/)[0] + "return VLV;")();
+  assert.deepStrictEqual(Object.keys(lv), ["1", "2", "3", "4"]); assert.deepStrictEqual(Object.values(lv).map(v => v.name), ["반음", "2반음", "3반음", "4반음"]);
+  Object.values(lv).forEach((v, i, a) => { assert.ok(v.ext[0] < v.ext[1] && v.rate[0] < v.rate[1] && v.ext[1] < v.max, "폭 단계 범위 " + v.name); if (i) { assert.ok(v.ext[0] > a[i - 1].ext[0] && v.rate[1] <= a[i - 1].rate[1], "단계가 커질수록 폭↑ 속도↓: " + v.name); } });
+  console.log("pitch-page: 비브라토 폭 단계·모드 바 ok");
+}
