@@ -211,6 +211,35 @@ async function call(action, extra = {}) {
   return j;
 }
 
+// (11/04 사용자 승인) 사용 기록 — 열기·재생·끝까지 듣기·음정선 화면 (녹음·글 내용은 안 보냄). 모아서 20초마다·화면 떠날 때 한 번에
+const UT = { q: [], cur: "", t: null, on: new Map(), wired: false };
+function track(k, x = {}) {
+  if (!idToken || !data) return;
+  const e = { k, lesson: x.lesson ?? UT.cur }; if (x.f) e.f = x.f; if (x.s != null) e.s = Math.round(x.s);
+  UT.q.push(e); clearTimeout(UT.t); if (UT.q.length >= 40) utFlush(); else UT.t = setTimeout(utFlush, 20000);
+}
+function utFlush() {
+  if (!UT.q.length || !idToken) return;
+  const body = JSON.stringify({ action: "track", id_token: idToken, events: UT.q.splice(0, 60) });
+  try { fetch(PORTAL_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body, keepalive: true }).catch(() => {}); } catch {}
+}
+const utKind = (a) => a.dataset?.mka ? "makeup" : /^alb/.test(a.id) ? "album" : a.id === "fullAu" ? "full" : a.id === "allAu" ? "all" : /^au_/.test(a.id) ? "clip" : "audio";
+function utStop(a, ended) {   // 재생이 멈춘 순간: 실제로 들은 시간(벽시계, 곡 길이 이하) · 90% 넘게 들었으면 '끝까지'
+  const st = UT.on.get(a); if (!st) return; UT.on.delete(a);
+  const sec = Math.min((performance.now() - st.t0) / 1000, a.duration || 7200);
+  if (sec >= 1) track("listen", { lesson: st.lesson, f: st.f, s: sec });
+  if (ended || (a.duration && a.currentTime / a.duration >= 0.9 && st.from / a.duration < 0.5)) track("done", { lesson: st.lesson, f: st.f });
+}
+function utWire() {
+  if (UT.wired) return; UT.wired = true;
+  document.addEventListener("play", (e) => { const a = e.target; if (!(a instanceof HTMLMediaElement)) return;
+    if (!UT.on.has(a)) { const f = utKind(a); UT.on.set(a, { t0: performance.now(), from: a.currentTime || 0, lesson: UT.cur, f }); track("play", { f }); } }, true);
+  document.addEventListener("pause", (e) => { if (e.target instanceof HTMLMediaElement) utStop(e.target, false); }, true);
+  document.addEventListener("ended", (e) => { if (e.target instanceof HTMLMediaElement) utStop(e.target, true); }, true);
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") { [...UT.on.keys()].forEach(a => utStop(a, false)); utFlush(); } });
+  try { new MutationObserver((ms) => { if (ms.some(m => [...m.addedNodes].some(n => n.id === "tuneFs"))) track("tune"); }).observe(document.body, { childList: true }); } catch {}   // 음정선 전체화면이 열린 순간
+}
+
 async function load() {
   idToken = idToken || saved();
   if (!idToken) return loginView();
@@ -222,6 +251,7 @@ async function load() {
     if (j.state === "rejected") return $("view").innerHTML = `<div class="card"><p>이 계정은 연결되지 않았어요. 선생님께 문의해 주세요.</p></div>`;
     if (j.state === "closed") return $("view").innerHTML = `<div class="card"><p>지금은 노트를 볼 수 없어요. 선생님께 문의해 주세요.</p></div>`;
     data = j;
+    try { utWire(); track("open", { lesson: "" }); } catch {}
     // 출석·수강권 현황(선생님 앱이 '_status' 칸으로 보냄, 2026-10-29): 레슨 목록에서는 빼고 맨 위 카드로
     const sx = (j.lessons || []).find(l => l && l.id === "_status"); data.status = sx && sx.kind === "status" ? sx : null;
     const gx = (j.lessons || []).find(l => l && l.id === "_growth"); data.growth = gx && gx.kind === "growth" ? gx : null;   // (11/02) 나의 성장
@@ -715,6 +745,7 @@ function lessonHtml(l, prev, mode = "normal") {
 function openLesson(id) {
   const ls = data.lessons, i = ls.findIndex(l => l.id === id), l = ls[i], prev = ls.slice(i + 1).find(x => x.best?.file_id);
   history.replaceState(null, "", `${location.pathname}?l=${encodeURIComponent(id)}`);
+  try { UT.cur = id; track("note", { lesson: id }); } catch {}
   // 읽음: 서버에 기록된 뒤에만 이 기기에도 표시(실패하면 다음에 열 때 다시 보냄 — 감사 #53)
   if (!l.seen_at && !seenLocal()[id]) call("seen", { lesson: id }).then(() => { const s = seenLocal(); s[id] = Date.now(); LS.set("sn_seen", s); }).catch(() => {});
   const paint = () => {
