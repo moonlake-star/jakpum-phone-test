@@ -23,3 +23,8 @@ assert.ok(careTodos([{ sid: "a", rows: [row("2026-09-20"), row("2026-10-25"), ro
 assert.ok(careTodos([{ sid: "a", rows: [row("2026-08-10"), row("2026-11-01")] }], ctx).some(x => /5일 뒤 함께한 지 3개월/.test(x.t)), "기념일 10일 전부터");
 assert.ok(t.includes('<div id="careBox"></div>') && t.includes("paintCare(data)"));
 console.log("care-todos ok");
+// (11/05) 쉬는 중·그만둠은 챙기기에서 뺌
+{ const c2 = careTodos([{ sid: "a", rows: ["2026-10-01", "2026-10-15"].map(row) }], { ...ctx, students: { a: { name: "가", enroll: { state: "left", at: "2026-10-20" } } } });
+  assert.strictEqual(c2.length, 0, "그만둔 수강생은 안 뜸");
+  assert.ok(t.includes("function enrollSheet(sid)") && t.includes('enrollOf(st) !== "active" ? ` <span class="chip">'), "목록에 상태 표시"); }
+console.log("care-todos enroll ok");
