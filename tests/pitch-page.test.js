@@ -89,20 +89,29 @@ console.log("pitch-page ok");
 
 // 음 검출 안정화(옥타브 튐 방지) · 그래프 둔감화 · 상하 드래그 스크롤 · 프리뷰 구간 색
 {
-  assert.ok(src.includes("function octFix(") && src.includes("m = octFix(m, now);") && src.includes("OCT_N = 8"), "옥타브 점프 필터");
+  assert.ok(src.includes("function octFix(") && src.includes("m = octFix(m, now);") && src.includes("OCT_MS = 320"), "옥타브 점프 필터");
   assert.ok(src.includes("function calm(") && src.includes("sm = calm(sm, now, dt)"), "표시 피치 완화");
   assert.ok(src.includes("const canScroll =") && src.includes("SCR.id == null && now > SCR.hold"), "드래그 스크롤 + 자동 따라가기 보류");
   assert.ok(src.includes("function pvOf(") && src.includes("rgba(176,150,255"), "프리뷰 구간 색");
+  assert.ok(src.includes("function clearDemo()") && src.includes('id="demoClr"'), "샘플 기록 지우기 버튼");
   // 옥타브 필터 동작(순수 함수만 잘라서 확인)
-  const f = src.slice(src.indexOf("const OCT ="), src.indexOf("/* calm smoothing"));
-  const octFix = new Function(f + "; const CALM = {}; return octFix;")();
-  let t = 0, out = [];
-  for (let i = 0; i < 12; i++) out.push(octFix(45, t += 16));
-  for (let i = 0; i < 4; i++) out.push(octFix(57, t += 16));       // 짧은 옥타브 튐 → 원래 옥타브로 접힘
-  for (let i = 0; i < 4; i++) out.push(octFix(45, t += 16));
-  assert.ok(out.every(v => Math.abs(v - 45) < .5), "짧은 옥타브 튐은 접힘");
-  let last; for (let i = 0; i < 10; i++) last = octFix(57, t += 16);   // 실제 옥타브 이동은 받아들임
+  const f = src.slice(src.indexOf("const OCT ="), src.indexOf("function octReset()"));
+  const mk = () => new Function(f + "; return octFix;")();
+  let octFix = mk(), t = 0, out = [];
+  for (let i = 0; i < 20; i++) out.push(octFix(45, t += 16));
+  for (let i = 0; i < 12; i++) out.push(octFix(57, t += 16));       // 약 0.2초 옥타브 튐 → 원래 옥타브로 접힘
+  for (let i = 0; i < 6; i++) out.push(octFix(45, t += 16));
+  assert.ok(out.filter(v => v != null).every(v => Math.abs(v - 45) < .5), "0.3초 미만 옥타브 튐은 접힘");
+  let last; for (let i = 0; i < 30; i++) last = octFix(57, t += 16);   // 0.3초 넘게 지속되면 실제 이동
   assert.ok(Math.abs(last - 57) < .01, "지속되는 옥타브 이동은 인정");
-  assert.ok(Math.abs(octFix(50, t += 16) - 50) < 3 && true, "음 사이 이동은 그대로");
+  octFix = mk(); t = 0; const on = [octFix(57, t += 16), octFix(45, t += 16), octFix(45, t += 16)];   // 온셋 첫 프레임 오검출은 버림
+  assert.ok(on[0] === null && on[1] === null && Math.abs(on[2] - 45) < .01, "온셋은 두 프레임이 맞아야 시작");
   console.log("pitch-page: 음 검출 안정화·스크롤 ok");
+}
+
+// 발성 탭 다이어트: 스케일 고르기 → 회차 차트 → (접힌) 시작음·전환 구간 → 고정된 시작 버튼
+{
+  assert.ok(src.includes('class="goBar"') && src.includes("position:sticky;bottom:-14px") && src.includes('<details id="scAdv"'), "발성 탭 시작 버튼 고정 + 고급 설정 접기");
+  assert.ok(!src.includes('id="scG"') && !src.includes("<h2>발성 스케일</h2>"), "발성 탭 중복 성별 카드·제목 제거");
+  console.log("pitch-page: 발성 탭 다이어트 ok");
 }
