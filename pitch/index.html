@@ -2,8 +2,8 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="robots" content="noindex">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
 <meta name="theme-color" content="#22282c">
 <title>보컬노트 · 음정 연습</title>
 <style>
@@ -296,6 +296,7 @@ summary{cursor:pointer;color:var(--ink2)}
           <div class="setHead">설정 <button class="btn sm" id="setClose">닫기</button></div>
           <div class="sl" style="margin-top:0">난이도</div><div class="seg" id="segDiff"></div><div class="note2" id="diffDesc"></div>
           <div class="sgroup"><div class="sl">효과음</div><div class="seg" id="segSfx"></div><div class="note2" id="sfxDesc"></div></div>
+          <div class="sgroup"><div class="sl">코스 안내음</div><div class="seg" id="segGuide"></div><div class="note2">코스에서 음이 시작될 때 그 음을 짧게 들려줘요. 소리가 나는 동안 마이크는 잠깐 쉬어요.</div></div>
           <div class="sgroup"><div class="sl">비브라토 모드</div><div class="seg" id="segVib"></div><div class="note2">한 음을 10초 유지하면 열려요. 테스트용으로 항상 열 수도 있어요.</div></div>
           <div class="sgroup"><div class="sl">코스 음역 <span id="rangeDesc"></span></div><div class="seg" id="segRange"></div></div>
           <div class="sgroup"><div class="sl" style="display:flex;justify-content:space-between">마이크 감도 <span id="sensTxt"></span></div>
@@ -494,7 +495,8 @@ $('#modal').addEventListener('pointerdown', e => { if (e.target.id === 'modal') 
 
 /* ============ pitch detection (YIN) ============ */
 let cmBuf = null;
-function yin(buf, sr) {
+function yin(buf, sr, thr) {
+  thr = thr || 0.15;
   const half = buf.length >> 1;
   const maxLag = Math.min(half - 1, Math.floor(sr / 70)), minLag = Math.max(2, Math.floor(sr / 1100));
   if (!cmBuf || cmBuf.length < maxLag + 2) cmBuf = new Float32Array(maxLag + 2);
@@ -505,7 +507,7 @@ function yin(buf, sr) {
   }
   let tau = -1;
   for (let t = minLag; t <= maxLag; t++) {
-    if (cm[t] < 0.15) { while (t + 1 <= maxLag && cm[t + 1] < cm[t]) t++; tau = t; break; }
+    if (cm[t] < thr) { while (t + 1 <= maxLag && cm[t + 1] < cm[t]) t++; tau = t; break; }
   }
   if (tau < 0) return null;
   const x0 = cm[tau - 1], x1 = cm[tau], x2 = tau + 1 <= maxLag ? cm[tau + 1] : x1;
@@ -696,6 +698,7 @@ function renderSettings() {
   seg('segDiff', Object.keys(DF).map(k => [k, DF[k].name]), CFG.diff, v => { CFG.diff = v; saveCfg(); renderSettings(); P.onCfg('diff'); });
   $('#diffDesc').textContent = D().hint + ' 난이도는 판정과 코스에 모두 적용돼요.';
   seg('segSfx', [['auto', '자동'], ['on', '항상 켬'], ['off', '끔']], CFG.sfx, v => { CFG.sfx = v; saveCfg(); renderSettings(); if (v !== 'off') sfx('mile'); });
+  seg('segGuide', [['on', '켬'], ['off', '끔']], CFG.guide || 'on', v => { CFG.guide = v; saveCfg(); renderSettings(); });
   seg('segVib', [['cond', '조건 충족 시'], ['always', '항상 열기']], CFG.vibOpen || 'cond', v => { CFG.vibOpen = v; saveCfg(); renderSettings(); renderCourseUI(); });
   $('#sfxDesc').textContent = CFG.sfx === 'auto' ? (P.earphone ? '이어폰이 연결된 것으로 감지돼 효과음을 켰어요.' : P.earKnown ? '이어폰이 감지되지 않아 효과음은 꺼져 있어요 (화면 연출만).' : '이 브라우저에선 이어폰 연결을 알 수 없어 효과음은 꺼져 있어요. 이어폰을 쓰면 "항상 켬"을 선택하세요.') : CFG.sfx === 'on' ? '항상 재생해요. 스피커로 들으면 마이크에 섞일 수 있어요.' : '효과음 없이 화면 연출만 보여 줘요.';
   const near = RANGES.reduce((a, r) => Math.abs(r[1] - CFG.rc) < Math.abs(a[1] - CFG.rc) ? r : a);
@@ -772,12 +775,12 @@ function loadStage(i) {
 }
 function setMode(v) {
   if (v === 'vib' && !vibUnlocked()) { const u = me(); toast(`한 음을 10초 유지하면 열려요 (내 최고 ${pbHoldOf(u.id).toFixed(1)}초)`, 3500); return; }
-  if (C.phase === 'play' || C.phase === 'count') abortCourse();
+  if (C.phase === 'play' || C.phase === 'count' || C.phase === 'demo') abortCourse();
   if (P.pressed != null) releaseKey(); vibReset(); if (v === 'vib') endHold();
   C.mode = v; CFG.mode = v; saveCfg(); if (P.ghostHold !== undefined) renderGhostMark();
   if (v === 'course') loadStage(C.stage); else { C.phase = 'idle'; renderCourseUI(); }
 }
-function abortCourse() { if (C.phase === 'count' || C.phase === 'play') { C.phase = 'idle'; C.t = -3; C.i = 0; C.act = null; renderCourseUI(); } }
+function abortCourse() { if (C.phase === 'demo') stopDemo(); if (C.phase === 'count' || C.phase === 'play') { C.phase = 'idle'; C.t = -3; C.i = 0; C.act = null; renderCourseUI(); } }
 function renderCourseUI() {
   const cm = C.mode === 'course';
   $('#segMode').querySelectorAll('button').forEach(b => { b.classList.toggle('on', b.dataset.v === C.mode); if (b.dataset.v === 'vib') b.textContent = vibUnlocked() ? '비브라토' : '🔒 비브라토'; b.onclick = () => { if (b.dataset.v !== C.mode) setMode(b.dataset.v); }; });
@@ -789,15 +792,16 @@ function renderCourseUI() {
   updateTargetChip(); renderCOv();
 }
 function renderCOv() {
-  const el = $('#cOv');
+  const el = $('#cOv'); el.style.top = ''; el.style.bottom = '';
   if (C.mode !== 'course' || C.phase === 'count' || C.phase === 'play' || !C.line) { el.innerHTML = ''; return; }
+  if (C.phase === 'demo') { el.style.top = '46px'; el.style.bottom = 'auto'; el.innerHTML = `<div class="ccard" style="padding:6px 10px"><div class="crow"><b style="font-size:13px">🔊 들려주는 중 · 따라 불러 보세요</b><button class="btn sm" id="cStopDemo" style="white-space:nowrap">중지</button></div></div>`; el.querySelector('#cStopDemo').onclick = stopDemo; return; }
   const L = C.line, stg = STAGES[C.stage], g = C.ghost, bs = starsBest(C.stage, CFG.diff);
   const diffSeg = `<div class="seg s2" id="cDiff">${Object.keys(DF).map(k => `<button data-v="${k}" class="${k === CFG.diff ? 'on' : ''}">${DF[k].name}</button>`).join('')}</div>`;
   if (C.phase === 'idle') {
     el.innerHTML = `<div class="ccard"><div class="crow"><b>스테이지 ${C.stage + 1} · ${stg[0]}</b><span class="cst">${starTxt(bs)}</span></div>
-      <div class="note2">${stg[1]} · 시작음 ${midiName(L.notes[0].m)} · ${L.notes.length}음 · 약 ${Math.round(L.end - .8)}초${L.minor ? ' · 단조' : ''}</div>${diffSeg}
+      <div class="note2">${stg[1]} · 안내음 ${CFG.guide === 'off' ? '끔' : '켬'} · 시작음 ${midiName(L.notes[0].m)} · ${L.notes.length}음 · 약 ${Math.round(L.end - .8)}초${L.minor ? ' · 단조' : ''}</div>${diffSeg}
       ${g ? `<div class="cghost">👻 ${esc(g.label)} ${g.cov}% ${starTxt(g.stars)} · 같은 라인으로 대결해요</div>` : ''}
-      <div class="crow" style="margin-top:8px"><button class="btn sm" id="cRef">🔊 시작음</button><button class="btn sm" id="cDice">🎲 새 라인</button><button class="btn pri sm" id="cGo" style="flex:1">▶ 시작</button></div>
+      <div class="crow" style="margin-top:8px"><button class="btn sm" id="cRef">🔊 미리 듣기</button><button class="btn sm" id="cDice">🎲 새 라인</button><button class="btn pri sm" id="cGo" style="flex:1">▶ 시작</button></div>
       ${P.running ? '' : '<div class="note2" style="margin-top:5px">시작하면 오늘 연습 기록도 함께 시작돼요</div>'}</div>`;
   } else {
     const r = C.res, cp = r.prev;
@@ -810,7 +814,7 @@ function renderCOv() {
   }
   const q = id => el.querySelector(id);
   if (q('#cDiff')) q('#cDiff').querySelectorAll('button').forEach(b => b.onclick = () => { CFG.diff = b.dataset.v; saveCfg(); renderSettings(); loadStage(C.stage); });
-  if (q('#cRef')) q('#cRef').onclick = () => { const m = L.notes[0].m; pressKey(m); setTimeout(() => { if (P.pressed === m) releaseKey(); }, 1100); };
+  if (q('#cRef')) q('#cRef').onclick = startDemo;
   if (q('#cDice')) q('#cDice').onclick = () => { SEEDS[C.stage] = 1 + Math.floor(Math.random() * 99998); saveSeeds(); loadStage(C.stage); };
   if (q('#cGo')) q('#cGo').onclick = startStage;
   if (q('#cNext')) q('#cNext').onclick = () => loadStage(C.stage + 1);
@@ -916,10 +920,10 @@ function updateTrack(hs) {
 const VIBR = { easy: { rate: [4.0, 7.5], ext: [20, 80] }, normal: { rate: [4.5, 7.0], ext: [25, 70] }, hard: { rate: [5.0, 6.5], ext: [30, 60] } };
 const VR = () => VIBR[CFG.diff];
 const newVs = () => ({ cyc: 0, ok: 0, best: 0, sR: 0, sE: 0 });
-const V = { lastExtT: 0, buf: [], ctr: null, base: null, lastT: 0, fz: 0, tr: [], dir: 0, hi: null, lo: null, ext: [], streak: 0, rate: null, extent: null, verdict: '', out: 0, pd: null, s: newVs() };
+const V = { lastAn: 0, cyc: 0, lastExtT: 0, buf: [], ctr: null, base: null, lastT: 0, fz: 0, tr: [], dir: 0, hi: null, lo: null, ext: [], streak: 0, rate: null, extent: null, verdict: '', out: 0, pd: null, s: newVs() };
 const vpc = () => (P.H / 2 - 14) / 130;
 function vibUnlocked() { const u = me(); if (CFG.vibOpen === 'always' || !u || u.role !== 'student') return true; return Math.max(pbHoldOf(u.id), P.st.bestHold) >= 10; }
-function vibReset() { V.buf = []; V.ctr = null; V.base = null; V.dir = 0; V.hi = V.lo = null; V.ext = []; V.rate = null; V.extent = null; V.streak = 0; V.verdict = ''; V.pd = null; V.out = 0; V.lastExtT = 0; }
+function vibReset() { V.buf = []; V.ctr = null; V.base = null; V.dir = 0; V.hi = V.lo = null; V.ext = []; V.rate = null; V.extent = null; V.streak = 0; V.verdict = ''; V.pd = null; V.out = 0; V.lastExtT = 0; V.cyc = 0; }
 function vibTick(now, dt, m) {
   if (now < P.sfxUntil) { V.fz = now; V.lastExtT = now; V.ext = []; V.dir = 0; V.hi = V.lo = null; V.pd = null; return; }      // chime playing through speakers
   if (m == null) { if (V.lastT && now - V.lastT > 200 && (V.buf.length || V.streak)) vibReset(); return; }
@@ -931,35 +935,43 @@ function vibTick(now, dt, m) {
   const tg = P.target; V.base = tg != null ? tg + 12 * Math.round((mean - tg) / 12) : mean;
   const d = (m - V.base) * 100, ds = V.pd == null ? d : (d + V.pd) / 2; V.pd = d;
   V.tr.push({ t: now, d }); while (V.tr.length && V.tr[0].t < now - 1800) V.tr.shift();
-  if (V.verdict && now - V.lastExtT > 600) { V.streak = 0; V.verdict = ''; V.rate = null; V.extent = null; }   // steady tone: no vibrato
-  const H = 10; let e = null;
-  if (!V.hi) { V.hi = { t: now, v: ds }; V.lo = { t: now, v: ds }; }
-  if (V.dir === 0) {
-    if (ds > V.hi.v) V.hi = { t: now, v: ds }; if (ds < V.lo.v) V.lo = { t: now, v: ds };
-    if (ds - V.lo.v > H) { e = { k: 'v', t: V.lo.t, v: V.lo.v }; V.dir = 1; V.hi = { t: now, v: ds }; }
-    else if (V.hi.v - ds > H) { e = { k: 'p', t: V.hi.t, v: V.hi.v }; V.dir = -1; V.lo = { t: now, v: ds }; }
-  } else if (V.dir === 1) {
-    if (ds > V.hi.v) V.hi = { t: now, v: ds }; else if (V.hi.v - ds > H) { e = { k: 'p', t: V.hi.t, v: V.hi.v }; V.dir = -1; V.lo = { t: now, v: ds }; }
-  } else {
-    if (ds < V.lo.v) V.lo = { t: now, v: ds }; else if (ds - V.lo.v > H) { e = { k: 'v', t: V.lo.t, v: V.lo.v }; V.dir = 1; V.hi = { t: now, v: ds }; }
+  if (now - V.lastAn >= 100) { V.lastAn = now; vibStep(now); }
+  if (V.rate != null && V.verdict && V.verdict !== 'none') {           // count finished cycles at the measured speed
+    V.cyc += V.rate * dt / 1000;
+    while (V.cyc >= 1) { V.cyc -= 1; V.s.cyc++; V.s.sR += V.rate; V.s.sE += V.extent;
+      if (V.verdict === 'ok') { V.streak++; V.s.ok++; V.s.best = Math.max(V.s.best, V.streak); fireVib(V.streak); } else V.streak = 0; }
   }
-  if (e) vibExt(e, now);
 }
-function vibExt(e, now) {
-  V.lastExtT = now; const x = V.ext; x.push(e); if (x.length > 6) x.shift();
-  const n = x.length; if (e.k !== 'p' || n < 3 || x[n - 2].k !== 'v' || x[n - 3].k !== 'p') return;
-  const p0 = x[n - 3], v = x[n - 2], T = (e.t - p0.t) / 1000, p2p = ((e.v - v.v) + (p0.v - v.v)) / 2;
-  vibCycle(T, p2p / 2, now);
+/* Speed/width come from a 1.2 s spectrum of the pitch track (robust against jitter), not from raw peaks. */
+function vibAnalyze() {
+  const tr = V.tr, n = tr.length; if (n < 12) return null;
+  let i0 = n - 1; while (i0 > 0 && tr[i0].t - tr[i0 - 1].t < 160 && tr[i0 - 1].t > V.fz) i0--;
+  const tEnd = tr[n - 1].t; if (tEnd - tr[i0].t < 900) return null;
+  const FS = 50, tS = Math.max(tr[i0].t, tEnd - 1200), N = Math.floor((tEnd - tS) / 1000 * FS) + 1; if (N < 40) return null;
+  const md = []; for (let k = i0; k < n; k++) { const a = tr[Math.max(i0, k - 1)].d, b = tr[k].d, c = tr[Math.min(n - 1, k + 1)].d; md.push(Math.max(Math.min(a, b), Math.min(Math.max(a, b), c))); }   // median-of-3 kills one-frame octave glitches
+  const x = new Float64Array(N); let j = i0;
+  for (let q = 0; q < N; q++) { const t = tS + q * 1000 / FS; while (j < n - 2 && tr[j + 1].t < t) j++; const t0 = tr[j].t, t1 = tr[j + 1].t, f = t1 > t0 ? clamp((t - t0) / (t1 - t0), 0, 1) : 0; x[q] = md[j - i0] * (1 - f) + md[j + 1 - i0] * f; }
+  let sx = 0, sy = 0, sxx = 0, sxy = 0; for (let q = 0; q < N; q++) { sx += q; sy += x[q]; sxx += q * q; sxy += q * x[q]; }
+  const den = N * sxx - sx * sx, sl = den ? (N * sxy - sx * sy) / den : 0, ic = (sy - sl * sx) / N;
+  let sw = 0, sw2 = 0, e2 = 0; for (let q = 0; q < N; q++) { const w = .5 - .5 * Math.cos(2 * Math.PI * q / (N - 1)); x[q] = (x[q] - ic - sl * q) * w; sw += w; sw2 += w * w; e2 += x[q] * x[q]; }
+  const sig2 = e2 / sw2, F = [], Pw = []; let tot = 0;
+  for (let f = 2; f <= 20.001; f += .25) { let re = 0, im = 0; const wv = 2 * Math.PI * f / FS; for (let q = 0; q < N; q++) { re += x[q] * Math.cos(wv * q); im += x[q] * Math.sin(wv * q); } F.push(f); Pw.push(re * re + im * im); tot += re * re + im * im; }
+  let pk = -1, pv = 0; for (let k = 0; k < F.length; k++) if (F[k] >= 3 && F[k] <= 9 && Pw[k] > pv) { pv = Pw[k]; pk = k; } if (pk < 1 || pk > F.length - 2 || tot <= 0) return null;
+  const d2 = Pw[pk - 1] + Pw[pk + 1] - 2 * Pw[pk], off = d2 ? clamp((Pw[pk - 1] - Pw[pk + 1]) / (2 * d2), -.5, .5) : 0, rate = F[pk] + off * .25;
+  let band = 0; for (let k = 0; k < F.length; k++) if (Math.abs(F[k] - rate) <= 1.25) band += Pw[k];
+  const Q = band / tot, qn = clamp((Q - .14) / .86, 0, 1);
+  let ext = Math.sqrt(2 * sig2 * qn);
+  const w = .65 * (P.an ? P.an.fftSize / P.ctx.sampleRate : .043), xa = Math.PI * rate * w; ext /= Math.max(.5, (Math.sin(xa) / xa) * Math.cos(Math.PI * rate * .0167));   // undo averaging loss of the pitch window
+  return { rate, ext, Q };
 }
-function vibCycle(T, extent, now) {
-  const R = VR(), rate = 1 / T;
-  { const w = .65 * (P.an ? P.an.fftSize / P.ctx.sampleRate : .043), xa = Math.PI * rate * w; extent /= (Math.sin(xa) / xa) * Math.cos(Math.PI * rate * .0167); }   // undo averaging loss of the pitch window
-  V.rate = V.rate == null ? rate : V.rate * .6 + rate * .4; V.extent = V.extent == null ? extent : V.extent * .6 + extent * .4;
-  if (T > .45 || T < .1 || extent < 8) { V.streak = 0; V.verdict = 'none'; return; }
-  V.s.cyc++; V.s.sR += rate; V.s.sE += extent;
-  const rOk = rate >= R.rate[0] && rate <= R.rate[1], eOk = extent >= R.ext[0] && extent <= R.ext[1];
-  V.verdict = rOk && eOk ? 'ok' : !rOk ? (rate < R.rate[0] ? 'slow' : 'fast') : (extent < R.ext[0] ? 'narrow' : 'wide');
-  if (V.verdict === 'ok') { V.streak++; V.s.ok++; V.s.best = Math.max(V.s.best, V.streak); fireVib(V.streak); } else V.streak = 0;
+function vibStep(now) {
+  const r = vibAnalyze(), R = VR(); V.dbg = r;
+  if (r && r.Q >= .4 && r.ext >= 8) {
+    V.lastExtT = now; V.rate = V.rate == null ? r.rate : V.rate * .7 + r.rate * .3; V.extent = V.extent == null ? r.ext : V.extent * .7 + r.ext * .3;
+    const rOk = V.rate >= R.rate[0] && V.rate <= R.rate[1], eOk = V.extent >= R.ext[0] && V.extent <= R.ext[1], was = V.verdict;
+    V.verdict = rOk && eOk ? 'ok' : !rOk ? (V.rate < R.rate[0] ? 'slow' : 'fast') : (V.extent < R.ext[0] ? 'narrow' : 'wide');
+    if (V.verdict !== 'ok') V.streak = 0;
+  } else if (V.verdict && now - V.lastExtT > 300) { V.streak = 0; V.verdict = ''; V.rate = null; V.extent = null; V.cyc = 0; }     // steady tone (or silence): no vibrato
 }
 const VM = { 3: ['3연속', 'NICE ✨', '#ffffff'], 5: ['비브라토 성공!', 'GREAT 👍', '#ffd27a'], 10: ['10연속!', 'EXCELLENT 🔥', '#ff9f43'], 20: ['20연속!!', 'AMAZING ⭐', '#ffd23f'] };
 function vibXY() { const last = V.tr[V.tr.length - 1]; return { x: PIANO_W + (P.W - PIANO_W) * .8, y: P.H / 2 - (last ? last.d : 0) * vpc() }; }
@@ -986,7 +998,10 @@ function updateVibHud() {
   if (cache.vrd !== a) { $('#vRd').style.left = a; cache.vrd = a; } if (cache.ved !== b) { $('#vEd').style.left = b; cache.ved = b; }
   if (cache.vop !== op) { $('#vRd').style.opacity = op; $('#vEd').style.opacity = op; cache.vop = op; }
   const n = Math.min(V.streak, 5); if (cache.vpn !== n) { document.querySelectorAll('#vPips i').forEach((x, k) => x.classList.toggle('on', k < n)); cache.vpn = n; }
-  setTxt('vCnt', String(V.streak)); setTxt('vFb', live ? VFB[V.verdict] || '' : '', 'vfb' + (live && V.verdict === 'ok' ? ' ok' : ''));
+  let fb = live ? VFB[V.verdict] || '' : '';
+  if (!live) { const nowT = performance.now(), hear = nowT - V.lastT < 500, r = V.dbg;
+    fb = !hear ? (V.lastT && nowT - V.lastT < 3000 ? '소리가 끊겼어요 · 한 음을 이어서' : '소리가 안 잡혀요 · 마이크 가까이, 조금 크게') : !r ? '듣는 중… 한 음을 계속 내 보세요' : r.Q < .4 || r.ext < 8 ? '음은 잡혀요 · 흔들림이 약해요 (지금 ±' + Math.round(r.ext) + ')' : ''; }
+  setTxt('vCnt', String(V.streak)); setTxt('vFb', fb, 'vfb' + (live && V.verdict === 'ok' ? ' ok' : ''));
 }
 function drawVib(now) {
   const W = P.W, H = P.H, L = PIANO_W, nowX = L + (W - L) * .8, WIN = 1.6, pps = (nowX - L) / WIN, cy = H / 2, pc = vpc(), R = VR();
@@ -1017,18 +1032,45 @@ function drawVib(now) {
 }
 
 /* ============ course engine ============ */
+function guideTone(m, dur) {
+  try {
+    const ctx = actx(), t0 = ctx.currentTime, o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sine'; o.frequency.value = mFreq(m);
+    g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(.22, t0 + .02); g.gain.setValueAtTime(.22, t0 + Math.max(.03, dur - .06)); g.gain.linearRampToValueAtTime(0, t0 + dur);
+    o.connect(g).connect(ctx.destination); o.start(t0); o.stop(t0 + dur + .02);
+    if (!P.earphone) P.toneUntil = Math.max(P.toneUntil, performance.now() + dur * 1000 + 120);   // speaker: the mic would hear the guide tone
+  } catch (e) {}
+}
+const reqOf = n => Math.max(.25, n.d - D().grace - (n.mute || 0));
+function guideNote(n, first, now) {
+  if (n.guided || CFG.guide === 'off') return; n.guided = true;
+  if (first) { const dur = Math.min(.55, Math.max(.2, n.t0 - .05)); guideTone(n.m, dur); n.mute = Math.max(0, now + dur + .12 - n.t0); return; }
+  if (n.d < .75) return;                                     // short notes: no room for a guide tone
+  const dur = clamp(n.d * .25, .15, .24); guideTone(n.m, dur); n.mute = dur + .12;
+}
+function startDemo() {
+  if (!C.line || C.phase === 'demo') return; if (P.pressed != null) releaseKey();
+  C.line.notes.forEach(n => { n.demoed = false; n.fin = false; n.ok = false; n.bins = null; }); C.t = -.6; C.i = 0; C.act = null; C.phase = 'demo'; renderCourseUI();
+}
+function stopDemo() { if (C.phase === 'demo') { C.phase = 'idle'; C.t = -3; C.i = 0; C.act = null; renderCourseUI(); } }
 const courseRef = () => { const L = C.line, n = L.notes[Math.min(C.i, L.notes.length - 1)]; return n.m; };
 async function startStage() {
   if (!P.mon && !(await startMonitor(true))) return;
   if (!P.running) await startSession();
   if (!P.running) return;
   endHold(); P.hd = newHold(); P.st.combo = 0;
-  C.line.notes.forEach(n => { n.on = 0; n.vm = 0; n.es = 0; n.ok = false; n.fin = false; n.ratio = 0; n.bins = new Uint8Array(Math.ceil(n.d / .05)); });
+  C.line.notes.forEach(n => { n.guided = false; n.mute = 0; n.on = 0; n.vm = 0; n.es = 0; n.ok = false; n.fin = false; n.ratio = 0; n.bins = new Uint8Array(Math.ceil(n.d / .05)); });
   C.t = -3; C.i = 0; C.act = null; C.cleared = 0; C.cnt = 3; C.rec = []; C.res = null; C.ghost = ghostFor(); C.phase = 'count';
   sfx('tick'); renderCourseUI();
 }
 function courseAdvance(dt) {
   const c = C, L = c.line; c.t += dt / 1000;
+  if (c.phase === 'demo') {
+    while (c.i < L.notes.length && c.t >= L.notes[c.i].t0 + L.notes[c.i].d) c.i++;
+    const n = L.notes[c.i]; c.act = n && c.t >= n.t0 ? n : null;
+    if (n && !n.demoed && c.t >= n.t0 - .02) { n.demoed = true; guideTone(n.m, n.d); }
+    if (c.t >= L.end - .4) stopDemo();
+    return;
+  }
   if (c.phase === 'count') {
     const n = Math.ceil(-c.t); if (n !== c.cnt && n >= 1 && n <= 3) { c.cnt = n; sfx('tick'); }
     if (c.t >= 0) { c.phase = 'play'; sfx('go'); }
@@ -1036,6 +1078,7 @@ function courseAdvance(dt) {
   if (c.phase === 'play') {
     while (c.i < L.notes.length && c.t >= L.notes[c.i].t0 + L.notes[c.i].d) { finalizeNote(L.notes[c.i]); c.i++; }
     const n = L.notes[c.i]; c.act = n && c.t >= n.t0 ? n : null;
+    if (n && !n.guided && (c.i === 0 ? c.t >= 0 : c.t >= n.t0 - .02)) guideNote(n, c.i === 0, c.t);
     if (c.t >= L.end) endStage();
   } else c.act = null;
 }
@@ -1048,7 +1091,7 @@ function courseTick(now, dt, sm) {
   if (err <= D().tol) { n.on += ds; const b = Math.floor((c.t - n.t0) / .05); if (b >= 0 && b < n.bins.length) n.bins[b] = 1; }
 }
 function finalizeNote(n) {
-  n.fin = true; const ratio = clamp(n.on / Math.max(.3, n.d - D().grace), 0, 1), st = P.st, now = performance.now(); let key, text, col;
+  n.fin = true; const ratio = clamp(n.on / reqOf(n), 0, 1), st = P.st, now = performance.now(); let key, text, col;
   n.ratio = ratio; n.ok = ratio >= .6;
   if (ratio >= .9) { key = 'perfect'; text = 'PERFECT'; col = '#ffd27a'; } else if (ratio >= .75) { key = 'great'; text = 'GREAT'; col = '#ff9f43'; }
   else if (ratio >= .6) { key = 'good'; text = 'GOOD'; col = '#e8ecf1'; } else { key = 'miss'; text = 'MISS'; col = '#8a95a1'; }
@@ -1063,7 +1106,7 @@ function finalizeNote(n) {
 }
 function endStage() {
   const c = C, L = c.line, th = D().stars; c.phase = 'result'; c.act = null;
-  let sum = 0, tot = 0, cl = 0; L.notes.forEach(n => { if (!n.fin) finalizeNote(n); const req = Math.max(.3, n.d - D().grace); sum += Math.min(n.on, req); tot += req; if (n.ok) cl++; });
+  let sum = 0, tot = 0, cl = 0; L.notes.forEach(n => { if (!n.fin) finalizeNote(n); const req = reqOf(n); sum += Math.min(n.on, req); tot += req; if (n.ok) cl++; });
   const cov = tot ? sum / tot : 0, stars = cov >= th[2] ? 3 : cov >= th[1] ? 2 : cov >= th[0] ? 1 : 0, covP = Math.round(cov * 100), u = me();
   const prev = c.ghost && c.ghost.cov != null ? { label: c.ghost.label, cov: c.ghost.cov, stars: c.ghost.stars } : null, bestBefore = starsBest(c.stage, CFG.diff);
   c.res = { stars, cov: covP, cleared: cl, n: L.notes.length, prev, diff: CFG.diff, stage: c.stage, seed: SEEDS[c.stage], newBest: stars > bestBefore };
@@ -1084,7 +1127,7 @@ function updateCprog() {
 }
 function rr(x, y, w, h, r) { g2.beginPath(); if (g2.roundRect) g2.roundRect(x, y, w, h, r); else g2.rect(x, y, w, h); }
 function drawCourse(rh, nowX, pps, W, H) {
-  const c = C; if (c.mode !== 'course' || !c.line || (c.phase !== 'count' && c.phase !== 'play' && c.phase !== 'result')) return;
+  const c = C; if (c.mode !== 'course' || !c.line || (c.phase !== 'count' && c.phase !== 'play' && c.phase !== 'result' && c.phase !== 'demo')) return;
   const tNow = c.phase === 'result' ? c.line.end - 1.2 : c.t;
   g2.save(); g2.beginPath(); g2.rect(PIANO_W, 0, W - PIANO_W, H); g2.clip();
   for (const n of c.line.notes) {
@@ -1128,14 +1171,14 @@ function loop(ts) {
     let rms = 0; for (let i = 0; i < P.buf.length; i++) rms += P.buf[i] * P.buf[i]; rms = Math.sqrt(rms / P.buf.length);
     const tone = P.pressed != null || now < P.toneUntil;
     if (!tone && now < P.sfxUntil) { if (P.lastM != null && now - P.lastMT < 600) m = P.lastM; }   // chime playing through speakers: carry the last pitch
-    else if (!tone && rms > P.sens) { const r = yin(P.buf, P.ctx.sampleRate); if (r && r.clarity > .8) m = freqM(r.freq); }
+    else if (!tone && rms > P.sens) { const vbm = C.mode === 'vib', r = yin(P.buf, P.ctx.sampleRate, vbm ? .24 : .15); if (r && r.clarity > (vbm ? .68 : .8)) m = freqM(r.freq); }
   }
   // median-of-3 smoothing
   P.recent.push(m); if (P.recent.length > 3) P.recent.shift();
   let sm = null; const vs = P.recent.filter(v => v != null);
   if (m != null && vs.length >= 2) { vs.sort((a, b) => a - b); sm = vs[Math.floor(vs.length / 2)]; }
   const cp = C.mode === 'course' && (C.phase === 'play' || C.phase === 'count');
-  if (cp) courseAdvance(dt);
+  if (cp || (C.mode === 'course' && C.phase === 'demo')) courseAdvance(dt);
   const vb = C.mode === 'vib';
   if (vb) { vibTick(now, dt, m); sm = (V.ctr != null && now - V.lastT < 350) ? V.ctr : null; }
   if (cp && sm != null) sm += 12 * Math.round((courseRef() - sm) / 12);          // course: show the voice in the octave of the notes
