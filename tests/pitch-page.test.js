@@ -79,3 +79,10 @@ console.log("pitch-page ok");
   assert.ok(src.includes("const HINT_MON = \"목풀기 중"), "하단 안내 한 줄");
   console.log("pitch-page: 화면 정리·성별 팝업 ok");
 }
+
+// 성별 선택 직후 자유 화면 + 한 개의 팝업('주변 소리 확인 중' → '소리를 내 보세요')
+{
+  assert.ok(src.includes("setMode('free'); voiceChanged(); sayHello();") && src.includes("function micPop(") && src.includes("🎤 소리를 내 보세요"), "성별 선택 후 자유 화면 + 안내 팝업");
+  assert.ok(!/toast\('주변/.test(src), "주변 소리 안내는 팝업 하나로 통합");
+  console.log("pitch-page: 첫 진입 안내 팝업 ok");
+}

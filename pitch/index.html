@@ -80,6 +80,8 @@ input,select{font:inherit;color:var(--ink)}
 .seg{display:flex;gap:4px}
 .seg button{flex:1;min-width:0;height:32px;padding:0 4px;border-radius:8px;background:#1b2024;border:1px solid var(--line);color:var(--ink2);font-size:12px}
 .seg button.on{background:var(--accent);border-color:var(--accent);color:var(--accentInk);font-weight:700}
+#micPop{position:fixed;left:50%;top:40%;transform:translate(-50%,-50%);z-index:90;max-width:300px;width:calc(100% - 48px);padding:20px 22px;border-radius:18px;background:rgba(16,20,24,.95);border:1px solid var(--line);text-align:center;pointer-events:none;opacity:0;transition:opacity .25s}
+#micPop.show{opacity:1}#micPop b{display:block;font-size:19px;line-height:1.35}#micPop span{display:block;margin-top:6px;font-size:13px;color:var(--ink2);line-height:1.4}
 #voicePop{position:fixed;inset:0;z-index:80;background:rgba(10,12,14,.84);display:flex;align-items:center;justify-content:center;padding:20px}
 .vpc{width:100%;max-width:360px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:22px 20px;text-align:center}
 .vpc b{font-size:18px}.vpc .seg{margin-top:16px;gap:10px}.vpc .seg button{height:64px;font-size:20px;font-weight:700;border-radius:14px}
@@ -759,12 +761,14 @@ CFG.guide = 'on'; CFG.vibOpen = 'always'; CFG.rcMe = 0; CFG.rc = VOICE_RC[scaleC
 function setVoice(g) { CFG.sc = CFG.sc || {}; if (CFG.sc.g !== g) { CFG.sc.g = g; CFG.sc.off = 0; } CFG.rc = VOICE_RC[g]; CFG.vset = 1; saveCfg(); }
 function voiceChanged() { renderVoiceSeg(); if (C.mode === 'course' && C.phase !== 'play' && C.phase !== 'count') loadStage(C.stage); else renderCourseUI(); }
 function renderVoiceSeg() { const h = $('#segVoice'), g = scaleCfg(CFG.sc).g; h.innerHTML = Object.keys(VOICE).map(k => `<button data-v="${k}" class="${k === g ? 'on' : ''}">${VOICE[k].name}</button>`).join(''); h.querySelectorAll('button').forEach(b => b.onclick = () => { setVoice(b.dataset.v); voiceChanged(); }); }
+/* 성별을 고른 직후: 주변 소리 확인이 끝나면 잠깐 '소리를 내 보세요' 안내 */
+function sayHello() { if (P.cal || !P.mon) { P.hello = true; return; } micPop('🎤 소리를 내 보세요', '', 3000); }
 /* 처음 한 번만: 목소리 성별(남/여)를 팝업으로 물어봐요. 이후엔 설정(⚙)에서 바꿔요 */
 function askVoice() {
   if (CFG.vset || $('#voicePop')) return;
   const d = document.createElement('div'); d.id = 'voicePop';
   d.innerHTML = `<div class="vpc"><b>목소리 성별을 골라 주세요</b><div class="note2" style="margin-top:8px">코스의 음 높이와 발성 스케일이 여기에 맞춰져요.<br>나중에 설정(⚙)에서 바꿀 수 있어요.</div><div class="seg">${Object.keys(VOICE).map(k => `<button data-v="${k}">${VOICE[k].name}</button>`).join('')}</div></div>`;
-  document.body.appendChild(d); d.querySelectorAll('button').forEach(b => b.onclick = () => { setVoice(b.dataset.v); d.remove(); voiceChanged(); });
+  document.body.appendChild(d); d.querySelectorAll('button').forEach(b => b.onclick = () => { setVoice(b.dataset.v); d.remove(); setMode('free'); voiceChanged(); sayHello(); });   // 고른 뒤엔 자유 화면에서 시작
 }
 const scaleSig = sc => { const c = scaleCfg(sc); return [c.k, c.g, c.off, c.zs, c.ze].join('-'); };
 function genScaleLine(sc, diff) {
@@ -1297,19 +1301,26 @@ async function startMonitor(manual) {
   } finally { P.monBusy = false; setMonUI(); }
 }
 /* 주변 소리 자동 맞춤: 연습 화면에 들어와 마이크가 켜지면 1.5초 동안 배경 소리 크기를 재고, 그보다 확실히 큰 소리만 목소리로 봐요 */
-function startCal() { P.cal = { t0: performance.now(), v: [] }; P.gate = 0; toast('주변 소리를 확인하고 있어요 · 잠깐만 조용히 해 주세요', 1800); }
+/* 한 개의 팝업으로 안내: 주변 소리 확인 중 → (처음이면) 소리를 내 보세요 */
+let micPopT = 0;
+function micPop(title, sub, ms) { let d = $('#micPop'); if (!d) { d = document.createElement('div'); d.id = 'micPop'; document.body.appendChild(d); }
+  d.innerHTML = `<b>${title}</b>${sub ? `<span>${sub}</span>` : ''}`; void d.offsetWidth; d.classList.add('show'); clearTimeout(micPopT); if (ms) micPopT = setTimeout(hideMicPop, ms); }
+function hideMicPop() { clearTimeout(micPopT); const d = $('#micPop'); if (d) d.classList.remove('show'); }
+function startCal() { P.cal = { t0: performance.now(), v: [] }; P.gate = 0; micPop('🎤 주변 소리를 확인하고 있어요', '잠깐만 조용히 해 주세요'); }
 function calStep(now, rms, skip) { const c = P.cal; if (!skip) c.v.push(rms); if (now - c.t0 >= 1500) finishCal(); }
+function calDone(status, ms) { if (P.hello) { P.hello = false; micPop('🎤 소리를 내 보세요', status, 3200); } else micPop(status, '', ms); }
 function finishCal() {
-  const c = P.cal; P.cal = null; if (!c || c.v.length < 20) { P.gate = 0; return; }
+  const c = P.cal; P.cal = null;
+  if (!c || c.v.length < 20) { P.gate = 0; calDone('준비됐어요', 1500); return; }
   const v = c.v.slice().sort((a, b) => a - b), floor = v[Math.floor(v.length * .25)], want = floor * 3;   // 하위 25%(말·소리가 섞여도 바닥 소음 기준) × 3
   P.noise = floor; P.gate = Math.min(want, .04);
-  if (want > .04) toast('주변이 꽤 시끄러워요 · 조용한 곳이나 이어폰 마이크를 쓰면 더 정확해요', 4200);
-  else if (P.gate > P.sens * 1.2) toast('주변 소리에 맞춰 마이크를 조정했어요', 2200);
-  else toast('주변이 조용해요 · 준비됐어요', 1800);
+  if (want > .04) calDone('주변이 꽤 시끄러워요 · 조용한 곳이나 이어폰 마이크를 쓰면 더 정확해요', 4200);
+  else if (P.gate > P.sens * 1.2) calDone('주변 소리에 맞춰 마이크를 조정했어요', 2000);
+  else calDone('주변이 조용해요 · 준비됐어요', 1800);
 }
 function stopMonitor() {
   try { if (P.stream) P.stream.getTracks().forEach(t => t.stop()); if (P.src) P.src.disconnect(); } catch (e) {}
-  endHold(); P.stream = null; P.src = null; P.an = null; P.mon = false; P.recent = []; P.cal = null; setMonUI();
+  endHold(); P.stream = null; P.src = null; P.an = null; P.mon = false; P.recent = []; P.cal = null; P.hello = false; hideMicPop(); setMonUI();
 }
 $('#monState').onclick = async () => {
   if (P.running) { toast('연습 기록 중에는 끌 수 없어요'); return; }
