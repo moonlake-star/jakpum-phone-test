@@ -346,6 +346,22 @@ summary{cursor:pointer;color:var(--ink2)}
 <script>
 (() => {
 'use strict';
+/* ============ 수강생 앱 연결 ============
+   수강생 앱(../student/)에서 '음정 연습' 버튼으로 열면(?from=student) 같은 사이트의 로그인 기록(sn_tok)으로 '내 계정' 모드가 돼요.
+   - 샘플 사용자 없이 본인 한 명만, 기록은 이 폰의 별도 저장소(vn_pitch_me)에 쌓여요.
+   - 날짜별 연습 요약(연습 시간·점수·최고 유지·코스 별)만 선생님 노트 서버(PORTAL_URL)로 보내요. 녹음·목소리는 저장도 전송도 안 해요. */
+const PORTAL_URL = 'https://script.google.com/macros/s/AKfycbyxHvxn4VkX83JrcGK1bQqJivhUPktWNyJn_HRpSyIyQ-lVoXh0MNaps2PUmY_obwJTBQ/exec';
+function snToken() {
+  try {
+    const t = JSON.parse(localStorage.getItem('sn_tok')), b = t.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'), p = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(b + '==='.slice((b.length + 3) % 4)), c => c.charCodeAt(0))));
+    return p.exp * 1000 > Date.now() + 60000 ? { tok: t, name: String(p.name || '').slice(0, 20) } : null;
+  } catch (e) { return null; }
+}
+const FROM_STUDENT = new URLSearchParams(location.search).get('from') === 'student', SN = FROM_STUDENT ? snToken() : null;
+if (FROM_STUDENT && !SN) {
+  document.body.innerHTML = '<div style="max-width:420px;margin:18vh auto;padding:0 20px;text-align:center;color:#e8ecf1;font:16px/1.6 system-ui,sans-serif"><b style="font-size:19px">먼저 내 노트에서 로그인해 주세요</b><p style="color:#8a95a1">구글 로그인이 끝나야 음정 연습 기록이 선생님께 이어져요.</p><a href="../student/" style="display:inline-block;margin-top:8px;padding:12px 22px;border-radius:12px;background:#e48d16;color:#2b1800;font-weight:800;text-decoration:none">내 노트로 가기</a></div>';
+  return;
+}
 /* ============ utils ============ */
 const $ = (s, el = document) => el.querySelector(s);
 const NN = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
@@ -373,7 +389,7 @@ const weekKey = k => { const d = dOf(k); d.setDate(d.getDate() - mod(d.getDay() 
 /* ============ storage ============ */
 const HOLD_KEYS = [3, 6, 9, 12, 15, 18, 21, 24, 27, 30];           // success times: every 3 s
 const holdZero = () => Object.fromEntries(HOLD_KEYS.map(k => [k, 0]));
-const KEY = 'vn_pitch_v1';
+const KEY = SN ? 'vn_pitch_me' : 'vn_pitch_v1';
 let DB = null;
 const loadDB = () => { try { const s = localStorage.getItem(KEY); return s ? JSON.parse(s) : null; } catch (e) { return null; } };
 const saveDB = () => { try { localStorage.setItem(KEY, JSON.stringify(DB)); } catch (e) {} };
@@ -853,7 +869,14 @@ function renderVoiceSeg() { const h = $('#segVoice'), g = scaleCfg(CFG.sc).g; h.
 /* 성별을 고른 직후: 주변 소리 확인이 끝나면 잠깐 '소리를 내 보세요' 안내 */
 function sayHello() { if (P.cal || !P.mon) { P.hello = true; return; } micPop('🎤 소리를 내 보세요', '', 3000); }
 /* 처음 한 번만: 목소리 성별(남/여)를 팝업으로 물어봐요. 이후엔 설정(⚙)에서 바꿔요 */
+function snNotice() {
+  if (!SN || localStorage.getItem('vn_me_notice') || $('#voicePop')) return false;
+  const d = document.createElement('div'); d.id = 'voicePop';
+  d.innerHTML = '<div class="vpc"><b>연습 기록은 선생님께 전달돼요</b><div class="note2" style="margin-top:8px;line-height:1.6">\'기록 도전\'으로 한 연습의 <b>날짜별 요약</b>(연습 시간·점수·최고 유지·코스 별)만 선생님께 보내요.<br>녹음과 목소리는 저장도 전송도 하지 않아요.<br>그냥 \'연습\'은 기록되지 않아요.</div><div class="seg"><button id="snOk">확인했어요</button></div></div>';
+  document.body.appendChild(d); d.querySelector('#snOk').onclick = () => { try { localStorage.setItem('vn_me_notice', '1'); } catch (e) {} d.remove(); askVoice(); }; return true;
+}
 function askVoice() {
+  if (snNotice()) return;
   if (CFG.vset || $('#voicePop')) return;
   const d = document.createElement('div'); d.id = 'voicePop';
   d.innerHTML = `<div class="vpc"><b>목소리 성별을 골라 주세요</b><div class="note2" style="margin-top:8px">코스의 음 높이와 발성 스케일이 여기에 맞춰져요.<br>나중에 설정(⚙)에서 바꿀 수 있어요.</div><div class="seg">${Object.keys(VOICE).map(k => `<button data-v="${k}">${VOICE[k].name}</button>`).join('')}</div></div>`;
@@ -1494,6 +1517,22 @@ async function startSession() {
   P.running = true; startBtn.classList.add('run'); startBtn.textContent = '기록 끝내기'; setMonUI();
   closeBanner(); renderCourseUI();
 }
+/* 날짜별 요약만 서버로(본인 토큰으로 본인 칸에만 저장). 실패하면 큐에 남겨 다음에 다시 시도 */
+async function pitchSync() {
+  if (!SN || P.syncing) return; const t = snToken(), q = DB.sync = DB.sync || []; if (!t || !q.length) return;
+  P.syncing = true;
+  try {
+    for (const day of q.slice()) {
+      const d = daysOf('me')[day], co = []; DB.sessions.forEach(x => { if (x.day === day && x.st && x.st.co) x.st.co.forEach(c => co.push({ st: c.stage, s: c.stars, c: c.cov })); });
+      if (d) {
+        const sum = { sec: Math.round(d.sec), vms: Math.round(d.vms), sfs: Math.round(d.sfs), n: d.n, hold: Math.round(d.bestHold * 10) / 10, combo: d.maxCombo, score: d.score, co: co.slice(-30) };
+        const r = await fetch(PORTAL_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'pitch_save', id_token: t.tok, day, sum }) }), j = await r.json();
+        if (!j.ok) throw new Error(j.error || 'fail');
+      }
+      q.splice(q.indexOf(day), 1); saveDB();
+    }
+  } catch (e) {} finally { P.syncing = false; }
+}
 function stopSession() {
   if (!P.running) return;
   abortCourse(); endHold(); P.running = false;
@@ -1506,7 +1545,8 @@ function stopSession() {
   if (!short) {
     const rec = { perfect: st.perfect, great: st.great, good: st.good, miss: st.miss, maxCombo: st.maxCombo, bestHold: Math.round(st.bestHold * 10) / 10, holdMs: Math.round(st.holdMs), hold: st.hold, co: (P.co || []).slice(), vib: V.s.cyc ? { cyc: V.s.cyc, ok: V.s.ok, best: V.s.best, rate: Math.round(V.s.sR / V.s.cyc * 10) / 10, ext: Math.round(V.s.sE / V.s.cyc), lv: JSON.parse(JSON.stringify(V.s.lv || {})) } : undefined };
     DB.sessions.push({ id: 'u' + Date.now(), uid: u.id, day: today, start: P.startAt, activeSec: sec, vms: P.vms, sfs: P.sfs, reminderAt: P.reminderAt, diff: CFG.diff, st: rec });
-    saveDB();
+    if (SN) { DB.sync = DB.sync || []; if (!DB.sync.includes(today)) DB.sync.push(today); }
+    saveDB(); pitchSync();
     ctx.session = { score: Math.round(100 * P.sfs / P.vms), sec };
     ctx.newPB = rec.bestHold >= 3 && rec.bestHold > ctx.pbBefore;
     ctx.newly = badgeList(u.id).filter(b => b.earned && !ctx.before.has(b.id));
@@ -1814,7 +1854,7 @@ function userModal() {
   const bd = $('#uDemo'); let armed = false;
   bd.onclick = () => { if (!armed) { armed = true; bd.textContent = '정말 지울까요? 한 번 더'; return; } clearDemo(); closeModal(); };
 }
-$('#userBtn').onclick = userModal;
+$('#userBtn').onclick = SN ? () => { if (P.running) { toast('연습 중에는 나갈 수 없어요. 먼저 "기록 끝내기"를 눌러 주세요'); return; } location.href = '../student/'; } : userModal;
 function switchUser(id) { if (P.running) { toast('연습 중에는 전환할 수 없어요'); return; } DB.me = id; saveDB(); cache = {}; buildTabs(); go(me().role === 'student' ? 'practice' : 'roster'); checkReminder(); }
 
 /* ============ tabs / routing ============ */
@@ -1862,7 +1902,7 @@ function renderScale(el) {
   $('#scGo', el).onclick = () => { C.stage = 3; C.mode = 'course'; CFG.mode = 'course'; saveCfg(); go('practice'); };
 }
 function buildTabs() {
-  const u = me(); $('#userBtn').innerHTML = `${esc(u.name)} <b>· ${ROLE_KO[u.role]}</b> ▾`;
+  const u = me(); $('#userBtn').innerHTML = SN ? '← 내 노트' : `${esc(u.name)} <b>· ${ROLE_KO[u.role]}</b> ▾`;
   $('#tabs').innerHTML = TABS[u.role].map(([id, nm]) => `<button data-t="${id}" aria-label="${nm}"><svg viewBox="0 0 24 24">${ICON[id]}</svg>${nm}</button>`).join('');
   $('#tabs').querySelectorAll('button').forEach(b => b.onclick = () => { if (b.dataset.t === 'practice' && cur !== 'practice' && C.stage === 3) { C.stage = 0; C.mode = 'free'; CFG.mode = 'free'; saveCfg(); } go(b.dataset.t); });
 }
@@ -1888,13 +1928,17 @@ let rzT; window.addEventListener('resize', () => { clearTimeout(rzT); rzT = setT
 
 /* ============ init ============ */
 DB = loadDB();
-if (!DB || !DB.users || !user(DB.me)) seedDemo();
+if (SN) {   // 내 계정 모드: 샘플 없이 본인 한 명
+  if (!DB || !DB.users || !user('me')) { DB = { v: 1, me: 'me', users: [{ id: 'me', name: SN.name || '나', role: 'student' }], sessions: [], settings: {}, runs: {} }; saveDB(); }
+  DB.me = 'me'; if (SN.name) user('me').name = SN.name;
+} else if (!DB || !DB.users || !user(DB.me)) seedDemo();
 if (!DB.runs) DB.runs = {};
 buildTabs(); go(me().role === 'student' ? 'practice' : 'roster');
 renderVoiceSeg();
+if (SN) { pitchSync(); document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') pitchSync(); }); }
 if (C.mode === 'vib' && !vibUnlocked()) C.mode = 'free';
 resize(); if (C.mode === 'course') loadStage(0); else renderCourseUI(); P.raf = requestAnimationFrame(loop); setTimeout(checkReminder, 1500);
-window.__vn = { pianoVoice, pianoOut, mFreq, guideNote, setVW, VLV, follow: courseFollow, genScaleLine, scaleCfg, P, C, CFG, V, VR, genLine, loadStage, startStage, setMode, DB: () => DB, go, switchUser, badgeList, daysOf, streakInfo, stopSession, startSession };
+window.__vn = { pianoVoice, pianoOut, mFreq, guideNote, setVW, VLV, follow: courseFollow, genScaleLine, scaleCfg, P, C, CFG, V, VR, genLine, loadStage, startStage, setMode, DB: () => DB, go, switchUser, badgeList, daysOf, streakInfo, stopSession, startSession, pitchSync };
 })();
 </script>
 </body>
