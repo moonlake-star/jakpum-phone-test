@@ -115,3 +115,12 @@ console.log("pitch-page ok");
   assert.ok(!src.includes('id="scG"') && !src.includes("<h2>발성 스케일</h2>"), "발성 탭 중복 성별 카드·제목 제거");
   console.log("pitch-page: 발성 탭 다이어트 ok");
 }
+
+// 피아노 음색(저음 보강·컴프레서) + 발성 스케일: 사이클 전 도미솔 코드, 음마다 피아노 안내
+{
+  assert.ok(src.includes("function pianoVoice(") && src.includes("createPeriodicWave") && src.includes("createDynamicsCompressor"), "피아노 음색 + 컴프레서");
+  assert.ok(!src.includes("o.type = 'sine'; o.frequency.value = mFreq(m)"), "사인파 안내음 제거");
+  assert.ok(src.includes("function guideChord(") && src.includes("[0, 4, 7].forEach(d => pianoVoice("), "도미솔 코드");
+  assert.ok(src.includes("if (P.earphone) { guideTone(n.m, n.d, 0, true); n.mute = 0; } else { guideTone(n.m, .45); n.mute = .57; }"), "스케일 음마다 안내(이어폰: 끝까지 / 스피커: 시작 부분만)");
+  console.log("pitch-page: 피아노 음색·스케일 안내 ok");
+}
