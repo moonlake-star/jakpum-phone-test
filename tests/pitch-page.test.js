@@ -37,3 +37,12 @@ for (const g of ["m", "f"]) for (const k of ["five", "tri", "arp"]) for (const o
 }
 assert.ok(js.includes("id=\"v-scale\"") || src.includes('id="v-scale"'), "발성 탭 화면 누락");
 console.log("pitch-page ok");
+
+// 목풀기(기록 안 됨) / 기록 도전(기록됨) 구분, 옥타브 버튼 제거(자동 스크롤), 미리 듣기·새 라인 버튼 제거
+{
+  assert.ok(src.includes('id="startBtn" class="cta">기록 도전<') && src.includes("'▶ 목풀기'") && src.includes("'▶ 도전'"), "목풀기/기록 도전 버튼");
+  assert.ok(!src.includes("'오늘 연습 시작'") && !src.includes('연습 끝내기"를'), "옛 문구 제거");
+  assert.ok(src.includes("C.warm = !P.running") && src.includes("!c.warm && stars === 3"), "목풀기는 기록·새 라인 갱신 안 함");
+  assert.ok(!src.includes('id="octUp"') && !src.includes('id="octDn"') && src.includes("function courseFollow("), "옥타브 버튼 제거 + 자동 스크롤");
+  console.log("pitch-page: 목풀기/기록 도전 ok");
+}

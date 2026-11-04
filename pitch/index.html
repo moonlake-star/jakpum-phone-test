@@ -288,9 +288,7 @@ summary{cursor:pointer;color:var(--ink2)}
       <div class="dock">
         <div class="goalbar" id="goalWrap"><i id="goalfill"></i><span id="goaltext"></span></div>
         <div class="controls">
-          <button id="octDn" class="ibtn" aria-label="한 옥타브 아래">▼ 옥타브</button>
-          <button id="startBtn" class="cta">오늘 연습 시작</button>
-          <button id="octUp" class="ibtn" aria-label="한 옥타브 위">▲ 옥타브</button>
+          <button id="startBtn" class="cta">기록 도전</button>
           <button id="gear" class="ibtn" aria-label="설정">⚙</button>
         </div>
         <div id="setBack"></div>
@@ -651,8 +649,6 @@ function updateTargetChip() {
   if (P.target != null) $('#targetName').textContent = midiName(P.target);
 }
 $('#targetClear').onclick = () => { P.target = null; updateTargetChip(); };
-$('#octUp').onclick = () => { P.low = clamp(P.low + 12, 12, 108 - P.rows); };
-$('#octDn').onclick = () => { P.low = clamp(P.low - 12, 12, 108 - P.rows); };
 const togSet = () => { $('#setPanel').classList.toggle('open'); $('#setBack').classList.toggle('open', $('#setPanel').classList.contains('open')); };
 $('#gear').onclick = togSet; $('#setClose').onclick = togSet; $('#setBack').onclick = togSet;
 const SENS = [.004, .006, .008, .010, .012, .016, .02, .026, .034, .045];
@@ -772,13 +768,13 @@ const scaleSig = sc => { const c = scaleCfg(sc); return [c.k, c.g, c.off, c.zs, 
 function genScaleLine(sc, diff) {
   const c = scaleCfg(sc), V = VOICE[c.g], S = SCALES.find(x => x.k === c.k), top = Math.max(...S.iv), base = V.start + c.off;
   const reps = clamp(c.ze + 2 - top - base + 1, 1, 24), len = (diff === 'easy' ? .65 : .52) * LM, rest = 1.4;
-  let t = 1.2, demoEnd = 0; const notes = [];
+  let t = 1.2; const notes = [];
   for (let r = 0; r < reps; r++) {
     S.iv.forEach((d, i) => { const l = i === S.iv.length - 1 ? len * 2 : len; notes.push({ m: base + r + d, t0: t, d: Math.max(.3, l - .07), rep: r, pre: i === 0 && r > 0 ? 1.3 : 0 }); t += l; });
-    if (r === 0) demoEnd = t + .4; t += rest;
+    t += rest;
   }
   const ms = notes.map(x => x.m), mn = Math.min(...ms), mx = Math.max(...ms);
-  return { notes, end: t - rest + .8, demoEnd, minM: mn, maxM: mx, center: (mn + mx) / 2, minor: false, stage: 3, seed: scaleSig(sc), scale: true, reps, zs: c.zs, ze: c.ze, base, k: c.k, g: c.g };
+  return { notes, end: t - rest + .8, minM: mn, maxM: mx, center: (mn + mx) / 2, minor: false, stage: 3, seed: scaleSig(sc), scale: true, reps, zs: c.zs, ze: c.ze, base, k: c.k, g: c.g };
 }
 
 /* ============ course state + UI ============ */
@@ -800,16 +796,23 @@ function starsBest(stage, diff) {
 const starTxt = (n, tot = 3) => '★'.repeat(n) + '☆'.repeat(tot - n);
 function loadStage(i) {
   C.stage = i; C.line = i === 3 ? genScaleLine(CFG.sc, CFG.diff) : genLine(i, SEEDS[i], CFG.diff, CFG.rc); C.phase = 'idle'; C.t = -3; C.i = 0; C.act = null; C.res = null; C.ghost = ghostFor();
-  P.low = clamp(Math.round(C.line.center - P.rows / 2), 12, 108 - P.rows); renderCourseUI();
+  courseFollow(0, true); renderCourseUI();
+}
+// lane follows the notes that are coming up in the next 3 s (replaces the manual octave buttons)
+function courseFollow(t, force) {
+  const L = C.line; if (!L) return; let lo = 999, hi = -999;
+  for (let k = Math.min(C.i, L.notes.length - 1); k < L.notes.length && L.notes[k].t0 <= t + 3; k++) { lo = Math.min(lo, L.notes[k].m); hi = Math.max(hi, L.notes[k].m); }
+  if (lo > hi) return;
+  if (force || lo < P.low + 2 || hi > P.low + P.rows - 3) P.low = clamp(Math.round((lo + hi) / 2 - P.rows / 2), 12, 108 - P.rows);
 }
 function setMode(v) {
   if (v === 'vib' && !vibUnlocked()) { const u = me(); toast(`한 음을 10초 유지하면 열려요 (내 최고 ${pbHoldOf(u.id).toFixed(1)}초)`, 3500); return; }
-  if (C.phase === 'play' || C.phase === 'count' || C.phase === 'demo') abortCourse();
+  if (C.phase === 'play' || C.phase === 'count') abortCourse();
   if (P.pressed != null) releaseKey(); vibReset(); if (v === 'vib') endHold();
   C.mode = v; CFG.mode = v; saveCfg(); if (P.ghostHold !== undefined) renderGhostMark();
   if (v === 'course') { if (C.stage === 3) C.stage = 0; loadStage(C.stage); } else { C.phase = 'idle'; renderCourseUI(); }
 }
-function abortCourse() { if (C.phase === 'demo') stopDemo(); if (C.phase === 'count' || C.phase === 'play') { C.phase = 'idle'; C.t = -3; C.i = 0; C.act = null; renderCourseUI(); } }
+function abortCourse() { if (C.phase === 'count' || C.phase === 'play') { C.phase = 'idle'; C.t = -3; C.i = 0; C.act = null; renderCourseUI(); } }
 function renderCourseUI() {
   const cm = C.mode === 'course';
   $('#segMode').querySelectorAll('button').forEach(b => { b.classList.toggle('on', b.dataset.v === C.mode); if (b.dataset.v === 'vib') b.textContent = vibUnlocked() ? '비브라토' : '🔒 비브라토'; b.onclick = () => { if (b.dataset.v !== C.mode) setMode(b.dataset.v); }; });
@@ -823,7 +826,6 @@ function renderCourseUI() {
 function renderCOv() {
   const el = $('#cOv'); el.style.top = ''; el.style.bottom = '';
   if (C.mode !== 'course' || C.phase === 'count' || C.phase === 'play' || !C.line) { el.innerHTML = ''; return; }
-  if (C.phase === 'demo') { el.style.top = '46px'; el.style.bottom = 'auto'; el.innerHTML = `<div class="ccard" style="padding:6px 10px"><div class="crow"><b style="font-size:13px">🔊 들려주는 중 · 따라 불러 보세요</b><button class="btn sm" id="cStopDemo" style="white-space:nowrap">중지</button></div></div>`; el.querySelector('#cStopDemo').onclick = stopDemo; return; }
   const L = C.line, stg = STAGES[C.stage], g = C.ghost, bs = starsBest(C.stage, CFG.diff);
   const diffSeg = `<div class="seg s2" id="cDiff">${Object.keys(DF).map(k => `<button data-v="${k}" class="${k === CFG.diff ? 'on' : ''}">${DF[k].name}</button>`).join('')}</div>`;
   if (C.phase === 'idle' && L.scale) {
@@ -831,17 +833,17 @@ function renderCOv() {
     el.innerHTML = `<div class="ccard"><div class="crow"><b>발성 · ${S.t} · ${VOICE[sc.g].name}</b><span class="cst">${starTxt(bs)}</span></div>
       <div class="note2">전환 구간 ${midiName(sc.zs)}~${midiName(sc.ze)} · ${midiName(L.base)}부터 ${L.reps}회 · 약 ${Math.max(1, Math.round(L.end / 60))}분 · 안내음 ${CFG.guide === 'off' ? '끔' : '켬'}</div>${diffSeg}
       ${g ? `<div class="cghost">👻 ${esc(g.label)} ${g.cov}% ${starTxt(g.stars)} · 같은 설정으로 대결해요</div>` : ''}
-      <div class="crow" style="margin-top:8px"><button class="btn sm" id="cRef">🔊 첫 회 듣기</button><button class="btn sm" id="cSet">⚙ 설정</button><button class="btn pri sm" id="cGo" style="flex:1">▶ 시작</button></div>
-      ${P.running ? '' : '<div class="note2" style="margin-top:5px">시작하면 오늘 연습 기록도 함께 시작돼요</div>'}</div>`;
+      <div class="crow" style="margin-top:8px"><button class="btn sm" id="cSet">⚙ 설정</button><button class="btn pri sm" id="cGo" style="flex:1">${P.running ? '▶ 도전' : '▶ 목풀기'}</button></div>
+      ${P.running ? '' : '<div class="note2" style="margin-top:5px">지금은 목풀기 · 기록되지 않아요. 기록하려면 아래 "기록 도전"을 먼저 누르세요</div>'}</div>`;
     el.querySelector('#cDiff').querySelectorAll('button').forEach(b => b.onclick = () => { CFG.diff = b.dataset.v; saveCfg(); renderSettings(); loadStage(C.stage); });
-    el.querySelector('#cRef').onclick = startDemo; el.querySelector('#cGo').onclick = startStage; el.querySelector('#cSet').onclick = () => go('scale'); return;
+    el.querySelector('#cGo').onclick = startStage; el.querySelector('#cSet').onclick = () => go('scale'); return;
   }
   if (C.phase === 'idle') {
     el.innerHTML = `<div class="ccard"><div class="crow"><b>스테이지 ${C.stage + 1} · ${stg[0]}</b><span class="cst">${starTxt(bs)}</span></div>
-      <div class="note2">${stg[1]} · 안내음 ${CFG.guide === 'off' ? '끔' : '켬'} · 시작음 ${midiName(L.notes[0].m)} · ${L.notes.length}음 · 약 ${Math.round(L.end - .8)}초${L.minor ? ' · 단조' : ''}</div>${diffSeg}
+      <div class="note2">${stg[1]} · 안내음 ${CFG.guide === 'off' ? '끔' : '켬'} · 시작음 ${midiName(L.notes[0].m)} · ${L.notes.length}음 · 약 ${Math.round(L.end - .8)}초${L.minor ? ' · 단조' : ''} · 별 3개면 새 라인</div>${diffSeg}
       ${g ? `<div class="cghost">👻 ${esc(g.label)} ${g.cov}% ${starTxt(g.stars)} · 같은 라인으로 대결해요</div>` : ''}
-      <div class="crow" style="margin-top:8px"><button class="btn sm" id="cRef">🔊 미리 듣기</button><button class="btn sm" id="cDice">🎲 새 라인</button><button class="btn pri sm" id="cGo" style="flex:1">▶ 시작</button></div>
-      ${P.running ? '' : '<div class="note2" style="margin-top:5px">시작하면 오늘 연습 기록도 함께 시작돼요</div>'}</div>`;
+      <div class="crow" style="margin-top:8px"><button class="btn pri sm" id="cGo" style="flex:1">${P.running ? '▶ 도전' : '▶ 목풀기'}</button></div>
+      ${P.running ? '' : '<div class="note2" style="margin-top:5px">지금은 목풀기 · 기록되지 않아요. 기록하려면 아래 "기록 도전"을 먼저 누르세요</div>'}</div>`;
   } else {
     const r = C.res, cp = r.prev;
     el.innerHTML = `<div class="ccard"><div class="note2" style="text-align:center">${L.scale ? '발성 스케일 · ' + SCALES.find(x => x.k === L.k).t + ' · ' + VOICE[L.g].name : '스테이지 ' + (C.stage + 1) + ' · ' + stg[0]} · ${DF[CFG.diff].name}</div>
@@ -849,17 +851,15 @@ function renderCOv() {
       <div style="text-align:center;font-size:13px;color:var(--ink)">${r.stars === 3 ? '완벽해요! ' : r.stars ? '클리어! ' : '아쉬워요. '}음 ${r.cleared}/${r.n} 성공 · 일치율 <b>${r.cov}%</b></div>
       ${r.zone ? `<div class="cvs"><span>전환 구간 안 <b>${r.zone.inOk}/${r.zone.inN}</b> · 밖 <b>${r.zone.outOk}/${r.zone.outN}</b></span>${r.zone.worst.length ? `<span>자주 놓친 음 <b>${r.zone.worst.join(' ')}</b></span>` : ''}</div>` : ''}
       ${cp ? `<div class="cvs"><span>👻 ${esc(cp.label)} ${cp.cov}% ${starTxt(cp.stars)}</span><b class="${r.cov > cp.cov ? 'up' : r.cov < cp.cov ? 'dn' : ''}">${r.cov > cp.cov ? '▲ +' + (r.cov - cp.cov) : r.cov < cp.cov ? '▼ ' + (r.cov - cp.cov) : '동점'}%p</b></div>` : ''}
-      ${r.stars < 3 ? `<div class="note2" style="text-align:center;margin-top:4px">다음 별까지 일치율 ${Math.round(D().stars[r.stars] * 100)}% 필요해요</div>` : ''}
-      <div class="crow" style="margin-top:8px">${L.scale ? '<button class="btn sm" id="cSet">⚙ 설정</button>' : '<button class="btn sm" id="cDice">🎲 새 라인</button>'}<button class="btn sm" id="cGo">다시</button>${C.stage < 2 ? '<button class="btn pri sm" id="cNext" style="flex:1">다음 스테이지 ▶</button>' : '<button class="btn pri sm" id="cEnd" style="flex:1">연습 끝내고 리포트 ▶</button>'}</div></div>`;
+      ${r.warm ? '<div class="note2" style="text-align:center;margin-top:4px">목풀기라 기록되지 않았어요 · 기록하려면 "기록 도전"을 누르고 도전하세요</div>' : ''}${r.stars < 3 ? `<div class="note2" style="text-align:center;margin-top:4px">다음 별까지 일치율 ${Math.round(D().stars[r.stars] * 100)}% 필요해요</div>` : ''}
+      <div class="crow" style="margin-top:8px">${L.scale ? '<button class="btn sm" id="cSet">⚙ 설정</button>' : ''}<button class="btn sm" id="cGo">${C.nextFresh ? '새 라인' : '다시'}</button>${C.stage < 2 ? '<button class="btn pri sm" id="cNext" style="flex:1">다음 스테이지 ▶</button>' : '<button class="btn pri sm" id="cEnd" style="flex:1">' + (r.warm ? '목풀기 마치기' : '연습 끝내고 리포트 ▶') + '</button>'}</div></div>`;
   }
   const q = id => el.querySelector(id);
   if (q('#cDiff')) q('#cDiff').querySelectorAll('button').forEach(b => b.onclick = () => { CFG.diff = b.dataset.v; saveCfg(); renderSettings(); loadStage(C.stage); });
-  if (q('#cRef')) q('#cRef').onclick = startDemo;
   if (q('#cSet')) q('#cSet').onclick = () => go('scale');
-  if (q('#cDice')) q('#cDice').onclick = () => { SEEDS[C.stage] = 1 + Math.floor(Math.random() * 99998); saveSeeds(); loadStage(C.stage); };
-  if (q('#cGo')) q('#cGo').onclick = startStage;
+  if (q('#cGo')) q('#cGo').onclick = () => { if (C.nextFresh) loadStage(C.stage); startStage(); };
   if (q('#cNext')) q('#cNext').onclick = () => loadStage(C.stage + 1);
-  if (q('#cEnd')) q('#cEnd').onclick = () => stopSession();
+  if (q('#cEnd')) q('#cEnd').onclick = () => { if (C.res && C.res.warm && !P.running) loadStage(C.stage); else stopSession(); };
 }
 P.onCfg = () => { if (C.mode === 'course' && C.phase !== 'play' && C.phase !== 'count') loadStage(C.stage); if (C.mode === 'vib') renderVibZones(); };
 
@@ -897,7 +897,7 @@ function popBanner(t, sub, col, small) {
 function fireMilestone(T, rec) {
   if (P.running) { const k = T <= 30 ? T : 30; P.st.hold[k] = (P.st.hold[k] || 0) + 1; }
   const fx = MILE_FX[T] || [`${T}초!`, 'LEGEND 👑', '#ffd27a'];
-  popBanner(fx[0], fx[1], fx[2], rec ? `🏅 유지 시간 개인 최고 갱신! (이전 ${P.pbHold.toFixed(1)}초)` : (!P.running && !P.warnedMon ? '지금은 기록 전이에요 · 시작을 눌러야 기록돼요' : ''));
+  popBanner(fx[0], fx[1], fx[2], rec ? `🏅 유지 시간 개인 최고 갱신! (이전 ${P.pbHold.toFixed(1)}초)` : (!P.running && !P.warnedMon ? '지금은 목풀기예요 · ‘기록 도전’을 눌러야 기록돼요' : ''));
   if (!P.running) P.warnedMon = true;
   const c = cursorXY(); burst(c.x, c.y, T >= 15 ? 60 : T >= 10 ? 46 : 28, T >= 10 ? ['#ffd27a', '#ff9f43', '#ffffff', '#7fe3ff'] : ['#ffd27a', '#ffffff', '#e48d16']);
   try { if (navigator.vibrate) navigator.vibrate(T >= 10 ? [30, 40, 30] : 25); } catch (e) {}
@@ -1019,7 +1019,7 @@ function vibXY() { const last = V.tr[V.tr.length - 1]; return { x: PIANO_W + (P.
 function fireVib(n) {
   const k = VM[n] ? n : (n > 20 && n % 10 === 0 ? 20 : 0); if (!k) return;
   const fx = VM[k], c = vibXY();
-  popBanner(n > 20 ? n + '연속!!' : fx[0], fx[1], fx[2], !P.running && !P.warnedMon ? '지금은 기록 전이에요 · 시작을 눌러야 기록돼요' : '');
+  popBanner(n > 20 ? n + '연속!!' : fx[0], fx[1], fx[2], !P.running && !P.warnedMon ? '지금은 목풀기예요 · ‘기록 도전’을 눌러야 기록돼요' : '');
   if (!P.running) P.warnedMon = true;
   burst(c.x, c.y, k >= 10 ? 50 : 28, k >= 10 ? ['#ffd27a', '#ff9f43', '#ffffff', '#7fe3ff'] : ['#7fe3a8', '#ffffff', '#ffd27a']);
   sfx(k >= 10 ? 'big' : 'mile'); if (k >= 5) flash(fx[2]);
@@ -1090,30 +1090,17 @@ function guideNote(n, first, now) {
   if (n.d < .75 || (C.line && C.line.scale)) return;           // short notes: no room for a guide tone
   const dur = clamp(n.d * .5, .3, .48); guideTone(n.m, dur); n.mute = dur + .12;
 }
-function startDemo() {
-  if (!C.line || C.phase === 'demo') return; if (P.pressed != null) releaseKey();
-  C.line.notes.forEach(n => { n.demoed = false; n.fin = false; n.ok = false; n.bins = null; }); C.t = -.6; C.i = 0; C.act = null; C.phase = 'demo'; renderCourseUI();
-}
-function stopDemo() { if (C.phase === 'demo') { C.phase = 'idle'; C.t = -3; C.i = 0; C.act = null; renderCourseUI(); } }
 const courseRef = () => { const L = C.line, n = L.notes[Math.min(C.i, L.notes.length - 1)]; return n.m; };
 async function startStage() {
   if (!P.mon && !(await startMonitor(true))) return;
-  if (!P.running) await startSession();
-  if (!P.running) return;
-  endHold(); P.hd = newHold(); P.st.combo = 0;
+  C.warm = !P.running;   // 목풀기: 기록 도전(세션)이 켜져 있지 않으면 기록 없이 진행
+  endHold(); P.hd = newHold(); P.st.combo = 0; C.nextFresh = false;
   C.line.notes.forEach(n => { n.guided = false; n.mute = 0; n.on = 0; n.vm = 0; n.es = 0; n.ok = false; n.fin = false; n.ratio = 0; n.bins = new Uint8Array(Math.ceil(n.d / .05)); });
   C.t = -3; C.i = 0; C.act = null; C.cleared = 0; C.cnt = 3; C.rec = []; C.res = null; C.ghost = ghostFor(); C.phase = 'count';
   sfx('tick'); renderCourseUI();
 }
 function courseAdvance(dt) {
   const c = C, L = c.line; c.t += dt / 1000;
-  if (c.phase === 'demo') {
-    while (c.i < L.notes.length && c.t >= L.notes[c.i].t0 + L.notes[c.i].d) c.i++;
-    const n = L.notes[c.i]; c.act = n && c.t >= n.t0 ? n : null;
-    if (n && !n.demoed && c.t >= n.t0 - .02) { n.demoed = true; guideTone(n.m, n.d); }
-    if (c.t >= (L.demoEnd || L.end) - .4) stopDemo();
-    return;
-  }
   if (c.phase === 'count') {
     const n = Math.ceil(-c.t); if (n !== c.cnt && n >= 1 && n <= 3) { c.cnt = n; sfx('tick'); }
     if (c.t >= 0) { c.phase = 'play'; sfx('go'); }
@@ -1152,12 +1139,13 @@ function endStage() {
   let sum = 0, tot = 0, cl = 0; L.notes.forEach(n => { if (!n.fin) finalizeNote(n); const req = reqOf(n); sum += Math.min(n.on, req); tot += req; if (n.ok) cl++; });
   const cov = tot ? sum / tot : 0, stars = cov >= th[2] ? 3 : cov >= th[1] ? 2 : cov >= th[0] ? 1 : 0, covP = Math.round(cov * 100), u = me();
   const prev = c.ghost && c.ghost.cov != null ? { label: c.ghost.label, cov: c.ghost.cov, stars: c.ghost.stars } : null, bestBefore = starsBest(c.stage, CFG.diff);
-  c.res = { stars, cov: covP, cleared: cl, n: L.notes.length, prev, diff: CFG.diff, stage: c.stage, seed: c.stage === 3 ? L.seed : SEEDS[c.stage], newBest: stars > bestBefore };
+  c.res = { stars, cov: covP, cleared: cl, n: L.notes.length, prev, diff: CFG.diff, stage: c.stage, seed: c.stage === 3 ? L.seed : SEEDS[c.stage], newBest: !C.warm && stars > bestBefore, warm: !!C.warm };
   if (L.scale) { const inz = n => n.m >= L.zs && n.m <= L.ze, a = L.notes.filter(inz), b = L.notes.filter(n => !inz(n)), bad = {}; L.notes.forEach(n => { if (!n.ok) bad[n.m] = (bad[n.m] || 0) + 1; });
     c.res.zone = { inN: a.length, inOk: a.filter(n => n.ok).length, outN: b.length, outOk: b.filter(n => n.ok).length, worst: Object.keys(bad).map(Number).sort((x, y) => bad[y] - bad[x] || x - y).slice(0, 3).sort((x, y) => x - y).map(midiName) }; }
-  c.local[c.stage + CFG.diff] = Math.max(c.local[c.stage + CFG.diff] || 0, stars);
-  (P.co = P.co || []).push({ stage: c.stage, stars, cov: covP, diff: CFG.diff, seed: c.res.seed, day: dayKey() });
-  if (u && u.role === 'student' && P.running) {
+  c.nextFresh = false; if (!c.warm && stars === 3 && c.stage < 3) { SEEDS[c.stage] = 1 + Math.floor(Math.random() * 99998); saveSeeds(); c.nextFresh = true; }   // mastered: the next attempt is a fresh line
+  if (!c.warm) { c.local[c.stage + CFG.diff] = Math.max(c.local[c.stage + CFG.diff] || 0, stars);
+    (P.co = P.co || []).push({ stage: c.stage, stars, cov: covP, diff: CFG.diff, seed: c.res.seed, day: dayKey() }); }
+  if (!c.warm && u && u.role === 'student' && P.running) {
     DB.runs = DB.runs || {}; const k = curKey(), arr = DB.runs[k] = DB.runs[k] || [];
     arr.push({ day: dayKey(), at: Date.now(), cov: covP, stars, tr: c.rec.slice(0, Math.ceil(L.end * 10)) }); while (arr.length > 6) arr.shift(); saveDB();
   }
@@ -1174,7 +1162,7 @@ function rr(x, y, w, h, r) { g2.beginPath(); if (g2.roundRect) g2.roundRect(x, y
 function drawCourse(rh, nowX, pps, W, H) {
   const c = C;
   if (c.mode === 'course' && c.line && c.line.scale) { const y0 = yMid(c.line.ze) - rh / 2, y1 = yMid(c.line.zs) + rh / 2; g2.save(); g2.fillStyle = 'rgba(255,180,58,.11)'; g2.fillRect(PIANO_W, y0, W - PIANO_W, y1 - y0); g2.fillStyle = 'rgba(255,200,110,.85)'; g2.font = '700 10px system-ui,sans-serif'; g2.textAlign = 'right'; g2.textBaseline = 'top'; g2.fillText('전환 구간', W - 6, y0 + 3); g2.restore(); }
-  if (c.mode !== 'course' || !c.line || (c.phase !== 'count' && c.phase !== 'play' && c.phase !== 'result' && c.phase !== 'demo')) return;
+  if (c.mode !== 'course' || !c.line || (c.phase !== 'count' && c.phase !== 'play' && c.phase !== 'result')) return;
   const tNow = c.phase === 'result' ? c.line.end - 1.2 : c.t;
   g2.save(); g2.beginPath(); g2.rect(PIANO_W, 0, W - PIANO_W, H); g2.clip();
   for (const n of c.line.notes) {
@@ -1226,7 +1214,7 @@ function loop(ts) {
   let sm = null; const vs = P.recent.filter(v => v != null);
   if (m != null && vs.length >= 2) { vs.sort((a, b) => a - b); sm = vs[Math.floor(vs.length / 2)]; }
   const cp = C.mode === 'course' && (C.phase === 'play' || C.phase === 'count');
-  if (cp || (C.mode === 'course' && C.phase === 'demo')) courseAdvance(dt);
+  if (cp) { courseAdvance(dt); courseFollow(C.t); }
   const vb = C.mode === 'vib';
   if (vb) { vibTick(now, dt, m); sm = (V.ctr != null && now - V.lastT < 350) ? V.ctr : null; }
   if (cp && sm != null) sm += 12 * Math.round((courseRef() - sm) / 12);          // course: show the voice in the octave of the notes
@@ -1276,7 +1264,7 @@ function updateGoal() {
 /* session lifecycle */
 const startBtn = $('#startBtn');
 startBtn.onclick = () => P.running ? stopSession() : startSession();
-const HINT_MON = "지금은 모니터만 해요 · 기록은 '오늘 연습 시작'부터<br>건반을 누르면 기준음 · 한 음을 길게 유지해 보세요!";
+const HINT_MON = "지금은 목풀기예요 (기록 안 됨) · 기록은 '기록 도전'부터<br>건반을 누르면 기준음 · 한 음을 길게 유지해 보세요!";
 const HINT_VIB = '한 음을 길게 내면서 물결처럼 흔들어 보세요 · 왼쪽 "기준음"을 누르면 기준 소리';
 const HINT_REC = '소리 낸 시간만 연습으로 계산돼요 (4초까지 쉬는 건 인정)';
 function setMonUI() {
@@ -1322,13 +1310,13 @@ async function startSession() {
   if (P.hd.note != null) { P.hd.ms = 0; P.hd.reached = 0; P.hd.pbDone = false; }
   const u = me(); P.reminderAt = u.role === 'student' ? effTime(u.id) : ''; P.pbHold = u.role === 'student' ? pbHoldOf(u.id) : 0;
   refreshToday(); const b = P.todayBase; P.avgStart = b.vms > 500 ? Math.round(100 * b.sfs / b.vms) : null;
-  P.running = true; startBtn.classList.add('run'); startBtn.textContent = '연습 끝내기'; setMonUI();
-  closeBanner();
+  P.running = true; startBtn.classList.add('run'); startBtn.textContent = '기록 끝내기'; setMonUI();
+  closeBanner(); renderCourseUI();
 }
 function stopSession() {
   if (!P.running) return;
   abortCourse(); endHold(); P.running = false;
-  startBtn.classList.remove('run'); startBtn.textContent = '오늘 연습 시작'; setMonUI();
+  startBtn.classList.remove('run'); startBtn.textContent = '기록 도전'; setMonUI(); renderCourseUI();
   const sec = Math.round(P.activeMs / 1000), u = me(), st = P.st;
   P.st = newSt(); P.hd = newHold(); P.tick = { ms: 0, err: 0 };
   if (u.role !== 'student') { toast(`연습 도구 사용 ${fmtKo(sec)} · 점수 ${P.vms > 0 ? Math.round(100 * P.sfs / P.vms) : '--'} (강사 계정은 기록하지 않아요)`, 4500); return; }
@@ -1666,9 +1654,6 @@ function scRoll(L, r) {
   o += `<text x="${x0}" y="${y(s0) + 18}" font-size="11" fill="#8a95a1">${midiName(s0)}</text><text x="${x0 + S.iv.indexOf(top) * bw}" y="${y(s0 + top) - 9}" font-size="11" fill="#e8ecf1">${midiName(s0 + top)}</text>`;
   return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="스케일 음과 전환 구간">${o}</svg>`;
 }
-function previewScale() {
-  const L = genScaleLine(CFG.sc, CFG.diff), t0 = L.notes[0].t0; L.notes.filter(n => n.rep === 0).forEach(n => guideTone(n.m, Math.min(n.d, 1.0), .15 + n.t0 - t0));
-}
 function renderScale(el) {
   if (!el) return; const sc = scaleCfg(CFG.sc), L = genScaleLine(CFG.sc, CFG.diff), S = SCALES.find(x => x.k === sc.k), top = Math.max(...S.iv);
   const first = (() => { for (let r = 1; r <= L.reps; r++) if (L.base + r - 1 + top >= L.zs) return r; return L.reps; })(); if (!scRep || scRep > L.reps) scRep = first;
@@ -1681,14 +1666,13 @@ function renderScale(el) {
     <div class="scst"><span class="k">전환 구간 시작</span><button data-a="zs-">−</button><b>${midiName(sc.zs)}</b><button data-a="zs+">+</button></div>
     <div class="scst"><span class="k">전환 구간 끝</span><button data-a="ze-">−</button><b>${midiName(sc.ze)}</b><button data-a="ze+">+</button></div>
     <div class="note2" style="margin-top:8px">전환 구간은 일반적인 추정값이에요. 사람마다 달라서, 선생님과 정한 음으로 바꿔 쓰세요. 총 ${L.reps}회 · 약 ${Math.max(1, Math.round(L.end / 60))}분 · 난이도 ${DF[CFG.diff].name}</div></div>
-  <div class="row" style="gap:8px;margin-bottom:12px"><button class="btn" id="scPv" style="flex:1">🔊 첫 회 듣기</button><button class="btn pri" id="scGo" style="flex:1.6">▶ 스케일 시작</button></div>
+  <div class="row" style="gap:8px;margin-bottom:12px"><button class="btn pri" id="scGo" style="flex:1">▶ 스케일 시작</button></div>
   <div class="note2" style="line-height:1.6">앱이 보는 것: 음정 정확도, 전환 구간 안/밖 성공 비율, 자주 놓친 음<br>못 보는 것: 믹스 소리의 질(진성·두성 비율) — 선생님이 판단해요</div>`;
   $('#scG', el).querySelectorAll('button').forEach(b => b.onclick = () => scSet(o => { o.g = b.dataset.v; o.off = 0; }));
   $('#scEx', el).querySelectorAll('button').forEach(b => b.onclick = () => scSet(o => { o.k = b.dataset.v; }));
   $('#scRep', el).oninput = e => { scRep = +e.target.value; renderScale(el); };
   el.querySelectorAll('.scst button').forEach(b => b.onclick = () => scSet(o => { const a = b.dataset.a, d = a.endsWith('+') ? 1 : -1, z = o.z = o.z || {}, cur = z[sc.g] = (z[sc.g] || [sc.zs, sc.ze]).slice();
     if (a.startsWith('off')) o.off = clamp((o.off || 0) + d, -4, 4); else if (a.startsWith('zs')) cur[0] = clamp(cur[0] + d, 50, cur[1]); else cur[1] = clamp(cur[1] + d, cur[0], 88); z[sc.g] = cur; }));
-  $('#scPv', el).onclick = previewScale;
   $('#scGo', el).onclick = () => { C.stage = 3; C.mode = 'course'; CFG.mode = 'course'; saveCfg(); go('practice'); };
 }
 function buildTabs() {
@@ -1697,7 +1681,7 @@ function buildTabs() {
   $('#tabs').querySelectorAll('button').forEach(b => b.onclick = () => go(b.dataset.t));
 }
 function go(t) {
-  if (P.running && t !== 'practice') { toast('연습 중이에요. 먼저 "연습 끝내기"를 눌러 주세요.'); return; }
+  if (P.running && t !== 'practice') { toast('연습 중이에요. 먼저 "기록 끝내기"를 눌러 주세요.'); return; }
   if (P.pressed != null) releaseKey();
   if (t !== 'practice') { abortCourse(); vibReset(); }
   if (t !== 'practice' && P.mon) stopMonitor();
@@ -1722,7 +1706,7 @@ if (!DB.runs) DB.runs = {};
 buildTabs(); go(me().role === 'student' ? 'practice' : 'roster');
 if (C.mode === 'vib' && !vibUnlocked()) C.mode = 'free';
 resize(); if (C.mode === 'course') loadStage(0); else renderCourseUI(); P.raf = requestAnimationFrame(loop); setTimeout(checkReminder, 1500);
-window.__vn = { genScaleLine, scaleCfg, P, C, CFG, V, VR, genLine, loadStage, startStage, setMode, DB: () => DB, go, switchUser, badgeList, daysOf, streakInfo, stopSession, startSession };
+window.__vn = { follow: courseFollow, genScaleLine, scaleCfg, P, C, CFG, V, VR, genLine, loadStage, startStage, setMode, DB: () => DB, go, switchUser, badgeList, daysOf, streakInfo, stopSession, startSession };
 })();
 </script>
 </body>
