@@ -39,7 +39,7 @@ const saw = (hz, len) => { const x = new Float32Array(len); for (let i = 0; i < 
   assert.ok(!("mr" in f.mkPv.orig) || f.mkPv.orig.mr.regs.length === 0);
 }
 // ③ 화면·저장 연결
-assert.ok(src.includes("onFix, onTime, onResetRange:") && src.includes("cur.push({ t0: o0, t1: o1, nt0: n0, nt1: n1 })") && src.includes("const x = pvSrc(src, 0, i0, i0 + n)"));
+assert.ok(src.includes("onFix, onTime, ...(canAdv() ? { onAdv, advGet } : {}), onResetRange:") && src.includes("cur.push({ t0: o0, t1: o1, nt0: n0, nt1: n1 })") && src.includes("const x = pvSrc(src, 0, i0, i0 + n)"));
 const tj = fs.readFileSync(__dirname + "/../tune.js", "utf8");
 assert.ok(tj.includes('data-md="t">⏱ 타이밍') && tj.includes("st.onBarDragX = (dt, edge, start)") && tj.includes("hb = hitT(le) || hitBar(le);"));
 console.log("time-edits ok");

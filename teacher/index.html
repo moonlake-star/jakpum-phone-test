@@ -511,7 +511,8 @@
 <div id="v2Shade" class="v2only"></div>
 <div id="toast"></div>
 <script src="../lesson-replies.js"></script>
-<script src="../tune.js?v=20261103-2240"></script>
+<script src="../tune.js?v=20261104-1800"></script>
+<script src="../adv.js?v=20261104-1800"></script>
 
 <script>
 // ── 설정 ────────────────────────────────────────────────
@@ -725,6 +726,7 @@ function staffMode() {   // 강사 앱: 맨 위에 강사 이름 띠
   b.textContent = `🎓 ${cfg?.name || "강사"} 선생님 · 내 수강생만 보여요`; document.body.prepend(b);
 }
 const isStaffApp = () => typeof cfg !== "undefined" && cfg?.role === "teacher";
+const canAdv = () => !isStaffApp() || !!cfg?.adv_mode;   // (11/04 17:41 사용자) 고급 보정 모드 = 원장 + 원장이 허용한 강사
 // 체험 보기 전용: 드라이브에 쓰기·서버 깨우기 막음 + 화면 위 안내 띠 + 저장·공개·보내기 버튼 숨김
 function demoMode() {
   if (typeof document === "undefined" || document.body.classList.contains("demoRO")) return;
@@ -1155,7 +1157,7 @@ function paintList(data, stale) {
   else if (Object.keys(staffOf()).length) asgOwnerTodos().then(xs => { const box = $("vList").querySelector(".card"); if (!xs.length || !box) return;
     box.insertAdjacentHTML("beforeend", xs.map(x => `<div class="todo-item"><span>${esc(x.t)}</span><span class="chip todo">${esc(x.c)}</span></div>`).join("")); }).catch(() => {});
   $("vList").querySelectorAll("[data-tf]").forEach(b => b.onclick = () => { LS.set("vn_tfilter", b.dataset.tf); paintList(allData, stale); });
-  $("vList").insertAdjacentHTML("beforeend", `<div id="prefsBox"></div><div id="laBox"></div>`); paintPrefs(); paintLaBox(); if (laIsOn()) laStart();
+  $("vList").insertAdjacentHTML("beforeend", `<div id="prefsBox"></div><div id="advPermBox"></div><div id="laBox"></div>`); paintPrefs(); paintAdvPerm(); paintLaBox(); if (laIsOn()) laStart();
   paintJoinRequests();
   $("vList").querySelectorAll(".stuCard.tap").forEach(el => el.onclick = () => openStudent(el.dataset.s));
   $("vList").querySelectorAll(".stuCard .retry").forEach(el => el.onclick = (e) => { e.stopPropagation(); renderList(); });
@@ -1426,7 +1428,7 @@ async function cfgUpdate(fn) {   // 원장 config를 최신본 위에서 고쳐 
 function staffConfigFor(c, tid) {   // 강사에게 보여 줄 설정: 그 강사 수강생만 + 앱 동작에 필요한 공통값(주소·키). 결제·다른 수강생·서버 비밀값 없음
   const s = c.staff?.[tid] || {}, students = {};
   for (const [k, v] of Object.entries(c.students || {})) if (v?.teacher_id === tid) students[k] = v;
-  return { role: "teacher", staff_id: tid, name: s.name || "", students, practice_check: !!c.practice_check, sys: s.sys || "", folder: s.folder || "",
+  return { role: "teacher", staff_id: tid, name: s.name || "", students, practice_check: !!c.practice_check, sys: s.sys || "", folder: s.folder || "", adv_mode: !!s.adv,   // (11/04 사용자) 원장이 열어 준 강사만 고급 보정 모드
     ...(c.student_page_url ? { student_page_url: c.student_page_url } : {}), updated_at: new Date().toISOString() };
 }
 async function staffSync(tid) { const s = staffOf()[tid]; if (!s?.cfg_id) return; await writeJSON(null, "config.json", staffConfigFor(cfg, tid), s.cfg_id); staffPortalSync().catch(() => {}); }
@@ -3089,6 +3091,17 @@ async function tpCommit() {
   else { tpSt.msg = r.msg || "저장하지 못했어요"; if (r.unverified) { tpSt.draft = {}; tpSt.loaded = null; } }   // 저장 실패는 고른 값을 남겨 다시 누를 수 있게(같은 요청 번호 재사용)
   paintPrefs();
 }
+// (11/04 17:41 사용자) 고급 보정 모드: 원장은 늘, 강사는 원장이 여기서 켠 사람만(강사 설정 adv_mode → 전체화면에 '🎛 고급 보정' 버튼)
+function paintAdvPerm() {
+  const box = $("advPermBox"); if (!box) return;
+  const S = isStaffApp() ? [] : Object.entries(staffOf()); if (!S.length) { box.innerHTML = ""; return; }
+  box.innerHTML = `<details class="card"><summary><b>🎛 고급 보정 모드 · 강사 권한</b> <span class="chip">${S.filter(([, x]) => x.adv).length}명 허용</span></summary>
+    <p class="muted" style="margin:6px 0">원장님은 늘 쓸 수 있어요. 강사는 여기서 켠 사람만 음정선 전체화면에 '🎛 고급 보정' 버튼이 보여요.</p>
+    ${S.map(([k, x]) => `<label class="row" style="gap:8px;align-items:center;margin:4px 0"><input type="checkbox" data-advp="${esc(k)}" ${x.adv ? "checked" : ""}> ${esc(x.name)} 강사</label>`).join("")}<p class="muted" id="advPermMsg"></p></details>`;
+  box.querySelectorAll("[data-advp]").forEach(c => c.onchange = async () => { const tid = c.dataset.advp, v = c.checked, m = $("advPermMsg"); c.disabled = true; m.textContent = "저장 중…";
+    try { await cfgUpdate(l => { if (l.staff?.[tid]) l.staff[tid].adv = v; }); await staffSync(tid); m.textContent = "저장했어요 · 강사 앱을 새로고침하면 반영돼요"; }
+    catch (e) { c.checked = !v; m.textContent = "저장 실패: " + errMsg(e); } c.disabled = false; });
+}
 function paintPrefs() {
   const box = $("prefsBox"); if (!box) return;
   const L = tpSt.loaded, ok = L?.state === "ok", chip = !L ? "" : !ok ? "읽지 못함" : L.doc.prefs.notify ? "알림 켜짐" : "알림 꺼짐";
@@ -4507,8 +4520,8 @@ async function openMkJob(j, backTo) {
     el.value = b.dataset.ab === "1" ? String(lvOn) : "0"; el.oninput(); });
   abPaint();
   mkRefPaint(j, r, pi, by);
-  const paintFixN = () => { const n = (r.target_fixes || []).filter(x => !x.cut).length, nt = (r.time_edits || []).length, el = $("mkFixN");
-    /* (11/03 13:46 사용자 시안 승인) 고친 게 있을 때만 */ $("mkResetAll")?.classList.toggle("hidden", !((r.target_fixes || []).length || nt)); if (el) el.innerHTML = n || nt ? `✏️ 선생님이 고친 ${n ? `정음 <b>${n}곳</b>` : ""}${n && nt ? " · " : ""}${nt ? `타이밍 <b>${nt}곳</b>` : ""} · 지금은 폰 미리듣기(간이)로 들려요 · 아래 버튼을 누르면 정식으로 다시 보정해요` : ""; }; paintFixN();
+  const paintFixN = () => { const n = (r.target_fixes || []).filter(x => !x.cut).length, nt = (r.time_edits || []).length, na = (r.note_edits?.notes || []).length + (Object.keys(r.note_edits?.global || {}).length ? 1 : 0), el = $("mkFixN");
+    /* (11/03 13:46 사용자 시안 승인) 고친 게 있을 때만 */ $("mkResetAll")?.classList.toggle("hidden", !((r.target_fixes || []).length || nt)); if (el) el.innerHTML = n || nt || na ? `✏️ 선생님이 고친 ${[n ? `정음 <b>${n}곳</b>` : "", nt ? `타이밍 <b>${nt}곳</b>` : "", na ? `🎛 고급 <b>${na}곳</b>` : ""].filter(Boolean).join(" · ")} · 지금은 폰 미리듣기(간이)로 들려요${na ? "(고급 보정은 음정선 그림만)" : ""} · 아래 버튼을 누르면 정식으로 다시 보정해요` : ""; }; paintFixN();
   if (tuneOk) tunePending($("mkTune"));
   let resetSome = null;   // 음정선을 받으면 채움(아래)
   if ($("mkResetAll")) $("mkResetAll").onclick = () => {   // 확인 창: 음정·타이밍 따로 고르기(기본 둘 다)
@@ -4563,6 +4576,11 @@ async function openMkJob(j, backTo) {
       r.time_edits = cur.sort((a, b) => a.t0 - b.t0); cv._tedits = teD(); mkPv.tedits = r.time_edits.slice();
       try { pvApplyAll(); } catch (e) { console.warn("타이밍 미리듣기", e); }
       try { await writeJSON(j.folder.id, MKREQ, r, j.reqId); paintFixN(); } catch (e) { toast("타이밍 저장 실패: " + errMsg(e)); } };
+    // (11/04 사용자) 고급 보정 모드: 음별·곡 전체 고침(adv.js) → 원래 녹음 시간으로 바꿔 note_edits에 저장(서버 note_edits.py) · 화면에선 지금 시간
+    const advGet = () => { const ne = r.note_edits || {}; return { notes: (ne.notes || []).map(n => ({ ...n, t0: r4(toA(n.t0)), t1: r4(toA(n.t1)) })), global: { ...(ne.global || {}) } }; };
+    const onAdv = async (ne) => { const notes = (ne.notes || []).map(n => ({ ...n, t0: r4(toO(n.t0)), t1: r4(toO(n.t1)) })), g = ne.global || {};
+      if (notes.length || Object.keys(g).length) r.note_edits = { notes, global: g }; else delete r.note_edits;
+      try { await writeJSON(j.folder.id, MKREQ, r, j.reqId); paintFixN(); } catch (e) { toast("고급 보정 저장 실패: " + errMsg(e)); } };
     // (11/03 13:46 사용자 시안 승인) 곡 전체(또는 고른 것만) 원본으로: 선생님이 고친 것만 지움(보컬 분리·기본 보정·자동 음정 보정은 그대로) · 10초 되살리기 · 지운 것은 작업 파일에 '지난 고침'으로 보관
     const applyAll = async (fx, te, msg) => { r.target_fixes = fx; r.time_edits = te; cv._fixes = dF(); cv._tedits = teD(); mkPv.fixes = dF(); mkPv.tedits = te.slice();
       const kt = Tune.tgCol(cv), o_ = cv._orig || {};   // 막대도 서버가 처음 고른 음으로(남은 고침은 그 음에)
@@ -4581,7 +4599,7 @@ async function openMkJob(j, backTo) {
       return gone; };
     Tune.wire($("mkTune"), cv, () => mkNow(), () => (mkRaw ? 0 : lvNow()), (t, still) => { const tt = Math.max(0, Math.min(t, mkDurS ? mkDurS - 0.05 : t)); if (still) { if (mkPlaying) mkStop(); mkOffset = tt; paintTransport(); return; } if (!mkPlaying) { mkOffset = tt; $("mkPP").click(); } else mkSeekTo(t); },
       { title: `${j.st?.name || ""} · ${r.title || "메이크업"}`, tapFull: true, teacher: true, lvDef: +(r.pitch_level ?? 2), play: () => $("mkPP")?.click(), paused: () => !mkPlaying, mode: () => (lvNow() > 0 ? "p" : "o"),
-        setMode: (m) => document.querySelector(`#mkAb [data-ab="${m === "p" ? 1 : 0}"]`)?.click(), onFix, onTime, onResetRange: (t0, t1) => resetSome(true, true, [t0, t1]), countRange: (a, b) => (r.target_fixes || []).concat(r.time_edits || []).filter(x => toA(x.t0) < b && toA(x.t1) > a).length, voice: voiceTone, wave: () => mkTracks.mr?.buf || mkTracks.before?.buf || null, ...tnOpts });
+        setMode: (m) => document.querySelector(`#mkAb [data-ab="${m === "p" ? 1 : 0}"]`)?.click(), onFix, onTime, ...(canAdv() ? { onAdv, advGet } : {}), onResetRange: (t0, t1) => resetSome(true, true, [t0, t1]), countRange: (a, b) => (r.target_fixes || []).concat(r.time_edits || []).filter(x => toA(x.t0) < b && toA(x.t1) > a).length, voice: voiceTone, wave: () => mkTracks.mr?.buf || mkTracks.before?.buf || null, ...tnOpts });
   }).catch((e) => { tuneWired = true; console.warn("음정선", e); const c = $("mkTune"); if (c) c.replaceWith(Object.assign(document.createElement("p"), { className: "muted", textContent: "음정선을 불러오지 못했어요 (" + String(e?.message || e).slice(0, 60) + ")" })); });
   // 슬라이더가 기본값에 닿으면 짧고 약한 진동(안드로이드). 기본값: 보컬 0dB · 리버브 30% · MR 0dB · 음정 켬
   const DEF = { mkVol: 0, mkRev: 30, mkMr: 0, mkPitch: 3 };
