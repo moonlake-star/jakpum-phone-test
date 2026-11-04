@@ -38,13 +38,13 @@ for (const g of ["m", "f"]) for (const k of ["five", "tri", "arp"]) for (const o
 assert.ok(js.includes("id=\"v-scale\"") || src.includes('id="v-scale"'), "발성 탭 화면 누락");
 console.log("pitch-page ok");
 
-// 목풀기(기록 안 됨) / 기록 도전(기록됨) 구분, 옥타브 버튼 제거(자동 스크롤), 미리 듣기·새 라인 버튼 제거
+// 연습(기록 안 됨) / 기록 도전(기록됨) 구분, 옥타브 버튼 제거(자동 스크롤), 미리 듣기·새 라인 버튼 제거
 {
-  assert.ok(src.includes('id="startBtn" class="cta">기록 도전<') && src.includes("'▶ 목풀기'") && src.includes("'▶ 도전'"), "목풀기/기록 도전 버튼");
+  assert.ok(src.includes('id="startBtn" class="cta">기록 도전<') && src.includes("'▶ 연습'") && src.includes("'▶ 도전'"), "연습/기록 도전 버튼");
   assert.ok(!src.includes("'오늘 연습 시작'") && !src.includes('연습 끝내기"를'), "옛 문구 제거");
-  assert.ok(src.includes("C.warm = !P.running") && src.includes("!c.warm && stars === 3"), "목풀기는 기록·새 라인 갱신 안 함");
+  assert.ok(src.includes("C.warm = !P.running") && src.includes("!c.warm && stars === 3"), "연습은 기록·새 라인 갱신 안 함");
   assert.ok(!src.includes('id="octUp"') && !src.includes('id="octDn"') && src.includes("function courseFollow("), "옥타브 버튼 제거 + 자동 스크롤");
-  console.log("pitch-page: 목풀기/기록 도전 ok");
+  console.log("pitch-page: 연습/기록 도전 ok");
 }
 
 // 난이도는 한 가지(쉬움/어려움 선택 제거). 예전 기록(diff:'easy')이 남아 있어도 화면이 깨지지 않아야 함
@@ -76,6 +76,33 @@ console.log("pitch-page ok");
 // 화면 정리: 코스 시작 카드는 버튼 중심(설명·중복 안내 문구 없음), 안내는 상단 한 줄에만
 {
   assert.ok(!src.includes("별 3개면 새 라인</div>") && !src.includes('지금은 목풀기 · 기록되지 않아요'), "카드 안 중복 문구 제거");
-  assert.ok(src.includes("const HINT_MON = \"목풀기 중"), "하단 안내 한 줄");
+  assert.ok(src.includes("const HINT_MON = \"연습 중"), "하단 안내 한 줄");
   console.log("pitch-page: 화면 정리·성별 팝업 ok");
+}
+
+// 성별 선택 직후 자유 화면 + 한 개의 팝업('주변 소리 확인 중' → '소리를 내 보세요')
+{
+  assert.ok(src.includes("setMode('free'); voiceChanged(); sayHello();") && src.includes("function micPop(") && src.includes("🎤 소리를 내 보세요"), "성별 선택 후 자유 화면 + 안내 팝업");
+  assert.ok(!/toast\('주변/.test(src), "주변 소리 안내는 팝업 하나로 통합");
+  console.log("pitch-page: 첫 진입 안내 팝업 ok");
+}
+
+// 음 검출 안정화(옥타브 튐 방지) · 그래프 둔감화 · 상하 드래그 스크롤 · 프리뷰 구간 색
+{
+  assert.ok(src.includes("function octFix(") && src.includes("m = octFix(m, now);") && src.includes("OCT_N = 8"), "옥타브 점프 필터");
+  assert.ok(src.includes("function calm(") && src.includes("sm = calm(sm, now, dt)"), "표시 피치 완화");
+  assert.ok(src.includes("const canScroll =") && src.includes("SCR.id == null && now > SCR.hold"), "드래그 스크롤 + 자동 따라가기 보류");
+  assert.ok(src.includes("function pvOf(") && src.includes("rgba(176,150,255"), "프리뷰 구간 색");
+  // 옥타브 필터 동작(순수 함수만 잘라서 확인)
+  const f = src.slice(src.indexOf("const OCT ="), src.indexOf("/* calm smoothing"));
+  const octFix = new Function(f + "; const CALM = {}; return octFix;")();
+  let t = 0, out = [];
+  for (let i = 0; i < 12; i++) out.push(octFix(45, t += 16));
+  for (let i = 0; i < 4; i++) out.push(octFix(57, t += 16));       // 짧은 옥타브 튐 → 원래 옥타브로 접힘
+  for (let i = 0; i < 4; i++) out.push(octFix(45, t += 16));
+  assert.ok(out.every(v => Math.abs(v - 45) < .5), "짧은 옥타브 튐은 접힘");
+  let last; for (let i = 0; i < 10; i++) last = octFix(57, t += 16);   // 실제 옥타브 이동은 받아들임
+  assert.ok(Math.abs(last - 57) < .01, "지속되는 옥타브 이동은 인정");
+  assert.ok(Math.abs(octFix(50, t += 16) - 50) < 3 && true, "음 사이 이동은 그대로");
+  console.log("pitch-page: 음 검출 안정화·스크롤 ok");
 }
