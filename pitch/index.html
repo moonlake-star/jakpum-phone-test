@@ -481,7 +481,7 @@ function badgeList(uid) {
   add('star3', '🌟', '별 셋!', '한 스테이지에서 별 3개를 모았어요', coDate(c => c.stars === 3));
   let allD = null; { const bd = {}; coS.forEach(c => { if (c.stars >= 1) { const k = c.sday + '|' + c.diff; (bd[k] = bd[k] || new Set()).add(c.stage); } }); Object.keys(bd).sort().forEach(k => { if (bd[k].size >= 3 && !allD) allD = k.split('|')[0]; }); }
   add('allclear', '🏁', '올 클리어', '같은 날 3개 스테이지를 모두 클리어했어요', allD);
-  add('hardclr', '🔥', '어려움 도전', '어려움 난이도 스테이지를 클리어했어요', coDate(c => c.diff === 'hard' && c.stars >= 1));
+  add('hardclr', '🔥', '어려움 도전', '어려움 난이도 스테이지를 클리어했어요', coDate(c => (c.diff === 'normal' || c.diff === 'hard') && c.stars >= 1));
   const bestV = Math.max(0, ...sess.map(x => (x.st && x.st.vib && x.st.vib.best) || 0)), vbS = n => { const x = sess.find(y => y.st && y.st.vib && y.st.vib.best >= n); return x && x.day; };
   add('vib5', '🌊', '비브라토 입문', '속도·폭이 맞는 사이클을 5번 연속', vbS(5), { cur: Math.min(bestV, 5), max: 5, unit: '회' });
   add('vib15', '🌈', '비브라토 15연속', '속도·폭이 맞는 사이클을 15번 연속', vbS(15), { cur: Math.min(bestV, 15), max: 15, unit: '회' });
@@ -664,10 +664,9 @@ setSens(+$('#sens').value);
 /* ============ difficulty / settings / sound effects ============ */
 const DF = {
   easy:   { name: '쉬움',  enter: .35, stay: .50, j: [12, 22, 35], tol: .50, grace: .35, bpm: 56, stars: [.40, .60, .78], hint: '음정 허용폭이 넓고 템포가 느려요. 처음이라면 여기서 시작하세요.' },
-  normal: { name: '보통',  enter: .25, stay: .35, j: [8, 15, 25],  tol: .35, grace: .30, bpm: 72, stars: [.50, .70, .85], hint: '기본 설정이에요. 허용폭 ±35센트(코스 기준).' },
-  hard:   { name: '어려움', enter: .18, stay: .25, j: [5, 10, 18],  tol: .25, grace: .22, bpm: 92, stars: [.55, .74, .88], hint: '좁은 허용폭과 빠른 템포. 판정 기준이 엄격해 점수가 낮게 나와요.' }
+  normal: { name: '어려움', enter: .25, stay: .35, j: [8, 15, 25],  tol: .35, grace: .30, bpm: 72, stars: [.50, .70, .85], hint: '허용폭 ±35센트(코스 기준). 쉬움보다 판정이 엄격하고 템포가 빨라요.' }
 };
-const CFG = Object.assign({ diff: 'normal', sfx: 'auto', rc: 55 }, (() => { try { return JSON.parse(localStorage.getItem('vn_cfg') || '{}'); } catch (e) { return {}; } })());
+const CFG = Object.assign({ diff: 'easy', sfx: 'auto', rc: 55 }, (() => { try { return JSON.parse(localStorage.getItem('vn_cfg') || '{}'); } catch (e) { return {}; } })());
 if (!DF[CFG.diff]) CFG.diff = 'normal';
 const saveCfg = () => { try { localStorage.setItem('vn_cfg', JSON.stringify(CFG)); } catch (e) {} };
 const D = () => DF[CFG.diff];
@@ -714,6 +713,7 @@ function renderSettings() {
 renderSettings();
 
 /* ============ course: seeded musical line generator ============ */
+const LM = 2;                                           // note-length multiplier (user request 2026-11-04: notes and guide tones twice as long)
 const MAJ = [0, 2, 4, 5, 7, 9, 11], MIN = [0, 2, 3, 5, 7, 8, 10];
 const degOff = (sc, d) => 12 * Math.floor(d / 7) + sc[mod(d, 7)];
 const STAGES = [['한 음 유지', '기준음을 흔들림 없이 길게 불러요'], ['스케일', '계단처럼 음을 차례로 올라갔다 내려와요'], ['프레이즈', '짧은 멜로디 한 줄을 따라 불러요']];
@@ -722,11 +722,11 @@ const saveSeeds = () => { try { localStorage.setItem('vn_seeds', JSON.stringify(
 const hsh = (a, b) => { let h = Math.imul(a ^ 0x9E3779B9, 0x85EBCA6B) ^ Math.imul(b + 0x7F4A7C15, 0xC2B2AE35); h ^= h >>> 15; h = Math.imul(h, 0x2C1B3C6D); h ^= h >>> 12; return h | 0; };
 function genLine(stage, seed, diff, rc) {
   const R = rng(hsh(seed, stage)); R(); R(); R();
-  const dfn = DF[diff], beat = 60 / dfn.bpm, minLen = diff === 'easy' ? .95 : diff === 'normal' ? .62 : .5, seq = [];
+  const dfn = DF[diff], beat = 60 / dfn.bpm * LM, minLen = (diff === 'easy' ? .95 : .62) * LM, seq = [];
   const minor = stage >= 1 && diff !== 'easy' && R() < .25, sc = minor ? MIN : MAJ, pc = Math.floor(R() * 12), cl = d => clamp(d, -1, 8), pick = a => a[Math.floor(R() * a.length)];
   if (stage === 0) {                                   // hold single notes: tonic / third / fifth
     const V = diff === 'easy' ? [[0, 2, 4], [0, 4, 2], [2, 4, 0]] : diff === 'normal' ? [[0, 2, 4, 0], [0, 4, 2, 0], [0, 2, 4, 2], [2, 0, 4, 0]] : [[0, 2, 4, 7], [0, 4, 2, 0], [0, 4, 7, 4], [2, 4, 7, 0]];
-    const hold = diff === 'easy' ? 3 : diff === 'normal' ? 4 : 5;
+    const hold = (diff === 'easy' ? 3 : 4) * LM;
     pick(V).forEach((d, i) => seq.push({ d, len: hold, rest: i ? 1.0 : 0 }));
   } else if (stage === 1) {                            // scale up and down
     const degs = diff === 'easy' ? [0, 1, 2, 3, 4, 3, 2, 1, 0] : diff === 'normal' ? [0, 1, 2, 3, 4, 5, 6, 7, 6, 5, 4, 3, 2, 1, 0] : [0, 2, 1, 3, 2, 4, 3, 5, 4, 3, 2, 1, 0];
@@ -750,7 +750,7 @@ function genLine(stage, seed, diff, rc) {
     seq.push({ d: 0, len: (diff === 'easy' ? 4 : 3) * beat, rest: 0 });
   }
   const t0m = 48 + pc, ps = seq.map(x => t0m + degOff(sc, x.d)), ctr = (Math.min(...ps) + Math.max(...ps)) / 2, shf = 12 * Math.round((rc - ctr) / 12);
-  let t = .6; const notes = seq.map((x, i) => { t += x.rest; const o = { m: ps[i] + shf, t0: t, d: Math.max(.3, x.len - .07), deg: x.d }; t += x.len; return o; });
+  let t = 1.2; const notes = seq.map((x, i) => { t += x.rest; const o = { m: ps[i] + shf, t0: t, d: Math.max(.3, x.len - .07), deg: x.d }; t += x.len; return o; });
   const ms = notes.map(x => x.m);
   return { notes, end: t + .8, minM: Math.min(...ms), maxM: Math.max(...ms), center: (Math.min(...ms) + Math.max(...ms)) / 2, minor, stage, seed };
 }
@@ -758,23 +758,23 @@ function genLine(stage, seed, diff, rc) {
 /* ============ voice scales (mix voice) ============ */
 const VOICE = { m: { name: '남성', start: 48, zs: 62, ze: 65 }, f: { name: '여성', start: 57, zs: 69, ze: 72 } };   // generic starting values; teacher adjusts per student
 const SCALES = [
-  { k: 'five', t: '5음 스케일', s: '1-2-3-4-5-4-3-2-1', iv: [0, 2, 4, 5, 7, 5, 4, 2, 0] },
-  { k: 'tri', t: '3음 왕복', s: '1-2-3-2-1', iv: [0, 2, 4, 2, 0] },
-  { k: 'arp', t: '옥타브 아르페지오', s: '1-3-5-8-5-3-1', iv: [0, 4, 7, 12, 7, 4, 0] }
+  { k: 'five', n: '5음', t: '5음 스케일', s: '1-2-3-4-5-4-3-2-1', iv: [0, 2, 4, 5, 7, 5, 4, 2, 0] },
+  { k: 'tri', n: '3음', t: '3음 왕복', s: '1-2-3-2-1', iv: [0, 2, 4, 2, 0] },
+  { k: 'arp', n: '아르페지오', t: '옥타브 아르페지오', s: '1-3-5-8-5-3-1', iv: [0, 4, 7, 12, 7, 4, 0] }
 ];
 STAGES.push(['발성 스케일', '반음씩 올라가며 전환 구간을 지나가요']);
 function scaleCfg(sc) {
   const o = sc || {}, g = VOICE[o.g] ? o.g : 'm', V = VOICE[g], z = (o.z && o.z[g]) || [V.zs, V.ze];
   const zs = clamp(Math.round(z[0]), 50, 84), ze = clamp(Math.round(z[1]), zs, 88);
-  return { g, k: SCALES.some(x => x.k === o.k) ? o.k : 'five', off: clamp(Math.round(o.off || 0), -4, 4), zs, ze, vw: o.vw || '네' };
+  return { g, k: SCALES.some(x => x.k === o.k) ? o.k : 'five', off: clamp(Math.round(o.off || 0), -4, 4), zs, ze };
 }
 const scaleSig = sc => { const c = scaleCfg(sc); return [c.k, c.g, c.off, c.zs, c.ze].join('-'); };
 function genScaleLine(sc, diff) {
   const c = scaleCfg(sc), V = VOICE[c.g], S = SCALES.find(x => x.k === c.k), top = Math.max(...S.iv), base = V.start + c.off;
-  const reps = clamp(c.ze + 2 - top - base + 1, 1, 24), len = diff === 'easy' ? .65 : diff === 'normal' ? .52 : .44, rest = 1.0;
-  let t = .6, demoEnd = 0; const notes = [];
+  const reps = clamp(c.ze + 2 - top - base + 1, 1, 24), len = (diff === 'easy' ? .65 : .52) * LM, rest = 1.4;
+  let t = 1.2, demoEnd = 0; const notes = [];
   for (let r = 0; r < reps; r++) {
-    S.iv.forEach((d, i) => { const l = i === S.iv.length - 1 ? len * 2 : len; notes.push({ m: base + r + d, t0: t, d: Math.max(.3, l - .07), rep: r, pre: i === 0 && r > 0 ? .95 : 0 }); t += l; });
+    S.iv.forEach((d, i) => { const l = i === S.iv.length - 1 ? len * 2 : len; notes.push({ m: base + r + d, t0: t, d: Math.max(.3, l - .07), rep: r, pre: i === 0 && r > 0 ? 1.3 : 0 }); t += l; });
     if (r === 0) demoEnd = t + .4; t += rest;
   }
   const ms = notes.map(x => x.m), mn = Math.min(...ms), mx = Math.max(...ms);
@@ -783,7 +783,7 @@ function genScaleLine(sc, diff) {
 
 /* ============ course state + UI ============ */
 const C = { mode: ['course', 'vib'].includes(CFG.mode) ? CFG.mode : 'free', stage: 0, phase: 'idle', t: -3, line: null, i: 0, act: null, ghost: null, rec: [], recT: 0, res: null, local: {}, cnt: 3 };
-const runKey = (uid, st, diff, seed, rc) => [uid, st, diff, seed, rc].join('|');
+const runKey = (uid, st, diff, seed, rc) => [uid, st, diff, seed, rc, 'v2'].join('|');
 const curKey = () => C.stage === 3 ? runKey(me().id, 3, CFG.diff, scaleSig(CFG.sc), 0) : runKey(me().id, C.stage, CFG.diff, SEEDS[C.stage], CFG.rc);
 function ghostFor() {
   const u = me(); if (!u || u.role !== 'student') return null;
@@ -829,7 +829,7 @@ function renderCOv() {
   if (C.phase === 'idle' && L.scale) {
     const sc = scaleCfg(CFG.sc), S = SCALES.find(x => x.k === sc.k);
     el.innerHTML = `<div class="ccard"><div class="crow"><b>발성 · ${S.t} · ${VOICE[sc.g].name}</b><span class="cst">${starTxt(bs)}</span></div>
-      <div class="note2">전환 구간 ${midiName(sc.zs)}~${midiName(sc.ze)} · ${midiName(L.base)}부터 ${L.reps}회 · 약 ${Math.max(1, Math.round(L.end / 60))}분 · 안내음 ${CFG.guide === 'off' ? '끔' : '켬'} · "${esc(sc.vw)}"로 불러요</div>${diffSeg}
+      <div class="note2">전환 구간 ${midiName(sc.zs)}~${midiName(sc.ze)} · ${midiName(L.base)}부터 ${L.reps}회 · 약 ${Math.max(1, Math.round(L.end / 60))}분 · 안내음 ${CFG.guide === 'off' ? '끔' : '켬'}</div>${diffSeg}
       ${g ? `<div class="cghost">👻 ${esc(g.label)} ${g.cov}% ${starTxt(g.stars)} · 같은 설정으로 대결해요</div>` : ''}
       <div class="crow" style="margin-top:8px"><button class="btn sm" id="cRef">🔊 첫 회 듣기</button><button class="btn sm" id="cSet">⚙ 설정</button><button class="btn pri sm" id="cGo" style="flex:1">▶ 시작</button></div>
       ${P.running ? '' : '<div class="note2" style="margin-top:5px">시작하면 오늘 연습 기록도 함께 시작돼요</div>'}</div>`;
@@ -1085,10 +1085,10 @@ function guideTone(m, dur, at) {
 const reqOf = n => Math.max(.25, n.d - D().grace - (n.mute || 0));
 function guideNote(n, first, now) {
   if (n.guided || CFG.guide === 'off') return; n.guided = true;
-  if (n.pre) { guideTone(n.m, .4); n.mute = 0; return; }                  // scale: sound the start note of every repetition during the rest
-  if (first) { const dur = Math.min(.55, Math.max(.2, n.t0 - .05)); guideTone(n.m, dur); n.mute = Math.max(0, now + dur + .12 - n.t0); return; }
+  if (n.pre) { guideTone(n.m, .8); n.mute = 0; return; }                  // scale: sound the start note of every repetition during the rest
+  if (first) { const dur = Math.min(1.1, Math.max(.4, n.t0 - .05)); guideTone(n.m, dur); n.mute = Math.max(0, now + dur + .12 - n.t0); return; }
   if (n.d < .75 || (C.line && C.line.scale)) return;           // short notes: no room for a guide tone
-  const dur = clamp(n.d * .25, .15, .24); guideTone(n.m, dur); n.mute = dur + .12;
+  const dur = clamp(n.d * .5, .3, .48); guideTone(n.m, dur); n.mute = dur + .12;
 }
 function startDemo() {
   if (!C.line || C.phase === 'demo') return; if (P.pressed != null) releaseKey();
@@ -1667,15 +1667,14 @@ function scRoll(L, r) {
   return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="스케일 음과 전환 구간">${o}</svg>`;
 }
 function previewScale() {
-  const L = genScaleLine(CFG.sc, CFG.diff), t0 = L.notes[0].t0; L.notes.filter(n => n.rep === 0).forEach(n => guideTone(n.m, Math.min(n.d, .5), .15 + n.t0 - t0));
+  const L = genScaleLine(CFG.sc, CFG.diff), t0 = L.notes[0].t0; L.notes.filter(n => n.rep === 0).forEach(n => guideTone(n.m, Math.min(n.d, 1.0), .15 + n.t0 - t0));
 }
 function renderScale(el) {
   if (!el) return; const sc = scaleCfg(CFG.sc), L = genScaleLine(CFG.sc, CFG.diff), S = SCALES.find(x => x.k === sc.k), top = Math.max(...S.iv);
   const first = (() => { for (let r = 1; r <= L.reps; r++) if (L.base + r - 1 + top >= L.zs) return r; return L.reps; })(); if (!scRep || scRep > L.reps) scRep = first;
   el.innerHTML = `<h2>발성 스케일</h2>
   <div class="card"><div class="note2">목소리 종류</div><div class="seg" id="scG" style="margin-top:6px">${Object.keys(VOICE).map(k => `<button data-v="${k}" class="${k === sc.g ? 'on' : ''}" style="height:38px;font-size:14px">${VOICE[k].name}</button>`).join('')}</div></div>
-  <div class="card"><div class="note2">믹스보이스 스케일</div><div class="scgrid" id="scEx">${SCALES.map(x => `<button data-v="${x.k}" class="${x.k === sc.k ? 'on' : ''}">${x.t}<small>${x.s}</small></button>`).join('')}</div>
-    <div class="note2" style="margin-top:10px">발음 (안내용)</div><div class="seg" id="scV" style="margin-top:6px">${['네', '니', '우', '응'].map(v => `<button data-v="${v}" class="${v === sc.vw ? 'on' : ''}" style="height:34px;font-size:14px">${v}</button>`).join('')}</div></div>
+  <div class="card"><div class="note2">믹스보이스 스케일</div><div class="seg" id="scEx" style="margin-top:6px">${SCALES.map(x => `<button data-v="${x.k}" class="${x.k === sc.k ? 'on' : ''}" style="height:38px;font-size:13px">${x.n}</button>`).join('')}</div><div class="note2" style="margin-top:6px">${S.s}</div></div>
   <div class="card"><div class="crow"><span class="note2">반음씩 올라가요 · 회차 보기</span><b style="font-size:13px">${scRep} / ${L.reps}회</b></div>
     ${scRoll(L, scRep)}<input type="range" id="scRep" min="1" max="${L.reps}" value="${scRep}" step="1" style="width:100%;margin-top:6px">
     <div class="scst"><span class="k">시작음</span><button data-a="off-">−</button><b>${midiName(L.base)}</b><button data-a="off+">+</button></div>
@@ -1686,7 +1685,6 @@ function renderScale(el) {
   <div class="note2" style="line-height:1.6">앱이 보는 것: 음정 정확도, 전환 구간 안/밖 성공 비율, 자주 놓친 음<br>못 보는 것: 믹스 소리의 질(진성·두성 비율) — 선생님이 판단해요</div>`;
   $('#scG', el).querySelectorAll('button').forEach(b => b.onclick = () => scSet(o => { o.g = b.dataset.v; o.off = 0; }));
   $('#scEx', el).querySelectorAll('button').forEach(b => b.onclick = () => scSet(o => { o.k = b.dataset.v; }));
-  $('#scV', el).querySelectorAll('button').forEach(b => b.onclick = () => scSet(o => { o.vw = b.dataset.v; }));
   $('#scRep', el).oninput = e => { scRep = +e.target.value; renderScale(el); };
   el.querySelectorAll('.scst button').forEach(b => b.onclick = () => scSet(o => { const a = b.dataset.a, d = a.endsWith('+') ? 1 : -1, z = o.z = o.z || {}, cur = z[sc.g] = (z[sc.g] || [sc.zs, sc.ze]).slice();
     if (a.startsWith('off')) o.off = clamp((o.off || 0) + d, -4, 4); else if (a.startsWith('zs')) cur[0] = clamp(cur[0] + d, 50, cur[1]); else cur[1] = clamp(cur[1] + d, cur[0], 88); z[sc.g] = cur; }));

@@ -13,11 +13,11 @@ new Function(js);
 // 4) 핵심 함수 존재(마이크·피치·코스·비브라토)
 for (const k of ["getUserMedia", "function yin(", "function genLine(", "function vibTick(", "function stopSession("]) assert.ok(js.includes(k), "누락: " + k);
 // 5) 코스 라인 생성: 같은 씨앗이면 같은 라인, 난이도·스테이지마다 음이 있고 음역이 합리적
-const body = js.slice(js.indexOf("const MAJ ="), js.indexOf("/* ============ course state + UI"));
+const body = js.slice(js.indexOf("const LM ="), js.indexOf("/* ============ course state + UI"));
 const prelude = "const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));const mod=(a,n)=>((a%n)+n)%n;" + js.match(/function rng\(seed\)[^\n]*\n/)[0] +
   js.match(/const DF = \{[\s\S]*?\n\};\n/)[0];
 const genLine = new Function(prelude + body + "\nreturn genLine;")();
-for (const diff of ["easy", "normal", "hard"]) for (const st of [0, 1, 2]) for (const seed of [11, 23, 37, 4242]) {
+for (const diff of ["easy", "normal"]) for (const st of [0, 1, 2]) for (const seed of [11, 23, 37, 4242]) {
   const a = genLine(st, seed, diff, 55), b = genLine(st, seed, diff, 55);
   assert.deepStrictEqual(a.notes, b.notes, "같은 씨앗 → 같은 라인");
   assert.ok(a.notes.length >= 3, "음 개수");
@@ -27,7 +27,7 @@ for (const diff of ["easy", "normal", "hard"]) for (const st of [0, 1, 2]) for (
 
 // 6) 발성 스케일(믹스보이스): 성별·스케일·난이도 조합마다 겹치지 않고, 음역이 코스 레인(28음) 안이며, 같은 설정이면 같은 라인
 const genScale = new Function(prelude + body + "\nreturn genScaleLine;")();
-for (const g of ["m", "f"]) for (const k of ["five", "tri", "arp"]) for (const off of [-4, 0, 4]) for (const diff of ["easy", "normal", "hard"]) {
+for (const g of ["m", "f"]) for (const k of ["five", "tri", "arp"]) for (const off of [-4, 0, 4]) for (const diff of ["easy", "normal"]) {
   const a = genScale({ g, k, off }, diff), b = genScale({ g, k, off }, diff);
   assert.deepStrictEqual(a.notes, b.notes, "스케일: 같은 설정 → 같은 라인");
   assert.ok(a.reps >= 1 && a.end < 200, `스케일 길이 ${g}${k}${off}${diff}`);
