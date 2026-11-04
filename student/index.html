@@ -117,6 +117,10 @@
   .card.gc .gcPair { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:8px 0; } .card.gc .gcPair > div { min-width:0; } .card.gc .gcPair .lp { width:100%; }
   .card.gc table { width:100%; border-collapse:collapse; margin:8px 0; font-size:.92rem; } .card.gc td { padding:5px 4px; border-top:1px solid rgba(255,255,255,.07); } .card.gc td.up { color:#8fe3a8; font-weight:700; }
   .card.gc .gcLine { width:100%; height:64px; display:block; margin:4px 0; } .card.gc .tag { display:inline-block; font-size:.75rem; padding:2px 8px; border-radius:999px; background:rgba(255,255,255,.08); color:var(--muted, #9aa3ad); }
+  .card.month.cele { background:linear-gradient(160deg, rgba(255,200,90,.16), rgba(156,195,255,.06)); box-shadow:inset 0 0 0 1px rgba(255,200,90,.25); }
+  .moMiles { display:grid; gap:6px; margin:6px 0 10px; } .moMile { padding:10px 12px; border-radius:12px; background:rgba(255,200,90,.12); font-size:1.02rem; }
+  .moList { list-style:none; padding:0; margin:6px 0; } .moList li { padding:6px 0; border-top:1px solid rgba(255,255,255,.07); } .moList li:first-child { border-top:0; }
+  .moSay { margin-top:8px; padding:10px 12px; border-radius:12px; background:rgba(255,255,255,.05); }
   @media (prefers-reduced-motion: reduce) { .lp { transition:none; } }
   .wave svg { position:absolute; inset:0; width:100%; height:100%; } .wave .on { position:absolute; inset:0; clip-path:inset(0 100% 0 0); }
   .story-item { border-top:1px solid var(--line); padding:12px 0; } .story-item .when { font-weight:700; } .story-item p { margin:4px 0 8px; }
@@ -258,7 +262,8 @@ async function load() {
     // 출석·수강권 현황(선생님 앱이 '_status' 칸으로 보냄, 2026-10-29): 레슨 목록에서는 빼고 맨 위 카드로
     const sx = (j.lessons || []).find(l => l && l.id === "_status"); data.status = sx && sx.kind === "status" ? sx : null;
     const gx = (j.lessons || []).find(l => l && l.id === "_growth"); data.growth = gx && gx.kind === "growth" ? gx : null;   // (11/02) 나의 성장
-    data.lessons = (j.lessons || []).filter(l => l && l.id !== "_status" && l.id !== "_growth");
+    data.months = (j.lessons || []).filter(l => l && String(l.id).startsWith("_month_") && l.kind === "month" && /^\d{4}-\d{2}$/.test(l.ym || "")).sort((a, b) => b.ym.localeCompare(a.ym));   // (11/04) 월간 성장 리포트
+    data.lessons = (j.lessons || []).filter(l => l && l.id !== "_status" && l.id !== "_growth" && !String(l.id).startsWith("_month_"));
     const want = params.get("l");
     if (want && data.lessons.some(l => l.id === want)) openLesson(want); else timeline();
   } catch (e) {   // 로그인 문제일 때만 저장된 로그인을 지움(오프라인·일시 오류로 매번 다시 로그인하지 않게)
@@ -376,12 +381,26 @@ if (typeof document !== "undefined") document.addEventListener("click", (e) => {
   grAud.onpause = grAud.onended = () => { if (grBtn === b) b.textContent = b.dataset.lab; };
   b.textContent = "❚❚ 멈춤"; grAud.play().catch(() => { b.textContent = b.dataset.lab; });
 });
+// (11/04 19:02 사용자 '응 고고') 📅 월간 성장 리포트 + 🎉 달성 — 선생님이 골라 보낸 것만(_month_YYYY-MM). 최신 달은 펼쳐서, 지난 달은 접어서
+function monthCard(m, open) {
+  const items = (Array.isArray(m.items) ? m.items : []).filter(x => x && typeof x.text === "string").slice(0, 12), miles = items.filter(x => x.mile), rest = items.filter(x => !x.mile);
+  const body = `${miles.length ? `<div class="moMiles">${miles.map(x => `<div class="moMile"><span aria-hidden="true">${esc(x.ic || "🎉")}</span> <b>${esc(x.text)}</b></div>`).join("")}</div>` : ""}
+    ${rest.length ? `<ul class="moList">${rest.map(x => `<li><span aria-hidden="true">${esc(x.ic || "·")}</span> ${esc(x.text)}</li>`).join("")}</ul>` : ""}
+    ${typeof m.say === "string" && m.say.trim() ? `<div class="moSay"><div class="muted" style="font-size:.85rem">💬 선생님 한마디</div><p class="pre" style="margin:2px 0 0">${esc(m.say.trim())}</p></div>` : ""}`;
+  const head = `📅 ${esc(m.title || (+String(m.ym).slice(5) + "월 성장 리포트"))}${m.total ? ` <span class="muted" style="font-size:.85rem;font-weight:400">누적 ${+m.total}회</span>` : ""}`;
+  return open ? `<div class="card month${miles.length ? " cele" : ""}" role="region" aria-label="월간 성장 리포트"><h2>${head}</h2>${body}</div>`
+    : `<details class="card month"><summary><b>${head}</b></summary>${body}</details>`;
+}
+function monthHtml(ms) {
+  if (!Array.isArray(ms) || !ms.length) return "";
+  return monthCard(ms[0], true) + (ms.length > 1 ? `<details class="card more"><summary>지난 성장 리포트 ${ms.length - 1}개</summary>${ms.slice(1, 12).map(m => monthCard(m, false)).join("")}</details>` : "");
+}
 function timeline() {
   try { Brand.bar(); } catch {}
   history.replaceState(null, "", location.pathname);
   const ls = data.lessons, seen = seenLocal();
   const bests = ls.filter(l => l.best?.file_id);
-  $("view").innerHTML = `${statusHtml(data.status)}${growthHtml(data.growth)}<div class="card"><h2>${esc(data.name)}님의 레슨 노트</h2>
+  $("view").innerHTML = `${statusHtml(data.status)}${typeof monthHtml === "function" ? monthHtml(data.months) : ""}${growthHtml(data.growth)}<div class="card"><h2>${esc(data.name)}님의 레슨 노트</h2>
       <p class="muted" style="margin:0">레슨 ${ls.length}회 · 최근 ${md(ls[0]?.date)}</p>
       ${bests.length > 1 && !albumTracks(ls).length ? `<button class="ghost full" id="playAll" style="margin-top:10px">▶ 그동안의 베스트 가창 이어 듣기 (${bests.length}곡)</button>` : ""}</div>
     ${albumHtml(ls)}
