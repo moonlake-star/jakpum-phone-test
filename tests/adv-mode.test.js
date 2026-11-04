@@ -27,3 +27,6 @@ assert.ok(T.includes("const canAdv = () => !isStaffApp() || !!cfg?.adv_mode;") &
 assert.ok(T.includes("adv_mode: !!s.adv,") && T.includes("function paintAdvPerm()") && T.includes('<script src="../adv.js?v='));
 assert.ok(T.includes("t0: r4(toO(n.t0)), t1: r4(toO(n.t1))") && T.includes("r.note_edits = { notes, global: g }"));
 console.log("adv-mode ok", md.toFixed(4));
+// (11/05 00:06 사용자) 고급 보정을 켜도 음표를 누르면 🎵 음정(기본: 위아래·나누기)부터
+{ const tj = require("fs").readFileSync(__dirname + "/../tune.js", "utf8");
+  require("assert").ok(tj.includes('setMd(tMode ? "t" : "p")') && !tj.includes('st.advOn = true; st.fixMode = "a"'), "고급 켜도 기본 탭부터"); }

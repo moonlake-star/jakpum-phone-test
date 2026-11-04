@@ -660,7 +660,7 @@
     // ── 타이밍·길이 ──
     const setMd = (md) => { if (!tOn) return; if (md === "a" && !(st.onAdv && st.advOn)) md = "p"; st.fixMode = md; d.classList.toggle("tmode", md === "t"); d.classList.toggle("amode", md === "a");
       if (md === "a") { try { G.TuneAdv.panel(d.querySelector(".tfFixBox"), b, st, cv); } catch (e) { console.warn("고급 보정", e); } }   /* (11/04 사용자) 고급 보정 모드: 원장(과 원장이 열어 준 강사)만 */ d.querySelectorAll("[data-md]").forEach(x => { const on = x.dataset.md === md; x.classList.toggle("on", on); x.setAttribute("aria-pressed", String(on)); }); if (md === "t") sndOff(); };
-    if (tOn) { setMd(tMode ? "t" : st.fixMode === "a" ? "a" : "p"); d.querySelectorAll("[data-md]").forEach(x => x.onclick = () => setMd(x.dataset.md)); }
+    if (tOn) { setMd(tMode ? "t" : "p");   /* (11/05 00:06 사용자 '음표 눌러도 나누기·위아래가 안 됨') 고급 보정을 켜도 음표를 누르면 늘 🎵 음정(기본)부터 — 🎛 고급은 탭 한 번 */ d.querySelectorAll("[data-md]").forEach(x => x.onclick = () => setMd(x.dataset.md)); }
     if (!tOn) { saved = curS(); return; }
     const L0 = b.t1 - b.t0, sameT = (x) => Math.abs(x.t0 - b.t0) < 0.02 && Math.abs(x.t1 - b.t1) < 0.02, te0 = (cv._tedits || []).find(sameT);
     let n0 = te0 ? te0.nt0 : b.t0, n1 = te0 ? te0.nt1 : b.t1;
@@ -835,7 +835,7 @@
       const xb = wrap.querySelector(".tfTop .tfX:not(.tfXp)") || wrap.querySelector(".tfTop .tfX"), mk = (cls, txt) => { const b = document.createElement("button"); b.type = "button"; b.className = "tfAdvG " + cls; b.textContent = txt; b.addEventListener("pointerdown", (e) => e.stopPropagation()); xb.parentNode.insertBefore(b, xb); return b; };
       const on = mk("advOnB", "🎛 고급 보정"), gl = mk("advGlB", "🎛 곡 전체"), off = mk("advOffB", "기본으로");
       const paintAdv = () => { on.hidden = st.advOn; gl.hidden = off.hidden = !st.advOn; wrap.classList.toggle("advOn", st.advOn); };
-      on.onclick = () => { st.advOn = true; st.fixMode = "a"; paintAdv(); wrap.querySelectorAll(".tfFix").forEach(x => x.remove()); };
+      on.onclick = () => { st.advOn = true; if (st.fixMode === "a") st.fixMode = "p"; paintAdv(); wrap.querySelectorAll(".tfFix").forEach(x => x.remove()); };
       off.onclick = () => { st.advOn = false; if (st.fixMode === "a") st.fixMode = "p"; paintAdv(); wrap.querySelectorAll(".tfFix").forEach(x => x.remove()); };
       gl.onclick = () => { try { G.TuneAdv.globalSheet(wrap.querySelector(".tfBox") || wrap, st, cv); } catch (e) { console.warn("고급 보정", e); } };
       paintAdv(); }
