@@ -4022,10 +4022,79 @@ async function pushGrowthAll() {   // 음정성향 파일이 바뀐 수강생만
 }
 async function paintGrowthTab(sid) {
   const st = cfg.students[sid];
-  $("stuTab").innerHTML = `<div id="grUse"></div><div id="grTop"></div><div id="grShare"></div><div id="mkHabit"><p class="muted">불러오는 중…</p></div><div id="stuGrowth4"></div>`;
+  $("stuTab").innerHTML = `<div id="grUse"></div><div id="grTop"></div><div id="grMonth"></div><div id="grShare"></div><div id="mkHabit"><p class="muted">불러오는 중…</p></div><div id="stuGrowth4"></div>`;
   usageOf().then(u => { if (stuCur?.sid === sid && stuCur.tab === "growth" && $("grUse")) $("grUse").innerHTML = usageCard(u?.[sid]); }).catch(() => {});
-  paintHabit(sid, "growth").then(() => { if (stuCur?.sid === sid && stuCur.tab === "growth" && st._habit) { wireGrowthShare(sid); pushGrowth(sid).catch(() => {}); } });
+  paintHabit(sid, "growth").then(() => { if (stuCur?.sid === sid && stuCur.tab === "growth") { if (st._habit) { wireGrowthShare(sid); pushGrowth(sid).catch(() => {}); } wireMonth(sid); } });
   try { const rec = await rootFile(st, "수강생기록.json"); if (stuCur?.sid === sid && stuCur.tab === "growth") paintGrowth4(rec, st); } catch {}
+}
+// ── 📅 월간 성장 리포트 + 🎉 달성(11/04 19:02 사용자 '응 고고' — 장기 수강생 프로젝트) ──
+// 사실(레슨 날짜·회차·곡·정확도·과제)로만 만들고, 선생님이 줄을 고르고 한마디를 써서 '보내기'를 눌러야 수강생 페이지에 보임(_month_YYYY-MM)
+const MO_MILES = [5, 10, 20, 30, 50, 75, 100, 150, 200, 300], MO_ANNIV = [3, 6, 12, 24, 36];
+const moDate = (x) => String(x || "").slice(0, 10), moYm = (d) => String(d || "").slice(0, 7);
+function moDefault(now = new Date()) {   // 7일까지는 지난달, 그 뒤엔 이번 달
+  const d = new Date(now.getTime() + 9 * 3600e3), y = d.getUTCFullYear(), m = d.getUTCMonth() + 1;
+  if (d.getUTCDate() > 7) return `${y}-${String(m).padStart(2, "0")}`;
+  return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, "0")}`;
+}
+const moPrev = (ym) => { const [y, m] = ym.split("-").map(Number); return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, "0")}`; };
+function monthFacts(inp, ym) {   // inp: {lessons:[날짜], subs:[날짜], songs:[{date,title,acc(0~1)|null}]}
+  const ls = [...new Set((inp.lessons || []).map(moDate).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)))].sort();
+  const inM = ls.filter(d => moYm(d) === ym); if (!inM.length && !(inp.subs || []).some(d => moYm(d) === ym)) return null;
+  const before = ls.filter(d => moYm(d) < ym).length, total = before + inM.length, items = [];
+  items.push({ k: "lessons", ic: "📅", text: `레슨 ${inM.length}번 (${inM.map(d => +d.slice(8)).join("·")}일)`, on: true });
+  const miles = MO_MILES.filter(m => before < m && m <= total).map(m => ({ k: "mile" + m, ic: "🎉", text: `${m}회차 레슨 달성!`, on: true }));
+  if (ls.length) { const [fy, fm] = ls[0].split("-").map(Number), [y, m] = ym.split("-").map(Number), mo = (y - fy) * 12 + (m - fm);
+    if (MO_ANNIV.includes(mo)) miles.push({ k: "anniv" + mo, ic: "🎂", text: mo % 12 ? `함께 노래한 지 ${mo}개월` : `함께 노래한 지 ${mo / 12}년`, on: true }); }
+  const songs = (inp.songs || []).filter(x => x && x.date).sort((a, b) => moDate(a.date).localeCompare(moDate(b.date)));
+  const sm = songs.filter(x => moYm(x.date) === ym), old = songs.filter(x => moYm(x.date) < ym), oldT = new Set(old.map(x => normTitle(x.title)));
+  const titles = [...new Map(sm.filter(x => x.title).map(x => [normTitle(x.title), x.title])).values()];
+  const fresh = titles.filter(t => !oldT.has(normTitle(t)));
+  if (titles.length) items.push({ k: "songs", ic: "🎵", text: `부른 곡: ${titles.slice(0, 5).map(t => `‘${t}’`).join(", ")}${titles.length > 5 ? ` 외 ${titles.length - 5}곡` : ""}`, on: true });
+  if (fresh.length) miles.push({ k: "fresh", ic: "✨", text: `새 곡 ${fresh.length}곡에 도전`, on: true });
+  const avg = (a) => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null, A = sm.map(x => x.acc).filter(Number.isFinite), P = songs.filter(x => moYm(x.date) === moPrev(ym)).map(x => x.acc).filter(Number.isFinite);
+  let acc = null;
+  if (A.length) { const now = Math.round(avg(A) * 100), prev = P.length ? Math.round(avg(P) * 100) : null, best = Math.round(Math.max(...A) * 100), oldBest = old.map(x => x.acc).filter(Number.isFinite);
+    acc = { now, prev, best };
+    items.push({ k: "acc", ic: "🎯", text: `음 정확도 평균 ${now}%${prev != null ? ` (지난달 ${prev}%${now > prev ? `, ▲${now - prev}%p` : ""})` : ""}`, on: prev == null || now >= prev });   // 낮아진 달은 기본 끔(선생님이 켤 수 있음)
+    if (oldBest.length && best > Math.round(Math.max(...oldBest) * 100)) miles.push({ k: "best", ic: "🏆", text: `정확도 최고 기록 ${best}% 새로 세움`, on: true }); }
+  const sb = (inp.subs || []).filter(d => moYm(d) === ym).length;
+  if (sb) items.push({ k: "subs", ic: "📝", text: `연습 녹음 ${sb}번 보냄`, on: true });
+  const [, mm] = ym.split("-").map(Number);
+  return { ym, title: `${mm}월 성장 리포트`, lessons: inM.length, dates: inM, total, items: [...miles, ...items], acc };
+}
+function monthInput(st) {
+  return { lessons: (st._rows || []).filter(r => !r.err && r.l?.name).map(r => r.l.name.slice(0, 10)), subs: (st._subs || []).map(x => moDate(x.received_on)),
+    songs: (st._habit?.songs || []).filter(x => !keyShaky(x)).map(x => ({ date: x.date, title: x.title || "", acc: songStats(x)?.in15 ?? null })) };
+}
+function monthNote(f, pick, say) {
+  return { kind: "month", ym: f.ym, title: f.title, total: f.total, items: f.items.filter(x => pick[x.k] ?? x.on).map(({ ic, text, k }) => ({ ic, text, mile: /^(mile|anniv|best|fresh)/.test(k) })),
+    say: String(say || "").trim().slice(0, 400), updated_at: new Date().toISOString() };
+}
+function wireMonth(sid, ym) {
+  const box = $("grMonth"), st = cfg.students[sid]; if (!box || !st) return;
+  ym = ym || box.dataset.ym || moDefault(); box.dataset.ym = ym;
+  const f = monthFacts(monthInput(st), ym), sent = (LS.get("vn_mo_sent") || {})[sid + ":" + ym], dr = (LS.get("vn_mo_draft") || {})[sid + ":" + ym] || {};
+  const nav = `<div class="row" style="justify-content:space-between"><h3 style="margin:0">📅 ${esc(f?.title || `${+ym.slice(5)}월 성장 리포트`)}</h3>
+    <span><button type="button" class="small ghost" data-mo="${moPrev(ym)}">◀</button>${ym < moYm(new Date(Date.now() + 9 * 3600e3).toISOString()) ? ` <button type="button" class="small ghost" data-mo="${(() => { const [y, m] = ym.split("-").map(Number); return m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, "0")}`; })()}">▶</button>` : ""}</span></div>`;
+  if (!f) { box.innerHTML = `<div class="card">${nav}<p class="muted" style="margin:6px 0 0">이 달에는 레슨 기록이 없어요</p></div>`; }
+  else {
+    const pick = dr.pick || {};
+    box.innerHTML = `<div class="card">${nav}
+      <p class="muted" style="margin:4px 0 8px">레슨 기록으로 만든 내용 · 보낼 줄만 체크 → 한마디 쓰고 보내면 수강생 페이지 맨 위에 보여요${sent ? ` · <b>보냄 ${esc(new Date(sent).toLocaleDateString("ko-KR", { month: "numeric", day: "numeric" }))}</b>(다시 보내면 바뀜)` : ""}</p>
+      ${f.items.map(x => `<label style="display:block;margin:3px 0"><input type="checkbox" data-mk="${esc(x.k)}"${(pick[x.k] ?? x.on) ? " checked" : ""}> ${x.ic} ${esc(x.text)}</label>`).join("")}
+      <textarea id="moSay" rows="3" maxlength="400" style="width:100%;margin-top:6px" placeholder="이번 달 선생님 한마디 (예: 이번 달은 고음에서 힘이 많이 빠졌어요. 다음 달엔 ‘○○’ 완곡해 봐요!)">${esc(dr.say || "")}</textarea>
+      <div class="row" style="margin-top:6px"><button type="button" class="small" id="moSend">${sent ? "다시 보내기" : "수강생 페이지에 보내기"}</button><span class="muted" id="moMsg"></span></div></div>`;
+    const save = () => { const all = LS.get("vn_mo_draft") || {}, p = {}; box.querySelectorAll("[data-mk]").forEach(c => p[c.dataset.mk] = c.checked); all[sid + ":" + ym] = { pick: p, say: $("moSay").value }; LS.set("vn_mo_draft", all); return all[sid + ":" + ym]; };
+    box.querySelectorAll("[data-mk]").forEach(c => c.onchange = save); $("moSay").oninput = save;
+    $("moSend").onclick = async () => { const d = save(), n = monthNote(f, d.pick, d.say), b = $("moSend");
+      if (!n.items.length && !n.say) return toast("보낼 줄을 하나 이상 고르거나 한마디를 써 주세요");
+      if (isStaffApp() || !portalUrl()) return toast("수강생 노트 서버가 연결된 원장 앱에서 보낼 수 있어요");
+      b.disabled = true; $("moMsg").textContent = "보내는 중…";
+      try { await portal("t_note", { sid, lesson_id: "_month_" + ym, date: "", published_at: n.updated_at, note: n, _nb: true });
+        const S = LS.get("vn_mo_sent") || {}; S[sid + ":" + ym] = n.updated_at; LS.set("vn_mo_sent", S); $("moMsg").textContent = "✓ 보냈어요"; wireMonth(sid, ym); }
+      catch (e) { $("moMsg").textContent = errMsg(e); } finally { b.disabled = false; } };
+  }
+  box.querySelectorAll("[data-mo]").forEach(b => b.onclick = () => wireMonth(sid, b.dataset.mo));
 }
 // (11/04 사용자 승인) 수강생 앱 사용 기록 — 장기 수강에 무엇이 효과 있는지 보려고. 서버(수강생노트) t_usage, 5분 동안 다시 안 물음
 let usageCache = null;
@@ -6464,7 +6533,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-04-1930-gc";
+const BUILD = "2026-11-04-1945-month";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
