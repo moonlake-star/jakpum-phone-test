@@ -517,7 +517,7 @@
 <div id="v2Shade" class="v2only"></div>
 <div id="toast"></div>
 <script src="../lesson-replies.js"></script>
-<script src="../tune.js?v=20261105-0100"></script>
+<script src="../tune.js?v=20261105-0130"></script>
 <script src="../adv.js?v=20261104-1800"></script>
 
 <script>
@@ -4768,6 +4768,14 @@ async function mkRefPaint(j, r, pi, by) {
     } catch (e) { msg.textContent = "저장 실패: " + errMsg(e); } finally { b.disabled = false; }
   };
 }
+// (11/05 00:14 사용자) 레슨 '오늘의 베스트' 전체화면에서 음표 고치기: 그 메이크업 작업 화면을 열고 같은 자리에서 전체화면(음정·타이밍·나누기·고급)
+async function editFromBest(job, t) {
+  if (!job) return toast("메이크업본이 있어야 음표를 고칠 수 있어요");
+  const me = cur, back = () => openLesson(me.sid, me.rowIndex, me.back);
+  await openMkJob(job, back);
+  for (let i = 0; i < 60; i++) { const c = $("mkTune"); if (c && c._openFull) { try { mkOffset = Math.max(0, +t || 0); if (typeof paintTransport === "function") paintTransport(); } catch {} c._openFull(); return; } if (mkJob !== job) return; await new Promise(r => setTimeout(r, 250)); }
+  toast("음정선을 아직 못 받았어요 · 아래 음정선을 눌러 주세요");
+}
 async function openMkJob(j, backTo) {
   goBack = backTo || (() => openStudent(j.sid, "mk"));
   if (!["done", "error"].includes(j.req.status)) return showProgress(j);
@@ -5609,7 +5617,8 @@ function wireBest() {
       Tune.wire(el, cv, () => (tpFile === m.file_id || tpFile === o.file_id ? player.currentTime : 0), () => (tpFile === m.file_id ? +(job?.req?.pitch_level ?? 2) : 0), async (t, still) => {
         try { const [r, id] = active(); if ((tpRoot !== r || tpFile !== id) && !(await tpLoad(r, id))) return; player.currentTime = t; if (still) player.pause(); else if (player.paused) { pauseOthers(player); await player.play(); } tpPaint(); } catch (e) { toast(e.message); } },
       { title: "오늘의 베스트", tapFull: true, play: () => box?.querySelector('[data-abp="play"]')?.click(), paused: () => player.paused || !(tpFile === m.file_id || tpFile === o.file_id),
-        mode: () => (tpFile === m.file_id ? "p" : "o"), setMode: (md) => box?.querySelector(`[data-ver="${md === "p" ? "mk" : "orig"}"]`)?.click(), ...tnOpts });
+        mode: () => (tpFile === m.file_id ? "p" : "o"), setMode: (md) => box?.querySelector(`[data-ver="${md === "p" ? "mk" : "orig"}"]`)?.click(), ...tnOpts,
+        onEdit: (t) => { try { player.pause(); } catch {} editFromBest(job, t); } });
     }).catch(() => {}); }
   const pairs = [[broot, o.file_id], ...(m && mroot ? [[mroot, m.file_id]] : [])];
   // 파형 미리 그리기: 녹음을 받아 둔 적이 있으면 바로, 아니면 받아서(편집본·메이크업 각 한 번, 레슨 화면에 있는 동안 다시 받지 않음)
@@ -6691,7 +6700,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-05-0100-fixtab";
+const BUILD = "2026-11-05-0130-edit";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
