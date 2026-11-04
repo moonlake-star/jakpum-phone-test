@@ -517,8 +517,8 @@
 <div id="v2Shade" class="v2only"></div>
 <div id="toast"></div>
 <script src="../lesson-replies.js"></script>
-<script src="../tune.js?v=20261105-0330"></script>
-<script src="../adv.js?v=20261105-0330"></script>
+<script src="../tune.js?v=20261105-0300"></script>
+<script src="../adv.js?v=20261105-0300"></script>
 
 <script>
 // ── 설정 ────────────────────────────────────────────────
@@ -2960,7 +2960,7 @@ function kkParse(raw) {   // → {msgs:[{at,speaker,text}], format, title, syste
 const KK_INVALID = [["sticker", /^\(?이모티콘\)?(\s|$)|^스티커/], ["photo", /^사진( \d+장)?$/], ["video", /^동영상$/], ["file", /^파일[: ]/], ["deleted", /^삭제된 메시지입니다/],
   ["call", /^(보이스톡|페이스톡|통화)/], ["forward", /^\(?\[?전달\]?\)?(\s|$)/], ["reply", /^\[?답장\]?(\s|:)/]];
 const kkKind = (text) => { const f = String(text).trim().split("\n")[0].trim(); return (KK_INVALID.find(([, re]) => re.test(f)) || [])[0] || "text"; };
-const KK_EMOJI = /\p{Extended_Pictographic}/u, KK_EMOT = /\^\^|\^_\^|ㅎ{2,}|ㅋ{2,}|ㅠ{2,}|ㅜ{2,}|T_T|;\)|:\)|:D/;
+const KK_EMOT =/\^\^|\^_\^|ㅎ{2,}|ㅋ{2,}|ㅠ{2,}|ㅜ{2,}|T_T|;\)|:\)|:D/;
 const kkSame = (a, b) => { a = String(a).replace(/\s/g, ""); b = String(b).replace(/\s/g, ""); return a.length >= 2 && b.length >= 2 && (a.includes(b) || b.includes(a)); };
 // 강사 별칭을 고른 뒤에만 역할이 정해진다. 강사 메시지만 스타일 샘플, 수강생 메시지는 그 학생의 반응 후보로만 센다.
 function kkSummarize(p, aliases, studentName) {
@@ -3853,7 +3853,6 @@ function kickBar(show) {
     x.onclick = () => kickBar(false);
     document.body.appendChild(b); }
 }
-const startedMsg = (ok) => ok ? "바로 처리를 시작했어요 (보통 1~3분)" : "요청은 저장했어요 · 서버를 바로 깨우지 못했어요(아래 [다시 시작])";
 
 // ── 보컬 메이크업 ────────────────────────────────────
 const MKREQ = "메이크업요청.json", MK_PRESETS = ["담백", "표준", "풍성"];
@@ -3868,7 +3867,6 @@ async function newFolder(name, parent) {
   return (await (await api(`${DRIVE}/files?fields=id`, { method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name, mimeType: "application/vnd.google-apps.folder", parents: [parent] }) })).json()).id;
 }
-async function openMakeup() { return renderList(); }
 const KEY_NOTES = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
 // 키 선택 목록: "Eb 단조 (Ebm)" 식. sel = {tonic, mode} 또는 null(모름)
 function keyOptions(sel, withAuto) {
@@ -6495,13 +6493,6 @@ function renderHighlights() {
 // 노래 흔들림·삑사리(AI 참고, 2026-10-27): 오늘의베스트.json stability.events. 누르면 그 자리 앞뒤 1.5초 재생, 맞아요/아니에요는 검수.json에 저장
 const STAB_ICON = { crack: "⚡", break: "✂", wobble: "〰" };
 function stabEvents(a, b) { return (cur.best?.stability?.events || []).filter(e => e.end > a && e.start < b); }
-function stabChips(a, b) {
-  const ev = stabEvents(a, b); if (!ev.length) return "";
-  const fb = cur.review.stab_fb || {};
-  return `<div class="row" style="gap:4px;flex-wrap:wrap;margin-top:4px"><span class="muted" style="font-size:.8rem">AI 참고</span>` + ev.map(e =>
-    `<span class="chip ${fb[e.id] === false ? "" : "todo"}" style="display:inline-flex;flex-wrap:wrap;gap:4px;align-items:center;max-width:100%">${STAB_ICON[e.kind] || "⚠"} <button class="small ghost" data-stabplay="${e.start}" data-stabend="${e.end}" style="padding:2px 6px">${esc(e.label)} ${fmt(e.start)}</button>
-      <button class="small ghost" data-stabfb="${esc(e.id)}" data-v="1" aria-pressed="${fb[e.id] === true}" style="padding:2px 6px">${fb[e.id] === true ? "✓ " : ""}맞아요</button><button class="small ghost" data-stabfb="${esc(e.id)}" data-v="0" aria-pressed="${fb[e.id] === false}" style="padding:2px 6px">${fb[e.id] === false ? "✓ " : ""}아니에요</button></span>`).join("") + `</div>`;
-}
 function wireStab(root) {
   root.querySelectorAll("[data-stabplay]").forEach(b => b.onclick = () => {
     const a = +b.dataset.stabplay, e = +b.dataset.stabend;
