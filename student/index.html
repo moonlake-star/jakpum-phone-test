@@ -114,6 +114,9 @@
   .letter .gl { display:flex; flex-direction:column; align-items:flex-start; gap:4px; margin:2px 0 10px; } .letter .gl .pre { width:100%; }
   .card.cheer.mission h2.mh { margin-top:16px; padding-top:14px; border-top:1px solid rgba(255,170,90,.22); }   /* (10/29 11:06 사용자) 응원 + 다음 미션 한 카드 */
   .card.mission { background:linear-gradient(180deg, rgba(255,170,90,.07), transparent 70%), var(--card); border-color:rgba(255,170,90,.28); } .card.mission h2 { color:#ffb37a; }
+  .card.gc .gcPair { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:8px 0; } .card.gc .gcPair > div { min-width:0; } .card.gc .gcPair .lp { width:100%; }
+  .card.gc table { width:100%; border-collapse:collapse; margin:8px 0; font-size:.92rem; } .card.gc td { padding:5px 4px; border-top:1px solid rgba(255,255,255,.07); } .card.gc td.up { color:#8fe3a8; font-weight:700; }
+  .card.gc .gcLine { width:100%; height:64px; display:block; margin:4px 0; } .card.gc .tag { display:inline-block; font-size:.75rem; padding:2px 8px; border-radius:999px; background:rgba(255,255,255,.08); color:var(--muted, #9aa3ad); }
   @media (prefers-reduced-motion: reduce) { .lp { transition:none; } }
   .wave svg { position:absolute; inset:0; width:100%; height:100%; } .wave .on { position:absolute; inset:0; clip-path:inset(0 100% 0 0); }
   .story-item { border-top:1px solid var(--line); padding:12px 0; } .story-item .when { font-weight:700; } .story-item p { margin:4px 0 8px; }
@@ -676,6 +679,44 @@ const listHtml = (a) => `<ul>${a.map(x => `<li>${esc(x)}</li>`).join("")}</ul>`;
 const sidOk = (x) => typeof x === "string" && x.trim() !== "";
 const makeupOk = (m, best) => !!m && sidOk(m.file_id) && sidOk(m.source_file_id) && m.file_id !== best?.file_id && (!best?.file_id || m.source_file_id === best.file_id);
 // 보기 방식(10/28 승인 시안): 심플 = 베스트·한마디·핵심 포인트·미션 / 보통(기본) = + 순간·메이크업·추천곡·응원·더 들여다보기(접힘) / 자세히 = 더 들여다보기를 펼친 채
+// (11/04 17:49 사용자 시안 승인) 같은 구절, 그때와 지금: 선생님이 들어 보고 넣은 것만 노트에 있음(compare). 원음 그대로
+const GCN = ["도", "도#", "레", "레#", "미", "파", "파#", "솔", "솔#", "라", "라#", "시"], GCL = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+function gcHtml(c) {
+  if (!c || typeof c !== "object" || !c.then?.file_id || !c.now?.file_id || typeof c.then.file_id !== "string" || typeof c.now.file_id !== "string") return "";
+  const nm = (m) => Number.isFinite(+m) && m !== null ? `${GCN[((+m % 12) + 12) % 12]} <span class="muted">${GCL[((+m % 12) + 12) % 12]}${Math.floor(+m / 12) - 1}</span>` : "–";
+  const pc = (x) => Number.isFinite(+x) && x !== null ? Math.round(+x * 100) + "%" : "–";
+  const wb = (w) => w == null ? "–" : w > 25 ? "많음" : w > 12 ? "보통" : "적음";
+  const d = c.delta || {}, md2 = (x) => String(x || "").slice(5, 10).replace("-", "/");
+  const up = { acc: Number.isFinite(d.acc_pp) && d.acc_pp >= 10, wob: d.wobble === "좋아짐", top: Number.isFinite(d.top_semis) && d.top_semis > 0 };
+  const line = (pts, col) => { if (!Array.isArray(pts) || pts.length < 4) return ""; const xs = pts.map(p => +p[0]), ys = pts.map(p => +p[1]);
+    return { xs, ys, col }; };
+  const A = line(c.then.pts, "#7b8490"), B = line(c.now.pts, "#9cc3ff"), all = [A, B].filter(Boolean);
+  let svg = "";
+  if (all.length) { const lo = Math.min(...all.flatMap(o => o.ys)) - 1, hi = Math.max(...all.flatMap(o => o.ys)) + 1;
+    const path = (o) => { const x0 = o.xs[0], x1 = Math.max(x0 + 0.1, o.xs[o.xs.length - 1]); return o.xs.map((x, i) => `${i ? "L" : "M"}${((x - x0) / (x1 - x0) * 300).toFixed(1)},${(60 - (o.ys[i] - lo) / Math.max(1, hi - lo) * 56 - 2).toFixed(1)}`).join(""); };
+    svg = `<svg class="gcLine" viewBox="0 0 300 60" preserveAspectRatio="none" aria-hidden="true">${all.map(o => `<path d="${path(o)}" fill="none" stroke="${o.col}" stroke-width="${o === B ? 2 : 1.4}" vector-effect="non-scaling-stroke"/>`).join("")}</svg>
+      <div class="muted" style="font-size:.78rem">음높이 선 · <span style="color:#7b8490">그때</span> / <span style="color:#9cc3ff">지금</span></div>`; }
+  const row = (k, a, b, u) => `<tr><td class="muted">${k}</td><td>${a}</td><td class="${u ? "up" : ""}">${b}${u ? " ↑" : ""}</td></tr>`;
+  return `<div class="card gc" role="region" aria-label="같은 구절 그때와 지금"><h2>📈 같은 구절, 그때와 지금</h2>
+    <p style="margin:4px 0">‘${esc(String(c.lyric || "").slice(0, 80))}’ <span class="tag">원음 그대로</span></p>
+    <p class="muted" style="margin:0">${md2(c.then.date)} → ${md2(c.now.date)}${c.days ? ` · ${+c.days}일 사이` : ""}</p>
+    <div class="gcPair"><div>${pill(c.then.file_id, "그때 " + md2(c.then.date))}</div><div>${pill(c.now.file_id, "지금 " + md2(c.now.date))}</div></div>
+    <button type="button" class="ghost" data-gcalt="${esc(c.then.file_id)}|${esc(c.now.file_id)}" style="width:100%">🔁 번갈아 듣기 (그때 → 지금)</button>
+    ${svg}
+    <table><tr><td></td><td class="muted">그때</td><td class="muted">지금</td></tr>
+      ${row("음 정확도", pc(c.then.acc), pc(c.now.acc), up.acc)}${row("끝음 흔들림", wb(c.then.wobble), wb(c.now.wobble), up.wob)}${row("가장 높은 음", nm(c.then.top), nm(c.now.top), up.top)}</table>
+    ${typeof c.say === "string" && c.say.trim() ? `<p class="pre" style="margin:6px 0 0">💬 ${esc(c.say.trim())}</p>` : ""}
+    <p class="muted" style="margin:8px 0 0;font-size:.8rem">레슨 녹음을 손대지 않고 그대로 잘랐어요 · 숫자는 녹음 상태에 따라 조금 다를 수 있어요</p></div>`;
+}
+function wireCompare() {   // 번갈아 듣기: 그때 → 끝나면 지금
+  document.querySelectorAll("[data-gcalt]").forEach(btn => btn.onclick = () => {
+    const [a, b] = btn.dataset.gcalt.split("|"), pa = document.querySelector(`[data-lp="${CSS.escape(a)}"]`), pb = document.querySelector(`[data-lp="${CSS.escape(b)}"]`), aa = $("au_" + a);
+    if (!pa || !pb || !aa) return;
+    try { track("listen", { f: "compare" }); } catch {}
+    aa.addEventListener("ended", () => { if (!pb.classList.contains("open")) pb.click(); else { const ab = $("au_" + b); if (ab) { ab.currentTime = 0; ab.play().catch(() => {}); } } }, { once: true });
+    if (!pa.classList.contains("open")) pa.click(); else { aa.currentTime = 0; aa.play().catch(() => {}); }
+  });
+}
 function lessonHtml(l, prev, mode = "normal") {
   const MODES = [["simple", "심플"], ["normal", "보통"], ["detail", "자세히"]];
   const modeBar = (m) => `<div class="seg" role="group" aria-label="보기 방식">${MODES.map(([k, n]) => `<button type="button" class="${k === m ? "on" : ""}" data-mode="${k}" aria-pressed="${k === m}">${n}</button>`).join("")}</div>`;
@@ -734,6 +775,7 @@ function lessonHtml(l, prev, mode = "normal") {
     ${has(l.feedback) ? `<div class="card letter"><h2>💬 ${l.teacher_name ? esc(l.teacher_name) + " " : ""}선생님 한마디</h2>${letter}${bestBlock}</div>` : bestBlock ? `<div class="card">${bestBlock}</div>` : ""}
     ${full && moment && !clips.some(c => (c.note || "").trim() === moment) && !points.some(t => t.trim() === moment) ? `<div class="card moment" role="region" aria-label="선생님이 발견한 오늘의 순간"><div class="muted">🔎 선생님이 발견한 오늘의 순간</div><p class="big">${esc(moment)}</p></div>` : ""}
     ${!ptsIn && points.length ? `<div class="card"><h2>⭐ 오늘의 핵심 포인트</h2>${ptsHtml(points)}</div>` : ""}
+    ${typeof gcHtml === "function" ? gcHtml(l.compare) : ""}
     ${full && (restC.length || restPairs.length) ? `<div class="card listen"><h2>🎧 더 들어 보기</h2>${restC.map(c => `<div class="clip">${has(c.note) ? `<div>${esc(c.note)}</div>` : ""}${pill(c.file_id, "좋았던 순간 듣기", c.peaks)}</div>`).join("")}${restPairs.map(x => `<div class="clip"><div>${esc(x.label)}</div>${pill(x.file_id + "#p", "🔁 지도 전 → 후 듣기", x.peaks)}</div>`).join("")}</div>` : ""}
     ${full && !l.best?.file_id && makeupOk(l.makeup, l.best) ? `<div class="card makeup"><div class="cardHead"><span class="badge mk">메이크업본</span><b>간단 음정보정 예시</b>${l.makeup.len ? `<span class="muted">${l.makeup.len}초</span>` : ""}</div><p class="muted" style="margin:4px 0 6px">음원 발매용으로 정식 보정하면 더 자연스럽고 좋아져요</p>${has(l.makeup.msg) ? `<p style="margin:0 0 8px">${esc(l.makeup.msg.trim())}</p>` : ""}${(sidOk(l.makeup.before_id) || sidOk(l.makeup.curve_id)) ? mkBoxHtml(l.makeup) : pill(l.makeup.file_id + "#m", "메이크업 듣기", l.makeup.peaks, "mk")}</div>` : ""}
     ${(full && cheer) || mission.length || (full && song) ? `<div class="card cheer${mission.length || (full && song) ? " mission" : ""}">${full && cheer ? `<h2>💌 응원 메시지</h2><p class="pre" style="margin:0">${esc(cheer)}</p>` : ""}${mission.length || (full && song) ? `<h2${full && cheer ? ' class="mh"' : ""}>📋 다음 미션</h2>${mission.length ? listHtml(mission) : ""}${full && song ? `<div class="song"><div class="muted">🎵 추천 곡</div><b>${esc(song.title)}</b>${has(song.artist) ? ` <span class="muted">(${esc(song.artist)})</span>` : ""}${has(song.why) ? `<p style="margin:4px 0 0">${esc(song.why)}</p>` : ""}${yt(song.url) ? `<a class="yt" href="${esc(yt(song.url))}" target="_blank" rel="noopener noreferrer">▶ 유튜브에서 듣기</a>` : `<a class="yt find" href="https://www.youtube.com/results?search_query=${encodeURIComponent((song.title + " " + (song.artist || "")).trim())}" target="_blank" rel="noopener noreferrer">🔎 유튜브에서 찾아 듣기</a>`}</div>` : ""}` : ""}</div>` : ""}
@@ -753,7 +795,7 @@ function openLesson(id) {
     $("view").innerHTML = lessonHtml(l, prev, "normal")   /* 10/29 17:28 사용자: 심플/보통/자세히 버튼 없애고 보통만 */.replace('<h2 style="margin:14px 0 4px">',
       `<div class="card greet"><div class="muted">${esc(data.name)}님의 보컬노트 · ${nth}회차 · ${esc(dd)}</div><p class="big" style="margin:4px 0 0">${esc(data.name)}님, 오늘도 수고 많으셨어요 🎵</p></div><h2 style="margin:14px 0 4px">`);
     try { $("view").insertAdjacentHTML("beforeend", Brand.sign()); } catch {}   // (10/30 사용자) 노트 맨 아래 한 줄
-    $("back").onclick = timeline; wirePlayers();
+    $("back").onclick = timeline; wirePlayers(); wireCompare();
     document.querySelectorAll("[data-mode]").forEach(b => b.onclick = () => { LS.set("sn_mode", b.dataset.mode); paint(); });
     // 레슨별 비공개 답신(앱 #39): 이 레슨에 대해 선생님과 주고받는 글. 서버(Apps Script)가 본인 레슨인지 다시 확인
     if (typeof LessonReplies === "undefined") return;
