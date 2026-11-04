@@ -564,7 +564,7 @@
     // (11/02 19:38 사용자 시안 승인) 다이어트: 첫 줄 = 원음/보정본 스위치 + 시간·저장 표시 / 둘째 줄 = 버튼 한 줄(▼ 음 ▲ ✂ ↺ ✓) + 작은 이름표
     // (11/03 13:08 사용자 시안 승인) 모드 [🎵 음정 | ⏱ 타이밍]: 타이밍 = ◀일찍·늦게▶(톡 0.02초, 꾹 계속) · 길이 −/+ · ↺ · 막대 가운데 끌기 = 옮기기, 끝 끌기 = 길이
     const tOn = !!(st && typeof st.onTime === "function"), tMode = tOn && st.fixMode === "t"; let tTm = null, tSave = () => {};   // (닫을 때 쓰므로 먼저 둠)
-    d.innerHTML = `<div class="tfFixBox"><div class="tfFixHd">${tOn ? `<span class="tfFixMd" role="group" aria-label="고칠 것"><button type="button" data-md="p">🎵 음정</button><button type="button" data-md="t">⏱ 타이밍</button></span>` : "<b>정음</b>"}<span class="tfFixTm">${mm(b.t0)}~${mm(b.t1)}</span><span class="tfFixSt"></span></div>
+    d.innerHTML = `<div class="tfFixBox"><div class="tfFixHd">${tOn ? `<span class="tfFixMd" role="group" aria-label="고칠 것"><button type="button" data-md="p">🎵 음정</button><button type="button" data-md="t">⏱ 타이밍</button>${st && st.onAdv && st.advOn ? `<button type="button" data-md="a">🎛 고급</button>` : ""}</span>` : "<b>정음</b>"}<span class="tfFixTm">${mm(b.t0)}~${mm(b.t1)}</span><span class="tfFixSt"></span></div>
       ${tOn ? `<div class="tfFixRow tfT"><button type="button" data-tm="-1" aria-label="일찍(앞으로)">◀</button><button type="button" class="tfFixN tfTN" data-tp aria-label="이 음 듣기"></button><button type="button" data-tm="1" aria-label="늦게(뒤로)">▶</button><button type="button" class="tfIc" data-tl="-1" aria-label="짧게">−</button><button type="button" class="tfIc" data-tl="1" aria-label="길게">+</button><button type="button" class="tfIc" data-tr aria-label="톡 = 직전 저장으로, 1초 꾹 = 원본으로">↺</button></div>
       <div class="tfFixLab tfT"><span>일찍</span><span class="n">누르면 듣기</span><span>늦게</span><span class="i">짧게</span><span class="i">길게</span><span class="i">되돌리기</span></div>` : ""}
       <div class="tfFixRow tfP"><button type="button" data-d="-1" aria-label="반음 내림">▼</button><button type="button" class="tfFixN" data-p aria-label="누르는 동안 이 음 소리"></button><button type="button" data-d="1" aria-label="반음 올림">▲</button>${canCut ? `<button type="button" class="tfCut tfIc" data-cut aria-label="두 음으로 나누기(세로줄 자리, 막대 밖이면 가운데)">✂</button>` : ""}<button type="button" class="tfIc" data-r aria-label="톡 = 직전 저장으로, 1초 꾹 = 원본으로">↺</button></div>
@@ -658,8 +658,9 @@
       x.onclick = (e) => { if (e.detail === 0) undo(); };
       x.addEventListener("contextmenu", (e) => e.preventDefault()); });
     // ── 타이밍·길이 ──
-    const setMd = (md) => { if (!tOn) return; st.fixMode = md; d.classList.toggle("tmode", md === "t"); d.querySelectorAll("[data-md]").forEach(x => { const on = x.dataset.md === md; x.classList.toggle("on", on); x.setAttribute("aria-pressed", String(on)); }); if (md === "t") sndOff(); };
-    if (tOn) { setMd(tMode ? "t" : "p"); d.querySelectorAll("[data-md]").forEach(x => x.onclick = () => setMd(x.dataset.md)); }
+    const setMd = (md) => { if (!tOn) return; if (md === "a" && !(st.onAdv && st.advOn)) md = "p"; st.fixMode = md; d.classList.toggle("tmode", md === "t"); d.classList.toggle("amode", md === "a");
+      if (md === "a") { try { G.TuneAdv.panel(d.querySelector(".tfFixBox"), b, st, cv); } catch (e) { console.warn("고급 보정", e); } }   /* (11/04 사용자) 고급 보정 모드: 원장(과 원장이 열어 준 강사)만 */ d.querySelectorAll("[data-md]").forEach(x => { const on = x.dataset.md === md; x.classList.toggle("on", on); x.setAttribute("aria-pressed", String(on)); }); if (md === "t") sndOff(); };
+    if (tOn) { setMd(tMode ? "t" : st.fixMode === "a" ? "a" : "p"); d.querySelectorAll("[data-md]").forEach(x => x.onclick = () => setMd(x.dataset.md)); }
     if (!tOn) { saved = curS(); return; }
     const L0 = b.t1 - b.t0, sameT = (x) => Math.abs(x.t0 - b.t0) < 0.02 && Math.abs(x.t1 - b.t1) < 0.02, te0 = (cv._tedits || []).find(sameT);
     let n0 = te0 ? te0.nt0 : b.t0, n1 = te0 ? te0.nt1 : b.t1;
@@ -812,6 +813,8 @@
     const showMid = (kind) => { mid.textContent = kind === "pause" ? "❚❚" : kind === "back" ? "⏪" + DT_JUMP : kind === "fwd" ? DT_JUMP + "⏩" : "▶"; mid.className = "tfMid " + (kind === "pause" ? "stay" : "flash"); void mid.offsetWidth; mid.classList.add("go"); };
     st.voice = typeof o.voice === "function" ? o.voice : null;
     st.onTime = typeof o.onTime === "function" ? o.onTime : null;
+    // (11/04 17:41 사용자) 기본 = '기본 보정 모드'. '고급 보정 모드'는 원장·원장이 열어 준 강사에게만 버튼이 보이고, 눌러야 켜짐(adv.js)
+    st.onAdv = typeof o.onAdv === "function" && G.TuneAdv ? o.onAdv : null; st.advGet = o.advGet; st.title = o.title; st.advOn = false; if (st.fixMode === "a") st.fixMode = "p";
     st.ghostOn = typeof o.onFix === "function";   // 회색 막대는 고칠 수 있는 화면(선생님)에서만
     st.noteShow = false;   // 보정본에서 [💬 주석]으로 켜 둔 동안은 계속 보임(이 화면을 닫을 때까지)
     st.o = o; st.mMode = false; st.msel = null;   // (11/03 13:08) 타이밍·길이 고치기(선생님 메이크업 화면만)
@@ -827,6 +830,15 @@
       st.panAt = 0; try { seek(t, isPaused()); } catch {} });
     wrap.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { try { const cur = o.mode ? o.mode() : "p", want = b.dataset.m === cur ? (cur === "o" ? "p" : "o") : b.dataset.m; o.setMode(want); } catch {} });   // (11/02 19:30) 켜진 쪽을 눌러도 바뀜(진짜 스위치)
     const nChip = wrap.querySelector(".tfNoteChip");
+    if (st.onAdv) {   // 위 줄: [🎛 고급 보정] → 켜면 [🎛 곡 전체][기본으로]
+      try { G.TuneAdv.preview(cv, G.TuneAdv.state(st).ne); } catch {}
+      const xb = wrap.querySelector(".tfTop .tfX:not(.tfXp)") || wrap.querySelector(".tfTop .tfX"), mk = (cls, txt) => { const b = document.createElement("button"); b.type = "button"; b.className = "tfAdvG " + cls; b.textContent = txt; b.addEventListener("pointerdown", (e) => e.stopPropagation()); xb.parentNode.insertBefore(b, xb); return b; };
+      const on = mk("advOnB", "🎛 고급 보정"), gl = mk("advGlB", "🎛 곡 전체"), off = mk("advOffB", "기본으로");
+      const paintAdv = () => { on.hidden = st.advOn; gl.hidden = off.hidden = !st.advOn; wrap.classList.toggle("advOn", st.advOn); };
+      on.onclick = () => { st.advOn = true; st.fixMode = "a"; paintAdv(); wrap.querySelectorAll(".tfFix").forEach(x => x.remove()); };
+      off.onclick = () => { st.advOn = false; if (st.fixMode === "a") st.fixMode = "p"; paintAdv(); wrap.querySelectorAll(".tfFix").forEach(x => x.remove()); };
+      gl.onclick = () => { try { G.TuneAdv.globalSheet(wrap.querySelector(".tfBox") || wrap, st, cv); } catch (e) { console.warn("고급 보정", e); } };
+      paintAdv(); }
     if (nChip) { nChip.addEventListener("pointerdown", (e) => e.stopPropagation()); nChip.onclick = () => { st.noteShow = !st.noteShow; }; }
     const ppB = wrap.querySelector("[data-pp]"); if (ppB) ppB.onclick = () => toggle();   // (10/31 08:11 사용자) 재생/일시정지 버튼
     const fmt = (x) => `${Math.floor((x || 0) / 60)}:${String(Math.floor((x || 0) % 60)).padStart(2, "0")}`;
