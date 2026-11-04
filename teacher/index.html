@@ -421,6 +421,7 @@
     <div class="card" id="todayCard" style="order:2"></div>
     <div class="card hidden" id="anaCard" style="order:8"></div>
     <div class="card hidden" id="gcCard" style="order:8"></div>
+    <div class="card hidden" id="celCard" style="order:8"></div>
 
     <div class="card" id="spkCard" style="order:9">
       <details id="spkWrap" data-fold="spk"><summary><b>누가 누구인지</b> <span id="spkSum"></span></summary>
@@ -1079,7 +1080,7 @@ async function studentData(sid, prev) {
       const rf = files.find(f => f.name === REVIEW);
       const rv = rf ? await gJSON(rf.id).catch(() => ({})) : {};
       return { l, files, done: !!rf, fb: !!rv.sent?.feedback, ck: !!rv.sent?.check,
-               ai: files.some(f => f.name === "AI초안.json"), pub: files.some(f => f.name === NOTE) };
+               ai: files.some(f => f.name === "AI초안.json"), pub: files.some(f => f.name === NOTE), ...(rv.celeb?.full?.on && rv.celeb.full.title ? { full_song: String(rv.celeb.full.title).slice(0, 40) } : {}) };
     } catch (e) {   // 이 레슨만 실패: 지난번 값(있으면)으로 표시만 하고, 누르면 다시 불러옴
       const p = (prev?.rows || []).find(x => x.l?.id === l.id && !x.err) || {};
       return { l, files: [], done: !!p.done, fb: !!p.fb, ck: !!p.ck, ai: !!p.ai, pub: !!p.pub, err: errMsg(e) };
@@ -1784,7 +1785,8 @@ function buildNote() {
     ...(typeof pairsForNote === "function" && pairsForNote().length ? { pairs: pairsForNote() } : {}),
     ...(typeof moreClipsForNote === "function" && moreClipsForNote(clips).length ? { more_clips: moreClipsForNote(clips) } : {}),
     ...(typeof pointSndForNote === "function" && pointSndForNote((rv.points || []).filter(Boolean)).length ? { point_snd: pointSndForNote((rv.points || []).filter(Boolean)) } : {}),
-    ...(typeof gcForNote === "function" && gcForNote() ? { compare: gcForNote() } : {}) };
+    ...(typeof gcForNote === "function" && gcForNote() ? { compare: gcForNote() } : {}),
+    ...(typeof celebForNote === "function" && celebForNote().length ? { celebrate: celebForNote() } : {}) };
 }
 // 레슨 전체 기록(사용자 확정 2026-10-29 07:5x: '항상 같이 보내기'): 듣기용.mp3 + 전사본(같은 사람 이어지는 말은 합쳐 줄임).
 // 노트는 서버 시트 한 칸(최대 5만 자)에 들어가므로 전사본은 3만8천 자까지만 싣고, 넘으면 cut=true(수강생 화면에 '앞부분만' 표시)
@@ -4038,8 +4040,11 @@ function careTodos(data, ctx) {
     const dates = (d.rows || []).filter(r => !r.err && r.l?.name).map(r => r.l.name.slice(0, 10)).filter(x => /^\d{4}-\d{2}-\d{2}$/.test(x)).sort(), last = dates.at(-1);
     if (!last) continue;
     const a = ctx.att?.[d.sid] || {}, nextOk = a.next_lesson && Date.parse(a.next_lesson) > now, push = (k, t, c, tab) => { if (!(hide[d.sid + ":" + k] > now)) out.push({ k: "care", ck: k, sid: d.sid, t, c, tab }); };
-    const gap = Math.floor(day(last + "T12:00:00+09:00"));
-    if (gap >= 14 && !nextOk) push("gap", `💬 ${st.name} · 마지막 레슨 ${gap}일 전`, "안부 한마디", "lesson");
+    // (11/04 22:26 사용자 '14일이면 이미 나간 사람') 평소 간격보다 길어졌을 때(최소 8일) 일찍 — 35일 넘으면 그만둔 걸로 보고 안 띄움
+    const gap = Math.round(day(last + "T12:00:00+09:00")), iv = dates.slice(1).map((x, i) => (Date.parse(x) - Date.parse(dates[i])) / 864e5).filter(v => v > 0).sort((a, b) => a - b);
+    const usual = iv.length ? iv[Math.floor(iv.length / 2)] : 7;
+    if (gap >= Math.max(8, Math.round(usual * 1.5)) && gap <= 35 && !nextOk) push("gap", `💬 ${st.name} · 마지막 레슨 ${gap}일 전(평소 ${Math.round(usual)}일 간격) · 다음 예약 없음`, "안부 한마디", "lesson");
+    { const an = annivNext(dates[0], now); if (an && an.inDays <= 10) push("anniv" + an.m, `🎂 ${st.name} · ${an.inDays <= 0 ? "오늘" : an.inDays + "일 뒤"} 함께한 지 ${an.label}`, "그날 레슨 노트에 기념", "lesson"); }
     const u = ctx.usage?.[d.sid]; if (u?.last_at) { const g = Math.floor(day(u.last_at)); if (g >= 7) push("open", `📱 ${st.name} · ${g}일째 노트를 안 열어 봄`, "지난 노트 다시 보내기", "lesson"); }
     const nx = dates.length + 1; if (nextOk && MO_MILES.includes(nx)) push("mile" + nx, `🎉 ${st.name} · 다음 레슨이 ${nx}회차`, "축하 준비", "growth");
     if (kd <= 10 && dates.some(x => x.slice(0, 7) === ym) && !(ctx.sent || {})[d.sid + ":" + ym]) push("month" + ym, `📅 ${st.name} · ${+ym.slice(5)}월 성장 리포트`, "보내기", "growth");
@@ -4057,9 +4062,54 @@ function paintCare(data) {
     if (e.target.closest(".careX")) { e.stopPropagation(); const h = LS.get("vn_care_hide") || {}; h[x.sid + ":" + x.ck] = Date.now() + 7 * 864e5; LS.set("vn_care_hide", h); paintCare(data); return; }
     openStudent(x.sid, x.tab); });
 }
+// ── 🎂 기간 기념 · 🎤 완곡 기념(11/04 22:28 사용자 '아이디어 좋다, 앱 기능에 녹여 줘') ──
+const annLabel = (m) => m % 12 ? `${m}개월` : `${m / 12}년`;
+function annivDate(first, m) { const [y, mo, d] = String(first).slice(0, 10).split("-").map(Number), t = new Date(Date.UTC(y, mo - 1 + m, 1)), last = new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth() + 1, 0)).getUTCDate();
+  return `${t.getUTCFullYear()}-${String(t.getUTCMonth() + 1).padStart(2, "0")}-${String(Math.min(d, last)).padStart(2, "0")}`; }
+function annivNext(first, now) {   // 다가오는(또는 오늘) 기념일
+  if (!/^\d{4}-\d{2}-\d{2}/.test(first || "")) return null; const today = new Date(now + 9 * 3600e3).toISOString().slice(0, 10);
+  for (const m of MO_ANNIV) { const d = annivDate(first, m); if (d >= today) return { m, d, label: annLabel(m), inDays: Math.round((Date.parse(d) - Date.parse(today)) / 864e5) }; }
+  return null;
+}
+function annivOfLesson(dates, date) {   // 이 레슨이 기념일을 처음 넘긴 레슨이면 {m, label}
+  const ds = [...new Set(dates)].sort(), i = ds.indexOf(date); if (i <= 0) return null; const prev = ds[i - 1];
+  for (const m of MO_ANNIV.slice().reverse()) { const a = annivDate(ds[0], m); if (prev < a && a <= date) return { m, label: annLabel(m), first: ds[0] }; }
+  return null;
+}
+function celebFacts() {
+  const st = cur?.st || cfg.students[cur?.sid] || {}, dates = (st._rows || []).filter(r => !r.err && r.l?.name).map(r => r.l.name.slice(0, 10)), date = cur?.folder?.name?.slice(0, 10) || "";
+  const o = typeof bestPicked === "function" ? bestPicked() : null, fr = o?.base === "fullrun" && Number.isFinite(+o.fullrun?.start) ? { t0: +o.fullrun.start, len: +o.fullrun.len || +o.len || 0 } : null;
+  const done = new Set((st._rows || []).filter(r => r.full_song && r.l?.id !== cur?.folder?.id).map(r => normTitle(r.full_song)));
+  return { anniv: annivOfLesson(dates, date), fr, done, song: String(cur?.ana?.songs?.[0]?.title || "").trim() };
+}
+function celebForNote() {
+  const rv = cur?.review || {}, c = rv.celeb || {}, out = [];
+  if (c.anniv?.on && c.anniv.m) out.push({ kind: "anniv", m: +c.anniv.m, label: annLabel(+c.anniv.m), first: c.anniv.first || "" });
+  if (c.full?.on && String(c.full.title || "").trim()) out.push({ kind: "full_song", title: String(c.full.title).trim().slice(0, 40), ...(Number.isFinite(+c.full.t0) && +c.full.len > 0 ? { t0: Math.round(+c.full.t0), t1: Math.round(+c.full.t0 + +c.full.len) } : {}) });
+  return out;
+}
+function renderCeleb() {
+  const card = $("celCard"); if (!card || !cur?.folder) return;
+  const f = celebFacts(), rv = cur.review, c = (rv.celeb ??= {});
+  if (f.anniv && !c.anniv) c.anniv = { on: true, m: f.anniv.m, first: f.anniv.first };   // 사실이라 기본 켬(공개 전 미리보기에서 선생님이 확인)
+  if (!f.anniv && c.anniv && !c.anniv.manual) delete c.anniv;
+  c.full ??= { on: false, title: f.song, ...(f.fr ? { t0: f.fr.t0, len: f.fr.len } : {}) };
+  const again = c.full.title && f.done.has(normTitle(c.full.title));
+  card.classList.remove("hidden");
+  card.innerHTML = `<b>🎉 기념</b> <span class="muted" style="font-size:.85rem">켠 것만 수강생 노트에 · 수강생에겐 축하 카드로 보여요</span>
+    ${c.anniv ? `<label style="display:block;margin:6px 0"><input type="checkbox" id="celAnn" ${c.anniv.on ? "checked" : ""}> 🎂 이 레슨으로 <b>함께 노래한 지 ${esc(annLabel(c.anniv.m))}</b> (첫 레슨 ${esc(String(c.anniv.first || "").slice(2).replaceAll("-", "."))}) — 첫 레슨 베스트와 오늘 베스트를 나란히</label>` : ""}
+    <div style="margin:6px 0"><label><input type="checkbox" id="celFull" ${c.full.on ? "checked" : ""}> 🎤 오늘 한 곡을 <b>처음부터 끝까지</b> 불렀어요(완곡 기념)</label>
+      <input id="celTitle" placeholder="곡 제목" maxlength="40" value="${esc(c.full.title || "")}" style="width:100%;margin-top:4px">
+      <p class="muted" style="margin:2px 0 0;font-size:.85rem">${f.fr ? `가장 길게 이어 부른 곳 약 ${Math.round(f.fr.len)}초 <button type="button" class="small ghost" id="celPlay">▶ ${fmt(f.fr.t0)}</button> · 1절만이면 끄세요 · 수강생은 그 부분을 들을 수 있어요` : "이어 부른 긴 구간을 못 찾았어요 — 끝까지 부른 게 맞으면 직접 켜 주세요"}${again ? " · ⚠ 전에 완곡 기념한 곡이에요" : ""}</p></div>`;
+  const upd = () => { markDirty(); if (typeof paintDeliver === "function") paintDeliver(); };
+  if ($("celAnn")) $("celAnn").onchange = (e) => { c.anniv.on = e.target.checked; c.anniv.manual = true; upd(); };
+  $("celFull").onchange = (e) => { c.full.on = e.target.checked; if (c.full.on && !String(c.full.title || "").trim()) toast("곡 제목을 써 주세요"); upd(); };
+  $("celTitle").oninput = (e) => { c.full.title = e.target.value; markDirty(); }; $("celTitle").onchange = () => { renderCeleb(); upd(); };
+  if ($("celPlay")) $("celPlay").onclick = (e) => jumpPlay(e.target, f.fr.t0);
+}
 // ── 📅 월간 성장 리포트 + 🎉 달성(11/04 19:02 사용자 '응 고고' — 장기 수강생 프로젝트) ──
 // 사실(레슨 날짜·회차·곡·정확도·과제)로만 만들고, 선생님이 줄을 고르고 한마디를 써서 '보내기'를 눌러야 수강생 페이지에 보임(_month_YYYY-MM)
-const MO_MILES = [5, 10, 20, 30, 50, 75, 100, 150, 200, 300], MO_ANNIV = [3, 6, 12, 24, 36];
+const MO_MILES = [10, 30, 50, 100, 150, 200, 300], MO_ANNIV = [3, 6, 12, 24, 36];   // (11/04 22:26 사용자) 회차는 줄이고 기간 기념 위주
 const moDate = (x) => String(x || "").slice(0, 10), moYm = (d) => String(d || "").slice(0, 7);
 function moDefault(now = new Date()) {   // 7일까지는 지난달, 그 뒤엔 이번 달
   const d = new Date(now.getTime() + 9 * 3600e3), y = d.getUTCFullYear(), m = d.getUTCMonth() + 1;
@@ -4962,6 +5012,7 @@ async function openLessonInner(sid, i, backTo) {
   review.pairSend ??= (ai?.audio || []);
   renderAnalysis(d.pitch, d.ana, ai);
   renderGrowth();
+  try { renderCeleb(); } catch (e) { console.warn("celeb", e); }
   $("fb").value = datedGreet(review.reviewed_at ? (review.feedback ?? "") : (review.feedback || draftFeedback()), cur?.folder?.name);
   $("fb").oninput = () => updateFeedbackDraft($("fb").value);
   paintAiNote(ai);
@@ -6563,7 +6614,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-04-2000-care";
+const BUILD = "2026-11-04-2300-celeb";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {

@@ -1,0 +1,33 @@
+// (11/04 22:28 사용자) 🎂 기간 기념 · 🎤 완곡 기념
+const fs = require("fs"), assert = require("assert");
+const t = fs.readFileSync(__dirname + "/../teacher/index.html", "utf8"), s = fs.readFileSync(__dirname + "/../student/index.html", "utf8");
+const g = (src, re) => { const m = src.match(re); assert.ok(m, String(re)); return m[0]; };
+const T = new Function("cur", g(t, /const MO_MILES = [^\n]*\n/) + [/const annLabel = [^\n]*\n/, /function annivDate\([\s\S]*?\n\}\n|function annivDate\([^\n]*\n[^\n]*\n/, /function annivNext\([\s\S]*?\n\}\n/, /function annivOfLesson\([\s\S]*?\n\}\n/, /function celebForNote\(\) \{[\s\S]*?\n\}\n/].map(r => g(t, r)).join("") + "return { annivDate, annivNext, annivOfLesson, celebForNote };");
+const A = T({ review: { celeb: { anniv: { on: true, m: 3, first: "2026-08-05" }, full: { on: true, title: " 봄날 ", t0: 120.4, len: 95 } } } });
+assert.strictEqual(A.annivDate("2026-08-31", 6), "2027-02-28", "말일 처리");
+assert.strictEqual(A.annivDate("2026-08-05", 12), "2027-08-05");
+assert.deepStrictEqual(JSON.parse(JSON.stringify(A.annivOfLesson(["2026-08-05", "2026-10-29", "2026-11-06"], "2026-11-06"))), { m: 3, label: "3개월", first: "2026-08-05" }, "3개월을 처음 넘긴 레슨");
+assert.strictEqual(A.annivOfLesson(["2026-08-05", "2026-11-06", "2026-11-13"], "2026-11-13"), null, "그 다음 레슨은 아님");
+assert.strictEqual(A.annivOfLesson(["2026-08-05"], "2026-08-05"), null);
+const an = A.annivNext("2026-08-10", Date.parse("2026-11-04T10:00:00+09:00")); assert.strictEqual(an.m, 3); assert.strictEqual(an.inDays, 6);
+const n = JSON.parse(JSON.stringify(A.celebForNote()));
+assert.deepStrictEqual(n, [{ kind: "anniv", m: 3, label: "3개월", first: "2026-08-05" }, { kind: "full_song", title: "봄날", t0: 120, t1: 215 }]);
+assert.deepStrictEqual(T({ review: { celeb: { full: { on: true, title: "" } } } }).celebForNote(), [], "제목 없으면 안 실음");
+assert.deepStrictEqual(T({ review: {} }).celebForNote(), []);
+assert.ok(t.includes("celebrate: celebForNote()") && t.includes('id="celCard"') && t.includes("full_song: String(rv.celeb.full.title)"));
+assert.ok(/const MO_MILES = \[10, 30, 50, 100/.test(t), "회차 기념 줄임");
+// 수강생
+const esc = (x) => String(x), md = (d) => String(d).slice(5).replace("-", "/"), pill = (id, lab) => `<P ${id}|${lab}>`;
+const S = new Function("esc", "md", "pill", g(s, /function segPill\([\s\S]*?\n\}\n/) + g(s, /function celebHtml\([\s\S]*?\n\}\n/) + g(s, /function fullSongsHtml\([\s\S]*?\n\}\n/) + "return { celebHtml, fullSongsHtml };")(esc, md, pill);
+const all = [{ date: "2026-08-05", best: { file_id: "F0" } }, { date: "2026-11-06", best: { file_id: "F9" } }];
+const l = { id: "L9", date: "2026-11-06", best: { file_id: "F9" }, full: { file_id: "FULL" }, celebrate: n };
+const h = S.celebHtml(l, all);
+assert.ok(h.includes("함께 노래한 지 3개월") && h.includes("<P F0#c|처음 08/05>") && h.includes("<P F9#c|오늘 11/06>"), "첫 베스트 vs 오늘");
+assert.ok(h.includes("‘봄날’ 완곡!") && h.includes('data-lps="FULL" data-t0="120" data-t1="215"'), "완곡 + 그 부분 듣기");
+assert.ok(!/AI/.test(h));
+assert.strictEqual(S.celebHtml({ celebrate: [] }, all), "");
+const fsH = S.fullSongsHtml([l, { id: "L1", date: "2026-10-01", celebrate: [{ kind: "full_song", title: "사랑으로" }] }]);
+assert.ok(fsH.includes("끝까지 부른 노래") && fsH.includes("2곡") && fsH.includes('data-l="L1"'));
+assert.strictEqual(S.fullSongsHtml([{ id: "x" }]), "");
+assert.ok(s.includes("celebHtml(l,") && s.includes("fullSongsHtml(ls)") && s.includes("#[bsmpc]$"));
+console.log("celebrate ok");
