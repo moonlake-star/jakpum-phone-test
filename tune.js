@@ -367,6 +367,22 @@
         if (st && st.sel && Math.abs(st.sel.t0 - te.t0) < 0.02) { g.fillStyle = "#e8f8ff"; g.fillRect(x0, yy - bh / 2, 3, bh); g.fillRect(x1 - 3, yy - bh / 2, 3, bh); }   // 고른 음: 양 끝 손잡이
         tb.push({ x0, x1, y: yy, h: bh, t0: te.t0, t1: te.t1, c: te.c, te }); }
       if (st) st.tebars = tb;
+      if (st && st.advOn && G.TuneAdv && cv.uv) {   // (11/04 사용자) 치찰음(노란 빗금)·호흡(회색 빗금) — 고급 보정에서만, 가까운 음 막대 높이에
+        const ub = [], near_ = (a, b) => { let best = null, bd = 9; for (const x of bars) { const dd = Math.max(0, x.t0 - b, a - x.t1); if (dd < bd && dd <= 0.6) { bd = dd; best = x; } } return best; };
+        for (const u of G.TuneAdv.uvList(cv, st)) { if (u[1] < t0 - 0.2 || u[0] > t0 + W8 + 0.2) continue;
+          const x0 = xs(u[0]), x1 = Math.max(x0 + 4, xs(u[1])), nb = near_(u[0], u[1]), yy = nb ? nb.y : T + HP - 14, hh = Math.max(12, bh * 1.2);
+          g.save(); g.beginPath(); g.rect(x0, yy - hh / 2, x1 - x0, hh); g.clip();
+          const c = u[2] === "s" ? "rgba(255,210,90,.85)" : u[2] === "b" ? "rgba(180,188,200,.7)" : "rgba(120,128,140,.35)";
+          g.fillStyle = u[2] === "s" ? "rgba(255,210,90,.12)" : "rgba(180,188,200,.08)"; g.fillRect(x0, yy - hh / 2, x1 - x0, hh);
+          g.strokeStyle = c; g.lineWidth = 1.2; for (let q = x0 - hh; q < x1 + hh; q += 5) { g.beginPath(); g.moveTo(q, yy + hh / 2); g.lineTo(q + hh, yy - hh / 2); g.stroke(); }
+          g.restore(); if (u[3]) { g.strokeStyle = c; g.lineWidth = 1.5; g.strokeRect(x0, yy - hh / 2, x1 - x0, hh); }
+          ub.push({ x0, x1, y: yy, h: hh, t0: u[0], t1: u[1], k: u[2], u }); }
+        st.uvbars = ub;
+        if (st.uvSel) { const a = xs(Math.min(st.uvSel[0], st.uvSel[1])), b2 = xs(Math.max(st.uvSel[0], st.uvSel[1])); g.fillStyle = "rgba(255,184,107,.16)"; g.fillRect(a, T, Math.max(2, b2 - a), HP); g.fillStyle = "#ffb86b"; g.fillRect(a, T, 2, HP); g.fillRect(b2 - 2, T, 2, HP); }
+        for (const r of ((st._adv && st._adv.ne.global.uv_gain) || [])) { if (r.t1 < t0 || r.t0 > t0 + W8) continue; const a = xs(r.t0), b2 = xs(r.t1);
+          g.fillStyle = "rgba(255,184,107,.07)"; g.fillRect(a, T, Math.max(2, b2 - a), HP); g.fillStyle = "#ffcf99"; g.font = "bold 11px system-ui, sans-serif"; g.textBaseline = "top";
+          g.fillText([r.s_db ? `ㅅ ${r.s_db > 0 ? "+" : ""}${r.s_db}dB` : "", r.b_db ? `숨 ${r.b_db > 0 ? "+" : ""}${r.b_db}dB` : ""].filter(Boolean).join(" · "), Math.max(L + 2, a + 3), T + 4); }
+      } else if (st) st.uvbars = null;
       if (st && st.msel) { const a = xs(st.msel[0]), b2 = xs(st.msel[1]); g.fillStyle = "rgba(255,110,199,.14)"; g.fillRect(a, T, Math.max(2, b2 - a), HP); g.fillStyle = "#ff6ec7"; g.fillRect(a, T, 2, HP); g.fillRect(b2 - 2, T, 2, HP);   // 여러 음 고르기: 고른 구간(11/03 13:58 사용자: 주황 기준선·노랑과 헷갈려 분홍으로)
         for (const b of bars.concat(tb)) if (b.t0 < st.msel[1] && b.t1 > st.msel[0]) { g.strokeStyle = "#ff6ec7"; g.lineWidth = 2; g.strokeRect(b.x0 - 1, b.y - b.h / 2 - 1, Math.max(4, b.x1 - b.x0 + 2), b.h + 2); } }
     }
@@ -754,6 +770,7 @@
     { text: () => "원음과 보정본을 번갈아 들어 보면 어느 음이 어긋났는지 귀로 바로 느껴져요", need: 'want = b.dataset.m === cur ? (cur === "o" ? "p" : "o") : b.dataset.m', when: (o) => !o.teacher && typeof o.setMode === "function" },
     { text: () => "그래프 빈 곳을 길게 누르면 그 자리에 주석을 달 수 있어요", need: 'typeof o.onAdd === "function") d0.lp = setTimeout', when: (o) => typeof o.onAdd === "function" },
     { text: () => "주석 칸을 0.6초 꾹 누르면 내용을 고치거나 지울 수 있어요", need: "주석 칸 0.6초 꾹 = 고치기", when: (o) => typeof o.onNote === "function" },
+    { text: () => "🌬 치찰음·호흡: 구간을 끌어 고르고 위아래로 끌면 ㅅ·ㅊ(숨소리)만 크기 조절", need: "drag = { uvSel: true", when: (o) => typeof o.onAdv === "function" },
   ];
   const fsTips = (o) => FS_TIPS.filter(x => !x.when || x.when(o));
   function openFull(src, cv, getT, getLv, seek, o) {
@@ -822,6 +839,7 @@
     st.playSeg = (t0, t1) => { st.panAt = 0; try { seek(Math.max(0, t0 - 0.05), true); } catch {} if (isPaused()) toggle(); st.stopAt = t1 + 0.05; };   // (11/03 10:50 사용자) 멜로다인처럼 그 음 구간만 듣기
     const toggle = () => { st.stopAt = 0; const was = isPaused(); try { o.play && o.play(); } catch {} showMid(was ? "play" : "pause"); if (was) { st.panAt = 0; st.waitAt = performance.now(); } else st.waitAt = 0; };   // (11/02 20:31) 눌렀는데 아직 안 나오면 '불러오는 중' 표시
     const pauseNow = () => { if (!isPaused()) { try { o.play && o.play(); } catch {} } showMid("pause"); };
+    const showUv = (k) => { try { undo(`이 자리 = ${({ s: "치찰음(ㅅ·ㅊ)", b: "호흡", n: "아님(보통 소리)" })[k] || k} · 한 번 더 톡 = 다음 이름`, () => { try { G.TuneAdv.undoLast(st, cv); } catch {} }); } catch {} };
     let lastTap = 0;
     if (isPaused()) setTimeout(() => showMid("pause"), 430);   // 처음 열었을 때 멈춰 있으면 ❚❚ 대기
     const resetZoom = () => { st.xz = 1; st.yz = 1; st.yc = null; st.yo = 0; st.panAt = 0; };
@@ -834,8 +852,9 @@
     if (st.onAdv) {   // 위 줄: [🎛 고급 보정] → 켜면 [🎛 곡 전체][기본으로]
       try { G.TuneAdv.preview(cv, G.TuneAdv.state(st).ne); } catch {}
       const xb = wrap.querySelector(".tfTop .tfX:not(.tfXp)") || wrap.querySelector(".tfTop .tfX"), mk = (cls, txt) => { const b = document.createElement("button"); b.type = "button"; b.className = "tfAdvG " + cls; b.textContent = txt; b.addEventListener("pointerdown", (e) => e.stopPropagation()); xb.parentNode.insertBefore(b, xb); return b; };
-      const on = mk("advOnB", "🎛 고급 보정"), gl = mk("advGlB", "🎛 곡 전체"), off = mk("advOffB", "기본으로");
-      const paintAdv = () => { on.hidden = st.advOn; gl.hidden = off.hidden = !st.advOn; wrap.classList.toggle("advOn", st.advOn); };
+      const on = mk("advOnB", "🎛 고급 보정"), gl = mk("advGlB", "🎛 곡 전체"), uvB = mk("advUvB", "🌬 치찰음·호흡"), off = mk("advOffB", "기본으로");
+      const paintAdv = () => { on.hidden = st.advOn; gl.hidden = off.hidden = uvB.hidden = !st.advOn; if (!st.advOn) st.uvTool = false; uvB.classList.toggle("on", !!st.uvTool); uvB.textContent = st.uvTool ? "🌬 구간 끌어 고르기 · 끝내기" : "🌬 치찰음·호흡"; wrap.classList.toggle("advOn", st.advOn); };
+      uvB.onclick = () => { st.uvTool = !st.uvTool; st.uvSel = null; if (st.uvTool) { pauseNow(); wrap.querySelectorAll(".tfFix").forEach(x => x.remove()); } paintAdv(); };
       on.onclick = () => { st.advOn = true; if (st.fixMode === "a") st.fixMode = "p"; paintAdv(); wrap.querySelectorAll(".tfFix").forEach(x => x.remove()); };
       off.onclick = () => { st.advOn = false; if (st.fixMode === "a") st.fixMode = "p"; paintAdv(); wrap.querySelectorAll(".tfFix").forEach(x => x.remove()); };
       gl.onclick = () => { try { G.TuneAdv.globalSheet(wrap.querySelector(".tfBox") || wrap, st, cv); } catch (e) { console.warn("고급 보정", e); } };
@@ -864,6 +883,7 @@
       pts.set(e.pointerId, { a: along(e), b: across(e) }); try { cvEl.setPointerCapture(e.pointerId); } catch {}
       if (pts.size === 2) { const [p1, p2] = [...pts.values()]; drag = null; preview = null;
         pinch = { d: Math.hypot(p1.a - p2.a, p1.b - p2.b), xz: st.xz, yz: st.yz, mid: (p1.a + p2.a) / 2, t: +getT() || 0 }; return; }
+      if (pts.size === 1 && st.uvTool && st.map) { const l0 = loc(e.clientX, e.clientY, cvEl.getBoundingClientRect()); drag = { uvSel: true, x0: l0.x, id: e.pointerId, moved: false, cx: e.clientX, cy: e.clientY }; return; }   // (11/04) 🌬 구간 고르기
       if (pts.size === 1 && st.onBarDragX && st.fixMode === "t" && st.sel && st.kb && st.map) { const r0 = cvEl.getBoundingClientRect(), l0 = loc(e.clientX, e.clientY, r0);   // (11/03 13:08) 타이밍 모드: 고른 막대 가운데 끌기 = 옮기기, 양 끝 = 길이
         const tb = (st.tebars || []).find(x => Math.abs(x.t0 - st.sel.t0) < 0.02) || (st.tbars || []).find(x => Math.abs(x.t0 - st.sel.t0) < 0.02);
         if (tb && l0.x >= st.kb.L && Math.abs(l0.y - tb.y) <= Math.max(22, tb.h) && l0.x >= tb.x0 - 16 && l0.x <= tb.x1 + 16) {
@@ -892,6 +912,8 @@
         if (st.yz > 1 && st.yc == null) { const f = fitAt(cv, +getT() || 0, 0); st.yc = f ? f[2] : null; }
         return; }
       if (!drag || drag.id !== e.pointerId) return;
+      if (drag.uvSel) { const l0 = loc(e.clientX, e.clientY, cvEl.getBoundingClientRect()), mp = st.map; if (!mp) return; if (Math.abs(l0.x - drag.x0) >= 6) drag.moved = true;
+        if (drag.moved) { const tx = (x) => mp.t0 + (Math.max(mp.L, Math.min(mp.w, x)) - mp.L) / Math.max(1, mp.w - mp.L) * mp.W8; st.uvSel = [tx(drag.x0), tx(l0.x)]; } return; }
       if (drag.msel) { const l0 = loc(e.clientX, e.clientY, cvEl.getBoundingClientRect()), mp = st.map; if (!mp) return; if (Math.abs(l0.x - drag.x0) >= 4) drag.moved = true;
         if (drag.moved) { const tx = (x) => mp.t0 + (Math.max(mp.L, Math.min(mp.w, x)) - mp.L) / Math.max(1, mp.w - mp.L) * mp.W8, a = tx(drag.x0), b = tx(l0.x); st.msel = [Math.max(0, Math.min(a, b)), Math.max(a, b)]; if (st.onMSel) st.onMSel(); } return; }
       if (drag.barX) { const l0 = loc(e.clientX, e.clientY, cvEl.getBoundingClientRect()), mp = st.map; if (Math.abs(l0.x - drag.x0) >= 3) drag.moved = true;
@@ -915,6 +937,12 @@
       if (!drag || drag.id !== e.pointerId) return; const d = drag; drag = null; clearTimeout(d.lp); st.hold = null;
       if (d.armed) { armTip(false); if (d.moved) { if (st.onMSel) st.onMSel(); return; } st.msel = null; if (e.type === "pointerup") { if (st.notesHidden) st.noteShow = true; lastView = view; o.onAdd(d.armed.t); } return; }   // 숨긴 채 새 주석 = 주석 칸 보이기   // 끌지 않고 뗌 = 새 주석(예전과 같음)
       if (d.long) return;
+      if (d.uvSel) { if (d.moved && st.uvSel && Math.abs(st.uvSel[1] - st.uvSel[0]) >= 0.08) { try { G.TuneAdv.uvSheet(wrap.querySelector(".tfBox") || wrap, st, cv, st.uvSel); } catch (err) { console.warn("치찰음", err); } }
+        else { st.uvSel = null; const le = loc(d.cx, d.cy, cvEl.getBoundingClientRect()), u = (st.uvbars || []).find(x => le.x >= x.x0 - 6 && le.x <= x.x1 + 6 && Math.abs(le.y - x.y) <= Math.max(18, x.h)); if (u) { const k = G.TuneAdv.relabel(st, cv, u.u); showUv(k); } }
+        return; }
+      if (st.advOn && G.TuneAdv && st.uvbars && !d.mode && e.type === "pointerup" && isPaused()) {   // 고급 보정: 빗금 톡 = 이름 바꾸기(치찰음 → 호흡 → 아님)
+        const le = loc(d.cx ?? e.clientX, d.cy ?? e.clientY, cvEl.getBoundingClientRect()), u = st.uvbars.find(x => le.x >= x.x0 - 4 && le.x <= x.x1 + 4 && Math.abs(le.y - x.y) <= x.h / 2 + 4);
+        if (u && !(hitT(le) || hitBar(le))) { const k = G.TuneAdv.relabel(st, cv, u.u); showUv(k); return; } }
       if (d.kb) { toneOff(); st.kbDown = null; return; }
       if (st.mMode && !d.mode && e.type === "pointerup" && sheetClose) { sheetClose(); lastTap = 0; return; }   // (11/03 13:58 사용자) 여러 음 고르기 중 빈 곳 톡 = 끝내기 · (13:59) 끌기는 평소처럼 화면 이동, 다시 고르기는 꾹 누른 채 끌기
       if ((d.bar || d.barX) && !d.moved && e.type === "pointerup" && st.selSnd) { st.selSnd(); return; }   // 고른 막대 다시 톡 = 소리
