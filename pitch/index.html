@@ -87,7 +87,8 @@ input,select{font:inherit;color:var(--ink)}
 .vpc b{font-size:18px}.vpc .seg{margin-top:16px;gap:10px}.vpc .seg button{height:64px;font-size:20px;font-weight:700;border-radius:14px}
 #cbar{display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px 12px 6px;background:var(--surface)}
 .seg.big{width:100%;max-width:440px;gap:8px}.seg.big button{height:44px;font-size:17px;font-weight:700;border-radius:12px;letter-spacing:-.3px}
-#subBar{display:flex;justify-content:center;width:100%}
+#subBar{display:flex;flex-wrap:wrap;justify-content:center;width:100%}
+#vwEx{width:100%;text-align:center;font-size:13px;color:var(--ink2);margin-top:5px}#vwEx b{color:var(--accent);font-size:16px;margin-right:4px}#vwEx[hidden]{display:none}
 #segVW{width:100%;max-width:440px}#segVW[hidden]{display:none}#segVW button{height:34px;font-size:15px;font-weight:600;border-radius:10px}
 .scgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}.scgrid button{height:auto;padding:8px 10px;text-align:left;border-radius:10px;background:#1b2024;border:1px solid var(--line);color:var(--ink2);font-size:13px;line-height:1.35}.scgrid button small{display:block;font-size:11px;color:var(--muted)}.scgrid button.on{border-color:var(--accent);color:var(--accent);font-weight:700}
 .goBar{position:sticky;bottom:-14px;margin:10px -14px -24px;padding:10px 14px 12px;background:linear-gradient(to top,var(--surface) 70%,transparent)}
@@ -96,8 +97,17 @@ input,select{font:inherit;color:var(--ink)}
 #stTabs button{flex:1;height:34px;padding:0 8px;border-radius:10px;font-size:15px;background:#1b2024;border:1px solid var(--line);color:var(--ink2)}
 #stTabs button.on{border-color:var(--accent);color:var(--accent);font-weight:800}
 #cOv{position:absolute;left:62px;right:8px;bottom:10px;z-index:3;pointer-events:none}
-#cOv.mid{top:50%;bottom:auto;transform:translateY(-50%);display:flex;flex-direction:column;align-items:center;gap:10px}
-#cOv.mid .cgo{pointer-events:auto;width:104px;height:104px;border-radius:50%;padding:0;font-size:17px;font-weight:800;box-shadow:0 8px 26px rgba(0,0,0,.55),0 0 0 6px rgba(228,141,22,.22)}
+#pauseOv{position:absolute;left:0;right:0;top:0;bottom:0;z-index:6;display:flex;align-items:center;justify-content:center;background:rgba(18,22,26,.6)}#pauseOv[hidden]{display:none}
+.pbox{display:flex;flex-direction:column;align-items:center;gap:12px;color:var(--ink)}.pbox b{font-size:15px}
+#pauseOv .cgo2{width:104px;height:104px;border-radius:50%;padding:0;font-size:17px;font-weight:800;box-shadow:0 8px 26px rgba(0,0,0,.55),0 0 0 6px rgba(228,141,22,.22)}
+#cOv.mid{left:0;right:0;top:50%;bottom:auto;transform:translateY(-50%);display:flex;flex-direction:column;align-items:center;gap:10px}
+#cOv.mid .cgo{pointer-events:auto;width:112px;height:112px;border-radius:50%;padding:0;border:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;color:#2b1800;background:radial-gradient(circle at 34% 24%,#ffe0a0,#f4a722 52%,#c97a0b);box-shadow:inset 0 2px 0 rgba(255,255,255,.5),0 10px 28px rgba(0,0,0,.55),0 0 0 7px rgba(244,167,34,.2),0 0 0 15px rgba(244,167,34,.08);animation:cpulse 2.6s ease-in-out infinite}
+#cOv.mid .cgo .ic{font-size:34px;line-height:1;margin-left:4px}#cOv.mid .cgo .tx{font-size:15px;font-weight:800;letter-spacing:.04em}
+#cOv.mid .cgo:active{transform:scale(.95)}
+@keyframes cpulse{50%{box-shadow:inset 0 2px 0 rgba(255,255,255,.5),0 10px 28px rgba(0,0,0,.55),0 0 0 10px rgba(244,167,34,.14),0 0 0 22px rgba(244,167,34,.04)}}
+@media (prefers-reduced-motion:reduce){#cOv.mid .cgo{animation:none}}
+#scHead{display:none;width:100%;align-items:center;justify-content:space-between;gap:8px}#scHead b{flex:1;text-align:center;font-size:14px;color:var(--ink)}
+#v-practice.scaleView #scHead{display:flex}#v-practice.scaleView #segMode,#v-practice.scaleView .stats,#v-practice.scaleView #ctrack,#v-practice.scaleView #goalWrap{display:none}
 #cOv.mid .cghost,#cOv.mid .cset{pointer-events:auto}
 #cOv.mid .cghost,#cOv.mid .cset{position:absolute;left:50%;transform:translateX(-50%);white-space:nowrap;margin:0}
 #cOv.mid .cghost{background:rgba(24,29,33,.92);padding:4px 10px;border-radius:999px;top:calc(100% + 10px)}
@@ -295,10 +305,11 @@ summary{cursor:pointer;color:var(--ink2)}
           <div><div class="vk">폭 (한쪽) <b id="vExt">--</b></div><div class="vtrack"><i class="vzone" id="vEz"></i><u id="vEd"></u></div></div></div>
           <div class="vstreak"><span>고른 사이클 연속</span><span class="vp" id="vPips"><i></i><i></i><i></i><i></i><i></i></span><b id="vCnt">0</b><span class="vfb" id="vFb"></span></div></div>
       </div>
-      <div id="cbar"><div class="seg big" id="segMode"><button data-v="free">자유</button><button data-v="course">코스</button><button data-v="vib">비브라토</button></div><div id="subBar"><div id="stTabs" hidden></div><div class="seg" id="segVW" hidden></div></div></div>
+      <div id="cbar"><div id="scHead"><button class="btn sm" id="scBack">← 발성</button><b id="scTitle"></b><button class="btn sm" id="scCfg">⚙</button></div><div class="seg big" id="segMode"><button data-v="free">자유</button><button data-v="course">코스</button><button data-v="vib">비브라토</button></div><div id="subBar"><div id="stTabs" hidden></div><div class="seg" id="segVW" hidden></div><div id="vwEx" hidden></div></div></div>
       <div id="stage"><canvas id="roll"></canvas>
         <div id="targetChip" class="tchip ov" hidden>목표음 <b id="targetName"></b><small>옥타브 무관</small><button id="targetClear" aria-label="목표음 해제">✕</button></div>
         <div id="cOv"></div>
+        <div id="pauseOv" hidden><div class="pbox"><button class="btn pri cgo2" id="pResume">▶ 계속</button><b>일시정지</b><button class="btn sm" id="pStop">그만하기</button></div></div>
         <div id="fx"></div></div>
       <div class="dock">
         <div class="goalbar" id="goalWrap"><i id="goalfill"></i><span id="goaltext"></span></div>
@@ -360,6 +371,8 @@ const relDay = k => { const n = dayDiff(k, dayKey()); return n === 0 ? '오늘' 
 const weekKey = k => { const d = dOf(k); d.setDate(d.getDate() - mod(d.getDay() + 6, 7)); return dayKey(d); };
 
 /* ============ storage ============ */
+const HOLD_KEYS = [3, 6, 9, 12, 15, 18, 21, 24, 27, 30];           // success times: every 3 s
+const holdZero = () => Object.fromEntries(HOLD_KEYS.map(k => [k, 0]));
 const KEY = 'vn_pitch_v1';
 let DB = null;
 const loadDB = () => { try { const s = localStorage.getItem(KEY); return s ? JSON.parse(s) : null; } catch (e) { return null; } };
@@ -406,7 +419,7 @@ function seedDemo() {
         const sc = clamp(score + (R() - .5) * 6, 10, 98);
         const bh = Math.max(1, Math.round(1.5 + (sc / 100) * 10 * R() + (sp.slope > .8 ? 2 : 0))), tk = Math.round(sec * 700 / 300), pf = Math.round(tk * sc / 100 * .45), gr = Math.round(tk * sc / 100 * .35), gd = Math.round(tk * .2);
         DB.sessions.push({ id: 'x' + (sid++), uid: sp.id, day, start: st.getTime(), activeSec: sec, vms: sec * 700, sfs: sec * 700 * sc / 100, reminderAt: sp.rt,
-          st: { perfect: pf, great: gr, good: gd, miss: Math.max(0, tk - pf - gr - gd), maxCombo: Math.round(4 + sc / 100 * R() * 40), bestHold: bh, holdMs: bh * 2000, hold: { 3: bh >= 3 ? 1 : 0, 5: bh >= 5 ? 1 : 0, 10: bh >= 10 ? 1 : 0, 15: 0, 20: 0, 30: 0 } } });
+          st: { perfect: pf, great: gr, good: gd, miss: Math.max(0, tk - pf - gr - gd), maxCombo: Math.round(4 + sc / 100 * R() * 40), bestHold: bh, holdMs: bh * 2000, hold: Object.fromEntries(HOLD_KEYS.map(k => [k, bh >= k ? 1 : 0])) } });
       }
     }
   }
@@ -422,7 +435,7 @@ function seedDemo() {
 function daysOf(uid) {
   const m = {};
   for (const s of DB.sessions) if (s.uid === uid) {
-    const d = m[s.day] = m[s.day] || { day: s.day, sec: 0, vms: 0, sfs: 0, n: 0, bestHold: 0, maxCombo: 0, j: { p: 0, g: 0, o: 0, m: 0 }, hold: { 3: 0, 5: 0, 10: 0, 15: 0, 20: 0, 30: 0 } };
+    const d = m[s.day] = m[s.day] || { day: s.day, sec: 0, vms: 0, sfs: 0, n: 0, bestHold: 0, maxCombo: 0, j: { p: 0, g: 0, o: 0, m: 0 }, hold: holdZero() };
     d.sec += s.activeSec; d.vms += s.vms; d.sfs += s.sfs; d.n++;
     const t = s.st; if (t) { d.bestHold = Math.max(d.bestHold, t.bestHold || 0); d.maxCombo = Math.max(d.maxCombo, t.maxCombo || 0); d.j.p += t.perfect || 0; d.j.g += t.great || 0; d.j.o += t.good || 0; d.j.m += t.miss || 0; for (const k in d.hold) d.hold[k] += (t.hold && t.hold[k]) || 0; }
   }
@@ -700,12 +713,14 @@ function releaseKey() {
 }
 const yToMidi = y => clamp(Math.floor(P.lowF + (P.H - y) / rowH()), 12, 108);
 const cpos = e => { const r = cv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+let PTAP = null;
 const SCR = { id: null, y0: 0, low0: 0, on: false, hold: 0, tm: 0, pend: null };
 const canScroll = () => C.mode !== 'vib' && !(C.mode === 'course' && (C.phase === 'play' || C.phase === 'count'));
 function startPress(m, pid) { P.pid = pid; if (canScroll()) { SCR.pend = m; SCR.tm = setTimeout(flushPress, 70); } else pressKey(m); }   // tone starts 70 ms late so a scroll drag from the piano stays silent
 function flushPress() { clearTimeout(SCR.tm); if (SCR.pend != null) { const m = SCR.pend; SCR.pend = null; pressKey(m); } }
 cv.addEventListener('pointerdown', e => {
   const p = cpos(e);
+  if (C.mode === 'course' && (C.phase === 'play' || C.phase === 'count') && p.x > PIANO_W) PTAP = { id: e.pointerId, x: p.x, y: p.y, t: performance.now() };
   if (canScroll() && SCR.id == null) { SCR.id = e.pointerId; SCR.y0 = p.y; SCR.low0 = P.low; SCR.on = false; try { cv.setPointerCapture(e.pointerId); } catch (_) {} }
   if (p.x <= PIANO_W) { e.preventDefault(); let m = yToMidi(p.y); if (C.mode === 'vib') { m = P.target != null ? P.target : (V.ctr != null && performance.now() - V.lastT < 3000 ? Math.round(V.ctr) : null); if (m == null) { toast('먼저 한 음을 내 주세요. 그 음을 기준으로 맞춰요'); return; } } try { cv.setPointerCapture(e.pointerId); } catch (_) {} startPress(m, e.pointerId); }
 });
@@ -717,6 +732,7 @@ cv.addEventListener('pointermove', e => {
   } else if (C.mode !== 'vib' && P.pressed != null && e.pointerId === P.pid) { const m = yToMidi(cpos(e).y); if (m !== P.pressed) pressKey(m); }
 });
 ['pointerup', 'pointercancel'].forEach(t => cv.addEventListener(t, e => {
+  if (PTAP && PTAP.id === e.pointerId) { const q = cpos(e), tap = e.type === 'pointerup' && Math.hypot(q.x - PTAP.x, q.y - PTAP.y) < 12 && performance.now() - PTAP.t < 600; PTAP = null; if (tap) setPause(true); }
   if (e.pointerId === SCR.id) { if (SCR.on) { P.low = clamp(Math.round(P.low), 12, 108 - P.rows); SCR.hold = performance.now() + 1500; } SCR.id = null; SCR.on = false; }
   if (e.pointerId === P.pid) { flushPress(); releaseKey(); }
 }));
@@ -819,15 +835,15 @@ function genLine(stage, seed, diff, rc) {
 /* ============ voice scales (mix voice) ============ */
 const VOICE = { m: { name: '남성', start: 48, zs: 62, ze: 65 }, f: { name: '여성', start: 57, zs: 69, ze: 72 } };   // generic starting values; teacher adjusts per student
 const SCALES = [
+  { k: 'arp', n: '아르페지오', t: '아르페지오 1-3-5-8', s: '1-3-5-8-8-8-8-5-3-1', iv: [0, 4, 7, 12, 12, 12, 12, 7, 4, 0] },
   { k: 'five', n: '5음', t: '5음 스케일', s: '1-2-3-4-5-4-3-2-1', iv: [0, 2, 4, 5, 7, 5, 4, 2, 0] },
-  { k: 'tri', n: '3음', t: '3음 왕복', s: '1-2-3-2-1', iv: [0, 2, 4, 2, 0] },
-  { k: 'arp', n: '아르페지오', t: '옥타브 아르페지오', s: '1-3-5-8-5-3-1', iv: [0, 4, 7, 12, 7, 4, 0] }
+  { k: 'tri', n: '3음', t: '3음 왕복', s: '1-2-3-2-1', iv: [0, 2, 4, 2, 0] }
 ];
 STAGES.push(['발성 스케일', '반음씩 올라가며 브릿지 구간을 지나가요']);
 function scaleCfg(sc) {
   const o = sc || {}, g = VOICE[o.g] ? o.g : 'm', V = VOICE[g], z = (o.z && o.z[g]) || [V.zs, V.ze];
   const zs = clamp(Math.round(z[0]), 50, 84), ze = clamp(Math.round(z[1]), zs, 88);
-  return { g, k: SCALES.some(x => x.k === o.k) ? o.k : 'five', off: clamp(Math.round(o.off || 0), -4, 4), zs, ze };
+  return { g, k: SCALES.some(x => x.k === o.k) ? o.k : 'arp', off: clamp(Math.round(o.off || 0), -4, 4), zs, ze };
 }
 const VOICE_RC = { m: 55, f: 62 };   // 코스 음역 중심: 남성 G3 / 여성 D4 (코스는 중심 -6 ~ +8 반음)
 CFG.guide = 'on'; CFG.vibOpen = 'always'; CFG.rcMe = 0; CFG.rc = VOICE_RC[scaleCfg(CFG.sc).g];
@@ -844,16 +860,18 @@ function askVoice() {
   document.body.appendChild(d); d.querySelectorAll('button').forEach(b => b.onclick = () => { setVoice(b.dataset.v); d.remove(); setMode('free'); voiceChanged(); sayHello(); });   // 고른 뒤엔 자유 화면에서 시작
 }
 const scaleSig = sc => { const c = scaleCfg(sc); return [c.k, c.g, c.off, c.zs, c.ze].join('-'); };
+/* 기준 영상 박자: 코드 '짠' 한 번 → 0.53초 뒤 첫 음 → 0.465초 간격으로 한 음씩 → 마지막 음은 길게 → 약 5.6초마다 다음 키(+1반음)의 코드 */
+const SC_PRE = .53, SC_STEP = .465, SC_LAST = .8, SC_NEXT = .885;
 function genScaleLine(sc, diff) {
   const c = scaleCfg(sc), V = VOICE[c.g], S = SCALES.find(x => x.k === c.k), top = Math.max(...S.iv), base = V.start + c.off;
-  const reps = clamp(c.ze + 2 - top - base + 1, 1, 24), len = (diff === 'easy' ? .65 : .52) * LM, rest = 1.4;
-  let t = 1.2; const notes = [];
+  const reps = clamp(c.ze + 2 - top - base + 1, 1, 24), n = S.iv.length;
+  let t = .35 + SC_PRE, end = 0; const notes = [];
   for (let r = 0; r < reps; r++) {
-    S.iv.forEach((d, i) => { const l = i === S.iv.length - 1 ? len * 2 : len; notes.push({ m: base + r + d, t0: t, d: Math.max(.3, l - .07), rep: r, pre: i === 0 && r > 0 ? 1.3 : 0 }); t += l; });
-    t += rest;
+    S.iv.forEach((d, i) => { const last = i === n - 1; notes.push({ m: base + r + d, t0: t + i * SC_STEP, d: last ? SC_LAST : SC_STEP - .045, rep: r, pre: i === 0 ? SC_PRE : 0, gr: .12 }); });
+    end = t + (n - 1) * SC_STEP + SC_LAST + .1; t += (n - 1) * SC_STEP + SC_NEXT + SC_PRE;
   }
   const ms = notes.map(x => x.m), mn = Math.min(...ms), mx = Math.max(...ms);
-  return { notes, end: t - rest + .8, minM: mn, maxM: mx, center: (mn + mx) / 2, minor: false, stage: 3, seed: scaleSig(sc), scale: true, reps, zs: c.zs, ze: c.ze, base, k: c.k, g: c.g };
+  return { notes, end, minM: mn, maxM: mx, center: (mn + mx) / 2, minor: false, stage: 3, seed: scaleSig(sc), scale: true, reps, zs: c.zs, ze: c.ze, base, k: c.k, g: c.g };
 }
 
 /* ============ course state + UI ============ */
@@ -891,7 +909,21 @@ function setMode(v) {
   C.mode = v; CFG.mode = v; saveCfg(); if (P.ghostHold !== undefined) renderGhostMark();
   if (v === 'course') { if (C.stage === 3) C.stage = 0; loadStage(C.stage); } else { C.phase = 'idle'; renderCourseUI(); }
 }
-function abortCourse() { if (C.phase === 'count' || C.phase === 'play') { C.phase = 'idle'; C.t = -3; C.i = 0; C.act = null; renderCourseUI(); } }
+function setPause(on) {
+  on = !!on; if (on === !!C.paused) return;
+  if (on && !(C.mode === 'course' && (C.phase === 'play' || C.phase === 'count'))) return;
+  C.paused = on; $('#pauseOv').hidden = !on;
+  try {
+    if (on) { P.pauseAt = performance.now(); if (P.ctx) P.ctx.suspend(); }
+    else {
+      const d = performance.now() - (P.pauseAt || performance.now()); P.hist.forEach(h => { h.t += d; }); P.lastMT += d; P.lastVoiced += d; P.lastT = performance.now();
+      if (P.judge) P.judge.t += d; if (P.ctx) P.ctx.resume();
+    }
+  } catch (e) {}
+}
+$('#pResume').onclick = e => { e.stopPropagation(); setPause(false); }; $('#pauseOv').onclick = () => setPause(false);
+$('#pStop').onclick = e => { e.stopPropagation(); setPause(false); abortCourse(); };
+function abortCourse() { setPause(false); if (C.phase === 'count' || C.phase === 'play') { C.phase = 'idle'; C.t = -3; C.i = 0; C.act = null; renderCourseUI(); } }
 function renderCourseUI() {
   const cm = C.mode === 'course';
   $('#segMode').querySelectorAll('button').forEach(b => { b.classList.toggle('on', b.dataset.v === C.mode); if (b.dataset.v === 'vib') b.textContent = vibUnlocked() ? '비브라토' : '🔒 비브라토'; b.onclick = () => { if (b.dataset.v !== C.mode) setMode(b.dataset.v); }; });
@@ -899,11 +931,14 @@ function renderCourseUI() {
   if (cm && C.stage !== 3) { tb.innerHTML = STAGES.slice(0, 3).map((s, i) => `<button data-i="${i}" class="${i === C.stage ? 'on' : ''}" aria-label="스테이지 ${i + 1} ${s[0]}">${i + 1} ${starsBest(i, CFG.diff) ? '★' + starsBest(i, CFG.diff) : '☆'}</button>`).join(''); tb.querySelectorAll('button').forEach(b => b.onclick = () => { if (C.phase === 'play' || C.phase === 'count') return; loadStage(+b.dataset.i); }); }
   const vm = C.mode === 'vib', sw = $('#segVW'); sw.hidden = !vm;
   if (vm) { sw.innerHTML = Object.keys(VLV).map(k => `<button data-v="${k}" class="${+k === CFG.vw ? 'on' : ''}">${VLV[k].name}</button>`).join(''); sw.querySelectorAll('button').forEach(b => b.onclick = () => setVW(b.dataset.v)); }
-  $('#subBar').style.display = (!tb.hidden || vm) ? 'flex' : 'none';
+  $('#subBar').style.display = (!tb.hidden || vm) ? 'flex' : 'none'; renderVwEx();
   $('#ctrack').style.display = (cm || vm) ? 'none' : ''; $('#cprog').style.display = cm ? '' : 'none'; $('#vibHud').style.display = vm ? 'block' : 'none';
   $('#sBest').previousElementSibling.textContent = vm ? '최고 연속' : '최고 유지'; if (vm) renderVibZones(); setMonUI();
+  const sv = cm && C.stage === 3; $('#v-practice').classList.toggle('scaleView', sv);
+  if (sv && C.line) { const L = C.line; $('#scTitle').textContent = `${VOICE[L.g].name} · ${SCALES.find(x => x.k === L.k).t}`; }
   updateTargetChip(); renderCOv();
 }
+$('#scBack').onclick = () => go('scale'); $('#scCfg').onclick = () => go('scale');
 function renderCOv() {
   const el = $('#cOv'); el.style.top = ''; el.style.bottom = ''; el.classList.remove('mid');
   if (C.mode !== 'course' || C.phase === 'count' || C.phase === 'play' || !C.line) { el.innerHTML = ''; return; }
@@ -911,12 +946,12 @@ function renderCOv() {
   if (C.phase === 'idle' && L.scale) {
     const sc = scaleCfg(CFG.sc), S = SCALES.find(x => x.k === sc.k);
     el.classList.add('mid');
-    el.innerHTML = `<button class="btn pri cgo" id="cGo">${P.running ? '▶ 도전' : '▶ 연습'}</button>${g ? `<div class="cghost">👻 ${esc(g.label)} ${g.cov}% ${starTxt(g.stars)}</div>` : ''}<button class="btn sm cset" id="cSet">⚙ 설정</button>`;
-    el.querySelector('#cGo').onclick = startStage; el.querySelector('#cSet').onclick = () => go('scale'); return;
+    el.innerHTML = `<button class="btn pri cgo" id="cGo"><span class="ic">▶</span><span class="tx">${P.running ? '도전' : '연습'}</span></button>${g ? `<div class="cghost">👻 ${esc(g.label)} ${g.cov}% ${starTxt(g.stars)}</div>` : ''}`;
+    el.querySelector('#cGo').onclick = startStage; return;
   }
   if (C.phase === 'idle') {
     el.classList.add('mid');
-    el.innerHTML = `<button class="btn pri cgo" id="cGo">${P.running ? '▶ 도전' : '▶ 연습'}</button>${g ? `<div class="cghost">👻 ${esc(g.label)} ${g.cov}% ${starTxt(g.stars)}</div>` : ''}`;
+    el.innerHTML = `<button class="btn pri cgo" id="cGo"><span class="ic">▶</span><span class="tx">${P.running ? '도전' : '연습'}</span></button>${g ? `<div class="cghost">👻 ${esc(g.label)} ${g.cov}% ${starTxt(g.stars)}</div>` : ''}`;
   } else {
     const r = C.res, cp = r.prev;
     el.innerHTML = `<div class="ccard"><div class="note2" style="text-align:center">${L.scale ? '발성 스케일 · ' + SCALES.find(x => x.k === L.k).t + ' · ' + VOICE[L.g].name : '스테이지 ' + (C.stage + 1) + ' · ' + stg[0]}</div>
@@ -936,11 +971,11 @@ function renderCOv() {
 P.onCfg = () => { if (C.mode === 'course' && C.phase !== 'play' && C.phase !== 'count') loadStage(C.stage); if (C.mode === 'vib') renderVibZones(); };
 
 /* ============ game layer: hold challenge, judgements, combo ============ */
-const MILE = [3, 5, 10, 15, 20, 30];
-const MILE_FX = { 3: ['3초 유지!', 'NICE ✨', '#ffffff'], 5: ['5초 유지!', 'GREAT 👍', '#ffd27a'], 10: ['10초!', 'EXCELLENT 🔥', '#ff9f43'], 15: ['15초!!', 'AMAZING ⭐', '#ffd23f'], 20: ['20초!!!', 'PERFECT HOLD 💎', '#7fe3ff'], 30: ['30초', 'LEGEND 👑', '#ffd27a'] };
-const thrAt = i => i < MILE.length ? MILE[i] : 30 + 10 * (i - MILE.length + 1);
+const MILE = [3, 6, 9, 12, 15, 18, 21];
+const MILE_FX = { 3: ['3초 유지!', 'NICE ✨', '#ffffff'], 6: ['6초 유지!', 'GREAT 👍', '#ffe3a3'], 9: ['9초!', 'GREAT 👍', '#ffd27a'], 12: ['12초!', 'EXCELLENT 🔥', '#ff9f43'], 15: ['15초!!', 'AMAZING ⭐', '#ffd23f'], 18: ['18초!!', 'AMAZING ⭐', '#ffd23f'], 21: ['21초!!!', 'PERFECT HOLD 💎', '#7fe3ff'] };
+const thrAt = i => 3 * (i + 1);                          // success times: every 3 s (3, 6, 9, ...)
 const segBounds = hs => { let i = 0; while (thrAt(i) <= hs) i++; return [i ? thrAt(i - 1) : 0, thrAt(i)]; };
-const newSt = () => ({ perfect: 0, great: 0, good: 0, miss: 0, combo: 0, maxCombo: 0, bestHold: 0, holdMs: 0, hold: { 3: 0, 5: 0, 10: 0, 15: 0, 20: 0, 30: 0 } });
+const newSt = () => ({ perfect: 0, great: 0, good: 0, miss: 0, combo: 0, maxCombo: 0, bestHold: 0, holdMs: 0, hold: holdZero() });
 const newHold = () => ({ note: null, ms: 0, gap: 0, lastM: null, lastT: 0, reached: 0, tgt: null, pbDone: false });
 P.st = newSt(); P.hd = newHold(); P.tick = { ms: 0, err: 0 }; P.parts = []; P.judge = null; P.todayBase = { vms: 0, sfs: 0 }; P.avgStart = null; P.pbHold = 0; P.curM = null;
 $('#ctrack').insertAdjacentHTML('beforeend', '<span id="gmark" class="gmark" hidden>👻<small></small></span>');
@@ -966,14 +1001,16 @@ function popBanner(t, sub, col, small) {
   d.innerHTML = `<b>${esc(t)}</b><span>${esc(sub)}</span>${small ? `<small>${esc(small)}</small>` : ''}`;
   fx.appendChild(d); P.bannerUntil = performance.now() + 1500; setTimeout(() => d.remove(), 1600);
 }
-function fireMilestone(T, rec) {
-  if (P.running) { const k = T <= 30 ? T : 30; P.st.hold[k] = (P.st.hold[k] || 0) + 1; }
+function fireMilestone(T, rec, gm) {
+  if (P.running) { const k = Math.min(30, T); P.st.hold[k] = (P.st.hold[k] || 0) + 1; }
   const fx = MILE_FX[T] || [`${T}초!`, 'LEGEND 👑', '#ffd27a'];
   popBanner(fx[0], fx[1], fx[2], rec ? `🏅 유지 시간 개인 최고 갱신! (이전 ${P.pbHold.toFixed(1)}초)` : (!P.running && !P.warnedMon ? '지금은 연습 중이에요 · ‘기록 도전’을 눌러야 기록돼요' : ''));
   if (!P.running) P.warnedMon = true;
   const c = cursorXY(); burst(c.x, c.y, T >= 15 ? 60 : T >= 10 ? 46 : 28, T >= 10 ? ['#ffd27a', '#ff9f43', '#ffffff', '#7fe3ff'] : ['#ffd27a', '#ffffff', '#e48d16']);
   try { if (navigator.vibrate) navigator.vibrate(T >= 10 ? [30, 40, 30] : 25); } catch (e) {}
-  sfx(rec ? 'rec' : T >= 10 ? 'big' : 'mile'); if (T >= 5) flash(fx[2]);
+  if (gm != null) guideTone(gm, .45);                              // success time: the held note sounds again on the piano as a pitch guide
+  else sfx(rec ? 'rec' : T >= 12 ? 'big' : 'mile');
+  if (rec) sfx('rec'); if (T >= 6) flash(fx[2]);
 }
 function endHold() {
   const h = P.hd; if (h.note == null) return;
@@ -993,11 +1030,14 @@ function updateHold(now, dt, sm, dev) {
       if (Math.abs(dd) <= D().stay && !jump) { ok = true; h.ms += dt; h.gap = 0; h.lastM = sm; h.lastT = now; }
     }
   }
-  if (!ok && h.note != null) { h.gap += dt; if (h.gap > 250) { endHold(); return; } }
+  if (!ok && h.note != null) {
+    if (now < P.toneUntil) { h.ms += dt; h.gap = 0; h.lastT = now; }     // guide tone playing through the speaker: the mic is muted, assume the note is still held
+    else { h.gap += dt; if (h.gap > 250) { endHold(); return; } }
+  }
   if (h.note != null) {
     const sec = h.ms / 1000; st.bestHold = Math.max(st.bestHold, sec);
     const isRec = P.running && P.pbHold >= 3 && !h.pbDone && sec > P.pbHold; let fired = false;
-    while (sec >= thrAt(h.reached)) { fireMilestone(thrAt(h.reached), isRec); h.reached++; fired = true; }
+    while (sec >= thrAt(h.reached)) { const gm = P.target != null ? P.target + 12 * Math.round((h.lastM - P.target) / 12) : Math.round(h.lastM); fireMilestone(thrAt(h.reached), isRec, gm); h.reached++; fired = true; }
     if (P.running && P.ghostHold && !P.ghostBeat && sec > P.ghostHold.v) { P.ghostBeat = true; P.judge = { t: performance.now(), text: '👻 어제의 나 추월!', col: '#c9b6ff' }; sfx('star'); flash('#c4aaff'); const c0 = cursorXY(); burst(c0.x, c0.y, 26, ['#c4aaff', '#ffffff']); }
     if (isRec) {
       h.pbDone = true; if (!fired) popBanner('NEW RECORD!', '🏅 유지 시간 개인 최고', '#ffd27a', `이전 최고 ${P.pbHold.toFixed(1)}초`);
@@ -1040,6 +1080,11 @@ const VLV = {
 CFG.vw = VLV[CFG.vw] ? +CFG.vw : 1;
 const VR = () => VLV[CFG.vw];
 const vibMid = () => Math.round((VR().ext[0] + VR().ext[1]) / 2);
+const SOLFA = ['도', '도#', '레', '레#', '미', '파', '파#', '솔', '솔#', '라', '라#', '시'];
+function renderVwEx() {
+  const el = $('#vwEx'); if (!el) return; const vm = C.mode === 'vib'; el.hidden = !vm; if (!vm) return;
+  const w = CFG.vw; el.innerHTML = `<b>${SOLFA[0]} ↔ ${SOLFA[w % 12]}</b> ${VLV[w].name} 폭으로 오르내려요`;
+}
 function setVW(w) { w = +w; if (!VLV[w] || w === CFG.vw) return; CFG.vw = w; saveCfg(); vibReset(); V.tr = []; renderCourseUI(); }
 const newVs = () => ({ cyc: 0, ok: 0, best: 0, sR: 0, sE: 0, lv: {} });
 const V = { lastAn: 0, cyc: 0, lastExtT: 0, buf: [], ctr: null, base: null, lastT: 0, fz: 0, tr: [], dir: 0, hi: null, lo: null, ext: [], streak: 0, rate: null, extent: null, verdict: '', out: 0, pd: null, s: newVs() };
@@ -1169,20 +1214,15 @@ function guideChord(m, dur) {                                  // do-mi-sol: the
     if (!P.earphone) P.toneUntil = Math.max(P.toneUntil, performance.now() + dur * 1000 + 120);
   } catch (e) {}
 }
-const reqOf = n => Math.max(.25, n.d - D().grace - (n.mute || 0));
+const reqOf = n => Math.max(.25, n.d - (n.gr != null ? n.gr : D().grace) - (n.mute || 0));
 function guideNote(n, first, now) {
   if (n.guided) return; n.guided = true;
   const L = C.line, sc = L && L.scale;
   if (sc) {
-    // scale: tonic chord before every repetition; then a piano tone on every note (earphones: held for the whole note; speaker: only the start, so the mic still hears the voice)
-    if (n.pre || first) {
-      const dur = n.pre ? .9 : Math.min(1.1, Math.max(.4, n.t0 - .05));
-      guideChord(n.m, dur); n.mute = n.pre ? 0 : Math.max(0, now + dur + .12 - n.t0);
-      if (P.earphone) guideTone(n.m, n.d, Math.max(0, n.t0 - now), true);
-      return;
-    }
-    if (P.earphone) { guideTone(n.m, n.d, 0, true); n.mute = 0; } else { guideTone(n.m, .45); n.mute = .57; }
-    return;
+    // 영상처럼: 각 회차 첫머리에 코드(도미솔)를 한 번 '짠' → 이어폰이면 음마다 피아노가 따라 나와요. 스피커면 코드만(마이크가 피아노를 목소리로 착각하지 않게)
+    if (n.pre) { guideChord(n.m, .48); n.mute = P.earphone ? 0 : Math.max(0, .6 - n.pre); if (P.earphone) guideTone(n.m, n.d, n.pre, true); return; }
+    if (P.earphone) guideTone(n.m, n.d, 0, true);
+    n.mute = 0; return;
   }
   if (n.pre) { guideTone(n.m, .8); n.mute = 0; return; }
   if (first) { const dur = Math.min(1.1, Math.max(.4, n.t0 - .05)); guideTone(n.m, dur); n.mute = Math.max(0, now + dur + .12 - n.t0); return; }
@@ -1191,6 +1231,7 @@ function guideNote(n, first, now) {
 }
 const courseRef = () => { const L = C.line, n = L.notes[Math.min(C.i, L.notes.length - 1)]; return n.m; };
 async function startStage() {
+  setPause(false);
   if (!P.mon && !(await startMonitor(true))) return;
   C.warm = !P.running;   // 연습: 기록 도전(세션)이 켜져 있지 않으면 기록 없이 진행
   endHold(); P.hd = newHold(); P.st.combo = 0; C.nextFresh = false;
@@ -1207,7 +1248,7 @@ function courseAdvance(dt) {
   if (c.phase === 'play') {
     while (c.i < L.notes.length && c.t >= L.notes[c.i].t0 + L.notes[c.i].d) { finalizeNote(L.notes[c.i]); c.i++; }
     const n = L.notes[c.i]; c.act = n && c.t >= n.t0 ? n : null;
-    if (n && !n.guided && (c.i === 0 ? c.t >= 0 : c.t >= n.t0 - (n.pre || 0) - .02)) guideNote(n, c.i === 0, c.t);
+    if (n && !n.guided && (c.i === 0 && !(L.scale && n.pre) ? c.t >= 0 : c.t >= n.t0 - (n.pre || 0) - .02)) guideNote(n, c.i === 0, c.t);
     if (c.t >= L.end) endStage();
   } else c.act = null;
 }
@@ -1261,9 +1302,9 @@ function rr(x, y, w, h, r) { g2.beginPath(); if (g2.roundRect) g2.roundRect(x, y
 /* 안내음(프리뷰)이 나오는 구간: 막대 앞부분(또는 막대 앞 빈 구간)에 보라색으로 표시. 이 시간엔 마이크를 쉬어요 */
 function pvOf(n, i, L) {
   if (CFG.guide === 'off') return null;
-  if (n.pre) return [n.t0 - n.pre, n.t0 - n.pre + (L.scale ? .9 : .8)];
+  if (n.pre) return [n.t0 - n.pre, n.t0 - n.pre + (L.scale ? .6 : .8)];
   if (i === 0) return [0, Math.min(1.1, Math.max(.4, n.t0 - .05))];
-  if (L.scale) return P.earphone ? null : [n.t0, n.t0 + .57];
+  if (L.scale) return null;
   if (n.d < .75) return null;
   return [n.t0, n.t0 + clamp(n.d * .4, .5, .7) + .12];
 }
@@ -1314,6 +1355,7 @@ const setTxt = (id, v, cls) => { const el = $('#' + id); if (cache[id] !== v) { 
 function loop(ts) {
   P.raf = requestAnimationFrame(loop);
   if (!$('#v-practice').classList.contains('active')) return;
+  if (C.paused) { draw(P.pauseAt); return; }
   const now = performance.now(), dt = P.lastT ? Math.min(100, now - P.lastT) : 16; P.lastT = now;
   let m = null;
   if (P.mon && P.an) {
@@ -1534,14 +1576,14 @@ function showReport(uid, ctx) {
   if (coList.length) L.splice(1, 0, coStars ? `코스에서 별 ${coStars}개를 모았어요 ⭐` : '코스는 아직 별이 없어요. 한 음을 길게, 흔들림 없이 유지해 보세요.');
   let cch; { const bs = [0, 1, 2].map(i => starsBest(i, CFG.diff)), w = bs.findIndex(v => v < 3);
     cch = w >= 0 ? ['🎮', `코스 ${w + 1} · ${STAGES[w][0]}에서 별 ${bs[w] + 1}개에 도전`, `지금 ★${bs[w]} · 같은 라인으로 지난 나와 겨뤄 보세요`] : ['🔥', `코스를 모두 별 3개로 클리어했어요`, '새 라인이 계속 나와요. 이어서 도전해 보세요']; }
-  const nh = [3, 5, 10, 15, 20, 30, 40, 50].find(t => t > best) || 60, nc = [10, 20, 30, 50, 100].find(t => t > td.maxCombo) || 150;
+  const nh = (Math.floor(best / 3) + 1) * 3, nc = [10, 20, 30, 50, 100].find(t => t > td.maxCombo) || 150;
   openModal(`<div class="repbody">
     <div class="note2">오늘의 연습 리포트 · ${fmtDay(today)}${ctx.shortNote ? ' · 방금 도전은 10초 미만이라 기록에서 제외했어요' : ''}</div>
     <div class="rep-head" style="margin-top:8px"><div class="rk ${rk} pop">${rk}</div>
       <div class="sp"><div class="note2">오늘 평균 점수</div><div><span class="rep-avg">${avg}</span><span style="font-size:16px;color:var(--ink2)">점</span>${dChip}</div>
       <div class="bar"><i style="width:${rp.toFixed(0)}%"></i></div><div class="note2" style="margin-top:3px">${nr ? `다음 랭크 ${nr[0]}까지 ${nr[1] - avg}점` : '최고 랭크예요!'}</div></div></div>
     <div class="sgrid">${tiles.map(t => `<div class="tile"><div class="k">${t[0]}</div><div class="v">${t[1]}</div><div class="s">${t[2] || '&nbsp;'}</div></div>`).join('')}</div>
-    <div class="card"><b>오늘의 유지 챌린지</b><div class="cchips" style="margin-top:8px">${[3, 5, 10, 15, 20, 30].map(t => td.hold[t] ? `<span class="cchip on">${t}초 ×${td.hold[t]}</span>` : `<span class="cchip">${t}초</span>`).join('')}</div></div>
+    <div class="card"><b>오늘의 유지 챌린지</b><div class="cchips" style="margin-top:8px">${[3, 6, 9, 12, 15, 18, 21].map(t => td.hold[t] ? `<span class="cchip on">${t}초 ×${td.hold[t]}</span>` : `<span class="cchip">${t}초</span>`).join('')}</div></div>
     ${vsCard}${vibCard}${coCard}
     ${jt ? `<div class="card"><b>판정</b><div class="jbar" style="margin-top:8px">${[['p', '#ffd27a'], ['g', '#e48d16'], ['o', '#b6bfca'], ['m', '#4a5560']].map(([k, c]) => J[k] ? `<i style="width:${(J[k] / jt * 100).toFixed(1)}%;background:${c}"></i>` : '').join('')}</div>
       <div class="jl"><span><i style="background:#ffd27a"></i>PERFECT ${J.p}</span><span><i style="background:#e48d16"></i>GREAT ${J.g}</span><span><i style="background:#b6bfca"></i>GOOD ${J.o}</span><span><i style="background:#4a5560"></i>아깝다 ${J.m}</span></div></div>` : ''}
@@ -1819,7 +1861,7 @@ function renderScale(el) {
 function buildTabs() {
   const u = me(); $('#userBtn').innerHTML = `${esc(u.name)} <b>· ${ROLE_KO[u.role]}</b> ▾`;
   $('#tabs').innerHTML = TABS[u.role].map(([id, nm]) => `<button data-t="${id}" aria-label="${nm}"><svg viewBox="0 0 24 24">${ICON[id]}</svg>${nm}</button>`).join('');
-  $('#tabs').querySelectorAll('button').forEach(b => b.onclick = () => go(b.dataset.t));
+  $('#tabs').querySelectorAll('button').forEach(b => b.onclick = () => { if (b.dataset.t === 'practice' && cur !== 'practice' && C.stage === 3) { C.stage = 0; C.mode = 'free'; CFG.mode = 'free'; saveCfg(); } go(b.dataset.t); });
 }
 function go(t) {
   if (P.running && t !== 'practice') { toast('연습 중이에요. 먼저 "기록 끝내기"를 눌러 주세요.'); return; }
