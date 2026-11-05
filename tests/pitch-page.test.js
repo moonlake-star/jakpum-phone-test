@@ -211,7 +211,7 @@ console.log("pitch-page ok");
 }
 {
   const src = fs.readFileSync(__dirname + "/../pitch/index.html", "utf8");
-  assert.ok(src.includes("const SLOW_LO = 2.2, SLOW_Q = .55;") && src.includes("V.slow = slowOk;") && src.includes("okslow: '궤적 좋아요 · 조금 더 빠르게 도전!'") && src.includes("Math.min(RW.lo, SLOW_LO)"), "느려도 궤적이 깨끗하면 성공 인정(+ 더 빠르게 안내)");
+  assert.ok(src.includes("const SLOW_LO = 1.8, SLOW_Q = .55, SLOW_WIN = 1900;") && src.includes("V.slow = slowOk;") && src.includes("okslow: '궤적 좋아요 · 조금 더 빠르게 도전!'") && src.includes("Math.min(RW.lo, SLOW_LO)"), "느려도 궤적이 깨끗하면 성공 인정(+ 더 빠르게 안내)");
   console.log("pitch-page: 느린 비브라토 인정 ok");
 }
 {
@@ -224,4 +224,10 @@ console.log("pitch-page ok");
   const src = fs.readFileSync(__dirname + "/../pitch/index.html", "utf8");
   assert.ok(src.includes("function waitVoice()") && src.includes("const done = () => { d.remove(); waitVoice(); }") && src.includes("now - t0 > 3000 && P.mon && !P.cal"), "안내 팝업 뒤 3초 동안 소리가 없으면 '소리를 내 보세요'");
   console.log("pitch-page: 소리 안 내면 안내 ok");
+}
+{
+  const src = fs.readFileSync(__dirname + "/../pitch/index.html", "utf8");
+  assert.ok(src.includes("lo = SLOW_LO, hi = R.rate[1]") && src.includes("S.cur + .35") && src.includes("vibAnalyze(SLOW_WIN)") && src.includes("for (let f = 1.5; f <= 20.001; f += .25)") && src.includes("CFG.vstv !== 2"), "가이드는 아주 느린(2Hz대)부터 시작, 느린 비브라토는 긴 창으로 인식");
+  assert.ok(src.includes("function vibGuideStep(now)") && src.includes("V.eOkMs >= 1500") && src.includes("clamp(V.rS + .5, B.lo, B.hi)") && src.includes("clamp(tgt - V.gRate, -.03, .03)") && src.includes("createLinearGradient(nowX, 0, W, 0)") && !src.includes("지나간 가이드는 옅게"), "폭이 안정되면 가이드가 내 속도 +0.5Hz로 천천히 따라 오르고, 앞쪽 선은 옅어지는 실선 하나");
+  console.log("pitch-page: 가이드 자동 속도·차분한 선 ok");
 }
