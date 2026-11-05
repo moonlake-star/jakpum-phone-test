@@ -954,7 +954,11 @@
       if (pts.size === 1 && st.kb) { const r0 = cvEl.getBoundingClientRect(), l0 = loc(e.clientX, e.clientY, r0);   // 건반: 누르는 동안 그 음 소리
         if (l0.x < st.kb.L) { const m = Math.round(st.kb.inv(l0.y) / 100); st.kbDown = m; tone(m); drag = { kb: true, id: e.pointerId }; return; } }
       if (pts.size === 1) { drag = { a: along(e), b: across(e), t: +getT() || 0, id: e.pointerId, mode: null, yc: st.yc, cx: e.clientX, cy: e.clientY };
-        if (typeof o.onNote === "function") { const d0 = drag, r0 = cvEl.getBoundingClientRect(), l0 = loc(d0.cx, d0.cy, r0), h0 = hitNote(st, l0.x, l0.y);
+        // (11/05 사용자) 고른 구간의 분홍 세로선(양 끝)을 0.6초 꾹 누르면 그 선을 좌우로 끌어 범위를 더 조절(스크롤한 뒤에도) — 반대쪽 끝은 고정
+        if (st.mMode && st.msel && st.map && typeof o.onResetRange === "function") { const d0 = drag, mp = st.map, l0 = loc(d0.cx, d0.cy, cvEl.getBoundingClientRect()), px = (t) => mp.L + (t - mp.t0) / Math.max(1e-6, mp.W8) * (mp.w - mp.L),
+            dl = Math.abs(l0.x - px(st.msel[0])), dr = Math.abs(l0.x - px(st.msel[1])), side = Math.min(dl, dr) <= 24 ? (dl <= dr ? 0 : 1) : -1;
+          if (side >= 0) { d0.edgeLp = true; d0.lp = setTimeout(() => { if (drag !== d0 || d0.mode || !st.msel) return; pauseNow(); try { navigator.vibrate && navigator.vibrate(15); } catch {} d0.armed = { x: l0.x, t: st.msel[1 - side], keep: true }; st.hold = null; }, 600); } }
+        if (typeof o.onNote === "function" && !drag.edgeLp) { const d0 = drag, r0 = cvEl.getBoundingClientRect(), l0 = loc(d0.cx, d0.cy, r0), h0 = hitNote(st, l0.x, l0.y);
           d0.h0 = h0;
           if (h0) { if (!h0.del) { st.hold = { n: h0.n, at: performance.now() }; d0.lp = setTimeout(() => { st.hold = null; if (drag !== d0 || d0.mode) return; d0.long = true; pauseNow(); lastView = view; o.onNote(h0.n); }, 600); } }   // 주석 칸 0.6초 꾹 = 고치기(10/30 19:48 사용자)
           else if (typeof o.onAdd === "function") d0.lp = setTimeout(() => { if (drag !== d0 || d0.mode) return;
@@ -996,7 +1000,7 @@
       if (!pts.has(e.pointerId)) return; pts.delete(e.pointerId);
       if (pinch) { st.hold = null; if (pts.size === 0) { pinch = null; if (st.mMode && preview != null) { const t_ = preview; preview = null; try { seek(t_, true); } catch {} } } return; }
       if (!drag || drag.id !== e.pointerId) return; const d = drag; drag = null; clearTimeout(d.lp); st.hold = null;
-      if (d.armed) { armTip(false); clearInterval(d.auto); d.auto = null; if (preview != null) { const t_ = preview; preview = null; try { seek(t_, true); } catch {} } if (d.moved) { if (st.onMSel) st.onMSel(); return; } st.msel = null; if (e.type === "pointerup") { if (st.notesHidden) st.noteShow = true; lastView = view; o.onAdd(d.armed.t); } return; }   // 숨긴 채 새 주석 = 주석 칸 보이기   // 끌지 않고 뗌 = 새 주석(예전과 같음)
+      if (d.armed) { armTip(false); clearInterval(d.auto); d.auto = null; if (preview != null) { const t_ = preview; preview = null; try { seek(t_, true); } catch {} } if (d.moved) { if (st.onMSel) st.onMSel(); return; } if (d.armed.keep) return; st.msel = null; if (e.type === "pointerup") { if (st.notesHidden) st.noteShow = true; lastView = view; o.onAdd(d.armed.t); } return; }   // 숨긴 채 새 주석 = 주석 칸 보이기   // 끌지 않고 뗌 = 새 주석(예전과 같음)
       if (d.long) return;
       if (d.uvSel) { if (d.moved && st.uvSel && Math.abs(st.uvSel[1] - st.uvSel[0]) >= 0.08) { try { G.TuneAdv.uvSheet(wrap.querySelector(".tfBox") || wrap, st, cv, st.uvSel); } catch (err) { console.warn("치찰음", err); } }
         else { st.uvSel = null; const le = loc(d.cx, d.cy, cvEl.getBoundingClientRect()), u = (st.uvbars || []).find(x => le.x >= x.x0 - 6 && le.x <= x.x1 + 6 && Math.abs(le.y - x.y) <= Math.max(18, x.h)); if (u) { const k = G.TuneAdv.relabel(st, cv, u.u); showUv(k); } }
