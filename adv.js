@@ -229,10 +229,10 @@
       stepper("자동 보정 강도", () => G_("strength", 1), (v) => put("strength", v), { step: 0.1, min: 0, max: 1.5, def: 1, fmt: pct }),
       D(stepper("가까운 음은 그대로", () => G_("near", 8), (v) => put("near", v), { step: 2, min: 0, max: 50, def: 8, fmt: (v) => `${Math.round(v)}센트 안` }), "자동 보정할 때, 목표 음에서 이 값(센트·100센트=반음 1개) 안쪽으로 이미 가까운 곳은 건드리지 않아요. 크게 하면 자연스럽지만 덜 맞고, 0이면 전부 딱 맞춰요."),
       D(stepper("느린 흐름(전체)", () => G_("flat", 1), (v) => put("flat", v), { step: 0.25, min: 0, max: 2, def: 1, fmt: pct }), "음 하나 안에서 천천히 오르내리는 음정의 흔들림(비브라토보다 느린 변화)을 얼마나 남길지. 100% 그대로 · 0% 평평하게(깔끔·기계적) · 200% 두 배."),
-      stepper("작은 음 키우기", () => (g().level || {}).quiet || 0, (v) => putLv("quiet", v), { step: 0.1, min: 0, max: 1, def: 0, fmt: pct }),
-      stepper("큰 음 줄이기", () => (g().level || {}).loud || 0, (v) => putLv("loud", v), { step: 0.1, min: 0, max: 1, def: 0, fmt: pct }),
+      stepper("작은 음 키우기", () => (g().level || {}).quiet || 0, (v) => putLv("quiet", v), { step: 0.1, min: 0, max: 1, def: 0, fmt: (v) => (v > 0 ? "+" : "") + pct(v) }),
+      stepper("큰 음 줄이기", () => (g().level || {}).loud || 0, (v) => putLv("loud", v), { step: 0.1, min: 0, max: 1, def: 0, fmt: (v) => (v > 0 ? "−" : "") + pct(v) }),
       stepper("치찰음(ㅅ·ㅊ)", () => G_("sib_db", 0), (v) => put("sib_db", v), { step: 1, min: -12, max: 6, def: 0, fmt: (v) => `${v > 0 ? "+" : ""}${Math.round(v)}dB` }),
-      D(stepper("목소리 결", () => G_("formant", 0), (v) => put("formant", v), { step: 0.25, min: -3, max: 3, def: 0, fmt: (v) => `${v > 0 ? "+" : ""}${v.toFixed(2)}반음` }), "음정은 그대로 두고 목소리의 음색(울림)만 이동. + 는 얇고 밝은 느낌, − 는 굵고 어두운 느낌. 그림에는 안 보이고 완성본에서 들어 보세요.")];
+      D(stepper("포먼트(목소리 결)", () => G_("formant", 0), (v) => put("formant", v), { step: 0.25, min: -3, max: 3, def: 0, fmt: (v) => `${v > 0 ? "+" : ""}${v.toFixed(2)}반음` }), "포먼트 = 목소리의 울림 통로. 음정은 그대로 두고 음색만 이동. + 는 얇고 밝은 느낌, − 는 굵고 어두운 느낌. 그림에는 안 보이고 완성본에서 들어 보세요.")];
     rows.forEach(r => body.appendChild(r));
     const cnt = () => { d.querySelector(".advGN").textContent = `음 ${A.ne.notes.length}개 고침`; rows.forEach(r => r._paint && r._paint()); };
     cnt();
