@@ -73,3 +73,7 @@ console.log("adv-mode ok", md.toFixed(4));
   as.ok(!T2.includes('mk("advOnB"') && !T2.includes('mk("advOffB"'), "예전 디테일 보정/심플로 버튼 없음");
   as.ok(T2.includes("#tuneFs.advOn .tfHint,#tuneFs.advOn .tfNote{display:none}"), "보정 모드: 안내 글 접음");
   as.ok(!T2.includes("advOn .tfAbW") && !T2.includes("advOn .tfAb{display:none"), "원음/보정본 스위치는 숨기지 않음"); }
+
+/* (11/05 사용자) 닫기 버튼: 가로 = 토글과 같은 높이로 줄임 · 세로(보정 모드) = 맨 오른쪽 위에 고정 */
+{ const T3 = require("fs").readFileSync(__dirname + "/../tune.js", "utf8"), as = require("assert");
+  as.ok(T3.includes("#tuneFs .tfBox:not(.port) .tfTop .tfX{height:36px!important") && T3.includes("#tuneFs.advOn .port .tfTop .tfX{position:absolute;right:0;top:4px;margin:0}"), "닫기 버튼 가로 크기·세로 위치"); }
