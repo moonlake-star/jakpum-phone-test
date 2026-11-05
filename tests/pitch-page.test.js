@@ -233,7 +233,7 @@ console.log("pitch-page ok");
   assert.ok(src.includes("const pps = (W - L) * V.ppsF") && src.includes("clamp(.2 * (vibGuideOn() ? vibGuideRate()") && src.includes("소리를 기다리는 중: 깜빡이는 마이크 아이콘") && src.includes("sw = clamp(.22 / Math.max(fS, .3), .04, .6)") && src.includes("g2.quadraticCurveTo"), "느린 가이드는 그래프도 천천히 흐름, 대기 중 깜빡이는 마이크, 느릴수록 선을 부드럽게");
   console.log("pitch-page: 느린 시작·대기 아이콘·부드러운 선 ok");
   assert.ok(src.includes("소리 내기 전에도 도전할 가이드 파형은 옅게 계속 보여요"), "소리 내기 전에도 가이드 파형이 옅게 보임");
-  assert.ok(src.includes("const ctx = actx(), out = pianoOut(ctx), rate = vibGuideRate(), n = 8,") && src.includes("btn.classList.add(i % 4 ? 'bp' : 'bp1')") && src.includes("@keyframes bpop1") && src.includes("<small>매일 연습</small>"), "박자 버튼: 2마디(8박), 박마다 버튼 튕김, 이름은 매일 연습");
+  assert.ok(src.includes("const ctx = actx(), out = pianoOut(ctx), rate = vibGuideRate(), n = 8,") && src.includes("btn.classList.add(i % 4 ? 'bp' : 'bp1')") && src.includes("@keyframes bpop1") && src.includes("<small>연습 천재</small>"), "박자 버튼: 2마디(8박), 박마다 버튼 튕김, 이름은 연습 천재");
   console.log("pitch-page: 박자 8박·발성 연습 ok");
   assert.ok(src.includes("vibGuideOn() ? .5 : .8") && src.includes("my = cy + 6") && src.includes("(V.gA == null ? .75 : V.gA)"), "지금 선은 가운데, 대기 중 가이드는 또렷하게, 마이크 아이콘은 아래쪽");
   assert.ok(src.includes("function renderScBar()") && src.includes("function scIcon(S)") && src.includes("if (scv) C.stage = 3;") && !src.includes('id="scBack"') && !src.includes("${qkHtml()}`;\n    el.querySelector('#cGo').onclick = startStage; qkWire"), "발성 버튼은 바로 스케일 연습 화면, 스케일·속도는 위쪽 버튼(음 모양 막대 아이콘)");
