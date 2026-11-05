@@ -615,6 +615,8 @@ function calm(v, now, dt) {
 
 /* ============ practice engine ============ */
 const PIANO_W = 54, ROW_H = 20, HIST_S = 6;
+const VIB_LW = 40;   // (11/05 사용자) 비브라토 그래프 왼쪽 칸은 숫자를 지우고 더 슬림하게
+const lw = () => C.mode === 'vib' ? VIB_LW : PIANO_W;
 const P = { running: false, ctx: null, stream: null, an: null, buf: null, raf: 0, hist: [], recent: [], low: 43, lowF: 43, rows: 28,
   cal: null, gate: 0, target: null, pressed: null, pid: null, osc: null, g: null, toneUntil: 0, sens: 0.012,
   vms: 0, sfs: 0, activeMs: 0, lastVoiced: -1e9, lastT: 0, startAt: 0, reminderAt: '', lastM: null, lastMT: 0, W: 0, H: 0, dpr: 1, shiftT: 0 };
@@ -762,7 +764,7 @@ cv.addEventListener('pointerdown', e => {
   const p = cpos(e);
   if (C.mode === 'course' && (C.phase === 'play' || C.phase === 'count') && p.x > PIANO_W) PTAP = { id: e.pointerId, x: p.x, y: p.y, t: performance.now() };
   if (canScroll() && SCR.id == null) { SCR.id = e.pointerId; SCR.y0 = p.y; SCR.low0 = P.low; SCR.on = false; try { cv.setPointerCapture(e.pointerId); } catch (_) {} }
-  if (p.x <= PIANO_W) { e.preventDefault(); let m = yToMidi(p.y); if (C.mode === 'vib') { m = P.target != null ? P.target : (V.ctr != null && performance.now() - V.lastT < 3000 ? Math.round(V.ctr) : null); if (m == null) { toast('먼저 한 음을 내 주세요. 그 음을 기준으로 맞춰요'); return; } } try { cv.setPointerCapture(e.pointerId); } catch (_) {} startPress(m, e.pointerId); }
+  if (p.x <= lw()) { e.preventDefault(); let m = yToMidi(p.y); if (C.mode === 'vib') { m = P.target != null ? P.target : (V.ctr != null && performance.now() - V.lastT < 3000 ? Math.round(V.ctr) : null); if (m == null) { toast('먼저 한 음을 내 주세요. 그 음을 기준으로 맞춰요'); return; } } try { cv.setPointerCapture(e.pointerId); } catch (_) {} startPress(m, e.pointerId); }
 });
 cv.addEventListener('pointermove', e => {
   if (e.pointerId === SCR.id) {
@@ -1354,7 +1356,7 @@ function vibStep(now) {
 }
 const VM = { 3: ['3연속', 'NICE ✨', '#ffffff'], 5: ['비브라토 성공!', 'GREAT 👍', '#ffd27a'], 10: ['10연속!', 'EXCELLENT 🔥', '#ff9f43'], 20: ['20연속!!', 'AMAZING ⭐', '#ffd23f'] };
 const vibFrac = () => vibGuideOn() ? .5 : .8;   // 가이드가 켜져 있으면 '지금' 선을 왼쪽으로 옮겨 오른쪽에 파형이 보일 자리를 만들어요
-function vibXY() { const last = V.tr[V.tr.length - 1]; if (V.yEnd && last && last.t - V.yEnd.t < 120) return { x: PIANO_W + (P.W - PIANO_W) * vibFrac(), y: V.yEnd.y }; return { x: PIANO_W + (P.W - PIANO_W) * vibFrac(), y: P.H / 2 - (last ? last.d : 0) * vpc() }; }
+function vibXY() { const last = V.tr[V.tr.length - 1]; if (V.yEnd && last && last.t - V.yEnd.t < 120) return { x: VIB_LW + (P.W - VIB_LW) * vibFrac(), y: V.yEnd.y }; return { x: PIANO_W + (P.W - PIANO_W) * vibFrac(), y: P.H / 2 - (last ? last.d : 0) * vpc() }; }
 function fireVib(n) {
   const k = VM[n] ? n : (n > 20 && n % 10 === 0 ? 20 : 0); if (!k) return;
   const fx = VM[k], c = vibXY();
@@ -1398,7 +1400,7 @@ function vibFit(now, f) {   // 최근 목소리 흔들림에 같은 주기의 �
   V.fit = { a: A2, b: B2, c: C2, R: Math.hypot(A2, B2), ph: Math.atan2(B2, A2), T0, t: now }; return V.fit;
 }
 function drawVib(now) {
-  const W = P.W, H = P.H, L = PIANO_W, nowX = L + (W - L) * vibFrac(), cy = H / 2, pc = vpc(), R = VR();
+  const W = P.W, H = P.H, L = VIB_LW, nowX = L + (W - L) * vibFrac(), cy = H / 2, pc = vpc(), R = VR();
   /* 그래프 흐르는 속도: 느린 물결(초보자)일수록 천천히 흘러서 내 파형과 가이드를 충분히 볼 수 있게. 한 주기 길이는 거의 일정하게 유지 */
   const fTgt = clamp(.2 * (vibGuideOn() ? vibGuideRate() : (V.rS || 2.5)), .045, .5); V.ppsF = V.ppsF == null ? fTgt : V.ppsF + (fTgt - V.ppsF) * .04;
   const pps = (W - L) * V.ppsF, WIN = (nowX - L) / pps;
@@ -1458,7 +1460,7 @@ function drawVib(now) {
   g2.fillStyle = P.pressed != null ? '#e48d16' : '#2c3238'; g2.fillRect(0, 0, L, H);
   g2.textAlign = 'right'; g2.textBaseline = 'middle'; g2.font = '500 10px system-ui,sans-serif'; g2.fillStyle = P.pressed != null ? '#1a1000' : '#9aa5b1';
   /* (11/05 사용자) 눈금 숫자(0·−50·−100) 삭제 — 대신 지금 내는 음 이름을 점 높이에 맞춰 이 칸에 */
-  if (live && P.lastM != null && now - P.lastMT < 350) { g2.save(); g2.textAlign = 'center'; g2.textBaseline = 'middle'; const nn = Math.round(P.lastM), good = Math.abs(Math.round(P.lastDev * 20) * 5) <= 10, by = clamp(vibXY().y, 52, H - 16); g2.fillStyle = good ? '#e48d16' : '#44505a'; g2.beginPath(); g2.roundRect ? g2.roundRect(4, by - 12, L - 8, 24, 12) : g2.rect(4, by - 12, L - 8, 24); g2.fill(); g2.fillStyle = good ? '#1a1000' : '#fff'; g2.font = '700 14px system-ui,sans-serif'; g2.fillText(midiName(nn), L / 2, by + 1); g2.restore(); }
+  if (live && P.lastM != null && now - P.lastMT < 350) { g2.save(); g2.textAlign = 'center'; g2.textBaseline = 'middle'; const nn = Math.round(P.lastM), good = Math.abs(Math.round(P.lastDev * 20) * 5) <= 10, by = clamp(vibXY().y, 52, H - 16); g2.fillStyle = good ? '#e48d16' : '#44505a'; g2.beginPath(); g2.roundRect ? g2.roundRect(2, by - 12, L - 4, 24, 12) : g2.rect(2, by - 12, L - 4, 24); g2.fill(); g2.fillStyle = good ? '#1a1000' : '#fff'; g2.font = '700 13px system-ui,sans-serif'; g2.fillText(midiName(nn), L / 2, by + 1); g2.restore(); }
   g2.textAlign = 'center'; g2.font = '700 11px system-ui,sans-serif'; g2.fillText('🔊', L / 2, 14); g2.font = '500 10px system-ui,sans-serif'; g2.fillText('기준음', L / 2, 28);
   g2.fillStyle = '#12161a'; g2.fillRect(L, 0, 1, H);
 }
