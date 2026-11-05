@@ -163,6 +163,17 @@ input,select{font:inherit;color:var(--ink)}
 .vgd #vgB{min-width:84px}.vgd button.bp{animation:bpop .18s ease-out}.vgd button.bp1{animation:bpop1 .24s ease-out;background:#12323c;border-color:#7fe3ff;color:#7fe3ff}
 @keyframes bpop{0%{transform:scale(1)}35%{transform:scale(1.18)}100%{transform:scale(1)}}@keyframes bpop1{0%{transform:scale(1)}35%{transform:scale(1.32)}100%{transform:scale(1)}}
 .vgd button.on{background:#12323c;border-color:#7fe3ff;color:#7fe3ff}.vgd #vgT{flex:1}
+/* (11/05 사용자) 발성 화면 상하 다이어트: 마이크 표시를 작게, '모니터' 표시는 왼쪽 위에 겹쳐 얹고, 아래는 안내 글+⚙를 한 줄로 */
+#v-practice.scaleView .hud{position:relative;padding:6px 12px 4px}
+#v-practice.scaleView #voAlive{padding:6px 0 2px;gap:12px}
+#v-practice.scaleView .voMic{width:56px;height:56px}#v-practice.scaleView .voMic svg{width:28px;height:28px}
+#v-practice.scaleView .voTx b{font-size:16px}#v-practice.scaleView .voTx span{font-size:12px}
+#v-practice.scaleView .noteRow{position:absolute;top:16px;left:8px;margin:0;min-height:0}
+#v-practice.scaleView #cbar{gap:4px;padding:6px 12px 4px}#v-practice.scaleView .seg.big button{height:38px}
+#v-practice.scaleView .dock{display:grid;grid-template-columns:1fr auto;align-items:center;column-gap:8px;row-gap:0;padding:4px 12px}
+#v-practice.scaleView .hint{grid-column:1;grid-row:1;margin:0;text-align:left}
+#v-practice.scaleView .controls{grid-column:2;grid-row:1;margin:0}
+#v-practice.scaleView .ibtn{height:36px}
 /* (11/05 사용자) 폰 브라우저에서 비브라토 화면이 위아래로 빡빡 → 점수 줄·아래 안내 줄(파형 칸 안에 같은 안내가 있음)을 접고 줄 간격을 줄여 파형 칸을 넓힘 */
 #v-practice.vibView .stats,#v-practice.vibView .hint{display:none}
 #v-practice.vibView .hud{padding:6px 12px 2px}
