@@ -44,4 +44,6 @@ now += 100; h.o.onTime({ t0: 5 }); now += 100; h.o.onAdv(); assert.strictEqual(h
   const A = fs.readFileSync(__dirname + "/../adv.js", "utf8");
   assert.ok(!A.includes('chips("소리"') && A.includes("const MUTE_DB = -25;") && A.includes('v <= MUTE_DB ? "무음"') && A.includes("n.mute = true; delete n.gain_db;"), "볼륨 맨 아래 = 무음");
   assert.ok(A.includes("delay: Math.min(0.3, r2(dur_ * 0.25))") && A.includes("fade: Math.min(0.4, r2(dur_ * 0.35))"), "짧은 음 새 떨림 기본값");
+  // (11/05 사용자) 한 창 정리: 시간 표시 삭제 · ✂는 음정 줄 옆 · ↺(↶와 겹침) 대신 '원본' = 확인 창으로 이 음 전부 원본
+  assert.ok(!T.includes('<span class="tfFixTm">${mm(b.t0)}~${mm(b.t1)}</span><span class="tfFixSt"></span><span class="tfUniIc">') && T.includes('class="tfIc tfOrg" data-r') && T.includes("if (uni) askOrig(); else undo();"), "한 창: 시간 삭제 · 원본 버튼");
   console.log("undo-redo ok"); })().catch((e) => { console.error(e); process.exit(1); });
