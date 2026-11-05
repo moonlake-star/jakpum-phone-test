@@ -193,3 +193,9 @@ console.log("pitch-page ok");
   assert.ok(src.includes("pop: [[988, 0], [1480, .075]]") && src.includes("sfx('pop', true)") && src.includes("if (P.rep) {") && src.includes("if (repOpen()) return;"), "리포트 화면: 비브라토 뾰롱, 뒤 화면 정지, 기준음 차단");
   console.log("pitch-page: 피아노 되돌림 분리·리포트 화면 ok");
 }
+{
+  const src = fs.readFileSync(__dirname + "/../pitch/index.html", "utf8");
+  assert.ok(src.includes("본인이 편한 음정으로<br>자유롭게 시작해 보아요") && src.includes("function freeHint()") && src.includes("CFG.freeHint = 1") && src.includes("if (v === 'free') setTimeout(freeHint, 0)"), "자유 연습 처음 들어가면 안내 팝업(한 번)");
+  assert.ok(src.includes("C.mode === 'free' && P.hd.note != null && P.lastM != null") && src.includes("guideTone(gm, .45, 0, false, P.k != null)") && src.includes("now < P.toneUntil || P.echoNow"), "3초 성공 피아노 음이 나도 목소리 선이 끊기지 않게");
+  console.log("pitch-page: 자유 연습 안내·선 이어짐 ok");
+}
