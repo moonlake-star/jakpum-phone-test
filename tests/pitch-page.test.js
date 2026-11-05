@@ -211,7 +211,7 @@ console.log("pitch-page ok");
 }
 {
   const src = fs.readFileSync(__dirname + "/../pitch/index.html", "utf8");
-  assert.ok(src.includes("const SLOW_LO = .4, SLOW_Q = .55, SLOW_WIN = 1900, ULTRA_WIN = 3400, CRAWL_WIN = 5200;") && src.includes("V.slow = slowOk;") && src.includes("okslow: '궤적 좋아요 · 조금 더 빠르게 도전!'") && src.includes("Math.min(RW.lo, SLOW_LO)"), "느려도 궤적이 깨끗하면 성공 인정(+ 더 빠르게 안내)");
+  assert.ok(src.includes("const SLOW_LO = .2, SLOW_Q = .55, SLOW_WIN = 1900, ULTRA_WIN = 3400, CRAWL_WIN = 5200, LONG_WIN = 9000;") && src.includes("V.slow = slowOk;") && src.includes("okslow: '궤적 좋아요 · 조금 더 빠르게 도전!'") && src.includes("Math.min(RW.lo, SLOW_LO)"), "느려도 궤적이 깨끗하면 성공 인정(+ 더 빠르게 안내)");
   console.log("pitch-page: 느린 비브라토 인정 ok");
 }
 {
@@ -227,10 +227,10 @@ console.log("pitch-page ok");
 }
 {
   const src = fs.readFileSync(__dirname + "/../pitch/index.html", "utf8");
-  assert.ok(src.includes("lo = SLOW_LO, hi = R.rate[1]") && src.includes("B.e(S.cur) * 1.12") && src.includes("vibAnalyze(ULTRA_WIN)") && src.includes("vibAnalyze(SLOW_WIN)") && src.includes("for (let f = .25; f <= 20.001; f += .125)") && src.includes("CFG.vstv !== 3"), "가이드는 아주 느린(2Hz대)부터 시작, 느린 비브라토는 긴 창으로 인식");
+  assert.ok(src.includes("lo = SLOW_LO, hi = R.rate[1]") && src.includes("B.e(S.cur) * 1.12") && src.includes("vibAnalyze(ULTRA_WIN)") && src.includes("vibAnalyze(SLOW_WIN)") && src.includes("for (let f = .15; f <= 20.001; f += .125)") && src.includes("CFG.vstv !== 3"), "가이드는 아주 느린(2Hz대)부터 시작, 느린 비브라토는 긴 창으로 인식");
   assert.ok(src.includes("function vibGuideStep(now)") && src.includes("tgt = clamp(V.rS, B.lo, B.hi);") && src.includes("clamp(tgt - V.gRate, -.06, .06)") && src.includes("createLinearGradient(nowX, 0, W, 0)") && !src.includes("지나간 가이드는 옅게"), "가이드는 지금 내 목소리 주기와 똑같이 따라가고, 앞쪽 선은 옅어지는 실선 하나");
   console.log("pitch-page: 가이드 자동 속도·차분한 선 ok");
-  assert.ok(src.includes("const pps = (W - L) * V.ppsF") && src.includes("clamp(.2 * (vibGuideOn() ? vibGuideRate()") && src.includes("소리를 기다리는 중: 깜빡이는 마이크 아이콘") && src.includes("sw = clamp(.22 / Math.max(fS, .45), .04, .4)") && src.includes("g2.quadraticCurveTo"), "느린 가이드는 그래프도 천천히 흐름, 대기 중 깜빡이는 마이크, 느릴수록 선을 부드럽게");
+  assert.ok(src.includes("const pps = (W - L) * V.ppsF") && src.includes("clamp(.2 * (vibGuideOn() ? vibGuideRate()") && src.includes("소리를 기다리는 중: 깜빡이는 마이크 아이콘") && src.includes("sw = clamp(.22 / Math.max(fS, .3), .04, .6)") && src.includes("g2.quadraticCurveTo"), "느린 가이드는 그래프도 천천히 흐름, 대기 중 깜빡이는 마이크, 느릴수록 선을 부드럽게");
   console.log("pitch-page: 느린 시작·대기 아이콘·부드러운 선 ok");
   assert.ok(src.includes("소리 내기 전에도 도전할 가이드 파형은 옅게 계속 보여요"), "소리 내기 전에도 가이드 파형이 옅게 보임");
   assert.ok(src.includes("const ctx = actx(), out = pianoOut(ctx), rate = vibGuideRate(), n = 8,") && src.includes("btn.classList.add(i % 4 ? 'bp' : 'bp1')") && src.includes("@keyframes bpop1") && src.includes("<small>발성 연습</small>"), "박자 버튼: 2마디(8박), 박마다 버튼 튕김, 이름은 발성 연습");
@@ -239,4 +239,5 @@ console.log("pitch-page ok");
   assert.ok(src.includes("function renderScBar()") && src.includes("function scIcon(S)") && src.includes("if (b.dataset.t === 'scale' && !P.running)") && !src.includes('id="scBack"') && !src.includes("${qkHtml()}`;\n    el.querySelector('#cGo').onclick = startStage; qkWire"), "발성 탭은 바로 연습 화면, 스케일·속도는 위쪽 버튼(음 모양 막대 아이콘)");
   console.log("pitch-page: 발성 탭 바로 진입·위쪽 버튼 ok");
   assert.ok(src.includes(".vstreak{height:34px;box-sizing:border-box}") && src.includes("-webkit-line-clamp:2"), "안내 한 줄이 두 줄로 바뀌어도 화면이 흔들리지 않게 높이 고정");
+  assert.ok(src.includes("vibAnalyze(LONG_WIN)") && src.includes("const bw = rate < .6 ? .15") && src.includes("student: [['practice','음정'],['scale','발성']"), "초보자 시작 약 0.22Hz(9초 창) + 하단 탭 이름 음정/발성");
 }
