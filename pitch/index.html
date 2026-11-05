@@ -1209,7 +1209,7 @@ const newVs = () => ({ cyc: 0, ok: 0, best: 0, sR: 0, sE: 0, lv: {} });
 const V = { root: null, lastRoot: null, cueUntil: 0, cueArm: false, voicedMs: 0, silMs: 0, lastAn: 0, cyc: 0, lastExtT: 0, buf: [], ctr: null, base: null, lastT: 0, fz: 0, tr: [], dir: 0, hi: null, lo: null, ext: [], streak: 0, rate: null, extent: null, verdict: '', out: 0, pd: null, s: newVs() };
 const vpc = () => (P.H / 2 - 14) / VR().max;
 function vibUnlocked() { return true; }   // 비브라토 모드는 항상 열려 있어요
-function vibReset() { V.buf = []; V.ctr = null; V.base = null; V.dir = 0; V.hi = V.lo = null; V.ext = []; V.rate = null; V.extent = null; V.streak = 0; V.verdict = ''; V.slow = false; V.pd = null; V.out = 0; V.lastExtT = 0; V.cyc = 0; }
+function vibReset() { V.buf = []; V.ctr = null; V.base = null; V.dir = 0; V.hi = V.lo = null; V.ext = []; V.rate = null; V.extent = null; V.streak = 0; V.verdict = ''; V.slow = false; V.pd = null; V.out = 0; V.lastExtT = 0; V.cyc = 0; V.anch = null; V.fit = null; }
 function vibTick(now, dt, m) {
   vibBreath(now, dt, m);
   if (now < P.sfxUntil) { V.fz = now; V.lastExtT = now; V.ext = []; V.dir = 0; V.hi = V.lo = null; V.pd = null; return; }      // chime playing through speakers
@@ -1219,7 +1219,10 @@ function vibTick(now, dt, m) {
   if (l && Math.abs(m - l.m) > 2) { if (++V.out < 6) return; vibReset(); }
   V.out = 0; V.lastT = now; V.buf.push({ t: now, m }); while (V.buf[0].t < now - Math.max(1000, VR().win - 200)) V.buf.shift();
   let sum = 0; for (const x of V.buf) sum += x.m; const mean = sum / V.buf.length; V.ctr = mean;
-  const tg = P.target; V.base = tg != null ? tg + 12 * Math.round((mean - tg) / 12) : mean;
+  /* (11/05 사용자) 가운데 점선 = 기준음(도)과 폭 위 음(도#)의 한가운데. 기준음 근처(±1.5반음)에서 시작하면 그래프가 아래쪽 '도'에서 시작해요. 멀리서 시작하면 예전처럼 내 음을 가운데로 */
+  const anc = vibRoot() + CFG.vw / 2, fold = anc + 12 * Math.round((mean - anc) / 12);
+  if (V.anch == null && V.buf.length >= 6) V.anch = Math.abs(mean - fold) <= 1.5;
+  const tg = P.target; V.base = V.anch !== false ? fold : tg != null ? tg + 12 * Math.round((mean - tg) / 12) : mean;
   const d = (m - V.base) * 100, ds = V.pd == null ? d : (d + V.pd) / 2; V.pd = d;
   V.tr.push({ t: now, d }); while (V.tr.length && V.tr[0].t < now - (12000)) V.tr.shift();
   if (now - V.lastAn >= 100) { V.lastAn = now; vibStep(now); }
@@ -1360,6 +1363,20 @@ function updateVibHud() {
     fb = !hear ? (V.lastT && nowT - V.lastT < 3000 ? '소리가 끊겼어요 · 한 음을 이어서' : '소리가 안 잡혀요 · 마이크 가까이, 조금 크게') : !r ? '듣는 중… 한 음을 계속 내 보세요' : r.Q < .4 || r.ext < 8 ? '음은 잡혀요 · 흔들림이 약해요 (지금 ±' + Math.round(r.ext) + ')' : ''; }
   setTxt('vCnt', String(V.streak)); setTxt('vFb', fb, 'vfb' + (live && V.verdict === 'ok' ? ' ok' : ''));
 }
+function vibFit(now, f) {   // 최근 목소리 흔들림에 같은 주기의 사인파를 최소제곱으로 맞춰요: d ≈ c + a·sin(ωt) + b·cos(ωt)
+  if (!(V.rate != null && now - V.lastT < 400 && V.tr.length > 12)) { V.fit = null; return null; }
+  const T = clamp(1.6 / f, 1, 5) * 1000, om = 2 * Math.PI * f, T0 = V.fitT0 || (V.fitT0 = now), pts = []; let prev = now;
+  for (let i = V.tr.length - 1; i >= 0; i--) { const q = V.tr[i]; if (q.t < now - T || prev - q.t > 150) break; pts.push(q); prev = q.t; }
+  if (pts.length < Math.max(12, T / 16 * .5)) return V.fit || null;
+  let n = 0, s1 = 0, s2 = 0, sy = 0, c11 = 0, c12 = 0, c22 = 0, y1 = 0, y2 = 0;
+  for (const q of pts) { const t = (q.t - T0) / 1000, sn = Math.sin(om * t), cs = Math.cos(om * t); n++; s1 += sn; s2 += cs; sy += q.d; c11 += sn * sn; c12 += sn * cs; c22 += cs * cs; y1 += sn * q.d; y2 += cs * q.d; }
+  const M = [[n, s1, s2, sy], [s1, c11, c12, y1], [s2, c12, c22, y2]];
+  for (let i = 0; i < 3; i++) { let m = i; for (let k = i + 1; k < 3; k++) if (Math.abs(M[k][i]) > Math.abs(M[m][i])) m = k; if (Math.abs(M[m][i]) < 1e-9) return V.fit || null; [M[i], M[m]] = [M[m], M[i]]; for (let k = i + 1; k < 3; k++) { const r = M[k][i] / M[i][i]; for (let j = i; j < 4; j++) M[k][j] -= r * M[i][j]; } }
+  const b = M[2][3] / M[2][2], a = (M[1][3] - M[1][2] * b) / M[1][1], c = (M[0][3] - M[0][1] * a - M[0][2] * b) / M[0][0], R = Math.hypot(a, b);
+  if (!(R >= Math.max(10, vibMid() * .25))) { V.fit = null; return null; }
+  const o = V.fit && now - V.fit.t < 500 ? V.fit : null, k = o ? .3 : 1, A2 = o ? o.a + (a - o.a) * k : a, B2 = o ? o.b + (b - o.b) * k : b, C2 = o ? o.c + (c - o.c) * k : c;
+  V.fit = { a: A2, b: B2, c: C2, R: Math.hypot(A2, B2), ph: Math.atan2(B2, A2), T0, t: now }; return V.fit;
+}
 function drawVib(now) {
   const W = P.W, H = P.H, L = PIANO_W, nowX = L + (W - L) * vibFrac(), cy = H / 2, pc = vpc(), R = VR();
   /* 그래프 흐르는 속도: 느린 물결(초보자)일수록 천천히 흘러서 내 파형과 가이드를 충분히 볼 수 있게. 한 주기 길이는 거의 일정하게 유지 */
@@ -1369,6 +1386,7 @@ function drawVib(now) {
   g2.fillStyle = 'rgba(76,195,138,.15)'; g2.fillRect(L, cy - R.ext[1] * pc, W - L, (R.ext[1] - R.ext[0]) * pc); g2.fillRect(L, cy + R.ext[0] * pc, W - L, (R.ext[1] - R.ext[0]) * pc);
   g2.strokeStyle = 'rgba(255,255,255,.07)'; g2.lineWidth = 1; for (const c of R.ticks.flatMap(v => [-v, v])) { const y = Math.round(cy - c * pc) + .5; g2.beginPath(); g2.moveTo(L, y); g2.lineTo(W, y); g2.stroke(); }
   g2.strokeStyle = '#5cc8ff'; g2.lineWidth = 1.2; g2.setLineDash([5, 4]); g2.beginPath(); g2.moveTo(L, cy); g2.lineTo(W, cy); g2.stroke(); g2.setLineDash([]);
+  if (V.anch !== false) { const w = CFG.vw, r = vibRoot(); g2.save(); g2.font = '600 11px system-ui,sans-serif'; g2.textAlign = 'left'; g2.fillStyle = 'rgba(255,196,110,.9)'; g2.textBaseline = 'bottom'; g2.fillText(SOLFA[mod(r, 12)], L + 6, cy + w * 50 * pc - 2); g2.textBaseline = 'top'; g2.fillText(SOLFA[mod(r + w, 12)], L + 6, cy - w * 50 * pc + 2); g2.restore(); }   // 기준음(아래)·위 음 이름
   const tr = V.tr, live = tr.length && now - V.lastT < 400, col = V.verdict === 'ok' ? '#7fe3a8' : '#ffb43a';
   g2.save(); g2.beginPath(); g2.rect(L, 0, W - L, H); g2.clip(); g2.lineJoin = 'round'; g2.lineCap = 'round';
   /* 보이는 선만 부드럽게(판정은 원본 그대로): 느릴수록 더 많이 펴 줘서 '불안하게 떠는' 것처럼 안 보이게 */
@@ -1391,7 +1409,12 @@ function drawVib(now) {
       const f = vibGuideRate(), A = vibMid(); g2.save(); g2.beginPath(); g2.rect(L, 0, W - L, H); g2.clip(); g2.lineWidth = 2.6; g2.lineJoin = 'round';
       const gr = g2.createLinearGradient(nowX, 0, W, 0); gr.addColorStop(0, 'rgba(127,227,255,' + (.8 * V.gA).toFixed(2) + ')'); gr.addColorStop(1, 'rgba(127,227,255,' + (.2 * V.gA).toFixed(2) + ')'); g2.strokeStyle = gr;   // 앞으로 갈수록 옅어지는 실선(정신없지 않게)
       g2.beginPath(); let st = false;
-      for (let x = nowX; x <= W; x += 3) { const y = cy - A * Math.sin(V.gPh + 2 * Math.PI * f * (x - nowX) / pps) * pc; if (!st) { g2.moveTo(x, y); st = true; } else g2.lineTo(x, y); }
+      /* (11/05 사용자) 지금 내고 있는 파형에 딱 이어지게: 최근 소리에 같은 주기의 사인파를 맞춰서(위상·중심·폭) 그 이어짐을 오른쪽에 그려요. 첫 주기 동안 폭은 목표 폭으로 서서히 */
+      const fit = vibFit(now, f), om = 2 * Math.PI * f;
+      for (let x = nowX; x <= W; x += 3) { const tau = (x - nowX) / pps; let v;
+        if (fit) { const w = clamp(tau * f / .75, 0, 1), sw = w * w * (3 - 2 * w), tt = (now - fit.T0) / 1000 + tau; v = fit.c * (1 - sw) + (fit.R * (1 - sw) + A * sw) * Math.sin(om * tt + fit.ph); }
+        else v = A * Math.sin(V.gPh + om * tau);
+        const y = cy - v * pc; if (!st) { g2.moveTo(x, y); st = true; } else g2.lineTo(x, y); }
       g2.stroke(); g2.restore();
     }
     g2.save(); g2.globalAlpha = .9; g2.font = '600 10px system-ui,sans-serif'; g2.textAlign = 'right'; g2.textBaseline = 'top'; g2.fillStyle = '#7fe3ff'; g2.fillText('도전 ' + r1(vibGuideRate()) + 'Hz', W - 8, 6); g2.restore();
