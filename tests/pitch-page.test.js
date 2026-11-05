@@ -274,3 +274,11 @@ console.log("pitch-page ok");
 { const sD = fs.readFileSync(__dirname + "/../pitch/index.html", "utf8");
   assert.ok(sD.includes("#v-practice.vibView .stats,#v-practice.vibView .hint{display:none}"), "비브라토: 점수 줄·아래 안내 숨김");
   assert.ok(sD.includes("classList.toggle('vibView', vm)"), "비브라토 화면일 때만 적용"); }
+
+/* (11/05 사용자) 마이크 권한 점검 기본 탑재: 권한 상태 미리 확인·바뀌면 반영, 막히면 눈에 띄는 안내+다시 시도, 오류 종류별 문구 */
+{ const sM = fs.readFileSync(__dirname + "/../pitch/index.html", "utf8");
+  assert.ok(sM.includes("navigator.permissions.query({ name: 'microphone' })") && sM.includes("s.onchange = apply"), "권한 상태 조회·변경 반영");
+  assert.ok(sM.includes("P.monDenied = true; micWarn(micErrKind(e));") && sM.includes("micWarn('insecure')") && sM.includes("micWarn(null); return true;"), "시작 실패 때 안내, 성공하면 지움");
+  for (const k of ["denied", "none", "busy", "insecure"]) assert.ok(sM.includes(`${k}: ['`), "문구 " + k);
+  assert.ok(sM.includes("#micWarn{position:fixed") && sM.includes("다시 시도</button>"), "경고 표시와 다시 시도 버튼");
+  assert.ok(sM.includes("#v-practice.scaleView .noteRow{position:absolute"), "발성 화면 다이어트"); }
