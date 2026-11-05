@@ -90,5 +90,23 @@
     let b = document.getElementById("brBar"); if (!b) { b = document.createElement("div"); b.id = "brBar"; document.body.appendChild(b); } b.classList.remove("go"); void b.offsetWidth; b.classList.add("go"); }
   const mark = () => `<span class="brMark" aria-hidden="true"></span>`;
   const sign = () => `<div class="brSign">가장 아름다운 당신의 오늘을 ‘작품’으로..</div>`;
-  G.Brand = { splash, loading, setTips, tipBar, tipSheet, layer, dropLayers, bar, mark, sign, LOGO };
+  // (11/05 사용자 '앱이건 웹브라우저건 백그라운드로 가면 장치를 놔줘야') 소리 장치 일괄 놓기 — 화면(탭)이 가려지면 쓰고 있지 않은 AudioContext를 모두 쉬게 함.
+  // 블루투스 이어폰은 소리 장치가 열려 있는 동안 다른 앱과 볼륨·연결이 꼬임. 쓸 때는 각 화면이 resume()으로 다시 깨움(돌아왔다고 자동으로 깨우지 않음).
+  // 예외: 화면이 "지금 재생 중"이라고 알려 준 것(예: 레슨 소리를 틀어 둔 채 화면 끄기)은 쉬지 않음 → Brand.audioKeep(c => 재생중?)
+  const ACX = new Set(); let keepFn = null;
+  (function wrap() {
+    for (const k of ["AudioContext", "webkitAudioContext"]) {
+      const O = G[k]; if (!O || O.__brWrapped) continue;
+      try { const W = class extends O { constructor(...a) { super(...a); ACX.add(this); } }; W.__brWrapped = true; G[k] = W; } catch {}
+    }
+  })();
+  function audioRelease() {
+    for (const c of ACX) {
+      try { if (c.state === "closed") { ACX.delete(c); continue; } if (c.state === "running" && !(keepFn && keepFn(c))) c.suspend(); } catch {}
+    }
+  }
+  const audioKeep = (fn) => { keepFn = typeof fn === "function" ? fn : null; };
+  G.addEventListener("pagehide", audioRelease);
+  document.addEventListener("visibilitychange", () => { if (document.hidden) audioRelease(); });
+  G.Brand = { audioRelease, audioKeep, splash, loading, setTips, tipBar, tipSheet, layer, dropLayers, bar, mark, sign, LOGO };
 })(window);
