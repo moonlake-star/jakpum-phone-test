@@ -910,7 +910,7 @@ function sayHello() {}
 function snNotice() {
   if (!SN || localStorage.getItem('vn_me_notice2') || $('#voicePop')) return false;
   const d = document.createElement('div'); d.id = 'voicePop';
-  d.innerHTML = '<div class="vpc"><b>연습 기록은 선생님께 전달돼요</b><div class="note2" style="margin-top:8px;line-height:1.6">\'기록 도전\'으로 한 연습의 <b>날짜별 요약</b>(연습 시간·점수·최고 유지·코스 별)은 자동으로 선생님께 가요.<br>\'기록 도전\'은 <b>이 폰에 녹음</b>돼요. 자동으로 보내지 않고, 기록 탭에서 <b>직접 고른 녹음만 \'미션 제출\'</b>하면 원장님·담당 강사가 들어요(최대 1년 보관, 그만두면 삭제).<br>그냥 \'연습\'은 기록도 녹음도 안 돼요.</div><div class="seg"><button id="snOk">확인했어요</button></div></div>';
+  d.innerHTML = '<div class="vpc"><div class="note2" style="line-height:1.6">\'기록 도전\'은 \'미션 제출\'로 담당 강사님에게 제출이 가능해요</div><div class="seg"><button id="snOk">확인했어요</button></div></div>';
   document.body.appendChild(d); d.querySelector('#snOk').onclick = () => { try { localStorage.setItem('vn_me_notice2', '1'); localStorage.setItem('vn_me_notice', '1'); } catch (e) {} d.remove(); askVoice(); }; return true;
 }
 function askVoice() {
@@ -1236,7 +1236,7 @@ const newVs = () => ({ cyc: 0, ok: 0, best: 0, sR: 0, sE: 0, lv: {} });
 const V = { root: null, lastRoot: null, cueUntil: 0, cueArm: false, voicedMs: 0, silMs: 0, lastAn: 0, cyc: 0, lastExtT: 0, buf: [], ctr: null, base: null, lastT: 0, fz: 0, tr: [], dir: 0, hi: null, lo: null, ext: [], streak: 0, rate: null, extent: null, verdict: '', out: 0, pd: null, s: newVs() };
 const vpc = () => (P.H / 2 - 14) / VR().max;
 function vibUnlocked() { return true; }   // 비브라토 모드는 항상 열려 있어요
-function vibReset() { V.buf = []; V.ctr = null; V.base = null; V.dir = 0; V.hi = V.lo = null; V.ext = []; V.rate = null; V.extent = null; V.streak = 0; V.verdict = ''; V.slow = false; V.pd = null; V.out = 0; V.lastExtT = 0; V.cyc = 0; V.anch = null; V.fit = null; }
+function vibReset() { V.buf = []; V.ctr = null; V.base = null; V.dir = 0; V.hi = V.lo = null; V.ext = []; V.rate = null; V.extent = null; V.streak = 0; V.badT = null; V.verdict = ''; V.slow = false; V.pd = null; V.out = 0; V.lastExtT = 0; V.cyc = 0; V.anch = null; V.fit = null; }
 function vibTick(now, dt, m) {
   vibBreath(now, dt, m);
   if (now < P.sfxUntil) { V.fz = now; V.lastExtT = now; V.ext = []; V.dir = 0; V.hi = V.lo = null; V.pd = null; return; }      // chime playing through speakers
@@ -1256,7 +1256,7 @@ function vibTick(now, dt, m) {
   if (V.rate != null && V.verdict && V.verdict !== 'none') {           // count finished cycles at the measured speed
     V.cyc += V.rate * dt / 1000;
     while (V.cyc >= 1) { V.cyc -= 1; V.s.cyc++; V.s.sR += V.rate; V.s.sE += V.extent; const lq = V.s.lv[CFG.vw] = V.s.lv[CFG.vw] || { cyc: 0, ok: 0 }; lq.cyc++;
-      if (V.verdict === 'ok') { V.streak++; if (V.streak % 5 === 0) vibPass(V.rate); /* 5연속마다 한 번 */ V.s.ok++; lq.ok++; if (V.slow) V.s.slowOk = (V.s.slowOk || 0) + 1; V.s.best = Math.max(V.s.best, V.streak); fireVib(V.streak); } else V.streak = 0; }
+      if (V.verdict === 'ok') { V.streak++; if (V.streak % 5 === 0) vibPass(V.rate); /* 5연속마다 한 번 */ V.s.ok++; lq.ok++; if (V.slow) V.s.slowOk = (V.s.slowOk || 0) + 1; V.s.best = Math.max(V.s.best, V.streak); fireVib(V.streak); } else if (V.badT != null && now - V.badT >= VIB_GRACE) V.streak = 0; }
   }
 }
 /* Speed/width come from a 1.2 s (wider levels: up to 2 s) spectrum of the pitch track (robust against jitter), not from raw peaks. */
@@ -1285,10 +1285,10 @@ function vibAnalyze(win) {
 }
 /* (11/05 사용자) 느린 비브라토도 음정 궤적이 깨끗하면(스펙트럼 집중도 Q ≥ .55, 폭은 범위 안) 성공으로 인정: 목표 속도보다 느려도 SLOW_LO(약 2.2Hz)까지.
    성공이지만 V.slow = true 로 표시해서 '조금 더 빠르게 도전' 안내에 써요 */
-const SLOW_LO = .2, SLOW_Q = .55, SLOW_WIN = 1900, ULTRA_WIN = 3400, CRAWL_WIN = 5200, LONG_WIN = 9000;   /* (11/05 사용자) 초보자: 맨 아래 칸은 초당 1번도 안 되는 아주 느린 물결(약 0.22Hz, 한 번 흔드는 데 4~5초)부터 */
+const SLOW_LO = .2, SLOW_Q = .5, SLOW_WIN = 1900, ULTRA_WIN = 3400, CRAWL_WIN = 5200, LONG_WIN = 9000;   /* (11/05 사용자) 초보자: 맨 아래 칸은 초당 1번도 안 되는 아주 느린 물결(약 0.22Hz, 한 번 흔드는 데 4~5초)부터 */
 /* (11/05 사용자) 속도 사다리: 폭마다 [느려도 인정하는 하한 ~ 목표 상한]을 5칸으로 나눠요. 한 칸에서 '5연속 성공'을 3번 하면 다음 칸이 열리고,
    그 칸의 가운데 속도·폭으로 사인파 가이드를 오른쪽(앞날) 공간에 미리 보여줘요. */
-const VST_N = 5, VST_NEED = 3;
+const VST_N = 5, VST_NEED = 3, VIB_GRACE = 600;
 const vibBandsOf = () => { const R = VR(), lo = SLOW_LO, hi = R.rate[1], q = Math.pow(hi / lo, 1 / VST_N); return { lo, hi, e: i => lo * Math.pow(q, i) }; };   // 칸 경계는 등비로: 느린 쪽이 촘촘해요
 const vibBandIdx = rate => { const B = vibBandsOf(); return clamp(Math.floor(Math.log(Math.max(rate, B.lo) / B.lo) / Math.log(B.hi / B.lo) * VST_N), 0, VST_N - 1); };
 function vibSt() { if (CFG.vstv !== 3) { CFG.vst = {}; CFG.vgr = {}; CFG.vstv = 3; } CFG.vst = CFG.vst || {}; const k = CFG.vw; if (!CFG.vst[k] || !(CFG.vst[k].cur >= 0)) CFG.vst[k] = { cur: 0, pass: 0 }; return CFG.vst[k]; }
@@ -1371,13 +1371,14 @@ function vibStep(now) {
   V.dbg = r;
   if (r && r.Q >= .4 && r.ext >= 8) {
     V.lastExtT = now; V.rate = V.rate == null ? r.rate : V.rate * .7 + r.rate * .3; V.extent = V.extent == null ? r.ext : V.extent * .7 + r.ext * .3;
-    const rOk = V.rate >= R.rate[0] && V.rate <= R.rate[1], eOk = V.rate < 1.2 ? V.extent >= R.ext[0] * .8 && V.extent <= R.ext[1] * 1.1 : V.extent >= R.ext[0] && V.extent <= R.ext[1], was = V.verdict;   // 아주 느릴 땐 창에 주기가 적게 들어가 폭이 작게 나와서 기준을 조금 낮춰요
+    const rOk = V.rate >= R.rate[0] && V.rate <= R.rate[1], eOk = V.rate < 1.2 || V.rate < R.rate[0] ? V.extent >= R.ext[0] * .8 && V.extent <= R.ext[1] * 1.1 : V.extent >= R.ext[0] && V.extent <= R.ext[1], was = V.verdict;   // (11/05 사용자) 초보: 목표보다 느린 구간은 폭 기준도 20% 느슨하게(느릴수록 폭이 작게 재져요)   // 아주 느릴 땐 창에 주기가 적게 들어가 폭이 작게 나와서 기준을 조금 낮춰요
     const slowOk = !rOk && eOk && V.rate >= SLOW_LO && V.rate < R.rate[0] && r.Q >= SLOW_Q;
     V.slow = slowOk;
     V.eOkMs = eOk ? (V.eOkMs || 0) + 100 : 0;
     V.verdict = rOk && eOk || slowOk ? 'ok' : !rOk ? (V.rate < R.rate[0] ? 'slow' : 'fast') : (V.extent < R.ext[0] ? 'narrow' : 'wide');
-    if (V.verdict !== 'ok') V.streak = 0;
-  } else if (V.verdict && now - V.lastExtT > 300) { V.streak = 0; V.verdict = ''; V.rate = null; V.extent = null; V.cyc = 0; V.eOkMs = 0; }     // steady tone (or silence): no vibrato
+    /* (11/05 사용자) 한 번 삐끗해도 콤보가 바로 0이 되지 않게: 'ok'가 아닌 상태가 VIB_GRACE(0.6초) 넘게 이어질 때만 끊어요 */
+    if (V.verdict === 'ok') V.badT = null; else { if (V.badT == null) V.badT = now; if (now - V.badT >= VIB_GRACE) V.streak = 0; }
+  } else if (V.verdict && now - V.lastExtT > 500) { V.badT = null; V.streak = 0; V.verdict = ''; V.rate = null; V.extent = null; V.cyc = 0; V.eOkMs = 0; }     // steady tone (or silence): no vibrato
   vibGuideStep(now);
 }
 const VM = { 3: ['3연속', 'NICE ✨', '#ffffff'], 5: ['비브라토 성공!', 'GREAT 👍', '#ffd27a'], 10: ['10연속!', 'EXCELLENT 🔥', '#ff9f43'], 20: ['20연속!!', 'AMAZING ⭐', '#ffd23f'] };

@@ -164,7 +164,7 @@ console.log("pitch-page ok");
   assert.ok(src.includes("if (FROM_STUDENT && !SN) {") && src.includes("먼저 내 노트에서 로그인해 주세요"), "로그인 안 됐으면 안내");
   assert.ok(src.includes("users: [{ id: 'me', name: SN.name || '나', role: 'student' }]") && src.includes("else if (!DB || !DB.users || !user(DB.me)) seedDemo();"), "샘플 없이 본인 한 명");
   assert.ok(src.includes("'← 내 노트'") && src.includes("location.href = '../student/'"), "내 노트로 돌아가기");
-  assert.ok(src.includes("function snNotice()") && src.includes("연습 기록은 선생님께 전달돼요") && src.includes("직접 고른 녹음만"), "처음 한 번 안내");
+  assert.ok(src.includes("function snNotice()") && src.includes("미션 제출\\'로 담당 강사님에게 제출이 가능해요") && !src.includes("연습 기록은 선생님께 전달돼요"), "처음 한 번 안내");
   assert.ok(src.includes("function pitchSum(day)") && src.includes("co: co.slice(-30)") && !/body: JSON\.stringify\(\{ action: 'pitch_save'[^}]*(audio|wav|pcm)/i.test(src), "날짜별 숫자 요약만");
   assert.ok(src.includes("DB.sync = DB.sync || []") && src.includes("q.splice(q.indexOf(day), 1)"), "실패하면 큐에 남겨 다시 시도");
   console.log("pitch-page: 수강생 앱 연결(내 계정 모드) ok");
@@ -211,7 +211,7 @@ console.log("pitch-page ok");
 }
 {
   const src = fs.readFileSync(__dirname + "/../pitch/index.html", "utf8");
-  assert.ok(src.includes("const SLOW_LO = .2, SLOW_Q = .55, SLOW_WIN = 1900, ULTRA_WIN = 3400, CRAWL_WIN = 5200, LONG_WIN = 9000;") && src.includes("V.slow = slowOk;") && src.includes("okslow: '궤적 좋아요 · 조금 더 빠르게 도전!'") && src.includes("Math.min(RW.lo, SLOW_LO)"), "느려도 궤적이 깨끗하면 성공 인정(+ 더 빠르게 안내)");
+  assert.ok(src.includes("const SLOW_LO = .2, SLOW_Q = .5, SLOW_WIN = 1900, ULTRA_WIN = 3400, CRAWL_WIN = 5200, LONG_WIN = 9000;") && src.includes("V.slow = slowOk;") && src.includes("okslow: '궤적 좋아요 · 조금 더 빠르게 도전!'") && src.includes("Math.min(RW.lo, SLOW_LO)"), "느려도 궤적이 깨끗하면 성공 인정(+ 더 빠르게 안내)");
   console.log("pitch-page: 느린 비브라토 인정 ok");
 }
 {
