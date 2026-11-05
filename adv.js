@@ -110,6 +110,11 @@
     out.addEventListener("dblclick", () => { set(o.def); paint(); });   // 값 두 번 톡 = 기본값
     paint(); row._paint = paint; return row;
   }
+  function duo(r1, r2_, l1, l2) {   // 조절 줄 두 개를 한 줄로: [앞 − 값 +] [뒤 − 값 +]
+    const row = document.createElement("div"); row.className = "advDuo";
+    r1.querySelector(".advL").textContent = l1; r2_.querySelector(".advL").textContent = l2;
+    row.append(r1, r2_); row._paint = () => { r1._paint(); r2_._paint(); }; return row;
+  }
   function chips(label, opts, get, set) {
     const row = document.createElement("div"); row.className = "advRow";
     row.innerHTML = `<span class="advL">${label}</span><span class="advChips">${opts.map(([v, t]) => `<button type="button" data-v="${v}">${t}</button>`).join("")}</span>`;
@@ -139,8 +144,8 @@
       const rows = [];
       if (k === "f") rows.push(
         stepper("느린 흐름", () => get("drift"), (v) => put("drift", v), { step: 0.25, min: 0, max: 2, def: 1, fmt: pct }),
-        stepper("앞 기울기", () => get("tilt_in"), (v) => put("tilt_in", v), { step: 10, min: -300, max: 300, def: 0, fmt: cents }),
-        stepper("뒤 기울기", () => get("tilt_out"), (v) => put("tilt_out", v), { step: 10, min: -300, max: 300, def: 0, fmt: cents }));
+        duo(stepper("앞 기울기", () => get("tilt_in"), (v) => put("tilt_in", v), { step: 10, min: -300, max: 300, def: 0, fmt: cents }),
+            stepper("뒤 기울기", () => get("tilt_out"), (v) => put("tilt_out", v), { step: 10, min: -300, max: 300, def: 0, fmt: cents }), "앞", "뒤"));
       if (k === "c") rows.push(
         stepper("다음 음까지", () => get("tr_ms"), (v) => put("tr_ms", v), { step: 20, min: 0, max: 800, def: 0, fmt: (v) => v ? `${Math.round(v)}ms` : "그대로" }),
         chips("곡선", [["s", "부드럽게"], ["lin", "직선"], ["step", "계단"]], () => N().tr_shape || "s", (v) => put("tr_shape", v)));
@@ -293,6 +298,7 @@
 #tuneFs .tfFix.amode .tfFixBox{padding-top:6px!important;padding-bottom:6px!important}
 .advD{margin:-2px 2px 6px;font-size:11px;line-height:1.4;color:#8a95a1}.advRow{display:flex;align-items:center;gap:6px;min-height:42px}.advL{flex:1;font-size:13.5px;color:#b6bdc7;white-space:nowrap}.advRow.on .advL{color:#ffb86b;font-weight:800}
 .advB{min-height:0!important;width:44px;height:40px!important;padding:0!important;margin:0!important;border-radius:12px!important;border:1.5px solid #3b4250!important;background:#11141a!important;color:#e8e8ea!important;font-size:20px!important;font-weight:900;touch-action:manipulation}
+.advDuo{display:flex;gap:8px;min-height:42px}.advDuo .advRow{flex:1;min-width:0;gap:3px}.advDuo .advL{flex:none;font-size:13px}.advDuo .advRow .advB{width:32px!important;min-width:0!important;flex:none}.advDuo .advV{min-width:0;flex:1;font-size:12px;white-space:nowrap}
 .advV{min-width:82px;text-align:center;font-weight:800;font-size:14px;color:#e8e8ea;font-variant-numeric:tabular-nums}
 .advChips{display:flex;gap:6px}.advChips button{min-height:0!important;height:36px!important;padding:0 12px!important;margin:0!important;border-radius:12px!important;border:1.5px solid #3b4250!important;background:#11141a!important;color:#cfd3da!important;font-size:13px!important;font-weight:800}.advChips button.on{background:#ffb86b!important;color:#2a1500!important;border-color:#ffb86b!important}
 .advTip{grid-column:1/-1;margin:2px 0 0;font-size:11.5px;color:#7d8590;line-height:1.4}
