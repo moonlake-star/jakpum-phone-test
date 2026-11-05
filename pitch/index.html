@@ -1593,15 +1593,15 @@ function micPop(title, sub, ms) { let d = $('#micPop'); if (!d) { d = document.c
 function hideMicPop() { clearTimeout(micPopT); const d = $('#micPop'); if (d) d.classList.remove('show'); }
 function startCal() { P.cal = { t0: performance.now(), v: [] }; P.gate = 0; micPop('🎤 주변 소리를 확인하고 있어요', '잠깐만 조용히 해 주세요'); }
 function calStep(now, rms, skip) { const c = P.cal; if (!skip) c.v.push(rms); if (now - c.t0 >= 750) finishCal(); }   /* (11/05) 확인 시간 절반 */
-function calDone(status, ms) { if (P.hello) { P.hello = false; micPop('🎤 소리를 내 보세요', status, 1600); } else micPop(status, '', ms); }
+function calDone(status, ms) { if (P.hello) { P.hello = false; micPop('🎤 소리를 내 보세요', status || '', status ? 1600 : 1500); } else if (status) micPop(status, '', ms); else hideMicPop(); }   // (11/05 사용자) 조용하면 '준비됐어요' 창은 띄우지 않고 닫아요
 function finishCal() {
   const c = P.cal; P.cal = null;
-  if (!c || c.v.length < 20) { P.gate = 0; calDone('준비됐어요', 750); return; }
+  if (!c || c.v.length < 20) { P.gate = 0; calDone(null); return; }
   const v = c.v.slice().sort((a, b) => a - b), floor = v[Math.floor(v.length * .25)], want = floor * 3;   // 하위 25%(말·소리가 섞여도 바닥 소음 기준) × 3
   P.noise = floor; P.gate = Math.min(want, .04);
   if (want > .04) calDone('주변이 꽤 시끄러워요 · 조용한 곳이나 이어폰 마이크를 쓰면 더 정확해요', 2100);
   else if (P.gate > P.sens * 1.2) calDone('주변 소리에 맞춰 마이크를 조정했어요', 1000);
-  else calDone('주변이 조용해요 · 준비됐어요', 900);
+  else calDone(null);
 }
 function stopMonitor() {
   try { if (P.stream) P.stream.getTracks().forEach(t => t.stop()); if (P.src) P.src.disconnect(); } catch (e) {}

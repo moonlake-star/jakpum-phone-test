@@ -204,3 +204,8 @@ console.log("pitch-page ok");
   assert.ok(src.includes("yin(P.buf, sr, vbm ? .24 : .22)") && src.includes("yin(P.buf, sr, .38)") && src.includes("r.clarity > (vbm ? .68 : .55)"), "기식음 섞인 목소리: 기본 기준을 넓히고, 방금 잡히던 음 근처(±150센트)면 더 후하게");
   console.log("pitch-page: 기식음 후하게 ok");
 }
+{
+  const src = fs.readFileSync(__dirname + "/../pitch/index.html", "utf8");
+  assert.ok(src.includes("else calDone(null);") && !src.includes("주변이 조용해요 · 준비됐어요") && src.includes("else hideMicPop(); }"), "조용하면 '준비됐어요' 창은 띄우지 않기");
+  console.log("pitch-page: 준비됐어요 창 없음 ok");
+}
