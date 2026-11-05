@@ -108,7 +108,9 @@ input,select{font:inherit;color:var(--ink)}
 @keyframes cpulse{50%{box-shadow:inset 0 2px 0 rgba(255,255,255,.5),0 10px 28px rgba(0,0,0,.55),0 0 0 10px rgba(244,167,34,.14),0 0 0 22px rgba(244,167,34,.04)}}
 @media (prefers-reduced-motion:reduce){#cOv.mid .cgo{animation:none}}
 #scHead{display:none;width:100%;align-items:center;justify-content:space-between;gap:8px}#scHead b{flex:1;text-align:center;font-size:14px;color:var(--ink)}
-#v-practice.scaleView #scHead{display:flex}#v-practice.scaleView #segMode,#v-practice.scaleView .stats,#v-practice.scaleView #ctrack,#v-practice.scaleView #goalWrap{display:none}
+#scBar{display:none;width:100%}#v-practice.scaleView #scHead{display:flex}#v-practice.scaleView #scBar:not(.hid){display:block}
+.scBt{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.scBt button{border:1px solid var(--line);background:#2a3036;color:#c9d1d8;border-radius:10px;padding:5px 2px 6px;font:inherit;font-size:13px;display:flex;flex-direction:column;align-items:center;gap:2px}.scBt button.on{background:#e48d16;border-color:#e48d16;color:#2a1a00;font-weight:700}.scBt svg{display:block}
+#scBar .scSp{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:6px;color:var(--ink)}#scBar .scSp b{min-width:92px;text-align:center;font-size:14px}#scBar .scSp button{width:38px;height:38px;border-radius:50%;background:#1b2024;border:1px solid var(--line);color:var(--ink);font-size:20px;line-height:1}#v-practice.scaleView #segMode,#v-practice.scaleView .stats,#v-practice.scaleView #ctrack,#v-practice.scaleView #goalWrap{display:none}
 #cOv.mid .cghost,#cOv.mid .cset{pointer-events:auto}
 .qk{display:flex;flex-direction:column;align-items:center;gap:8px;margin-top:10px;pointer-events:auto}.qk .seg{width:min(330px,88vw)}.qk .seg button{height:40px;font-size:14px;font-weight:600}
 .qsp{display:flex;align-items:center;gap:10px;color:var(--ink)}.qsp b{min-width:92px;text-align:center;font-size:15px}.qsp button{width:46px;height:46px;border-radius:50%;background:#1b2024;border:1px solid var(--line);color:var(--ink);font-size:24px;line-height:1;padding:0}.qsp button:active{background:var(--accent);color:var(--accentInk)}
@@ -321,7 +323,7 @@ summary{cursor:pointer;color:var(--ink2)}
           <div class="vlad" id="vLad"></div>
           <div class="vgd"><button type="button" id="vgT" class="on">가이드 파형 켜짐</button><button type="button" id="vgD" aria-label="가이드 느리게">−</button><button type="button" id="vgU" aria-label="가이드 빠르게">＋</button><button type="button" id="vgB">▶ 박자</button></div></div>
       </div>
-      <div id="cbar"><div id="scHead"><button class="btn sm" id="scBack">← 발성</button><b id="scTitle"></b><button class="btn sm" id="scCfg">⚙</button></div><div class="seg big" id="segMode"><button data-v="free">자유</button><button data-v="course">코스</button><button data-v="vib">비브라토</button></div><div id="subBar"><div id="stTabs" hidden></div><div class="seg" id="segVW" hidden></div><div id="vwEx" hidden></div></div></div>
+      <div id="cbar"><div id="scHead"><b id="scTitle"></b><button class="btn sm" id="scCfg" aria-label="시작음·브릿지 설정">⚙</button></div><div id="scBar"></div><div class="seg big" id="segMode"><button data-v="free">자유</button><button data-v="course">코스</button><button data-v="vib">비브라토</button></div><div id="subBar"><div id="stTabs" hidden></div><div class="seg" id="segVW" hidden></div><div id="vwEx" hidden></div></div></div>
       <div id="stage"><canvas id="roll"></canvas>
         <div id="targetChip" class="tchip ov" hidden>목표음 <b id="targetName"></b><small>옥타브 무관</small><button id="targetClear" aria-label="목표음 해제">✕</button></div>
         <div id="cOv"></div>
@@ -882,7 +884,7 @@ STAGES.push(['발성 스케일', '반음씩 올라가며 브릿지 구간을 지
 function scaleCfg(sc) {
   const o = sc || {}, g = VOICE[o.g] ? o.g : 'm', V = VOICE[g], z = (o.z && o.z[g]) || [V.zs, V.ze];
   const zs = clamp(Math.round(z[0]), 50, 84), ze = clamp(Math.round(z[1]), zs, 88);
-  return { g, k: SCALES.some(x => x.k === o.k) ? o.k : 'arp', off: clamp(Math.round(o.off || 0), -4, 4), zs, ze };
+  return { g, k: SCALES.some(x => x.k === o.k) ? o.k : 'tri', off: clamp(Math.round(o.off || 0), -4, 4), zs, ze };
 }
 const VOICE_RC = { m: 55, f: 62 };   // 코스 음역 중심: 남성 G3 / 여성 D4 (코스는 중심 -6 ~ +8 반음)
 CFG.guide = 'on'; CFG.vibOpen = 'always'; CFG.rcMe = 0; CFG.rc = VOICE_RC[scaleCfg(CFG.sc).g];
@@ -1001,11 +1003,21 @@ function renderCourseUI() {
   if (sv && C.line) { const L = C.line; $('#scTitle').textContent = `${VOICE[L.g].name} · ${SCALES.find(x => x.k === L.k).t}`; }
   updateTargetChip(); renderCOv();
 }
-$('#scBack').onclick = () => go('scale'); $('#scCfg').onclick = () => go('scale');
+$('#scCfg').onclick = () => go('scale');
 /* (11/05 사용자) 연습 화면에서 바로: 스케일 바꾸기 + 속도 −/＋ (대기 화면·결과 화면·일시정지 화면) */
 function qkHtml() {
   const sc = scaleCfg(CFG.sc);
   return `<div class="qk"><div class="seg qkSc">${SCALES.map(x => `<button data-v="${x.k}" class="${x.k === sc.k ? 'on' : ''}">${x.n}</button>`).join('')}</div><div class="qsp"><button data-d="-1" aria-label="느리게">−</button><b>속도 ${Math.round(spdNow() * 100)}%</b><button data-d="1" aria-label="빠르게">＋</button></div></div>`;
+}
+/* (11/05 사용자) 발성 화면 위쪽 버튼: 스케일(음 모양을 가로 막대 여러 개로) + 속도 −/＋ */
+function scIcon(S) { const iv = S.iv, mx = Math.max(...iv), W = 76, H = 22, bw = (W - (iv.length - 1) * 1) / iv.length; return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">${iv.map((d, i) => `<rect x="${(i * (bw + 1)).toFixed(1)}" y="${(H - 3 - d / mx * (H - 3)).toFixed(1)}" width="${bw.toFixed(1)}" height="3" rx="1" fill="currentColor"/>`).join('')}</svg>`; }
+function renderScBar() {
+  const el = $('#scBar'); if (!el) return; const sv = C.mode === 'course' && C.stage === 3, busy = C.phase === 'play' || C.phase === 'count';
+  el.classList.toggle('hid', !sv || busy); if (!sv || busy) return;
+  const sc = scaleCfg(CFG.sc);
+  el.innerHTML = `<div class="scBt">${SCALES.map(x => `<button type="button" data-v="${x.k}" class="${x.k === sc.k ? 'on' : ''}" aria-label="${x.t}">${scIcon(x)}<span>${x.n}</span></button>`).join('')}</div><div class="scSp qsp"><button type="button" data-d="-1" aria-label="느리게">−</button><b>속도 ${Math.round(spdNow() * 100)}%</b><button type="button" data-d="1" aria-label="빠르게">＋</button></div>`;
+  el.querySelectorAll('.scBt button').forEach(b => b.onclick = () => { CFG.sc = CFG.sc || {}; if (CFG.sc.k === b.dataset.v) return; CFG.sc.k = b.dataset.v; scRep = 0; saveCfg(); loadStage(3); });
+  el.querySelectorAll('.scSp button').forEach(b => b.onclick = () => { const v = clamp(Math.round((spdNow() + (+b.dataset.d) * .05) * 100) / 100, SPD_MIN, SPD_MAX); if (v === spdNow()) return; CFG.spd = v; saveCfg(); loadStage(3); });
 }
 function qkWire(box, after) {
   box.onclick = e => e.stopPropagation();
@@ -1013,14 +1025,15 @@ function qkWire(box, after) {
   box.querySelectorAll('.qsp button').forEach(b => b.onclick = () => { const v = clamp(Math.round((spdNow() + (+b.dataset.d) * .05) * 100) / 100, SPD_MIN, SPD_MAX); if (v === spdNow()) return; CFG.spd = v; saveCfg(); after(); });
 }
 function renderCOv() {
+  renderScBar();
   const el = $('#cOv'); el.style.top = ''; el.style.bottom = ''; el.classList.remove('mid');
   if (C.mode !== 'course' || C.phase === 'count' || C.phase === 'play' || !C.line) { el.innerHTML = ''; return; }
   const L = C.line, stg = STAGES[C.stage], g = C.ghost, bs = starsBest(C.stage, CFG.diff);
   if (C.phase === 'idle' && L.scale) {
     const sc = scaleCfg(CFG.sc), S = SCALES.find(x => x.k === sc.k);
     el.classList.add('mid');
-    el.innerHTML = `<button class="btn pri cgo" id="cGo"><span class="ic">▶</span><span class="tx">${P.running ? '도전' : '연습'}</span></button>${g ? `<div class="cghost">👻 ${esc(g.label)} ${g.cov}% ${starTxt(g.stars)}</div>` : ''}${qkHtml()}`;
-    el.querySelector('#cGo').onclick = startStage; qkWire(el.querySelector('.qk'), () => loadStage(3)); return;
+    el.innerHTML = `<button class="btn pri cgo" id="cGo"><span class="ic">▶</span><span class="tx">${P.running ? '도전' : '연습'}</span></button>${g ? `<div class="cghost">👻 ${esc(g.label)} ${g.cov}% ${starTxt(g.stars)}</div>` : ''}`;
+    el.querySelector('#cGo').onclick = startStage; return;
   }
   if (C.phase === 'idle') {
     el.classList.add('mid');
@@ -2215,7 +2228,9 @@ function renderScale(el) {
 function buildTabs() {
   const u = me(); $('#userBtn').innerHTML = TM ? '← 선생님 앱' : SN ? '← 내 노트' : `${esc(u.name)} <b>· ${ROLE_KO[u.role]}</b> ▾`;
   $('#tabs').innerHTML = TABS[u.role].map(([id, nm]) => `<button data-t="${id}" aria-label="${nm}"><svg viewBox="0 0 24 24">${ICON[id]}</svg>${nm}</button>`).join('');
-  $('#tabs').querySelectorAll('button').forEach(b => b.onclick = () => { if (b.dataset.t === 'practice' && cur !== 'practice' && C.stage === 3) { C.stage = 0; C.mode = 'free'; CFG.mode = 'free'; saveCfg(); } go(b.dataset.t); });
+  $('#tabs').querySelectorAll('button').forEach(b => b.onclick = () => { if (b.dataset.t === 'practice' && C.stage === 3 && !P.running) { C.stage = 0; C.mode = 'free'; CFG.mode = 'free'; saveCfg(); }
+    if (b.dataset.t === 'scale' && !P.running) { if (C.stage !== 3 || C.mode !== 'course') { C.stage = 3; C.mode = 'course'; CFG.mode = 'course'; saveCfg(); } go('practice'); return; }   /* (11/05 사용자) 발성 탭은 바로 연습 화면으로 */
+    go(b.dataset.t); });
 }
 function go(t) {
   if (P.running && t !== 'practice') { toast('연습 중이에요. 먼저 "기록 끝내기"를 눌러 주세요.'); return; }
@@ -2223,7 +2238,7 @@ function go(t) {
   if (t !== 'practice') { abortCourse(); vibReset(); }
   if (t !== 'practice' && P.mon) stopMonitor();
   cur = t; document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'v-' + t));
-  const tabId = t === 'detail' ? 'roster' : t; $('#tabs').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.t === tabId));
+  const tabId = t === 'detail' ? 'roster' : t === 'practice' && C.mode === 'course' && C.stage === 3 ? 'scale' : t; $('#tabs').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.t === tabId));
   const el = $('#v-' + t), u = me();
   if (t === 'progress') { renderProgress(el, u.id, { head: (u.demo ? '<div class="demoBar"><span>지금 보이는 날짜·점수는 <b>샘플(데모)</b>이에요</span><button class="btn sm" id="demoClr">샘플 지우고 시작</button></div>' : '') + '<h2>나의 성장 기록</h2><button class="btn sm" id="repBtn" style="margin:-4px 0 12px">📊 오늘 리포트 보기</button>' }); $('#repBtn', el).onclick = () => showReport(u.id, {});
     const dc = $('#demoClr', el); if (dc) { let arm = false; dc.onclick = () => { if (!arm) { arm = true; dc.textContent = '정말 지울까요? 한 번 더'; return; } clearDemo(); }; } }
@@ -2237,6 +2252,15 @@ function go(t) {
 }
 let rzT; window.addEventListener('resize', () => { clearTimeout(rzT); rzT = setTimeout(() => { if (['progress', 'detail'].includes(cur) && !P.running) go(cur); }, 250); });
 
+/* (11/05 사용자) 팝업을 모두 닫은 뒤 자유 화면에서 3초 동안 소리가 없으면 '소리를 내 보세요' 팝업. 소리가 잡히면 닫고, 그 화면에선 다시 안 띄워요 */
+let wvT0 = 0, wvShown = false, wvDone = false;
+setInterval(() => {
+  const now = performance.now(), md = $('#modal'), blocked = $('#voicePop') || $('#freePop') || (md && md.classList.contains('open')) || P.cal || !P.mon || cur !== 'practice' || C.mode !== 'free';
+  if (cur !== 'practice') wvDone = false;
+  if (blocked || wvDone) { wvT0 = now; if (wvShown && !wvDone) { wvShown = false; hideMicPop(); } return; }
+  if (P.lastMT > now - 1200) { wvT0 = now; if (wvShown) { wvShown = false; wvDone = true; hideMicPop(); } return; }
+  if (!wvShown && now - wvT0 > 3000) { wvShown = true; micPop('🎤 소리를 내 보세요', '편한 음으로 길게 \'아~\' 해 보세요'); }
+}, 250);
 /* ============ init ============ */
 DB = loadDB();
 if (SN) {   // 내 계정 모드: 샘플 없이 본인 한 명
