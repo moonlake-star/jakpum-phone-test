@@ -1646,6 +1646,8 @@ function loop(ts) {
       if (!r && !vbm && P.lastM != null && now - P.lastMT < 250) { const r2 = yin(P.buf, sr, .38); if (r2 && mod(freqM(r2.freq) - P.lastM + 6, 12) - 6 <= 1.5 && mod(freqM(r2.freq) - P.lastM + 6, 12) - 6 >= -1.5) r = r2; }   // 기식음(숨소리) 섞인 목소리: 방금까지 잡히던 음(±150센트) 근처면 더 후하게 인정
       if (r && r.clarity > (vbm ? .68 : .55)) m = freqM(r.freq); }
     else if (tone && P.pressed == null && C.mode === 'free' && P.hd.note != null && P.lastM != null && now - P.lastMT < 700) m = P.lastM;   // 3초 성공 피아노 음이 나는 동안: 목소리 선이 끊기지 않게 마지막 음을 이어 줘요(유지 시간도 그대로 이어짐)
+    /* (11/05 사용자) 연습 중에도 계속: 소리가 안 잡힌 조용한 순간들의 크기(하위 25%)로 배경 소음 기준을 천천히 갱신해요(올라갈 땐 한 번에 25%까지만) */
+    if (m == null && !tone && !P.cal && now >= P.sfxUntil && rms < .06) { const q = P.nq || (P.nq = []); q.push(rms); if (q.length >= 90) { const v = q.slice().sort((x, y) => x - y), fl = v[Math.floor(v.length * .25)], want = Math.min(fl * 3, .04); P.noise = fl; P.gate = clamp(want, (P.gate || 0) * .75, Math.max((P.gate || 0) * 1.25, .004)); P.nq = []; } }
   }
   m = octFix(m, now);
   // median-of-3 smoothing
