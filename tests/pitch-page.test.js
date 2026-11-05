@@ -282,3 +282,8 @@ console.log("pitch-page ok");
   for (const k of ["denied", "none", "busy", "insecure"]) assert.ok(sM.includes(`${k}: ['`), "문구 " + k);
   assert.ok(sM.includes("#micWarn{position:fixed") && sM.includes("다시 시도</button>"), "경고 표시와 다시 시도 버튼");
   assert.ok(sM.includes("#v-practice.scaleView .noteRow{position:absolute"), "발성 화면 다이어트"); }
+
+/* (11/05 사용자) 연습 화면 메인 4개 버튼(자유·코스·비브라토·발성) 강조 */
+{ const sB = fs.readFileSync(__dirname + "/../pitch/index.html", "utf8");
+  assert.ok(sB.includes("#segMode.seg.big button{height:50px;font-size:18px;font-weight:800") && sB.includes("#segMode.seg.big button.on{background:var(--accent);border-color:#ffd27a"), "메인 4개 버튼 크게·밝게·선택 강조");
+  assert.ok(!sB.includes("#v-practice.vibView .seg.big button{height:38px}"), "예전 줄임 규칙 제거"); }
