@@ -39,5 +39,6 @@ const body = H.slice(f, H.indexOf("// (11/03 13:08 사용자 승인) 타이밍·
 assert.strictEqual((body.match(/await writeJSON\(/g) || []).length, 1, "저장은 한 번");
 assert.ok(H.includes("onFix, onFixMany, onTime"), "wire에 넘김");
 console.log("msel-bar ok");
-// (11/05 사용자) 분홍 세로선 0.6초 꾹 → 그 선만 끌어 범위 조절(반대쪽 끝 고정), 떼도 선택 유지
-assert.ok(T.includes("d0.armed = { x: l0.x, t: st.msel[1 - side], keep: true }") && T.includes("}, 600); } }") && T.includes("if (d.armed.keep) return; st.msel = null;") && T.includes("!drag.edgeLp"), "분홍선 꾹 누르기");
+// (11/05 사용자) 분홍 세로선: 꾹 누르지 않아도 바로 잡아 끌면 범위 조절(반대쪽 끝 고정), 떼도 선택 유지 · 🌬 치찰음·호흡은 고른 구간의 도구(따로 버튼 없음)
+assert.ok(T.includes("d0.armed = { x: l0.x, t: st.msel[1 - side], keep: true }") && T.includes("if (d.armed.keep) return; st.msel = null;") && T.includes("!drag.edgeLp"), "분홍선 바로 잡기");
+assert.ok(T.includes("uvBtn.onclick") && T.includes("G.TuneAdv.uvSheet(host.querySelector") && !T.includes("st.uvTool"), "🌬 = 고른 구간에서");

@@ -11,6 +11,6 @@ let saved = null; const st2 = { advGet: () => ({}), onAdv: (ne) => { saved = ne;
 assert.strictEqual(A.relabel(st2, cv, [1, 1.2, "s"]), "b"); assert.strictEqual(A.relabel(st2, cv, [1, 1.2, "b"]), "n"); assert.strictEqual(A.relabel(st2, cv, [1, 1.2, "n"]), "s");
 assert.deepStrictEqual(JSON.parse(JSON.stringify(st2._adv.ne.global.uv_fix)), [{ t0: 1, t1: 1.2, kind: "s" }], "같은 자리는 하나만");
 const tj = fs.readFileSync(__dirname + "/../tune.js", "utf8"), th = fs.readFileSync(__dirname + "/../teacher/index.html", "utf8");
-assert.ok(tj.includes("st.advOn && G.TuneAdv && cv.uv") && tj.includes('mk("advUvB"') && tj.includes("G.TuneAdv.uvSheet("), "고급 보정에서만 빗금·도구");
+assert.ok(tj.includes("st.advOn && G.TuneAdv && cv.uv") && !tj.includes('mk("advUvB"') && tj.includes("G.TuneAdv.uvSheet(") && tj.includes("data-uv") && tj.includes("const uvOn = !!(st.advOn && st.onAdv"), "고급 보정에서만 빗금 · 도구 = 여러 음 고르기 창의 🌬(버튼 따로 없음)");
 assert.ok(th.includes('for (const k of ["uv_fix", "uv_gain"])') && th.includes("global: uvT(ne.global || {}, toA)") && th.includes("g = uvT(ne.global || {}, toO)"), "화면 시간 ↔ 원래 시간");
 console.log("adv-uv ok");

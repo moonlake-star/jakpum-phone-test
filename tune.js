@@ -383,7 +383,7 @@
           g.fillStyle = "rgba(255,184,107,.07)"; g.fillRect(a, T, Math.max(2, b2 - a), HP); g.fillStyle = "#ffcf99"; g.font = "bold 11px system-ui, sans-serif"; g.textBaseline = "top";
           g.fillText([r.s_db ? `ㅅ ${r.s_db > 0 ? "+" : ""}${r.s_db}dB` : "", r.b_db ? `숨 ${r.b_db > 0 ? "+" : ""}${r.b_db}dB` : ""].filter(Boolean).join(" · "), Math.max(L + 2, a + 3), T + 4); }
       } else if (st) st.uvbars = null;
-      if (st && st.msel) { const a = xs(st.msel[0]), b2 = xs(st.msel[1]); g.fillStyle = "rgba(255,110,199,.14)"; g.fillRect(a, T, Math.max(2, b2 - a), HP); g.fillStyle = "#ff6ec7"; g.fillRect(a, T, 2, HP); g.fillRect(b2 - 2, T, 2, HP);   // 여러 음 고르기: 고른 구간(11/03 13:58 사용자: 주황 기준선·노랑과 헷갈려 분홍으로)
+      if (st && st.msel) { const a = xs(st.msel[0]), b2 = xs(st.msel[1]); g.fillStyle = "rgba(255,110,199,.14)"; g.fillRect(a, T, Math.max(2, b2 - a), HP); g.fillStyle = "#ff6ec7"; g.fillRect(a, T, 2, HP); g.fillRect(b2 - 2, T, 2, HP); { const gy = T + HP / 2 - 15; g.fillRect(a - 5, gy, 12, 30); g.fillRect(b2 - 8, gy, 12, 30); g.fillStyle = "#1a0714"; for (const gx of [a + 1, b2 - 2]) { g.fillRect(gx - 2, gy + 7, 1.5, 16); g.fillRect(gx + 1, gy + 7, 1.5, 16); } }   // (손잡이: 잡고 끌면 범위 조절) 여러 음 고르기: 고른 구간(11/03 13:58 사용자: 주황 기준선·노랑과 헷갈려 분홍으로)
         for (const b of bars.concat(tb)) if (b.t0 < st.msel[1] && b.t1 > st.msel[0]) { g.strokeStyle = "#ff6ec7"; g.lineWidth = 2; g.strokeRect(b.x0 - 1, b.y - b.h / 2 - 1, Math.max(4, b.x1 - b.x0 + 2), b.h + 2); } }
     }
     if (k) {   // 두 선 사이 노랑(많이 고칠수록 진하게)
@@ -754,17 +754,17 @@
   function multiSheet(host, cv, st, keep, keepSel) {
     const o = st.o || {}, mm = (x) => `${Math.floor(x / 60)}:${String(Math.floor(x % 60)).padStart(2, "0")}`;
     const had = keep || !!host.querySelector(".tfFix"); host.querySelectorAll(".tfFix").forEach(x => x.remove());
-    const d = document.createElement("div"); d.className = "tfFix tfMulti";
+    const d = document.createElement("div"); d.className = "tfFix tfMulti"; const uvOn = !!(st.advOn && st.onAdv && G.TuneAdv && G.TuneAdv.uvSheet);   // 🌬 치찰음·호흡 = 보정 모드에서 고른 구간의 도구
     d.innerHTML = `<div class="tfFixBox"><div class="tfMB"><span class="tfMI"><b data-mn>☑ 음을 골라 주세요</b><span class="tfFixTm">꾹 누른 채 끌어요</span></span>
-      <button type="button" data-gd="-1" aria-label="고른 음 모두 반음 내림" disabled>▼</button><button type="button" data-gd="1" aria-label="고른 음 모두 반음 올림" disabled>▲</button>
+      <button type="button" data-gd="-1" aria-label="고른 음 모두 반음 내림" disabled>▼</button><button type="button" data-gd="1" aria-label="고른 음 모두 반음 올림" disabled>▲</button>${uvOn ? `<button type="button" data-uv aria-label="치찰음·호흡 크기 조절" disabled>🌬</button>` : ""}
       <button type="button" class="tfMr" data-mr disabled>↺ 원본</button><button type="button" class="tfIc" data-mx aria-label="여러 음 고르기 끝내기">✕</button></div>
-      <div class="tfMH tfFixSt">꾹 누른 채 끌어 고르기 · 끝에 닿으면 자동 스크롤 · 빈 곳 톡 = 끝</div></div>`;
+      <div class="tfMH tfFixSt">꾹 누른 채 끌어 고르기 · 분홍 선을 잡아 끌면 범위 조절 · 빈 곳 톡 = 끝</div></div>`;
     const bot = host.querySelector(".tfBot");
     if (bot) { const h0 = had && bot._h0 ? bot._h0 : bot.offsetHeight; bot._h0 = h0; d.classList.add("inBot"); bot.appendChild(d);
       const gap = h0 - bot.offsetHeight; if (gap > 0) d.style.minHeight = (d.offsetHeight + gap) + "px"; }
     else host.appendChild(d);
     d.addEventListener("pointerdown", (e) => e.stopPropagation());
-    const tmEl = d.querySelector(".tfFixTm"), stEl = d.querySelector(".tfFixSt"), nEl = d.querySelector("[data-mn]"), rb = d.querySelector("[data-mr]"), gds = [...d.querySelectorAll("[data-gd]")], HINT = stEl.textContent;
+    const tmEl = d.querySelector(".tfFixTm"), stEl = d.querySelector(".tfFixSt"), nEl = d.querySelector("[data-mn]"), rb = d.querySelector("[data-mr]"), gds = [...d.querySelectorAll("[data-gd]")], uvBtn = d.querySelector("[data-uv]"), HINT = stEl.textContent + (uvOn ? " · 🌬 = 치찰음·호흡" : "");
     st.mMode = true; if (!keepSel) st.msel = null; st.sel = null;
     // 묶어 저장: ▼▲를 연달아 눌러도 0.45초 쉬면 한 번에 서버(드라이브)로 — 같은 막대는 마지막 값만
     let pend = new Map(), ptm = null;
@@ -774,12 +774,13 @@
       if (m_) { try { nb = barsIn(cv, m_[0], m_[1]).length; } catch {} try { nf = typeof o.countRange === "function" ? o.countRange(m_[0], m_[1]) : 0; } catch {} }
       if (!m_) { nEl.textContent = "☑ 음 고르기"; tmEl.textContent = "꾹 누른 채 끌어요"; }
       else { nEl.textContent = nb ? `☑ ${nb}음` : "☑ 0음"; tmEl.textContent = `${mm(m_[0])}~${mm(m_[1])}`; }
-      gds.forEach(x => { x.disabled = !nb; }); rb.disabled = !nf; rb.textContent = "↺ 원본";
+      gds.forEach(x => { x.disabled = !nb; }); if (uvBtn) uvBtn.disabled = !m_ || Math.abs(m_[1] - m_[0]) < 0.08; rb.disabled = !nf; rb.textContent = "↺ 원본";
       if (!pend.size && !stEl.textContent.startsWith("↺") && !stEl.textContent.startsWith("✓")) stEl.textContent = HINT; };
     st.onMSel = () => { if (pend.size) flush(); stEl.textContent = HINT; paint(); }; paint();
     gds.forEach(x => x.onclick = () => { const m_ = st.msel; if (!m_) return; const sm = +x.dataset.gd, out = groupShift(cv, m_[0], m_[1], sm);
       if (!out.length) return; for (const f of out) pend.set(f.t0 + "|" + f.t1, f); clearTimeout(ptm); ptm = setTimeout(flush, 450);
       stEl.textContent = `${sm > 0 ? "▲" : "▼"} ${out.length}음 옮겼어요 · 저장 중…`; paint(); });
+    if (uvBtn) uvBtn.onclick = () => { const m_ = st.msel; if (!m_) return; flush(); try { G.TuneAdv.uvSheet(host.querySelector(".tfBox") || host, st, cv, m_.slice()); } catch (e) { console.warn("치찰음", e); } };
     rb.onclick = async () => { const m_ = st.msel; if (!m_) return; flush(); let n = 0; try { n = await o.onResetRange(m_[0], m_[1]); } catch {} st.msel = null; stEl.textContent = n ? `↺ ${n}곳 원본으로` : HINT; paint(); };
     const core = () => { flush(); st.mMode = false; st.msel = null; st.onMSel = null; d.remove(); };
     const leave = () => { if (sheetClose === close_) sheetClose = null; try { if (history.state && history.state.tuneSheet) { const nl = dropL(); skipPop = true; history.go(-1 - nl); } } catch {} };
@@ -822,7 +823,7 @@
     { text: () => "원음과 보정본을 번갈아 들어 보면 어느 음이 어긋났는지 귀로 바로 느껴져요", need: 'want = b.dataset.m === cur ? (cur === "o" ? "p" : "o") : b.dataset.m', when: (o) => !o.teacher && typeof o.setMode === "function" },
     { text: () => "그래프 빈 곳을 길게 누르면 그 자리에 주석을 달 수 있어요", need: 'typeof o.onAdd === "function") d0.lp = setTimeout', when: (o) => typeof o.onAdd === "function" },
     { text: () => "주석 칸을 0.6초 꾹 누르면 내용을 고치거나 지울 수 있어요", need: "주석 칸 0.6초 꾹 = 고치기", when: (o) => typeof o.onNote === "function" },
-    { text: () => "🌬 치찰음·호흡: 구간을 끌어 고르고 위아래로 끌면 ㅅ·ㅊ(숨소리)만 크기 조절", need: "drag = { uvSel: true", when: (o) => typeof o.onAdv === "function" },
+    { text: () => "🌬 치찰음·호흡: 보정 모드에서 구간을 고르면 나오는 🌬 버튼 → 그 구간의 ㅅ·ㅊ(숨소리) 크기 조절", need: "G.TuneAdv.uvSheet(host.querySelector", when: (o) => typeof o.onAdv === "function" },
   ];
   const fsTips = (o) => FS_TIPS.filter(x => !x.when || x.when(o));
   function openFull(src, cv, getT, getLv, seek, o) {
@@ -907,11 +908,10 @@
       // (11/05 사용자 '추천모드로 진행') [👂 확인 | 🎛 보정] 두 칸 토글 · 보정 모드에서만 일괄 보정·치찰음/호흡 · 원음/보정본 스위치는 두 모드 모두 그대로 · 모드를 바꿔도 재생 위치·확대·선택은 그대로
       const seg = document.createElement("span"); seg.className = "tfModeSeg"; seg.setAttribute("role", "group"); seg.setAttribute("aria-label", "화면 모드: 확인 · 보정");
       seg.innerHTML = `<button type="button" data-md2="0">👂 확인</button><button type="button" data-md2="1">🎛 보정</button>`; seg.addEventListener("pointerdown", (e) => e.stopPropagation()); xb.parentNode.insertBefore(seg, xb);
-      const gl = mk("advGlB", "🎛 일괄 보정"), uvB = mk("advUvB", "🌬 치찰음·호흡");
-      const paintAdv = () => { gl.hidden = uvB.hidden = !st.advOn; if (!st.advOn) st.uvTool = false; uvB.classList.toggle("on", !!st.uvTool); uvB.textContent = st.uvTool ? "🌬 구간 끌어 고르기 · 끝내기" : "🌬 치찰음·호흡"; wrap.classList.toggle("advOn", st.advOn);
+      const gl = mk("advGlB", "🎛 일괄 보정");
+      const paintAdv = () => { gl.hidden = !st.advOn; wrap.classList.toggle("advOn", st.advOn);
         seg.querySelectorAll("[data-md2]").forEach(x => { const on_ = (x.dataset.md2 === "1") === !!st.advOn; x.classList.toggle("on", on_); x.setAttribute("aria-pressed", on_ ? "true" : "false"); }); };
-      uvB.onclick = () => { st.uvTool = !st.uvTool; st.uvSel = null; if (st.uvTool) { pauseNow(); wrap.querySelectorAll(".tfFix").forEach(x => x.remove()); } paintAdv(); };
-      seg.querySelectorAll("[data-md2]").forEach(x => x.onclick = () => { const v = x.dataset.md2 === "1"; if (v === !!st.advOn) return; st.advOn = v; if (st.fixMode === "a") st.fixMode = "p"; paintAdv(); wrap.querySelectorAll(".tfFix").forEach(y => y.remove()); });
+      seg.querySelectorAll("[data-md2]").forEach(x => x.onclick = () => { const v = x.dataset.md2 === "1"; if (v === !!st.advOn) return; st.advOn = v; if (st.fixMode === "a") st.fixMode = "p"; paintAdv(); if (wrap.querySelector(".tfMulti") && sheetClose) { try { sheetClose(); } catch {} } wrap.querySelectorAll(".tfFix").forEach(y => y.remove()); });
       gl.onclick = () => { try { G.TuneAdv.globalSheet(wrap.querySelector(".tfBox") || wrap, st, cv); } catch (e) { console.warn("고급 보정", e); } };
       paintAdv(); }
     const editGo = typeof o.onFix !== "function" && typeof o.onEdit === "function" ? () => { const t = +getT() || 0; close(); try { o.onEdit(t); } catch (e) { console.warn("편집", e); } } : null;
@@ -947,7 +947,6 @@
       pts.set(e.pointerId, { a: along(e), b: across(e) }); try { cvEl.setPointerCapture(e.pointerId); } catch {}
       if (pts.size === 2) { const [p1, p2] = [...pts.values()]; drag = null; preview = null;
         pinch = { d: Math.hypot(p1.a - p2.a, p1.b - p2.b), xz: st.xz, yz: st.yz, mid: (p1.a + p2.a) / 2, t: +getT() || 0 }; return; }
-      if (pts.size === 1 && st.uvTool && st.map) { const l0 = loc(e.clientX, e.clientY, cvEl.getBoundingClientRect()); drag = { uvSel: true, x0: l0.x, id: e.pointerId, moved: false, cx: e.clientX, cy: e.clientY }; return; }   // (11/04) 🌬 구간 고르기
       if (pts.size === 1 && st.onBarDragX && st.fixMode === "t" && st.sel && st.kb && st.map) { const r0 = cvEl.getBoundingClientRect(), l0 = loc(e.clientX, e.clientY, r0);   // (11/03 13:08) 타이밍 모드: 고른 막대 가운데 끌기 = 옮기기, 양 끝 = 길이
         const tb = (st.tebars || []).find(x => Math.abs(x.t0 - st.sel.t0) < 0.02) || (st.tbars || []).find(x => Math.abs(x.t0 - st.sel.t0) < 0.02);
         if (tb && l0.x >= st.kb.L && Math.abs(l0.y - tb.y) <= Math.max(22, tb.h) && l0.x >= tb.x0 - 16 && l0.x <= tb.x1 + 16) {
@@ -958,10 +957,10 @@
       if (pts.size === 1 && st.kb) { const r0 = cvEl.getBoundingClientRect(), l0 = loc(e.clientX, e.clientY, r0);   // 건반: 누르는 동안 그 음 소리
         if (l0.x < st.kb.L) { const m = Math.round(st.kb.inv(l0.y) / 100); st.kbDown = m; tone(m); drag = { kb: true, id: e.pointerId }; return; } }
       if (pts.size === 1) { drag = { a: along(e), b: across(e), t: +getT() || 0, id: e.pointerId, mode: null, yc: st.yc, cx: e.clientX, cy: e.clientY };
-        // (11/05 사용자) 고른 구간의 분홍 세로선(양 끝)을 0.6초 꾹 누르면 그 선을 좌우로 끌어 범위를 더 조절(스크롤한 뒤에도) — 반대쪽 끝은 고정
+        // (11/05 사용자) 고른 구간의 분홍 세로선(양 끝)을 바로 잡아 좌우로 끌면 범위 조절(꾹 누를 필요 없음, 스크롤한 뒤에도) — 반대쪽 끝은 고정 · 가장자리에 닿으면 자동 스크롤
         if (st.mMode && st.msel && st.map && typeof o.onResetRange === "function") { const d0 = drag, mp = st.map, l0 = loc(d0.cx, d0.cy, cvEl.getBoundingClientRect()), px = (t) => mp.L + (t - mp.t0) / Math.max(1e-6, mp.W8) * (mp.w - mp.L),
-            dl = Math.abs(l0.x - px(st.msel[0])), dr = Math.abs(l0.x - px(st.msel[1])), side = Math.min(dl, dr) <= 24 ? (dl <= dr ? 0 : 1) : -1;
-          if (side >= 0) { d0.edgeLp = true; d0.lp = setTimeout(() => { if (drag !== d0 || d0.mode || !st.msel) return; pauseNow(); try { navigator.vibrate && navigator.vibrate(15); } catch {} d0.armed = { x: l0.x, t: st.msel[1 - side], keep: true }; st.hold = null; }, 600); } }
+            dl = Math.abs(l0.x - px(st.msel[0])), dr = Math.abs(l0.x - px(st.msel[1])), side = Math.min(dl, dr) <= 22 ? (dl <= dr ? 0 : 1) : -1;
+          if (side >= 0) { d0.edgeLp = true; pauseNow(); d0.armed = { x: l0.x, t: st.msel[1 - side], keep: true }; } }
         if (typeof o.onNote === "function" && !drag.edgeLp) { const d0 = drag, r0 = cvEl.getBoundingClientRect(), l0 = loc(d0.cx, d0.cy, r0), h0 = hitNote(st, l0.x, l0.y);
           d0.h0 = h0;
           if (h0) { if (!h0.del) { st.hold = { n: h0.n, at: performance.now() }; d0.lp = setTimeout(() => { st.hold = null; if (drag !== d0 || d0.mode) return; d0.long = true; pauseNow(); lastView = view; o.onNote(h0.n); }, 600); } }   // 주석 칸 0.6초 꾹 = 고치기(10/30 19:48 사용자)
@@ -980,8 +979,6 @@
         if (st.yz > 1 && st.yc == null) { const f = fitAt(cv, +getT() || 0, 0); st.yc = f ? f[2] : null; }
         return; }
       if (!drag || drag.id !== e.pointerId) return;
-      if (drag.uvSel) { const l0 = loc(e.clientX, e.clientY, cvEl.getBoundingClientRect()), mp = st.map; if (!mp) return; if (Math.abs(l0.x - drag.x0) >= 6) drag.moved = true;
-        if (drag.moved) { const tx = (x) => mp.t0 + (Math.max(mp.L, Math.min(mp.w, x)) - mp.L) / Math.max(1, mp.w - mp.L) * mp.W8; st.uvSel = [tx(drag.x0), tx(l0.x)]; } return; }
       if (drag.msel) { const l0 = loc(e.clientX, e.clientY, cvEl.getBoundingClientRect()), mp = st.map; if (!mp) return; if (Math.abs(l0.x - drag.x0) >= 4) drag.moved = true;
         if (drag.moved) { const tx = (x) => mp.t0 + (Math.max(mp.L, Math.min(mp.w, x)) - mp.L) / Math.max(1, mp.w - mp.L) * mp.W8, a = tx(drag.x0), b = tx(l0.x); st.msel = [Math.max(0, Math.min(a, b)), Math.max(a, b)]; if (st.onMSel) st.onMSel(); } return; }
       if (drag.barX) { const l0 = loc(e.clientX, e.clientY, cvEl.getBoundingClientRect()), mp = st.map; if (Math.abs(l0.x - drag.x0) >= 3) drag.moved = true;
@@ -1006,9 +1003,6 @@
       if (!drag || drag.id !== e.pointerId) return; const d = drag; drag = null; clearTimeout(d.lp); st.hold = null;
       if (d.armed) { armTip(false); clearInterval(d.auto); d.auto = null; if (preview != null) { const t_ = preview; preview = null; try { seek(t_, true); } catch {} } if (d.moved) { if (st.onMSel) st.onMSel(); return; } if (d.armed.keep) return; st.msel = null; if (e.type === "pointerup") { if (st.notesHidden) st.noteShow = true; lastView = view; o.onAdd(d.armed.t); } return; }   // 숨긴 채 새 주석 = 주석 칸 보이기   // 끌지 않고 뗌 = 새 주석(예전과 같음)
       if (d.long) return;
-      if (d.uvSel) { if (d.moved && st.uvSel && Math.abs(st.uvSel[1] - st.uvSel[0]) >= 0.08) { try { G.TuneAdv.uvSheet(wrap.querySelector(".tfBox") || wrap, st, cv, st.uvSel); } catch (err) { console.warn("치찰음", err); } }
-        else { st.uvSel = null; const le = loc(d.cx, d.cy, cvEl.getBoundingClientRect()), u = (st.uvbars || []).find(x => le.x >= x.x0 - 6 && le.x <= x.x1 + 6 && Math.abs(le.y - x.y) <= Math.max(18, x.h)); if (u) { const k = G.TuneAdv.relabel(st, cv, u.u); showUv(k); } }
-        return; }
       if (st.advOn && G.TuneAdv && st.uvbars && !d.mode && e.type === "pointerup" && isPaused()) {   // 고급 보정: 빗금 톡 = 이름 바꾸기(치찰음 → 호흡 → 아님)
         const le = loc(d.cx ?? e.clientX, d.cy ?? e.clientY, cvEl.getBoundingClientRect()), u = st.uvbars.find(x => le.x >= x.x0 - 4 && le.x <= x.x1 + 4 && Math.abs(le.y - x.y) <= x.h / 2 + 4);
         if (u && !(hitT(le) || hitBar(le))) { const k = G.TuneAdv.relabel(st, cv, u.u); showUv(k); return; } }
@@ -1154,7 +1148,7 @@
 #tuneSheet .tsCfRow{display:flex;gap:8px}#tuneSheet .tsCfRow button{flex:1;min-height:46px;border-radius:22px;border:1px solid #3a3f49;background:#11141a;color:#eceff3;font-weight:800;font-size:15px;margin:0}#tuneSheet .tsCfRow .cfYes{background:#ff8a8a;color:#2a1010;border:0}
 #tuneSheet .tsAdj button{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}#tuneSheet .tsKind{display:flex;gap:0;margin:8px 0 2px;border:1px solid #3a3f49;border-radius:12px;overflow:hidden}#tuneSheet .tsKind button{flex:1;min-height:40px;margin:0;border:0;border-radius:0;background:#11141a;color:#a9b1bc;font-weight:800;font-size:14px}#tuneSheet .tsKind button.on{background:#7fd99a;color:#0f1a14}
 #tuneSheet .tsEv{font-size:12px;color:#a9b1bc;margin:8px 0;line-height:1.5;background:#11141a;border-radius:8px;padding:7px 9px}#tuneSheet .tsAdj{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:8px 0;font-size:12.5px;color:#a9b1bc}#tuneSheet .tsAdj button{border:1px solid #363c45;background:#11141a;color:#eceff3;border-radius:8px;min-height:34px;padding:0 10px;margin:0;font-weight:700}
-#tuneSheet .tsRow{display:flex;gap:8px;margin-top:10px}#tuneSheet .tsRow button{flex:1;min-height:46px;border-radius:22px;border:1px solid #3a3f49;background:#11141a;color:#eceff3;font-weight:800;font-size:15px;margin:0}#tuneSheet .tsRow .tsOk{background:#7fd99a;color:#10201a;border:0}#tuneSheet .tsRow .tsDel{color:#ff9a9a}#tuneFs .tfMulti .tfMB{display:flex;align-items:center;gap:6px}#tuneFs .tfMulti .tfMI{flex:1;min-width:0;line-height:1.25}#tuneFs .tfMulti .tfMI b{display:block;font-size:14px;color:#ff8fd6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#tuneFs .tfMulti .tfMI .tfFixTm{display:block;margin:0!important;font-size:12px;color:#a9b1bc}#tuneFs .tfMulti .tfMB button{flex:none;min-width:44px;height:44px;margin:0;padding:0 8px;border-radius:22px;border:1.5px solid #4a505c;background:#11141a;color:#eceff3;font-weight:800;font-size:18px}#tuneFs .tfMulti .tfMB button:disabled{opacity:.4}#tuneFs .tfMulti .tfMB button.tfMr{background:#ff6ec7;color:#1a0714;border:0;font-size:14px;padding:0 12px}#tuneFs .tfMulti .tfMB button.tfMr:disabled{background:#2a2f38;color:#8b939e;opacity:1}#tuneFs .tfMulti .tfMH{white-space:normal!important;margin:6px 0 0!important;font-size:11.5px;line-height:1.3;color:#8b939e;text-align:center}#tuneFs .tfModeSeg{display:inline-flex;flex:none;border:1.5px solid #4a505c;border-radius:18px;padding:2px;background:#11141a;margin-right:4px}#tuneFs .tfModeSeg button{border:0;margin:0;border-radius:15px;background:transparent;color:#a9b1bc;font-weight:800;font-size:13px;min-height:0!important;height:30px;padding:0 12px;white-space:nowrap}#tuneFs .tfModeSeg button.on{background:#ffd27a;color:#1d1405}#tuneFs .tfModeSeg button[data-md2="1"].on{background:#ffb86b}#tuneFs.advOn .tfHint,#tuneFs.advOn .tfNote{display:none}#tuneFs.advOn .tfCtl .tfAb button,#tuneFs.advOn .port .tfCtl .tfAb button{min-height:0!important;height:34px!important;font-size:13px!important;padding:0 10px!important}#tuneFs.advOn .port .tfCtl .tfAb{height:auto!important}#tuneFs.advOn .tfLeg{display:none}#tuneFs.advOn .port .tfTop{flex-wrap:wrap;row-gap:6px}#tuneFs.advOn .port .tfModeSeg{order:0}#tuneFs.advOn .port .tfTime{order:1;margin-left:6px}#tuneFs.advOn .port .tfTop .tfX{order:2;margin-left:auto}#tuneFs.advOn .port .tfTop .tfAdvG{order:5}`;
+#tuneSheet .tsRow{display:flex;gap:8px;margin-top:10px}#tuneSheet .tsRow button{flex:1;min-height:46px;border-radius:22px;border:1px solid #3a3f49;background:#11141a;color:#eceff3;font-weight:800;font-size:15px;margin:0}#tuneSheet .tsRow .tsOk{background:#7fd99a;color:#10201a;border:0}#tuneSheet .tsRow .tsDel{color:#ff9a9a}#tuneFs .tfMulti .tfMB{display:flex;align-items:center;gap:6px}#tuneFs .tfMulti .tfMI{flex:1;min-width:0;line-height:1.25}#tuneFs .tfMulti .tfMI b{display:block;font-size:14px;color:#ff8fd6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#tuneFs .tfMulti .tfMI .tfFixTm{display:block;margin:0!important;font-size:12px;color:#a9b1bc}#tuneFs .tfMulti .tfMB button{flex:none;min-width:40px;height:44px;margin:0;padding:0 6px;border-radius:22px;border:1.5px solid #4a505c;background:#11141a;color:#eceff3;font-weight:800;font-size:18px}#tuneFs .tfMulti .tfMB button:disabled{opacity:.4}#tuneFs .tfMulti .tfMB button.tfMr{background:#ff6ec7;color:#1a0714;border:0;font-size:14px;padding:0 12px}#tuneFs .tfMulti .tfMB button.tfMr:disabled{background:#2a2f38;color:#8b939e;opacity:1}#tuneFs .tfMulti .tfMH{white-space:normal!important;margin:6px 0 0!important;font-size:11.5px;line-height:1.3;color:#8b939e;text-align:center}#tuneFs .tfModeSeg{display:inline-flex;flex:none;border:1.5px solid #4a505c;border-radius:18px;padding:2px;background:#11141a;margin-right:4px}#tuneFs .tfModeSeg button{border:0;margin:0;border-radius:15px;background:transparent;color:#a9b1bc;font-weight:800;font-size:13px;min-height:0!important;height:30px;padding:0 12px;white-space:nowrap}#tuneFs .tfModeSeg button.on{background:#ffd27a;color:#1d1405}#tuneFs .tfModeSeg button[data-md2="1"].on{background:#ffb86b}#tuneFs.advOn .tfHint,#tuneFs.advOn .tfNote{display:none}#tuneFs.advOn .tfCtl .tfAb button,#tuneFs.advOn .port .tfCtl .tfAb button{min-height:0!important;height:34px!important;font-size:13px!important;padding:0 10px!important}#tuneFs.advOn .port .tfCtl .tfAb{height:auto!important}#tuneFs.advOn .tfLeg{display:none}#tuneFs.advOn .port .tfTop{flex-wrap:wrap;row-gap:6px}#tuneFs.advOn .port .tfModeSeg{order:0}#tuneFs.advOn .port .tfTime{order:1;margin-left:6px}#tuneFs.advOn .port .tfTop .tfX{order:2;margin-left:auto}#tuneFs.advOn .port .tfTop .tfAdvG{order:5}`;
   if (typeof document !== "undefined" && document.head) { const s2 = document.createElement("style"); s2.textContent = css2; document.head.appendChild(s2); }
   if (typeof document !== "undefined" && document.head) { const s = document.createElement("style"); s.textContent = css; document.head.appendChild(s); }
   G.Tune = { tone, toneOff, draw, wire, load, legend, range, col, tgCol, centerAt, fitAt, delta, semiLabel, sangLabel, sheet, undo, openFull, noteName, WIN, HEAD, ZOOM_HALF, tmapOf, mapT };

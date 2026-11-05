@@ -69,7 +69,7 @@ console.log("adv-mode ok", md.toFixed(4));
 { const T2 = require("fs").readFileSync(__dirname + "/../tune.js", "utf8"), as = require("assert");
   as.ok(T2.includes("lane = k && h > 110 && !(st && st.advOn) ?"), "보정 모드: 고친 양 줄 없음");
   as.ok(T2.includes("st.notesHidden = (pm && !st.noteShow) || (!!st.advOn && ns.length > 0)") && T2.includes("const chipOn = pm && !st.advOn"), "보정 모드: 주석·💬 칩 숨김(삭제 아님)");
-  as.ok(T2.includes("gl.hidden = uvB.hidden = !st.advOn"), "일괄 보정·치찰음은 보정 모드에서만");
+  as.ok(T2.includes("gl.hidden = !st.advOn") && T2.includes("const uvOn = !!(st.advOn && st.onAdv"), "일괄 보정·치찰음(🌬)은 보정 모드에서만");
   as.ok(!T2.includes('mk("advOnB"') && !T2.includes('mk("advOffB"'), "예전 디테일 보정/심플로 버튼 없음");
   as.ok(T2.includes("#tuneFs.advOn .tfHint,#tuneFs.advOn .tfNote{display:none}"), "보정 모드: 안내 글 접음");
   as.ok(!T2.includes("advOn .tfAbW") && !T2.includes("advOn .tfAb{display:none"), "원음/보정본 스위치는 숨기지 않음"); }
