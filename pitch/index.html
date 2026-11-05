@@ -1269,13 +1269,34 @@ const vibGuideBase = () => { const B = vibBandsOf(), m = CFG.vgr && CFG.vgr[CFG.
 const vibGuideRate = () => V.gRate != null ? V.gRate : vibGuideBase();
 /* (11/05 사용자) 초보자용 자동 속도: 처음엔 느리게. 폭이 1.5초 이상 안정되고 내 속도가 빨라지면 가이드가 내 속도보다 0.5Hz 앞서 천천히(초당 0.3Hz 이하) 따라 올라가요.
    내가 따라오지 못하면 그 자리에서 기다려요(내 속도가 그대로면 가이드도 안 올라가요). 직접 −/＋ 로 맞추면 그 속도로 고정돼요. */
+/* (11/05 사용자) 느린 흔들림도 바로 따라가려고: 부드럽게 편 궤적의 오르내림(봉우리·골짜기) 간격으로 지금 주기를 빠르게 어림 — 스펙트럼 판정(3~9초 창)을 기다리지 않아요 */
+function vibQuick(now) {
+  if (!(V.lastT && now - V.lastT < 400)) return null;
+  const seg = []; let prev = now; for (let i = V.tr.length - 1; i >= 0; i--) { const q = V.tr[i]; if (now - q.t > 9000 || prev - q.t > 150) break; seg.push(q); prev = q.t; }
+  if (seg.length < 30) return null; seg.reverse();
+  const hw = .18, sm = seg.map((q, i) => { let a = 0, w = 0; for (let k = i; k >= 0; k--) { const dt = (q.t - seg[k].t) / 1000; if (dt > hw) break; a += seg[k].d; w++; } for (let k = i + 1; k < seg.length; k++) { const dt = (seg[k].t - q.t) / 1000; if (dt > hw) break; a += seg[k].d; w++; } return { t: q.t, d: a / w }; });
+  const h = Math.max(10, vibMid() * .2), ex = [];
+  let hi = sm[0], lo = sm[0], dir = 0;   // 히스테리시스 극값 찾기
+  for (const q of sm) {
+    if (q.d > hi.d) hi = q; if (q.d < lo.d) lo = q;
+    if (dir <= 0 && q.d - lo.d > h) { if (dir === -1 || dir === 0 && lo !== sm[0]) ex.push(lo); dir = 1; hi = q; }
+    else if (dir >= 0 && hi.d - q.d > h) { if (dir === 1 || dir === 0 && hi !== sm[0]) ex.push(hi); dir = -1; lo = q; }
+  }
+  if (ex.length < 3) return null;
+  const hp = []; for (let i = 1; i < ex.length; i++) hp.push((ex[i].t - ex[i - 1].t) / 1000);
+  const last = hp.slice(-4).sort((a, b) => a - b), med = last[Math.floor(last.length / 2)];
+  if (!(med > .06)) return null; const r = 1 / (2 * med); return r >= .12 && r <= 9 ? r : null;
+}
 function vibGuideStep(now) {
   const B = vibBandsOf(), base = vibGuideBase(), manual = CFG.vgr && CFG.vgr[CFG.vw] > 0;
   if (V.gRate == null) V.gRate = base;
-  if (V.rate != null) { V.rS = V.rS == null ? V.rate : V.rS * .9 + V.rate * .1; V.lastRate = V.rS; }   // 속도는 천천히 평균내서 가이드가 출렁이지 않게
+  if (V.rate != null) { V.rS = V.rS == null ? V.rate : V.rS * .9 + V.rate * .1; V.lastRate = V.rS; }
+  const q = vibQuick(now); if (q != null) V.qS = V.qS == null ? q : V.qS * .6 + q * .4; else if (!(V.lastT && now - V.lastT < 400)) V.qS = null;
+  const mir = V.qS != null && (V.rate == null || V.qS < 1.5) ? V.qS : (V.rate != null && V.verdict && V.verdict !== 'none' ? V.rS : null);   // 느린 흔들림은 빠른 어림(봉우리 간격), 빠른 건 스펙트럼 값
+  if (mir != null) V.lastRate = mir;   // 속도는 천천히 평균내서 가이드가 출렁이지 않게
   let tgt;
   if (manual) tgt = base;
-  else if (V.rate != null && V.verdict && V.verdict !== 'none') tgt = clamp(V.rS, B.lo, B.hi);     // (11/05 사용자) 가이드는 지금 내 목소리 주기와 똑같이 — 속도는 내가 올려 가요
+  else if (mir != null) tgt = clamp(mir, B.lo, B.hi);     // (11/05 사용자) 가이드는 지금 내 목소리 주기와 똑같이 — 속도는 내가 올려 가요
   else tgt = clamp(Math.min(base, V.lastRate != null ? V.lastRate * 1.2 + .05 : base), B.lo, B.hi);                                              // 쉴 때: 사다리 기준과 내 마지막 속도 중 느린 쪽
   V.gRate += clamp(tgt - V.gRate, -.06, .06);
   const t = $('#vgT'); if (t && vibGuideOn()) { const txt = `가이드 ${r1(V.gRate)}Hz` + (manual ? ' 고정' : ''); if (t.textContent !== txt) t.textContent = txt; }
@@ -1364,7 +1385,7 @@ function updateVibHud() {
   setTxt('vCnt', String(V.streak)); setTxt('vFb', fb, 'vfb' + (live && V.verdict === 'ok' ? ' ok' : ''));
 }
 function vibFit(now, f) {   // 최근 목소리 흔들림에 같은 주기의 사인파를 최소제곱으로 맞춰요: d ≈ c + a·sin(ωt) + b·cos(ωt)
-  if (!(V.rate != null && now - V.lastT < 400 && V.tr.length > 12)) { V.fit = null; return null; }
+  if (!((V.rate != null || V.qS != null) && now - V.lastT < 400 && V.tr.length > 12)) { V.fit = null; return null; }
   const T = clamp(1.6 / f, 1, 5) * 1000, om = 2 * Math.PI * f, T0 = V.fitT0 || (V.fitT0 = now), pts = []; let prev = now;
   for (let i = V.tr.length - 1; i >= 0; i--) { const q = V.tr[i]; if (q.t < now - T || prev - q.t > 150) break; pts.push(q); prev = q.t; }
   if (pts.length < Math.max(12, T / 16 * .5)) return V.fit || null;
@@ -1410,9 +1431,10 @@ function drawVib(now) {
       const gr = g2.createLinearGradient(nowX, 0, W, 0); gr.addColorStop(0, 'rgba(127,227,255,' + (.8 * V.gA).toFixed(2) + ')'); gr.addColorStop(1, 'rgba(127,227,255,' + (.2 * V.gA).toFixed(2) + ')'); g2.strokeStyle = gr;   // 앞으로 갈수록 옅어지는 실선(정신없지 않게)
       g2.beginPath(); let st = false;
       /* (11/05 사용자) 지금 내고 있는 파형에 딱 이어지게: 최근 소리에 같은 주기의 사인파를 맞춰서(위상·중심·폭) 그 이어짐을 오른쪽에 그려요. 첫 주기 동안 폭은 목표 폭으로 서서히 */
-      const fit = vibFit(now, f), om = 2 * Math.PI * f;
+      const fit = vibFit(now, f), om = 2 * Math.PI * f; let dj = 0;
+      if (fit && V.yEnd && now - V.yEnd.t < 150) { const t0 = (now - fit.T0) / 1000, v0 = fit.c + fit.R * Math.sin(om * t0 + fit.ph); dj = clamp((cy - V.yEnd.y) / pc - v0, -fit.R, fit.R); }   // 점(지금 내 소리)에서 끊기지 않게 시작 위치를 맞춰요
       for (let x = nowX; x <= W; x += 3) { const tau = (x - nowX) / pps; let v;
-        if (fit) { const w = clamp(tau * f / .75, 0, 1), sw = w * w * (3 - 2 * w), tt = (now - fit.T0) / 1000 + tau; v = fit.c * (1 - sw) + (fit.R * (1 - sw) + A * sw) * Math.sin(om * tt + fit.ph); }
+        if (fit) { const w = clamp(tau * f / .75, 0, 1), sw = w * w * (3 - 2 * w), tt = (now - fit.T0) / 1000 + tau; v = fit.c * (1 - sw) + (fit.R * (1 - sw) + A * sw) * Math.sin(om * tt + fit.ph); v += dj * Math.exp(-tau * f / .4); }
         else v = A * Math.sin(V.gPh + om * tau);
         const y = cy - v * pc; if (!st) { g2.moveTo(x, y); st = true; } else g2.lineTo(x, y); }
       g2.stroke(); g2.restore();
