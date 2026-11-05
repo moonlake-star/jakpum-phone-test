@@ -232,4 +232,5 @@ console.log("pitch-page ok");
   console.log("pitch-page: 가이드 자동 속도·차분한 선 ok");
   assert.ok(src.includes("const pps = (W - L) * V.ppsF") && src.includes("clamp(.2 * (vibGuideOn() ? vibGuideRate()") && src.includes("소리를 기다리는 중: 깜빡이는 마이크 아이콘") && src.includes("sw = clamp(.22 / Math.max(fS, .5), .04, .28)") && src.includes("g2.quadraticCurveTo"), "느린 가이드는 그래프도 천천히 흐름, 대기 중 깜빡이는 마이크, 느릴수록 선을 부드럽게");
   console.log("pitch-page: 느린 시작·대기 아이콘·부드러운 선 ok");
+  assert.ok(src.includes("소리 내기 전에도 도전할 가이드 파형은 옅게 계속 보여요"), "소리 내기 전에도 가이드 파형이 옅게 보임");
 }
