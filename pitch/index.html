@@ -1184,7 +1184,7 @@ const newVs = () => ({ cyc: 0, ok: 0, best: 0, sR: 0, sE: 0, lv: {} });
 const V = { root: null, lastRoot: null, cueUntil: 0, cueArm: false, voicedMs: 0, silMs: 0, lastAn: 0, cyc: 0, lastExtT: 0, buf: [], ctr: null, base: null, lastT: 0, fz: 0, tr: [], dir: 0, hi: null, lo: null, ext: [], streak: 0, rate: null, extent: null, verdict: '', out: 0, pd: null, s: newVs() };
 const vpc = () => (P.H / 2 - 14) / VR().max;
 function vibUnlocked() { return true; }   // 비브라토 모드는 항상 열려 있어요
-function vibReset() { V.buf = []; V.ctr = null; V.base = null; V.dir = 0; V.hi = V.lo = null; V.ext = []; V.rate = null; V.extent = null; V.streak = 0; V.verdict = ''; V.pd = null; V.out = 0; V.lastExtT = 0; V.cyc = 0; }
+function vibReset() { V.buf = []; V.ctr = null; V.base = null; V.dir = 0; V.hi = V.lo = null; V.ext = []; V.rate = null; V.extent = null; V.streak = 0; V.verdict = ''; V.slow = false; V.pd = null; V.out = 0; V.lastExtT = 0; V.cyc = 0; }
 function vibTick(now, dt, m) {
   vibBreath(now, dt, m);
   if (now < P.sfxUntil) { V.fz = now; V.lastExtT = now; V.ext = []; V.dir = 0; V.hi = V.lo = null; V.pd = null; return; }      // chime playing through speakers
@@ -1201,7 +1201,7 @@ function vibTick(now, dt, m) {
   if (V.rate != null && V.verdict && V.verdict !== 'none') {           // count finished cycles at the measured speed
     V.cyc += V.rate * dt / 1000;
     while (V.cyc >= 1) { V.cyc -= 1; V.s.cyc++; V.s.sR += V.rate; V.s.sE += V.extent; const lq = V.s.lv[CFG.vw] = V.s.lv[CFG.vw] || { cyc: 0, ok: 0 }; lq.cyc++;
-      if (V.verdict === 'ok') { V.streak++; V.s.ok++; lq.ok++; V.s.best = Math.max(V.s.best, V.streak); fireVib(V.streak); } else V.streak = 0; }
+      if (V.verdict === 'ok') { V.streak++; V.s.ok++; lq.ok++; if (V.slow) V.s.slowOk = (V.s.slowOk || 0) + 1; V.s.best = Math.max(V.s.best, V.streak); fireVib(V.streak); } else V.streak = 0; }
   }
 }
 /* Speed/width come from a 1.2 s (wider levels: up to 2 s) spectrum of the pitch track (robust against jitter), not from raw peaks. */
@@ -1218,7 +1218,7 @@ function vibAnalyze() {
   let sw = 0, sw2 = 0, e2 = 0; for (let q = 0; q < N; q++) { const w = .5 - .5 * Math.cos(2 * Math.PI * q / (N - 1)); x[q] = (x[q] - ic - sl * q) * w; sw += w; sw2 += w * w; e2 += x[q] * x[q]; }
   const sig2 = e2 / sw2, F = [], Pw = []; let tot = 0;
   for (let f = 2; f <= 20.001; f += .25) { let re = 0, im = 0; const wv = 2 * Math.PI * f / FS; for (let q = 0; q < N; q++) { re += x[q] * Math.cos(wv * q); im += x[q] * Math.sin(wv * q); } F.push(f); Pw.push(re * re + im * im); tot += re * re + im * im; }
-  let pk = -1, pv = 0; for (let k = 0; k < F.length; k++) if (F[k] >= RW.lo && F[k] <= 9 && Pw[k] > pv) { pv = Pw[k]; pk = k; } if (pk < 1 || pk > F.length - 2 || tot <= 0) return null;
+  let pk = -1, pv = 0; for (let k = 0; k < F.length; k++) if (F[k] >= Math.min(RW.lo, SLOW_LO) && F[k] <= 9 && Pw[k] > pv) { pv = Pw[k]; pk = k; } if (pk < 1 || pk > F.length - 2 || tot <= 0) return null;
   const d2 = Pw[pk - 1] + Pw[pk + 1] - 2 * Pw[pk], off = d2 ? clamp((Pw[pk - 1] - Pw[pk + 1]) / (2 * d2), -.5, .5) : 0, rate = F[pk] + off * .25;
   let band = 0; for (let k = 0; k < F.length; k++) if (Math.abs(F[k] - rate) <= 1.25) band += Pw[k];
   const Q = band / tot, qn = clamp((Q - .14) / .86, 0, 1);
@@ -1226,12 +1226,17 @@ function vibAnalyze() {
   const w = .65 * (P.an ? P.an.fftSize / P.ctx.sampleRate : .043), xa = Math.PI * rate * w; ext /= Math.max(.5, (Math.sin(xa) / xa) * Math.cos(Math.PI * rate * .0167));   // undo averaging loss of the pitch window
   return { rate, ext, Q };
 }
+/* (11/05 사용자) 느린 비브라토도 음정 궤적이 깨끗하면(스펙트럼 집중도 Q ≥ .55, 폭은 범위 안) 성공으로 인정: 목표 속도보다 느려도 SLOW_LO(약 2.2Hz)까지.
+   성공이지만 V.slow = true 로 표시해서 '조금 더 빠르게 도전' 안내에 써요 */
+const SLOW_LO = 2.2, SLOW_Q = .55;
 function vibStep(now) {
   const r = vibAnalyze(), R = VR(); V.dbg = r;
   if (r && r.Q >= .4 && r.ext >= 8) {
     V.lastExtT = now; V.rate = V.rate == null ? r.rate : V.rate * .7 + r.rate * .3; V.extent = V.extent == null ? r.ext : V.extent * .7 + r.ext * .3;
     const rOk = V.rate >= R.rate[0] && V.rate <= R.rate[1], eOk = V.extent >= R.ext[0] && V.extent <= R.ext[1], was = V.verdict;
-    V.verdict = rOk && eOk ? 'ok' : !rOk ? (V.rate < R.rate[0] ? 'slow' : 'fast') : (V.extent < R.ext[0] ? 'narrow' : 'wide');
+    const slowOk = !rOk && eOk && V.rate >= SLOW_LO && V.rate < R.rate[0] && r.Q >= SLOW_Q;
+    V.slow = slowOk;
+    V.verdict = rOk && eOk || slowOk ? 'ok' : !rOk ? (V.rate < R.rate[0] ? 'slow' : 'fast') : (V.extent < R.ext[0] ? 'narrow' : 'wide');
     if (V.verdict !== 'ok') V.streak = 0;
   } else if (V.verdict && now - V.lastExtT > 300) { V.streak = 0; V.verdict = ''; V.rate = null; V.extent = null; V.cyc = 0; }     // steady tone (or silence): no vibrato
 }
@@ -1246,7 +1251,7 @@ function fireVib(n) {
   sfx(k >= 10 ? 'big' : 'mile'); if (k >= 5) flash(fx[2]);
   try { if (navigator.vibrate) navigator.vibrate(k >= 10 ? [30, 40, 30] : 25); } catch (e) {}
 }
-const VFB = { ok: '속도·폭 좋아요', slow: '조금 빠르게', fast: '조금 천천히', narrow: '폭을 조금 크게', wide: '폭을 조금 작게', none: '', '': '' };
+const VFB = { ok: '속도·폭 좋아요', okslow: '궤적 좋아요 · 조금 더 빠르게 도전!', slow: '조금 빠르게', fast: '조금 천천히', narrow: '폭을 조금 크게', wide: '폭을 조금 작게', none: '', '': '' };
 function renderVibZones() {
   const R = VR(), pr = v => clamp((v - 2) / 8, 0, 1) * 100, pe = v => clamp(v / R.max, 0, 1) * 100;
   const z = (id, a, b, f) => { const el = $('#' + id); el.style.left = f(a) + '%'; el.style.width = (f(b) - f(a)) + '%'; };
@@ -1260,7 +1265,7 @@ function updateVibHud() {
   if (cache.vrd !== a) { $('#vRd').style.left = a; cache.vrd = a; } if (cache.ved !== b) { $('#vEd').style.left = b; cache.ved = b; }
   if (cache.vop !== op) { $('#vRd').style.opacity = op; $('#vEd').style.opacity = op; cache.vop = op; }
   const n = Math.min(V.streak, 5); if (cache.vpn !== n) { document.querySelectorAll('#vPips i').forEach((x, k) => x.classList.toggle('on', k < n)); cache.vpn = n; }
-  let fb = live ? VFB[V.verdict] || '' : '';
+  let fb = live ? VFB[V.verdict === 'ok' && V.slow ? 'okslow' : V.verdict] || '' : '';
   if (!live) { const nowT = performance.now(), hear = nowT - V.lastT < 500, r = V.dbg;
     fb = !hear ? (V.lastT && nowT - V.lastT < 3000 ? '소리가 끊겼어요 · 한 음을 이어서' : '소리가 안 잡혀요 · 마이크 가까이, 조금 크게') : !r ? '듣는 중… 한 음을 계속 내 보세요' : r.Q < .4 || r.ext < 8 ? '음은 잡혀요 · 흔들림이 약해요 (지금 ±' + Math.round(r.ext) + ')' : ''; }
   setTxt('vCnt', String(V.streak)); setTxt('vFb', fb, 'vfb' + (live && V.verdict === 'ok' ? ' ok' : ''));
