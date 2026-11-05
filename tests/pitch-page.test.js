@@ -142,10 +142,10 @@ console.log("pitch-page ok");
 // 영상 박자 스케일(코드 1회 → 0.465초 간격 1-3-5-8-8-8-8-5-3-1 → 약 5.6초마다 +1반음) + 스케일 전용 화면
 {
   assert.ok(src.includes("const SC_PRE = .53, SC_STEP = .465, SC_LAST = .8, SC_NEXT = .885;"), "영상 박자 상수");
-  assert.ok(src.includes("iv: [0, 4, 7, 12, 12, 12, 12, 7, 4, 0]") && src.includes("? o.k : 'arp'"), "기본 스케일 = 아르페지오(영상)");
+  assert.ok(src.includes("iv: [0, 4, 7, 12, 12, 12, 12, 7, 4, 0]") && src.includes("? o.k : 'tri'"), "기본 스케일 = 3음(11/05 사용자)");
   assert.ok(src.includes("n.gr != null ? n.gr : D().grace") && src.includes("Math.max(n.gr != null ? .12 : .25"), "음별 여유 시간");
   assert.ok(src.includes("#v-practice.scaleView #segMode") && src.includes("id=\"scHead\"") && src.includes("classList.toggle('scaleView', sv)"), "스케일 전용 화면");
-  assert.ok(src.includes("b.dataset.t === 'practice' && cur !== 'practice' && C.stage === 3"), "연습 탭은 일반 화면으로");
+  assert.ok(src.includes("b.dataset.t === 'practice' && C.stage === 3 && !P.running"), "연습 탭은 일반 화면으로");
   console.log("pitch-page: 영상 박자 스케일·전용 화면 ok");
 }
 
@@ -183,7 +183,7 @@ console.log("pitch-page ok");
   const ks = [...src.slice(src.indexOf("const SCALES = ["), src.indexOf("STAGES.push(['발성 스케일'")).matchAll(/k: '(\w+)'/g)].map(m => m[1]);
   assert.deepStrictEqual(ks, ["tri", "five", "arp"], "스케일 버튼 순서");
   assert.ok(src.includes("(isFinite(v) && v > 0 ? v : .7)") && src.includes("SPD_MIN = .4, SPD_MAX = 1.2") && src.includes("F = 1 / spdNow()"), "속도 기본 70%, 40~120%, 음 길이·간격에 반영");
-  assert.ok(src.includes("function qkHtml()") && src.includes("qkWire(el.querySelector('.qk'), () => loadStage(3))") && src.includes("L.scale ? qkHtml() : ''") && src.includes("id=\"pqk\""), "대기·결과·일시정지 화면에 스케일·속도 UI");
+  assert.ok(src.includes("function qkHtml()") && src.includes("L.scale ? qkHtml() : ''") && src.includes("id=\"pqk\""), "일시정지 화면엔 스케일·속도 UI(대기 화면은 위쪽 버튼으로 옮김)");
   assert.ok(src.includes('id="pauseBtn"') && src.includes("performance.now() - (P.pauseAt || 0) < 600"), "⏸ 버튼 + 탭 직후 click 으로 곧바로 풀리지 않게");
   console.log("pitch-page: 속도·스케일 빠른 전환·일시정지 ok");
 }
@@ -222,7 +222,7 @@ console.log("pitch-page ok");
 }
 {
   const src = fs.readFileSync(__dirname + "/../pitch/index.html", "utf8");
-  assert.ok(!src.includes("function waitVoice()") && !src.includes("소리를 내 보세요") && src.includes("const done = () => d.remove();"), "(11/05) '소리를 내 보세요' 팝업은 없앰");
+  assert.ok(!src.includes("function waitVoice()") && src.includes("let wvT0 = 0, wvShown = false, wvDone = false;") && src.includes("now - wvT0 > 3000") && src.includes("const done = () => d.remove();"), "(11/05) 팝업을 모두 닫고 3초 소리가 없을 때만 '소리를 내 보세요'(겹치지 않음)");
   console.log("pitch-page: 소리 안 내면 안내 ok");
 }
 {
@@ -236,4 +236,6 @@ console.log("pitch-page ok");
   assert.ok(src.includes("const ctx = actx(), out = pianoOut(ctx), rate = vibGuideRate(), n = 8,") && src.includes("btn.classList.add(i % 4 ? 'bp' : 'bp1')") && src.includes("@keyframes bpop1") && src.includes("<small>발성 연습</small>"), "박자 버튼: 2마디(8박), 박마다 버튼 튕김, 이름은 발성 연습");
   console.log("pitch-page: 박자 8박·발성 연습 ok");
   assert.ok(src.includes("vibGuideOn() ? .5 : .8") && src.includes("my = cy + 6") && src.includes("(V.gA == null ? .75 : V.gA)"), "지금 선은 가운데, 대기 중 가이드는 또렷하게, 마이크 아이콘은 아래쪽");
+  assert.ok(src.includes("function renderScBar()") && src.includes("function scIcon(S)") && src.includes("if (b.dataset.t === 'scale' && !P.running)") && !src.includes('id="scBack"') && !src.includes("${qkHtml()}`;\n    el.querySelector('#cGo').onclick = startStage; qkWire"), "발성 탭은 바로 연습 화면, 스케일·속도는 위쪽 버튼(음 모양 막대 아이콘)");
+  console.log("pitch-page: 발성 탭 바로 진입·위쪽 버튼 ok");
 }
