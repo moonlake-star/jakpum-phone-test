@@ -5,8 +5,9 @@
 // 음정선 미리보기 = 서버 shape_pitch와 같은 규칙(사람처럼 흔들기 제외)을 '보정 후' 선에 그려 줌. 볼륨·치찰음·목소리 결은 그림에 안 보임(완성본에서 확인).
 (function (G) {
   "use strict";
-  const N_DEF = { drift: 1, tilt_in: 0, tilt_out: 0, vib: 1, tr_ms: 0, gain_db: 0, fade_in: 0, fade_out: 0 };
+  const N_DEF = { drift: 1, tilt_in: 0, tilt_out: 0, vib: 1, tr_ms: 0, gain_db: 0, fade_in: 0, fade_out: 0, formant: 0 };
   const DRIFT_WIN = 0.25;
+  const D = (row, t) => { row._desc = t; return row; };   // 설명 한 줄을 붙인 칸
   const near = (a, b) => Math.abs(a - b) < 0.02;
   const clone = (x) => JSON.parse(JSON.stringify(x || {}));
   const r2 = (x) => Math.round(x * 100) / 100;
@@ -122,7 +123,7 @@
     const A = state(st);
     let el = box.querySelector(".advPanel"); if (el) el.remove();
     el = document.createElement("div"); el.className = "advPanel tfA";
-    const tabs = [["f", "흐름"], ["c", "이어짐"], ["v", "비브라토"], ["g", "볼륨"]];
+    const tabs = [["f", "흐름"], ["c", "이어짐"], ["v", "비브라토"], ["g", "볼륨"], ["m", "음색"]];
     el.innerHTML = `<div class="advTabs" role="tablist">${tabs.map(([k, t]) => `<button type="button" data-at="${k}">${t}</button>`).join("")}<button type="button" class="advRst" aria-label="이 음 고급 고침 원래대로">↺ 이 음</button></div><div class="advBody"></div>`;
     const body = el.querySelector(".advBody");
     const N = () => noteOf(A, b, false) || {};
@@ -147,6 +148,8 @@
         stepper("시작", () => getVs("delay", 0.3), (v) => putVs("delay", v), { step: 0.05, min: 0, max: 3, def: 0.3, fmt: sec }),
         stepper("커지는 시간", () => getVs("fade", 0.4), (v) => putVs("fade", v), { step: 0.05, min: 0, max: 3, def: 0.4, fmt: sec }),
         stepper("사람처럼", () => getVs("human", 0), (v) => putVs("human", v), { step: 0.25, min: 0, max: 1, def: 0, fmt: pct }));
+      if (k === "m") rows.push(
+        D(stepper("포먼트(목소리 결)", () => get("formant"), (v) => put("formant", v), { step: 0.25, min: -3, max: 3, def: 0, fmt: (v) => `${v > 0 ? "+" : ""}${v.toFixed(2)}반음` }), "이 음의 음색만 이동(음정은 그대로). + 는 얇고 밝게, − 는 굵고 어둡게. 일괄 보정의 포먼트 값 위에 더해져요."));
       if (k === "g") rows.push(
         stepper("볼륨", () => get("gain_db"), (v) => put("gain_db", v), { step: 1, min: -24, max: 12, def: 0, fmt: (v) => `${v > 0 ? "+" : ""}${Math.round(v)}dB` }),
         chips("소리", [["0", "켬"], ["1", "끄기"]], () => (N().mute ? "1" : "0"), (v) => put("mute", v === "1")),
@@ -154,7 +157,7 @@
         stepper("페이드 아웃", () => get("fade_out"), (v) => put("fade_out", v), { step: 0.05, min: 0, max: 2, def: 0, fmt: sec }));
       rows.forEach(r => { if (!r._desc) { body.appendChild(r); return; } const w = document.createElement("div"), p = document.createElement("p"); p.className = "advD"; p.textContent = r._desc; w.appendChild(r); w.appendChild(p); body.appendChild(w); });
       const tip = document.createElement("p"); tip.className = "advTip";
-      tip.textContent = k === "g" ? "볼륨·페이드는 음정선에 안 보여요 · 완성본 다시 만들기 뒤 들려요" : "보정 후 선(하늘색)에 바로 그려져요 · 진짜 소리는 완성본 다시 만들기 뒤";
+      tip.textContent = k === "g" || k === "m" ? "볼륨·페이드·음색은 음정선에 안 보여요 · 완성본 다시 만들기 뒤 들려요" : "보정 후 선(하늘색)에 바로 그려져요 · 진짜 소리는 완성본 다시 만들기 뒤";
       body.appendChild(tip);
     };
     el.querySelectorAll("[data-at]").forEach(x => x.onclick = (e) => { e.stopPropagation(); show(x.dataset.at); });
@@ -219,12 +222,11 @@
     document.getElementById("advG")?.remove();
     const d = document.createElement("div"); d.id = "advG"; d.className = "advG";
     d.innerHTML = `<div class="advGBox" role="dialog" aria-label="일괄 보정"><div class="advGHd"><b>🎛 일괄 보정</b><span class="advGN"></span><button type="button" class="advX" aria-label="닫기">✕</button></div><div class="advBody"></div>
-      <div class="advGBtns"><button type="button" data-g="undo">↶ 한 단계 되돌리기</button><button type="button" data-g="midi">🎹 MIDI 내보내기</button><button type="button" data-g="reset">고급 전부 원래대로</button></div>
+      <div class="advGBtns"><button type="button" data-g="undo">↶ 한 단계 되돌리기</button><button type="button" data-g="midi">🎹 MIDI 내보내기</button><button type="button" data-g="reset">디테일 보정 전부 원래대로</button></div>
       <p class="advTip">보컬·MR 두 파일로 올린 곡은 완성본을 다시 만들면 보정된 보컬만 담긴 WAV(24bit)도 드라이브 작업 폴더에 생겨요(vocal_tuned.wav).</p></div>`;
     const body = d.querySelector(".advBody"), G_ = (k, dft) => (g()[k] != null ? g()[k] : dft);
     const put = (k, v) => change(A, st, cv, () => { g()[k] = v; });
     const putLv = (k, v) => change(A, st, cv, () => { g().level = Object.assign({ quiet: 0, loud: 0 }, g().level || {}); g().level[k] = v; });
-    const D = (row, t) => { row._desc = t; return row; };
     const rows = [
       stepper("자동 보정 강도", () => G_("strength", 1), (v) => put("strength", v), { step: 0.1, min: 0, max: 1.5, def: 1, fmt: pct }),
       D(stepper("가까운 음은 그대로", () => G_("near", 8), (v) => put("near", v), { step: 2, min: 0, max: 50, def: 8, fmt: (v) => `${Math.round(v)}센트 안` }), "자동 보정할 때, 목표 음에서 이 값(센트·100센트=반음 1개) 안쪽으로 이미 가까운 곳은 건드리지 않아요. 크게 하면 자연스럽지만 덜 맞고, 0이면 전부 딱 맞춰요."),
@@ -233,7 +235,7 @@
       stepper("큰 음 줄이기", () => (g().level || {}).loud || 0, (v) => putLv("loud", v), { step: 0.1, min: 0, max: 1, def: 0, fmt: (v) => (v > 0 ? "−" : "") + pct(v) }),
       stepper("치찰음(ㅅ·ㅊ)", () => G_("sib_db", 0), (v) => put("sib_db", v), { step: 1, min: -12, max: 6, def: 0, fmt: (v) => `${v > 0 ? "+" : ""}${Math.round(v)}dB` }),
       D(stepper("포먼트(목소리 결)", () => G_("formant", 0), (v) => put("formant", v), { step: 0.25, min: -3, max: 3, def: 0, fmt: (v) => `${v > 0 ? "+" : ""}${v.toFixed(2)}반음` }), "포먼트 = 목소리의 울림 통로. 음정은 그대로 두고 음색만 이동. + 는 얇고 밝은 느낌, − 는 굵고 어두운 느낌. 그림에는 안 보이고 완성본에서 들어 보세요.")];
-    rows.forEach(r => body.appendChild(r));
+    rows.forEach(r => { if (!r._desc) { body.appendChild(r); return; } const w = document.createElement("div"), p = document.createElement("p"); p.className = "advD"; p.textContent = r._desc; w.appendChild(r); w.appendChild(p); body.appendChild(w); });
     const cnt = () => { d.querySelector(".advGN").textContent = `음 ${A.ne.notes.length}개 고침`; rows.forEach(r => r._paint && r._paint()); };
     cnt();
     const ly = G.Brand && G.Brand.layer ? G.Brand.layer(() => d.remove()) : { close: () => d.remove() };
