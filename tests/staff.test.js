@@ -38,3 +38,12 @@ const code = g(/const JOIN_STAFF = [^\n]*\n/) + g(/const staffOf = [^\n]*\n/) + 
   assert.ok(lc.indexOf("_시스템'") < lc.indexOf("_체험시스템") && lc.indexOf("_체험시스템") < lc.indexOf("_강사시스템") && lc.includes('cfg.role !== "teacher") continue'));
   console.log("staff ok");
 })().catch(e => { console.error(e); process.exit(1); });
+
+// (11/05 사용자) 강사 본인 작업칸: 원장 앱에서 만들면 그 강사 폴더 안에 status "teacher" 칸 → 강사 앱 목록에 '선생님 본인 곡·작업'(메이크업·커버 탭)
+{
+  const src = require("fs").readFileSync(require("path").join(__dirname, "..", "teacher", "index.html"), "utf8");
+  assert.ok(src.includes('async function joinCreateStudent(rawName, forTest = false, tid = "", self = false)') && src.includes('status: self ? "teacher" : forTest ? "test" : "active"'), "본인 작업칸은 status teacher");
+  assert.ok(src.includes("async function createSelfSlot(tid)") && src.includes('joinCreateStudent(s.name + "(선생님)", false, tid, true)') && src.includes("data-selfmk"), "원장 앱 강사 권한 칸에 '작업칸 만들기'");
+  assert.ok(src.includes('x.status !== "teacher" && !x.consent_withdrawn'), "본인 작업칸은 수강생 노트 서버 권한 목록에서 뺌");
+  console.log("staff: 본인 작업칸 ok");
+}
