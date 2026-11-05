@@ -163,6 +163,21 @@ input,select{font:inherit;color:var(--ink)}
 .vgd #vgB{min-width:84px}.vgd button.bp{animation:bpop .18s ease-out}.vgd button.bp1{animation:bpop1 .24s ease-out;background:#12323c;border-color:#7fe3ff;color:#7fe3ff}
 @keyframes bpop{0%{transform:scale(1)}35%{transform:scale(1.18)}100%{transform:scale(1)}}@keyframes bpop1{0%{transform:scale(1)}35%{transform:scale(1.32)}100%{transform:scale(1)}}
 .vgd button.on{background:#12323c;border-color:#7fe3ff;color:#7fe3ff}.vgd #vgT{flex:1}
+/* (11/05 사용자) 발성 화면 상하 다이어트: 마이크 표시를 작게, '모니터' 표시는 왼쪽 위에 겹쳐 얹고, 아래는 안내 글+⚙를 한 줄로 */
+#v-practice.scaleView .hud{position:relative;padding:6px 12px 4px}
+#v-practice.scaleView #voAlive{padding:6px 0 2px;gap:12px}
+#v-practice.scaleView .voMic{width:56px;height:56px}#v-practice.scaleView .voMic svg{width:28px;height:28px}
+#v-practice.scaleView .voTx b{font-size:16px}#v-practice.scaleView .voTx span{font-size:12px}
+#v-practice.scaleView .noteRow{position:absolute;top:16px;left:8px;margin:0;min-height:0}
+#v-practice.scaleView #cbar{gap:4px;padding:6px 12px 4px}#v-practice.scaleView .seg.big button{height:38px}
+#v-practice.scaleView .dock{display:grid;grid-template-columns:1fr auto;align-items:center;column-gap:8px;row-gap:0;padding:4px 12px}
+#v-practice.scaleView .hint{grid-column:1;grid-row:1;margin:0;text-align:left}
+#v-practice.scaleView .controls{grid-column:2;grid-row:1;margin:0}
+#v-practice.scaleView .ibtn{height:36px}
+/* (11/05 사용자) 마이크 권한이 꺼져 있으면 연습 화면 위에 바로 알려 줌(연습 탭에서만 보임) */
+#micWarn{position:fixed;left:8px;right:8px;top:54px;z-index:200;display:none;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:#3a1a14;border:1px solid #e0614a;color:#ffd9d2;box-shadow:0 6px 20px rgba(0,0,0,.45)}
+#micWarn.show{display:flex}#micWarn div{flex:1;min-width:0}#micWarn b{display:block;font-size:14px}#micWarn span{display:block;margin-top:2px;font-size:12px;line-height:1.35;color:#f0bdb3}
+#micWarn button{flex:none;height:36px;padding:0 12px;border-radius:10px;background:#e0614a;color:#1a0804;font-weight:700;font-size:13px;border:0}
 /* (11/05 사용자) 폰 브라우저에서 비브라토 화면이 위아래로 빡빡 → 점수 줄·아래 안내 줄(파형 칸 안에 같은 안내가 있음)을 접고 줄 간격을 줄여 파형 칸을 넓힘 */
 #v-practice.vibView .stats,#v-practice.vibView .hint{display:none}
 #v-practice.vibView .hud{padding:6px 12px 2px}
@@ -1799,7 +1814,7 @@ function setMonUI() {
 }
 async function startMonitor(manual) {
   if (P.mon || P.monBusy) return true;
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { if (manual) toast('이 브라우저에서는 마이크를 쓸 수 없어요. https 주소에서 열어 주세요.', 4500); return false; }
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { if (manual) toast('이 브라우저에서는 마이크를 쓸 수 없어요. https 주소에서 열어 주세요.', 4500); micWarn('insecure'); return false; }
   P.monBusy = true;
   try {
     const ctx = actx();
@@ -1809,13 +1824,44 @@ async function startMonitor(manual) {
     P.an = ctx.createAnalyser(); P.an.fftSize = 2048; P.an.smoothingTimeConstant = 0; P.src.connect(P.an);
     P.buf = new Float32Array(P.an.fftSize); P.mon = true; P.monDenied = false; P.monOff = false; P.recent = []; octReset(); detectEar();
     if (!P.calOnce) { P.calOnce = true; startCal(); }   // (11/05 사용자) 주변 소리 확인은 발성 연습 창을 열 때 한 번만(다른 탭에 갔다 오거나 화면이 꺼졌다 켜져도 다시 안 함. 필요하면 설정의 '다시 맞추기')
-    return true;
+    micWarn(null); return true;
   } catch (e) {
-    P.monDenied = true;
+    P.monDenied = true; micWarn(micErrKind(e));
     if (manual) toast('마이크를 켤 수 없어요. 브라우저의 마이크 권한을 허용하고, https 주소(또는 localhost)에서 열어 주세요.', 5000);
     return false;
   } finally { P.monBusy = false; setMonUI(); }
 }
+/* (11/05 사용자) 마이크 권한 점검을 기본 탑재: 브라우저 권한 상태를 미리 확인해(바뀌면 바로 반영) 막혀 있으면 연습 화면에 눈에 띄게 안내 + 다시 시도 */
+const MIC_MSG = {
+  denied: ['마이크가 막혀 있어요', '주소창 왼쪽 자물쇠(또는 ⓘ) → 권한 → 마이크 허용 → 다시 시도'],
+  none: ['마이크를 찾지 못했어요', '기기 마이크나 이어폰 연결을 확인하고 다시 시도해 주세요'],
+  busy: ['다른 앱이 마이크를 쓰고 있어요', '통화·녹음 앱을 끄고 다시 시도해 주세요'],
+  insecure: ['이 주소에서는 마이크를 쓸 수 없어요', 'https 주소로 열어 주세요'],
+  other: ['마이크를 켤 수 없어요', '브라우저 마이크 권한을 확인하고 다시 시도해 주세요']
+};
+function micWarn(kind) {
+  let d = $('#micWarn');
+  if (!kind) { if (d) d.classList.remove('show'); return; }
+  if (!d) { d = document.createElement('div'); d.id = 'micWarn'; d.setAttribute('role', 'alert'); d.innerHTML = '<div><b></b><span></span></div><button type="button">다시 시도</button>';
+    d.querySelector('button').onclick = async () => { P.monDenied = false; P.monOff = false; if (!(await startMonitor(true))) micCheck(); };
+    ($('#v-practice') || document.body).appendChild(d); }
+  const m = MIC_MSG[kind] || MIC_MSG.other; d.querySelector('b').textContent = m[0]; d.querySelector('span').textContent = m[1]; d.classList.add('show');
+}
+const micErrKind = e => { const n = e && e.name; return n === 'NotAllowedError' || n === 'PermissionDeniedError' || n === 'SecurityError' ? 'denied' : n === 'NotFoundError' || n === 'OverconstrainedError' ? 'none' : n === 'NotReadableError' || n === 'AbortError' ? 'busy' : 'other'; };
+let micPermSt = null;
+async function micCheck() {
+  try {
+    if (!navigator.permissions || !navigator.permissions.query) return;
+    const s = micPermSt || await navigator.permissions.query({ name: 'microphone' }); micPermSt = s;
+    const apply = () => {
+      if (s.state === 'denied') { P.monDenied = true; micWarn('denied'); }
+      else { if (!P.monBusy && !P.mon) micWarn(null); if (s.state === 'granted' && P.monDenied) { P.monDenied = false; if (cur === 'practice' && !P.mon && !P.monBusy && !P.monOff) startMonitor(false); } }
+    };
+    s.onchange = apply; apply();
+  } catch (e) {}   // 일부 브라우저(사파리·파이어폭스)는 마이크 권한 조회를 지원하지 않음 → 실제로 켜 볼 때의 오류로 안내
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { micCheck(); if (cur === 'practice' && P.monDenied && !P.mon && !P.monBusy && !P.monOff) { P.monDenied = false; startMonitor(false); } } });
+setTimeout(micCheck, 300);
 /* 주변 소리 자동 맞춤: 연습 화면에 들어와 마이크가 켜지면 1.5초 동안 배경 소리 크기를 재고, 그보다 확실히 큰 소리만 목소리로 봐요 */
 /* 한 개의 팝업으로 안내: 주변 소리 확인 중 → (끝) */
 let micPopT = 0;
