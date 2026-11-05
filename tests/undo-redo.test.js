@@ -25,4 +25,8 @@ now += 100; h.o.onTime({ t0: 5 }); now += 100; h.o.onAdv(); assert.strictEqual(h
   assert.ok(T.includes('data-ur="-1"') && T.includes('data-ur="1"') && T.includes("openHist();") && T.includes("}, 500); });"), "↶ ↷ + 길게 = 기록 창");
   assert.ok(T.includes('if (hist) o = hist.o;') && T.includes("typeof o.histGet === \"function\" && typeof o.histSet === \"function\""), "앱이 histGet/histSet을 줄 때만 켜짐");
   assert.ok(H.includes("const histGet = () => JSON.stringify({ fx: r.target_fixes") && H.includes("await applyAll(h.fx || [], h.te || [])") && H.includes("onFixMany, histGet, histSet, onTime"), "선생님 앱 연결");
+  // (11/05 사용자) ↶ 원음|보정본 ↷ 한 줄 — 스위치는 붙은 채, 좌우에 버튼
+  assert.ok(T.includes('row.className = "tfAbRow"') && T.includes("row.append(ub, abw, rb)"), "↶ [원음|보정본] ↷ 한 줄");
+  // 높이만 바뀌어도 캔버스 그림 크기를 다시 맞춤(터치가 위로 어긋나던 버그)
+  assert.ok(T.includes("el.width !== Math.round(w * r) || el.height !== Math.round(h * r)"), "캔버스 높이 변화도 다시 맞춤");
   console.log("undo-redo ok"); })().catch((e) => { console.error(e); process.exit(1); });
