@@ -9,8 +9,6 @@
 <meta name="theme-color" content="#17191d">
 <script src="https://accounts.google.com/gsi/client" async></script>
 <style>
-  .pitchGo { display:flex; align-items:center; gap:12px; color:inherit; text-decoration:none; min-height:64px; margin:0 0 8px; border-color:rgba(228,141,22,.45); background:linear-gradient(180deg, rgba(228,141,22,.10), transparent 80%), var(--card); }
-  .pitchGo .pgIc { font-size:1.7rem; } .pitchGo .pgTx { flex:1; display:flex; flex-direction:column; gap:2px; } .pitchGo .pgTx small { color:var(--muted); font-size:.85rem; line-height:1.4; }
   .pitchAll summary { cursor:pointer; list-style:none; } .pitchAll summary::-webkit-details-marker { display:none; } .paRow { display:flex; flex-direction:column; gap:2px; padding:9px 0; border-top:1px solid var(--line); cursor:pointer; min-height:44px; } .paRow:first-child { border-top:0; }
   /* 기본 테마: 진회색(폰 설정과 상관없이 항상) */
   :root { color-scheme:dark; --bg:#17191d; --fg:#eceff3; --muted:#a9b1bc; --card:#22262c; --line:#363c45; --accent:#9cc3ff; --on-accent:#10141a;
@@ -522,7 +520,7 @@
 <script src="../lesson-replies.js"></script>
 <script src="../tune.js?v=20261105-0300"></script>
 <script src="../adv.js?v=20261105-0300"></script>
-<script src="../pitch-embed.js?v=20261105-1000"></script>
+<script src="../pitch-embed.js?v=20261105-1830"></script>
 
 <script>
 // ── 설정 ────────────────────────────────────────────────
@@ -1106,7 +1104,7 @@ function attach(d) {  // 캐시 데이터를 수강생 객체에 붙이기
 const isTeacher = (st) => st.status === "teacher";
 const daysAgo = (name) => { const d = Date.parse((name || "").slice(0, 10)); return isNaN(d) ? 99 : (Date.now() - d) / 864e5; };
 // (11/05 사용자) 선생님도 발성 연습 화면으로 들어갈 수 있게 목록 맨 위에 입구 — 선생님 계정으로 열면 기록은 저장하지 않고 연습 도구로만 써요
-const pitchLinkHtml = () => `<a class="card pitchGo" href="../pitch/" data-pitch-open="teacher" aria-label="연습 천재 열기"><span class="pgIc" aria-hidden="true">🎤</span><span class="pgTx"><b>연습 천재<span style="font-size:.72em;font-weight:500;margin-left:6px">(음정, 비브라토, 발성)</span></b><small>꾸준한 연습으로 기본기를 탄탄히 해 보아요</small></span><span aria-hidden="true">›</span></a>`;
+const pitchLinkHtml = () => `<a class="card pitchGo" href="../pitch/" data-pitch-open="teacher" aria-label="연습 천재 열기">${typeof PitchEmbed !== "undefined" && PitchEmbed.cardInner ? PitchEmbed.cardInner("teacher") : "연습 천재"}</a>`;
 function paintList(data, stale) {
   data.forEach(attach);
   // (11/02 사용자 시안 ②) 원장 앱: [전체 | 작품(원장) | 강사…] — 고른 강사 것만(오늘 할 일·수강생 목록)
@@ -3212,6 +3210,7 @@ async function tpCommit() {
   else { tpSt.msg = r.msg || "저장하지 못했어요"; if (r.unverified) { tpSt.draft = {}; tpSt.loaded = null; } }   // 저장 실패는 고른 값을 남겨 다시 누를 수 있게(같은 요청 번호 재사용)
   paintPrefs();
 }
+const selfAuto = { busy: false, fail: {} };
 const selfSlotOf = (tid) => Object.entries(cfg?.students || {}).find(([, st]) => st.status === "teacher" && st.teacher_id === tid) || null;
 async function createSelfSlot(tid) {   // (11/05 사용자) 강사 계정에서 음원 올려 보정해 보려면 본인 작업칸이 필요 → 그 강사 폴더 안에 만들고 강사 설정에 반영
   const s = staffOf()[tid]; if (!s) throw new Error("강사를 찾지 못했어요"); if (selfSlotOf(tid)) return;
@@ -3236,6 +3235,10 @@ function paintAdvPerm() {
     $("stfAdd").disabled = true; m.textContent = "강사 폴더 만드는 중…";
     try { await joinCreateStaff(nm, em); await staffPortalSync(true).catch(() => {}); m.textContent = "등록했어요 · 강사가 구글 계정으로 들어오면 강사 화면이 보여요"; paintAdvPerm(); }
     catch (e) { m.textContent = "등록하지 못했어요: " + errMsg(e); $("stfAdd").disabled = false; } };
+  if (!selfAuto.busy && S.some(([k]) => !selfSlotOf(k) && !selfAuto.fail[k])) {   // (11/05 사용자) 강사가 보정 메뉴를 못 찾던 문제 → 원장 앱을 열면 본인 작업칸이 없는 강사 칸을 알아서 만들어 줌(실패하면 버튼으로)
+    selfAuto.busy = true; (async () => { let made = 0;
+      for (const [k, x] of S) { if (selfSlotOf(k) || selfAuto.fail[k]) continue; try { await createSelfSlot(k); made++; toast(`${x.name} 강사 작업칸을 만들었어요`); } catch (e) { selfAuto.fail[k] = 1; } }
+      selfAuto.busy = false; if (made) paintAdvPerm(); })(); }
   box.querySelectorAll("[data-selfmk]").forEach(b => b.onclick = async () => { const tid = b.dataset.selfmk, m = $("advPermMsg"); b.disabled = true; m.textContent = "작업칸 만드는 중…";
     try { await createSelfSlot(tid); m.textContent = "만들었어요 · 강사 앱을 새로고침하면 보여요"; paintAdvPerm(); }
     catch (e) { m.textContent = "만들지 못했어요: " + errMsg(e); b.disabled = false; } });
@@ -6912,7 +6915,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-05-1815-cheonjae";
+const BUILD = "2026-11-05-1830-card";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
