@@ -5,7 +5,7 @@
 <meta name="robots" content="noindex">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#22282c">
-<title>보컬노트 · 음정 연습</title>
+<title>보컬노트 · 발성 연습</title>
 <style>
 :root{
   --bg:#1b2024; --surface:#22282c; --row:#2c3238; --line:#3a424a; --ink:#eef1f5; --ink2:#b6bfca; --muted:#8a95a1;
@@ -148,6 +148,8 @@ input,select{font:inherit;color:var(--ink)}
 .vlad button.l{opacity:.55}
 .vgd{display:flex;gap:6px;margin-top:8px;align-items:stretch}
 .vgd button{border:1px solid #4a535d;background:#2a3036;color:#e8ecf1;border-radius:10px;padding:0 10px;font-size:12px;min-height:38px;font-family:inherit}
+.vgd #vgB{min-width:84px}.vgd button.bp{animation:bpop .18s ease-out}.vgd button.bp1{animation:bpop1 .24s ease-out;background:#12323c;border-color:#7fe3ff;color:#7fe3ff}
+@keyframes bpop{0%{transform:scale(1)}35%{transform:scale(1.18)}100%{transform:scale(1)}}@keyframes bpop1{0%{transform:scale(1)}35%{transform:scale(1.32)}100%{transform:scale(1)}}
 .vgd button.on{background:#12323c;border-color:#7fe3ff;color:#7fe3ff}.vgd #vgT{flex:1}
 .vstreak b{color:var(--ink);font-size:14px;min-width:14px}.vfb{margin-left:auto;font-size:11px;color:var(--muted)}.vfb.ok{color:var(--ok)}
 @keyframes flashA{from{opacity:.95}to{opacity:0}}
@@ -292,7 +294,7 @@ summary{cursor:pointer;color:var(--ink2)}
 <body>
 <div id="app">
   <header id="top">
-    <div class="brand">보컬노트<small>음정 연습</small></div>
+    <div class="brand">보컬노트<small>발성 연습</small></div>
     <button id="userBtn" class="chip" aria-label="사용자 전환"></button>
   </header>
   <main id="main">
@@ -362,7 +364,7 @@ summary{cursor:pointer;color:var(--ink2)}
 (() => {
 'use strict';
 /* ============ 수강생 앱 연결 ============
-   수강생 앱(../student/)에서 '음정 연습' 버튼으로 열면(?from=student) 같은 사이트의 로그인 기록(sn_tok)으로 '내 계정' 모드가 돼요.
+   수강생 앱(../student/)에서 '발성 연습' 버튼으로 열면(?from=student) 같은 사이트의 로그인 기록(sn_tok)으로 '내 계정' 모드가 돼요.
    - 샘플 사용자 없이 본인 한 명만, 기록은 이 폰의 별도 저장소(vn_pitch_me)에 쌓여요.
    - 날짜별 연습 요약(연습 시간·점수·최고 유지·코스 별)만 선생님 노트 서버(PORTAL_URL)로 보내요. 녹음·목소리는 저장도 전송도 안 해요. */
 const PORTAL_URL = 'https://script.google.com/macros/s/AKfycbyxHvxn4VkX83JrcGK1bQqJivhUPktWNyJn_HRpSyIyQ-lVoXh0MNaps2PUmY_obwJTBQ/exec';
@@ -376,7 +378,7 @@ const FROM_STUDENT = new URLSearchParams(location.search).get('from') === 'stude
 /* (11/05 사용자) 앱 안에서 열기: 선생님·수강생 앱이 이 화면을 전체 화면 창(iframe)으로 띄움(embed=1). 선생님은 as=teacher — 샘플 없이 본인 한 명, 기록은 이 폰에만 */
 const EMB = new URLSearchParams(location.search).get('embed') === '1' && window.parent !== window, TM = EMB && new URLSearchParams(location.search).get('as') === 'teacher';
 if (FROM_STUDENT && !SN) {
-  document.body.innerHTML = '<div style="max-width:420px;margin:18vh auto;padding:0 20px;text-align:center;color:#e8ecf1;font:16px/1.6 system-ui,sans-serif"><b style="font-size:19px">먼저 내 노트에서 로그인해 주세요</b><p style="color:#8a95a1">구글 로그인이 끝나야 음정 연습 기록이 선생님께 이어져요.</p><a href="../student/" style="display:inline-block;margin-top:8px;padding:12px 22px;border-radius:12px;background:#e48d16;color:#2b1800;font-weight:800;text-decoration:none">내 노트로 가기</a></div>';
+  document.body.innerHTML = '<div style="max-width:420px;margin:18vh auto;padding:0 20px;text-align:center;color:#e8ecf1;font:16px/1.6 system-ui,sans-serif"><b style="font-size:19px">먼저 내 노트에서 로그인해 주세요</b><p style="color:#8a95a1">구글 로그인이 끝나야 발성 연습 기록이 선생님께 이어져요.</p><a href="../student/" style="display:inline-block;margin-top:8px;padding:12px 22px;border-radius:12px;background:#e48d16;color:#2b1800;font-weight:800;text-decoration:none">내 노트로 가기</a></div>';
   return;
 }
 /* ============ utils ============ */
@@ -1289,10 +1291,13 @@ function renderVibGuide() {
   const t = $('#vgT'); if (t) { t.classList.toggle('on', vibGuideOn()); t.textContent = vibGuideOn() ? `가이드 ${r1(vibGuideRate())}Hz` + (CFG.vgr && CFG.vgr[CFG.vw] > 0 ? ' 고정' : '') : '가이드 꺼짐'; }
 }
 function vibGuideAdj(d) { const B = vibBandsOf(); d = vibGuideRate() < 2 ? d * .4 : d; CFG.vgr = CFG.vgr || {}; CFG.vgr[CFG.vw] = clamp(Math.round((vibGuideRate() + d) * 10) / 10, B.lo, B.hi); V.gRate = CFG.vgr[CFG.vw]; CFG.vgd = 1; saveCfg(); renderVibGuide(); }
-function vibBeat() {                                    // 가이드 속도로 짧은 틱을 3초 들려줘요
+function vibBeat() {                                    // (11/05 사용자) 가이드 속도로 2마디(8박) — 박마다 버튼이 튕겨요(1·5박은 더 크게)
   try {
-    const ctx = actx(), out = pianoOut(ctx), rate = vibGuideRate(), n = Math.max(4, Math.round(rate * 3)), t0 = ctx.currentTime + .05;
-    for (let i = 0; i < n; i++) { const o = ctx.createOscillator(), g = ctx.createGain(), t = t0 + i / rate; o.frequency.value = i % 4 ? 660 : 880; g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.16, t + .005); g.gain.exponentialRampToValueAtTime(.0005, t + .07); o.connect(g).connect(out); o.start(t); o.stop(t + .09); }
+    const ctx = actx(), out = pianoOut(ctx), rate = vibGuideRate(), n = 8, t0 = ctx.currentTime + .05, btn = $('#vgB');
+    if (V.beatTm) V.beatTm.forEach(clearTimeout); V.beatTm = [];
+    for (let i = 0; i < n; i++) { const o = ctx.createOscillator(), g = ctx.createGain(), t = t0 + i / rate; o.frequency.value = i % 4 ? 660 : 880; g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.16, t + .005); g.gain.exponentialRampToValueAtTime(.0005, t + .07); o.connect(g).connect(out); o.start(t); o.stop(t + .09);
+      V.beatTm.push(setTimeout(() => { if (!btn) return; btn.textContent = '● ' + (i + 1) + ' / ' + n; btn.classList.remove('bp', 'bp1'); void btn.offsetWidth; btn.classList.add(i % 4 ? 'bp' : 'bp1'); }, Math.max(0, (t - ctx.currentTime) * 1000))); }
+    V.beatTm.push(setTimeout(() => { if (btn) { btn.textContent = '▶ 박자'; btn.classList.remove('bp', 'bp1'); } }, (t0 - ctx.currentTime + n / rate) * 1000));
     if (!P.earphone) P.toneUntil = Math.max(P.toneUntil, performance.now() + (n / rate) * 1000 + 250);
     V.cueUntil = performance.now() + (n / rate) * 1000 + 300;
   } catch (e) {}
@@ -1688,7 +1693,7 @@ async function startMonitor(manual) {
     P.src = ctx.createMediaStreamSource(P.stream);
     P.an = ctx.createAnalyser(); P.an.fftSize = 2048; P.an.smoothingTimeConstant = 0; P.src.connect(P.an);
     P.buf = new Float32Array(P.an.fftSize); P.mon = true; P.monDenied = false; P.monOff = false; P.recent = []; octReset(); detectEar();
-    if (!P.calOnce) { P.calOnce = true; startCal(); }   // (11/05 사용자) 주변 소리 확인은 음정 연습 창을 열 때 한 번만(다른 탭에 갔다 오거나 화면이 꺼졌다 켜져도 다시 안 함. 필요하면 설정의 '다시 맞추기')
+    if (!P.calOnce) { P.calOnce = true; startCal(); }   // (11/05 사용자) 주변 소리 확인은 발성 연습 창을 열 때 한 번만(다른 탭에 갔다 오거나 화면이 꺼졌다 켜져도 다시 안 함. 필요하면 설정의 '다시 맞추기')
     else if (P.hello) { P.hello = false; micPop('🎤 소리를 내 보세요', '', 1500); }
     return true;
   } catch (e) {

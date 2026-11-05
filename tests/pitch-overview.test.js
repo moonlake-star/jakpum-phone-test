@@ -1,4 +1,4 @@
-// 선생님 앱 '수강생 음정 연습' 한눈에 목록 시험 — index.html의 해당 블록을 가짜 서버(portal)와 함께 실행
+// 선생님 앱 '수강생 발성 연습' 한눈에 목록 시험 — index.html의 해당 블록을 가짜 서버(portal)와 함께 실행
 const fs = require("fs"), assert = require("assert");
 const src = fs.readFileSync(__dirname + "/../teacher/index.html", "utf8");
 const body = src.match(/let pitchAllMem = null;[\s\S]*?(?=function pitchCard\(days\))/)[0];

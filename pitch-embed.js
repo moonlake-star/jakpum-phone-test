@@ -1,4 +1,4 @@
-/* 음정 연습을 '앱 안에서' 엽니다 — 주소창 없는 전체 화면 창(같은 사이트의 ../pitch/ 를 iframe으로). 선생님·수강생 앱 공용
+/* 발성 연습을 '앱 안에서' 엽니다 — 주소창 없는 전체 화면 창(같은 사이트의 ../pitch/ 를 iframe으로). 선생님·수강생 앱 공용
    쓰는 법: <a href="../pitch/" data-pitch-open="teacher|student"> 를 누르면 열림(스크립트가 없으면 그냥 링크로 이동).
    뒤로 가기(갤럭시 밀기)·'← 돌아가기'로 닫히고, 닫을 때 마이크도 꺼져요(Brand.layer 규칙, AGENTS.md). */
 (function (G) {
@@ -9,7 +9,7 @@
     if (cur) return;
     if (!document.getElementById("pitchEmbCss")) { const s = document.createElement("style"); s.id = "pitchEmbCss"; s.textContent = CSS; document.head.appendChild(s); }
     const d = document.createElement("div"); d.id = "pitchEmb";
-    const f = document.createElement("iframe"); f.setAttribute("allow", "microphone; autoplay"); f.title = "음정 연습";
+    const f = document.createElement("iframe"); f.setAttribute("allow", "microphone; autoplay"); f.title = "발성 연습";
     f.src = "../pitch/?embed=1" + (who === "student" ? "&from=student" : "&as=teacher");
     d.appendChild(f); document.body.appendChild(d);
     const shut = () => { try { f.src = "about:blank"; } catch (e) {} d.remove(); cur = null; };

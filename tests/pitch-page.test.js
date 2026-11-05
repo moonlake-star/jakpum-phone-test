@@ -1,4 +1,4 @@
-// 음정 연습 페이지(pitch/index.html): 공개 저장소 안전 규칙 + 핵심 계산이 깨지지 않았는지
+// 발성 연습 페이지(pitch/index.html): 공개 저장소 안전 규칙 + 핵심 계산이 깨지지 않았는지
 const fs = require("fs"), assert = require("assert");
 const src = fs.readFileSync(__dirname + "/../pitch/index.html", "utf8");
 // 1) 외부로 나가는 코드 없음(스크립트·이미지·통신) — 데이터는 이 폰의 localStorage에만
@@ -233,4 +233,6 @@ console.log("pitch-page ok");
   assert.ok(src.includes("const pps = (W - L) * V.ppsF") && src.includes("clamp(.2 * (vibGuideOn() ? vibGuideRate()") && src.includes("소리를 기다리는 중: 깜빡이는 마이크 아이콘") && src.includes("sw = clamp(.22 / Math.max(fS, .5), .04, .28)") && src.includes("g2.quadraticCurveTo"), "느린 가이드는 그래프도 천천히 흐름, 대기 중 깜빡이는 마이크, 느릴수록 선을 부드럽게");
   console.log("pitch-page: 느린 시작·대기 아이콘·부드러운 선 ok");
   assert.ok(src.includes("소리 내기 전에도 도전할 가이드 파형은 옅게 계속 보여요"), "소리 내기 전에도 가이드 파형이 옅게 보임");
+  assert.ok(src.includes("const ctx = actx(), out = pianoOut(ctx), rate = vibGuideRate(), n = 8,") && src.includes("btn.classList.add(i % 4 ? 'bp' : 'bp1')") && src.includes("@keyframes bpop1") && src.includes("<small>발성 연습</small>"), "박자 버튼: 2마디(8박), 박마다 버튼 튕김, 이름은 발성 연습");
+  console.log("pitch-page: 박자 8박·발성 연습 ok");
 }
