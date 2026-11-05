@@ -145,7 +145,7 @@ console.log("pitch-page ok");
   assert.ok(src.includes("iv: [0, 4, 7, 12, 12, 12, 12, 7, 4, 0]") && src.includes("? o.k : 'tri'"), "기본 스케일 = 3음(11/05 사용자)");
   assert.ok(src.includes("n.gr != null ? n.gr : D().grace") && src.includes("Math.max(n.gr != null ? .12 : .25"), "음별 여유 시간");
   assert.ok(src.includes("#v-practice.scaleView #segMode{order:-1}") && src.includes("id=\"scHead\"") && src.includes("classList.toggle('scaleView', sv)"), "스케일 전용 화면");
-  assert.ok(src.includes('<button data-v="free">자유</button><button data-v="scale">발성</button><button data-v="course">코스</button>') && src.includes("const scv = v === 'scale'; if (scv) v = 'course';") && src.includes("student: [['practice','연습'],['progress','기록']") && !src.includes("['scale','발성']") && src.includes("b.onclick = () => go(b.dataset.t)"), "발성은 자유·발성·코스·비브라토 줄의 버튼(하단 발성 탭은 삭제, 하단 탭 이름 연습)");
+  assert.ok(src.includes('<button data-v="free">자유</button><button data-v="course">코스</button><button data-v="vib">비브라토</button><button data-v="scale">발성</button>') && src.includes("const scv = v === 'scale'; if (scv) v = 'course';") && src.includes("student: [['practice','연습'],['progress','기록']") && !src.includes("['scale','발성']") && src.includes("b.onclick = () => go(b.dataset.t)"), "발성은 자유·코스·비브라토·발성 줄 맨 오른쪽 버튼(하단 발성 탭은 삭제, 하단 탭 이름 연습)");
   console.log("pitch-page: 영상 박자 스케일·전용 화면 ok");
 }
 
@@ -233,7 +233,7 @@ console.log("pitch-page ok");
   assert.ok(src.includes("const pps = (W - L) * V.ppsF") && src.includes("clamp(.2 * (vibGuideOn() ? vibGuideRate()") && src.includes("소리를 기다리는 중: 깜빡이는 마이크 아이콘") && src.includes("sw = clamp(.22 / Math.max(fS, .3), .04, .6)") && src.includes("g2.quadraticCurveTo"), "느린 가이드는 그래프도 천천히 흐름, 대기 중 깜빡이는 마이크, 느릴수록 선을 부드럽게");
   console.log("pitch-page: 느린 시작·대기 아이콘·부드러운 선 ok");
   assert.ok(src.includes("소리 내기 전에도 도전할 가이드 파형은 옅게 계속 보여요"), "소리 내기 전에도 가이드 파형이 옅게 보임");
-  assert.ok(src.includes("const ctx = actx(), out = pianoOut(ctx), rate = vibGuideRate(), n = 8,") && src.includes("btn.classList.add(i % 4 ? 'bp' : 'bp1')") && src.includes("@keyframes bpop1") && src.includes("<small>발성 연습</small>"), "박자 버튼: 2마디(8박), 박마다 버튼 튕김, 이름은 발성 연습");
+  assert.ok(src.includes("const ctx = actx(), out = pianoOut(ctx), rate = vibGuideRate(), n = 8,") && src.includes("btn.classList.add(i % 4 ? 'bp' : 'bp1')") && src.includes("@keyframes bpop1") && src.includes("<small>매일 연습</small>"), "박자 버튼: 2마디(8박), 박마다 버튼 튕김, 이름은 매일 연습");
   console.log("pitch-page: 박자 8박·발성 연습 ok");
   assert.ok(src.includes("vibGuideOn() ? .5 : .8") && src.includes("my = cy + 6") && src.includes("(V.gA == null ? .75 : V.gA)"), "지금 선은 가운데, 대기 중 가이드는 또렷하게, 마이크 아이콘은 아래쪽");
   assert.ok(src.includes("function renderScBar()") && src.includes("function scIcon(S)") && src.includes("if (scv) C.stage = 3;") && !src.includes('id="scBack"') && !src.includes("${qkHtml()}`;\n    el.querySelector('#cGo').onclick = startStage; qkWire"), "발성 버튼은 바로 스케일 연습 화면, 스케일·속도는 위쪽 버튼(음 모양 막대 아이콘)");

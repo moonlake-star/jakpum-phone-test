@@ -5,7 +5,7 @@
 <meta name="robots" content="noindex">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#22282c">
-<title>보컬노트 · 발성 연습</title>
+<title>보컬노트 · 매일 연습</title>
 <style>
 :root{
   --bg:#1b2024; --surface:#22282c; --row:#2c3238; --line:#3a424a; --ink:#eef1f5; --ink2:#b6bfca; --muted:#8a95a1;
@@ -297,7 +297,7 @@ summary{cursor:pointer;color:var(--ink2)}
 <body>
 <div id="app">
   <header id="top">
-    <div class="brand">보컬노트<small>발성 연습</small></div>
+    <div class="brand">보컬노트<small>매일 연습</small></div>
     <button id="userBtn" class="chip" aria-label="사용자 전환"></button>
   </header>
   <main id="main">
@@ -324,7 +324,7 @@ summary{cursor:pointer;color:var(--ink2)}
           <div class="vlad" id="vLad"></div>
           <div class="vgd"><button type="button" id="vgT" class="on">가이드 파형 켜짐</button><button type="button" id="vgD" aria-label="가이드 느리게">−</button><button type="button" id="vgU" aria-label="가이드 빠르게">＋</button><button type="button" id="vgB">▶ 박자</button></div></div>
       </div>
-      <div id="cbar"><div id="scHead"><b id="scTitle"></b><button class="btn sm" id="scCfg" aria-label="시작음·브릿지 설정">⚙</button></div><div id="scBar"></div><div class="seg big" id="segMode"><button data-v="free">자유</button><button data-v="scale">발성</button><button data-v="course">코스</button><button data-v="vib">비브라토</button></div><div id="subBar"><div id="stTabs" hidden></div><div class="seg" id="segVW" hidden></div><div id="vwEx" hidden></div></div></div>
+      <div id="cbar"><div id="scHead"><b id="scTitle"></b><button class="btn sm" id="scCfg" aria-label="시작음·브릿지 설정">⚙</button></div><div id="scBar"></div><div class="seg big" id="segMode"><button data-v="free">자유</button><button data-v="course">코스</button><button data-v="vib">비브라토</button><button data-v="scale">발성</button></div><div id="subBar"><div id="stTabs" hidden></div><div class="seg" id="segVW" hidden></div><div id="vwEx" hidden></div></div></div>
       <div id="stage"><canvas id="roll"></canvas>
         <div id="targetChip" class="tchip ov" hidden>목표음 <b id="targetName"></b><small>옥타브 무관</small><button id="targetClear" aria-label="목표음 해제">✕</button></div>
         <div id="cOv"></div>

@@ -21,7 +21,7 @@ console.log("pitch-student-link: 수강생 버튼·선생님 카드·개인정�
 // (11/05) 선생님 앱 목록 맨 위에도 발성 연습 입구(../pitch/, 수강생 연결 아님)
 {
   const t = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
-  require("assert").ok(t.includes('href="../pitch/" data-pitch-open="teacher" aria-label="발성 연습 열기"') && t.includes("pitchLinkHtml() + `<div id=\"pitchAll\"></div><div id=\"pitchRec\"></div>` + segHtml + todoHtml") && !/href="\.\.\/pitch\/\?from=student"/.test(t), "선생님 앱 발성 연습 입구");
+  require("assert").ok(t.includes('href="../pitch/" data-pitch-open="teacher" aria-label="매일 연습 열기"') && t.includes("pitchLinkHtml() + `<div id=\"pitchAll\"></div><div id=\"pitchRec\"></div>` + segHtml + todoHtml") && !/href="\.\.\/pitch\/\?from=student"/.test(t), "선생님 앱 발성 연습 입구");
   console.log("pitch-student-link: 선생님 앱 입구 ok");
 }
 
