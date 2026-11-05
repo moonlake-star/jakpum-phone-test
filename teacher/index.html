@@ -736,7 +736,7 @@ function staffMode() {   // 강사 앱: 맨 위에 강사 이름 띠
   b.textContent = `🎓 ${cfg?.name || "강사"} 선생님 · 내 수강생만 보여요`; document.body.prepend(b);
 }
 const isStaffApp = () => typeof cfg !== "undefined" && cfg?.role === "teacher";
-const canAdv = () => !isStaffApp() || !!cfg?.adv_mode;   // (11/04 17:41 사용자) 고급 보정 모드 = 원장 + 원장이 허용한 강사
+const canAdv = () => true;   // (11/05 사용자) 고급 보정은 강사 누구나(원장이 따로 안 열어 줘도) · 기본 보정이 기본, 🎛 고급 보정 버튼을 눌러야 고급 단락이 켜짐   // (11/04 17:41 사용자) 고급 보정 모드 = 원장 + 원장이 허용한 강사
 // 체험 보기 전용: 드라이브에 쓰기·서버 깨우기 막음 + 화면 위 안내 띠 + 저장·공개·보내기 버튼 숨김
 function demoMode() {
   if (typeof document === "undefined" || document.body.classList.contains("demoRO")) return;
@@ -3222,10 +3222,9 @@ function paintAdvPerm() {
   const box = $("advPermBox"); if (!box) return;
   if (isStaffApp() || isDemo()) { box.innerHTML = ""; return; }   // (11/05 사용자) 강사가 아직 없어도 원장 화면엔 늘 보이게 + 여기서 바로 강사 추가
   const S = Object.entries(staffOf());
-  box.innerHTML = `<details class="card" ${S.length ? "" : "open"}><summary><b>👥 강사 · 고급 보정 권한</b> <span class="chip">${S.length ? `강사 ${S.length}명 · 고급 보정 ${S.filter(([, x]) => x.adv).length}명 허용` : "아직 강사 없음"}</span></summary>
-    <p class="muted" style="margin:6px 0">원장님은 늘 고급 보정을 쓸 수 있어요. 강사는 여기서 켠 사람만 음정선 전체화면에 '🎛 고급 보정' 버튼이 보여요.</p>
+  box.innerHTML = `<details class="card" ${S.length ? "" : "open"}><summary><b>👥 강사 관리</b> <span class="chip">${S.length ? `강사 ${S.length}명` : "아직 강사 없음"}</span></summary>
+    <p class="muted" style="margin:6px 0">고급 보정은 원장·강사 모두 쓸 수 있어요. 음정선 전체화면의 '🎛 고급 보정' 버튼을 눌러야 켜지고, 평소엔 기본 보정이에요.</p>
     ${S.length ? "" : `<p class="muted">등록된 강사가 없어요. 아래에서 강사를 추가하면 그 구글 계정에 강사 폴더가 공유되고, 그 계정으로 이 앱에 들어오면 강사 화면이 보여요.</p>`}
-    ${S.map(([k, x]) => `<label class="row" style="gap:8px;align-items:center;margin:4px 0"><input type="checkbox" data-advp="${esc(k)}" ${x.adv ? "checked" : ""}> ${esc(x.name)} 강사</label>`).join("")}
     <p class="muted" style="margin:10px 0 4px">🪄 강사 본인 작업칸 — 강사가 자기 음원을 올려 보정해 보는 칸이에요(수강생으로 안 세어요). 없으면 강사 앱에서 메이크업·보정으로 들어갈 곳이 없어요.</p>
     ${S.map(([k, x]) => `<div class="row" style="gap:8px;align-items:center;margin:4px 0">${esc(x.name)} 강사 ${selfSlotOf(k) ? `<span class="chip ok">작업칸 있음</span>` : `<button type="button" class="small" data-selfmk="${esc(k)}">작업칸 만들기</button>`}</div>`).join("")}
     <div class="muted" style="margin:10px 0 4px">➕ 강사 추가 <span style="font-size:.85em">(이름 + 그 강사의 구글 계정 메일)</span></div>
@@ -3240,9 +3239,7 @@ function paintAdvPerm() {
   box.querySelectorAll("[data-selfmk]").forEach(b => b.onclick = async () => { const tid = b.dataset.selfmk, m = $("advPermMsg"); b.disabled = true; m.textContent = "작업칸 만드는 중…";
     try { await createSelfSlot(tid); m.textContent = "만들었어요 · 강사 앱을 새로고침하면 보여요"; paintAdvPerm(); }
     catch (e) { m.textContent = "만들지 못했어요: " + errMsg(e); b.disabled = false; } });
-  box.querySelectorAll("[data-advp]").forEach(c => c.onchange = async () => { const tid = c.dataset.advp, v = c.checked, m = $("advPermMsg"); c.disabled = true; m.textContent = "저장 중…";
-    try { await cfgUpdate(l => { if (l.staff?.[tid]) l.staff[tid].adv = v; }); await staffSync(tid); m.textContent = "저장했어요 · 강사 앱을 새로고침하면 반영돼요"; }
-    catch (e) { c.checked = !v; m.textContent = "저장 실패: " + errMsg(e); } c.disabled = false; });
+
 }
 function paintPrefs() {
   const box = $("prefsBox"); if (!box) return;
@@ -6915,7 +6912,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-05-1820-staffpanel";
+const BUILD = "2026-11-05-1840-advall";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
