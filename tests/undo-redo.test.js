@@ -29,4 +29,6 @@ now += 100; h.o.onTime({ t0: 5 }); now += 100; h.o.onAdv(); assert.strictEqual(h
   assert.ok(T.includes('row.className = "tfAbRow"') && T.includes("row.append(ub, abw, rb)"), "↶ [원음|보정본] ↷ 한 줄");
   // 높이만 바뀌어도 캔버스 그림 크기를 다시 맞춤(터치가 위로 어긋나던 버그)
   assert.ok(T.includes("el.width !== Math.round(w * r) || el.height !== Math.round(h * r)"), "캔버스 높이 변화도 다시 맞춤");
+  // (11/05 사용자) 폰 세로 + 보정 모드 진입 시 가로 모드 안내 팝업
+  assert.ok(T.includes("const landTip = ()") && T.includes("폰에선 가로 모드가 보정 시 더 편리할 수 있어요") && T.includes("if (v) landTip();"), "보정 진입 시 가로 모드 안내");
   console.log("undo-redo ok"); })().catch((e) => { console.error(e); process.exit(1); });
