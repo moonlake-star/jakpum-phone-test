@@ -1106,7 +1106,7 @@ function attach(d) {  // 캐시 데이터를 수강생 객체에 붙이기
 const isTeacher = (st) => st.status === "teacher";
 const daysAgo = (name) => { const d = Date.parse((name || "").slice(0, 10)); return isNaN(d) ? 99 : (Date.now() - d) / 864e5; };
 // (11/05 사용자) 선생님도 음정 연습 화면으로 들어갈 수 있게 목록 맨 위에 입구 — 선생님 계정으로 열면 기록은 저장하지 않고 연습 도구로만 써요
-const pitchLinkHtml = () => `<a class="card pitchGo" href="../pitch/" data-pitch-open="teacher" aria-label="음정 연습 열기"><span class="pgIc" aria-hidden="true">🎤</span><span class="pgTx"><b>음정 연습</b><small>목소리를 마이크로 듣고 음정을 맞춰 봐요 · 앱 안에서 열려요 · 선생님이 직접 써 보는 연습 도구</small></span><span aria-hidden="true">›</span></a>`;
+const pitchLinkHtml = () => `<a class="card pitchGo" href="../pitch/" data-pitch-open="teacher" aria-label="음정 연습 열기"><span class="pgIc" aria-hidden="true">🎤</span><span class="pgTx"><b>음정 연습</b><small>꾸준한 발성 연습으로 기초를 탄탄히 해 보아요</small></span><span aria-hidden="true">›</span></a>`;
 function paintList(data, stale) {
   data.forEach(attach);
   // (11/02 사용자 시안 ②) 원장 앱: [전체 | 작품(원장) | 강사…] — 고른 강사 것만(오늘 할 일·수강생 목록)
