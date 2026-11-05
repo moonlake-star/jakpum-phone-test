@@ -3,9 +3,11 @@ const fs = require("fs"), assert = require("assert");
 const src = fs.readFileSync(__dirname + "/../pitch/index.html", "utf8");
 // 1) 외부로 나가는 코드 없음(스크립트·이미지·통신) — 데이터는 이 폰의 localStorage에만
 assert.ok(!/<script[^>]+src=/i.test(src), "외부 스크립트 금지");
-assert.ok(!/XMLHttpRequest|sendBeacon|WebSocket|MediaRecorder|createMediaStreamDestination/.test(src), "녹음·다른 전송 방식 금지");
+assert.ok(!/XMLHttpRequest|sendBeacon|WebSocket|createMediaStreamDestination/.test(src), "다른 전송 방식 금지");
+// 녹음은 '기록 도전'만, 폰 안에만 쌓고 사용자가 고른 것만 제출(자동 전송 없음)
+assert.ok(src.includes("MediaRecorder") && src.includes("function recSubmit(") && src.includes("pitch_rec_put") && src.includes("openModal(`<h3 style=\"margin-top:0\">선생님께 녹음을 제출할까요?"), "녹음 제출은 확인 팝업 뒤에만");
 // 네트워크 전송은 '수강생 앱에서 연 내 계정 모드'의 날짜별 요약 한 곳뿐
-assert.strictEqual((src.match(/\bfetch\(/g) || []).length, 1, "fetch는 한 곳만");
+assert.strictEqual((src.match(/\bfetch\(/g) || []).length, 2, "fetch는 요약 전송·녹음 제출 두 곳만");
 assert.ok(src.includes("fetch(PORTAL_URL, { method: 'POST'") && src.includes("action: 'pitch_save'") && src.includes("if (!SN || P.syncing) return;"), "요약 전송은 내 계정 모드에서만");
 assert.ok(src.includes("const PORTAL_URL = 'https://script.google.com/macros/s/") && require("fs").readFileSync(__dirname + "/../student/index.html", "utf8").includes(src.match(/const PORTAL_URL = '([^']+)'/)[1]), "전송 주소는 수강생 앱과 같은 노트 서버");
 assert.ok(/name="robots" content="noindex"/.test(src), "검색 노출 금지");
@@ -162,8 +164,8 @@ console.log("pitch-page ok");
   assert.ok(src.includes("if (FROM_STUDENT && !SN) {") && src.includes("먼저 내 노트에서 로그인해 주세요"), "로그인 안 됐으면 안내");
   assert.ok(src.includes("users: [{ id: 'me', name: SN.name || '나', role: 'student' }]") && src.includes("else if (!DB || !DB.users || !user(DB.me)) seedDemo();"), "샘플 없이 본인 한 명");
   assert.ok(src.includes("'← 내 노트'") && src.includes("location.href = '../student/'"), "내 노트로 돌아가기");
-  assert.ok(src.includes("function snNotice()") && src.includes("연습 기록은 선생님께 전달돼요") && src.includes("녹음과 목소리는 저장도 전송도 하지 않아요"), "처음 한 번 안내");
-  assert.ok(src.includes("const sum = { sec:") && src.includes("co: co.slice(-30)") && !/body: JSON\.stringify\(\{ action: 'pitch_save'[^}]*(audio|wav|pcm)/i.test(src), "날짜별 숫자 요약만");
+  assert.ok(src.includes("function snNotice()") && src.includes("연습 기록은 선생님께 전달돼요") && src.includes("직접 고른 녹음만"), "처음 한 번 안내");
+  assert.ok(src.includes("function pitchSum(day)") && src.includes("co: co.slice(-30)") && !/body: JSON\.stringify\(\{ action: 'pitch_save'[^}]*(audio|wav|pcm)/i.test(src), "날짜별 숫자 요약만");
   assert.ok(src.includes("DB.sync = DB.sync || []") && src.includes("q.splice(q.indexOf(day), 1)"), "실패하면 큐에 남겨 다시 시도");
   console.log("pitch-page: 수강생 앱 연결(내 계정 모드) ok");
   // (11/05) 비브라토 기준음 '따당' · 기록 도전 랜덤 기준음 · 주변 소리 확인 1번
