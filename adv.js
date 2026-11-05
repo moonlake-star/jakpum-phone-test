@@ -164,7 +164,7 @@
         stepper("페이드 아웃", () => get("fade_out"), (v) => put("fade_out", v), { step: 0.05, min: 0, max: 2, def: 0, fmt: sec }));
       rows.forEach(r => { if (!r._desc) { body.appendChild(r); return; } const w = document.createElement("div"), p = document.createElement("p"); p.className = "advD"; p.textContent = r._desc; w.appendChild(r); w.appendChild(p); body.appendChild(w); });
       const tip = document.createElement("p"); tip.className = "advTip";
-      tip.textContent = k === "g" || k === "m" ? "볼륨·페이드·음색은 음정선에 안 보여요 · 완성본 다시 만들기 뒤 들려요" : "보정 후 선(하늘색)에 바로 그려져요 · 진짜 소리는 완성본 다시 만들기 뒤";
+      tip.textContent = k === "m" ? "음색은 폰에서 못 들려줘요(선에도 안 보여요) · 완성본 다시 만들기 뒤에 들려요" : k === "g" ? "볼륨·페이드는 ▶로 근사 소리가 바로 들려요(선엔 안 보여요) · 정확한 소리는 완성본 다시 만들기 뒤" : "하늘색 선에 바로 그려지고 ▶로 근사 소리도 들려요 · 정확한 소리는 완성본 다시 만들기 뒤";   // (11/06) 미리듣기와 완성본 차이 안내
       body.appendChild(tip);
     };
     el.querySelectorAll("[data-at]").forEach(x => x.onclick = (e) => { e.stopPropagation(); show(x.dataset.at); });
@@ -230,7 +230,7 @@
     const d = document.createElement("div"); d.id = "advG"; d.className = "advG";
     d.innerHTML = `<div class="advGBox" role="dialog" aria-label="일괄 보정"><div class="advGHd"><b>🎛 일괄 보정</b><span class="advGN"></span><button type="button" class="advX" aria-label="닫기">✕</button></div><div class="advBody"></div>
       <div class="advGBtns"><button type="button" data-g="undo">↶ 한 단계 되돌리기</button><button type="button" data-g="midi">🎹 MIDI 내보내기</button><button type="button" data-g="reset">디테일 보정 전부 원래대로</button></div>
-      <p class="advTip">보컬·MR 두 파일로 올린 곡은 완성본을 다시 만들면 보정된 보컬만 담긴 WAV(24bit)도 드라이브 작업 폴더에 생겨요(vocal_tuned.wav).</p></div>`;
+      <p class="advTip">일괄 보정은 폰에서 못 들려줘요 · 완성본 다시 만들기 뒤에 들려요.</p><p class="advTip">보컬·MR 두 파일로 올린 곡은 완성본을 다시 만들면 보정된 보컬만 담긴 WAV(24bit)도 드라이브 작업 폴더에 생겨요(vocal_tuned.wav).</p></div>`;
     const body = d.querySelector(".advBody"), G_ = (k, dft) => (g()[k] != null ? g()[k] : dft);
     const put = (k, v) => change(A, st, cv, () => { g()[k] = v; });
     const putLv = (k, v) => change(A, st, cv, () => { g().level = Object.assign({ quiet: 0, loud: 0 }, g().level || {}); g().level[k] = v; });

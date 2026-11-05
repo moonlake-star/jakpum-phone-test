@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>미리듣기 속도 재기</title>
+<style>body{margin:0;background:#10141a;color:#e8ecf2;font:16px/1.5 system-ui,sans-serif;padding:18px}button{font:inherit;font-weight:800;padding:14px 22px;border-radius:12px;border:0;background:#ffd27a;color:#10141a;width:100%}
+.r{margin-top:14px;background:#1a1f27;border-radius:12px;padding:12px 14px}.big{font-size:22px;font-weight:800;color:#8fe3a3}small{color:#9aa4b2}</style></head><body>
+<h2 style="margin:0 0 6px">미리듣기 속도 재기</h2>
+<p style="margin:0 0 14px;color:#9aa4b2">합성한 목소리(녹음 아님)로, 이 폰이 소리를 다시 만드는 데 걸리는 시간을 잽니다. 약 20초 걸려요. 끝나면 화면을 캡처해서 보내 주세요.</p>
+<button id="go">속도 재기 시작</button><div id="out"></div>
+<script>
+// 앱(teacher/index.html)의 pvMarks·pvPsola와 같은 코드(복사본) — 합성 목소리로만 잼. 실제 녹음·개인정보 없음.
+function pvMarks(x, sr, f0) {   // 분석 표시: 주기마다 봉우리 [자리, 주기, 소리 있음]
+  const n = x.length, U = Math.round(sr * 0.005);
+  const per = (i) => { const f = f0[Math.min(n - 1, Math.max(0, i | 0))]; return f > 50 ? sr / f : 0; };
+  const mk = []; let i = 0;
+  while (i < n) { const T = per(i); if (!T) { mk.push([i, U, false]); i += U; continue; }
+    const prevV = mk.length && mk[mk.length - 1][2], lo = prevV ? Math.max(0, Math.round(i - T * 0.25)) : i, hi = Math.min(n - 1, Math.round(prevV ? i + T * 0.25 : i + T));
+    let b = lo, bv = -1; for (let k = lo; k <= hi; k++) { const v = Math.abs(x[k]); if (v > bv) { bv = v; b = k; } }
+    if (mk.length && b <= mk[mk.length - 1][0]) b = mk[mk.length - 1][0] + 1;
+    mk.push([b, Math.max(8, Math.round(T)), true]); i = b + Math.round(T); }
+  for (let k = 0; k + 1 < mk.length; k++) if (mk[k][2] && mk[k + 1][2]) { const g = mk[k + 1][0] - mk[k][0]; if (g > mk[k][1] * 0.6 && g < mk[k][1] * 1.6) mk[k][1] = g; }   // 실제 봉우리 간격 = 주기(비율 1이면 원래 소리 그대로 → 구간 경계도 매끄럽게)
+  return mk;
+}
+function pvPsola(x, sr, f0, rat) {   // TD-PSOLA: 분석 표시(주기마다 봉우리) → 새 간격(T/비율)으로 2주기 한(Hann) 창을 겹쳐 붙임 · 길이 그대로
+  const n = x.length, R = (i) => typeof rat === "number" ? rat : rat[Math.min(n - 1, Math.max(0, i | 0))], mk = pvMarks(x, sr, f0);
+  const y = new Float32Array(n), ws = new Float32Array(n); let ts = mk.length ? mk[0][0] : n, j = 0;
+  while (ts < n) {
+    while (j + 1 < mk.length && Math.abs(mk[j + 1][0] - ts) <= Math.abs(mk[j][0] - ts)) j++;
+    const [c, L, v] = mk[j], o0 = Math.round(ts);
+    for (let k = -L; k <= L; k++) { const s_ = c + k, o = o0 + k; if (s_ < 0 || s_ >= n || o < 0 || o >= n) continue; const w = 0.5 + 0.5 * Math.cos(Math.PI * k / L); y[o] += x[s_] * w; ws[o] += w; }
+    ts += v ? L / R(ts) : L;
+  }
+  const out = new Float32Array(n); for (let k = 0; k < n; k++) out[k] = ws[k] > 0.05 ? y[k] / ws[k] : x[k];
+  return out;
+}
+
+const out = document.getElementById("out"), add = (h) => { const d = document.createElement("div"); d.className = "r"; d.innerHTML = h; out.appendChild(d); };
+const wait = () => new Promise(r => setTimeout(r, 30));
+function voice(sr, dur) { const n = Math.round(sr * dur), y = new Float32Array(n), f0 = new Float32Array(n); let ph = 0; for (let i = 0; i < n; i++) { const f = 220 * 2 ** (Math.sin(2 * Math.PI * 0.3 * i / sr) * 0.05) + 2 * Math.sin(2 * Math.PI * 5.5 * i / sr); f0[i] = f; ph += 2 * Math.PI * f / sr; let v = 0; for (let k = 1; k <= 8; k++) v += Math.sin(k * ph) / k; y[i] = 0.2 * v; } return { y, f0 }; }
+document.getElementById("go").onclick = async () => {
+  out.innerHTML = ""; const sr = new (window.AudioContext || window.webkitAudioContext)().sampleRate;
+  add("폰 정보: " + (navigator.hardwareConcurrency || "?") + "코어 · 소리 표본율 " + sr + "Hz<br><small>" + navigator.userAgent.slice(0, 90) + "</small>");
+  const rows = []; let per = 0;
+  for (const dur of [3, 10, 30]) { await wait(); const { y, f0 } = voice(sr, dur); const t0 = performance.now(); pvPsola(y, sr, f0, 2 ** (100 / 1200)); const ms = performance.now() - t0; rows.push([dur, ms]); per = ms / dur;
+    add(dur + "초 분량 다시 만들기: <span class=big>" + Math.round(ms) + " ms</span> <small>(" + (dur * 1000 / ms).toFixed(1) + "배 빠름)</small>"); }
+  const full = per * 180 / 1000; add("3분 곡 전체를 한 번에 만든다면: <span class=big>약 " + full.toFixed(1) + "초</span><br><small>재생 위치 앞 20초만 만든다면 약 " + (per * 20 / 1000).toFixed(2) + "초 · 첫 3초는 " + Math.round(rows[0][1]) + "ms</small>");
+};
+</script></body></html>
