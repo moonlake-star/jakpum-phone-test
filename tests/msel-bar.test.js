@@ -37,7 +37,7 @@ assert.ok(T.includes("const edgeAuto = (d)") && T.includes("drag.lx = l0.x; edge
 const f = H.indexOf("const onFixMany = async (list)"); assert.ok(f > 0, "onFixMany");
 const body = H.slice(f, H.indexOf("// (11/03 13:08 사용자 승인) 타이밍·길이", f));
 assert.strictEqual((body.match(/await writeJSON\(/g) || []).length, 1, "저장은 한 번");
-assert.ok(H.includes("onFix, onFixMany, onTime"), "wire에 넘김");
+assert.ok(H.includes("onFix, onFixMany, histGet, histSet, onTime"), "wire에 넘김");
 console.log("msel-bar ok");
 // (11/05 사용자) 분홍 세로선: 꾹 누르지 않아도 바로 잡아 끌면 범위 조절(반대쪽 끝 고정), 떼도 선택 유지 · 🌬 치찰음·호흡은 고른 구간의 도구(따로 버튼 없음)
 assert.ok(T.includes("d0.armed = { x: l0.x, t: st.msel[1 - side], keep: true }") && T.includes("if (d.armed.keep) return; st.msel = null;") && T.includes("!drag.edgeLp"), "분홍선 바로 잡기");
