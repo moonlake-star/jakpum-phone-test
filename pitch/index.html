@@ -163,6 +163,22 @@ input,select{font:inherit;color:var(--ink)}
 .vgd #vgB{min-width:84px}.vgd button.bp{animation:bpop .18s ease-out}.vgd button.bp1{animation:bpop1 .24s ease-out;background:#12323c;border-color:#7fe3ff;color:#7fe3ff}
 @keyframes bpop{0%{transform:scale(1)}35%{transform:scale(1.18)}100%{transform:scale(1)}}@keyframes bpop1{0%{transform:scale(1)}35%{transform:scale(1.32)}100%{transform:scale(1)}}
 .vgd button.on{background:#12323c;border-color:#7fe3ff;color:#7fe3ff}.vgd #vgT{flex:1}
+/* (11/05 사용자) 폰 브라우저에서 비브라토 화면이 위아래로 빡빡 → 점수 줄·아래 안내 줄(파형 칸 안에 같은 안내가 있음)을 접고 줄 간격을 줄여 파형 칸을 넓힘 */
+#v-practice.vibView .stats,#v-practice.vibView .hint{display:none}
+#v-practice.vibView .hud{padding:6px 12px 2px}
+#v-practice.vibView #vibHud{margin:2px 16px 4px 6px}
+#v-practice.vibView .vgrid{gap:12px}
+#v-practice.vibView .vstreak{margin-top:5px}
+#v-practice.vibView .vlad{margin-top:5px;gap:4px}
+#v-practice.vibView .vlad button{min-height:34px;padding:3px 0 2px}
+#v-practice.vibView .vgd{margin-top:5px}
+#v-practice.vibView .vgd button{min-height:32px}
+#v-practice.vibView #cbar{gap:4px;padding:6px 12px 4px}
+#v-practice.vibView .seg.big button{height:38px}
+#v-practice.vibView .seg.s2{margin-top:4px}
+#v-practice.vibView .dock{padding:6px 12px}
+#v-practice.vibView .controls{margin-top:6px}
+#v-practice.vibView .cta{height:44px}
 .vstreak b{color:var(--ink);font-size:14px;min-width:14px}.vfb{margin-left:auto;font-size:11px;color:var(--muted);flex:1;min-width:0;text-align:right;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.vstreak{height:34px;box-sizing:border-box}.vstreak>span:first-child{white-space:nowrap}.vfb.ok{color:var(--ok)}
 @keyframes flashA{from{opacity:.95}to{opacity:0}}
 .flash{position:absolute;inset:0;pointer-events:none;box-shadow:inset 0 0 70px 14px var(--fc,#ffd27a);animation:flashA .75s ease-out forwards;z-index:4}
@@ -1028,7 +1044,7 @@ function renderCourseUI() {
   $('#subBar').style.display = (!tb.hidden || vm) ? 'flex' : 'none'; renderVwEx();
   $('#ctrack').style.display = (cm || vm) ? 'none' : ''; $('#cprog').style.display = cm ? '' : 'none'; $('#vibHud').style.display = vm ? 'block' : 'none';
   $('#sBest').previousElementSibling.textContent = vm ? '최고 연속' : '최고 유지'; if (vm) { renderVibZones(); renderVibGuide(); } setMonUI();
-  const sv = cm && C.stage === 3; $('#v-practice').classList.toggle('scaleView', sv);
+  const sv = cm && C.stage === 3; $('#v-practice').classList.toggle('scaleView', sv); $('#v-practice').classList.toggle('vibView', vm);
   if (sv && C.line) { const L = C.line; $('#scTitle').textContent = `${VOICE[L.g].name} · ${SCALES.find(x => x.k === L.k).t}`; }
   updateTargetChip(); renderCOv();
 }
