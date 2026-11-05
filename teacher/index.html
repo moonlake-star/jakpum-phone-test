@@ -1159,7 +1159,7 @@ function paintList(data, stale) {
       `<div class="muted">${sub}</div></div><div class="stuBody"><div class="sum">${chips || `<span class="muted">아직 기록 없음</span>`}</div></div></div>`;
   });
   // 가입 신청·계정 연결 카드는 맨 아래(2026-10-27 사용자: 맨 위에 늦게 생겨 아래가 밀리며 엉뚱한 게 눌림)
-  $("vList").innerHTML = `<div class="row" style="gap:6px;margin:0 0 8px;flex-wrap:nowrap"><button class="ghost" id="calBtn" style="flex:1">${IC_CAL} 레슨 캘린더</button>${isStaffApp() ? "" : `<button class="ghost" id="nsBtn" style="flex:1">＋ 신규 수강생</button>`}</div>` + pitchLinkHtml() + `<div id="pitchAll"></div>` + segHtml + todoHtml + `<div id="careBox"></div>` + blocks.join("") + `<div id="joinReq">${lastJoinHtml}</div>` +
+  $("vList").innerHTML = `<div class="row" style="gap:6px;margin:0 0 8px;flex-wrap:nowrap"><button class="ghost" id="calBtn" style="flex:1">${IC_CAL} 레슨 캘린더</button>${isStaffApp() ? "" : `<button class="ghost" id="nsBtn" style="flex:1">＋ 신규 수강생</button>`}</div>` + pitchLinkHtml() + `<div id="pitchAll"></div><div id="pitchRec"></div>` + segHtml + todoHtml + `<div id="careBox"></div>` + blocks.join("") + `<div id="joinReq">${lastJoinHtml}</div>` +
     `<p class="muted">${stale ? "최신 내용 확인 중…" : "최신 상태"} · <a href="#" id="reload">새로고침</a> · 앱 버전 ${typeof BUILD === "string" ? BUILD : ""}</p>`;
   $("reload").onclick = (e) => { e.preventDefault(); renderList(); };
   $("calBtn").onclick = () => openCal();
@@ -1171,7 +1171,7 @@ function paintList(data, stale) {
   $("vList").querySelectorAll("[data-tf]").forEach(b => b.onclick = () => { LS.set("vn_tfilter", b.dataset.tf); paintList(allData, stale); });
   $("vList").insertAdjacentHTML("beforeend", `<div id="retBox"></div><div id="prefsBox"></div><div id="advPermBox"></div><div id="laBox"></div>`); try { paintRetention(allData); } catch (e) { console.warn("유지 지표", e); } paintPrefs(); paintAdvPerm(); paintLaBox(); if (laIsOn()) laStart();
   paintJoinRequests();
-  try { paintPitchAll(data); } catch {}
+  try { paintPitchAll(data); paintRecMgr(); } catch {}
   try { paintCare(data); if (!isStaffApp() && portalUrl()) usageOf().then(() => paintCare(data)).catch(() => {}); } catch {}
   $("vList").querySelectorAll(".stuCard.tap").forEach(el => el.onclick = () => openStudent(el.dataset.s));
   $("vList").querySelectorAll(".stuCard .retry").forEach(el => el.onclick = (e) => { e.stopPropagation(); renderList(); });
@@ -4027,7 +4027,7 @@ async function paintGrowthTab(sid) {
   const st = cfg.students[sid];
   $("stuTab").innerHTML = `<div id="grUse"></div><div id="grPitch"></div><div id="grTop"></div><div id="grGoal"></div><div id="grPack"></div><div id="grMonth"></div><div id="grShare"></div><div id="mkHabit"><p class="muted">불러오는 중…</p></div><div id="stuGrowth4"></div>`;
   usageOf().then(u => { if (stuCur?.sid === sid && stuCur.tab === "growth" && $("grUse")) $("grUse").innerHTML = usageCard(u?.[sid]); }).catch(() => {});
-  portal("t_pitch", { sid, days: 14 }).then(j => { if (stuCur?.sid === sid && stuCur.tab === "growth" && $("grPitch")) $("grPitch").innerHTML = pitchCard(j.days); }).catch(() => {});
+  portal("t_pitch", { sid, days: 14 }).then(j => { if (stuCur?.sid === sid && stuCur.tab === "growth" && $("grPitch")) { $("grPitch").innerHTML = pitchCard(j.days); const pr = $("grPitch").querySelector(".pitchRec"); if (pr) recListInto(pr, sid, !isStaffApp()); } }).catch(() => {});
   paintHabit(sid, "growth").then(() => { if (stuCur?.sid === sid && stuCur.tab === "growth") { if (st._habit) { wireGrowthShare(sid); pushGrowth(sid).catch(() => {}); } wireMonth(sid); try { wirePack(sid); } catch (e) { console.warn("pack", e); } try { wireGoal(sid); } catch (e) { console.warn("goal", e); } } });
   try { const rec = await rootFile(st, "수강생기록.json"); if (stuCur?.sid === sid && stuCur.tab === "growth") paintGrowth4(rec, st); } catch {}
 }
@@ -4384,13 +4384,62 @@ function paintPitchAll(data) {
 }
 function pitchCard(days) {
   days = Array.isArray(days) ? days : [];
-  if (!days.length) return `<div class="card pitchCard"><b>🎤 음정 연습</b><p class="muted" style="margin:4px 0 0">아직 기록이 없어요 · 수강생이 앱의 ‘음정 연습’에서 ‘기록 도전’으로 연습하면 날짜별로 쌓여요</p></div>`;
+  if (!days.length) return `<div class="card pitchCard"><b>🎤 음정 연습</b><p class="muted" style="margin:4px 0 0">아직 기록이 없어요 · 수강생이 앱의 ‘음정 연습’에서 ‘기록 도전’으로 연습하면 날짜별로 쌓여요</p><div class="pitchRec" data-pr="1"></div></div>`;
   const mm = (s) => s >= 60 ? `${Math.round(s / 60)}분` : `${Math.round(s)}초`, md = (d) => `${+String(d).slice(5, 7)}/${+String(d).slice(8, 10)}`;
   const tot = days.reduce((a, d) => a + (d.sec || 0), 0), sc = days.filter(d => d.score != null);
   return `<div class="card pitchCard"><b>🎤 음정 연습</b> <span class="muted" style="font-size:.85rem">최근 ${days.length}일 기록 · 합계 ${mm(tot)}${sc.length ? ` · 평균 점수 ${Math.round(sc.reduce((a, d) => a + d.score, 0) / sc.length)}점` : ""}</span>
     ${days.slice(0, 14).map(d => `<p style="margin:6px 0 0"><b>${md(d.day)}</b> · ${mm(d.sec || 0)}${d.score != null ? ` · ${Math.round(d.score)}점` : ""}${d.hold ? ` · 최고 유지 ${d.hold}초` : ""}${(d.co || []).length ? ` · 코스 ${"★".repeat(Math.max(...d.co.map(x => x.s || 0)))}` : ""}</p>`).join("")}
-    <p class="muted" style="margin:8px 0 0;font-size:.85rem">점수는 목표음에 맞은 시간 비율이에요. 녹음은 저장하지 않아요.</p></div>`;
+    <p class="muted" style="margin:8px 0 0;font-size:.85rem">점수는 목표음에 맞은 시간 비율이에요. 아래 녹음은 수강생이 ‘미션 제출’한 것만 보여요.</p><div class="pitchRec" data-pr="1"></div></div>`;
 }
+// (11/05 사용자) 수강생이 '미션 제출'한 연습 녹음 — 원장·담당 강사가 듣기(서버가 담당 아니면 거절), 지우기는 원장만. 수강생이 그만둬도 자동 삭제 없음
+const recMd = (d) => `${+String(d).slice(5, 7)}/${+String(d).slice(8, 10)}`, recMb = (b) => b >= 1e6 ? `${(b / 1e6).toFixed(1)}MB` : `${Math.max(1, Math.round(b / 1e3))}KB`;
+let recAud = null;
+function recPlay(btn, sid, take) {
+  if (recAud) { try { recAud.pause(); URL.revokeObjectURL(recAud.src); } catch (e) {} const was = recAud._b; recAud = null; if (was) was.textContent = "▶"; if (was === btn) return; }
+  btn.textContent = "…"; btn.disabled = true;
+  portal("t_pitch_rec_get", { sid, take, _nb: true }).then(j => {
+    const bin = atob(j.data), u8 = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+    const a = new Audio(URL.createObjectURL(new Blob([u8], { type: j.mime || "audio/webm" }))); a._b = btn; recAud = a;
+    a.onended = () => { btn.textContent = "▶"; try { URL.revokeObjectURL(a.src); } catch (e) {} if (recAud === a) recAud = null; };
+    btn.textContent = "■"; btn.disabled = false; return a.play();
+  }).catch(e => { btn.textContent = "▶"; btn.disabled = false; toast("재생하지 못했어요: " + String(e.message || e).replace("수강생 노트 연결: ", "")); });
+}
+async function recListInto(box, sid, owner, after) {
+  box.innerHTML = '<p class="muted" style="margin:6px 0 0">제출된 녹음 불러오는 중…</p>';
+  let j; try { j = await portal("t_pitch_rec", { sid, _nb: true }); } catch (e) { box.innerHTML = '<p class="muted" style="margin:6px 0 0">제출 녹음을 불러오지 못했어요(서버가 새 버전이 아닐 수 있어요)</p>'; return; }
+  const t = j.takes || [];
+  if (!t.length) { box.innerHTML = '<p class="muted" style="margin:6px 0 0">제출된 녹음이 아직 없어요 · 수강생이 기록 도전 뒤 ‘미션 제출’을 누르면 여기에 나와요</p>'; return; }
+  box.innerHTML = `<p style="margin:8px 0 2px"><b>🎧 제출된 녹음 ${t.length}개</b></p>` + t.map(x => `<div class="rcRow" data-t="${esc(x.take)}" style="display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--line,#ddd)"><span style="flex:1">${recMd(x.day)} · ${x.sec >= 60 ? Math.round(x.sec / 60) + "분" : Math.round(x.sec) + "초"}${x.score != null ? ` · ${Math.round(x.score)}점` : ""} <span class="muted" style="font-size:.8rem">${recMb(x.bytes || 0)}</span></span><button class="ghost rcPlay" style="min-width:44px;min-height:40px">▶</button>${owner ? '<button class="ghost rcDel" style="min-height:40px" aria-label="삭제">🗑</button>' : ""}</div>`).join("");
+  box.querySelectorAll(".rcRow").forEach(r => { const take = r.dataset.t;
+    r.querySelector(".rcPlay").onclick = (ev) => recPlay(ev.currentTarget, sid, take);
+    const d = r.querySelector(".rcDel"); if (d) d.onclick = async () => { if (!confirm("이 녹음을 삭제할까요?\n(드라이브 휴지통으로 가요)")) return; try { await portal("t_pitch_rec_del", { sid, take }); toast("삭제했어요"); recListInto(box, sid, owner, after); after && after(); } catch (e) { toast("삭제하지 못했어요"); } }; });
+}
+// 원장 전용 '녹음 관리': 수강생별 개수·용량·마지막 제출, 그만둔 수강생 표시, 하나씩/전체 삭제
+function paintRecMgr() {
+  const box = $("pitchRec"); if (!box || isStaffApp() || !portalUrl()) return;
+  box.innerHTML = `<details class="card pitchAll"><summary><b>🗂 연습 녹음 관리</b> <span class="muted" id="rmSum">눌러서 보기</span></summary><div id="rmBody" class="muted" style="margin-top:6px"></div></details>`;
+  const det = box.querySelector("details"), body = $("rmBody");
+  const load = async () => {
+    body.className = "muted"; body.textContent = "불러오는 중…";
+    let j, js; try { [j, js] = await Promise.all([portal("t_pitch_rec_all", { _nb: true }), portal("t_pitch_staff", { _nb: true }).catch(() => ({ staff: [] }))]); } catch (e) { body.textContent = "불러오지 못했어요 · 서버가 새 버전인지 확인해 주세요"; return; }
+    const R = (j.students || []).map(r => { const st = cfg.students[r.sid]; return { ...r, st, gone: !!st && enrollOf(st) !== "active" }; })
+      .sort((a, b) => (b.gone - a.gone) || String(b.last).localeCompare(String(a.last)));
+    const tot = R.reduce((a, r) => a + r.bytes, 0), n = R.reduce((a, r) => a + r.n, 0);
+    $("rmSum").textContent = R.length ? `${R.length}명 · ${n}개 · ${recMb(tot)}` : "제출된 녹음 없음";
+    body.className = "";
+    body.innerHTML = (R.length ? R.map(r => `<div class="rmRow" data-s="${esc(r.sid)}" style="padding:8px 0;border-top:1px solid var(--line,#ddd)"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b style="flex:1;min-width:90px">${esc(r.st?.name || r.sid)}${r.gone ? ' <span class="muted" style="font-size:.8rem">· 그만둠/쉬는 중</span>' : ""}</b><span class="muted" style="font-size:.85rem">${r.n}개 · ${recMb(r.bytes)} · ${recMd(String(r.last).slice(0, 10))}</span><button class="ghost rmSee" style="min-height:40px">듣기</button><button class="ghost rmAll" style="min-height:40px">전체 삭제</button></div><div class="rmList"></div></div>`).join("")
+      : '<p class="muted">제출된 녹음이 없어요</p>') + ((js?.staff || []).length ? `<p style="margin:12px 0 2px"><b>🎤 강사 본인 연습(점수만)</b></p>` + js.staff.map(x => { const d = (x.days || [])[0]; return `<div style="padding:5px 0;border-top:1px solid var(--line,#ddd)"><b>${esc(x.email.split("@")[0])}</b> <span class="muted">${d ? `${recMd(d.day)} ${d.score != null ? Math.round(d.score) + "점 · " : ""}최근 ${x.days.length}일 기록` : "기록 없음"}</span></div>`; }).join("") : "");
+    body.querySelectorAll(".rmRow").forEach(row => { const sid = row.dataset.s, list = row.querySelector(".rmList");
+      row.querySelector(".rmSee").onclick = () => { if (list.dataset.on) { list.dataset.on = ""; list.innerHTML = ""; return; } list.dataset.on = "1"; recListInto(list, sid, true, load); };
+      row.querySelector(".rmAll").onclick = async () => { const r = R.find(x => x.sid === sid); if (!confirm(`${r.st?.name || sid} 수강생이 제출한 녹음 ${r.n}개를 모두 삭제할까요?\n(드라이브 휴지통으로 가요 · 되돌릴 수 없는 줄 단위 삭제예요)`)) return; try { const k = await portal("t_pitch_rec_purge", { sid }); toast(`${k.n}개 삭제했어요`); load(); } catch (e) { toast("삭제하지 못했어요"); } }; });
+  };
+  det.addEventListener("toggle", () => { if (det.open && body.dataset.done !== "1") { body.dataset.done = "1"; load(); } });
+}
+// 앱 안 음정 연습(iframe)의 강사 본인 점수 → 서버 t_pitch_self(녹음 없음). 받았다는 답을 보내야 연습 화면이 큐에서 뺌
+window.addEventListener("message", (e) => {
+  const f = document.querySelector("#pitchEmb iframe"); if (!f || e.origin !== location.origin || e.source !== f.contentWindow || !e.data || e.data.vnPitch !== "sum") return;
+  const { day, sum } = e.data; portal("t_pitch_self", { day, sum, _nb: true }).then(() => { try { e.source.postMessage({ vnPitch: "sum_ok", day }, location.origin); } catch (x) {} }).catch(() => {});
+});
 function growthLine(st) {   // 레슨 탭 맨 위 한 줄 → 누르면 성장 탭
   const songs = (st._habit?.songs || []).slice().sort((a, b) => (a.date || "").localeCompare(b.date || "")), S = songs.filter(x => !keyShaky(x)).map(x => songStats(x)).filter(Boolean);
   if (!S.length) return ""; const a = S[0].in15, b = S.at(-1).in15, d = Math.round((b - a) * 100), m = habitModel(songs);
