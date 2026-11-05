@@ -412,8 +412,8 @@ function monthHtml(ms) {
   if (!Array.isArray(ms) || !ms.length) return "";
   return monthCard(ms[0], true) + (ms.length > 1 ? `<details class="card more"><summary>지난 성장 리포트 ${ms.length - 1}개</summary>${ms.slice(1, 12).map(m => monthCard(m, false)).join("")}</details>` : "");
 }
-// (11/05 사용자 승인) 🎤 음정 연습 — 같은 사이트의 음정 연습 화면(../pitch/)을 내 계정으로 엶. '기록 도전' 요약만 선생님께 전달(녹음 없음)
-const pitchLinkHtml = () => `<a class="card pitchGo" href="../pitch/?from=student" data-pitch-open="student" aria-label="음정 연습 열기"><span class="pgIc" aria-hidden="true">🎤</span><span class="pgTx"><b>음정 연습</b><small>꾸준한 발성 연습으로 기초를 탄탄히 해 보아요</small></span><span aria-hidden="true">›</span></a>`;
+// (11/05 사용자 승인) 🎤 발성 연습 — 같은 사이트의 발성 연습 화면(../pitch/)을 내 계정으로 엶. '기록 도전' 요약만 선생님께 전달(녹음 없음)
+const pitchLinkHtml = () => `<a class="card pitchGo" href="../pitch/?from=student" data-pitch-open="student" aria-label="발성 연습 열기"><span class="pgIc" aria-hidden="true">🎤</span><span class="pgTx"><b>발성 연습</b><small>꾸준한 연습으로 기본기를 탄탄히 해 보아요</small></span><span aria-hidden="true">›</span></a>`;
 function timeline() {
   try { Brand.bar(); } catch {}
   history.replaceState(null, "", location.pathname);

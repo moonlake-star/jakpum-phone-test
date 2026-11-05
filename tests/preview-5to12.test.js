@@ -17,7 +17,7 @@ function mk(saveOk = true) {
     addEventListener: (_, fn) => keys.push(fn),
     removeEventListener: (_, fn) => { const i = keys.indexOf(fn); if (i >= 0) keys.splice(i, 1); },
   };
-  const cur = { review: { feedback: '저장된 글', practice: ['음정 연습'] }, sched: { busy: false, pick: {} } };
+  const cur = { review: { feedback: '저장된 글', practice: ['발성 연습'] }, sched: { busy: false, pick: {} } };
   els.fb.value = cur.review.feedback; let paints = 0, saves = 0;
   const buildNote = () => ({ date: '2026-10-28', feedback: els.fb.value, practice: ['음정'], no_mission: false, best: null, clips: [] });
   const f = new Function('$','cur','paintDeliver','saveReview','esc','missionState','document','buildNote',

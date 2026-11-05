@@ -1105,8 +1105,8 @@ function attach(d) {  // 캐시 데이터를 수강생 객체에 붙이기
 }
 const isTeacher = (st) => st.status === "teacher";
 const daysAgo = (name) => { const d = Date.parse((name || "").slice(0, 10)); return isNaN(d) ? 99 : (Date.now() - d) / 864e5; };
-// (11/05 사용자) 선생님도 음정 연습 화면으로 들어갈 수 있게 목록 맨 위에 입구 — 선생님 계정으로 열면 기록은 저장하지 않고 연습 도구로만 써요
-const pitchLinkHtml = () => `<a class="card pitchGo" href="../pitch/" data-pitch-open="teacher" aria-label="음정 연습 열기"><span class="pgIc" aria-hidden="true">🎤</span><span class="pgTx"><b>음정 연습</b><small>꾸준한 발성 연습으로 기초를 탄탄히 해 보아요</small></span><span aria-hidden="true">›</span></a>`;
+// (11/05 사용자) 선생님도 발성 연습 화면으로 들어갈 수 있게 목록 맨 위에 입구 — 선생님 계정으로 열면 기록은 저장하지 않고 연습 도구로만 써요
+const pitchLinkHtml = () => `<a class="card pitchGo" href="../pitch/" data-pitch-open="teacher" aria-label="발성 연습 열기"><span class="pgIc" aria-hidden="true">🎤</span><span class="pgTx"><b>발성 연습</b><small>꾸준한 연습으로 기본기를 탄탄히 해 보아요</small></span><span aria-hidden="true">›</span></a>`;
 function paintList(data, stale) {
   data.forEach(attach);
   // (11/02 사용자 시안 ②) 원장 앱: [전체 | 작품(원장) | 강사…] — 고른 강사 것만(오늘 할 일·수강생 목록)
@@ -4355,8 +4355,8 @@ function usageCard(u) {
     <p style="margin:6px 0 0">마지막 접속 <b>${ago === 0 ? "오늘" : ago + "일 전"}</b> · 연 날 <b>${u.days7}</b>일(7일) / <b>${u.days30}</b>일(30일)</p>
     <p class="muted" style="margin:4px 0 0">녹음 재생 ${u.plays7}번 · ${min(u.listen7)} 들음(7일) · 끝까지 ${u.done30}번 · 음정선 화면 ${u.tune30}번(30일)</p></div>`;
 }
-// (11/05 사용자 승인) 🎤 음정 연습 기록 — 수강생이 앱의 '음정 연습'에서 '기록 도전'으로 한 연습의 날짜별 요약(녹음은 없음). 서버 t_pitch
-// (11/05 사용자) 음정 연습 한눈에 — 원장은 모든 수강생, 강사는 담당 수강생(서버가 담당이 아니면 거절). 접힌 채로 두고 열 때만 수강생별로 불러옴(5분 보관)
+// (11/05 사용자 승인) 🎤 발성 연습 기록 — 수강생이 앱의 '발성 연습'에서 '기록 도전'으로 한 연습의 날짜별 요약(녹음은 없음). 서버 t_pitch
+// (11/05 사용자) 발성 연습 한눈에 — 원장은 모든 수강생, 강사는 담당 수강생(서버가 담당이 아니면 거절). 접힌 채로 두고 열 때만 수강생별로 불러옴(5분 보관)
 let pitchAllMem = null;
 async function pitchAllLoad(sids) {
   if (pitchAllMem && Date.now() - pitchAllMem.at < 300000 && pitchAllMem.k === sids.join()) return pitchAllMem.rows;
@@ -4375,7 +4375,7 @@ function paintPitchAll(data) {
   const box = $("pitchAll"); if (!box || !portalUrl()) return;
   const sids = data.map(d => d.sid).filter(sid => { const st = cfg.students[sid]; return st && !isTeacher(st) && enrollOf(st) === "active"; });
   if (!sids.length) return;
-  box.innerHTML = `<details class="card pitchAll"><summary><b>🎤 수강생 음정 연습</b> <span class="muted" id="paSum">눌러서 보기</span></summary><div id="paBody" class="muted" style="margin-top:6px"></div></details>`;
+  box.innerHTML = `<details class="card pitchAll"><summary><b>🎤 수강생 발성 연습</b> <span class="muted" id="paSum">눌러서 보기</span></summary><div id="paBody" class="muted" style="margin-top:6px"></div></details>`;
   const det = box.querySelector("details"), body = $("paBody");
   const show = (rows) => { const h = pitchAllHtml(rows); $("paSum").textContent = h.sum; body.classList.remove("muted"); body.innerHTML = h.html; body.querySelectorAll(".paRow").forEach(el => el.onclick = () => openStudent(el.dataset.s)); };
   if (pitchAllMem && pitchAllMem.k === sids.join()) show(pitchAllMem.rows);
@@ -4384,10 +4384,10 @@ function paintPitchAll(data) {
 }
 function pitchCard(days) {
   days = Array.isArray(days) ? days : [];
-  if (!days.length) return `<div class="card pitchCard"><b>🎤 음정 연습</b><p class="muted" style="margin:4px 0 0">아직 기록이 없어요 · 수강생이 앱의 ‘음정 연습’에서 ‘기록 도전’으로 연습하면 날짜별로 쌓여요</p><div class="pitchRec" data-pr="1"></div></div>`;
+  if (!days.length) return `<div class="card pitchCard"><b>🎤 발성 연습</b><p class="muted" style="margin:4px 0 0">아직 기록이 없어요 · 수강생이 앱의 ‘발성 연습’에서 ‘기록 도전’으로 연습하면 날짜별로 쌓여요</p><div class="pitchRec" data-pr="1"></div></div>`;
   const mm = (s) => s >= 60 ? `${Math.round(s / 60)}분` : `${Math.round(s)}초`, md = (d) => `${+String(d).slice(5, 7)}/${+String(d).slice(8, 10)}`;
   const tot = days.reduce((a, d) => a + (d.sec || 0), 0), sc = days.filter(d => d.score != null);
-  return `<div class="card pitchCard"><b>🎤 음정 연습</b> <span class="muted" style="font-size:.85rem">최근 ${days.length}일 기록 · 합계 ${mm(tot)}${sc.length ? ` · 평균 점수 ${Math.round(sc.reduce((a, d) => a + d.score, 0) / sc.length)}점` : ""}</span>
+  return `<div class="card pitchCard"><b>🎤 발성 연습</b> <span class="muted" style="font-size:.85rem">최근 ${days.length}일 기록 · 합계 ${mm(tot)}${sc.length ? ` · 평균 점수 ${Math.round(sc.reduce((a, d) => a + d.score, 0) / sc.length)}점` : ""}</span>
     ${days.slice(0, 14).map(d => `<p style="margin:6px 0 0"><b>${md(d.day)}</b> · ${mm(d.sec || 0)}${d.score != null ? ` · ${Math.round(d.score)}점` : ""}${d.hold ? ` · 최고 유지 ${d.hold}초` : ""}${(d.co || []).length ? ` · 코스 ${"★".repeat(Math.max(...d.co.map(x => x.s || 0)))}` : ""}</p>`).join("")}
     <p class="muted" style="margin:8px 0 0;font-size:.85rem">점수는 목표음에 맞은 시간 비율이에요. 아래 녹음은 수강생이 ‘미션 제출’한 것만 보여요.</p><div class="pitchRec" data-pr="1"></div></div>`;
 }
@@ -4435,7 +4435,7 @@ function paintRecMgr() {
   };
   det.addEventListener("toggle", () => { if (det.open && body.dataset.done !== "1") { body.dataset.done = "1"; load(); } });
 }
-// 앱 안 음정 연습(iframe)의 강사 본인 점수 → 서버 t_pitch_self(녹음 없음). 받았다는 답을 보내야 연습 화면이 큐에서 뺌
+// 앱 안 발성 연습(iframe)의 강사 본인 점수 → 서버 t_pitch_self(녹음 없음). 받았다는 답을 보내야 연습 화면이 큐에서 뺌
 window.addEventListener("message", (e) => {
   const f = document.querySelector("#pitchEmb iframe"); if (!f || e.origin !== location.origin || e.source !== f.contentWindow || !e.data || e.data.vnPitch !== "sum") return;
   const { day, sum } = e.data; portal("t_pitch_self", { day, sum, _nb: true }).then(() => { try { e.source.postMessage({ vnPitch: "sum_ok", day }, location.origin); } catch (x) {} }).catch(() => {});
