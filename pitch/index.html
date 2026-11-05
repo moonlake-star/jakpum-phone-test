@@ -111,7 +111,7 @@ input,select{font:inherit;color:var(--ink)}
 #scHead{display:none;width:100%;align-items:center;justify-content:space-between;gap:8px}#scHead b{flex:1;text-align:center;font-size:14px;color:var(--ink)}
 #scBar{display:none;width:100%}#v-practice.scaleView #scHead{display:flex}#v-practice.scaleView #scBar:not(.hid){display:block}
 .scBt{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.scBt button{border:1px solid var(--line);background:#2a3036;color:#c9d1d8;border-radius:10px;padding:5px 2px 6px;font:inherit;font-size:13px;display:flex;flex-direction:column;align-items:center;gap:2px}.scBt button.on{background:#e48d16;border-color:#e48d16;color:#2a1a00;font-weight:700}.scBt svg{display:block}
-#scBar .scSp{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:6px;color:var(--ink)}#scBar .scSp b{min-width:92px;text-align:center;font-size:14px}#scBar .scSp button{width:38px;height:38px;border-radius:50%;background:#1b2024;border:1px solid var(--line);color:var(--ink);font-size:20px;line-height:1}#v-practice.scaleView #segMode,#v-practice.scaleView .stats,#v-practice.scaleView #ctrack,#v-practice.scaleView #goalWrap{display:none}
+#scBar .scSp{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:6px;color:var(--ink)}#scBar .scSp b{min-width:92px;text-align:center;font-size:14px}#scBar .scSp button{width:38px;height:38px;border-radius:50%;background:#1b2024;border:1px solid var(--line);color:var(--ink);font-size:20px;line-height:1}#v-practice.scaleView #segMode{order:-1}#v-practice.scaleView .stats,#v-practice.scaleView #ctrack,#v-practice.scaleView #goalWrap{display:none}
 #cOv.mid .cghost,#cOv.mid .cset{pointer-events:auto}
 .qk{display:flex;flex-direction:column;align-items:center;gap:8px;margin-top:10px;pointer-events:auto}.qk .seg{width:min(330px,88vw)}.qk .seg button{height:40px;font-size:14px;font-weight:600}
 .qsp{display:flex;align-items:center;gap:10px;color:var(--ink)}.qsp b{min-width:92px;text-align:center;font-size:15px}.qsp button{width:46px;height:46px;border-radius:50%;background:#1b2024;border:1px solid var(--line);color:var(--ink);font-size:24px;line-height:1;padding:0}.qsp button:active{background:var(--accent);color:var(--accentInk)}
@@ -324,7 +324,7 @@ summary{cursor:pointer;color:var(--ink2)}
           <div class="vlad" id="vLad"></div>
           <div class="vgd"><button type="button" id="vgT" class="on">가이드 파형 켜짐</button><button type="button" id="vgD" aria-label="가이드 느리게">−</button><button type="button" id="vgU" aria-label="가이드 빠르게">＋</button><button type="button" id="vgB">▶ 박자</button></div></div>
       </div>
-      <div id="cbar"><div id="scHead"><b id="scTitle"></b><button class="btn sm" id="scCfg" aria-label="시작음·브릿지 설정">⚙</button></div><div id="scBar"></div><div class="seg big" id="segMode"><button data-v="free">자유</button><button data-v="course">코스</button><button data-v="vib">비브라토</button></div><div id="subBar"><div id="stTabs" hidden></div><div class="seg" id="segVW" hidden></div><div id="vwEx" hidden></div></div></div>
+      <div id="cbar"><div id="scHead"><b id="scTitle"></b><button class="btn sm" id="scCfg" aria-label="시작음·브릿지 설정">⚙</button></div><div id="scBar"></div><div class="seg big" id="segMode"><button data-v="free">자유</button><button data-v="scale">발성</button><button data-v="course">코스</button><button data-v="vib">비브라토</button></div><div id="subBar"><div id="stTabs" hidden></div><div class="seg" id="segVW" hidden></div><div id="vwEx" hidden></div></div></div>
       <div id="stage"><canvas id="roll"></canvas>
         <div id="targetChip" class="tchip ov" hidden>목표음 <b id="targetName"></b><small>옥타브 무관</small><button id="targetClear" aria-label="목표음 해제">✕</button></div>
         <div id="cOv"></div>
@@ -920,7 +920,8 @@ function freeHint() {
 }
 /* (11/05 사용자) 발성 스케일 연습에 들어가면(이어폰이 안 보일 때) 안내 팝업: 이어폰 권장 + 피아노는 시작 신호 */
 function scaleEarTip() {
-  if (cur !== 'practice' || C.mode !== 'course' || C.stage !== 3 || CFG.earTip || P.earphone || P.running || $('#voicePop') || $('#freePop') || $('#earPop')) return;
+  if (cur !== 'practice' || C.mode !== 'course' || C.stage !== 3 || CFG.earTip || P.earTipShown || P.earphone || P.running || $('#voicePop') || $('#freePop') || $('#earPop')) return;
+  P.earTipShown = 1;   // 앱을 연 뒤 한 번만(모드를 오가도 또 안 뜸)
   const d = document.createElement('div'); d.id = 'earPop'; d.style.cssText = 'position:fixed;inset:0;z-index:80;background:rgba(10,12,14,.84);display:flex;align-items:center;justify-content:center;padding:20px';
   d.innerHTML = '<div class="vpc"><b>발성 스케일 연습에는<br>이어폰 착용을 권장합니다</b><div class="note2" style="margin-top:10px;line-height:1.6">이어폰을 끼면 피아노 소리가 막대 길이만큼 이어져서 따라 부르기 쉬워요.<br>스피커로 할 때는 피아노가 시작 신호로 짧게만 나와요. 그래도 소리가 끝나도 <b>막대 끝까지 이어서</b> 불러 주세요.</div><div class="seg"><button type="button" id="earOk">확인</button><button type="button" id="earNo">다시 보지 않기</button></div></div>';
   document.body.appendChild(d); const done = () => d.remove(); $('#earOk').onclick = done; $('#earNo').onclick = () => { CFG.earTip = 1; saveCfg(); done(); };
@@ -974,13 +975,15 @@ function courseFollow(t, force) {
   if (force || lo < P.low + 2 || hi > P.low + P.rows - 3) P.low = clamp(Math.round((lo + hi) / 2 - P.rows / 2), 12, 108 - P.rows);
 }
 function setMode(v) {
+  const scv = v === 'scale'; if (scv) v = 'course';   // (11/05 사용자) '발성'은 자유·코스·비브라토 옆 버튼 — 코스의 3번 칸(스케일)로 들어가요
   if (v === 'vib' && !vibUnlocked()) { const u = me(); toast(`한 음을 10초 유지하면 열려요 (내 최고 ${pbHoldOf(u.id).toFixed(1)}초)`, 3500); return; }
   if (C.phase === 'play' || C.phase === 'count') abortCourse();
   if (P.pressed != null) releaseKey(); vibReset(); P.hist.length = 0; if (v === 'vib') endHold();
+  if (v !== 'course' && C.stage === 3) C.stage = 0;   // 발성에서 자유·비브라토로 나가면 스케일 칸 해제
   C.mode = v; CFG.mode = v; if (v === 'vib') vibEnter();   // 들어올 때마다 랜덤 기준음을 들려줘요
   if (v === 'free') setTimeout(freeHint, 0);
   saveCfg(); if (P.ghostHold !== undefined) renderGhostMark();
-  if (v === 'course') { if (C.stage === 3) C.stage = 0; loadStage(C.stage); } else { C.phase = 'idle'; renderCourseUI(); }
+  if (v === 'course') { if (scv) C.stage = 3; else if (C.stage === 3) C.stage = 0; loadStage(C.stage); if (scv) setTimeout(scaleEarTip, 400); } else { C.phase = 'idle'; renderCourseUI(); }
 }
 function setPause(on) {
   on = !!on; if (on === !!C.paused) return;
@@ -1001,7 +1004,7 @@ $('#pStop').onclick = e => { e.stopPropagation(); setPause(false); abortCourse()
 function abortCourse() { setPause(false); if (C.phase === 'count' || C.phase === 'play') { C.phase = 'idle'; C.t = -3; C.i = 0; C.act = null; renderCourseUI(); } }
 function renderCourseUI() {
   const cm = C.mode === 'course';
-  $('#segMode').querySelectorAll('button').forEach(b => { b.classList.toggle('on', b.dataset.v === C.mode); if (b.dataset.v === 'vib') b.textContent = vibUnlocked() ? '비브라토' : '🔒 비브라토'; b.onclick = () => { if (b.dataset.v !== C.mode) setMode(b.dataset.v); }; });
+  $('#segMode').querySelectorAll('button').forEach(b => { const ak = cm && C.stage === 3 ? 'scale' : C.mode; b.classList.toggle('on', b.dataset.v === ak); if (b.dataset.v === 'vib') b.textContent = vibUnlocked() ? '비브라토' : '🔒 비브라토'; b.onclick = () => { const k = C.mode === 'course' && C.stage === 3 ? 'scale' : C.mode; if (b.dataset.v !== k) setMode(b.dataset.v); }; });
   const tb = $('#stTabs'); tb.hidden = !cm || C.stage === 3;
   if (cm && C.stage !== 3) { tb.innerHTML = STAGES.slice(0, 3).map((s, i) => `<button data-i="${i}" class="${i === C.stage ? 'on' : ''}" aria-label="스테이지 ${i + 1} ${s[0]}">${i + 1} ${starsBest(i, CFG.diff) ? '★' + starsBest(i, CFG.diff) : '☆'}</button>`).join(''); tb.querySelectorAll('button').forEach(b => b.onclick = () => { if (C.phase === 'play' || C.phase === 'count') return; loadStage(+b.dataset.i); }); }
   const vm = C.mode === 'vib', sw = $('#segVW'); sw.hidden = !vm;
@@ -2251,7 +2254,7 @@ const ICON = {
   remind: '<path d="M6 17v-6a6 6 0 0 1 12 0v6l1.5 2h-15zM10 21h4"/>',
   roster: '<circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M16 5a3 3 0 0 1 0 6M18 14c2 .6 3.5 2.6 3.5 6"/>'
 };
-const TABS = { student: [['practice','음정'],['scale','발성'],['progress','기록'],['badges','뱃지'],['remind','알림']], teacher: [['roster','수강생'],['practice','연습 도구'],['scale','발성']], director: [['roster','수강생'],['practice','연습 도구'],['scale','발성']] };
+const TABS = { student: [['practice','연습'],['progress','기록'],['badges','뱃지'],['remind','알림']], teacher: [['roster','수강생'],['practice','연습 도구']], director: [['roster','수강생'],['practice','연습 도구']] };
 let cur = 'practice';
 /* ============ 발성 tab: scale setup ============ */
 let scRep = 0;
@@ -2291,9 +2294,7 @@ function renderScale(el) {
 function buildTabs() {
   const u = me(); $('#userBtn').innerHTML = TM ? '← 선생님 앱' : SN ? '← 내 노트' : `${esc(u.name)} <b>· ${ROLE_KO[u.role]}</b> ▾`;
   $('#tabs').innerHTML = TABS[u.role].map(([id, nm]) => `<button data-t="${id}" aria-label="${nm}"><svg viewBox="0 0 24 24">${ICON[id]}</svg>${nm}</button>`).join('');
-  $('#tabs').querySelectorAll('button').forEach(b => b.onclick = () => { if (b.dataset.t === 'practice' && C.stage === 3 && !P.running) { C.stage = 0; C.mode = 'free'; CFG.mode = 'free'; saveCfg(); }
-    if (b.dataset.t === 'scale' && !P.running) { if (C.stage !== 3 || C.mode !== 'course') { C.stage = 3; C.mode = 'course'; CFG.mode = 'course'; saveCfg(); } go('practice'); return; }   /* (11/05 사용자) 발성 탭은 바로 연습 화면으로 */
-    go(b.dataset.t); });
+  $('#tabs').querySelectorAll('button').forEach(b => b.onclick = () => go(b.dataset.t));   /* (11/05 사용자) 발성은 연습 화면 위쪽 버튼(자유·발성·코스·비브라토)으로 옮김 */
 }
 function go(t) {
   if (P.running && t !== 'practice') { toast('연습 중이에요. 먼저 "기록 끝내기"를 눌러 주세요.'); return; }
@@ -2301,7 +2302,7 @@ function go(t) {
   if (t !== 'practice') { abortCourse(); vibReset(); }
   if (t !== 'practice' && P.mon) stopMonitor();
   cur = t; document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'v-' + t));
-  const tabId = t === 'detail' ? 'roster' : t === 'practice' && C.mode === 'course' && C.stage === 3 ? 'scale' : t; $('#tabs').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.t === tabId));
+  const tabId = t === 'detail' ? 'roster' : t === 'scale' ? 'practice' : t; $('#tabs').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.t === tabId));
   const el = $('#v-' + t), u = me();
   if (t === 'progress') { renderProgress(el, u.id, { head: (u.demo ? '<div class="demoBar"><span>지금 보이는 날짜·점수는 <b>샘플(데모)</b>이에요</span><button class="btn sm" id="demoClr">샘플 지우고 시작</button></div>' : '') + '<h2>나의 성장 기록</h2><button class="btn sm" id="repBtn" style="margin:-4px 0 12px">📊 오늘 리포트 보기</button>' }); $('#repBtn', el).onclick = () => showReport(u.id, {});
     const dc = $('#demoClr', el); if (dc) { let arm = false; dc.onclick = () => { if (!arm) { arm = true; dc.textContent = '정말 지울까요? 한 번 더'; return; } clearDemo(); }; } }
