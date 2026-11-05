@@ -1221,7 +1221,7 @@ function vibTick(now, dt, m) {
   let sum = 0; for (const x of V.buf) sum += x.m; const mean = sum / V.buf.length; V.ctr = mean;
   const tg = P.target; V.base = tg != null ? tg + 12 * Math.round((mean - tg) / 12) : mean;
   const d = (m - V.base) * 100, ds = V.pd == null ? d : (d + V.pd) / 2; V.pd = d;
-  V.tr.push({ t: now, d }); while (V.tr.length && V.tr[0].t < now - (7000)) V.tr.shift();
+  V.tr.push({ t: now, d }); while (V.tr.length && V.tr[0].t < now - (12000)) V.tr.shift();
   if (now - V.lastAn >= 100) { V.lastAn = now; vibStep(now); }
   if (V.rate != null && V.verdict && V.verdict !== 'none') {           // count finished cycles at the measured speed
     V.cyc += V.rate * dt / 1000;
@@ -1243,10 +1243,10 @@ function vibAnalyze(win) {
   const xd = new Float64Array(N); for (let q = 0; q < N; q++) xd[q] = x[q] - ic - sl * q;
   let sw = 0, sw2 = 0, e2 = 0; for (let q = 0; q < N; q++) { const w = .5 - .5 * Math.cos(2 * Math.PI * q / (N - 1)); x[q] = (x[q] - ic - sl * q) * w; sw += w; sw2 += w * w; e2 += x[q] * x[q]; }
   const sig2 = e2 / sw2, F = [], Pw = []; let tot = 0;
-  for (let f = .25; f <= 20.001; f += .125) { let re = 0, im = 0; const wv = 2 * Math.PI * f / FS; for (let q = 0; q < N; q++) { re += x[q] * Math.cos(wv * q); im += x[q] * Math.sin(wv * q); } F.push(f); Pw.push(re * re + im * im); tot += re * re + im * im; }
+  for (let f = .15; f <= 20.001; f += .125) { let re = 0, im = 0; const wv = 2 * Math.PI * f / FS; for (let q = 0; q < N; q++) { re += x[q] * Math.cos(wv * q); im += x[q] * Math.sin(wv * q); } F.push(f); Pw.push(re * re + im * im); tot += re * re + im * im; }
   let pk = -1, pv = 0; for (let k = 0; k < F.length; k++) if (F[k] >= Math.min(RW.lo, SLOW_LO) && F[k] <= 9 && Pw[k] > pv) { pv = Pw[k]; pk = k; } if (pk < 1 || pk > F.length - 2 || tot <= 0) return null;
   const d2 = Pw[pk - 1] + Pw[pk + 1] - 2 * Pw[pk], off = d2 ? clamp((Pw[pk - 1] - Pw[pk + 1]) / (2 * d2), -.5, .5) : 0, rate = F[pk] + off * .125;
-  let band = 0; const bw = rate < 2 ? .5 : 1.25; for (let k = 0; k < F.length; k++) if (Math.abs(F[k] - rate) <= bw) band += Pw[k];   // 아주 느릴 땐 좁게(느린 음정 흐름과 구분)
+  let band = 0; const bw = rate < .6 ? .15 : rate < 2 ? .5 : 1.25; for (let k = 0; k < F.length; k++) if (Math.abs(F[k] - rate) <= bw) band += Pw[k];   // 아주 느릴 땐 좁게(느린 음정 흐름과 구분)
   const Q = band / tot, qn = clamp((Q - .14) / .86, 0, 1);
   let ext = Math.sqrt(2 * sig2 * qn);
   if (rate < 1.2 && Q >= .5) { const sd = Array.from(xd).sort((u, v) => u - v), pp = sd[Math.floor(N * .9)] - sd[Math.floor(N * .1)]; ext = Math.max(ext, Math.sqrt(2 * sig2) * .92, pp / 1.9 * .95); }   // 아주 느릴 땐 창에 몇 주기 안 들어가 퍼짐 때문에 폭이 작게 나와요: 집중도가 좋으면 전체 흔들림 크기로 봐요
@@ -1255,7 +1255,7 @@ function vibAnalyze(win) {
 }
 /* (11/05 사용자) 느린 비브라토도 음정 궤적이 깨끗하면(스펙트럼 집중도 Q ≥ .55, 폭은 범위 안) 성공으로 인정: 목표 속도보다 느려도 SLOW_LO(약 2.2Hz)까지.
    성공이지만 V.slow = true 로 표시해서 '조금 더 빠르게 도전' 안내에 써요 */
-const SLOW_LO = .4, SLOW_Q = .55, SLOW_WIN = 1900, ULTRA_WIN = 3400, CRAWL_WIN = 5200;   /* (11/05 사용자) 초보자: 맨 아래 칸은 초당 1번도 안 되는 아주 느린 물결(약 0.4Hz, 한 번 흔드는 데 2초 넘게)부터 */
+const SLOW_LO = .2, SLOW_Q = .55, SLOW_WIN = 1900, ULTRA_WIN = 3400, CRAWL_WIN = 5200, LONG_WIN = 9000;   /* (11/05 사용자) 초보자: 맨 아래 칸은 초당 1번도 안 되는 아주 느린 물결(약 0.22Hz, 한 번 흔드는 데 4~5초)부터 */
 /* (11/05 사용자) 속도 사다리: 폭마다 [느려도 인정하는 하한 ~ 목표 상한]을 5칸으로 나눠요. 한 칸에서 '5연속 성공'을 3번 하면 다음 칸이 열리고,
    그 칸의 가운데 속도·폭으로 사인파 가이드를 오른쪽(앞날) 공간에 미리 보여줘요. */
 const VST_N = 5, VST_NEED = 3;
@@ -1315,7 +1315,8 @@ function vibStep(now) {
   let r = vibAnalyze(); const R = VR();
   if (!(r && r.Q >= .4 && r.ext >= 8)) { const r2 = vibAnalyze(SLOW_WIN); if (r2 && r2.Q >= .4 && r2.ext >= 8 && r2.rate < 3.2) r = r2; }
   if (!(r && r.Q >= .4 && r.ext >= 8)) { const r3 = vibAnalyze(ULTRA_WIN); if (r3 && r3.Q >= .6 && r3.ext >= 15 && r3.rate < 1.9) r = r3; }
-  if (!(r && r.Q >= .4 && r.ext >= 8)) { const r4 = vibAnalyze(CRAWL_WIN); if (r4 && r4.Q >= .6 && r4.ext >= 15 && r4.rate < 1.0) r = r4; }   // 0.5Hz 안팎(2초에 한 번): 5.2초 창   // 1Hz 안팎 물결: 3.4초 창, 더 엄격하게(음정이 흘러가는 것과 구분)   // 아주 느린(2Hz대) 비브라토는 더 긴 창(1.9초)으로 다시 봐요
+  if (!(r && r.Q >= .4 && r.ext >= 8)) { const r4 = vibAnalyze(CRAWL_WIN); if (r4 && r4.Q >= .6 && r4.ext >= 15 && r4.rate < 1.0) r = r4; }
+  if (!(r && r.Q >= .4 && r.ext >= 8)) { const r5 = vibAnalyze(LONG_WIN); if (r5 && r5.Q >= .6 && r5.ext >= 15 && r5.rate < .6) r = r5; }   // 0.3Hz 안팎(4초에 한 번): 9초 창   // 0.5Hz 안팎(2초에 한 번): 5.2초 창   // 1Hz 안팎 물결: 3.4초 창, 더 엄격하게(음정이 흘러가는 것과 구분)   // 아주 느린(2Hz대) 비브라토는 더 긴 창(1.9초)으로 다시 봐요
   V.dbg = r;
   if (r && r.Q >= .4 && r.ext >= 8) {
     V.lastExtT = now; V.rate = V.rate == null ? r.rate : V.rate * .7 + r.rate * .3; V.extent = V.extent == null ? r.ext : V.extent * .7 + r.ext * .3;
@@ -1362,7 +1363,7 @@ function updateVibHud() {
 function drawVib(now) {
   const W = P.W, H = P.H, L = PIANO_W, nowX = L + (W - L) * vibFrac(), cy = H / 2, pc = vpc(), R = VR();
   /* 그래프 흐르는 속도: 느린 물결(초보자)일수록 천천히 흘러서 내 파형과 가이드를 충분히 볼 수 있게. 한 주기 길이는 거의 일정하게 유지 */
-  const fTgt = clamp(.2 * (vibGuideOn() ? vibGuideRate() : (V.rS || 2.5)), .09, .5); V.ppsF = V.ppsF == null ? fTgt : V.ppsF + (fTgt - V.ppsF) * .04;
+  const fTgt = clamp(.2 * (vibGuideOn() ? vibGuideRate() : (V.rS || 2.5)), .045, .5); V.ppsF = V.ppsF == null ? fTgt : V.ppsF + (fTgt - V.ppsF) * .04;
   const pps = (W - L) * V.ppsF, WIN = (nowX - L) / pps;
   g2.setTransform(P.dpr, 0, 0, P.dpr, 0, 0); g2.fillStyle = '#22282c'; g2.fillRect(0, 0, W, H);
   g2.fillStyle = 'rgba(76,195,138,.15)'; g2.fillRect(L, cy - R.ext[1] * pc, W - L, (R.ext[1] - R.ext[0]) * pc); g2.fillRect(L, cy + R.ext[0] * pc, W - L, (R.ext[1] - R.ext[0]) * pc);
@@ -1371,7 +1372,7 @@ function drawVib(now) {
   const tr = V.tr, live = tr.length && now - V.lastT < 400, col = V.verdict === 'ok' ? '#7fe3a8' : '#ffb43a';
   g2.save(); g2.beginPath(); g2.rect(L, 0, W - L, H); g2.clip(); g2.lineJoin = 'round'; g2.lineCap = 'round';
   /* 보이는 선만 부드럽게(판정은 원본 그대로): 느릴수록 더 많이 펴 줘서 '불안하게 떠는' 것처럼 안 보이게 */
-  const fS = vibGuideOn() ? vibGuideRate() : (V.rS || 3), sw = clamp(.22 / Math.max(fS, .45), .04, .4);
+  const fS = vibGuideOn() ? vibGuideRate() : (V.rS || 3), sw = clamp(.22 / Math.max(fS, .3), .04, .6);
   const segs = []; { let cur = null, pt0 = 0; for (const q of tr) { if ((now - q.t) / 1000 > WIN + .1) continue; if (!cur || q.t - pt0 > 150) { cur = []; segs.push(cur); } cur.push(q); pt0 = q.t; } }
   V.yEnd = null;
   const sm = segs.map(sg => sg.map((q, i) => { let a = 0, w = 0; for (let k = i; k >= 0; k--) { const dt = (q.t - sg[k].t) / 1000; if (dt > sw) break; const ww = 1 - dt / sw; a += sg[k].d * ww; w += ww; } for (let k = i + 1; k < sg.length; k++) { const dt = (sg[k].t - q.t) / 1000; if (dt > sw) break; const ww = 1 - dt / sw; a += sg[k].d * ww; w += ww; } return { x: nowX - (now - q.t) / 1000 * pps, y: cy - clamp(a / w, -(R.max - 5), R.max - 5) * pc, t: q.t }; }));
@@ -2188,7 +2189,7 @@ const ICON = {
   remind: '<path d="M6 17v-6a6 6 0 0 1 12 0v6l1.5 2h-15zM10 21h4"/>',
   roster: '<circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M16 5a3 3 0 0 1 0 6M18 14c2 .6 3.5 2.6 3.5 6"/>'
 };
-const TABS = { student: [['practice','연습'],['scale','발성'],['progress','기록'],['badges','뱃지'],['remind','알림']], teacher: [['roster','수강생'],['practice','연습 도구'],['scale','발성']], director: [['roster','수강생'],['practice','연습 도구'],['scale','발성']] };
+const TABS = { student: [['practice','음정'],['scale','발성'],['progress','기록'],['badges','뱃지'],['remind','알림']], teacher: [['roster','수강생'],['practice','연습 도구'],['scale','발성']], director: [['roster','수강생'],['practice','연습 도구'],['scale','발성']] };
 let cur = 'practice';
 /* ============ 발성 tab: scale setup ============ */
 let scRep = 0;
