@@ -969,7 +969,7 @@ function courseFollow(t, force) {
 function setMode(v) {
   if (v === 'vib' && !vibUnlocked()) { const u = me(); toast(`한 음을 10초 유지하면 열려요 (내 최고 ${pbHoldOf(u.id).toFixed(1)}초)`, 3500); return; }
   if (C.phase === 'play' || C.phase === 'count') abortCourse();
-  if (P.pressed != null) releaseKey(); vibReset(); if (v === 'vib') endHold();
+  if (P.pressed != null) releaseKey(); vibReset(); P.hist.length = 0; if (v === 'vib') endHold();
   C.mode = v; CFG.mode = v; if (v === 'vib') vibEnter();   // 들어올 때마다 랜덤 기준음을 들려줘요
   if (v === 'free') setTimeout(freeHint, 0);
   saveCfg(); if (P.ghostHold !== undefined) renderGhostMark();
@@ -1696,7 +1696,7 @@ function loop(ts) {
   } else if (now - P.lastMT > 400) P.shiftT = 0;
   if (cp) courseTick(now, dt, sm); else if (vb) { if (sm != null) P.lastVoiceT = now; } else gameTick(now, dt, sm, dev);
   if (P.running && now - P.lastVoiced < 4000 && document.visibilityState === 'visible') P.activeMs += dt;
-  P.hist.push({ t: now, m: sm, ok, pf: dev != null && Math.abs(dev) * 100 <= 8 }); while (P.hist.length && now - P.hist[0].t > (HIST_S + 1) * 1000) P.hist.shift();
+  if (C.mode === 'vib') P.hist.length = 0; else P.hist.push({ t: now, m: sm, ok, pf: dev != null && Math.abs(dev) * 100 <= 8 }); while (P.hist.length && now - P.hist[0].t > (HIST_S + 1) * 1000) P.hist.shift();
   P.lowF += (P.low - P.lowF) * .15; if (Math.abs(P.low - P.lowF) < .01) P.lowF = P.low;
   // HUD
   const showN = P.lastM != null && now - P.lastMT < 350;
