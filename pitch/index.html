@@ -1215,7 +1215,7 @@ function vibTick(now, dt, m) {
   let sum = 0; for (const x of V.buf) sum += x.m; const mean = sum / V.buf.length; V.ctr = mean;
   const tg = P.target; V.base = tg != null ? tg + 12 * Math.round((mean - tg) / 12) : mean;
   const d = (m - V.base) * 100, ds = V.pd == null ? d : (d + V.pd) / 2; V.pd = d;
-  V.tr.push({ t: now, d }); while (V.tr.length && V.tr[0].t < now - (Math.max(VR().win, SLOW_WIN) + 600)) V.tr.shift();
+  V.tr.push({ t: now, d }); while (V.tr.length && V.tr[0].t < now - (6000)) V.tr.shift();
   if (now - V.lastAn >= 100) { V.lastAn = now; vibStep(now); }
   if (V.rate != null && V.verdict && V.verdict !== 'none') {           // count finished cycles at the measured speed
     V.cyc += V.rate * dt / 1000;
@@ -1236,10 +1236,10 @@ function vibAnalyze(win) {
   const den = N * sxx - sx * sx, sl = den ? (N * sxy - sx * sy) / den : 0, ic = (sy - sl * sx) / N;
   let sw = 0, sw2 = 0, e2 = 0; for (let q = 0; q < N; q++) { const w = .5 - .5 * Math.cos(2 * Math.PI * q / (N - 1)); x[q] = (x[q] - ic - sl * q) * w; sw += w; sw2 += w * w; e2 += x[q] * x[q]; }
   const sig2 = e2 / sw2, F = [], Pw = []; let tot = 0;
-  for (let f = 1.5; f <= 20.001; f += .25) { let re = 0, im = 0; const wv = 2 * Math.PI * f / FS; for (let q = 0; q < N; q++) { re += x[q] * Math.cos(wv * q); im += x[q] * Math.sin(wv * q); } F.push(f); Pw.push(re * re + im * im); tot += re * re + im * im; }
+  for (let f = .5; f <= 20.001; f += .125) { let re = 0, im = 0; const wv = 2 * Math.PI * f / FS; for (let q = 0; q < N; q++) { re += x[q] * Math.cos(wv * q); im += x[q] * Math.sin(wv * q); } F.push(f); Pw.push(re * re + im * im); tot += re * re + im * im; }
   let pk = -1, pv = 0; for (let k = 0; k < F.length; k++) if (F[k] >= Math.min(RW.lo, SLOW_LO) && F[k] <= 9 && Pw[k] > pv) { pv = Pw[k]; pk = k; } if (pk < 1 || pk > F.length - 2 || tot <= 0) return null;
-  const d2 = Pw[pk - 1] + Pw[pk + 1] - 2 * Pw[pk], off = d2 ? clamp((Pw[pk - 1] - Pw[pk + 1]) / (2 * d2), -.5, .5) : 0, rate = F[pk] + off * .25;
-  let band = 0; for (let k = 0; k < F.length; k++) if (Math.abs(F[k] - rate) <= 1.25) band += Pw[k];
+  const d2 = Pw[pk - 1] + Pw[pk + 1] - 2 * Pw[pk], off = d2 ? clamp((Pw[pk - 1] - Pw[pk + 1]) / (2 * d2), -.5, .5) : 0, rate = F[pk] + off * .125;
+  let band = 0; const bw = rate < 2 ? .5 : 1.25; for (let k = 0; k < F.length; k++) if (Math.abs(F[k] - rate) <= bw) band += Pw[k];   // 아주 느릴 땐 좁게(느린 음정 흐름과 구분)
   const Q = band / tot, qn = clamp((Q - .14) / .86, 0, 1);
   let ext = Math.sqrt(2 * sig2 * qn);
   const w = .65 * (P.an ? P.an.fftSize / P.ctx.sampleRate : .043), xa = Math.PI * rate * w; ext /= Math.max(.5, (Math.sin(xa) / xa) * Math.cos(Math.PI * rate * .0167));   // undo averaging loss of the pitch window
@@ -1247,14 +1247,14 @@ function vibAnalyze(win) {
 }
 /* (11/05 사용자) 느린 비브라토도 음정 궤적이 깨끗하면(스펙트럼 집중도 Q ≥ .55, 폭은 범위 안) 성공으로 인정: 목표 속도보다 느려도 SLOW_LO(약 2.2Hz)까지.
    성공이지만 V.slow = true 로 표시해서 '조금 더 빠르게 도전' 안내에 써요 */
-const SLOW_LO = 1.8, SLOW_Q = .55, SLOW_WIN = 1900;
+const SLOW_LO = .7, SLOW_Q = .55, SLOW_WIN = 1900, ULTRA_WIN = 3400;   /* (11/05 사용자) 초보자: 맨 아래 칸은 초당 1번도 안 되는 아주 느린 물결(약 0.7Hz)부터 */
 /* (11/05 사용자) 속도 사다리: 폭마다 [느려도 인정하는 하한 ~ 목표 상한]을 5칸으로 나눠요. 한 칸에서 '5연속 성공'을 3번 하면 다음 칸이 열리고,
    그 칸의 가운데 속도·폭으로 사인파 가이드를 오른쪽(앞날) 공간에 미리 보여줘요. */
 const VST_N = 5, VST_NEED = 3;
-const vibBandsOf = () => { const R = VR(), lo = SLOW_LO, hi = R.rate[1], w = (hi - lo) / VST_N; return { lo, hi, w }; };   // 맨 아래 칸은 아주 느린(약 2Hz) 비브라토부터
-const vibBandIdx = rate => { const B = vibBandsOf(); return clamp(Math.floor((rate - B.lo) / B.w), 0, VST_N - 1); };
-function vibSt() { if (CFG.vstv !== 2) { CFG.vst = {}; CFG.vgr = {}; CFG.vstv = 2; } CFG.vst = CFG.vst || {}; const k = CFG.vw; if (!CFG.vst[k] || !(CFG.vst[k].cur >= 0)) CFG.vst[k] = { cur: 0, pass: 0 }; return CFG.vst[k]; }
-const vibGuideBase = () => { const B = vibBandsOf(), m = CFG.vgr && CFG.vgr[CFG.vw]; if (m > 0) return clamp(m, B.lo, B.hi); const S = vibSt(); return B.lo + B.w * (S.cur + .35); };   // 칸의 아래쪽(느린 쪽)에서 시작해 부담을 줄여요
+const vibBandsOf = () => { const R = VR(), lo = SLOW_LO, hi = R.rate[1], q = Math.pow(hi / lo, 1 / VST_N); return { lo, hi, e: i => lo * Math.pow(q, i) }; };   // 칸 경계는 등비로: 느린 쪽이 촘촘해요
+const vibBandIdx = rate => { const B = vibBandsOf(); return clamp(Math.floor(Math.log(Math.max(rate, B.lo) / B.lo) / Math.log(B.hi / B.lo) * VST_N), 0, VST_N - 1); };
+function vibSt() { if (CFG.vstv !== 3) { CFG.vst = {}; CFG.vgr = {}; CFG.vstv = 3; } CFG.vst = CFG.vst || {}; const k = CFG.vw; if (!CFG.vst[k] || !(CFG.vst[k].cur >= 0)) CFG.vst[k] = { cur: 0, pass: 0 }; return CFG.vst[k]; }
+const vibGuideBase = () => { const B = vibBandsOf(), m = CFG.vgr && CFG.vgr[CFG.vw]; if (m > 0) return clamp(m, B.lo, B.hi); const S = vibSt(); return B.e(S.cur) * 1.12; };   // 칸의 아래쪽(느린 쪽)에서 시작해 부담을 줄여요
 const vibGuideRate = () => V.gRate != null ? V.gRate : vibGuideBase();
 /* (11/05 사용자) 초보자용 자동 속도: 처음엔 느리게. 폭이 1.5초 이상 안정되고 내 속도가 빨라지면 가이드가 내 속도보다 0.5Hz 앞서 천천히(초당 0.3Hz 이하) 따라 올라가요.
    내가 따라오지 못하면 그 자리에서 기다려요(내 속도가 그대로면 가이드도 안 올라가요). 직접 −/＋ 로 맞추면 그 속도로 고정돼요. */
@@ -1264,8 +1264,8 @@ function vibGuideStep(now) {
   if (V.rate != null) { V.rS = V.rS == null ? V.rate : V.rS * .9 + V.rate * .1; V.lastRate = V.rS; }   // 속도는 천천히 평균내서 가이드가 출렁이지 않게
   let tgt;
   if (manual) tgt = base;
-  else if (V.rate != null && V.verdict && V.verdict !== 'none') tgt = V.eOkMs >= 1500 ? clamp(V.rS + .5, B.lo, B.hi) : Math.min(V.gRate, V.rS + .6);     // 폭이 안정되면 내 속도 +0.5Hz, 아니면 그대로
-  else tgt = clamp(Math.min(base, V.lastRate != null ? V.lastRate + .5 : base), B.lo, B.hi);                                              // 쉴 때: 사다리 기준과 내 마지막 속도 중 느린 쪽
+  else if (V.rate != null && V.verdict && V.verdict !== 'none') tgt = V.eOkMs >= 1500 ? clamp(V.rS * 1.2 + .05, B.lo, B.hi) : Math.min(V.gRate, V.rS * 1.3 + .05);     // 폭이 안정되면 내 속도 +0.5Hz, 아니면 그대로
+  else tgt = clamp(Math.min(base, V.lastRate != null ? V.lastRate * 1.2 + .05 : base), B.lo, B.hi);                                              // 쉴 때: 사다리 기준과 내 마지막 속도 중 느린 쪽
   V.gRate += clamp(tgt - V.gRate, -.03, .03);
   const t = $('#vgT'); if (t && vibGuideOn()) { const txt = `가이드 ${r1(V.gRate)}Hz` + (manual ? ' 고정' : ''); if (t.textContent !== txt) t.textContent = txt; }
 }
@@ -1276,19 +1276,19 @@ function vibPass(rate) {                                // 5연속 성공 한 �
   if (b > S.cur) { S.cur = b; S.pass = 0; if (CFG.vgr) delete CFG.vgr[CFG.vw]; }
   S.pass++;
   if (S.pass >= VST_NEED) {
-    if (S.cur < VST_N - 1) { S.cur++; S.pass = 0; if (CFG.vgr) delete CFG.vgr[CFG.vw]; const B = vibBandsOf(); popBanner('속도 단계 UP', `다음 도전 ${r1(B.lo + B.w * S.cur)}~${r1(B.lo + B.w * (S.cur + 1))}Hz`, '#7fe3ff'); sfx('clear'); }
+    if (S.cur < VST_N - 1) { S.cur++; S.pass = 0; if (CFG.vgr) delete CFG.vgr[CFG.vw]; const B = vibBandsOf(); popBanner('속도 단계 UP', `다음 도전 ${r1(B.e(S.cur))}~${r1(B.e(S.cur + 1))}Hz`, '#7fe3ff'); sfx('clear'); }
     else { S.pass = VST_NEED; S.top = 1; }
   }
   saveCfg(); renderVibGuide();
 }
 function renderVibGuide() {
   const lad = $('#vLad'); if (!lad) return; const B = vibBandsOf(), S = vibSt();
-  lad.innerHTML = Array.from({ length: VST_N }, (_, i) => { const a = B.lo + B.w * i, b = a + B.w, cls = i < S.cur ? 'd' : i === S.cur ? 'c' : 'l', t = i < S.cur ? '✓ 끝' : i === S.cur ? `도전 ${S.pass}/${VST_NEED}` : '잠김';
+  lad.innerHTML = Array.from({ length: VST_N }, (_, i) => { const a = B.e(i), b = B.e(i + 1), cls = i < S.cur ? 'd' : i === S.cur ? 'c' : 'l', t = i < S.cur ? '✓ 끝' : i === S.cur ? `도전 ${S.pass}/${VST_NEED}` : '잠김';
     return `<button type="button" data-i="${i}" class="${cls}"><b>${r1(a)}~${r1(b)}</b>${t}</button>`; }).join('');
   lad.querySelectorAll('button').forEach(bt => bt.onclick = () => { const i = +bt.dataset.i; if (i > S.cur) { toast('앞 단계를 먼저 끝내면 열려요'); return; } S.cur = i; S.pass = 0; if (CFG.vgr) delete CFG.vgr[CFG.vw]; V.gRate = null; saveCfg(); renderVibGuide(); });
   const t = $('#vgT'); if (t) { t.classList.toggle('on', vibGuideOn()); t.textContent = vibGuideOn() ? `가이드 ${r1(vibGuideRate())}Hz` + (CFG.vgr && CFG.vgr[CFG.vw] > 0 ? ' 고정' : '') : '가이드 꺼짐'; }
 }
-function vibGuideAdj(d) { const B = vibBandsOf(); CFG.vgr = CFG.vgr || {}; CFG.vgr[CFG.vw] = clamp(Math.round((vibGuideRate() + d) * 10) / 10, B.lo, B.hi); V.gRate = CFG.vgr[CFG.vw]; CFG.vgd = 1; saveCfg(); renderVibGuide(); }
+function vibGuideAdj(d) { const B = vibBandsOf(); d = vibGuideRate() < 2 ? d * .4 : d; CFG.vgr = CFG.vgr || {}; CFG.vgr[CFG.vw] = clamp(Math.round((vibGuideRate() + d) * 10) / 10, B.lo, B.hi); V.gRate = CFG.vgr[CFG.vw]; CFG.vgd = 1; saveCfg(); renderVibGuide(); }
 function vibBeat() {                                    // 가이드 속도로 짧은 틱을 3초 들려줘요
   try {
     const ctx = actx(), out = pianoOut(ctx), rate = vibGuideRate(), n = Math.max(4, Math.round(rate * 3)), t0 = ctx.currentTime + .05;
@@ -1302,7 +1302,8 @@ $('#vgT').onclick = () => { if (vibGuideOn() && CFG.vgr && CFG.vgr[CFG.vw] > 0) 
 $('#vgD').onclick = () => vibGuideAdj(-.5); $('#vgU').onclick = () => vibGuideAdj(.5); $('#vgB').onclick = vibBeat;
 function vibStep(now) {
   let r = vibAnalyze(); const R = VR();
-  if (!(r && r.Q >= .4 && r.ext >= 8)) { const r2 = vibAnalyze(SLOW_WIN); if (r2 && r2.Q >= .4 && r2.ext >= 8 && r2.rate < 3.2) r = r2; }   // 아주 느린(2Hz대) 비브라토는 더 긴 창(1.9초)으로 다시 봐요
+  if (!(r && r.Q >= .4 && r.ext >= 8)) { const r2 = vibAnalyze(SLOW_WIN); if (r2 && r2.Q >= .4 && r2.ext >= 8 && r2.rate < 3.2) r = r2; }
+  if (!(r && r.Q >= .4 && r.ext >= 8)) { const r3 = vibAnalyze(ULTRA_WIN); if (r3 && r3.Q >= .6 && r3.ext >= 15 && r3.rate < 1.9) r = r3; }   // 1Hz 안팎 물결: 3.4초 창, 더 엄격하게(음정이 흘러가는 것과 구분)   // 아주 느린(2Hz대) 비브라토는 더 긴 창(1.9초)으로 다시 봐요
   V.dbg = r;
   if (r && r.Q >= .4 && r.ext >= 8) {
     V.lastExtT = now; V.rate = V.rate == null ? r.rate : V.rate * .7 + r.rate * .3; V.extent = V.extent == null ? r.ext : V.extent * .7 + r.ext * .3;
@@ -1317,7 +1318,7 @@ function vibStep(now) {
 }
 const VM = { 3: ['3연속', 'NICE ✨', '#ffffff'], 5: ['비브라토 성공!', 'GREAT 👍', '#ffd27a'], 10: ['10연속!', 'EXCELLENT 🔥', '#ff9f43'], 20: ['20연속!!', 'AMAZING ⭐', '#ffd23f'] };
 const vibFrac = () => vibGuideOn() ? .62 : .8;   // 가이드가 켜져 있으면 '지금' 선을 왼쪽으로 옮겨 오른쪽에 파형이 보일 자리를 만들어요
-function vibXY() { const last = V.tr[V.tr.length - 1]; return { x: PIANO_W + (P.W - PIANO_W) * vibFrac(), y: P.H / 2 - (last ? last.d : 0) * vpc() }; }
+function vibXY() { const last = V.tr[V.tr.length - 1]; if (V.yEnd && last && last.t - V.yEnd.t < 120) return { x: PIANO_W + (P.W - PIANO_W) * vibFrac(), y: V.yEnd.y }; return { x: PIANO_W + (P.W - PIANO_W) * vibFrac(), y: P.H / 2 - (last ? last.d : 0) * vpc() }; }
 function fireVib(n) {
   const k = VM[n] ? n : (n > 20 && n % 10 === 0 ? 20 : 0); if (!k) return;
   const fx = VM[k], c = vibXY();
@@ -1347,16 +1348,25 @@ function updateVibHud() {
   setTxt('vCnt', String(V.streak)); setTxt('vFb', fb, 'vfb' + (live && V.verdict === 'ok' ? ' ok' : ''));
 }
 function drawVib(now) {
-  const W = P.W, H = P.H, L = PIANO_W, nowX = L + (W - L) * vibFrac(), pps = (W - L) * .5, WIN = (nowX - L) / pps, cy = H / 2, pc = vpc(), R = VR();
+  const W = P.W, H = P.H, L = PIANO_W, nowX = L + (W - L) * vibFrac(), cy = H / 2, pc = vpc(), R = VR();
+  /* 그래프 흐르는 속도: 느린 물결(초보자)일수록 천천히 흘러서 내 파형과 가이드를 충분히 볼 수 있게. 한 주기 길이는 거의 일정하게 유지 */
+  const fTgt = clamp(.2 * (vibGuideOn() ? vibGuideRate() : (V.rS || 2.5)), .12, .5); V.ppsF = V.ppsF == null ? fTgt : V.ppsF + (fTgt - V.ppsF) * .04;
+  const pps = (W - L) * V.ppsF, WIN = (nowX - L) / pps;
   g2.setTransform(P.dpr, 0, 0, P.dpr, 0, 0); g2.fillStyle = '#22282c'; g2.fillRect(0, 0, W, H);
   g2.fillStyle = 'rgba(76,195,138,.15)'; g2.fillRect(L, cy - R.ext[1] * pc, W - L, (R.ext[1] - R.ext[0]) * pc); g2.fillRect(L, cy + R.ext[0] * pc, W - L, (R.ext[1] - R.ext[0]) * pc);
   g2.strokeStyle = 'rgba(255,255,255,.07)'; g2.lineWidth = 1; for (const c of R.ticks.flatMap(v => [-v, v])) { const y = Math.round(cy - c * pc) + .5; g2.beginPath(); g2.moveTo(L, y); g2.lineTo(W, y); g2.stroke(); }
   g2.strokeStyle = '#5cc8ff'; g2.lineWidth = 1.2; g2.setLineDash([5, 4]); g2.beginPath(); g2.moveTo(L, cy); g2.lineTo(W, cy); g2.stroke(); g2.setLineDash([]);
   const tr = V.tr, live = tr.length && now - V.lastT < 400, col = V.verdict === 'ok' ? '#7fe3a8' : '#ffb43a';
   g2.save(); g2.beginPath(); g2.rect(L, 0, W - L, H); g2.clip(); g2.lineJoin = 'round'; g2.lineCap = 'round';
+  /* 보이는 선만 부드럽게(판정은 원본 그대로): 느릴수록 더 많이 펴 줘서 '불안하게 떠는' 것처럼 안 보이게 */
+  const fS = vibGuideOn() ? vibGuideRate() : (V.rS || 3), sw = clamp(.22 / Math.max(fS, .5), .04, .28);
+  const segs = []; { let cur = null, pt0 = 0; for (const q of tr) { if ((now - q.t) / 1000 > WIN + .1) continue; if (!cur || q.t - pt0 > 150) { cur = []; segs.push(cur); } cur.push(q); pt0 = q.t; } }
+  V.yEnd = null;
+  const sm = segs.map(sg => sg.map((q, i) => { let a = 0, w = 0; for (let k = i; k >= 0; k--) { const dt = (q.t - sg[k].t) / 1000; if (dt > sw) break; const ww = 1 - dt / sw; a += sg[k].d * ww; w += ww; } for (let k = i + 1; k < sg.length; k++) { const dt = (sg[k].t - q.t) / 1000; if (dt > sw) break; const ww = 1 - dt / sw; a += sg[k].d * ww; w += ww; } return { x: nowX - (now - q.t) / 1000 * pps, y: cy - clamp(a / w, -(R.max - 5), R.max - 5) * pc, t: q.t }; }));
+  if (sm.length) { const ls = sm[sm.length - 1]; if (ls.length) V.yEnd = { y: ls[ls.length - 1].y, t: ls[ls.length - 1].t }; }
   for (const pass of [0, 1]) {
-    g2.strokeStyle = pass ? '#fff' : col; g2.globalAlpha = pass ? .9 : .45; g2.lineWidth = pass ? 1.5 : 5; g2.beginPath(); let pen = false, pt = 0;
-    for (const q of tr) { const age = (now - q.t) / 1000; if (age > WIN + .1) continue; const x = nowX - age * pps, y = cy - clamp(q.d, -(R.max - 5), R.max - 5) * pc; if (pen && q.t - pt > 150) pen = false; if (!pen) { g2.moveTo(x, y); pen = true; } else g2.lineTo(x, y); pt = q.t; }
+    g2.strokeStyle = pass ? '#fff' : col; g2.globalAlpha = pass ? .9 : .45; g2.lineWidth = pass ? 1.5 : 5; g2.beginPath();
+    for (const pts of sm) { if (!pts.length) continue; g2.moveTo(pts[0].x, pts[0].y); for (let i = 1; i < pts.length - 1; i++) g2.quadraticCurveTo(pts[i].x, pts[i].y, (pts[i].x + pts[i + 1].x) / 2, (pts[i].y + pts[i + 1].y) / 2); if (pts.length > 1) g2.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y); }
     g2.stroke();
   }
   g2.globalAlpha = 1; g2.restore();
@@ -1375,7 +1385,15 @@ function drawVib(now) {
   }
   g2.fillStyle = 'rgba(255,255,255,.5)'; g2.fillRect(nowX, 0, 1, H);
   if (live) { const y = vibXY().y; g2.fillStyle = col; g2.globalAlpha = .35; g2.beginPath(); g2.arc(nowX, y, 13, 0, 6.2832); g2.fill(); g2.globalAlpha = 1; g2.fillStyle = '#fff'; g2.beginPath(); g2.arc(nowX, y, 5.5, 0, 6.2832); g2.fill(); }
-  else { g2.save(); g2.textAlign = 'center'; g2.textBaseline = 'middle'; g2.fillStyle = 'rgba(255,255,255,.55)'; g2.font = '600 13px system-ui,sans-serif'; g2.fillText('한 음을 길게 내면서', L + (W - L) / 2, cy - 54); g2.fillText(CFG.vw === 1 ? '소리를 물결치듯 흔들어 보세요' : `${R.name} 폭(±${vibMid()}센트)으로 크게 흔들어 보세요`, L + (W - L) / 2, cy - 34); g2.restore(); }
+  else { g2.save(); g2.textAlign = 'center'; g2.textBaseline = 'middle'; g2.fillStyle = 'rgba(255,255,255,.55)'; g2.font = '600 13px system-ui,sans-serif'; g2.fillText('한 음을 길게 내면서', L + (W - L) / 2, cy - 54); g2.fillText(CFG.vw === 1 ? '소리를 물결치듯 흔들어 보세요' : `${R.name} 폭(±${vibMid()}센트)으로 크게 흔들어 보세요`, L + (W - L) / 2, cy - 34); g2.restore();
+    /* 소리를 기다리는 중: 깜빡이는 마이크 아이콘 + 퍼지는 물결 */
+    { const ph = (now / 1000 * .9) % 1, bl = .55 + .45 * Math.sin(now / 1000 * 2 * Math.PI * 1.1), mx = nowX, my = cy + 6;
+      g2.save(); g2.strokeStyle = '#ffc04d'; g2.globalAlpha = (1 - ph) * .5; g2.lineWidth = 2; g2.beginPath(); g2.arc(mx, my, 20 + ph * 26, 0, 6.2832); g2.stroke();
+      g2.globalAlpha = .25 + .2 * bl; g2.fillStyle = '#ffc04d'; g2.beginPath(); g2.arc(mx, my, 22, 0, 6.2832); g2.fill();
+      g2.globalAlpha = .55 + .45 * bl; g2.strokeStyle = g2.fillStyle = '#fff'; g2.lineWidth = 2.2; g2.lineCap = 'round';
+      g2.beginPath(); g2.roundRect ? g2.roundRect(mx - 5, my - 13, 10, 18, 5) : g2.rect(mx - 5, my - 13, 10, 18); g2.fill();
+      g2.beginPath(); g2.arc(mx, my - 1, 10, .15 * Math.PI, .85 * Math.PI); g2.stroke(); g2.beginPath(); g2.moveTo(mx, my + 9); g2.lineTo(mx, my + 14); g2.moveTo(mx - 5, my + 14); g2.lineTo(mx + 5, my + 14); g2.stroke();
+      g2.restore(); } }
   g2.save(); g2.font = '600 10px system-ui,sans-serif'; g2.textAlign = 'right'; g2.fillStyle = '#7fd9a8'; g2.textBaseline = 'bottom'; g2.fillText('초록 = 목표 폭', W - 8, cy - R.ext[1] * pc - 3); g2.restore();
   const dts = Math.min(.05, (now - (P.pT || now)) / 1000); P.pT = now;
   for (let i = P.parts.length - 1; i >= 0; i--) { const q = P.parts[i]; q.life += dts; if (q.life > q.max) { P.parts.splice(i, 1); continue; } q.x += q.vx * dts; q.y += q.vy * dts; q.vy += 360 * dts; g2.globalAlpha = 1 - q.life / q.max; g2.fillStyle = q.c; g2.fillRect(q.x, q.y, q.s, q.s); }
