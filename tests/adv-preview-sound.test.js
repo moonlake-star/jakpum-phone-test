@@ -9,10 +9,10 @@ const SR = 24000, DUR = 3, N = SR * DUR;
 const mkBuf = (ch) => ({ sampleRate: SR, length: ch.length, numberOfChannels: 1, getChannelData: () => ch });
 const voice = () => { const y = new Float32Array(N); let ph = 0; for (let i = 0; i < N; i++) { ph += 2 * Math.PI * 220 / SR; let v = 0; for (let k = 1; k <= 8; k++) v += Math.sin(k * ph) / k; y[i] = 0.2 * v; } return y; };
 const cents = (hz) => 6900 + 1200 * Math.log2(hz / 440);
-function build() {
+function build(vf = voice) {
   const pts = []; for (let k = 0; k < DUR * 25; k++) pts.push([k / 25, cents(220), cents(220)]);   // [시각, 부른 높이, 보정본 높이]
   const cv = { fps: 25, levels: [1], pts, target: null };
-  const out = { cv, p0: voice(), p1: voice() };
+  const out = { cv, p0: vf(), p1: vf() };
   const env = { mkTracks: { p0: { buf: mkBuf(out.p0) }, p1: { buf: mkBuf(out.p1) } }, mkPv: null, mkDurS: DUR, Tune: { col: () => 2, tmapOf: () => null, mapT: (x) => x }, mkPlaying: false };
   const f = new Function("env", `with (env) { ${code}\n env.mkPv = mkPv; env.pvApply = pvApply; env.pvAdvPlan = pvAdvPlan; env.setPv = (o) => { mkPv = o; env.mkPv = o; }; }`); f(env);
   env.setPv({ fixes: [], rendered: () => null, orig: {}, cv, tedits: [], tplan: { sig: "", regs: [] }, adv: null });
@@ -43,6 +43,18 @@ const G_preview = (cv, ne) => globalThis.TuneAdv.preview(cv, ne);
 { const { env, p1 } = build(), before = Float32Array.from(p1); sameAdv(env, [{ t0: 1.0, t1: 1.8, gain_db: -6 }]); env.pvApply("p1"); const once = Float32Array.from(p1);
   env.pvApply("p1"); assert.deepStrictEqual(Array.from(p1.slice(30000, 30100)), Array.from(once.slice(30000, 30100)), "한 번만 적용");
   sameAdv(env, []); env.pvApply("p1"); assert.ok(Math.abs(rms(p1, 1.2, 1.6) - rms(before, 1.2, 1.6)) < 1e-6, "원래 소리로"); }
+// ⑥ 음별 음색: 목소리 결(공명 봉우리)만 옮기고 높이·길이는 그대로, 그 음 밖은 그대로
+{ const P = 120, y0 = () => { const y = new Float32Array(N), F = 1000, bw = 150, r0 = Math.exp(-Math.PI * bw / SR), a1 = -2 * r0 * Math.cos(2 * Math.PI * F / SR), a2 = r0 * r0; let p1 = 0, p2 = 0;
+    for (let i = 0; i < N; i++) { const v = (i % P === 0 ? 1 : 0) - a1 * p1 - a2 * p2; y[i] = v; p2 = p1; p1 = v; } let m = 0; for (const v of y) m = Math.max(m, Math.abs(v)); for (let i = 0; i < N; i++) y[i] *= 0.5 / m; return y; };   // 200Hz 펄스 → 1000Hz 공명
+  const hk = (y, t0, t1) => { const i0 = Math.round(t0 * SR), n = Math.round((t1 - t0) * SR); let bk = 0, bv = 0;   // 200Hz 배음 중 가장 센 번호
+    for (let k = 1; k <= 14; k++) { let re = 0, im = 0; for (let i = 0; i < n; i++) { const ph = 2 * Math.PI * 200 * k * i / SR; re += y[i0 + i] * Math.cos(ph); im += y[i0 + i] * Math.sin(ph); } const m = Math.hypot(re, im); if (m > bv) { bv = m; bk = k; } } return bk; };
+  const base = hk(y0(), 1.2, 1.6); assert.strictEqual(base, 5, "처음 봉우리 5번째 배음(1000Hz) " + base);
+  for (const [semi, lo, hi] of [[3, 6, 7], [-3, 4, 4]]) { const { env, p1 } = build(y0), before = Float32Array.from(p1); sameAdv(env, [{ t0: 1.0, t1: 1.8, formant: semi }]); env.pvApply("p1");
+    const k = hk(p1, 1.2, 1.6); if (process.env.DBG) console.log("semi", semi, "peak", k, "f0", f0Of(p1,1.2,1.6).toFixed(1)); assert.ok(k >= lo && k <= hi, "음색 " + semi + " → 봉우리 " + k);
+    const f = f0Of(p1, 1.2, 1.6); assert.ok(Math.abs(1200 * Math.log2(f / 200)) < 25, "높이 그대로 " + f.toFixed(1));
+    assert.ok(rms(p1, 1.2, 1.6) / rms(before, 1.2, 1.6) > 0.5 && rms(p1, 1.2, 1.6) / rms(before, 1.2, 1.6) < 2, "크기 비슷");
+    assert.strictEqual(hk(p1, 0.2, 0.7), 5, "앞은 그대로"); assert.strictEqual(hk(p1, 2.1, 2.6), 5, "뒤는 그대로"); assert.ok(Math.abs(rms(p1, 0.2, 0.8) - rms(before, 0.2, 0.8)) < 1e-4, "앞 크기 그대로");
+    env.pvApply("p1"); sameAdv(env, []); env.pvApply("p1"); assert.ok(Math.abs(rms(p1, 1.2, 1.6) - rms(before, 1.2, 1.6)) < 1e-6, "되돌리면 원래"); } }
 console.log("adv-preview-sound ok");
 // 연결: 저장(onAdv)·↶↷(histSet)할 때마다 소리를 다시 만들고, 전체화면에 '미리듣기(근사)' 표시
 const tu = fs.readFileSync(__dirname + "/../tune.js", "utf8");
@@ -51,7 +63,7 @@ assert.ok(tu.includes("st.advBadge = () =>") && tu.includes("미리듣기 (근�
 console.log("adv-preview-wiring ok");
 // 안내: 탭 설명 줄 + 배지를 누르면 팝업 / 속도 재기 화면은 앱과 같은 합성 코드를 씀
 const ad = fs.readFileSync(__dirname + "/../adv.js", "utf8"), bn = fs.readFileSync(__dirname + "/../bench/index.html", "utf8");
-assert.ok(ad.includes("음색은 폰에서 못 들려줘요") && ad.includes("볼륨·페이드는 ▶로 근사 소리가 바로 들려요") && ad.includes("일괄 보정은 폰에서 못 들려줘요"), "탭 안 안내");
+assert.ok(ad.includes("음색은 ▶로 근사 소리가 바로 들려요") && ad.includes("볼륨·페이드는 ▶로 근사 소리가 바로 들려요") && ad.includes("일괄 보정은 폰에서 못 들려줘요"), "탭 안 안내");
 assert.ok(tu.includes("st.advPvInfo = () =>") && tu.includes("미리듣기는 대략의 소리예요") && tu.includes("el.onclick = () => st.advPvInfo()"), "배지 팝업");
 const fnSrc = (t, n) => t.slice(t.indexOf("function " + n + "("), t.indexOf("\n}\n", t.indexOf("function " + n + "(")));
 assert.strictEqual(fnSrc(bn, "pvPsola"), fnSrc(html, "pvPsola"), "속도 재기 = 앱 합성 코드");

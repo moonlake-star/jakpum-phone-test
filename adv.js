@@ -164,7 +164,7 @@
         stepper("페이드 아웃", () => get("fade_out"), (v) => put("fade_out", v), { step: 0.05, min: 0, max: 2, def: 0, fmt: sec }));
       rows.forEach(r => { if (!r._desc) { body.appendChild(r); return; } const w = document.createElement("div"), p = document.createElement("p"); p.className = "advD"; p.textContent = r._desc; w.appendChild(r); w.appendChild(p); body.appendChild(w); });
       const tip = document.createElement("p"); tip.className = "advTip";
-      tip.textContent = k === "m" ? "음색은 폰에서 못 들려줘요(선에도 안 보여요) · 완성본 다시 만들기 뒤에 들려요" : k === "g" ? "볼륨·페이드는 ▶로 근사 소리가 바로 들려요(선엔 안 보여요) · 정확한 소리는 완성본 다시 만들기 뒤" : "하늘색 선에 바로 그려지고 ▶로 근사 소리도 들려요 · 정확한 소리는 완성본 다시 만들기 뒤";   // (11/06) 미리듣기와 완성본 차이 안내
+      tip.textContent = k === "m" ? "음색은 ▶로 근사 소리가 바로 들려요(선엔 안 보여요) · 정확한 소리는 완성본 다시 만들기 뒤" : k === "g" ? "볼륨·페이드는 ▶로 근사 소리가 바로 들려요(선엔 안 보여요) · 정확한 소리는 완성본 다시 만들기 뒤" : "하늘색 선에 바로 그려지고 ▶로 근사 소리도 들려요 · 정확한 소리는 완성본 다시 만들기 뒤";   // (11/06) 미리듣기와 완성본 차이 안내
       body.appendChild(tip);
     };
     el.querySelectorAll("[data-at]").forEach(x => x.onclick = (e) => { e.stopPropagation(); show(x.dataset.at); });
