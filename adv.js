@@ -1,6 +1,6 @@
 // (사용자 2026-11-04 17:27·17:36) 원장 모드 '멜로다인 프로젝트' 1단계 — 원장 계정에만. 강사 화면(tune.js 기본 고치기)은 그대로.
 // 음 하나: 흐름(드리프트·앞/뒤 기울기) · 이어짐(길이·곡선 모양) · 비브라토(원래 떨림 %, 새 비브라토 주기·폭·시작·커지는 시간·사람처럼) · 볼륨(dB·끄기·페이드)
-// 곡 전체: 기준음 · 자동 보정 강도 · 가까운 음 그대로 · 흐름 평평하게 · 볼륨 고르게 · 치찰음 · 목소리 결 · 되돌리기 여러 단계 · MIDI 내보내기
+// 곡 전체: 자동 보정 강도 · 가까운 음 그대로 · 흐름 평평하게 · 볼륨 고르게 · 치찰음 · 목소리 결 · 되돌리기 여러 단계 · MIDI 내보내기
 // 저장 = st.onAdv({notes, global}) (화면 시간 — 선생님 앱이 원래 녹음 시간으로 바꿔 메이크업요청.json note_edits에) · 진짜 소리는 '완성본 다시 만들기' 뒤(서버 note_edits.py)
 // 음정선 미리보기 = 서버 shape_pitch와 같은 규칙(사람처럼 흔들기 제외)을 '보정 후' 선에 그려 줌. 볼륨·치찰음·목소리 결은 그림에 안 보임(완성본에서 확인).
 (function (G) {
@@ -152,7 +152,7 @@
         chips("소리", [["0", "켬"], ["1", "끄기"]], () => (N().mute ? "1" : "0"), (v) => put("mute", v === "1")),
         stepper("페이드 인", () => get("fade_in"), (v) => put("fade_in", v), { step: 0.05, min: 0, max: 2, def: 0, fmt: sec }),
         stepper("페이드 아웃", () => get("fade_out"), (v) => put("fade_out", v), { step: 0.05, min: 0, max: 2, def: 0, fmt: sec }));
-      rows.forEach(r => body.appendChild(r));
+      rows.forEach(r => { if (!r._desc) { body.appendChild(r); return; } const w = document.createElement("div"), p = document.createElement("p"); p.className = "advD"; p.textContent = r._desc; w.appendChild(r); w.appendChild(p); body.appendChild(w); });
       const tip = document.createElement("p"); tip.className = "advTip";
       tip.textContent = k === "g" ? "볼륨·페이드는 음정선에 안 보여요 · 완성본 다시 만들기 뒤 들려요" : "보정 후 선(하늘색)에 바로 그려져요 · 진짜 소리는 완성본 다시 만들기 뒤";
       body.appendChild(tip);
@@ -224,15 +224,15 @@
     const body = d.querySelector(".advBody"), G_ = (k, dft) => (g()[k] != null ? g()[k] : dft);
     const put = (k, v) => change(A, st, cv, () => { g()[k] = v; });
     const putLv = (k, v) => change(A, st, cv, () => { g().level = Object.assign({ quiet: 0, loud: 0 }, g().level || {}); g().level[k] = v; });
+    const D = (row, t) => { row._desc = t; return row; };
     const rows = [
-      stepper("기준음 A4", () => G_("ref_hz", 440), (v) => put("ref_hz", v), { step: 1, min: 430, max: 450, def: 440, fmt: (v) => `${Math.round(v)}Hz` }),
       stepper("자동 보정 강도", () => G_("strength", 1), (v) => put("strength", v), { step: 0.1, min: 0, max: 1.5, def: 1, fmt: pct }),
-      stepper("가까운 음은 그대로", () => G_("near", 8), (v) => put("near", v), { step: 2, min: 0, max: 50, def: 8, fmt: (v) => `${Math.round(v)}센트 안` }),
-      stepper("느린 흐름(전체)", () => G_("flat", 1), (v) => put("flat", v), { step: 0.25, min: 0, max: 2, def: 1, fmt: pct }),
-      stepper("작은 음 키우기", () => (g().level || {}).quiet || 0, (v) => putLv("quiet", v), { step: 0.1, min: 0, max: 1, def: 0, fmt: pct }),
-      stepper("큰 음 줄이기", () => (g().level || {}).loud || 0, (v) => putLv("loud", v), { step: 0.1, min: 0, max: 1, def: 0, fmt: pct }),
+      D(stepper("가까운 음은 그대로", () => G_("near", 8), (v) => put("near", v), { step: 2, min: 0, max: 50, def: 8, fmt: (v) => `${Math.round(v)}센트 안` }), "자동 보정할 때, 목표 음에서 이 값(센트·100센트=반음 1개) 안쪽으로 이미 가까운 곳은 건드리지 않아요. 크게 하면 자연스럽지만 덜 맞고, 0이면 전부 딱 맞춰요."),
+      D(stepper("느린 흐름(전체)", () => G_("flat", 1), (v) => put("flat", v), { step: 0.25, min: 0, max: 2, def: 1, fmt: pct }), "음 하나 안에서 천천히 오르내리는 음정의 흔들림(비브라토보다 느린 변화)을 얼마나 남길지. 100% 그대로 · 0% 평평하게(깔끔·기계적) · 200% 두 배."),
+      stepper("작은 음 키우기", () => (g().level || {}).quiet || 0, (v) => putLv("quiet", v), { step: 0.1, min: 0, max: 1, def: 0, fmt: (v) => (v > 0 ? "+" : "") + pct(v) }),
+      stepper("큰 음 줄이기", () => (g().level || {}).loud || 0, (v) => putLv("loud", v), { step: 0.1, min: 0, max: 1, def: 0, fmt: (v) => (v > 0 ? "−" : "") + pct(v) }),
       stepper("치찰음(ㅅ·ㅊ)", () => G_("sib_db", 0), (v) => put("sib_db", v), { step: 1, min: -12, max: 6, def: 0, fmt: (v) => `${v > 0 ? "+" : ""}${Math.round(v)}dB` }),
-      stepper("목소리 결", () => G_("formant", 0), (v) => put("formant", v), { step: 0.25, min: -3, max: 3, def: 0, fmt: (v) => `${v > 0 ? "+" : ""}${v.toFixed(2)}반음` })];
+      D(stepper("포먼트(목소리 결)", () => G_("formant", 0), (v) => put("formant", v), { step: 0.25, min: -3, max: 3, def: 0, fmt: (v) => `${v > 0 ? "+" : ""}${v.toFixed(2)}반음` }), "포먼트 = 목소리의 울림 통로. 음정은 그대로 두고 음색만 이동. + 는 얇고 밝은 느낌, − 는 굵고 어두운 느낌. 그림에는 안 보이고 완성본에서 들어 보세요.")];
     rows.forEach(r => body.appendChild(r));
     const cnt = () => { d.querySelector(".advGN").textContent = `음 ${A.ne.notes.length}개 고침`; rows.forEach(r => r._paint && r._paint()); };
     cnt();
@@ -287,7 +287,7 @@
 .advBody{margin-top:6px;display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:2px 10px}
 .advPanel .advBody{max-height:min(30vh,210px);overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding-right:2px}
 #tuneFs .tfFix.amode .tfFixBox{padding-top:6px!important;padding-bottom:6px!important}
-.advRow{display:flex;align-items:center;gap:6px;min-height:42px}.advL{flex:1;font-size:13.5px;color:#b6bdc7;white-space:nowrap}.advRow.on .advL{color:#ffb86b;font-weight:800}
+.advD{margin:-2px 2px 6px;font-size:11px;line-height:1.4;color:#8a95a1}.advRow{display:flex;align-items:center;gap:6px;min-height:42px}.advL{flex:1;font-size:13.5px;color:#b6bdc7;white-space:nowrap}.advRow.on .advL{color:#ffb86b;font-weight:800}
 .advB{min-height:0!important;width:44px;height:40px!important;padding:0!important;margin:0!important;border-radius:12px!important;border:1.5px solid #3b4250!important;background:#11141a!important;color:#e8e8ea!important;font-size:20px!important;font-weight:900;touch-action:manipulation}
 .advV{min-width:82px;text-align:center;font-weight:800;font-size:14px;color:#e8e8ea;font-variant-numeric:tabular-nums}
 .advChips{display:flex;gap:6px}.advChips button{min-height:0!important;height:36px!important;padding:0 12px!important;margin:0!important;border-radius:12px!important;border:1.5px solid #3b4250!important;background:#11141a!important;color:#cfd3da!important;font-size:13px!important;font-weight:800}.advChips button.on{background:#ffb86b!important;color:#2a1500!important;border-color:#ffb86b!important}
