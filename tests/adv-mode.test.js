@@ -34,3 +34,9 @@ console.log("adv-mode ok", md.toFixed(4));
 { const fs_ = require("fs"), tj = fs_.readFileSync(__dirname + "/../tune.js", "utf8"), th = fs_.readFileSync(__dirname + "/../teacher/index.html", "utf8"), A = require("assert");
   A.ok(tj.includes("el._openFull = () =>") && tj.includes('"✏️ 음표 고치기"') && tj.includes('typeof o.onFix !== "function" && typeof o.onEdit === "function"'));
   A.ok(th.includes("onEdit: (t) => { try { player.pause(); } catch {} editFromBest(job, t); }") && th.includes("async function editFromBest(job, t)")); }
+
+/* (11/05 사용자) 곡 전체: 기준음 A4 줄 삭제 · 가까운 음/느린 흐름/목소리 결 설명 한 줄씩 */
+{ const A = require("fs").readFileSync(__dirname + "/../adv.js", "utf8");
+  require("assert").ok(!A.includes('stepper("기준음 A4"'), "기준음 A4 줄 삭제");
+  for (const l of ["가까운 음은 그대로", "느린 흐름(전체)", "목소리 결"]) require("assert").ok(A.includes(`D(stepper("${l}"`), l + " 설명");
+  require("assert").ok(A.includes('p.className = "advD"') && A.includes("w.appendChild(r); w.appendChild(p)"), "설명 줄 표시(줄 바로 아래)"); }
