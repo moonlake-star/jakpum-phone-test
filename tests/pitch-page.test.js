@@ -220,3 +220,8 @@ console.log("pitch-page ok");
   assert.ok(src.includes("const vibFrac = () => vibGuideOn() ? .62 : .8;") && src.includes("가이드 사인파") && src.includes("function vibBeat()") && src.includes('id="vgT"') && src.includes('id="vgB"'), "가이드 사인파(앞날 공간) + 켜기/끄기·−/＋·박자 버튼");
   console.log("pitch-page: 속도 사다리·가이드 사인파 ok");
 }
+{
+  const src = fs.readFileSync(__dirname + "/../pitch/index.html", "utf8");
+  assert.ok(src.includes("function waitVoice()") && src.includes("const done = () => { d.remove(); waitVoice(); }") && src.includes("now - t0 > 3000 && P.mon && !P.cal"), "안내 팝업 뒤 3초 동안 소리가 없으면 '소리를 내 보세요'");
+  console.log("pitch-page: 소리 안 내면 안내 ok");
+}
