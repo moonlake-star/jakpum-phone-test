@@ -176,3 +176,14 @@ console.log("pitch-page ok");
   assert.ok(src.includes("if (!P.calOnce) { P.calOnce = true; startCal(); }") && src.includes("if (now - c.t0 >= 750) finishCal();"), "주변 소리 확인은 창을 열 때 한 번, 시간 절반");
   console.log("pitch-page: 비브라토 기준음·마이크 확인 1회 ok");
 }
+
+// (11/05 사용자) 스케일 버튼 순서 3음→5음→아르페지오 / 속도 기본 70% + −＋ / 연습 화면에서 스케일 바로 바꾸기 / 탭·⏸ 일시정지
+{
+  const fs = require("fs"), assert = require("assert"), src = fs.readFileSync(__dirname + "/../pitch/index.html", "utf8");
+  const ks = [...src.slice(src.indexOf("const SCALES = ["), src.indexOf("STAGES.push(['발성 스케일'")).matchAll(/k: '(\w+)'/g)].map(m => m[1]);
+  assert.deepStrictEqual(ks, ["tri", "five", "arp"], "스케일 버튼 순서");
+  assert.ok(src.includes("(isFinite(v) && v > 0 ? v : .7)") && src.includes("SPD_MIN = .4, SPD_MAX = 1.2") && src.includes("F = 1 / spdNow()"), "속도 기본 70%, 40~120%, 음 길이·간격에 반영");
+  assert.ok(src.includes("function qkHtml()") && src.includes("qkWire(el.querySelector('.qk'), () => loadStage(3))") && src.includes("L.scale ? qkHtml() : ''") && src.includes("id=\"pqk\""), "대기·결과·일시정지 화면에 스케일·속도 UI");
+  assert.ok(src.includes('id="pauseBtn"') && src.includes("performance.now() - (P.pauseAt || 0) < 600"), "⏸ 버튼 + 탭 직후 click 으로 곧바로 풀리지 않게");
+  console.log("pitch-page: 속도·스케일 빠른 전환·일시정지 ok");
+}
