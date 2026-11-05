@@ -5180,6 +5180,12 @@ async function openMkJob(j, backTo) {
       const cur = (r.target_fixes || []).filter(x => !(x.t0 < f.t1 && x.t1 > f.t0)); if (f.midi != null) cur.push(f); r.target_fixes = cur.sort((a, b) => a.t0 - b.t0);
       mkPv.fixes = dF(); try { pvApplyAll(); } catch (e) { console.warn("미리듣기", e); }
       try { await writeJSON(j.folder.id, MKREQ, r, j.reqId); paintFixN(); } catch (e) { toast("정음 저장 실패: " + errMsg(e)); } };   // (11/02 17:02) 바로 저장 — 알림은 창 안 '✓ 저장됨'으로
+    // (11/05 사용자) 여러 음 고르기 ▼▲ 일괄 이동: 막대 여러 개를 한 번에 받아 드라이브에는 한 번만 저장(onFix를 막대 수만큼 부르면 저장도 그만큼 일어남)
+    const onFixMany = async (list) => { let cur = (r.target_fixes || []).slice();
+      for (const f0 of list) { const f = tmS ? { ...f0, t0: r4(toO(f0.t0)), t1: r4(toO(f0.t1)) } : f0; cur = cur.filter(x => !(x.t0 < f.t1 && x.t1 > f.t0)); if (f.midi != null) cur.push(f); }
+      r.target_fixes = cur.sort((a, b) => a.t0 - b.t0);
+      mkPv.fixes = dF(); try { pvApplyAll(); } catch (e) { console.warn("미리듣기", e); }
+      try { await writeJSON(j.folder.id, MKREQ, r, j.reqId); paintFixN(); } catch (e) { toast("정음 저장 실패: " + errMsg(e)); } };
     // (11/03 13:08 사용자 승인) 타이밍·길이: 화면 시간 {t0,t1 → nt0,nt1} → 원래 시간으로 저장(서버 time_edits) · 겹치는 예전 고침은 바꿈 · 폰에서 바로 간이 미리듣기
     const onTime = async (f) => { const o0 = r4(toO(f.t0)), o1 = r4(toO(f.t1)), n0 = r4(f.nt0), n1 = r4(f.nt1);
       const cur = (r.time_edits || []).filter(x => !(x.t0 < o1 && x.t1 > o0)); if (!f.reset && (Math.abs(n0 - o0) >= 0.005 || Math.abs(n1 - o1) >= 0.005)) cur.push({ t0: o0, t1: o1, nt0: n0, nt1: n1 });   // reset = 원본(원래 녹음 시간)으로
@@ -5210,7 +5216,7 @@ async function openMkJob(j, backTo) {
       return gone; };
     Tune.wire($("mkTune"), cv, () => mkNow(), () => (mkRaw ? 0 : lvNow()), (t, still) => { const tt = Math.max(0, Math.min(t, mkDurS ? mkDurS - 0.05 : t)); if (still) { if (mkPlaying) mkStop(); mkOffset = tt; paintTransport(); return; } if (!mkPlaying) { mkOffset = tt; $("mkPP").click(); } else mkSeekTo(t); },
       { title: `${j.st?.name || ""} · ${r.title || "메이크업"}`, tapFull: true, teacher: true, lvDef: +(r.pitch_level ?? 2), play: () => $("mkPP")?.click(), paused: () => !mkPlaying, mode: () => (lvNow() > 0 ? "p" : "o"),
-        setMode: (m) => document.querySelector(`#mkAb [data-ab="${m === "p" ? 1 : 0}"]`)?.click(), onFix, onTime, ...(canAdv() ? { onAdv, advGet } : {}), onResetRange: (t0, t1) => resetSome(true, true, [t0, t1]), countRange: (a, b) => (r.target_fixes || []).concat(r.time_edits || []).filter(x => toA(x.t0) < b && toA(x.t1) > a).length, voice: voiceTone, wave: () => mkTracks.mr?.buf || mkTracks.before?.buf || null, ...tnOpts });
+        setMode: (m) => document.querySelector(`#mkAb [data-ab="${m === "p" ? 1 : 0}"]`)?.click(), onFix, onFixMany, onTime, ...(canAdv() ? { onAdv, advGet } : {}), onResetRange: (t0, t1) => resetSome(true, true, [t0, t1]), countRange: (a, b) => (r.target_fixes || []).concat(r.time_edits || []).filter(x => toA(x.t0) < b && toA(x.t1) > a).length, voice: voiceTone, wave: () => mkTracks.mr?.buf || mkTracks.before?.buf || null, ...tnOpts });
   }).catch((e) => { tuneWired = true; console.warn("음정선", e); const c = $("mkTune"); if (c) c.replaceWith(Object.assign(document.createElement("p"), { className: "muted", textContent: "음정선을 불러오지 못했어요 (" + String(e?.message || e).slice(0, 60) + ")" })); });
   // 슬라이더가 기본값에 닿으면 짧고 약한 진동(안드로이드). 기본값: 보컬 0dB · 리버브 30% · MR 0dB · 음정 켬
   const DEF = { mkVol: 0, mkRev: 30, mkMr: 0, mkPitch: 3 };
@@ -6981,7 +6987,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-05-2250-bgrelease";
+const BUILD = "2026-11-05-2330-msel-bar";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
