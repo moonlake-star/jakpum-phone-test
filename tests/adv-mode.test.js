@@ -55,3 +55,9 @@ console.log("adv-mode ok", md.toFixed(4));
   as.ok(A4.includes("fade_out: 0, formant: 0 }"), "음별 포먼트 기본값(0은 저장 안 함)");
   as.ok((A4.match(/p\.className = "advD"/g) || []).length === 2, "설명 줄 표시: 음 창·일괄 시트 두 곳");
   as.ok(A4.includes("디테일 보정 전부 원래대로"), "초기화 버튼 이름"); }
+
+/* (11/05 사용자) 합치기: 나눈 조각 옆에 붙은 조각이 있을 때만 ⇔ 버튼 · 둘 다 안 고친 조각이면 고침 기록을 지워 서버가 고른 한 음으로, 아니면 지금 음으로 한 덩어리 */
+{ const T5 = require("fs").readFileSync(__dirname + "/../tune.js", "utf8"), as = require("assert");
+  as.ok(T5.includes("mgNb = fixed ?") && T5.includes("data-merge") && T5.includes('<span class="i">합치기</span>'), "옆 조각이 있을 때만 ⇔ 버튼");
+  as.ok(T5.includes("plain = isCut && !!o.cut && same()") && T5.includes("midi: plain ? null : rnd(m)"), "안 고친 조각끼리면 기록 삭제");
+  as.ok(T5.includes("cv._fixes = prior.filter(x => !(x.t0 < a1 && x.t1 > a0)).concat(plain ? [] : [f]);"), "두 조각 기록을 하나로 바꿔 끼움"); }
