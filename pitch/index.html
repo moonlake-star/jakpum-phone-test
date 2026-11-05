@@ -1372,7 +1372,7 @@ function drawVib(now) {
   g2.globalAlpha = 1; g2.restore();
   // 가이드 사인파: 소리를 내기 시작하면 '지금' 선에서 시작해 오른쪽(앞날)으로 도전 속도·폭 그대로 다가와요
   if (vibGuideOn()) {
-    const lv = !!live; V.gA = (V.gA || 0) + ((lv ? 1 : 0) - (V.gA || 0)) * .08; if (V.gA < .02) { V.gT0 = null; V.gPh = 0; } else if (V.gT0 == null && lv) { V.gT0 = now; V.gPh = 0; }
+    const lv = !!live; V.gA = (V.gA == null ? .4 : V.gA) + ((lv ? 1 : .4) - (V.gA == null ? .4 : V.gA)) * .08; if (V.gT0 == null) { V.gT0 = now; V.gPh = 0; }   /* 소리 내기 전에도 도전할 가이드 파형은 옅게 계속 보여요(목표가 보이게) */
     const gdt = Math.min(.1, (now - (V.gLast || now)) / 1000); V.gLast = now; if (V.gT0 != null) V.gPh = (V.gPh || 0) + 2 * Math.PI * vibGuideRate() * gdt;   // 속도가 바뀌어도 파형이 튀지 않게 위상을 적분
     if (V.gT0 != null && V.gA >= .02) {
       const f = vibGuideRate(), A = vibMid(); g2.save(); g2.beginPath(); g2.rect(L, 0, W - L, H); g2.clip(); g2.lineWidth = 2; g2.lineJoin = 'round';
