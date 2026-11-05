@@ -945,7 +945,7 @@ function setMode(v) {
   if (v === 'vib' && !vibUnlocked()) { const u = me(); toast(`한 음을 10초 유지하면 열려요 (내 최고 ${pbHoldOf(u.id).toFixed(1)}초)`, 3500); return; }
   if (C.phase === 'play' || C.phase === 'count') abortCourse();
   if (P.pressed != null) releaseKey(); vibReset(); if (v === 'vib') endHold();
-  C.mode = v; CFG.mode = v; if (v === 'vib' && !CFG.vibDemo) { CFG.vibDemo = 1; setTimeout(() => { if (C.mode === 'vib') vibCue(); }, 300); }   // 처음 들어오면 한 번 들려줘요
+  C.mode = v; CFG.mode = v; if (v === 'vib') vibEnter();   // 들어올 때마다 랜덤 기준음을 들려줘요
   saveCfg(); if (P.ghostHold !== undefined) renderGhostMark();
   if (v === 'course') { if (C.stage === 3) C.stage = 0; loadStage(C.stage); } else { C.phase = 'idle'; renderCourseUI(); }
 }
@@ -1135,11 +1135,15 @@ const VR = () => VLV[CFG.vw];
 const vibMid = () => Math.round((VR().ext[0] + VR().ext[1]) / 2);
 const SOLFA = ['도', '도#', '레', '레#', '미', '파', '파#', '솔', '솔#', '라', '라#', '시'];
 /* (11/05 사용자) 비브라토 기준음 '따당': 기준음 → 폭만큼 위의 음을 피아노로 차례로 들려줘요.
-   연습 때는 고른 성별에 맞춘 '도'(남 C3 / 여 C4), 기록 도전에서는 성별 음역 안에서 판마다 랜덤. 처음 들어올 때·폭 버튼을 누를 때·숨 쉬려고 멈춘 뒤에 다시 들려줘요 */
-const VIB_ROOT = { m: 48, f: 60 };
+   화면에 들어올 때마다·기록 도전 판마다 성별 음역(남 C3~A3 / 여 G3~E4) 안에서 랜덤. 처음 들어올 때·폭 버튼을 누를 때·숨 쉬려고 멈춘 뒤에 다시 들려줘요 */
 const vibVoiceG = () => scaleCfg(CFG.sc).g;
 const vibRange = () => { const rc = VOICE_RC[vibVoiceG()]; return [rc - 7, rc + 2]; };   // 남성 C3~A3 / 여성 G3~E4
-const vibRoot = () => (P.running && V.root != null) ? V.root : VIB_ROOT[vibVoiceG()];
+const vibRoot = () => { const [a, b] = vibRange(); if (V.root == null || V.root < a || V.root > b) vibPickRoot(); return V.root; };   // 성별을 바꿔 음역 밖이 되면 다시 뽑아요
+function vibEnter() {   // (11/05 사용자) 이 화면에 들어올 때마다 성별 음역 안에서 랜덤 기준음 '따당'
+  if (C.mode !== 'vib' || P.running) return;
+  vibPickRoot(); renderVwEx();
+  setTimeout(() => { if (C.mode === 'vib' && cur === 'practice' && !P.running && performance.now() > (V.cueUntil || 0)) vibCue(); }, 300);
+}
 function vibPickRoot() { const [a, b] = vibRange(); let m = a; for (let i = 0; i < 8; i++) { m = a + Math.floor(Math.random() * (b - a + 1)); if (m !== V.lastRoot) break; } V.lastRoot = m; V.root = m; return m; }
 const VIB_CUE = 1.55;
 const repOpen = () => !!P.rep && $('#modal').classList.contains('open');
@@ -2106,7 +2110,7 @@ function go(t) {
   else if (t === 'remind') renderRemind(el);
   else if (t === 'roster') renderRoster(el);
   else if (t === 'detail') renderDetail(el);
-  else if (t === 'practice') { askVoice(); cache = {}; requestAnimationFrame(resize); refreshToday(); setMonUI(); if (C.mode === 'course' && C.phase !== 'play' && C.phase !== 'count') loadStage(C.stage); else renderCourseUI(); if (!P.monOff) startMonitor(false); }
+  else if (t === 'practice') { askVoice(); cache = {}; requestAnimationFrame(resize); refreshToday(); setMonUI(); if (C.mode === 'course' && C.phase !== 'play' && C.phase !== 'count') loadStage(C.stage); else renderCourseUI(); if (!P.monOff) startMonitor(false); if (C.mode === 'vib') vibEnter(); }
   if (t !== 'practice') el.scrollTop = 0;
 }
 let rzT; window.addEventListener('resize', () => { clearTimeout(rzT); rzT = setTimeout(() => { if (['progress', 'detail'].includes(cur) && !P.running) go(cur); }, 250); });

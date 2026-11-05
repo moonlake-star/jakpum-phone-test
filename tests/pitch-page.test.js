@@ -169,8 +169,8 @@ console.log("pitch-page ok");
   assert.ok(src.includes("DB.sync = DB.sync || []") && src.includes("q.splice(q.indexOf(day), 1)"), "실패하면 큐에 남겨 다시 시도");
   console.log("pitch-page: 수강생 앱 연결(내 계정 모드) ok");
   // (11/05) 비브라토 기준음 '따당' · 기록 도전 랜덤 기준음 · 주변 소리 확인 1번
-  assert.ok(src.includes("const VIB_ROOT = { m: 48, f: 60 }") && src.includes("pianoVoice(ctx, mFreq(r + w), t0 + .55"), "기준음 → 폭만큼 위 음을 차례로");
-  assert.ok(src.includes("if (v === 'vib' && !CFG.vibDemo)") && src.includes("if (w === CFG.vw) { vibCue(); return; }") && src.includes("renderCourseUI(); vibCue(); }"), "처음 들어올 때·폭 버튼 누를 때 들려줌");
+  assert.ok(src.includes("pianoVoice(ctx, mFreq(r + w), t0 + .55"), "기준음 → 폭만큼 위 음을 차례로");
+  assert.ok(src.includes("if (v === 'vib') vibEnter();") && src.includes("if (C.mode === 'vib') vibEnter(); }") && src.includes("if (w === CFG.vw) { vibCue(); return; }") && src.includes("renderCourseUI(); vibCue(); }"), "처음 들어올 때·폭 버튼 누를 때 들려줌");
   assert.ok(src.includes("V.silMs >= 1600 && P.mon") && src.includes("V.voicedMs >= 1000"), "숨 쉬려고 멈추면 기준음 다시");
   assert.ok(src.includes("if (C.mode === 'vib') { vibPickRoot(); vibCue(); }") && src.includes("const vibRange = () => { const rc = VOICE_RC[vibVoiceG()]; return [rc - 7, rc + 2]; }"), "기록 도전은 성별 음역 안에서 랜덤");
   assert.ok(src.includes("if (!P.calOnce) { P.calOnce = true; startCal(); }") && src.includes("if (now - c.t0 >= 750) finishCal();"), "주변 소리 확인은 창을 열 때 한 번, 시간 절반");
