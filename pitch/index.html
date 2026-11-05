@@ -1272,9 +1272,9 @@ function vibGuideStep(now) {
   if (V.rate != null) { V.rS = V.rS == null ? V.rate : V.rS * .9 + V.rate * .1; V.lastRate = V.rS; }   // 속도는 천천히 평균내서 가이드가 출렁이지 않게
   let tgt;
   if (manual) tgt = base;
-  else if (V.rate != null && V.verdict && V.verdict !== 'none') tgt = V.eOkMs >= 1500 ? clamp(V.rS * 1.2 + .05, B.lo, B.hi) : Math.min(V.gRate, V.rS * 1.3 + .05);     // 폭이 안정되면 내 속도 +0.5Hz, 아니면 그대로
+  else if (V.rate != null && V.verdict && V.verdict !== 'none') tgt = clamp(V.rS, B.lo, B.hi);     // (11/05 사용자) 가이드는 지금 내 목소리 주기와 똑같이 — 속도는 내가 올려 가요
   else tgt = clamp(Math.min(base, V.lastRate != null ? V.lastRate * 1.2 + .05 : base), B.lo, B.hi);                                              // 쉴 때: 사다리 기준과 내 마지막 속도 중 느린 쪽
-  V.gRate += clamp(tgt - V.gRate, -.03, .03);
+  V.gRate += clamp(tgt - V.gRate, -.06, .06);
   const t = $('#vgT'); if (t && vibGuideOn()) { const txt = `가이드 ${r1(V.gRate)}Hz` + (manual ? ' 고정' : ''); if (t.textContent !== txt) t.textContent = txt; }
 }
 const vibGuideOn = () => CFG.vgd !== 0;
