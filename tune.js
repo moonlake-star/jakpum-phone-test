@@ -575,6 +575,8 @@
     const kt = tgCol(cv), m0 = Math.round(b.c) / 100, tNow = typeof getT === "function" ? +getT() || 0 : -1; let m = m0;
     const fixed = (cv._fixes || []).find(x => x.t0 < b.t1 && x.t1 > b.t0), isCut = !!(fixed && fixed.cut), atHead = tNow > b.t0 + 0.08 && tNow < b.t1 - 0.08, canCut = atHead || b.t1 - b.t0 >= 0.3;   // (11/03 02:20 사용자) ✂는 늘 보이게: 세로줄이 막대 안이면 그 자리, 아니면 막대 가운데에서 나눔
     const T0 = +b.t0.toFixed(2), T1 = +b.t1.toFixed(2);
+    // (11/05 사용자) 합치기: 나눈 조각이 붙어 있으면(앞뒤 0.06초 안) 하나로 다시 붙임 — 오른쪽 조각 먼저, 없으면 왼쪽
+    const fxs = cv._fixes || [], mgNb = fixed ? (fxs.find(x => x !== fixed && Math.abs(x.t0 - T1) < 0.06) || fxs.find(x => x !== fixed && Math.abs(x.t1 - T0) < 0.06) || null) : null;
     if (st) { st.sel = { t0: b.t0, t1: b.t1 }; st.focusC = b.c; }
     const had = !!host.querySelector(".tfFix"); host.querySelectorAll(".tfFix").forEach(x => x.remove());
     const d = document.createElement("div"); d.className = "tfFix";
@@ -585,8 +587,8 @@
     d.innerHTML = `<div class="tfFixBox"><div class="tfFixHd">${tOn ? `<span class="tfFixMd" role="group" aria-label="고칠 것"><button type="button" data-md="p">🎵 음정</button><button type="button" data-md="t">⏱ 타이밍</button>${st && st.onAdv && st.advOn ? `<button type="button" data-md="a">🎛 고급</button>` : ""}</span>` : "<b>정음</b>"}<span class="tfFixTm">${mm(b.t0)}~${mm(b.t1)}</span><span class="tfFixSt"></span></div>
       ${tOn ? `<div class="tfFixRow tfT"><button type="button" data-tm="-1" aria-label="일찍(앞으로)">◀</button><button type="button" class="tfFixN tfTN" data-tp aria-label="이 음 듣기"></button><button type="button" data-tm="1" aria-label="늦게(뒤로)">▶</button><button type="button" class="tfIc" data-tl="-1" aria-label="짧게">−</button><button type="button" class="tfIc" data-tl="1" aria-label="길게">+</button><button type="button" class="tfIc" data-tr aria-label="톡 = 직전 저장으로, 1초 꾹 = 원본으로">↺</button></div>
       <div class="tfFixLab tfT"><span>일찍</span><span class="n">누르면 듣기</span><span>늦게</span><span class="i">짧게</span><span class="i">길게</span><span class="i">되돌리기</span></div>` : ""}
-      <div class="tfFixRow tfP"><button type="button" data-d="-1" aria-label="반음 내림">▼</button><button type="button" class="tfFixN" data-p aria-label="누르는 동안 이 음 소리"></button><button type="button" data-d="1" aria-label="반음 올림">▲</button>${canCut ? `<button type="button" class="tfCut tfIc" data-cut aria-label="두 음으로 나누기(세로줄 자리, 막대 밖이면 가운데)">✂</button>` : ""}<button type="button" class="tfIc" data-r aria-label="톡 = 직전 저장으로, 1초 꾹 = 원본으로">↺</button></div>
-      <div class="tfFixLab tfP"><span>톡 반음 · 꾹 미세</span><span class="n">누르면 소리</span><span>톡 반음 · 꾹 미세</span>${canCut ? `<span class="i">나누기</span>` : ""}<span class="i">되돌리기</span></div></div>`;
+      <div class="tfFixRow tfP"><button type="button" data-d="-1" aria-label="반음 내림">▼</button><button type="button" class="tfFixN" data-p aria-label="누르는 동안 이 음 소리"></button><button type="button" data-d="1" aria-label="반음 올림">▲</button>${canCut ? `<button type="button" class="tfCut tfIc" data-cut aria-label="두 음으로 나누기(세로줄 자리, 막대 밖이면 가운데)">✂</button>` : ""}${mgNb ? `<button type="button" class="tfCut tfIc" data-merge aria-label="옆 조각과 하나로 합치기">⇔</button>` : ""}<button type="button" class="tfIc" data-r aria-label="톡 = 직전 저장으로, 1초 꾹 = 원본으로">↺</button></div>
+      <div class="tfFixLab tfP"><span>톡 반음 · 꾹 미세</span><span class="n">누르면 소리</span><span>톡 반음 · 꾹 미세</span>${canCut ? `<span class="i">나누기</span>` : ""}${mgNb ? `<span class="i">합치기</span>` : ""}<span class="i">되돌리기</span></div></div>`;
     // (11/02 19:28 사용자 시안 승인) 전체화면이면 아래 이동 버튼·안내 문구 자리에(원음/보정본 큰 버튼은 그대로 위에)
     // (11/02 02:02 사용자 시안) 스위치 아래 칸(이동 버튼·안내)만 같은 높이의 고치기 창으로 바뀜 → 그래프·주석·스위치는 그대로
     const bot = host.querySelector(".tfBot");
@@ -648,6 +650,14 @@
       cv._fixes = prior.filter(x => !(x.t0 < b.t1 && x.t1 > b.t0)).concat([a, c]);
       try { fxSave(onFix, a); fxSave(onFix, c); } catch {} sndOff();
       fixSheet(host, cv, { t0: ts, t1: T1, c: Math.round(m * 100) }, onFix, getT, st); };   // (11/03 08:14 사용자) 나누면 오른쪽 조각이 바로 골라진 채로(창은 그대로, 뒤로 가기 기록도 그대로)
+    const mrg = d.querySelector("[data-merge]");
+    if (mrg) mrg.onclick = () => {   // (11/05 사용자) 합치기: 나눈 조각 둘 → 한 음. 둘 다 '나누기만 한' 조각이고 음을 안 바꿨으면 고침 기록을 지워 서버가 처음 고른 한 음으로, 아니면 지금 고른 음으로 한 덩어리 고침
+      clearTimeout(tm); tm = null;
+      const o = mgNb, a0 = Math.min(T0, o.t0), a1 = Math.max(T1, o.t1), plain = isCut && !!o.cut && same(), f = { t0: a0, t1: a1, midi: plain ? null : rnd(m) };
+      if (!plain) { const o_ = cv._orig || (cv._orig = {}); (cv.pts || []).forEach((p, i) => { if (p[0] >= a0 - 0.001 && p[0] <= a1 + 0.001 && p[kt] != null) { if (!(i in o_)) o_[i] = p[kt]; p[kt] = Math.round(m * 100); } }); }
+      cv._fixes = prior.filter(x => !(x.t0 < a1 && x.t1 > a0)).concat(plain ? [] : [f]);
+      try { fxSave(onFix, f); } catch {} sndOff();
+      fixSheet(host, cv, { t0: a0, t1: a1, c: Math.round(m * 100) }, onFix, getT, st); };
     // (11/03 13:34 사용자) ↺ 톡 = 가장 최근에 저장했던 상태로(한 번씩 거꾸로) · 1초 꾹 = '원본으로 되돌릴까요?' 확인 → 이 음의 음정·타이밍 고침을 모두 지움(보컬 분리 + 기본 보정만 한 상태)
     let tGet = () => null, tSet = () => {}, tOrig = () => {};   // 타이밍 상태(타이밍 모드가 있을 때만 아래에서 채움)
     const H = st ? (st._hist || (st._hist = {})) : {}, hk = b.t0.toFixed(2) + "|" + b.t1.toFixed(2);   // 저장 기록(전체화면을 닫을 때까지)
@@ -853,7 +863,7 @@
     if (st.onAdv) {   // 위 줄: [🎛 고급 보정] → 켜면 [🎛 곡 전체][기본으로]
       try { G.TuneAdv.preview(cv, G.TuneAdv.state(st).ne); } catch {}
       const xb = wrap.querySelector(".tfTop .tfX:not(.tfXp)") || wrap.querySelector(".tfTop .tfX"), mk = (cls, txt) => { const b = document.createElement("button"); b.type = "button"; b.className = "tfAdvG " + cls; b.textContent = txt; b.addEventListener("pointerdown", (e) => e.stopPropagation()); xb.parentNode.insertBefore(b, xb); return b; };
-      const on = mk("advOnB", "🎛 고급 보정"), gl = mk("advGlB", "🎛 곡 전체"), uvB = mk("advUvB", "🌬 치찰음·호흡"), off = mk("advOffB", "기본으로");
+      const on = mk("advOnB", "🎛 디테일 보정"), gl = mk("advGlB", "🎛 일괄 보정"), uvB = mk("advUvB", "🌬 치찰음·호흡"), off = mk("advOffB", "심플로");
       const paintAdv = () => { on.hidden = st.advOn; gl.hidden = off.hidden = uvB.hidden = !st.advOn; if (!st.advOn) st.uvTool = false; uvB.classList.toggle("on", !!st.uvTool); uvB.textContent = st.uvTool ? "🌬 구간 끌어 고르기 · 끝내기" : "🌬 치찰음·호흡"; wrap.classList.toggle("advOn", st.advOn); };
       uvB.onclick = () => { st.uvTool = !st.uvTool; st.uvSel = null; if (st.uvTool) { pauseNow(); wrap.querySelectorAll(".tfFix").forEach(x => x.remove()); } paintAdv(); };
       on.onclick = () => { st.advOn = true; if (st.fixMode === "a") st.fixMode = "p"; paintAdv(); wrap.querySelectorAll(".tfFix").forEach(x => x.remove()); };

@@ -43,3 +43,21 @@ console.log("adv-mode ok", md.toFixed(4));
 
 { const A2 = require("fs").readFileSync(__dirname + "/../adv.js", "utf8");
   require("assert").ok(A2.includes('fmt: (v) => (v > 0 ? "−" : "") + pct(v)') && A2.includes('fmt: (v) => (v > 0 ? "+" : "") + pct(v)'), "큰 음 줄이기는 −값, 작은 음 키우기는 +값으로 표시"); }
+
+/* (11/05 사용자) 이름 정리: 고급 보정 → 디테일 보정, 곡 전체(일괄) → 일괄 보정, 기본으로 → 심플로 */
+{ const T1 = require("fs").readFileSync(__dirname + "/../tune.js", "utf8"), A3 = require("fs").readFileSync(__dirname + "/../adv.js", "utf8"), as = require("assert");
+  as.ok(T1.includes('mk("advOnB", "🎛 디테일 보정")') && T1.includes('mk("advGlB", "🎛 일괄 보정")') && T1.includes('mk("advOffB", "심플로")'), "버튼 이름");
+  as.ok(A3.includes("<b>🎛 일괄 보정</b>"), "일괄 보정 시트 제목"); }
+
+/* (11/05 사용자) 음별 포먼트: 음 고치기 창 '음색' 탭 · 설명 줄은 일괄 보정 시트·음색 탭에 · 서버 note_edits formant */
+{ const A4 = require("fs").readFileSync(__dirname + "/../adv.js", "utf8"), as = require("assert");
+  as.ok(A4.includes('["m", "음색"]') && A4.includes('if (k === "m") rows.push(') && A4.includes('put("formant", v)'), "음색 탭");
+  as.ok(A4.includes("fade_out: 0, formant: 0 }"), "음별 포먼트 기본값(0은 저장 안 함)");
+  as.ok((A4.match(/p\.className = "advD"/g) || []).length === 2, "설명 줄 표시: 음 창·일괄 시트 두 곳");
+  as.ok(A4.includes("디테일 보정 전부 원래대로"), "초기화 버튼 이름"); }
+
+/* (11/05 사용자) 합치기: 나눈 조각 옆에 붙은 조각이 있을 때만 ⇔ 버튼 · 둘 다 안 고친 조각이면 고침 기록을 지워 서버가 고른 한 음으로, 아니면 지금 음으로 한 덩어리 */
+{ const T5 = require("fs").readFileSync(__dirname + "/../tune.js", "utf8"), as = require("assert");
+  as.ok(T5.includes("mgNb = fixed ?") && T5.includes("data-merge") && T5.includes('<span class="i">합치기</span>'), "옆 조각이 있을 때만 ⇔ 버튼");
+  as.ok(T5.includes("plain = isCut && !!o.cut && same()") && T5.includes("midi: plain ? null : rnd(m)"), "안 고친 조각끼리면 기록 삭제");
+  as.ok(T5.includes("cv._fixes = prior.filter(x => !(x.t0 < a1 && x.t1 > a0)).concat(plain ? [] : [f]);"), "두 조각 기록을 하나로 바꿔 끼움"); }
