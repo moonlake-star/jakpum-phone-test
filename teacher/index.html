@@ -522,8 +522,8 @@
 <div id="v2Shade" class="v2only"></div>
 <div id="toast"></div>
 <script src="../lesson-replies.js"></script>
-<script src="../tune.js?v=20261105-0300"></script>
-<script src="../adv.js?v=20261105-0300"></script>
+<script src="../tune.js?v=20261106-0400"></script>
+<script src="../adv.js?v=20261106-0400"></script>
 <script src="../pitch-embed.js?v=20261105-1850"></script>
 
 <script>
@@ -4860,12 +4860,40 @@ function pvClusterRatio(cv, cl, dry, lvCol, sr, i0, n) {   // 덩어리 안 칸�
     m.set(k, cor); }
   return pvPerSample(cv, m, sr, i0, n, (c) => c == null ? 1 : 2 ** (c / 1200));
 }
+// (11/06 사용자 '수정한 사운드를 재생하면 바로 들어볼 수 있게') 디테일 보정(흐름·기울기·이어짐·비브라토 / 볼륨·무음·페이드)도 같은 PSOLA로 미리듣기
+// 음정: 음정선 보정본(하늘색) 선이 adv.js 미리보기로 바뀐 만큼(바뀐 선 − 처음 선)만 높이를 옮김 · 볼륨·무음: 샘플마다 곱함 · 음색(포먼트)·곡 전체 고침은 아직 소리에 반영 안 함(근사)
+const PV_ADV_P = ["drift", "vib", "vs", "tilt_in", "tilt_out", "tr_ms"], PV_ADV_G = ["gain_db", "mute", "fade_in", "fade_out"];
+function pvAdvPlan() {
+  const notes = (mkPv.adv || []).filter(n => [...PV_ADV_P, ...PV_ADV_G].some(k => k in n)); if (!notes.length) return null;
+  const regs = []; for (const n of notes.slice().sort((a, b) => a.t0 - b.t0)) { const t1 = n.t1 + (n.tr_ms ? 0.15 : 0), L = regs[regs.length - 1];
+    if (L && n.t0 - L.t1 < 0.3) { L.t1 = Math.max(L.t1, t1); L.notes.push(n); } else regs.push({ t0: n.t0, t1, notes: [n] }); }
+  return { sig: JSON.stringify(notes), regs };
+}
+function pvAdvGain(cl, sr, i0, n) {
+  const g = new Float32Array(n).fill(1); let any = false;
+  for (const nt of cl.notes) { if (!PV_ADV_G.some(k => k in nt)) continue;
+    const s0 = Math.max(0, Math.round(nt.t0 * sr) - i0), s1 = Math.min(n, Math.round(nt.t1 * sr) - i0), k = s1 - s0; if (k <= 0) continue;
+    const a = nt.mute ? 0 : nt.gain_db ? 10 ** (nt.gain_db / 20) : 1, fi = nt.fade_in ? Math.min(k, Math.round(nt.fade_in * sr)) : 0, fo = nt.fade_out ? Math.min(k, Math.round(nt.fade_out * sr)) : 0;
+    for (let i = 0; i < k; i++) { let v = a; if (i < fi) v *= (i / fi) ** 2; if (i >= k - fo) v *= ((k - i) / fo) ** 2; g[s0 + i] *= v; }
+    any = true; }
+  if (!any) return null;
+  const w = Math.max(1, Math.round(0.005 * sr)), c = new Float64Array(n + 1); for (let i = 0; i < n; i++) c[i + 1] = c[i] + g[i];   // 5ms로 부드럽게(딸깍 방지)
+  const o = new Float32Array(n); for (let i = 0; i < n; i++) { const a = Math.max(0, i - (w >> 1)), b = Math.min(n, i + (w >> 1) + 1); o[i] = (c[b] - c[a]) / (b - a); }
+  return o;
+}
+function pvAdvMaps(cv, lvCol) {   // 보정본 열: [처음 선(소리의 높이), 바뀐 선 − 처음 선(센트)]
+  const L = (cv.levels || []).length, k = L ? 2 + L - 1 : 0, base = cv._advBase; if (!k || !base || !cv.pts) return null;
+  const fps = cv.fps || 25, bm = new Map(), dm = new Map(); let any = false;
+  cv.pts.forEach((p, i) => { const b0 = base[i], c0 = p[k]; if (b0 != null) bm.set(Math.round(p[0] * fps), b0); if (b0 != null && c0 != null) { const d = c0 - b0; dm.set(Math.round(p[0] * fps), d); if (Math.abs(d) > 0.5) any = true; } });
+  return { f0: lvCol === k ? bm : pvBins(cv, lvCol), delta: dm, any };
+}
 function pvApply(name) {   // 한 트랙에 지금 고친 정음·타이밍 전부 반영(원래 조각을 기억해 두고, 바뀌면 되돌린 뒤 다시 만듦) — 음정 먼저, 타이밍은 그 위에
   const tr = mkTracks[name], buf = tr?.buf, nm = /^([pw])([123])$/.exec(name), cv = mkPv.cv, voc = /^([pwqx][0-3]|wet|dry)$/.test(name); if (!buf || !cv || (!nm && !voc)) return false;
   const dry = !!nm && nm[1] === "p", src = dry ? mkTracks.p0?.buf : buf, pOn = !!nm && !!src;   // 보정본 음정은 보정 전 보컬이 있어야(다 받으면 다시 시도)
   const sr = buf.sampleRate, X = Math.round(sr * 0.05), lvCol = nm ? (typeof Tune !== "undefined" ? Tune.col(cv, +nm[2]) : 1 + +nm[2]) : 1;
   const cls = pOn ? pvClusters(mkPv.fixes) : [], tp = voc ? (mkPv.tplan || { sig: "", regs: [] }) : { sig: "", regs: [] };
-  const sig = JSON.stringify(cls.map(c => c.fx.map(f => [f.t0, f.t1, f.midi, dry ? 0 : mkPv.rendered(f)]))) + "|" + tp.sig;
+  const ap = nm ? pvAdvPlan() : null;   // 디테일 보정 미리듣기(보정본·울림 트랙만)
+  const sig = JSON.stringify(cls.map(c => c.fx.map(f => [f.t0, f.t1, f.midi, dry ? 0 : mkPv.rendered(f)]))) + "|" + tp.sig + (ap ? "|" + ap.sig : "");
   const st = mkPv.orig[name] || (mkPv.orig[name] = { sig: "[]|", regs: [] });
   if (st.sig === sig) return false;
   for (const r of st.regs.slice().reverse()) r.ch.forEach((org, c) => buf.getChannelData(c).set(org, r.i0));   // 먼저 원래대로
@@ -4883,6 +4911,14 @@ function pvApply(name) {   // 한 트랙에 지금 고친 정음·타이밍 전�
     const f0 = pvF0(cv, lvCol, sr, i0, n), Dk = (k) => tp.D((i0 + k) / sr) * sr - i0;
     for (let c = 0; c < buf.numberOfChannels; c++) { const out = buf.getChannelData(c), org = reg.ch[c], sh = pvWarp(org, sr, f0, Dk);
       for (let k = 0; k < n; k++) { const a = k < X ? k / X : k > n - X ? (n - k) / X : 1; out[i0 + k] = org[k] * (1 - a) + sh[k] * a; } } }
+  if (ap) { const mp = pvAdvMaps(cv, lvCol);   // 디테일 보정: 지금까지 만든 소리 위에 높이 차이·볼륨을 얹음
+    for (const cl of ap.regs) {
+      const i0 = Math.max(0, Math.round(cl.t0 * sr) - X), i1 = Math.min(buf.length, Math.round(cl.t1 * sr) + X), n = i1 - i0; if (n < 3 * X) continue;
+      const reg = { i0, ch: Array.from({ length: buf.numberOfChannels }, (_, c) => buf.getChannelData(c).slice(i0, i1)) }; st.regs.push(reg);
+      const gain = pvAdvGain(cl, sr, i0, n), usePitch = !!(mp && mp.any && cl.notes.some(nt => PV_ADV_P.some(k => k in nt)));
+      const f0 = usePitch ? pvPerSample(cv, mp.f0, sr, i0, n, (c) => c == null ? 0 : PV_C2HZ(c)) : null, rat = usePitch ? pvPerSample(cv, mp.delta, sr, i0, n, (c) => c == null ? 1 : 2 ** (c / 1200)) : null;
+      for (let c = 0; c < buf.numberOfChannels; c++) { const out = buf.getChannelData(c), org = reg.ch[c], sh = usePitch ? pvPsola(org, sr, f0, rat) : org;
+        for (let k = 0; k < n; k++) { const a = k < X ? k / X : k > n - X ? (n - k) / X : 1, v = sh[k] * (gain ? gain[k] : 1); out[i0 + k] = org[k] * (1 - a) + v * a; } } } }
   return true;
 }
 // (11/03 11:13 사용자) 멜로다인처럼 '목소리로 그 음 소리': 그 막대 가운데 목소리 조각을 그 음 높이로 평평하게 맞춰(떨림 없이) 끊김 없이 되풀이
@@ -5195,7 +5231,9 @@ async function openMkJob(j, backTo) {
     // (11/04 사용자) 고급 보정 모드: 음별·곡 전체 고침(adv.js) → 원래 녹음 시간으로 바꿔 note_edits에 저장(서버 note_edits.py) · 화면에선 지금 시간
     const uvT = (g, f) => { const o = { ...g }; for (const k of ["uv_fix", "uv_gain"]) if (Array.isArray(o[k])) o[k] = o[k].map(x => ({ ...x, t0: r4(f(x.t0)), t1: r4(f(x.t1)) })); return o; };   // (11/04) 치찰음·호흡 구간도 화면 시간 ↔ 원래 녹음 시간
     const advGet = () => { const ne = r.note_edits || {}; return { notes: (ne.notes || []).map(n => ({ ...n, t0: r4(toA(n.t0)), t1: r4(toA(n.t1)) })), global: uvT(ne.global || {}, toA) }; };
-    const onAdv = async (ne) => { const notes = (ne.notes || []).map(n => ({ ...n, t0: r4(toO(n.t0)), t1: r4(toO(n.t1)) })), g = uvT(ne.global || {}, toO);
+    const pvAdvSync = (ne) => { try { mkPv.adv = (ne.notes || []).map(n => ({ ...n })); if (window.TuneAdv?.preview) window.TuneAdv.preview(cv, ne); window.TuneAdvPv = (pvAdvPlan()?.regs || []).reduce((q, g) => q + g.notes.length, 0); document.dispatchEvent(new Event("advpv")); } catch (e) { console.warn("디테일 미리듣기", e); } };   // 화면 시간 그대로
+    const onAdv = async (ne) => { pvAdvSync(ne); try { pvApplyAll(); } catch (e) { console.warn("디테일 미리듣기", e); }
+      const notes = (ne.notes || []).map(n => ({ ...n, t0: r4(toO(n.t0)), t1: r4(toO(n.t1)) })), g = uvT(ne.global || {}, toO);
       if (notes.length || Object.keys(g).length) r.note_edits = { notes, global: g }; else delete r.note_edits;
       try { await writeJSON(j.folder.id, MKREQ, r, j.reqId); paintFixN(); } catch (e) { toast("디테일 보정 저장 실패: " + errMsg(e)); } };
     // (11/03 13:46 사용자 시안 승인) 곡 전체(또는 고른 것만) 원본으로: 선생님이 고친 것만 지움(보컬 분리·기본 보정·자동 음정 보정은 그대로) · 10초 되살리기 · 지운 것은 작업 파일에 '지난 고침'으로 보관
@@ -5216,7 +5254,7 @@ async function openMkJob(j, backTo) {
       return gone; };
     // (11/05 사용자) 전체화면 ↶ ↷ 되돌리기·다시하기: 지금 고침 전체(정음·타이밍·디테일 보정)를 글자로 주고받음 → 그 상태로 되돌려 저장(applyAll)
     const histGet = () => JSON.stringify({ fx: r.target_fixes || [], te: r.time_edits || [], ne: r.note_edits || null });
-    const histSet = async (js) => { const h = JSON.parse(js); if (h.ne) r.note_edits = h.ne; else delete r.note_edits; await applyAll(h.fx || [], h.te || []); };
+    const histSet = async (js) => { const h = JSON.parse(js); if (h.ne) r.note_edits = h.ne; else delete r.note_edits; pvAdvSync(advGet()); await applyAll(h.fx || [], h.te || []); };
     Tune.wire($("mkTune"), cv, () => mkNow(), () => (mkRaw ? 0 : lvNow()), (t, still) => { const tt = Math.max(0, Math.min(t, mkDurS ? mkDurS - 0.05 : t)); if (still) { if (mkPlaying) mkStop(); mkOffset = tt; paintTransport(); return; } if (!mkPlaying) { mkOffset = tt; $("mkPP").click(); } else mkSeekTo(t); },
       { title: `${j.st?.name || ""} · ${r.title || "메이크업"}`, tapFull: true, teacher: true, lvDef: +(r.pitch_level ?? 2), play: () => $("mkPP")?.click(), paused: () => !mkPlaying, mode: () => (lvNow() > 0 ? "p" : "o"),
         setMode: (m) => document.querySelector(`#mkAb [data-ab="${m === "p" ? 1 : 0}"]`)?.click(), onFix, onFixMany, histGet, histSet, onTime, ...(canAdv() ? { onAdv, advGet } : {}), onResetRange: (t0, t1) => resetSome(true, true, [t0, t1]), countRange: (a, b) => (r.target_fixes || []).concat(r.time_edits || []).filter(x => toA(x.t0) < b && toA(x.t1) > a).length, voice: voiceTone, wave: () => mkTracks.mr?.buf || mkTracks.before?.buf || null, ...tnOpts });
@@ -6990,7 +7028,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-06-0320-org-tabs";
+const BUILD = "2026-11-06-0400-adv-preview";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
