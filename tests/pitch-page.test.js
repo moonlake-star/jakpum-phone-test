@@ -214,3 +214,9 @@ console.log("pitch-page ok");
   assert.ok(src.includes("const SLOW_LO = 2.2, SLOW_Q = .55;") && src.includes("V.slow = slowOk;") && src.includes("okslow: '궤적 좋아요 · 조금 더 빠르게 도전!'") && src.includes("Math.min(RW.lo, SLOW_LO)"), "느려도 궤적이 깨끗하면 성공 인정(+ 더 빠르게 안내)");
   console.log("pitch-page: 느린 비브라토 인정 ok");
 }
+{
+  const src = fs.readFileSync(__dirname + "/../pitch/index.html", "utf8");
+  assert.ok(src.includes('id="vLad"') && src.includes("const VST_N = 5, VST_NEED = 3;") && src.includes("if (V.streak % 5 === 0) vibPass(V.rate);") && src.includes("function vibPass(rate)"), "속도 사다리: 5연속 3번이면 다음 칸");
+  assert.ok(src.includes("const vibFrac = () => vibGuideOn() ? .62 : .8;") && src.includes("가이드 사인파") && src.includes("function vibBeat()") && src.includes('id="vgT"') && src.includes('id="vgB"'), "가이드 사인파(앞날 공간) + 켜기/끄기·−/＋·박자 버튼");
+  console.log("pitch-page: 속도 사다리·가이드 사인파 ok");
+}

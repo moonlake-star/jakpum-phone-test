@@ -141,6 +141,14 @@ input,select{font:inherit;color:var(--ink)}
 .vtrack u{position:absolute;top:50%;left:50%;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;background:var(--accent);text-decoration:none;transition:left .12s,opacity .2s}
 .vstreak{display:flex;align-items:center;gap:8px;margin-top:9px;font-size:12px;color:var(--ink2)}
 .vp{display:flex;gap:5px}.vp i{width:12px;height:12px;border-radius:50%;border:1.5px solid #5b6672}.vp i.on{background:var(--accent);border-color:var(--accent)}
+.vlad{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px;margin-top:9px}
+.vlad button{border-radius:8px;padding:5px 0 4px;text-align:center;font-size:10px;line-height:1.25;border:1px solid #3a424b;color:#8a95a1;background:#23282e;font-family:inherit;min-height:40px}
+.vlad button b{display:block;font-size:12px;font-weight:600}
+.vlad button.d{background:#3a2a0c;border-color:#e48d16;color:#ffd27a}.vlad button.c{background:#e48d16;border-color:#e48d16;color:#1a1204}
+.vlad button.l{opacity:.55}
+.vgd{display:flex;gap:6px;margin-top:8px;align-items:stretch}
+.vgd button{border:1px solid #4a535d;background:#2a3036;color:#e8ecf1;border-radius:10px;padding:0 10px;font-size:12px;min-height:38px;font-family:inherit}
+.vgd button.on{background:#12323c;border-color:#7fe3ff;color:#7fe3ff}.vgd #vgT{flex:1}
 .vstreak b{color:var(--ink);font-size:14px;min-width:14px}.vfb{margin-left:auto;font-size:11px;color:var(--muted)}.vfb.ok{color:var(--ok)}
 @keyframes flashA{from{opacity:.95}to{opacity:0}}
 .flash{position:absolute;inset:0;pointer-events:none;box-shadow:inset 0 0 70px 14px var(--fc,#ffd27a);animation:flashA .75s ease-out forwards;z-index:4}
@@ -307,7 +315,9 @@ summary{cursor:pointer;color:var(--ink2)}
         <div id="vibHud"><div class="vgrid">
           <div><div class="vk">속도 <b id="vRate">--</b></div><div class="vtrack"><i class="vzone" id="vRz"></i><u id="vRd"></u></div></div>
           <div><div class="vk">폭 (한쪽) <b id="vExt">--</b></div><div class="vtrack"><i class="vzone" id="vEz"></i><u id="vEd"></u></div></div></div>
-          <div class="vstreak"><span>고른 사이클 연속</span><span class="vp" id="vPips"><i></i><i></i><i></i><i></i><i></i></span><b id="vCnt">0</b><span class="vfb" id="vFb"></span></div></div>
+          <div class="vstreak"><span>고른 사이클 연속</span><span class="vp" id="vPips"><i></i><i></i><i></i><i></i><i></i></span><b id="vCnt">0</b><span class="vfb" id="vFb"></span></div>
+          <div class="vlad" id="vLad"></div>
+          <div class="vgd"><button type="button" id="vgT" class="on">가이드 파형 켜짐</button><button type="button" id="vgD" aria-label="가이드 느리게">−</button><button type="button" id="vgU" aria-label="가이드 빠르게">＋</button><button type="button" id="vgB">▶ 박자</button></div></div>
       </div>
       <div id="cbar"><div id="scHead"><button class="btn sm" id="scBack">← 발성</button><b id="scTitle"></b><button class="btn sm" id="scCfg">⚙</button></div><div class="seg big" id="segMode"><button data-v="free">자유</button><button data-v="course">코스</button><button data-v="vib">비브라토</button></div><div id="subBar"><div id="stTabs" hidden></div><div class="seg" id="segVW" hidden></div><div id="vwEx" hidden></div></div></div>
       <div id="stage"><canvas id="roll"></canvas>
@@ -984,7 +994,7 @@ function renderCourseUI() {
   if (vm) { sw.innerHTML = Object.keys(VLV).map(k => `<button data-v="${k}" class="${+k === CFG.vw ? 'on' : ''}">${VLV[k].name}</button>`).join(''); sw.querySelectorAll('button').forEach(b => b.onclick = () => setVW(b.dataset.v)); }
   $('#subBar').style.display = (!tb.hidden || vm) ? 'flex' : 'none'; renderVwEx();
   $('#ctrack').style.display = (cm || vm) ? 'none' : ''; $('#cprog').style.display = cm ? '' : 'none'; $('#vibHud').style.display = vm ? 'block' : 'none';
-  $('#sBest').previousElementSibling.textContent = vm ? '최고 연속' : '최고 유지'; if (vm) renderVibZones(); setMonUI();
+  $('#sBest').previousElementSibling.textContent = vm ? '최고 연속' : '최고 유지'; if (vm) { renderVibZones(); renderVibGuide(); } setMonUI();
   const sv = cm && C.stage === 3; $('#v-practice').classList.toggle('scaleView', sv);
   if (sv && C.line) { const L = C.line; $('#scTitle').textContent = `${VOICE[L.g].name} · ${SCALES.find(x => x.k === L.k).t}`; }
   updateTargetChip(); renderCOv();
@@ -1201,7 +1211,7 @@ function vibTick(now, dt, m) {
   if (V.rate != null && V.verdict && V.verdict !== 'none') {           // count finished cycles at the measured speed
     V.cyc += V.rate * dt / 1000;
     while (V.cyc >= 1) { V.cyc -= 1; V.s.cyc++; V.s.sR += V.rate; V.s.sE += V.extent; const lq = V.s.lv[CFG.vw] = V.s.lv[CFG.vw] || { cyc: 0, ok: 0 }; lq.cyc++;
-      if (V.verdict === 'ok') { V.streak++; V.s.ok++; lq.ok++; if (V.slow) V.s.slowOk = (V.s.slowOk || 0) + 1; V.s.best = Math.max(V.s.best, V.streak); fireVib(V.streak); } else V.streak = 0; }
+      if (V.verdict === 'ok') { V.streak++; if (V.streak % 5 === 0) vibPass(V.rate); /* 5연속마다 한 번 */ V.s.ok++; lq.ok++; if (V.slow) V.s.slowOk = (V.s.slowOk || 0) + 1; V.s.best = Math.max(V.s.best, V.streak); fireVib(V.streak); } else V.streak = 0; }
   }
 }
 /* Speed/width come from a 1.2 s (wider levels: up to 2 s) spectrum of the pitch track (robust against jitter), not from raw peaks. */
@@ -1229,6 +1239,43 @@ function vibAnalyze() {
 /* (11/05 사용자) 느린 비브라토도 음정 궤적이 깨끗하면(스펙트럼 집중도 Q ≥ .55, 폭은 범위 안) 성공으로 인정: 목표 속도보다 느려도 SLOW_LO(약 2.2Hz)까지.
    성공이지만 V.slow = true 로 표시해서 '조금 더 빠르게 도전' 안내에 써요 */
 const SLOW_LO = 2.2, SLOW_Q = .55;
+/* (11/05 사용자) 속도 사다리: 폭마다 [느려도 인정하는 하한 ~ 목표 상한]을 5칸으로 나눠요. 한 칸에서 '5연속 성공'을 3번 하면 다음 칸이 열리고,
+   그 칸의 가운데 속도·폭으로 사인파 가이드를 오른쪽(앞날) 공간에 미리 보여줘요. */
+const VST_N = 5, VST_NEED = 3;
+const vibBandsOf = () => { const R = VR(), lo = Math.max(SLOW_LO, R.rate[0] - 1), hi = R.rate[1], w = (hi - lo) / VST_N; return { lo, hi, w }; };
+const vibBandIdx = rate => { const B = vibBandsOf(); return clamp(Math.floor((rate - B.lo) / B.w), 0, VST_N - 1); };
+function vibSt() { CFG.vst = CFG.vst || {}; const k = CFG.vw; if (!CFG.vst[k] || !(CFG.vst[k].cur >= 0)) CFG.vst[k] = { cur: 0, pass: 0 }; return CFG.vst[k]; }
+const vibGuideRate = () => { const B = vibBandsOf(), m = CFG.vgr && CFG.vgr[CFG.vw]; if (m > 0) return clamp(m, B.lo, B.hi); const S = vibSt(); return B.lo + B.w * (S.cur + .5); };
+const vibGuideOn = () => CFG.vgd !== 0;
+const r1 = v => (Math.round(v * 10) / 10).toFixed(1);
+function vibPass(rate) {                                // 5연속 성공 한 번
+  const S = vibSt(), b = vibBandIdx(rate); if (b < S.cur) return;
+  if (b > S.cur) { S.cur = b; S.pass = 0; if (CFG.vgr) delete CFG.vgr[CFG.vw]; }
+  S.pass++;
+  if (S.pass >= VST_NEED) {
+    if (S.cur < VST_N - 1) { S.cur++; S.pass = 0; if (CFG.vgr) delete CFG.vgr[CFG.vw]; const B = vibBandsOf(); popBanner('속도 단계 UP', `다음 도전 ${r1(B.lo + B.w * S.cur)}~${r1(B.lo + B.w * (S.cur + 1))}Hz`, '#7fe3ff'); sfx('clear'); }
+    else { S.pass = VST_NEED; S.top = 1; }
+  }
+  saveCfg(); renderVibGuide();
+}
+function renderVibGuide() {
+  const lad = $('#vLad'); if (!lad) return; const B = vibBandsOf(), S = vibSt();
+  lad.innerHTML = Array.from({ length: VST_N }, (_, i) => { const a = B.lo + B.w * i, b = a + B.w, cls = i < S.cur ? 'd' : i === S.cur ? 'c' : 'l', t = i < S.cur ? '✓ 끝' : i === S.cur ? `도전 ${S.pass}/${VST_NEED}` : '잠김';
+    return `<button type="button" data-i="${i}" class="${cls}"><b>${r1(a)}~${r1(b)}</b>${t}</button>`; }).join('');
+  lad.querySelectorAll('button').forEach(bt => bt.onclick = () => { const i = +bt.dataset.i; if (i > S.cur) { toast('앞 단계를 먼저 끝내면 열려요'); return; } S.cur = i; S.pass = 0; if (CFG.vgr) delete CFG.vgr[CFG.vw]; saveCfg(); renderVibGuide(); });
+  const t = $('#vgT'); if (t) { t.classList.toggle('on', vibGuideOn()); t.textContent = vibGuideOn() ? `가이드 ${r1(vibGuideRate())}Hz` : '가이드 꺼짐'; }
+}
+function vibGuideAdj(d) { const B = vibBandsOf(); CFG.vgr = CFG.vgr || {}; CFG.vgr[CFG.vw] = clamp(Math.round((vibGuideRate() + d) * 10) / 10, B.lo, B.hi); CFG.vgd = 1; saveCfg(); renderVibGuide(); }
+function vibBeat() {                                    // 가이드 속도로 짧은 틱을 3초 들려줘요
+  try {
+    const ctx = actx(), out = pianoOut(ctx), rate = vibGuideRate(), n = Math.max(4, Math.round(rate * 3)), t0 = ctx.currentTime + .05;
+    for (let i = 0; i < n; i++) { const o = ctx.createOscillator(), g = ctx.createGain(), t = t0 + i / rate; o.frequency.value = i % 4 ? 660 : 880; g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.16, t + .005); g.gain.exponentialRampToValueAtTime(.0005, t + .07); o.connect(g).connect(out); o.start(t); o.stop(t + .09); }
+    if (!P.earphone) P.toneUntil = Math.max(P.toneUntil, performance.now() + (n / rate) * 1000 + 250);
+    V.cueUntil = performance.now() + (n / rate) * 1000 + 300;
+  } catch (e) {}
+}
+$('#vgT').onclick = () => { CFG.vgd = vibGuideOn() ? 0 : 1; saveCfg(); renderVibGuide(); };
+$('#vgD').onclick = () => vibGuideAdj(-.5); $('#vgU').onclick = () => vibGuideAdj(.5); $('#vgB').onclick = vibBeat;
 function vibStep(now) {
   const r = vibAnalyze(), R = VR(); V.dbg = r;
   if (r && r.Q >= .4 && r.ext >= 8) {
@@ -1241,7 +1288,8 @@ function vibStep(now) {
   } else if (V.verdict && now - V.lastExtT > 300) { V.streak = 0; V.verdict = ''; V.rate = null; V.extent = null; V.cyc = 0; }     // steady tone (or silence): no vibrato
 }
 const VM = { 3: ['3연속', 'NICE ✨', '#ffffff'], 5: ['비브라토 성공!', 'GREAT 👍', '#ffd27a'], 10: ['10연속!', 'EXCELLENT 🔥', '#ff9f43'], 20: ['20연속!!', 'AMAZING ⭐', '#ffd23f'] };
-function vibXY() { const last = V.tr[V.tr.length - 1]; return { x: PIANO_W + (P.W - PIANO_W) * .8, y: P.H / 2 - (last ? last.d : 0) * vpc() }; }
+const vibFrac = () => vibGuideOn() ? .62 : .8;   // 가이드가 켜져 있으면 '지금' 선을 왼쪽으로 옮겨 오른쪽에 파형이 보일 자리를 만들어요
+function vibXY() { const last = V.tr[V.tr.length - 1]; return { x: PIANO_W + (P.W - PIANO_W) * vibFrac(), y: P.H / 2 - (last ? last.d : 0) * vpc() }; }
 function fireVib(n) {
   const k = VM[n] ? n : (n > 20 && n % 10 === 0 ? 20 : 0); if (!k) return;
   const fx = VM[k], c = vibXY();
@@ -1271,7 +1319,7 @@ function updateVibHud() {
   setTxt('vCnt', String(V.streak)); setTxt('vFb', fb, 'vfb' + (live && V.verdict === 'ok' ? ' ok' : ''));
 }
 function drawVib(now) {
-  const W = P.W, H = P.H, L = PIANO_W, nowX = L + (W - L) * .8, WIN = 1.6, pps = (nowX - L) / WIN, cy = H / 2, pc = vpc(), R = VR();
+  const W = P.W, H = P.H, L = PIANO_W, nowX = L + (W - L) * vibFrac(), pps = (W - L) * .5, WIN = (nowX - L) / pps, cy = H / 2, pc = vpc(), R = VR();
   g2.setTransform(P.dpr, 0, 0, P.dpr, 0, 0); g2.fillStyle = '#22282c'; g2.fillRect(0, 0, W, H);
   g2.fillStyle = 'rgba(76,195,138,.15)'; g2.fillRect(L, cy - R.ext[1] * pc, W - L, (R.ext[1] - R.ext[0]) * pc); g2.fillRect(L, cy + R.ext[0] * pc, W - L, (R.ext[1] - R.ext[0]) * pc);
   g2.strokeStyle = 'rgba(255,255,255,.07)'; g2.lineWidth = 1; for (const c of R.ticks.flatMap(v => [-v, v])) { const y = Math.round(cy - c * pc) + .5; g2.beginPath(); g2.moveTo(L, y); g2.lineTo(W, y); g2.stroke(); }
@@ -1284,6 +1332,20 @@ function drawVib(now) {
     g2.stroke();
   }
   g2.globalAlpha = 1; g2.restore();
+  // 가이드 사인파: 소리를 내기 시작하면 '지금' 선에서 시작해 오른쪽(앞날)으로 도전 속도·폭 그대로 다가와요
+  if (vibGuideOn()) {
+    const lv = !!live; V.gA = (V.gA || 0) + ((lv ? 1 : 0) - (V.gA || 0)) * .08; if (V.gA < .02) V.gT0 = null; else if (V.gT0 == null && lv) V.gT0 = now;
+    if (V.gT0 != null && V.gA >= .02) {
+      const f = vibGuideRate(), A = vibMid(), TT = (W - nowX) / pps; g2.save(); g2.beginPath(); g2.rect(L, 0, W - L, H); g2.clip(); g2.lineWidth = 2; g2.strokeStyle = '#7fe3ff'; g2.setLineDash([6, 4]);
+      g2.globalAlpha = .85 * V.gA; g2.beginPath(); let st = false;
+      for (let x = nowX; x <= W; x += 3) { const tt = now + (x - nowX) / pps * 1000, y = cy - A * Math.sin(2 * Math.PI * f * (tt - V.gT0) / 1000) * pc; if (!st) { g2.moveTo(x, y); st = true; } else g2.lineTo(x, y); }
+      g2.stroke();
+      g2.globalAlpha = .22 * V.gA; g2.beginPath(); st = false;                                   // 지나간 가이드는 옅게
+      for (let x = Math.max(L, nowX - (now - V.gT0) / 1000 * pps); x <= nowX; x += 3) { const tt = now - (nowX - x) / pps * 1000, y = cy - A * Math.sin(2 * Math.PI * f * (tt - V.gT0) / 1000) * pc; if (!st) { g2.moveTo(x, y); st = true; } else g2.lineTo(x, y); }
+      g2.stroke(); g2.setLineDash([]); g2.restore();
+    }
+    g2.save(); g2.globalAlpha = .9; g2.font = '600 10px system-ui,sans-serif'; g2.textAlign = 'right'; g2.textBaseline = 'top'; g2.fillStyle = '#7fe3ff'; g2.fillText('도전 ' + r1(vibGuideRate()) + 'Hz', W - 8, 6); g2.restore();
+  }
   g2.fillStyle = 'rgba(255,255,255,.5)'; g2.fillRect(nowX, 0, 1, H);
   if (live) { const y = vibXY().y; g2.fillStyle = col; g2.globalAlpha = .35; g2.beginPath(); g2.arc(nowX, y, 13, 0, 6.2832); g2.fill(); g2.globalAlpha = 1; g2.fillStyle = '#fff'; g2.beginPath(); g2.arc(nowX, y, 5.5, 0, 6.2832); g2.fill(); }
   else { g2.save(); g2.textAlign = 'center'; g2.textBaseline = 'middle'; g2.fillStyle = 'rgba(255,255,255,.55)'; g2.font = '600 13px system-ui,sans-serif'; g2.fillText('한 음을 길게 내면서', L + (W - L) / 2, cy - 54); g2.fillText(CFG.vw === 1 ? '소리를 물결치듯 흔들어 보세요' : `${R.name} 폭(±${vibMid()}센트)으로 크게 흔들어 보세요`, L + (W - L) / 2, cy - 34); g2.restore(); }
