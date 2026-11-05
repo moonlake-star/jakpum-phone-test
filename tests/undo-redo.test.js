@@ -31,4 +31,6 @@ now += 100; h.o.onTime({ t0: 5 }); now += 100; h.o.onAdv(); assert.strictEqual(h
   assert.ok(T.includes("el.width !== Math.round(w * r) || el.height !== Math.round(h * r)"), "캔버스 높이 변화도 다시 맞춤");
   // (11/05 사용자) 폰 세로 + 보정 모드 진입 시 가로 모드 안내 팝업
   assert.ok(T.includes("const landTip = ()") && T.includes("폰에선 가로 모드가 보정 시 더 편리할 수 있어요") && T.includes("if (v) landTip();") && T.includes("tune_land_tip_off"), "보정 진입 시 가로 모드 안내 + 다시 보지 않기");
+  // (11/05 사용자) 가로 + 🎛 고급 창 = 오른쪽 전체 높이 패널(그래프가 얇은 띠로 눌리지 않게)
+  assert.ok(T.includes(".tfBox:not(.port):has(.tfFix.inBot.amode){display:grid") && T.includes(".tfBox:not(.port) .tfFix.inBot.amode{grid-column:2;grid-row:2/4"), "가로 고급 창 = 오른쪽 패널");
   console.log("undo-redo ok"); })().catch((e) => { console.error(e); process.exit(1); });
