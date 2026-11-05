@@ -53,4 +53,7 @@ now += 100; h.o.onTime({ t0: 5 }); now += 100; h.o.onAdv(); assert.strictEqual(h
   assert.ok(A.includes("function duo(") && A.includes('"앞", "뒤"') && A.includes(".advDuo .advRow .advB{width:32px!important;min-width:0!important"), "기울기 한 줄"); }
 
 // 세로 화면: 보정창 높이는 화면 높이에 맞춰 214~300px(그래프가 그만큼 줄어 창이 위로 올라옴)
-assert.ok(T.includes("height:clamp(214px,41vh,300px)"), "보정창 높이 clamp");
+assert.ok(T.includes("height:clamp(190px,36vh,260px)"), "보정창 높이 clamp");
+
+// 보정 모드 한 줄: ▼ ◀ 음 ▶ ▲ ✂ 길− 길+ (타이밍 줄·'길이 그대로' 칸 없음)
+assert.ok(T.includes('class="tfIc tfTm" data-tm="-1"') && T.includes('class="tfIc tfLen" data-tl="1"') && T.includes("tInfo = () =>"), "한 줄 편집");
