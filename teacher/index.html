@@ -710,23 +710,23 @@ async function writeJSON(folder, name, obj, existingId) {
 async function loadConfig() {
   // 빠르게: 지난번 찾은 config.json ID로 바로 읽기(1번 호출). 실패하면 다시 찾기
   const cid = LS.get("vn_cfg_id");
-  if (cid) { try { cfg = await readJSON(cid); Object.defineProperty(cfg, "_configId", { value: cid, enumerable: false }); LS.set("vn_cfg", cfg); return; } catch {} }
+  if (cid) { try { cfg = await readJSON(cid); if (cfg.demo_readonly !== true) { Object.defineProperty(cfg, "_configId", { value: cid, enumerable: false }); LS.set("vn_cfg", cfg); return; } } catch {} }   // (11/05) 체험판이 저장돼 있어도 그 사이 강사로 등록됐을 수 있으니 다시 찾음
   const r = await (await api(`${DRIVE}/files?q=${q("name='_시스템' and mimeType='application/vnd.google-apps.folder' and trashed=false")}&fields=files(id)`)).json();
   for (const f of r.files || []) {
     const c = (await list(f.id)).find(x => x.name === "config.json");
     if (c) { cfg = await readJSON(c.id); Object.defineProperty(cfg, "_configId", { value: c.id, enumerable: false }); LS.set("vn_cfg_id", c.id); LS.set("vn_cfg", cfg); return; }
+  }
+  // (11/05 사용자) 강사 계정이 체험 보기보다 먼저(둘 다 공유받은 경우 진짜 강사 화면) · (11/02 사용자 시안 승인) 강사 계정: 원장이 공유한 '강사_이름/_강사시스템/config.json'(그 강사 수강생만)
+  const s = await (await api(`${DRIVE}/files?q=${q("name='_강사시스템' and mimeType='application/vnd.google-apps.folder' and trashed=false")}&fields=files(id)`)).json();
+  for (const f of s.files || []) {
+    const c = (await list(f.id)).find(x => x.name === "config.json");
+    if (c) { cfg = await readJSON(c.id); if (cfg.role !== "teacher") continue; Object.defineProperty(cfg, "_configId", { value: c.id, enumerable: false }); LS.set("vn_cfg_id", c.id); LS.set("vn_cfg", cfg); staffMode(); return; }
   }
   // (11/01 사용자) 강사 체험 보기: 공유받은 '_체험시스템'(가명 사본·보기 전용). 진짜 '_시스템'이 있으면 그쪽이 먼저(선생님 본인 화면엔 안 나옴)
   const d = await (await api(`${DRIVE}/files?q=${q("name='_체험시스템' and mimeType='application/vnd.google-apps.folder' and trashed=false")}&fields=files(id)`)).json();
   for (const f of d.files || []) {
     const c = (await list(f.id)).find(x => x.name === "config.json");
     if (c) { cfg = await readJSON(c.id); if (cfg.demo_readonly !== true) continue; Object.defineProperty(cfg, "_configId", { value: c.id, enumerable: false }); LS.set("vn_cfg_id", c.id); LS.set("vn_cfg", cfg); demoMode(); return; }
-  }
-  // (11/02 사용자 시안 승인) 강사 계정: 원장이 공유한 '강사_이름/_강사시스템/config.json'(그 강사 수강생만)
-  const s = await (await api(`${DRIVE}/files?q=${q("name='_강사시스템' and mimeType='application/vnd.google-apps.folder' and trashed=false")}&fields=files(id)`)).json();
-  for (const f of s.files || []) {
-    const c = (await list(f.id)).find(x => x.name === "config.json");
-    if (c) { cfg = await readJSON(c.id); if (cfg.role !== "teacher") continue; Object.defineProperty(cfg, "_configId", { value: c.id, enumerable: false }); LS.set("vn_cfg_id", c.id); LS.set("vn_cfg", cfg); staffMode(); return; }
   }
   throw new Error("_시스템/config.json을 찾지 못했습니다");
 }
@@ -3220,12 +3220,23 @@ async function createSelfSlot(tid) {   // (11/05 사용자) 강사 계정에서 
 // (11/04 17:41 사용자) 고급 보정 모드: 원장은 늘, 강사는 원장이 여기서 켠 사람만(강사 설정 adv_mode → 전체화면에 '🎛 고급 보정' 버튼)
 function paintAdvPerm() {
   const box = $("advPermBox"); if (!box) return;
-  const S = isStaffApp() ? [] : Object.entries(staffOf()); if (!S.length) { box.innerHTML = ""; return; }
-  box.innerHTML = `<details class="card"><summary><b>🎛 고급 보정 모드 · 강사 권한</b> <span class="chip">${S.filter(([, x]) => x.adv).length}명 허용</span></summary>
-    <p class="muted" style="margin:6px 0">원장님은 늘 쓸 수 있어요. 강사는 여기서 켠 사람만 음정선 전체화면에 '🎛 고급 보정' 버튼이 보여요.</p>
+  if (isStaffApp() || isDemo()) { box.innerHTML = ""; return; }   // (11/05 사용자) 강사가 아직 없어도 원장 화면엔 늘 보이게 + 여기서 바로 강사 추가
+  const S = Object.entries(staffOf());
+  box.innerHTML = `<details class="card" ${S.length ? "" : "open"}><summary><b>👥 강사 · 고급 보정 권한</b> <span class="chip">${S.length ? `강사 ${S.length}명 · 고급 보정 ${S.filter(([, x]) => x.adv).length}명 허용` : "아직 강사 없음"}</span></summary>
+    <p class="muted" style="margin:6px 0">원장님은 늘 고급 보정을 쓸 수 있어요. 강사는 여기서 켠 사람만 음정선 전체화면에 '🎛 고급 보정' 버튼이 보여요.</p>
+    ${S.length ? "" : `<p class="muted">등록된 강사가 없어요. 아래에서 강사를 추가하면 그 구글 계정에 강사 폴더가 공유되고, 그 계정으로 이 앱에 들어오면 강사 화면이 보여요.</p>`}
     ${S.map(([k, x]) => `<label class="row" style="gap:8px;align-items:center;margin:4px 0"><input type="checkbox" data-advp="${esc(k)}" ${x.adv ? "checked" : ""}> ${esc(x.name)} 강사</label>`).join("")}
     <p class="muted" style="margin:10px 0 4px">🪄 강사 본인 작업칸 — 강사가 자기 음원을 올려 보정해 보는 칸이에요(수강생으로 안 세어요). 없으면 강사 앱에서 메이크업·보정으로 들어갈 곳이 없어요.</p>
-    ${S.map(([k, x]) => `<div class="row" style="gap:8px;align-items:center;margin:4px 0">${esc(x.name)} 강사 ${selfSlotOf(k) ? `<span class="chip ok">작업칸 있음</span>` : `<button type="button" class="small" data-selfmk="${esc(k)}">작업칸 만들기</button>`}</div>`).join("")}<p class="muted" id="advPermMsg"></p></details>`;
+    ${S.map(([k, x]) => `<div class="row" style="gap:8px;align-items:center;margin:4px 0">${esc(x.name)} 강사 ${selfSlotOf(k) ? `<span class="chip ok">작업칸 있음</span>` : `<button type="button" class="small" data-selfmk="${esc(k)}">작업칸 만들기</button>`}</div>`).join("")}
+    <div class="muted" style="margin:10px 0 4px">➕ 강사 추가 <span style="font-size:.85em">(이름 + 그 강사의 구글 계정 메일)</span></div>
+    <input id="stfName" placeholder="강사 이름" style="width:100%;margin:2px 0"><input id="stfMail" type="email" placeholder="구글 계정 메일 (예: name@gmail.com)" style="width:100%;margin:2px 0">
+    <button type="button" class="small" id="stfAdd" style="margin:4px 0">강사로 등록</button>
+    <p class="muted" id="advPermMsg"></p></details>`;
+  $("stfAdd").onclick = async () => { const m = $("advPermMsg"), nm = $("stfName").value.trim(), em = $("stfMail").value.trim(); if (!nm || !em) { m.textContent = "이름과 메일을 모두 적어 주세요"; return; }
+    if (!confirm(`${em}\n‘${nm}’ 강사로 등록할까요?\n(강사 폴더를 만들어 이 계정에 공유해요 · 구글 공유 알림 메일이 가요)`)) return;
+    $("stfAdd").disabled = true; m.textContent = "강사 폴더 만드는 중…";
+    try { await joinCreateStaff(nm, em); await staffPortalSync(true).catch(() => {}); m.textContent = "등록했어요 · 강사가 구글 계정으로 들어오면 강사 화면이 보여요"; paintAdvPerm(); }
+    catch (e) { m.textContent = "등록하지 못했어요: " + errMsg(e); $("stfAdd").disabled = false; } };
   box.querySelectorAll("[data-selfmk]").forEach(b => b.onclick = async () => { const tid = b.dataset.selfmk, m = $("advPermMsg"); b.disabled = true; m.textContent = "작업칸 만드는 중…";
     try { await createSelfSlot(tid); m.textContent = "만들었어요 · 강사 앱을 새로고침하면 보여요"; paintAdvPerm(); }
     catch (e) { m.textContent = "만들지 못했어요: " + errMsg(e); b.disabled = false; } });
@@ -6904,7 +6915,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-05-1800-selfslot";
+const BUILD = "2026-11-05-1820-staffpanel";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
