@@ -17,3 +17,10 @@ assert.ok(!pitchCard(null).includes("NaN") && pitchCard(undefined).includes("아
 // 개인정보 안내
 assert.ok(pri.includes("음정 연습") && pri.includes("날짜별 요약") && pri.includes("녹음하거나 보내지 않습니다"), "개인정보 안내");
 console.log("pitch-student-link: 수강생 버튼·선생님 카드·개인정보 안내 ok");
+
+// (11/05) 선생님 앱 목록 맨 위에도 음정 연습 입구(../pitch/, 수강생 연결 아님)
+{
+  const t = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  require("assert").ok(t.includes('href="../pitch/" aria-label="음정 연습 열기"') && t.includes("pitchLinkHtml() + segHtml + todoHtml") && !/href="\.\.\/pitch\/\?from=student"/.test(t), "선생님 앱 음정 연습 입구");
+  console.log("pitch-student-link: 선생님 앱 입구 ok");
+}

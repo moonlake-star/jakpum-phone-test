@@ -9,6 +9,8 @@
 <meta name="theme-color" content="#17191d">
 <script src="https://accounts.google.com/gsi/client" async></script>
 <style>
+  .pitchGo { display:flex; align-items:center; gap:12px; color:inherit; text-decoration:none; min-height:64px; margin:0 0 8px; border-color:rgba(228,141,22,.45); background:linear-gradient(180deg, rgba(228,141,22,.10), transparent 80%), var(--card); }
+  .pitchGo .pgIc { font-size:1.7rem; } .pitchGo .pgTx { flex:1; display:flex; flex-direction:column; gap:2px; } .pitchGo .pgTx small { color:var(--muted); font-size:.85rem; line-height:1.4; }
   /* 기본 테마: 진회색(폰 설정과 상관없이 항상) */
   :root { color-scheme:dark; --bg:#17191d; --fg:#eceff3; --muted:#a9b1bc; --card:#22262c; --line:#363c45; --accent:#9cc3ff; --on-accent:#10141a;
           --ok:#6fd98e; --bad:#ff8a7a; --chip:#2e343d; --link:#ffd27a; }
@@ -1101,6 +1103,8 @@ function attach(d) {  // 캐시 데이터를 수강생 객체에 붙이기
 }
 const isTeacher = (st) => st.status === "teacher";
 const daysAgo = (name) => { const d = Date.parse((name || "").slice(0, 10)); return isNaN(d) ? 99 : (Date.now() - d) / 864e5; };
+// (11/05 사용자) 선생님도 음정 연습 화면으로 들어갈 수 있게 목록 맨 위에 입구 — 선생님 계정으로 열면 기록은 저장하지 않고 연습 도구로만 써요
+const pitchLinkHtml = () => `<a class="card pitchGo" href="../pitch/" aria-label="음정 연습 열기"><span class="pgIc" aria-hidden="true">🎤</span><span class="pgTx"><b>음정 연습</b><small>목소리를 마이크로 듣고 음정을 맞춰 봐요 · 선생님이 직접 써 보는 연습 도구</small></span><span aria-hidden="true">›</span></a>`;
 function paintList(data, stale) {
   data.forEach(attach);
   // (11/02 사용자 시안 ②) 원장 앱: [전체 | 작품(원장) | 강사…] — 고른 강사 것만(오늘 할 일·수강생 목록)
@@ -1153,7 +1157,7 @@ function paintList(data, stale) {
       `<div class="muted">${sub}</div></div><div class="stuBody"><div class="sum">${chips || `<span class="muted">아직 기록 없음</span>`}</div></div></div>`;
   });
   // 가입 신청·계정 연결 카드는 맨 아래(2026-10-27 사용자: 맨 위에 늦게 생겨 아래가 밀리며 엉뚱한 게 눌림)
-  $("vList").innerHTML = `<div class="row" style="gap:6px;margin:0 0 8px;flex-wrap:nowrap"><button class="ghost" id="calBtn" style="flex:1">${IC_CAL} 레슨 캘린더</button>${isStaffApp() ? "" : `<button class="ghost" id="nsBtn" style="flex:1">＋ 신규 수강생</button>`}</div>` + segHtml + todoHtml + `<div id="careBox"></div>` + blocks.join("") + `<div id="joinReq">${lastJoinHtml}</div>` +
+  $("vList").innerHTML = `<div class="row" style="gap:6px;margin:0 0 8px;flex-wrap:nowrap"><button class="ghost" id="calBtn" style="flex:1">${IC_CAL} 레슨 캘린더</button>${isStaffApp() ? "" : `<button class="ghost" id="nsBtn" style="flex:1">＋ 신규 수강생</button>`}</div>` + pitchLinkHtml() + segHtml + todoHtml + `<div id="careBox"></div>` + blocks.join("") + `<div id="joinReq">${lastJoinHtml}</div>` +
     `<p class="muted">${stale ? "최신 내용 확인 중…" : "최신 상태"} · <a href="#" id="reload">새로고침</a> · 앱 버전 ${typeof BUILD === "string" ? BUILD : ""}</p>`;
   $("reload").onclick = (e) => { e.preventDefault(); renderList(); };
   $("calBtn").onclick = () => openCal();
