@@ -151,7 +151,7 @@ console.log("pitch-page ok");
 
 // 비브라토 예시(도-레), 코스 일시정지, 3초 단위 유지 성공 + 피아노 안내
 {
-  assert.ok(src.includes("function renderVwEx(") && src.includes('id="vwEx"') && src.includes("const SOLFA") && src.includes(".vm .meter,.vm #note{display:none}") && src.includes("el.hidden = true") && !src.includes("// top-left holds the 기준음 button") && src.includes("g2.fillText(midiName(nn), L / 2, by + 1)") && src.includes("const VIB_LW = 40") && src.includes("p.x <= lw()"), "비브라토: 안내줄·스피커·눈금 숫자·위 미터 삭제, 음 이름은 그래프 왼쪽 칸, 폭 넓어도 기준음에서 시작하면 하단 기준");
+  assert.ok(src.includes("function renderVwEx(") && src.includes('id="vwEx"') && src.includes("const SOLFA") && src.includes(".vm .meter,.vm #note{display:none}") && src.includes("el.hidden = true") && !src.includes("// top-left holds the 기준음 button") && src.includes("g2.fillText(midiName(nn), L / 2, by + 1)") && src.includes("if (C.mode === 'vib') P.hist.length = 0; else P.hist.push(") && src.includes("vibReset(); P.hist.length = 0;") && src.includes("const VIB_LW = 40") && src.includes("p.x <= lw()"), "비브라토: 안내줄·스피커·눈금 숫자·위 미터 삭제, 음 이름은 그래프 왼쪽 칸, 폭 넓어도 기준음에서 시작하면 하단 기준");
   assert.ok(src.includes("function setPause(") && src.includes('id="pauseOv"') && src.includes("PTAP"), "코스 일시정지");
   assert.ok(src.includes("const MILE = [3, 6, 9, 12, 15, 18, 21];") && src.includes("const thrAt = i => 3 * (i + 1);") && src.includes("HOLD_KEYS"), "3초 단위 성공 시간");
   console.log("pitch-page: 비브라토 예시·일시정지·3초 단위 ok");
