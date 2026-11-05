@@ -88,6 +88,7 @@ input,select{font:inherit;color:var(--ink)}
 #cbar{display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px 12px 6px;background:var(--surface)}
 .seg.big{width:100%;max-width:440px;gap:8px}.seg.big button{height:44px;font-size:17px;font-weight:700;border-radius:12px;letter-spacing:-.3px}
 #subBar{display:flex;flex-wrap:wrap;justify-content:center;width:100%}
+#recBox .rcRow{display:flex;align-items:center;gap:8px;padding:9px 0;border-top:1px solid var(--line);min-height:48px}#recBox .rcRow:first-of-type{border-top:0}#recBox .rcRow input{width:22px;height:22px;flex:none;accent-color:var(--accent)}#recBox .rcRow .rcI{flex:1;font-size:14px;line-height:1.35}#recBox .rcRow .rcI small{display:block;color:var(--ink2);font-size:12px}#recBox .rcRow.sent{opacity:.65}#recBox .btn.full{width:100%;margin-top:10px}#recBox .btn[disabled]{opacity:.45}
 #vwEx{cursor:pointer;width:100%;text-align:center;font-size:13px;color:var(--ink2);margin-top:5px}#vwEx b{color:var(--accent);font-size:16px;margin-right:4px}#vwEx[hidden]{display:none}
 #segVW{width:100%;max-width:440px}#segVW[hidden]{display:none}#segVW button{height:34px;font-size:15px;font-weight:600;border-radius:10px}
 .scgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}.scgrid button{height:auto;padding:8px 10px;text-align:left;border-radius:10px;background:#1b2024;border:1px solid var(--line);color:var(--ink2);font-size:13px;line-height:1.35}.scgrid button small{display:block;font-size:11px;color:var(--muted)}.scgrid button.on{border-color:var(--accent);color:var(--accent);font-weight:700}
@@ -874,10 +875,10 @@ function renderVoiceSeg() { const h = $('#segVoice'), g = scaleCfg(CFG.sc).g; h.
 function sayHello() { if (P.cal || !P.mon) { P.hello = true; return; } micPop('🎤 소리를 내 보세요', '', 1500); }
 /* 처음 한 번만: 목소리 성별(남/여)를 팝업으로 물어봐요. 이후엔 설정(⚙)에서 바꿔요 */
 function snNotice() {
-  if (!SN || localStorage.getItem('vn_me_notice') || $('#voicePop')) return false;
+  if (!SN || localStorage.getItem('vn_me_notice2') || $('#voicePop')) return false;
   const d = document.createElement('div'); d.id = 'voicePop';
-  d.innerHTML = '<div class="vpc"><b>연습 기록은 선생님께 전달돼요</b><div class="note2" style="margin-top:8px;line-height:1.6">\'기록 도전\'으로 한 연습의 <b>날짜별 요약</b>(연습 시간·점수·최고 유지·코스 별)만 선생님께 보내요.<br>녹음과 목소리는 저장도 전송도 하지 않아요.<br>그냥 \'연습\'은 기록되지 않아요.</div><div class="seg"><button id="snOk">확인했어요</button></div></div>';
-  document.body.appendChild(d); d.querySelector('#snOk').onclick = () => { try { localStorage.setItem('vn_me_notice', '1'); } catch (e) {} d.remove(); askVoice(); }; return true;
+  d.innerHTML = '<div class="vpc"><b>연습 기록은 선생님께 전달돼요</b><div class="note2" style="margin-top:8px;line-height:1.6">\'기록 도전\'으로 한 연습의 <b>날짜별 요약</b>(연습 시간·점수·최고 유지·코스 별)은 자동으로 선생님께 가요.<br>\'기록 도전\'은 <b>이 폰에 녹음</b>돼요. 자동으로 보내지 않고, 기록 탭에서 <b>직접 고른 녹음만 \'미션 제출\'</b>하면 원장님·담당 강사가 들어요(최대 1년 보관).<br>그냥 \'연습\'은 기록도 녹음도 안 돼요.</div><div class="seg"><button id="snOk">확인했어요</button></div></div>';
+  document.body.appendChild(d); d.querySelector('#snOk').onclick = () => { try { localStorage.setItem('vn_me_notice2', '1'); localStorage.setItem('vn_me_notice', '1'); } catch (e) {} d.remove(); askVoice(); }; return true;
 }
 function askVoice() {
   if (snNotice()) return;
@@ -1548,19 +1549,103 @@ async function startSession() {
   if (P.hd.note != null) { P.hd.ms = 0; P.hd.reached = 0; P.hd.pbDone = false; }
   const u = me(); P.reminderAt = u.role === 'student' ? effTime(u.id) : ''; P.pbHold = u.role === 'student' ? pbHoldOf(u.id) : 0;
   refreshToday(); const b = P.todayBase; P.avgStart = b.vms > 500 ? Math.round(100 * b.sfs / b.vms) : null;
-  P.running = true; startBtn.classList.add('run'); startBtn.textContent = '기록 끝내기'; setMonUI();
+  P.running = true; startBtn.classList.add('run'); startBtn.textContent = '기록 끝내기'; setMonUI(); recStart();   // 수강생 계정 모드: 이 폰에 녹음(자동 전송 없음)
   if (C.mode === 'vib') { vibPickRoot(); vibCue(); }   // 기록 도전: 성별 음역 안에서 랜덤 기준음
   closeBanner(); renderCourseUI();
 }
 /* 날짜별 요약만 서버로(본인 토큰으로 본인 칸에만 저장). 실패하면 큐에 남겨 다음에 다시 시도 */
+/* ============ 기록 도전 녹음 + 미션 제출 (수강생 계정 모드 전용, 2026-11-05 사용자 승인) ============
+   '기록 도전'을 하는 동안 목소리를 이 폰에만 녹음해 두고(IndexedDB), 기록 탭에서 수강생이 고른 것만 '선생님께 제출'해요.
+   제출한 녹음은 원장·담당 강사만 들을 수 있고 최대 1년 보관돼요. 자동으로는 아무것도 보내지 않아요. 강사 모드는 녹음하지 않아요. */
+const REC_MIMES = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus'];
+const RC = { rec: null, chunks: [], mime: '', cap: 0, aud: null, url: '', busy: false };
+const recDb = () => new Promise((res, rej) => { const q = indexedDB.open('vn_pitch_rec', 1); q.onupgradeneeded = () => q.result.createObjectStore('takes', { keyPath: 'id' }); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); });
+const recTx = async (mode, fn) => { const db = await recDb(); return new Promise((res, rej) => { const tx = db.transaction('takes', mode); let out; const r = fn(tx.objectStore('takes')); if (r) r.onsuccess = () => { out = r.result; }; tx.oncomplete = () => { db.close(); res(out); }; tx.onerror = tx.onabort = () => { db.close(); rej(tx.error); }; }); };
+const recAll = () => recTx('readonly', st => st.getAll()).then(a => a || []);
+const recSave = (t) => recTx('readwrite', st => st.put(t));
+const recDel = (id) => recTx('readwrite', st => st.delete(id));
+const newTakeId = () => (Math.random().toString(36) + '000000000000').slice(2, 14);
+function recStart() {
+  recFinish(null);
+  if (!SN || !P.stream || typeof MediaRecorder === 'undefined' || typeof indexedDB === 'undefined') return;
+  try {
+    const mime = REC_MIMES.find(m => { try { return MediaRecorder.isTypeSupported(m); } catch (e) { return false; } }), r = new MediaRecorder(P.stream, Object.assign({ audioBitsPerSecond: 32000 }, mime ? { mimeType: mime } : {}));
+    RC.rec = r; RC.chunks = []; RC.mime = r.mimeType || mime || 'audio/webm';
+    r.ondataavailable = e => { if (e.data && e.data.size) RC.chunks.push(e.data); };
+    r.start(1000); RC.cap = setTimeout(() => { try { if (r.state === 'recording') r.stop(); } catch (e) {} }, 10 * 60 * 1000);   // 한 판 최대 10분
+  } catch (e) { RC.rec = null; }
+}
+function recFinish(meta) {   // meta가 null이면 버림(너무 짧거나 기록하지 않은 판)
+  const r = RC.rec; clearTimeout(RC.cap); if (!r) return; RC.rec = null; const chunks = RC.chunks, mime = RC.mime; RC.chunks = [];
+  const done = () => {
+    if (!meta || !chunks.length) return; const blob = new Blob(chunks, { type: mime.split(';')[0] }); if (blob.size < 2000) return;
+    recSave({ id: newTakeId(), day: meta.day, at: Date.now(), sec: meta.sec, score: meta.score, mime: blob.type || 'audio/webm', size: blob.size, blob, sent: false })
+      .then(() => { toast('🎙 이번 판 녹음이 이 폰에 저장됐어요 · 기록 탭에서 선생님께 제출할 수 있어요', 5000); if (cur === 'progress') recPaint(); }).catch(() => {});
+  };
+  if (r.state === 'inactive') done(); else { r.onstop = done; try { r.stop(); } catch (e) { done(); } }
+}
+const b64Of = (blob) => new Promise((res, rej) => { const f = new FileReader(); f.onload = () => res(String(f.result).split(',')[1] || ''); f.onerror = () => rej(f.error); f.readAsDataURL(blob); });
+function recConsent() {
+  return new Promise((res) => {
+    if (localStorage.getItem('vn_rec_ok')) { res(true); return; }
+    openModal(`<h3 style="margin-top:0">선생님께 녹음을 제출할까요?</h3><div class="note2" style="line-height:1.6">고른 녹음은 <b>원장님과 담당 강사</b>만 들을 수 있어요.<br>최대 <b>1년</b> 보관돼요.<br>제출하지 않은 녹음은 이 폰에만 있고 <b>30일 뒤 지워져요</b>.</div>
+      <div class="seg" style="margin-top:12px"><button id="rcNo">취소</button><button id="rcYes" class="on">동의하고 제출</button></div>`);
+    $('#rcNo').onclick = () => { closeModal(); res(false); }; $('#rcYes').onclick = () => { try { localStorage.setItem('vn_rec_ok', '1'); } catch (e) {} closeModal(); res(true); };
+  });
+}
+async function recSubmit(ids) {
+  const t = snToken(); if (!t) { toast('로그인이 끝났어요. 내 노트에서 다시 들어와 주세요'); return; }
+  if (!(await recConsent())) return;
+  const btn = $('#rcSubmit'); let ok = 0, err = '';
+  for (let k = 0; k < ids.length; k++) {
+    if (btn) btn.textContent = `보내는 중 ${k + 1}/${ids.length}…`;
+    try {
+      const all = await recAll(), tk = all.find(x => x.id === ids[k]); if (!tk || tk.sent) continue;
+      const data = await b64Of(tk.blob), r = await fetch(PORTAL_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'pitch_rec_put', id_token: t.tok, day: tk.day, take: tk.id, mime: tk.mime, sec: tk.sec, score: tk.score, data }) }), j = await r.json();
+      if (!j.ok) throw new Error(j.error || '제출 실패');
+      tk.sent = true; tk.sentAt = Date.now(); await recSave(tk); ok++;
+    } catch (e) { err = String(e.message || e); break; }
+  }
+  toast(err ? `${ok}개 제출 · 나머지는 못 보냈어요: ${err}` : `선생님께 ${ok}개 제출했어요 ✓`, 4500); recPaint();
+}
+async function recPaint() {
+  const box = $('#recBox'); if (!box || !SN) return;
+  let all = []; try { all = await recAll(); } catch (e) { box.innerHTML = ''; return; }
+  const now = Date.now(); all.filter(x => now - x.at > 30 * 864e5 || (x.sent && now - x.sentAt > 7 * 864e5)).forEach(x => recDel(x.id).catch(() => {}));
+  const today = dayKey(), cut = addDays(today, -6), list = all.filter(x => now - x.at <= 30 * 864e5 && x.day >= cut && !(x.sent && now - x.sentAt > 7 * 864e5)).sort((a, b) => b.at - a.at);
+  const show = list.filter(x => x.day === today || !x.sent), hm = (at) => { const d = new Date(at); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+  const row = (x) => `<div class="rcRow ${x.sent ? 'sent' : ''}"><input type="checkbox" data-id="${x.id}" ${x.sent ? 'checked disabled' : ''} aria-label="제출할 녹음 고르기">
+    <div class="rcI"><b>${x.day === today ? '오늘' : relDay(x.day)} ${hm(x.at)}</b> · ${fmtKo(x.sec)}${x.score != null ? ` · ${x.score}점` : ''}<small>${x.sent ? '제출함 ✓' : '아직 이 폰에만 있어요'}</small></div><button class="btn sm" data-play="${x.id}" aria-label="들어보기">▶</button></div>`;
+  box.innerHTML = `<div class="card"><h3 style="margin-top:0">🎙 미션 제출 — 기록 도전 녹음</h3>
+    ${show.length ? show.map(row).join('') + `<button class="btn pri full" id="rcSubmit" disabled>제출할 녹음을 골라 주세요</button>` : `<div class="note2">‘기록 도전’을 하면 그 판의 녹음이 여기에 쌓여요. 선생님께 보여 주고 싶은 판을 골라 제출해 보세요.</div>`}
+    <div class="note2" style="margin-top:8px">고른 것만 선생님(원장·담당 강사)께 가요 · 최대 1년 보관 · 하루 10개까지 · 안 보낸 녹음은 30일 뒤 이 폰에서 지워져요</div></div>`;
+  const sub = $('#rcSubmit'), picks = () => [...box.querySelectorAll('input[data-id]:not(:disabled):checked')].map(x => x.dataset.id);
+  const upd = () => { if (!sub || RC.busy) return; const n = picks().length; sub.disabled = !n; sub.textContent = n ? `선생님께 제출 (${n}개)` : '제출할 녹음을 골라 주세요'; };
+  box.querySelectorAll('input[data-id]').forEach(x => x.onchange = upd);
+  if (sub) sub.onclick = async () => { const ids = picks(); if (!ids.length || RC.busy) return; RC.busy = true; sub.disabled = true; try { await recSubmit(ids); } finally { RC.busy = false; } };
+  box.querySelectorAll('[data-play]').forEach(b => b.onclick = () => {
+    const x = all.find(y => y.id === b.dataset.play); if (!x) return; if (!RC.aud) RC.aud = new Audio();
+    if (RC.aud.dataset.id === x.id && !RC.aud.paused) { RC.aud.pause(); b.textContent = '▶'; return; }
+    box.querySelectorAll('[data-play]').forEach(o => { o.textContent = '▶'; }); if (RC.url) URL.revokeObjectURL(RC.url);
+    RC.url = URL.createObjectURL(x.blob); RC.aud.src = RC.url; RC.aud.dataset.id = x.id; RC.aud.onended = RC.aud.onpause = () => { b.textContent = '▶'; };
+    RC.aud.play().then(() => { b.textContent = '❚❚'; }).catch(() => { toast('재생할 수 없어요'); });
+  });
+}
+function pitchSum(day) {
+  const d = daysOf(me().id)[day]; if (!d) return null;
+  const co = []; DB.sessions.forEach(x => { if (x.day === day && x.st && x.st.co) x.st.co.forEach(c => co.push({ st: c.stage, s: c.stars, c: c.cov })); });
+  return { sec: Math.round(d.sec), vms: Math.round(d.vms), sfs: Math.round(d.sfs), n: d.n, hold: Math.round(d.bestHold * 10) / 10, combo: d.maxCombo, score: d.score, co: co.slice(-30) };
+}
 async function pitchSync() {
+  if (TM) {   // 선생님 앱 안: 점수 요약만 앱(부모 창)에 맡겨 서버로 보냄 — 받았다는 답(sum_ok)이 오면 큐에서 뺌. 녹음은 없음
+    const q = DB.sync = DB.sync || []; q.slice().forEach(day => { const sum = pitchSum(day); if (!sum) { q.splice(q.indexOf(day), 1); saveDB(); return; } try { parent.postMessage({ vnPitch: 'sum', day, sum }, location.origin); } catch (e) {} }); return;
+  }
   if (!SN || P.syncing) return; const t = snToken(), q = DB.sync = DB.sync || []; if (!t || !q.length) return;
   P.syncing = true;
   try {
     for (const day of q.slice()) {
-      const d = daysOf('me')[day], co = []; DB.sessions.forEach(x => { if (x.day === day && x.st && x.st.co) x.st.co.forEach(c => co.push({ st: c.stage, s: c.stars, c: c.cov })); });
-      if (d) {
-        const sum = { sec: Math.round(d.sec), vms: Math.round(d.vms), sfs: Math.round(d.sfs), n: d.n, hold: Math.round(d.bestHold * 10) / 10, combo: d.maxCombo, score: d.score, co: co.slice(-30) };
+      const sum = pitchSum(day);
+      if (sum) {
         const r = await fetch(PORTAL_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'pitch_save', id_token: t.tok, day, sum }) }), j = await r.json();
         if (!j.ok) throw new Error(j.error || 'fail');
       }
@@ -1568,6 +1653,7 @@ async function pitchSync() {
     }
   } catch (e) {} finally { P.syncing = false; }
 }
+if (TM) window.addEventListener('message', (e) => { if (e.origin !== location.origin || e.source !== parent || !e.data || e.data.vnPitch !== 'sum_ok') return; const q = DB.sync || []; const k = q.indexOf(e.data.day); if (k >= 0) { q.splice(k, 1); saveDB(); } });
 function stopSession() {
   if (!P.running) return;
   abortCourse(); endHold(); P.running = false;
@@ -1576,11 +1662,12 @@ function stopSession() {
   P.st = newSt(); P.hd = newHold(); P.tick = { ms: 0, err: 0 };
   if (u.role !== 'student') { toast(`연습 도구 사용 ${fmtKo(sec)} · 점수 ${P.vms > 0 ? Math.round(100 * P.sfs / P.vms) : '--'} (강사 계정은 기록하지 않아요)`, 4500); return; }
   const today = dayKey(), pd = daysOf(u.id)[today], short = sec < 10 || P.vms < 3000;
+  recFinish(short ? null : { day: today, sec, score: P.vms > 0 ? Math.round(100 * P.sfs / P.vms) : null });
   const ctx = { saved: !short, shortNote: short, avgBefore: pd && pd.vms ? 100 * pd.sfs / pd.vms : null, wasMet: !!(pd && pd.met), pbBefore: pbHoldOf(u.id), before: earnedIds(u.id), newly: [] };
   if (!short) {
     const rec = { perfect: st.perfect, great: st.great, good: st.good, miss: st.miss, maxCombo: st.maxCombo, bestHold: Math.round(st.bestHold * 10) / 10, holdMs: Math.round(st.holdMs), hold: st.hold, co: (P.co || []).slice(), vib: V.s.cyc ? { cyc: V.s.cyc, ok: V.s.ok, best: V.s.best, rate: Math.round(V.s.sR / V.s.cyc * 10) / 10, ext: Math.round(V.s.sE / V.s.cyc), lv: JSON.parse(JSON.stringify(V.s.lv || {})) } : undefined };
     DB.sessions.push({ id: 'u' + Date.now(), uid: u.id, day: today, start: P.startAt, activeSec: sec, vms: P.vms, sfs: P.sfs, reminderAt: P.reminderAt, diff: CFG.diff, st: rec });
-    if (SN) { DB.sync = DB.sync || []; if (!DB.sync.includes(today)) DB.sync.push(today); }
+    if (SN || TM) { DB.sync = DB.sync || []; if (!DB.sync.includes(today)) DB.sync.push(today); }
     saveDB(); pitchSync();
     ctx.session = { score: Math.round(100 * P.sfs / P.vms), sec };
     ctx.newPB = rec.bestHold >= 3 && rec.bestHold > ctx.pbBefore;
@@ -1733,7 +1820,7 @@ function renderProgress(el, uid, opt = {}) {
   const totalSec = DB.sessions.filter(s => s.uid === uid).reduce((a, s) => a + s.activeSec, 0);
   const hrs = totalSec >= 3600 ? (totalSec / 3600).toFixed(1) + '시간' : Math.round(totalSec / 60) + '분';
   const scoreVals = last30.map(k => days[k] && days[k].score != null ? days[k].score : null).filter(v => v != null);
-  el.innerHTML = `${opt.head || ''}
+  el.innerHTML = `${opt.head || ''}${SN ? '<div id="recBox"></div>' : ''}
   <div class="tiles">
     <div class="tile"><div class="k">연속 목표 달성</div><div class="v">${si.cur}<span style="font-size:14px;font-weight:500">일</span></div><div class="s">최장 ${si.best}일</div></div>
     <div class="tile"><div class="k">이번 주 목표 달성</div><div class="v">${wkDays}<span style="font-size:14px;font-weight:500">/7일</span></div><div class="s">월~일 기준</div></div>
@@ -1753,6 +1840,7 @@ function renderProgress(el, uid, opt = {}) {
     drawChart($('#ch1', el), { kind: 'line', label: '일별 점수 추이', days: last30.map(k => ({ day: k, v: days[k] && days[k].score != null ? days[k].score : null, d: days[k] })), min: lo, max: hi, ticks,
       tip: d => `<b>${fmtDay(d.day)}</b> · ${d.v == null ? '연습 없음' : `점수 ${d.v} · ${fmtKo(d.d.sec)}`}` });
   } else $('#ch1', el).innerHTML = '<div class="empty">2일 이상 연습하면 성장 그래프가 그려져요.</div>';
+  if (SN) recPaint();   // 오늘 기록 도전 녹음 목록·제출
   const maxMin = Math.max(g / 60 + 1, ...last30.map(k => days[k] ? days[k].sec / 60 : 0));
   const top = Math.ceil(maxMin / 2) * 2, t2 = []; for (let t = 0; t <= top; t += top > 8 ? 4 : 2) t2.push(t);
   drawChart($('#ch2', el), { kind: 'bar', label: '일별 연습 시간(분)', days: last30.map(k => ({ day: k, v: days[k] ? days[k].sec / 60 : 0, met: days[k] && days[k].met, d: days[k] })), min: 0, max: top, ticks: t2, goal: g / 60,
@@ -1975,10 +2063,10 @@ if (!DB.runs) DB.runs = {};
 buildTabs(); go(me().role === 'student' ? 'practice' : 'roster');
 renderVoiceSeg();
 window.addEventListener('pagehide', () => { try { if (P.running) stopSession(); } catch (e) {} });   // 앱 안 창이 닫히거나 화면을 나가면 진행 중이던 기록을 저장
-if (SN) { pitchSync(); document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') pitchSync(); }); }
+if (SN || TM) { pitchSync(); document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') pitchSync(); }); }
 if (C.mode === 'vib' && !vibUnlocked()) C.mode = 'free';
 resize(); if (C.mode === 'course') loadStage(0); else renderCourseUI(); P.raf = requestAnimationFrame(loop); setTimeout(checkReminder, 1500);
-window.__vn = { vibCue, vibRoot, vibPickRoot, vibRange, pianoVoice, pianoOut, mFreq, guideNote, setVW, VLV, follow: courseFollow, genScaleLine, scaleCfg, P, C, CFG, V, VR, genLine, loadStage, startStage, setMode, DB: () => DB, go, switchUser, badgeList, daysOf, streakInfo, stopSession, startSession, pitchSync };
+window.__vn = { recAll, recSubmit, recPaint, RC, vibCue, vibRoot, vibPickRoot, vibRange, pianoVoice, pianoOut, mFreq, guideNote, setVW, VLV, follow: courseFollow, genScaleLine, scaleCfg, P, C, CFG, V, VR, genLine, loadStage, startStage, setMode, DB: () => DB, go, switchUser, badgeList, daysOf, streakInfo, stopSession, startSession, pitchSync };
 })();
 </script>
 </body>

@@ -15,7 +15,7 @@ assert.ok(h.includes("11/5") && h.includes("2분") && h.includes("89점") && h.i
 assert.ok(h.includes("11/4") && h.includes("40초") && !h.includes("null") && !h.includes("NaN"), "점수 없는 날");
 assert.ok(!pitchCard(null).includes("NaN") && pitchCard(undefined).includes("아직 기록이 없어요"), "방어");
 // 개인정보 안내
-assert.ok(pri.includes("음정 연습") && pri.includes("날짜별 요약") && pri.includes("녹음하거나 보내지 않습니다"), "개인정보 안내");
+assert.ok(pri.includes("음정 연습") && pri.includes("날짜별 요약") && pri.includes("미션 제출"), "개인정보 안내");
 console.log("pitch-student-link: 수강생 버튼·선생님 카드·개인정보 안내 ok");
 
 // (11/05) 선생님 앱 목록 맨 위에도 음정 연습 입구(../pitch/, 수강생 연결 아님)
