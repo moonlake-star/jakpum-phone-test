@@ -240,6 +240,6 @@ console.log("pitch-page ok");
   console.log("pitch-page: 발성 탭 바로 진입·위쪽 버튼 ok");
   assert.ok(src.includes(".vstreak{height:34px;box-sizing:border-box}") && src.includes("-webkit-line-clamp:2"), "안내 한 줄이 두 줄로 바뀌어도 화면이 흔들리지 않게 높이 고정");
   assert.ok(src.includes("vibAnalyze(LONG_WIN)") && src.includes("const bw = rate < .6 ? .15") && src.includes("student: [['practice','음정'],['scale','발성']"), "초보자 시작 약 0.22Hz(9초 창) + 하단 탭 이름 음정/발성");
-  assert.ok(src.includes("function vibFit(now, f)") && src.includes("const fit = vibFit(now, f)") && src.includes("V.anch = Math.abs(mean - fold) <= 1.5") && src.includes("const anc = vibRoot() + CFG.vw / 2"), "가이드 파형은 내 파형에 최소제곱으로 맞춰 이어지고, 가운데 점선은 기준음~위 음의 한가운데(아래 기준음에서 시작)");
+  assert.ok(src.includes("function vibFit(now, f)") && src.includes("const fit = vibFit(now, f)") && src.includes("V.anch = Math.abs(mean - fold) <= CFG.vw / 2 + 1.5") && src.includes("const anc = vibRoot() + CFG.vw / 2"), "가이드 파형은 내 파형에 최소제곱으로 맞춰 이어지고, 가운데 점선은 기준음~위 음의 한가운데(아래 기준음에서 시작)");
   assert.ok(src.includes("연습 중에도 계속: 소리가 안 잡힌 조용한 순간들의 크기") && src.includes("P.gate = clamp(want, (P.gate || 0) * .75, Math.max((P.gate || 0) * 1.25, .004))"), "배경 소음 기준을 연습 중에도 천천히 갱신");
 }
