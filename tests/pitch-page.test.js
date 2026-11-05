@@ -170,7 +170,7 @@ console.log("pitch-page ok");
   console.log("pitch-page: 수강생 앱 연결(내 계정 모드) ok");
   // (11/05) 비브라토 기준음 '따당' · 기록 도전 랜덤 기준음 · 주변 소리 확인 1번
   assert.ok(src.includes("pianoVoice(ctx, mFreq(r + w), t0 + .55"), "기준음 → 폭만큼 위 음을 차례로");
-  assert.ok(src.includes("if (v === 'vib') vibEnter();") && src.includes("if (C.mode === 'vib') vibEnter(); if (C.mode === 'course' && C.stage === 3) setTimeout(scaleEarTip, 400); }") && src.includes("if (w === CFG.vw) { vibCue(); return; }") && src.includes("renderCourseUI(); vibCue(); }"), "처음 들어올 때·폭 버튼 누를 때 들려줌");
+  assert.ok(src.includes("if (v === 'vib') vibEnter();") && src.includes("if (C.mode === 'vib') vibEnter(); }") && src.includes("if (w === CFG.vw) { vibCue(); return; }") && src.includes("renderCourseUI(); vibCue(); }"), "처음 들어올 때·폭 버튼 누를 때 들려줌");
   assert.ok(src.includes("V.silMs >= 1600 && P.mon") && src.includes("V.voicedMs >= 1000"), "숨 쉬려고 멈추면 기준음 다시");
   assert.ok(src.includes("if (C.mode === 'vib') { vibPickRoot(); vibCue(); }") && src.includes("const vibRange = () => { const rc = VOICE_RC[vibVoiceG()]; return [rc - 7, rc + 2]; }"), "기록 도전은 성별 음역 안에서 랜덤");
   assert.ok(src.includes("if (!P.calOnce) { P.calOnce = true; startCal(); }") && src.includes("if (now - c.t0 >= 750) finishCal();"), "주변 소리 확인은 창을 열 때 한 번, 시간 절반");
@@ -182,7 +182,7 @@ console.log("pitch-page ok");
   const fs = require("fs"), assert = require("assert"), src = fs.readFileSync(__dirname + "/../pitch/index.html", "utf8");
   const ks = [...src.slice(src.indexOf("const SCALES = ["), src.indexOf("STAGES.push(['발성 스케일'")).matchAll(/k: '(\w+)'/g)].map(m => m[1]);
   assert.deepStrictEqual(ks, ["tri", "five", "arp"], "스케일 버튼 순서");
-  assert.ok(src.includes("(isFinite(v) && v > 0 ? v : .7)") && src.includes("SPD_MIN = .4, SPD_MAX = 1.2") && src.includes("F = 1 / spdNow()"), "속도 기본 70%, 40~120%, 음 길이·간격에 반영");
+  assert.ok(src.includes("(isFinite(v) && v > 0 ? v : .55)") && src.includes("SPD_MIN = .4, SPD_MAX = 1.2") && src.includes("F = 1 / spdNow()"), "속도 기본 55%(70%의 80%), 40~120%, 음 길이·간격에 반영");
   assert.ok(src.includes("function qkHtml()") && src.includes("L.scale ? qkHtml() : ''") && src.includes("id=\"pqk\""), "일시정지 화면엔 스케일·속도 UI(대기 화면은 위쪽 버튼으로 옮김)");
   assert.ok(src.includes('id="pauseBtn"') && src.includes("performance.now() - (P.pauseAt || 0) < 600"), "⏸ 버튼 + 탭 직후 click 으로 곧바로 풀리지 않게");
   console.log("pitch-page: 속도·스케일 빠른 전환·일시정지 ok");
@@ -251,7 +251,7 @@ console.log("pitch-page ok");
   assert2.ok(src2.includes("const pd = n.d + .08;") && src2.includes("guideTone(n.m, pd, 0, true, true, .9); n.mute = 0; return;") && src2.includes("vol: vol || (keepMic ? .4 : .6)"), "발성 피아노는 더 크게(.9), 음 사이를 이어서(레가토)");
   assert2.ok(src2.includes("rr(x0, y, ex - x0, h, 5)") && src2.includes("rgba(255,255,255,.95)' : 'rgba(255,255,255,.5)'; g2.fillRect(x0 + w - 3"), "막대가 시간 따라 차오르고 끝 표시가 있어요");
   assert2.ok(src2.includes("n.vm < n.d * .5 && ratio < .6") && src2.includes("P.shortRun >= 3") && src2.includes("피아노는 시작 신호예요. 막대 끝까지 이어서 불러 보세요"), "짧게만 부르는 판이 3번 이어지면 안내");
-  assert2.ok(src2.includes("function scaleEarTip()") && src2.includes("발성 스케일 연습에는<br>이어폰 착용을 권장합니다") && src2.includes("CFG.earTip = 1") && src2.includes("setTimeout(scaleEarTip, 400)"), "스케일 연습 진입 시 이어폰 권장 팝업(다시 보지 않기 가능)");
+  assert2.ok(!src2.includes("function scaleEarTip()") && !src2.includes("setTimeout(scaleEarTip") && !src2.includes("이어폰 착용을 권장합니다"), "발성 진입 시 이어폰 권장 팝업 없음(11/05 사용자 삭제)");
 }
 
 /* (11/05 사용자) 발성 = 시간만 기록: 점수·기록 도전·결과 화면·목소리 그래프 없음, 소리 감지 큰 아이콘 */

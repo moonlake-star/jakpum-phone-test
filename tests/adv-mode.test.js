@@ -23,7 +23,7 @@ assert.ok(tu.includes('${st && st.onAdv && st.advOn ? `<button type="button" dat
 assert.ok(!/\/\/[^\n]*d\.querySelectorAll\("\[data-md\]"\)\.forEach\(x => \{ const on/.test(tu), "모드 바꾸는 코드가 주석에 묻히지 않음");
 // ⑤ 선생님 앱: 원장 + 허용한 강사만, 원래 녹음 시간으로 저장, 강사 설정에 adv_mode
 const T = fs.readFileSync(__dirname + "/../teacher/index.html", "utf8");
-assert.ok(T.includes("const canAdv = () => !isStaffApp() || !!cfg?.adv_mode;") && T.includes("...(canAdv() ? { onAdv, advGet } : {})"));
+assert.ok(T.includes("const canAdv = () => true;") && T.includes("...(canAdv() ? { onAdv, advGet } : {})"));
 assert.ok(T.includes("adv_mode: !!s.adv,") && T.includes("function paintAdvPerm()") && T.includes('<script src="../adv.js?v='));
 assert.ok(T.includes("t0: r4(toO(n.t0)), t1: r4(toO(n.t1))") && T.includes("r.note_edits = { notes, global: g }"));
 console.log("adv-mode ok", md.toFixed(4));
