@@ -127,7 +127,7 @@ console.log("pitch-page ok");
   assert.ok(src.includes("function pianoVoice(") && src.includes("createPeriodicWave") && src.includes("createDynamicsCompressor"), "피아노 음색 + 컴프레서");
   assert.ok(!src.includes("o.type = 'sine'; o.frequency.value = mFreq(m)"), "사인파 안내음 제거");
   assert.ok(src.includes("function guideChord(") && src.includes("[0, 4, 7].forEach(d => pianoVoice("), "도미솔 코드");
-  assert.ok(src.includes("const PING = .14, PING_MUTE = .2;") && src.includes("guideTone(n.m, PING, 0, false, true); P.toneUntil = Math.max(P.toneUntil, now0 + PING_MUTE * 1000); n.mute = PING_MUTE; return;") && !src.includes("if (P.earphone) guideTone(n.m, n.d, 0, true);"), "스케일: 코드 1회 + 음마다 짧은 피아노(이어폰·스피커 구분 없음), 그 구간은 마이크·점수 제외");
+  assert.ok(src.includes("const PING = .14, PING_MUTE = .2;") && src.includes("guideTone(n.m, pd, 0, sus, true); if (!sus) { P.toneUntil = Math.max(P.toneUntil, now0 + PING_MUTE * 1000); n.mute = PING_MUTE; } else n.mute = 0; return;") && !src.includes("if (P.earphone) guideTone(n.m, n.d, 0, true);"), "스케일: 코드 1회 + 음마다 짧은 피아노(스피커). 이어폰이면 막대 길이만큼 이어짐(11/05 사용자 승인), 스피커 구간은 마이크·점수 제외");
   assert.ok(src.includes("const COUNT_IN = 1.5;") && src.includes("C.t = -COUNT_IN;"), "시작 대기 1.5초");
   console.log("pitch-page: 피아노 음색·스케일 안내 ok");
 }
@@ -170,7 +170,7 @@ console.log("pitch-page ok");
   console.log("pitch-page: 수강생 앱 연결(내 계정 모드) ok");
   // (11/05) 비브라토 기준음 '따당' · 기록 도전 랜덤 기준음 · 주변 소리 확인 1번
   assert.ok(src.includes("pianoVoice(ctx, mFreq(r + w), t0 + .55"), "기준음 → 폭만큼 위 음을 차례로");
-  assert.ok(src.includes("if (v === 'vib') vibEnter();") && src.includes("if (C.mode === 'vib') vibEnter(); }") && src.includes("if (w === CFG.vw) { vibCue(); return; }") && src.includes("renderCourseUI(); vibCue(); }"), "처음 들어올 때·폭 버튼 누를 때 들려줌");
+  assert.ok(src.includes("if (v === 'vib') vibEnter();") && src.includes("if (C.mode === 'vib') vibEnter(); if (C.mode === 'course' && C.stage === 3) setTimeout(scaleEarTip, 400); }") && src.includes("if (w === CFG.vw) { vibCue(); return; }") && src.includes("renderCourseUI(); vibCue(); }"), "처음 들어올 때·폭 버튼 누를 때 들려줌");
   assert.ok(src.includes("V.silMs >= 1600 && P.mon") && src.includes("V.voicedMs >= 1000"), "숨 쉬려고 멈추면 기준음 다시");
   assert.ok(src.includes("if (C.mode === 'vib') { vibPickRoot(); vibCue(); }") && src.includes("const vibRange = () => { const rc = VOICE_RC[vibVoiceG()]; return [rc - 7, rc + 2]; }"), "기록 도전은 성별 음역 안에서 랜덤");
   assert.ok(src.includes("if (!P.calOnce) { P.calOnce = true; startCal(); }") && src.includes("if (now - c.t0 >= 750) finishCal();"), "주변 소리 확인은 창을 열 때 한 번, 시간 절반");
@@ -243,3 +243,14 @@ console.log("pitch-page ok");
   assert.ok(src.includes("function vibFit(now, f)") && src.includes("const fit = vibFit(now, f)") && src.includes("V.anch = Math.abs(mean - fold) <= CFG.vw / 2 + 1.5") && src.includes("const anc = vibRoot() + CFG.vw / 2"), "가이드 파형은 내 파형에 최소제곱으로 맞춰 이어지고, 가운데 점선은 기준음~위 음의 한가운데(아래 기준음에서 시작)");
   assert.ok(src.includes("연습 중에도 계속: 소리가 안 잡힌 조용한 순간들의 크기") && src.includes("P.gate = clamp(want, (P.gate || 0) * .75, Math.max((P.gate || 0) * 1.25, .004))"), "배경 소음 기준을 연습 중에도 천천히 갱신");
 }
+
+/* (11/05 사용자) 스케일 연습: 피아노는 시작 신호 — 막대 차오름·끝 표시, 이어폰이면 막대 길이만큼 피아노, 짧게만 부르면 안내, 이어폰 권장 팝업 */
+{
+  const fs = require('fs'), path = require('path'), assert2 = require('assert');
+  const src2 = fs.readFileSync(path.join(__dirname, '..', 'pitch', 'index.html'), 'utf8');
+  assert2.ok(src2.includes("const sus = P.earphone && n.d > .45, pd = sus ? n.d - .06 : PING;") && src2.includes("guideTone(n.m, pd, 0, sus, true); if (!sus) {"), "이어폰이면 스케일 피아노를 막대 길이만큼 이어서, 스피커는 짧은 신호음만");
+  assert2.ok(src2.includes("rr(x0, y, ex - x0, h, 5)") && src2.includes("rgba(255,255,255,.95)' : 'rgba(255,255,255,.5)'; g2.fillRect(x0 + w - 3"), "막대가 시간 따라 차오르고 끝 표시가 있어요");
+  assert2.ok(src2.includes("n.vm < n.d * .5 && ratio < .6") && src2.includes("P.shortRun >= 3") && src2.includes("피아노는 시작 신호예요. 막대 끝까지 이어서 불러 보세요"), "짧게만 부르는 판이 3번 이어지면 안내");
+  assert2.ok(src2.includes("function scaleEarTip()") && src2.includes("발성 스케일 연습에는<br>이어폰 착용을 권장합니다") && src2.includes("CFG.earTip = 1") && src2.includes("setTimeout(scaleEarTip, 400)"), "스케일 연습 진입 시 이어폰 권장 팝업(다시 보지 않기 가능)");
+}
+
