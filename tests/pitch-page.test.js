@@ -158,7 +158,7 @@ console.log("pitch-page ok");
 // 수강생 앱 연결: ?from=student + 로그인 기록 → 내 계정 모드(샘플 없음·별도 저장소·요약만 전송)
 {
   assert.ok(src.includes("FROM_STUDENT = new URLSearchParams(location.search).get('from') === 'student', SN = FROM_STUDENT ? snToken() : null"), "내 계정 모드 조건");
-  assert.ok(src.includes("const KEY = SN ? 'vn_pitch_me' : 'vn_pitch_v1';"), "별도 저장소");
+  assert.ok(src.includes("const KEY = SN ? 'vn_pitch_me' : TM ? 'vn_pitch_teacher' : 'vn_pitch_v1';"), "별도 저장소");
   assert.ok(src.includes("if (FROM_STUDENT && !SN) {") && src.includes("먼저 내 노트에서 로그인해 주세요"), "로그인 안 됐으면 안내");
   assert.ok(src.includes("users: [{ id: 'me', name: SN.name || '나', role: 'student' }]") && src.includes("else if (!DB || !DB.users || !user(DB.me)) seedDemo();"), "샘플 없이 본인 한 명");
   assert.ok(src.includes("'← 내 노트'") && src.includes("location.href = '../student/'"), "내 노트로 돌아가기");

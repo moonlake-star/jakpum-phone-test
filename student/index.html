@@ -158,6 +158,7 @@
 </main>
 <script src="../lesson-replies.js"></script>
 <script src="../tune.js?v=20261105-0300"></script>
+<script src="../pitch-embed.js?v=20261105-1000"></script>
 <script>
 // ── 설정(비밀값 아님): 수강생 로그인용 구글 클라이언트 ID, 노트 연결(Apps Script 웹 앱) 주소 ──
 const STUDENT_CLIENT_ID = "712936245254-2itl2rolhhcsq9cdqnhku4u43hpdv2mk.apps.googleusercontent.com";
@@ -412,7 +413,7 @@ function monthHtml(ms) {
   return monthCard(ms[0], true) + (ms.length > 1 ? `<details class="card more"><summary>지난 성장 리포트 ${ms.length - 1}개</summary>${ms.slice(1, 12).map(m => monthCard(m, false)).join("")}</details>` : "");
 }
 // (11/05 사용자 승인) 🎤 음정 연습 — 같은 사이트의 음정 연습 화면(../pitch/)을 내 계정으로 엶. '기록 도전' 요약만 선생님께 전달(녹음 없음)
-const pitchLinkHtml = () => `<a class="card pitchGo" href="../pitch/?from=student" aria-label="음정 연습 열기"><span class="pgIc" aria-hidden="true">🎤</span><span class="pgTx"><b>음정 연습</b><small>목소리를 마이크로 듣고 음정을 맞춰 봐요 · 기록 도전은 선생님께 전달돼요</small></span><span aria-hidden="true">›</span></a>`;
+const pitchLinkHtml = () => `<a class="card pitchGo" href="../pitch/?from=student" data-pitch-open="student" aria-label="음정 연습 열기"><span class="pgIc" aria-hidden="true">🎤</span><span class="pgTx"><b>음정 연습</b><small>목소리를 마이크로 듣고 음정을 맞춰 봐요 · 기록 도전은 선생님께 전달돼요</small></span><span aria-hidden="true">›</span></a>`;
 function timeline() {
   try { Brand.bar(); } catch {}
   history.replaceState(null, "", location.pathname);
