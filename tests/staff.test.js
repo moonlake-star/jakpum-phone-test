@@ -33,9 +33,9 @@ const code = g(/const JOIN_STAFF = [^\n]*\n/) + g(/const staffOf = [^\n]*\n/) + 
   const sc2 = f.staffConfigFor(stored.students ? { ...stored } : stored, "T9"); assert.deepStrictEqual(Object.keys(sc2.students), ["S2"]);
   assert.ok(!("payments" in sc2) && !("portal_url" in sc2) && !("kick_url" in sc2));
   await assert.rejects(f.joinCreateStaff("다른이름", "eco9336@gmail.com"), /이미 강사/);
-  // 앱: 진짜 _시스템 → 체험 → 강사 순서
+  // 앱: 진짜 _시스템 → 강사 → 체험 순서(11/05)
   const lc = g(/async function loadConfig\(\) \{[\s\S]*?\n\}\n/);
-  assert.ok(lc.indexOf("_시스템'") < lc.indexOf("_체험시스템") && lc.indexOf("_체험시스템") < lc.indexOf("_강사시스템") && lc.includes('cfg.role !== "teacher") continue'));
+  assert.ok(lc.indexOf("_시스템'") < lc.indexOf("_체험시스템") && lc.indexOf("_강사시스템") < lc.indexOf("_체험시스템") && lc.includes('cfg.role !== "teacher") continue'));
   console.log("staff ok");
 })().catch(e => { console.error(e); process.exit(1); });
 
@@ -46,4 +46,12 @@ const code = g(/const JOIN_STAFF = [^\n]*\n/) + g(/const staffOf = [^\n]*\n/) + 
   assert.ok(src.includes("async function createSelfSlot(tid)") && src.includes('joinCreateStudent(s.name + "(선생님)", false, tid, true)') && src.includes("data-selfmk"), "원장 앱 강사 권한 칸에 '작업칸 만들기'");
   assert.ok(src.includes('x.status !== "teacher" && !x.consent_withdrawn'), "본인 작업칸은 수강생 노트 서버 권한 목록에서 뺌");
   console.log("staff: 본인 작업칸 ok");
+}
+
+// (11/05 사용자) 원장 화면 '강사 · 고급 보정 권한' 칸은 강사가 없어도 보이고 바로 강사 추가 · 강사 계정이 체험 보기보다 먼저
+{
+  const s2 = require("fs").readFileSync(require("path").join(__dirname, "..", "teacher", "index.html"), "utf8");
+  assert.ok(s2.includes('if (isStaffApp() || isDemo()) { box.innerHTML = ""; return; }') && s2.includes('id="stfAdd"') && s2.includes("await joinCreateStaff(nm, em)"), "강사 없어도 칸이 보이고 바로 강사 등록");
+  assert.ok(s2.indexOf("name='_강사시스템'") < s2.indexOf("name='_체험시스템'") && s2.includes("if (cfg.demo_readonly !== true) { Object.defineProperty(cfg, \"_configId\", { value: cid"), "강사 계정이 체험 보기보다 먼저, 저장된 체험판이면 다시 찾음");
+  console.log("staff: 강사 패널·로드 순서 ok");
 }
