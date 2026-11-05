@@ -21,6 +21,18 @@ console.log("pitch-student-link: 수강생 버튼·선생님 카드·개인정�
 // (11/05) 선생님 앱 목록 맨 위에도 음정 연습 입구(../pitch/, 수강생 연결 아님)
 {
   const t = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
-  require("assert").ok(t.includes('href="../pitch/" aria-label="음정 연습 열기"') && t.includes("pitchLinkHtml() + segHtml + todoHtml") && !/href="\.\.\/pitch\/\?from=student"/.test(t), "선생님 앱 음정 연습 입구");
+  require("assert").ok(t.includes('href="../pitch/" data-pitch-open="teacher" aria-label="음정 연습 열기"') && t.includes("pitchLinkHtml() + segHtml + todoHtml") && !/href="\.\.\/pitch\/\?from=student"/.test(t), "선생님 앱 음정 연습 입구");
   console.log("pitch-student-link: 선생님 앱 입구 ok");
+}
+
+// (11/05) 앱 안에서 열기: 두 앱 모두 data-pitch-open + pitch-embed.js, 닫기는 Brand.layer, 선생님은 as=teacher(수강생 서버 연결 없음)
+{
+  const fs = require("fs"), assert = require("assert"), r = (f) => fs.readFileSync(__dirname + "/../" + f, "utf8");
+  const t = r("teacher/index.html"), st = r("student/index.html"), em = r("pitch-embed.js"), pg = r("pitch/index.html");
+  assert.ok(t.includes('data-pitch-open="teacher"') && t.includes('<script src="../pitch-embed.js'), "선생님 앱 앱 안 열기");
+  assert.ok(st.includes('data-pitch-open="student"') && st.includes('<script src="../pitch-embed.js'), "수강생 앱 앱 안 열기");
+  assert.ok(em.includes("Brand.layer") && em.includes('allow", "microphone; autoplay"') && em.includes("e.origin !== location.origin") && em.includes('f.src = "about:blank"'), "뒤로 가기·마이크 끄기·같은 출처 메시지만");
+  assert.ok(pg.includes("TM = EMB &&") && pg.includes("'vn_pitch_teacher'") && pg.includes("parent.postMessage({ vnPitch: 'close' }, location.origin)") && pg.includes("addEventListener('pagehide'"), "음정 연습 쪽 앱 안 모드");
+  assert.ok(!/TM[^\n]*pitch_save|if \(SN\) \{ DB\.sync/.test(pg.split("function stopSession")[0]) , "선생님 모드는 서버 전송 없음");
+  console.log("pitch-student-link: 앱 안에서 열기 ok");
 }

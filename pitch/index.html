@@ -358,6 +358,8 @@ function snToken() {
   } catch (e) { return null; }
 }
 const FROM_STUDENT = new URLSearchParams(location.search).get('from') === 'student', SN = FROM_STUDENT ? snToken() : null;
+/* (11/05 사용자) 앱 안에서 열기: 선생님·수강생 앱이 이 화면을 전체 화면 창(iframe)으로 띄움(embed=1). 선생님은 as=teacher — 샘플 없이 본인 한 명, 기록은 이 폰에만 */
+const EMB = new URLSearchParams(location.search).get('embed') === '1' && window.parent !== window, TM = EMB && new URLSearchParams(location.search).get('as') === 'teacher';
 if (FROM_STUDENT && !SN) {
   document.body.innerHTML = '<div style="max-width:420px;margin:18vh auto;padding:0 20px;text-align:center;color:#e8ecf1;font:16px/1.6 system-ui,sans-serif"><b style="font-size:19px">먼저 내 노트에서 로그인해 주세요</b><p style="color:#8a95a1">구글 로그인이 끝나야 음정 연습 기록이 선생님께 이어져요.</p><a href="../student/" style="display:inline-block;margin-top:8px;padding:12px 22px;border-radius:12px;background:#e48d16;color:#2b1800;font-weight:800;text-decoration:none">내 노트로 가기</a></div>';
   return;
@@ -389,7 +391,7 @@ const weekKey = k => { const d = dOf(k); d.setDate(d.getDate() - mod(d.getDay() 
 /* ============ storage ============ */
 const HOLD_KEYS = [3, 6, 9, 12, 15, 18, 21, 24, 27, 30];           // success times: every 3 s
 const holdZero = () => Object.fromEntries(HOLD_KEYS.map(k => [k, 0]));
-const KEY = SN ? 'vn_pitch_me' : 'vn_pitch_v1';
+const KEY = SN ? 'vn_pitch_me' : TM ? 'vn_pitch_teacher' : 'vn_pitch_v1';
 let DB = null;
 const loadDB = () => { try { const s = localStorage.getItem(KEY); return s ? JSON.parse(s) : null; } catch (e) { return null; } };
 const saveDB = () => { try { localStorage.setItem(KEY, JSON.stringify(DB)); } catch (e) {} };
@@ -1887,7 +1889,8 @@ function userModal() {
   const bd = $('#uDemo'); let armed = false;
   bd.onclick = () => { if (!armed) { armed = true; bd.textContent = '정말 지울까요? 한 번 더'; return; } clearDemo(); closeModal(); };
 }
-$('#userBtn').onclick = SN ? () => { if (P.running) { toast('연습 중에는 나갈 수 없어요. 먼저 "기록 끝내기"를 눌러 주세요'); return; } location.href = '../student/'; } : userModal;
+$('#userBtn').onclick = (SN || TM) ? () => { if (P.running) { toast('연습 중에는 나갈 수 없어요. 먼저 "기록 끝내기"를 눌러 주세요'); return; }
+  if (EMB) { try { parent.postMessage({ vnPitch: 'close' }, location.origin); } catch (e) {} return; } location.href = '../student/'; } : userModal;
 function switchUser(id) { if (P.running) { toast('연습 중에는 전환할 수 없어요'); return; } DB.me = id; saveDB(); cache = {}; buildTabs(); go(me().role === 'student' ? 'practice' : 'roster'); checkReminder(); }
 
 /* ============ tabs / routing ============ */
@@ -1935,7 +1938,7 @@ function renderScale(el) {
   $('#scGo', el).onclick = () => { C.stage = 3; C.mode = 'course'; CFG.mode = 'course'; saveCfg(); go('practice'); };
 }
 function buildTabs() {
-  const u = me(); $('#userBtn').innerHTML = SN ? '← 내 노트' : `${esc(u.name)} <b>· ${ROLE_KO[u.role]}</b> ▾`;
+  const u = me(); $('#userBtn').innerHTML = TM ? '← 선생님 앱' : SN ? '← 내 노트' : `${esc(u.name)} <b>· ${ROLE_KO[u.role]}</b> ▾`;
   $('#tabs').innerHTML = TABS[u.role].map(([id, nm]) => `<button data-t="${id}" aria-label="${nm}"><svg viewBox="0 0 24 24">${ICON[id]}</svg>${nm}</button>`).join('');
   $('#tabs').querySelectorAll('button').forEach(b => b.onclick = () => { if (b.dataset.t === 'practice' && cur !== 'practice' && C.stage === 3) { C.stage = 0; C.mode = 'free'; CFG.mode = 'free'; saveCfg(); } go(b.dataset.t); });
 }
@@ -1964,10 +1967,14 @@ DB = loadDB();
 if (SN) {   // 내 계정 모드: 샘플 없이 본인 한 명
   if (!DB || !DB.users || !user('me')) { DB = { v: 1, me: 'me', users: [{ id: 'me', name: SN.name || '나', role: 'student' }], sessions: [], settings: {}, runs: {} }; saveDB(); }
   DB.me = 'me'; if (SN.name) user('me').name = SN.name;
+} else if (TM) {   // 선생님 앱 안에서 열기: 샘플 없이 '선생님' 한 명(연습 기록은 이 폰에만)
+  if (!DB || !DB.users || !user('t')) { DB = { v: 1, me: 't', users: [{ id: 't', name: '선생님', role: 'student' }], sessions: [], settings: {}, runs: {} }; saveDB(); }
+  DB.me = 't';
 } else if (!DB || !DB.users || !user(DB.me)) seedDemo();
 if (!DB.runs) DB.runs = {};
 buildTabs(); go(me().role === 'student' ? 'practice' : 'roster');
 renderVoiceSeg();
+window.addEventListener('pagehide', () => { try { if (P.running) stopSession(); } catch (e) {} });   // 앱 안 창이 닫히거나 화면을 나가면 진행 중이던 기록을 저장
 if (SN) { pitchSync(); document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') pitchSync(); }); }
 if (C.mode === 'vib' && !vibUnlocked()) C.mode = 'free';
 resize(); if (C.mode === 'course') loadStage(0); else renderCourseUI(); P.raf = requestAnimationFrame(loop); setTimeout(checkReminder, 1500);
