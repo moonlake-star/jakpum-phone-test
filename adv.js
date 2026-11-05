@@ -1,5 +1,5 @@
 // (사용자 2026-11-04 17:27·17:36) 원장 모드 '멜로다인 프로젝트' 1단계 — 원장 계정에만. 강사 화면(tune.js 기본 고치기)은 그대로.
-// 음 하나: 흐름(드리프트·앞/뒤 기울기) · 이어짐(길이·곡선 모양) · 비브라토(원래 떨림 %, 새 비브라토 주기·폭·시작·커지는 시간·사람처럼) · 볼륨(dB·끄기·페이드)
+// 음 하나: 흐름(드리프트·앞/뒤 기울기) · 이어짐(길이·곡선 모양) · 비브라토(원래 떨림 %, 새 비브라토 주기·폭·시작·커지는 시간·사람처럼) · 볼륨(dB, 맨 아래 = 무음 · 페이드)
 // 곡 전체: 자동 보정 강도 · 가까운 음 그대로 · 흐름 평평하게 · 볼륨 고르게 · 치찰음 · 목소리 결 · 되돌리기 여러 단계 · MIDI 내보내기
 // 저장 = st.onAdv({notes, global}) (화면 시간 — 선생님 앱이 원래 녹음 시간으로 바꿔 메이크업요청.json note_edits에) · 진짜 소리는 '완성본 다시 만들기' 뒤(서버 note_edits.py)
 // 음정선 미리보기 = 서버 shape_pitch와 같은 규칙(사람처럼 흔들기 제외)을 '보정 후' 선에 그려 줌. 볼륨·치찰음·목소리 결은 그림에 안 보임(완성본에서 확인).
@@ -129,9 +129,11 @@
     const body = el.querySelector(".advBody");
     const N = () => noteOf(A, b, false) || {};
     const put = (k, v) => change(A, st, cv, () => { const n = noteOf(A, b, true); n[k] = v; });
-    const putVs = (k, v) => change(A, st, cv, () => { const n = noteOf(A, b, true); n.vs = Object.assign({ rate: 5.5, depth: 0, delay: 0.3, fade: 0.4 }, n.vs || {}); n.vs[k] = v; });
+    const dur_ = Math.max(0.05, b.t1 - b.t0), VD = { rate: 5.5, depth: 0, delay: Math.min(0.3, r2(dur_ * 0.25)), fade: Math.min(0.4, r2(dur_ * 0.35)) };   // 짧은 음(0.6초 안팎)에서도 새 떨림이 보이게: 시작·커지는 시간은 음 길이에 맞춰 줄임
+    const putVs = (k, v) => change(A, st, cv, () => { const n = noteOf(A, b, true); n.vs = Object.assign({}, VD, n.vs || {}); n.vs[k] = v; });
+    const MUTE_DB = -25;   // 볼륨을 −24dB 밑으로 더 내리면 '무음'(= 예전 소리 끄기)
     const get = (k) => (N()[k] != null ? N()[k] : N_DEF[k]);
-    const getVs = (k, d) => (N().vs && N().vs[k] != null ? N().vs[k] : d);
+    const getVs = (k, d) => (N().vs && N().vs[k] != null ? N().vs[k] : (k in VD ? VD[k] : d));
     const show = (k) => {
       st._advTab = k; el.querySelectorAll("[data-at]").forEach(x => x.classList.toggle("on", x.dataset.at === k)); body.innerHTML = "";
       const rows = [];
@@ -146,14 +148,13 @@
         stepper("원래 떨림", () => (N().vib != null ? N().vib : (N().vs ? 0 : 1)), (v) => put("vib", v), { step: 0.25, min: 0, max: 2, def: 1, fmt: pct }),
         stepper("새 떨림 폭", () => getVs("depth", 0), (v) => putVs("depth", v), { step: 5, min: 0, max: 150, def: 0, fmt: (v) => v ? `±${Math.round(v)}센트` : "없음" }),
         stepper("주기", () => getVs("rate", 5.5), (v) => putVs("rate", v), { step: 0.25, min: 2, max: 10, def: 5.5, fmt: (v) => `${v.toFixed(2)}Hz` }),
-        stepper("시작", () => getVs("delay", 0.3), (v) => putVs("delay", v), { step: 0.05, min: 0, max: 3, def: 0.3, fmt: sec }),
-        stepper("커지는 시간", () => getVs("fade", 0.4), (v) => putVs("fade", v), { step: 0.05, min: 0, max: 3, def: 0.4, fmt: sec }),
+        stepper("시작", () => getVs("delay", 0.3), (v) => putVs("delay", v), { step: 0.05, min: 0, max: 3, def: VD.delay, fmt: sec }),
+        stepper("커지는 시간", () => getVs("fade", 0.4), (v) => putVs("fade", v), { step: 0.05, min: 0, max: 3, def: VD.fade, fmt: sec }),
         stepper("사람처럼", () => getVs("human", 0), (v) => putVs("human", v), { step: 0.25, min: 0, max: 1, def: 0, fmt: pct }));
       if (k === "m") rows.push(
         D(stepper("포먼트(목소리 결)", () => get("formant"), (v) => put("formant", v), { step: 0.25, min: -3, max: 3, def: 0, fmt: (v) => `${v > 0 ? "+" : ""}${v.toFixed(2)}반음` }), "이 음의 음색만 이동(음정은 그대로). + 는 얇고 밝게, − 는 굵고 어둡게. 일괄 보정의 포먼트 값 위에 더해져요."));
       if (k === "g") rows.push(
-        stepper("볼륨", () => get("gain_db"), (v) => put("gain_db", v), { step: 1, min: -24, max: 12, def: 0, fmt: (v) => `${v > 0 ? "+" : ""}${Math.round(v)}dB` }),
-        chips("소리", [["0", "켬"], ["1", "끄기"]], () => (N().mute ? "1" : "0"), (v) => put("mute", v === "1")),
+        stepper("볼륨", () => (N().mute ? MUTE_DB : get("gain_db")), (v) => change(A, st, cv, () => { const n = noteOf(A, b, true); if (v <= MUTE_DB) { n.mute = true; delete n.gain_db; } else { n.mute = false; n.gain_db = v; } }), { step: 1, min: MUTE_DB, max: 12, def: 0, fmt: (v) => (v <= MUTE_DB ? "무음" : `${v > 0 ? "+" : ""}${Math.round(v)}dB`) }),
         stepper("페이드 인", () => get("fade_in"), (v) => put("fade_in", v), { step: 0.05, min: 0, max: 2, def: 0, fmt: sec }),
         stepper("페이드 아웃", () => get("fade_out"), (v) => put("fade_out", v), { step: 0.05, min: 0, max: 2, def: 0, fmt: sec }));
       rows.forEach(r => { if (!r._desc) { body.appendChild(r); return; } const w = document.createElement("div"), p = document.createElement("p"); p.className = "advD"; p.textContent = r._desc; w.appendChild(r); w.appendChild(p); body.appendChild(w); });
