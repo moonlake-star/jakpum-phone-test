@@ -46,7 +46,7 @@ console.log("adv-mode ok", md.toFixed(4));
 
 /* (11/05 사용자) 이름 정리: 고급 보정 → 디테일 보정, 곡 전체(일괄) → 일괄 보정, 기본으로 → 심플로 */
 { const T1 = require("fs").readFileSync(__dirname + "/../tune.js", "utf8"), A3 = require("fs").readFileSync(__dirname + "/../adv.js", "utf8"), as = require("assert");
-  as.ok(T1.includes('mk("advOnB", "🎛 디테일 보정")') && T1.includes('mk("advGlB", "🎛 일괄 보정")') && T1.includes('mk("advOffB", "심플로")'), "버튼 이름");
+  as.ok(T1.includes('mk("advGlB", "🎛 일괄 보정")') && T1.includes('<button type="button" data-md2="0">👂 확인</button><button type="button" data-md2="1">🎛 보정</button>'), "버튼 이름: [확인|보정] 토글 + 일괄 보정");
   as.ok(A3.includes("<b>🎛 일괄 보정</b>"), "일괄 보정 시트 제목"); }
 
 /* (11/05 사용자) 음별 포먼트: 음 고치기 창 '음색' 탭 · 설명 줄은 일괄 보정 시트·음색 탭에 · 서버 note_edits formant */
@@ -64,3 +64,12 @@ console.log("adv-mode ok", md.toFixed(4));
 // (11/05 사용자) 큰 음 줄이기: − 를 누르면 숫자가 더 마이너스로(−20% → −30%), + 는 0쪽으로
 { const A3 = require("fs").readFileSync(__dirname + "/../adv.js", "utf8");
   require("assert").ok(A3.includes("if (o.inv) s = -s;") && A3.includes('def: 0, inv: true, fmt: (v) => (v > 0 ? "−" : "") + pct(v)'), "큰 음 줄이기 − = 더 마이너스"); }
+
+/* (11/05 사용자 '추천모드로 진행') [확인|보정] 토글: 보정 모드 = 고친 양 줄·주석 접음, 도구(일괄·치찰음)는 보정 모드에서만, 원음/보정본은 그대로 */
+{ const T2 = require("fs").readFileSync(__dirname + "/../tune.js", "utf8"), as = require("assert");
+  as.ok(T2.includes("lane = k && h > 110 && !(st && st.advOn) ?"), "보정 모드: 고친 양 줄 없음");
+  as.ok(T2.includes("st.notesHidden = (pm && !st.noteShow) || (!!st.advOn && ns.length > 0)") && T2.includes("const chipOn = pm && !st.advOn"), "보정 모드: 주석·💬 칩 숨김(삭제 아님)");
+  as.ok(T2.includes("gl.hidden = uvB.hidden = !st.advOn"), "일괄 보정·치찰음은 보정 모드에서만");
+  as.ok(!T2.includes('mk("advOnB"') && !T2.includes('mk("advOffB"'), "예전 디테일 보정/심플로 버튼 없음");
+  as.ok(T2.includes("#tuneFs.advOn .tfHint,#tuneFs.advOn .tfNote{display:none}"), "보정 모드: 안내 글 접음");
+  as.ok(!T2.includes("advOn .tfAbW") && !T2.includes("advOn .tfAb{display:none"), "원음/보정본 스위치는 숨기지 않음"); }
