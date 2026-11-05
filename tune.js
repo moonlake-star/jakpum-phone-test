@@ -531,7 +531,8 @@
     const os = [[1, 1], [2, 0.3], [3, 0.12]].map(([k, a]) => { const o = c.createOscillator(), ga = c.createGain(); o.type = "sine"; o.frequency.value = f * k; ga.gain.value = a; o.connect(ga); ga.connect(g); o.start(now); return o; });
     toneNow = { g, os, m, at: performance.now() };
   }
-  function toneOff() { if (!toneNow || !toneCtx) return; const { g, os } = toneNow, now = toneCtx.currentTime; toneNow = null;
+  let toneIdleT = null; const toneIdle = () => { clearTimeout(toneIdleT); toneIdleT = setTimeout(() => { try { if (toneCtx && !toneNow && toneCtx.state === "running") toneCtx.suspend(); } catch {} }, 2000); };   // (11/05) 건반 소리를 다 쓰면 소리 장치를 쉬게(블루투스 연결을 붙잡지 않게)
+  function toneOff() { if (!toneNow || !toneCtx) return; const { g, os } = toneNow, now = toneCtx.currentTime; toneNow = null; toneIdle();
     try { g.gain.cancelScheduledValues(now); g.gain.setValueAtTime(g.gain.value, now); g.gain.linearRampToValueAtTime(0, now + 0.12); os.forEach(o => o.stop(now + 0.15)); } catch {} }
   const noteName = (m) => NAMES[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1);
   // 정음 고치기 창: 초록 막대를 누르면(멈춘 상태) ▼▲로 고르고 저장 → onFix({t0,t1,midi}) · 원래대로 = midi:null
