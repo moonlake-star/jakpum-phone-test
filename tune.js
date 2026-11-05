@@ -853,7 +853,7 @@
     if (st.onAdv) {   // 위 줄: [🎛 고급 보정] → 켜면 [🎛 곡 전체][기본으로]
       try { G.TuneAdv.preview(cv, G.TuneAdv.state(st).ne); } catch {}
       const xb = wrap.querySelector(".tfTop .tfX:not(.tfXp)") || wrap.querySelector(".tfTop .tfX"), mk = (cls, txt) => { const b = document.createElement("button"); b.type = "button"; b.className = "tfAdvG " + cls; b.textContent = txt; b.addEventListener("pointerdown", (e) => e.stopPropagation()); xb.parentNode.insertBefore(b, xb); return b; };
-      const on = mk("advOnB", "🎛 고급 보정"), gl = mk("advGlB", "🎛 곡 전체"), uvB = mk("advUvB", "🌬 치찰음·호흡"), off = mk("advOffB", "기본으로");
+      const on = mk("advOnB", "🎛 디테일 보정"), gl = mk("advGlB", "🎛 일괄 보정"), uvB = mk("advUvB", "🌬 치찰음·호흡"), off = mk("advOffB", "심플로");
       const paintAdv = () => { on.hidden = st.advOn; gl.hidden = off.hidden = uvB.hidden = !st.advOn; if (!st.advOn) st.uvTool = false; uvB.classList.toggle("on", !!st.uvTool); uvB.textContent = st.uvTool ? "🌬 구간 끌어 고르기 · 끝내기" : "🌬 치찰음·호흡"; wrap.classList.toggle("advOn", st.advOn); };
       uvB.onclick = () => { st.uvTool = !st.uvTool; st.uvSel = null; if (st.uvTool) { pauseNow(); wrap.querySelectorAll(".tfFix").forEach(x => x.remove()); } paintAdv(); };
       on.onclick = () => { st.advOn = true; if (st.fixMode === "a") st.fixMode = "p"; paintAdv(); wrap.querySelectorAll(".tfFix").forEach(x => x.remove()); };

@@ -218,7 +218,7 @@
     const A = state(st), g = () => A.ne.global;
     document.getElementById("advG")?.remove();
     const d = document.createElement("div"); d.id = "advG"; d.className = "advG";
-    d.innerHTML = `<div class="advGBox" role="dialog" aria-label="곡 전체 고급"><div class="advGHd"><b>🎛 곡 전체</b><span class="advGN"></span><button type="button" class="advX" aria-label="닫기">✕</button></div><div class="advBody"></div>
+    d.innerHTML = `<div class="advGBox" role="dialog" aria-label="일괄 보정"><div class="advGHd"><b>🎛 일괄 보정</b><span class="advGN"></span><button type="button" class="advX" aria-label="닫기">✕</button></div><div class="advBody"></div>
       <div class="advGBtns"><button type="button" data-g="undo">↶ 한 단계 되돌리기</button><button type="button" data-g="midi">🎹 MIDI 내보내기</button><button type="button" data-g="reset">고급 전부 원래대로</button></div>
       <p class="advTip">보컬·MR 두 파일로 올린 곡은 완성본을 다시 만들면 보정된 보컬만 담긴 WAV(24bit)도 드라이브 작업 폴더에 생겨요(vocal_tuned.wav).</p></div>`;
     const body = d.querySelector(".advBody"), G_ = (k, dft) => (g()[k] != null ? g()[k] : dft);

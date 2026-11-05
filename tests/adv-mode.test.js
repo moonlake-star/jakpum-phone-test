@@ -43,3 +43,8 @@ console.log("adv-mode ok", md.toFixed(4));
 
 { const A2 = require("fs").readFileSync(__dirname + "/../adv.js", "utf8");
   require("assert").ok(A2.includes('fmt: (v) => (v > 0 ? "−" : "") + pct(v)') && A2.includes('fmt: (v) => (v > 0 ? "+" : "") + pct(v)'), "큰 음 줄이기는 −값, 작은 음 키우기는 +값으로 표시"); }
+
+/* (11/05 사용자) 이름 정리: 고급 보정 → 디테일 보정, 곡 전체(일괄) → 일괄 보정, 기본으로 → 심플로 */
+{ const T1 = require("fs").readFileSync(__dirname + "/../tune.js", "utf8"), A3 = require("fs").readFileSync(__dirname + "/../adv.js", "utf8"), as = require("assert");
+  as.ok(T1.includes('mk("advOnB", "🎛 디테일 보정")') && T1.includes('mk("advGlB", "🎛 일괄 보정")') && T1.includes('mk("advOffB", "심플로")'), "버튼 이름");
+  as.ok(A3.includes("<b>🎛 일괄 보정</b>"), "일괄 보정 시트 제목"); }
