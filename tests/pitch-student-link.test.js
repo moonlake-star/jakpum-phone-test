@@ -4,7 +4,8 @@ const stu = fs.readFileSync(__dirname + "/../student/index.html", "utf8"), tea =
 // 수강생 앱: 같은 사이트의 ../pitch/ 를 내 계정 모드(?from=student)로 연다. 첫 화면에 보인다
 assert.ok(stu.includes('href="../pitch/?from=student"') && stu.includes("const pitchLinkHtml = ()"), "발성 연습 버튼");
 assert.ok(stu.indexOf("${pitchLinkHtml()}") > stu.indexOf("${growthHtml(data.growth)}") && stu.indexOf("${pitchLinkHtml()}") < stu.indexOf("님의 레슨 노트</h2>"), "레슨 노트 위, 첫 화면");
-assert.ok(stu.includes(".pitchGo {") && stu.includes("min-height:64px"), "누르기 쉬운 크기");
+const emb = fs.readFileSync(__dirname + "/../pitch-embed.js", "utf8");
+assert.ok(emb.includes(".pitchGo{display:block") && emb.includes("padding:14px 16px") && emb.includes("cardInner") && emb.includes("연속 ") && emb.includes("class=\"pgWave\""), "카드(시안 C): 마이크·파형·오늘 기록·연속 일수, 카드 모양은 pitch-embed.js 한 곳");
 // 선생님 앱: 성장 탭에 발성 연습 카드. 서버에서 담당 수강생 것만 받아 온다
 assert.ok(tea.includes('<div id="grPitch"></div>') && tea.includes('portal("t_pitch", { sid, days: 14 })'), "성장 탭 발성 연습 카드 자리·요청");
 const pitchCard = new Function(tea.match(/function pitchCard\([\s\S]*?\n}\n/)[0] + "; return pitchCard;")();

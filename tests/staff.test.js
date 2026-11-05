@@ -55,3 +55,10 @@ const code = g(/const JOIN_STAFF = [^\n]*\n/) + g(/const staffOf = [^\n]*\n/) + 
   assert.ok(s2.indexOf("name='_강사시스템'") < s2.indexOf("name='_체험시스템'") && s2.includes("if (cfg.demo_readonly !== true) { Object.defineProperty(cfg, \"_configId\", { value: cid"), "강사 계정이 체험 보기보다 먼저, 저장된 체험판이면 다시 찾음");
   console.log("staff: 강사 패널·로드 순서 ok");
 }
+
+// (11/05 사용자) 원장 앱을 열면 본인 작업칸 없는 강사 칸을 자동으로 만듦(한 번에 하나씩, 실패한 강사는 반복 안 함)
+{
+  const s3 = require("fs").readFileSync(require("path").join(__dirname, "..", "teacher", "index.html"), "utf8");
+  assert.ok(s3.includes("const selfAuto = { busy: false, fail: {} };") && s3.includes("if (!selfAuto.busy && S.some(([k]) => !selfSlotOf(k) && !selfAuto.fail[k]))") && s3.includes("if (made) paintAdvPerm();"), "작업칸 자동 만들기(무한 반복 방지)");
+  console.log("staff: 작업칸 자동 ok");
+}
