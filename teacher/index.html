@@ -5214,9 +5214,12 @@ async function openMkJob(j, backTo) {
       await applyAll(fx, te);
       Tune.undo(`고친 것 ${gone}곳을 지웠어요`, () => { applyAll(fx0, te0, "되살렸어요"); }, 10000, "되살리기");
       return gone; };
+    // (11/05 사용자) 전체화면 ↶ ↷ 되돌리기·다시하기: 지금 고침 전체(정음·타이밍·디테일 보정)를 글자로 주고받음 → 그 상태로 되돌려 저장(applyAll)
+    const histGet = () => JSON.stringify({ fx: r.target_fixes || [], te: r.time_edits || [], ne: r.note_edits || null });
+    const histSet = async (js) => { const h = JSON.parse(js); if (h.ne) r.note_edits = h.ne; else delete r.note_edits; await applyAll(h.fx || [], h.te || []); };
     Tune.wire($("mkTune"), cv, () => mkNow(), () => (mkRaw ? 0 : lvNow()), (t, still) => { const tt = Math.max(0, Math.min(t, mkDurS ? mkDurS - 0.05 : t)); if (still) { if (mkPlaying) mkStop(); mkOffset = tt; paintTransport(); return; } if (!mkPlaying) { mkOffset = tt; $("mkPP").click(); } else mkSeekTo(t); },
       { title: `${j.st?.name || ""} · ${r.title || "메이크업"}`, tapFull: true, teacher: true, lvDef: +(r.pitch_level ?? 2), play: () => $("mkPP")?.click(), paused: () => !mkPlaying, mode: () => (lvNow() > 0 ? "p" : "o"),
-        setMode: (m) => document.querySelector(`#mkAb [data-ab="${m === "p" ? 1 : 0}"]`)?.click(), onFix, onFixMany, onTime, ...(canAdv() ? { onAdv, advGet } : {}), onResetRange: (t0, t1) => resetSome(true, true, [t0, t1]), countRange: (a, b) => (r.target_fixes || []).concat(r.time_edits || []).filter(x => toA(x.t0) < b && toA(x.t1) > a).length, voice: voiceTone, wave: () => mkTracks.mr?.buf || mkTracks.before?.buf || null, ...tnOpts });
+        setMode: (m) => document.querySelector(`#mkAb [data-ab="${m === "p" ? 1 : 0}"]`)?.click(), onFix, onFixMany, histGet, histSet, onTime, ...(canAdv() ? { onAdv, advGet } : {}), onResetRange: (t0, t1) => resetSome(true, true, [t0, t1]), countRange: (a, b) => (r.target_fixes || []).concat(r.time_edits || []).filter(x => toA(x.t0) < b && toA(x.t1) > a).length, voice: voiceTone, wave: () => mkTracks.mr?.buf || mkTracks.before?.buf || null, ...tnOpts });
   }).catch((e) => { tuneWired = true; console.warn("음정선", e); const c = $("mkTune"); if (c) c.replaceWith(Object.assign(document.createElement("p"), { className: "muted", textContent: "음정선을 불러오지 못했어요 (" + String(e?.message || e).slice(0, 60) + ")" })); });
   // 슬라이더가 기본값에 닿으면 짧고 약한 진동(안드로이드). 기본값: 보컬 0dB · 리버브 30% · MR 0dB · 음정 켬
   const DEF = { mkVol: 0, mkRev: 30, mkMr: 0, mkPitch: 3 };
@@ -6987,7 +6990,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-05-2330-msel-bar";
+const BUILD = "2026-11-05-2340-undo";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
