@@ -59,6 +59,13 @@ const code = g(/const JOIN_STAFF = [^\n]*\n/) + g(/const staffOf = [^\n]*\n/) + 
 // (11/05 사용자) 원장 앱을 열면 본인 작업칸 없는 강사 칸을 자동으로 만듦(한 번에 하나씩, 실패한 강사는 반복 안 함)
 {
   const s3 = require("fs").readFileSync(require("path").join(__dirname, "..", "teacher", "index.html"), "utf8");
-  assert.ok(s3.includes("const selfAuto = { busy: false, fail: {} };") && s3.includes("if (!selfAuto.busy && S.some(([k]) => !selfSlotOf(k) && !selfAuto.fail[k]))") && s3.includes("if (made) paintAdvPerm();"), "작업칸 자동 만들기(무한 반복 방지)");
+  assert.ok(s3.includes("const selfAuto = { busy: false, fail: {}, ok: {}, checked: {} };") && s3.includes("if (!selfAuto.busy && S.some(([k]) => !selfSlotOf(k) && !selfAuto.fail[k]))") && s3.includes("if (made) paintAdvPerm();"), "작업칸 자동 만들기(무한 반복 방지)");
   console.log("staff: 작업칸 자동 ok");
+}
+
+// (11/05) 강사 앱 설정에 작업칸이 실제로 들어갔는지 읽어서 확인·재전송
+{
+  const s4 = require("fs").readFileSync(require("path").join(__dirname, "..", "teacher", "index.html"), "utf8");
+  assert.ok(s4.includes("async function staffVerify(tid, fix)") && s4.includes("강사 앱에 반영됨") && s4.includes("data-resend") && s4.includes("staffConfigFor(cfg, tid), s.cfg_id"), "강사 앱 반영 확인·다시 보내기");
+  console.log("staff: 반영 확인 ok");
 }
