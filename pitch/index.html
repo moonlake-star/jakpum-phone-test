@@ -2059,7 +2059,7 @@ function showReport(uid, ctx) {
 $('#sAvgBtn').onclick = () => { const u = me(); if (u.role === 'student') showReport(u.id, {}); else toast('수강생 계정에서 오늘 리포트를 볼 수 있어요'); };
 
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'hidden') { abortCourse(); if (P.running) stopSession(); stopMonitor(); }
+  if (document.visibilityState === 'hidden') { abortCourse(); if (P.running) stopSession(); stopMonitor(); try { if (P.ctx && P.ctx.state === 'running') P.ctx.suspend(); } catch (e) {} }   // (11/05) 다른 앱으로 가면 마이크와 소리 장치를 놓아서 블루투스가 이 앱을 붙잡지 않게
   else if (cur === 'practice' && !P.monOff) startMonitor(false);
 });
 
