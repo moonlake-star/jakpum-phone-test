@@ -206,7 +206,7 @@ console.log("pitch-page ok");
 }
 {
   const src = fs.readFileSync(__dirname + "/../pitch/index.html", "utf8");
-  assert.ok(src.includes("else calDone(null);") && !src.includes("주변이 조용해요 · 준비됐어요") && src.includes("else hideMicPop(); }"), "조용하면 '준비됐어요' 창은 띄우지 않기");
+  assert.ok(src.includes("else calDone(null);") && !src.includes("주변이 조용해요 · 준비됐어요") && !src.includes("주변 소리를 확인하고 있어요") && src.includes("function calDone(status, ms) { if (status && ms > 2000) toast(status, ms); }"), "주변 소리 확인 팝업 없이 속으로만 측정(아주 시끄러울 때만 작은 알림)");
   console.log("pitch-page: 준비됐어요 창 없음 ok");
 }
 {
