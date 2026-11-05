@@ -228,7 +228,7 @@ console.log("pitch-page ok");
 {
   const src = fs.readFileSync(__dirname + "/../pitch/index.html", "utf8");
   assert.ok(src.includes("lo = SLOW_LO, hi = R.rate[1]") && src.includes("B.e(S.cur) * 1.12") && src.includes("vibAnalyze(ULTRA_WIN)") && src.includes("vibAnalyze(SLOW_WIN)") && src.includes("for (let f = .15; f <= 20.001; f += .125)") && src.includes("CFG.vstv !== 3"), "가이드는 아주 느린(2Hz대)부터 시작, 느린 비브라토는 긴 창으로 인식");
-  assert.ok(src.includes("function vibGuideStep(now)") && src.includes("tgt = clamp(V.rS, B.lo, B.hi);") && src.includes("clamp(tgt - V.gRate, -.06, .06)") && src.includes("createLinearGradient(nowX, 0, W, 0)") && !src.includes("지나간 가이드는 옅게"), "가이드는 지금 내 목소리 주기와 똑같이 따라가고, 앞쪽 선은 옅어지는 실선 하나");
+  assert.ok(src.includes("function vibGuideStep(now)") && src.includes("tgt = clamp(mir, B.lo, B.hi);") && src.includes("function vibQuick(now)") && src.includes("V.qS < 1.5") && src.includes("V.rate != null || V.qS != null") && src.includes("clamp(tgt - V.gRate, -.06, .06)") && src.includes("createLinearGradient(nowX, 0, W, 0)") && !src.includes("지나간 가이드는 옅게"), "가이드는 지금 내 목소리 주기와 똑같이 따라가고(느린 흔들림은 봉우리 간격 어림 포함), 앞쪽 선은 옅어지는 실선 하나");
   console.log("pitch-page: 가이드 자동 속도·차분한 선 ok");
   assert.ok(src.includes("const pps = (W - L) * V.ppsF") && src.includes("clamp(.2 * (vibGuideOn() ? vibGuideRate()") && src.includes("소리를 기다리는 중: 깜빡이는 마이크 아이콘") && src.includes("sw = clamp(.22 / Math.max(fS, .3), .04, .6)") && src.includes("g2.quadraticCurveTo"), "느린 가이드는 그래프도 천천히 흐름, 대기 중 깜빡이는 마이크, 느릴수록 선을 부드럽게");
   console.log("pitch-page: 느린 시작·대기 아이콘·부드러운 선 ok");
