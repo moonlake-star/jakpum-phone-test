@@ -1533,7 +1533,7 @@ function guideTone(m, dur, at, hold, keepMic, vol) {
 function guideChord(m, dur) {                                  // do-mi-sol: the tonic triad of the coming repetition
   try {
     const ctx = actx(), t0 = ctx.currentTime;
-    [0, 4, 7].forEach(d => pianoVoice(ctx, mFreq(m + d), t0, { dur, vol: .36 }));
+    [0, 4, 7].forEach(d => pianoVoice(ctx, mFreq(m + d), t0, { dur, vol: .36, hold: true }));   // (11/05 사용자) 코드 길이 2배: 금방 사그라들지 않고 끝까지 울리게(hold)
     if (!P.chordM) P.chordM = { t: performance.now() + (t0 - ctx.currentTime) * 1000, mic: 0, ref: 0 };
     if (!P.earphone) P.toneUntil = Math.max(P.toneUntil, performance.now() + dur * 1000 + 120);
   } catch (e) {}
@@ -1548,7 +1548,7 @@ function guideNote(n, first, now) {
     const now0 = performance.now();
     /* (11/05 사용자) 발성: 피아노는 더 크게(0.9), 짧게 끊지 않고 레가토로 — 막대 길이만큼 이어서 다음 음과 살짝 겹쳐요. 스피커에서 마이크로 되돌아오는 소리는 '분리 감지'(코드로 배운 k)가 걸러요 */
     const pd = n.d + .08;
-    if (n.pre) { guideChord(n.m, .48); guideTone(n.m, pd, n.pre, true, true, .9); P.toneUntil = Math.max(P.toneUntil, now0 + (n.pre + PING_MUTE) * 1000); n.mute = PING_MUTE; return; }
+    if (n.pre) { guideChord(n.m, Math.min(.96, n.pre));   /* (11/05 사용자) 코드 소리 길이 2배(.48→.96초). 빠른 속도에서는 첫 음 전까지만 */ guideTone(n.m, pd, n.pre, true, true, .9); P.toneUntil = Math.max(P.toneUntil, now0 + (n.pre + PING_MUTE) * 1000); n.mute = PING_MUTE; return; }
     guideTone(n.m, pd, 0, true, true, .9); n.mute = 0; return;
   }
   if (n.pre) { guideTone(n.m, .8); n.mute = 0; return; }
@@ -1779,7 +1779,7 @@ const HINT_REC = '소리 낸 시간만 연습으로 계산돼요 (4초까지 쉬
 function setMonUI() {
   const b = $('#monState'); b.className = 'mon ' + (P.running ? 'rec' : P.mon ? 'on' : '');
   b.innerHTML = P.running ? '<i></i>기록 중' : P.mon ? '<i></i>모니터' : '<i></i>마이크 꺼짐';
-  $('#hint').innerHTML = voMode() ? '이어폰을 끼고 피아노 소리를 따라 편안하게 소리 내 보세요 · 소리 낸 시간만 연습으로 기록돼요' : P.running ? HINT_REC : C.mode === 'vib' ? vibHint() : HINT_MON;
+  $('#hint').innerHTML = voMode() ? '피아노 소리를 따라 편안하게 소리 내 보세요 · 소리 낸 시간만 연습으로 기록돼요' : P.running ? HINT_REC : C.mode === 'vib' ? vibHint() : HINT_MON;
 }
 async function startMonitor(manual) {
   if (P.mon || P.monBusy) return true;

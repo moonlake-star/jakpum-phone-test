@@ -264,3 +264,8 @@ console.log("pitch-page ok");
   assert3.ok(src3.includes("const kk = P.earphone ? 0 :"), "이어폰이면 되돌림 보정 없음(내 목소리를 되돌림으로 배우지 않음)");
   console.log('pitch-page: 발성 시간 기록 ok');
 }
+
+/* (11/05 사용자) 발성 스케일: 코드 소리 길이 2배(0.48→0.96초), 끝까지 울리게, 첫 음 시작을 넘지 않게 */
+{ const srcC = fs.readFileSync(__dirname + "/../pitch/index.html", "utf8");
+  assert.ok(srcC.includes("guideChord(n.m, Math.min(.96, n.pre));"), "코드 길이 0.96초(첫 음 전까지)");
+  assert.ok(srcC.includes("{ dur, vol: .36, hold: true }"), "코드는 끝까지 울림"); }
