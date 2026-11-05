@@ -11,6 +11,7 @@
 <style>
   .pitchGo { display:flex; align-items:center; gap:12px; color:inherit; text-decoration:none; min-height:64px; margin:0 0 8px; border-color:rgba(228,141,22,.45); background:linear-gradient(180deg, rgba(228,141,22,.10), transparent 80%), var(--card); }
   .pitchGo .pgIc { font-size:1.7rem; } .pitchGo .pgTx { flex:1; display:flex; flex-direction:column; gap:2px; } .pitchGo .pgTx small { color:var(--muted); font-size:.85rem; line-height:1.4; }
+  .pitchAll summary { cursor:pointer; list-style:none; } .pitchAll summary::-webkit-details-marker { display:none; } .paRow { display:flex; flex-direction:column; gap:2px; padding:9px 0; border-top:1px solid var(--line); cursor:pointer; min-height:44px; } .paRow:first-child { border-top:0; }
   /* 기본 테마: 진회색(폰 설정과 상관없이 항상) */
   :root { color-scheme:dark; --bg:#17191d; --fg:#eceff3; --muted:#a9b1bc; --card:#22262c; --line:#363c45; --accent:#9cc3ff; --on-accent:#10141a;
           --ok:#6fd98e; --bad:#ff8a7a; --chip:#2e343d; --link:#ffd27a; }
@@ -1158,7 +1159,7 @@ function paintList(data, stale) {
       `<div class="muted">${sub}</div></div><div class="stuBody"><div class="sum">${chips || `<span class="muted">아직 기록 없음</span>`}</div></div></div>`;
   });
   // 가입 신청·계정 연결 카드는 맨 아래(2026-10-27 사용자: 맨 위에 늦게 생겨 아래가 밀리며 엉뚱한 게 눌림)
-  $("vList").innerHTML = `<div class="row" style="gap:6px;margin:0 0 8px;flex-wrap:nowrap"><button class="ghost" id="calBtn" style="flex:1">${IC_CAL} 레슨 캘린더</button>${isStaffApp() ? "" : `<button class="ghost" id="nsBtn" style="flex:1">＋ 신규 수강생</button>`}</div>` + pitchLinkHtml() + segHtml + todoHtml + `<div id="careBox"></div>` + blocks.join("") + `<div id="joinReq">${lastJoinHtml}</div>` +
+  $("vList").innerHTML = `<div class="row" style="gap:6px;margin:0 0 8px;flex-wrap:nowrap"><button class="ghost" id="calBtn" style="flex:1">${IC_CAL} 레슨 캘린더</button>${isStaffApp() ? "" : `<button class="ghost" id="nsBtn" style="flex:1">＋ 신규 수강생</button>`}</div>` + pitchLinkHtml() + `<div id="pitchAll"></div>` + segHtml + todoHtml + `<div id="careBox"></div>` + blocks.join("") + `<div id="joinReq">${lastJoinHtml}</div>` +
     `<p class="muted">${stale ? "최신 내용 확인 중…" : "최신 상태"} · <a href="#" id="reload">새로고침</a> · 앱 버전 ${typeof BUILD === "string" ? BUILD : ""}</p>`;
   $("reload").onclick = (e) => { e.preventDefault(); renderList(); };
   $("calBtn").onclick = () => openCal();
@@ -1170,6 +1171,7 @@ function paintList(data, stale) {
   $("vList").querySelectorAll("[data-tf]").forEach(b => b.onclick = () => { LS.set("vn_tfilter", b.dataset.tf); paintList(allData, stale); });
   $("vList").insertAdjacentHTML("beforeend", `<div id="retBox"></div><div id="prefsBox"></div><div id="advPermBox"></div><div id="laBox"></div>`); try { paintRetention(allData); } catch (e) { console.warn("유지 지표", e); } paintPrefs(); paintAdvPerm(); paintLaBox(); if (laIsOn()) laStart();
   paintJoinRequests();
+  try { paintPitchAll(data); } catch {}
   try { paintCare(data); if (!isStaffApp() && portalUrl()) usageOf().then(() => paintCare(data)).catch(() => {}); } catch {}
   $("vList").querySelectorAll(".stuCard.tap").forEach(el => el.onclick = () => openStudent(el.dataset.s));
   $("vList").querySelectorAll(".stuCard .retry").forEach(el => el.onclick = (e) => { e.stopPropagation(); renderList(); });
@@ -4354,6 +4356,32 @@ function usageCard(u) {
     <p class="muted" style="margin:4px 0 0">녹음 재생 ${u.plays7}번 · ${min(u.listen7)} 들음(7일) · 끝까지 ${u.done30}번 · 음정선 화면 ${u.tune30}번(30일)</p></div>`;
 }
 // (11/05 사용자 승인) 🎤 음정 연습 기록 — 수강생이 앱의 '음정 연습'에서 '기록 도전'으로 한 연습의 날짜별 요약(녹음은 없음). 서버 t_pitch
+// (11/05 사용자) 음정 연습 한눈에 — 원장은 모든 수강생, 강사는 담당 수강생(서버가 담당이 아니면 거절). 접힌 채로 두고 열 때만 수강생별로 불러옴(5분 보관)
+let pitchAllMem = null;
+async function pitchAllLoad(sids) {
+  if (pitchAllMem && Date.now() - pitchAllMem.at < 300000 && pitchAllMem.k === sids.join()) return pitchAllMem.rows;
+  const run = limiter(3), rows = await Promise.all(sids.map(sid => run(async () => { try { return { sid, days: (await portal("t_pitch", { sid, days: 7 })).days || [] }; } catch (e) { return { sid, err: true }; } })));
+  pitchAllMem = { at: Date.now(), k: sids.join(), rows }; return rows;
+}
+function pitchAllHtml(rows) {
+  const today = new Date(Date.now() + 9 * 36e5).toISOString().slice(0, 10), mm = (x) => x >= 60 ? `${Math.round(x / 60)}분` : `${Math.round(x)}초`;
+  const R = rows.map(r => { const t = (r.days || []).find(d => d.day === today); return { ...r, t, n: (r.days || []).length }; })
+    .sort((a, b) => (!!a.err - !!b.err) || (!!b.t - !!a.t) || (b.n - a.n) || String(cfg.students[a.sid]?.name).localeCompare(String(cfg.students[b.sid]?.name), "ko"));
+  const nToday = R.filter(r => r.t).length, bad = R.filter(r => r.err).length;
+  return { sum: `오늘 ${nToday}명 / 전체 ${R.length}명`, html: R.map(r => `<div class="paRow" data-s="${esc(r.sid)}"><b>${esc(cfg.students[r.sid]?.name || r.sid)}</b>
+    <span class="muted">${r.err ? "불러오지 못함" : r.t ? `오늘 ${mm(r.t.sec || 0)}${r.t.score != null ? ` · ${Math.round(r.t.score)}점` : ""}` : "오늘 연습 없음"}${!r.err ? ` · 최근 7일 ${r.n}일` : ""}</span></div>`).join("") + (bad ? `<p class="muted" style="margin:6px 0 0;font-size:.85rem">${bad}명은 불러오지 못했어요(서버가 새 버전이 아니거나 담당이 아닌 수강생)</p>` : "") };
+}
+function paintPitchAll(data) {
+  const box = $("pitchAll"); if (!box || !portalUrl()) return;
+  const sids = data.map(d => d.sid).filter(sid => { const st = cfg.students[sid]; return st && !isTeacher(st) && enrollOf(st) === "active"; });
+  if (!sids.length) return;
+  box.innerHTML = `<details class="card pitchAll"><summary><b>🎤 수강생 음정 연습</b> <span class="muted" id="paSum">눌러서 보기</span></summary><div id="paBody" class="muted" style="margin-top:6px"></div></details>`;
+  const det = box.querySelector("details"), body = $("paBody");
+  const show = (rows) => { const h = pitchAllHtml(rows); $("paSum").textContent = h.sum; body.classList.remove("muted"); body.innerHTML = h.html; body.querySelectorAll(".paRow").forEach(el => el.onclick = () => openStudent(el.dataset.s)); };
+  if (pitchAllMem && pitchAllMem.k === sids.join()) show(pitchAllMem.rows);
+  det.addEventListener("toggle", async () => { if (!det.open || body.dataset.done === "1") return; body.dataset.done = "1"; body.textContent = "불러오는 중…";
+    try { show(await pitchAllLoad(sids)); } catch (e) { body.dataset.done = ""; body.textContent = "불러오지 못했어요 · 다시 열어 주세요"; } });
+}
 function pitchCard(days) {
   days = Array.isArray(days) ? days : [];
   if (!days.length) return `<div class="card pitchCard"><b>🎤 음정 연습</b><p class="muted" style="margin:4px 0 0">아직 기록이 없어요 · 수강생이 앱의 ‘음정 연습’에서 ‘기록 도전’으로 연습하면 날짜별로 쌓여요</p></div>`;
