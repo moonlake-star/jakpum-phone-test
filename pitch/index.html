@@ -42,6 +42,7 @@ input,select{font:inherit;color:var(--ink)}
 .mmid{position:absolute;left:50%;top:-4px;bottom:-4px;width:1px;background:#5a646e}
 #mdot{position:absolute;top:50%;left:50%;width:12px;height:12px;border-radius:50%;background:#fff;transform:translate(-50%,-50%);opacity:.25;transition:left .06s linear,background .1s}
 #mdot.on{opacity:1}#mdot.good{background:var(--accent)}
+.vm .meter,.vm #note{display:none}.vm .noteRow{min-height:22px}
 .noteRow{position:relative;display:flex;align-items:baseline;justify-content:center;gap:10px;margin-top:2px;min-height:34px}
 .mon{position:absolute;left:-4px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--muted);padding:6px;border-radius:8px;white-space:nowrap}
 .mon i{display:inline-block;width:8px;height:8px;border-radius:50%;background:#5b6672;margin-right:5px;vertical-align:0}
@@ -1198,10 +1199,8 @@ function vibBreath(now, dt, m) {                       // 노래하다(1초 이�
   V.silMs = (V.silMs || 0) + dt;
   if (V.cueArm && V.silMs >= 1600 && P.mon && cur === 'practice') vibCue();
 }
-function renderVwEx() {
-  const el = $('#vwEx'); if (!el) return; const vm = C.mode === 'vib'; el.hidden = !vm; if (!vm) return;
-  const w = CFG.vw, r = vibRoot();
-  el.innerHTML = `<b>${SOLFA[mod(r, 12)]} ↔ ${SOLFA[mod(r + w, 12)]}</b> ${VLV[w].name} 폭으로 오르내려요 <span style="white-space:nowrap">🔊 ${P.running ? '이번 기준음 ' + midiName(r) : '눌러서 듣기'}</span>`;
+function renderVwEx() {   // (11/05 사용자) 비브라토: 위 미터·음 이름·'미↔파 … 눌러서 듣기' 줄 삭제 — 음 이름은 그래프 왼쪽 칸으로
+  const vm = C.mode === 'vib'; $('#v-practice').classList.toggle('vm', vm); const el = $('#vwEx'); if (el) el.hidden = true;
 }
 $('#vwEx').onclick = () => { if (C.mode === 'vib') vibCue(); };
 function setVW(w) { w = +w; if (!VLV[w]) return; V.gRate = null; if (w === CFG.vw) { vibCue(); return; } CFG.vw = w; saveCfg(); vibReset(); V.tr = []; renderCourseUI(); vibCue(); }
@@ -1221,7 +1220,7 @@ function vibTick(now, dt, m) {
   let sum = 0; for (const x of V.buf) sum += x.m; const mean = sum / V.buf.length; V.ctr = mean;
   /* (11/05 사용자) 가운데 점선 = 기준음(도)과 폭 위 음(도#)의 한가운데. 기준음 근처(±1.5반음)에서 시작하면 그래프가 아래쪽 '도'에서 시작해요. 멀리서 시작하면 예전처럼 내 음을 가운데로 */
   const anc = vibRoot() + CFG.vw / 2, fold = anc + 12 * Math.round((mean - anc) / 12);
-  if (V.anch == null && V.buf.length >= 6) V.anch = Math.abs(mean - fold) <= 1.5;
+  if (V.anch == null && V.buf.length >= 6) V.anch = Math.abs(mean - fold) <= CFG.vw / 2 + 1.5;   // (11/05 사용자) 폭이 넓을수록 가운데에서 기준음까지 멀어서, 기준음 근처(위아래 1.5반음)에서 시작하면 늘 하단 기준으로
   const tg = P.target; V.base = V.anch !== false ? fold : tg != null ? tg + 12 * Math.round((mean - tg) / 12) : mean;
   const d = (m - V.base) * 100, ds = V.pd == null ? d : (d + V.pd) / 2; V.pd = d;
   V.tr.push({ t: now, d }); while (V.tr.length && V.tr[0].t < now - (12000)) V.tr.shift();
@@ -1458,7 +1457,8 @@ function drawVib(now) {
   g2.globalAlpha = 1;
   g2.fillStyle = P.pressed != null ? '#e48d16' : '#2c3238'; g2.fillRect(0, 0, L, H);
   g2.textAlign = 'right'; g2.textBaseline = 'middle'; g2.font = '500 10px system-ui,sans-serif'; g2.fillStyle = P.pressed != null ? '#1a1000' : '#9aa5b1';
-  for (const c of R.ticks.flatMap(v => [v, -v]).concat(0)) { if (cy - c * pc < 40) continue; g2.fillText((c > 0 ? '+' : '') + c, L - 6, cy - c * pc); }   // top-left holds the 기준음 button
+  /* (11/05 사용자) 눈금 숫자(0·−50·−100) 삭제 — 대신 지금 내는 음 이름을 점 높이에 맞춰 이 칸에 */
+  if (live && P.lastM != null && now - P.lastMT < 350) { g2.save(); g2.textAlign = 'center'; g2.textBaseline = 'middle'; const nn = Math.round(P.lastM), good = Math.abs(Math.round(P.lastDev * 20) * 5) <= 10, by = clamp(vibXY().y, 52, H - 16); g2.fillStyle = good ? '#e48d16' : '#44505a'; g2.beginPath(); g2.roundRect ? g2.roundRect(4, by - 12, L - 8, 24, 12) : g2.rect(4, by - 12, L - 8, 24); g2.fill(); g2.fillStyle = good ? '#1a1000' : '#fff'; g2.font = '700 14px system-ui,sans-serif'; g2.fillText(midiName(nn), L / 2, by + 1); g2.restore(); }
   g2.textAlign = 'center'; g2.font = '700 11px system-ui,sans-serif'; g2.fillText('🔊', L / 2, 14); g2.font = '500 10px system-ui,sans-serif'; g2.fillText('기준음', L / 2, 28);
   g2.fillStyle = '#12161a'; g2.fillRect(L, 0, 1, H);
 }
@@ -1701,7 +1701,7 @@ function loop(ts) {
   if (showN) {
     const nn = Math.round(P.lastM), d = P.lastDev, c = Math.round(d * 20) * 5, good = Math.abs(c) <= 10;
     setTxt('note', midiName(nn), good ? 'good' : '');
-    setTxt('centsTxt', (c > 0 ? '+' : '') + c + ' cent' + (tgt != null ? ' (목표 대비)' : ''));
+    setTxt('centsTxt', C.mode === 'vib' ? '' : (c > 0 ? '+' : '') + c + ' cent' + (tgt != null ? ' (목표 대비)' : ''));
     const dot = $('#mdot'); const left = 50 + clamp(c, -50, 50); if (cache.dotL !== left) { dot.style.left = left + '%'; cache.dotL = left; }
     dot.className = good ? 'on good' : 'on';
   } else { setTxt('note', '--', 'idle'); setTxt('centsTxt', !P.mon ? (P.monDenied ? '마이크 권한을 허용해 주세요' : '마이크가 꺼져 있어요') : (P.ctx && P.ctx.state !== 'running' ? '화면을 한 번 탭하면 시작돼요' : P.running ? '소리를 내보세요' : '')); $('#mdot').className = ''; }
