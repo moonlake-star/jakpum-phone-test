@@ -42,7 +42,16 @@ input,select{font:inherit;color:var(--ink)}
 .mmid{position:absolute;left:50%;top:-4px;bottom:-4px;width:1px;background:#5a646e}
 #mdot{position:absolute;top:50%;left:50%;width:12px;height:12px;border-radius:50%;background:#fff;transform:translate(-50%,-50%);opacity:.25;transition:left .06s linear,background .1s}
 #mdot.on{opacity:1}#mdot.good{background:var(--accent)}
-.vm .meter,.vm #note{display:none}.vm .noteRow{min-height:22px}
+.vm .meter,.vm #note{display:none}
+#voAlive{display:none;align-items:center;gap:16px;justify-content:center;padding:26px 0 22px}
+#v-practice.scaleView #voAlive{display:flex}#v-practice.scaleView .meter,#v-practice.scaleView #note,#v-practice.scaleView #centsTxt,#v-practice.scaleView #startBtn{display:none}#v-practice.scaleView .noteRow{min-height:22px}
+.voMic{position:relative;width:96px;height:96px;border-radius:50%;background:#2c3238;border:2px solid #3a444c;display:flex;align-items:center;justify-content:center;color:#6b7580;transition:background .15s,color .15s,border-color .15s,transform .08s;flex:none}
+.voMic svg{width:46px;height:46px;position:relative;z-index:1}
+.voMic i{position:absolute;inset:-2px;border-radius:50%;border:2px solid rgba(255,192,77,.0);pointer-events:none}
+#voAlive.on .voMic{background:#e48d16;border-color:#ffc04d;color:#1a1000;transform:scale(calc(1 + var(--l,0) * .12))}
+#voAlive.on .voMic i{animation:voRing 1.1s ease-out infinite}#voAlive.on .voMic i+i{animation-delay:.55s}
+@keyframes voRing{0%{inset:-2px;border-color:rgba(255,192,77,.7)}100%{inset:-20px;border-color:rgba(255,192,77,0)}}
+.voTx{display:flex;flex-direction:column;gap:3px;min-width:0}.voTx b{font-size:18px;color:var(--ink)}.voTx span{font-size:13px;color:var(--muted)}#voAlive.on .voTx b{color:var(--accent)}.vm .noteRow{min-height:22px}
 .noteRow{position:relative;display:flex;align-items:baseline;justify-content:center;gap:10px;margin-top:2px;min-height:34px}
 .mon{position:absolute;left:-4px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--muted);padding:6px;border-radius:8px;white-space:nowrap}
 .mon i{display:inline-block;width:8px;height:8px;border-radius:50%;background:#5b6672;margin-right:5px;vertical-align:0}
@@ -308,6 +317,7 @@ summary{cursor:pointer;color:var(--ink2)}
           <div class="mtrack"><i class="mmid"></i><i id="mdot"></i></div>
           <span class="mlabel">+50C</span>
         </div>
+        <div id="voAlive" aria-live="polite"><div class="voMic"><i></i><i></i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" fill="currentColor"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M8.5 21h7"/></svg></div><div class="voTx"><b id="voSt">시작하면 소리를 확인해요</b><span id="voTm">이번 0:00 · 오늘 0분</span></div></div>
         <div class="noteRow"><button id="monState" class="mon" aria-label="마이크 모니터 켜기/끄기"></button><span id="note" class="idle">--</span><span id="centsTxt"></span></div>
         <div class="stats">
           <button class="sx" id="sAvgBtn" aria-label="오늘 리포트 보기"><span class="sk">오늘 평균 ›</span><span><b id="sAvg">--</b><em id="sAvgD"></em></span></button>
@@ -663,7 +673,7 @@ function draw(now) {
   drawCourse(rh, nowX, pps, W, H);
   // trace
   g2.save(); g2.beginPath(); g2.rect(PIANO_W, 0, W - PIANO_W, H); g2.clip();
-  const h = P.hist;
+  const h = voMode() ? [] : P.hist;   // 발성: 목소리 그래프 안 그림
   for (let i = 0; i < h.length; i++) {
     const p = h[i]; if (p.m == null) continue;
     const x = nowX - (now - p.t) / 1000 * pps; if (x < PIANO_W - 8) continue;
@@ -682,7 +692,7 @@ function draw(now) {
   // now line
   g2.fillStyle = 'rgba(255,255,255,.55)'; g2.fillRect(nowX, 0, 1, H);
   // ---- game overlay: cursor + hold ring, judgement popup, combo, particles
-  const liveC = P.lastM != null && now - P.lastMT < 350; let cy = null;
+  const liveC = P.lastM != null && now - P.lastMT < 350 && !voMode(); let cy = null;
   if (liveC) {
     P.curM = (P.curM == null || now - P.curT > 600) ? P.lastM : P.curM + (P.lastM - P.curM) * .4; P.curT = now; cy = yMid(P.curM);
     const hd = P.hd, hs = hd.note != null ? hd.ms / 1000 : 0, holding = hd.note != null;
@@ -918,6 +928,20 @@ function freeHint() {
   d.innerHTML = '<div class="vpc"><b>본인이 편한 음정으로<br>자유롭게 시작해 보아요</b><div class="note2" style="margin-top:10px">높거나 낮은 음을 억지로 내지 않아도 괜찮아요.<br>편안한 한 음을 길게 내 보세요.</div><div class="seg"><button type="button" id="freePopOk" style="grid-column:1/-1">시작하기</button></div></div>';
   document.body.appendChild(d); const done = () => d.remove(); $('#freePopOk').onclick = done; d.addEventListener('pointerdown', e => { if (e.target === d) done(); });
 }
+/* (11/05 사용자) 발성(스케일) = 점수 없이 '몇 분 했는지'만 기록. 소리가 3초 안에 잡히는 동안만 시간으로 쳐요(켜 두고 딴짓하는 시간은 제외). 한 줄이 끝나면 이어서 반복, 멈춤은 ⏸ */
+const voMode = () => C.mode === 'course' && C.stage === 3;
+function voStep(now, dt, sm) {
+  if (!voMode() || C.phase !== 'play' || C.paused) return;
+  const vo = P.vo || (P.vo = { ms: 0, lastV: -1e9, sess: null, saveAt: now }); if (sm != null) vo.lastV = now;
+  if (now - vo.lastV < 3000 && document.visibilityState === 'visible') { vo.ms += dt; if (now - vo.saveAt > 10000) { vo.saveAt = now; voFlush(); } }
+}
+function voFlush() {
+  const vo = P.vo, u = me(); if (!vo || !u || u.role !== 'student' || vo.ms < 10000) return;   // 10초 미만은 기록 안 함, 강사 계정은 기록 안 함
+  if (!vo.sess) { vo.sess = { id: 'v' + Date.now(), uid: u.id, day: dayKey(), start: Date.now(), activeSec: 0, vms: 0, sfs: 0, vocal: 1, st: null }; DB.sessions.push(vo.sess); }
+  vo.sess.activeSec = Math.round(vo.ms / 1000); if (SN || TM) { DB.sync = DB.sync || []; if (!DB.sync.includes(vo.sess.day)) DB.sync.push(vo.sess.day); }
+  saveDB(); try { pitchSync(); } catch (e) {} refreshToday(); cache.gw = null;
+}
+function voEnd() { voFlush(); P.vo = null; }
 /* (11/05 사용자) 발성 스케일 연습에 들어가면(이어폰이 안 보일 때) 안내 팝업: 이어폰 권장 + 피아노는 시작 신호 */
 function scaleEarTip() {
   if (cur !== 'practice' || C.mode !== 'course' || C.stage !== 3 || CFG.earTip || P.earTipShown || P.earphone || P.running || $('#voicePop') || $('#freePop') || $('#earPop')) return;
@@ -1001,7 +1025,7 @@ function setPause(on) {
 $('#pauseBtn').onclick = e => { e.stopPropagation(); setPause(true); };
 $('#pResume').onclick = e => { e.stopPropagation(); setPause(false); }; $('#pauseOv').onclick = () => { if (performance.now() - (P.pauseAt || 0) < 600) return; setPause(false); };   // 탭으로 멈춘 직후 같은 터치의 click 이 곧바로 '계속'을 누르던 문제 방지
 $('#pStop').onclick = e => { e.stopPropagation(); setPause(false); abortCourse(); };
-function abortCourse() { setPause(false); if (C.phase === 'count' || C.phase === 'play') { C.phase = 'idle'; C.t = -3; C.i = 0; C.act = null; renderCourseUI(); } }
+function abortCourse() { setPause(false); if (voMode()) voEnd(); if (C.phase === 'count' || C.phase === 'play') { C.phase = 'idle'; C.t = -3; C.i = 0; C.act = null; renderCourseUI(); } }
 function renderCourseUI() {
   const cm = C.mode === 'course';
   $('#segMode').querySelectorAll('button').forEach(b => { const ak = cm && C.stage === 3 ? 'scale' : C.mode; b.classList.toggle('on', b.dataset.v === ak); if (b.dataset.v === 'vib') b.textContent = vibUnlocked() ? '비브라토' : '🔒 비브라토'; b.onclick = () => { const k = C.mode === 'course' && C.stage === 3 ? 'scale' : C.mode; if (b.dataset.v !== k) setMode(b.dataset.v); }; });
@@ -1045,8 +1069,8 @@ function renderCOv() {
   if (C.phase === 'idle' && L.scale) {
     const sc = scaleCfg(CFG.sc), S = SCALES.find(x => x.k === sc.k);
     el.classList.add('mid');
-    el.innerHTML = `<button class="btn pri cgo" id="cGo"><span class="ic">▶</span><span class="tx">${P.running ? '도전' : '연습'}</span></button>${g ? `<div class="cghost">👻 ${esc(g.label)} ${g.cov}% ${starTxt(g.stars)}</div>` : ''}`;
-    el.querySelector('#cGo').onclick = startStage; return;
+    el.innerHTML = `<button class="btn pri cgo" id="cGo"><span class="ic">▶</span><span class="tx">${voMode() ? '시작' : P.running ? '도전' : '연습'}</span></button>${g && !voMode() ? `<div class="cghost">👻 ${esc(g.label)} ${g.cov}% ${starTxt(g.stars)}</div>` : ''}`;
+    el.querySelector('#cGo').onclick = () => startStage(); return;
   }
   if (C.phase === 'idle') {
     el.classList.add('mid');
@@ -1502,14 +1526,14 @@ function refStep(now, rms) {
     }
   }
   if (pk <= REF_ON) return { on: false, E: 0 };
-  const kk = P.k != null ? P.k : (P.earphone ? 0 : Infinity);
+  const kk = P.earphone ? 0 : (P.k != null ? P.k : Infinity);   // 이어폰이면 되돌림 없음(코드 구간에 낸 내 목소리를 되돌림으로 잘못 배우지 않게)
   return { on: true, E: kk === Infinity ? Infinity : kk * pk };
 }
-function guideTone(m, dur, at, hold, keepMic) {
+function guideTone(m, dur, at, hold, keepMic, vol) {
   at = at || 0;
   try {
     const ctx = actx(), t0 = ctx.currentTime + at;
-    pianoVoice(ctx, mFreq(m), t0, { dur, vol: keepMic ? .4 : .6, hold });
+    pianoVoice(ctx, mFreq(m), t0, { dur, vol: vol || (keepMic ? .4 : .6), hold });
     if (!P.earphone && !at && !keepMic) P.toneUntil = Math.max(P.toneUntil, performance.now() + dur * 1000 + 120);   // speaker: the mic would hear the guide tone
   } catch (e) {}
 }
@@ -1529,10 +1553,10 @@ function guideNote(n, first, now) {
     // 영상처럼: 각 회차 첫머리에 코드(도미솔)를 한 번 '짠' → 이어폰·스피커 구분 없이 음마다 피아노가 따라 나와요
     // 이어폰·스피커 구분 없이: 음마다 짧은 피아노(0.14초)가 나고, 그 순간(PING_MUTE)은 마이크를 쉬며 점수에서도 빼요
     const now0 = performance.now();
-    /* (11/05 사용자) 이어폰이면 피아노를 막대 길이만큼 이어서 들려줘요(마이크로 안 들어가니까) — 따라 부르기 쉬워요. 스피커는 짧은 신호음만 */
-    const sus = P.earphone && n.d > .45, pd = sus ? n.d - .06 : PING;
-    if (n.pre) { guideChord(n.m, .48); guideTone(n.m, pd, n.pre, sus, true); P.toneUntil = Math.max(P.toneUntil, now0 + (n.pre + PING_MUTE) * 1000); n.mute = PING_MUTE; return; }
-    guideTone(n.m, pd, 0, sus, true); if (!sus) { P.toneUntil = Math.max(P.toneUntil, now0 + PING_MUTE * 1000); n.mute = PING_MUTE; } else n.mute = 0; return;
+    /* (11/05 사용자) 발성: 피아노는 더 크게(0.9), 짧게 끊지 않고 레가토로 — 막대 길이만큼 이어서 다음 음과 살짝 겹쳐요. 스피커에서 마이크로 되돌아오는 소리는 '분리 감지'(코드로 배운 k)가 걸러요 */
+    const pd = n.d + .08;
+    if (n.pre) { guideChord(n.m, .48); guideTone(n.m, pd, n.pre, true, true, .9); P.toneUntil = Math.max(P.toneUntil, now0 + (n.pre + PING_MUTE) * 1000); n.mute = PING_MUTE; return; }
+    guideTone(n.m, pd, 0, true, true, .9); n.mute = 0; return;
   }
   if (n.pre) { guideTone(n.m, .8); n.mute = 0; return; }
   if (first) { const dur = Math.min(1.1, Math.max(.4, n.t0 - .05)); guideTone(n.m, dur); n.mute = Math.max(0, now + dur + .12 - n.t0); return; }
@@ -1540,14 +1564,14 @@ function guideNote(n, first, now) {
   const dur = clamp(n.d * .4, .5, .7); guideTone(n.m, dur); n.mute = dur + .12;
 }
 const courseRef = () => { const L = C.line, n = L.notes[Math.min(C.i, L.notes.length - 1)]; return n.m; };
-async function startStage() {
+async function startStage(loop) {
   setPause(false);
   if (!P.mon && !(await startMonitor(true))) return;
   C.warm = !P.running;   // 연습: 기록 도전(세션)이 켜져 있지 않으면 기록 없이 진행
   endHold(); P.hd = newHold(); P.st.combo = 0; C.nextFresh = false;
   P.shortRun = 0; C.line.notes.forEach(n => { n.guided = false; n.mute = 0; n.on = 0; n.vm = 0; n.es = 0; n.ok = false; n.fin = false; n.ratio = 0; n.bins = new Uint8Array(Math.ceil(n.d / .05)); });
-  C.t = -COUNT_IN; C.i = 0; C.act = null; C.cleared = 0; C.cnt = Math.ceil(COUNT_IN); C.rec = []; C.res = null; C.ghost = ghostFor(); C.phase = 'count';
-  sfx('tick'); renderCourseUI();
+  C.t = loop === true ? -.8 : -COUNT_IN; C.i = 0; C.act = null; C.cleared = 0; C.cnt = loop === true ? 1 : Math.ceil(COUNT_IN); C.rec = []; C.res = null; C.ghost = voMode() ? null : ghostFor(); C.phase = 'count';
+  if (loop !== true) sfx('tick'); renderCourseUI();
 }
 function courseAdvance(dt) {
   const c = C, L = c.line; c.t += dt / 1000;
@@ -1563,7 +1587,7 @@ function courseAdvance(dt) {
   } else c.act = null;
 }
 function courseTick(now, dt, sm) {
-  const c = C; if (sm != null) P.lastVoiceT = now;
+  const c = C; if (sm != null) P.lastVoiceT = now; voStep(now, dt, sm);
   if (c.phase !== 'play') return;
   const k = Math.floor(c.t * 10); while (c.rec.length <= k) c.rec.push(sm != null ? Math.round(sm * 10) : 0);
   const n = c.act; if (!n || sm == null) return;
@@ -1571,6 +1595,7 @@ function courseTick(now, dt, sm) {
   if (err <= D().tol) { n.on += ds; const b = Math.floor((c.t - n.t0) / .05); if (b >= 0 && b < n.bins.length) n.bins[b] = 1; }
 }
 function finalizeNote(n) {
+  if (voMode()) { n.fin = true; return; }   // 발성: 판정 없음
   n.fin = true; const ratio = clamp(n.on / reqOf(n), 0, 1), st = P.st, now = performance.now(); let key, text, col;
   n.ratio = ratio; n.ok = ratio >= .6;
   if (C.line && C.line.scale) { const sh = n.vm > .06 && n.vm < n.d * .5 && ratio < .6; P.shortRun = sh ? (P.shortRun || 0) + 1 : ratio >= .75 ? 0 : (P.shortRun || 0);   // (11/05 사용자) 피아노 나는 동안만 부르는 판이 3번 이어지면 안내
@@ -1587,6 +1612,7 @@ function finalizeNote(n) {
   if (n.ok) { sfx('hit'); burst(PIANO_W + (P.W - PIANO_W) * .72, yMid(n.m), key === 'perfect' ? 28 : 14, ['#ffd27a', '#ffffff', '#e48d16']); }
 }
 function endStage() {
+  if (voMode()) { C.act = null; C.line.notes.forEach(n => { n.fin = true; }); startStage(true); return; }   // 발성: 결과 화면 없이 이어서 반복
   const c = C, L = c.line, th = D().stars; c.phase = 'result'; c.act = null;
   let sum = 0, tot = 0, cl = 0; L.notes.forEach(n => { if (!n.fin) finalizeNote(n); const req = reqOf(n); sum += Math.min(n.on, req); tot += req; if (n.ok) cl++; });
   const cov = tot ? sum / tot : 0, stars = cov >= th[2] ? 3 : cov >= th[1] ? 2 : cov >= th[0] ? 1 : 0, covP = Math.round(cov * 100), u = me();
@@ -1609,7 +1635,7 @@ function updateCprog() {
   if (C.mode !== 'course' || !C.line) return;
   const L = C.line, f = C.phase === 'play' ? clamp(C.t / L.end, 0, 1) : C.phase === 'result' ? 1 : 0, w = (f * 100).toFixed(1) + '%';
   if (cache.cpw !== w) { $('#cpfill').style.width = w; cache.cpw = w; }
-  setTxt('cptxt', C.phase === 'play' ? `${C.stage === 3 ? '발성' : '스테이지 ' + (C.stage + 1)} · ${C.cleared}/${L.notes.length} 성공` : C.phase === 'count' ? '준비하세요!' : C.phase === 'result' ? `${C.stage === 3 ? '발성' : '스테이지 ' + (C.stage + 1)} 결과 · ${starTxt(C.res.stars)}` : L.scale ? (() => { const sc = scaleCfg(CFG.sc), S = SCALES.find(x => x.k === sc.k); return `발성 · ${S.t} · ${VOICE[sc.g].name} · 브릿지 ${midiName(sc.zs)}~${midiName(sc.ze)} · 약 ${Math.max(1, Math.round(L.end / 60))}분`; })() : `스테이지 ${C.stage + 1} · ${STAGES[C.stage][0]} · 시작음 ${midiName(L.notes[0].m)} · ${L.notes.length}음 · 약 ${Math.round(L.end - .8)}초`);
+  setTxt('cptxt', C.phase === 'play' ? (voMode() ? `발성 · 이번 ${fmtT((P.vo ? P.vo.ms : 0) / 1000)}` : `${C.stage === 3 ? '발성' : '스테이지 ' + (C.stage + 1)} · ${C.cleared}/${L.notes.length} 성공`) : C.phase === 'count' ? '준비하세요!' : C.phase === 'result' ? `${C.stage === 3 ? '발성' : '스테이지 ' + (C.stage + 1)} 결과 · ${starTxt(C.res.stars)}` : L.scale ? (() => { const sc = scaleCfg(CFG.sc), S = SCALES.find(x => x.k === sc.k); return `발성 · ${S.t} · ${VOICE[sc.g].name} · 브릿지 ${midiName(sc.zs)}~${midiName(sc.ze)} · 약 ${Math.max(1, Math.round(L.end / 60))}분`; })() : `스테이지 ${C.stage + 1} · ${STAGES[C.stage][0]} · 시작음 ${midiName(L.notes[0].m)} · ${L.notes.length}음 · 약 ${Math.round(L.end - .8)}초`);
 }
 function rr(x, y, w, h, r) { g2.beginPath(); if (g2.roundRect) g2.roundRect(x, y, w, h, r); else g2.rect(x, y, w, h); }
 /* 안내음(프리뷰)이 나오는 구간: 막대 앞부분(또는 막대 앞 빈 구간)에 보라색으로 표시. 이 시간엔 마이크를 쉬어요 */
@@ -1640,7 +1666,7 @@ function drawCourse(rh, nowX, pps, W, H) {
     g2.lineWidth = act ? 2 : 1.2; g2.strokeStyle = past ? (n.ok ? '#ffd27a' : '#5b6672') : zn ? '#ffb43a' : act ? '#a8e4ff' : '#5cc8ff'; g2.stroke();
     if (pv && pv[1] > n.t0 + .001) drawPv(n, pv, y, h, false);                // 막대 앞부분에서 나오는 안내음
     if (c.line.scale && !past) { const ex = Math.min(nowX, x0 + w); if (act && ex > x0) { g2.fillStyle = 'rgba(255,255,255,.16)'; rr(x0, y, ex - x0, h, 5); g2.fill(); } }   // (11/05 사용자) 시간이 지나는 만큼 막대가 차올라요
-    if (n.bins) { g2.fillStyle = act ? '#ffc04d' : '#e48d16'; const bw = .05 * pps; for (let b = 0; b < n.bins.length; b++) if (n.bins[b]) g2.fillRect(x0 + b * bw, y + 2, bw + .6, h - 4); }
+    if (n.bins && !voMode()) { g2.fillStyle = act ? '#ffc04d' : '#e48d16'; const bw = .05 * pps; for (let b = 0; b < n.bins.length; b++) if (n.bins[b]) g2.fillRect(x0 + b * bw, y + 2, bw + .6, h - 4); }
     if (c.line.scale && !past && x0 + w > PIANO_W) { g2.fillStyle = act ? 'rgba(255,255,255,.95)' : 'rgba(255,255,255,.5)'; g2.fillRect(x0 + w - 3, y + 1, 3, h - 2); }   // 막대 끝(여기까지 이어서)
     if (w > 30) { g2.save(); g2.fillStyle = past && !n.ok ? '#7b8691' : '#fff'; g2.font = '700 11px system-ui,sans-serif'; g2.textAlign = 'left'; g2.textBaseline = 'middle'; g2.shadowColor = 'rgba(0,0,0,.85)'; g2.shadowBlur = 3; g2.fillText(midiName(n.m), Math.max(x0 + 5, PIANO_W + 4), y + h / 2 + .5); g2.restore(); }
   }
@@ -1677,7 +1703,7 @@ function loop(ts) {
   let m = null;
   if (P.mon && P.an) {
     P.an.getFloatTimeDomainData(P.buf);
-    let rms = 0; for (let i = 0; i < P.buf.length; i++) rms += P.buf[i] * P.buf[i]; rms = Math.sqrt(rms / P.buf.length);
+    let rms = 0; for (let i = 0; i < P.buf.length; i++) rms += P.buf[i] * P.buf[i]; rms = Math.sqrt(rms / P.buf.length); P.rmsNow = rms;
     const ec = refStep(now, rms), echo = ec.on && (ec.E === Infinity || rms <= ec.E * ECHO_X + ECHO_ADD);
     const tone = P.pressed != null || now < P.toneUntil || echo; P.echoNow = echo;
     if (P.cal) calStep(now, rms, tone || now < P.sfxUntil);
@@ -1712,17 +1738,24 @@ function loop(ts) {
   } else if (now - P.lastMT > 400) P.shiftT = 0;
   if (cp) courseTick(now, dt, sm); else if (vb) { if (sm != null) P.lastVoiceT = now; } else gameTick(now, dt, sm, dev);
   if (P.running && now - P.lastVoiced < 4000 && document.visibilityState === 'visible') P.activeMs += dt;
-  if (C.mode === 'vib') P.hist.length = 0; else P.hist.push({ t: now, m: sm, ok, pf: dev != null && Math.abs(dev) * 100 <= 8 }); while (P.hist.length && now - P.hist[0].t > (HIST_S + 1) * 1000) P.hist.shift();
+  if (C.mode === 'vib' || voMode()) P.hist.length = 0; else P.hist.push({ t: now, m: sm, ok, pf: dev != null && Math.abs(dev) * 100 <= 8 }); while (P.hist.length && now - P.hist[0].t > (HIST_S + 1) * 1000) P.hist.shift();
   P.lowF += (P.low - P.lowF) * .15; if (Math.abs(P.low - P.lowF) < .01) P.lowF = P.low;
   // HUD
   const showN = P.lastM != null && now - P.lastMT < 350;
   if (showN) {
     const nn = Math.round(P.lastM), d = P.lastDev, c = Math.round(d * 20) * 5, good = Math.abs(c) <= 10;
     setTxt('note', midiName(nn), good ? 'good' : '');
-    setTxt('centsTxt', C.mode === 'vib' ? '' : (c > 0 ? '+' : '') + c + ' cent' + (tgt != null ? ' (목표 대비)' : ''));
+    setTxt('centsTxt', C.mode === 'vib' || voMode() ? '' : (c > 0 ? '+' : '') + c + ' cent' + (tgt != null ? ' (목표 대비)' : ''));
     const dot = $('#mdot'); const left = 50 + clamp(c, -50, 50); if (cache.dotL !== left) { dot.style.left = left + '%'; cache.dotL = left; }
     dot.className = good ? 'on good' : 'on';
   } else { setTxt('note', '--', 'idle'); setTxt('centsTxt', !P.mon ? (P.monDenied ? '마이크 권한을 허용해 주세요' : '마이크가 꺼져 있어요') : (P.ctx && P.ctx.state !== 'running' ? '화면을 한 번 탭하면 시작돼요' : P.running ? '소리를 내보세요' : '')); $('#mdot').className = ''; }
+  if (voMode()) {   // (11/05 사용자) 소리를 내고 있는지 보여 주는 큼직한 아이콘 + 시간
+    const live = P.lastM != null && now - P.lastMT < 350, ah = $('#voAlive'), vo = P.vo, ms = vo ? vo.ms : 0;
+    if (cache.voL !== live) { cache.voL = live; ah.classList.toggle('on', live); }
+    const lv = live ? Math.round(clamp((P.rmsNow || 0) / .12, 0, 1) * 10) / 10 : 0; if (cache.voLv !== lv) { cache.voLv = lv; ah.style.setProperty('--l', lv); }
+    setTxt('voSt', !P.mon ? '마이크를 켜 주세요' : live ? '소리가 잘 들려요' : C.phase === 'play' ? '소리를 내 보세요' : '시작하면 소리를 확인해요');
+    const u2 = me(); setTxt('voTm', `이번 ${fmtT(ms / 1000)} · 오늘 ${fmtKo(Math.round((u2 ? todaySec(u2.id) : 0) + (vo && vo.sess ? 0 : ms / 1000) ))}`);
+  }
   setTxt('liveScore', P.running && P.vms > 500 ? String(Math.round(100 * P.sfs / P.vms)) : '--');
   setTxt('liveTime', fmtT(P.activeMs / 1000));
   const aV = P.todayBase.vms + (P.running ? P.vms : 0), aS = P.todayBase.sfs + (P.running ? P.sfs : 0), avg = aV > 500 ? Math.round(100 * aS / aV) : null;
@@ -1753,7 +1786,7 @@ const HINT_REC = '소리 낸 시간만 연습으로 계산돼요 (4초까지 쉬
 function setMonUI() {
   const b = $('#monState'); b.className = 'mon ' + (P.running ? 'rec' : P.mon ? 'on' : '');
   b.innerHTML = P.running ? '<i></i>기록 중' : P.mon ? '<i></i>모니터' : '<i></i>마이크 꺼짐';
-  $('#hint').innerHTML = P.running ? HINT_REC : C.mode === 'vib' ? vibHint() : HINT_MON;
+  $('#hint').innerHTML = voMode() ? '이어폰을 끼고 피아노 소리를 따라 편안하게 소리 내 보세요 · 소리 낸 시간만 연습으로 기록돼요' : P.running ? HINT_REC : C.mode === 'vib' ? vibHint() : HINT_MON;
 }
 async function startMonitor(manual) {
   if (P.mon || P.monBusy) return true;

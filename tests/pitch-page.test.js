@@ -127,8 +127,8 @@ console.log("pitch-page ok");
   assert.ok(src.includes("function pianoVoice(") && src.includes("createPeriodicWave") && src.includes("createDynamicsCompressor"), "피아노 음색 + 컴프레서");
   assert.ok(!src.includes("o.type = 'sine'; o.frequency.value = mFreq(m)"), "사인파 안내음 제거");
   assert.ok(src.includes("function guideChord(") && src.includes("[0, 4, 7].forEach(d => pianoVoice("), "도미솔 코드");
-  assert.ok(src.includes("const PING = .14, PING_MUTE = .2;") && src.includes("guideTone(n.m, pd, 0, sus, true); if (!sus) { P.toneUntil = Math.max(P.toneUntil, now0 + PING_MUTE * 1000); n.mute = PING_MUTE; } else n.mute = 0; return;") && !src.includes("if (P.earphone) guideTone(n.m, n.d, 0, true);"), "스케일: 코드 1회 + 음마다 짧은 피아노(스피커). 이어폰이면 막대 길이만큼 이어짐(11/05 사용자 승인), 스피커 구간은 마이크·점수 제외");
-  assert.ok(src.includes("const COUNT_IN = 1.5;") && src.includes("C.t = -COUNT_IN;"), "시작 대기 1.5초");
+  assert.ok(src.includes("const PING = .14, PING_MUTE = .2;") && src.includes("guideTone(n.m, pd, n.pre, true, true, .9); P.toneUntil = Math.max(P.toneUntil, now0 + (n.pre + PING_MUTE) * 1000); n.mute = PING_MUTE; return; }") && src.includes("guideTone(n.m, pd, 0, true, true, .9); n.mute = 0; return;") && !src.includes("if (P.earphone) guideTone(n.m, n.d, 0, true);"), "스케일: 코드 1회 + 음마다 짧은 피아노(스피커). 이어폰이면 막대 길이만큼 이어짐(11/05 사용자 승인), 스피커 구간은 마이크·점수 제외");
+  assert.ok(src.includes("const COUNT_IN = 1.5;") && src.includes("C.t = loop === true ? -.8 : -COUNT_IN;"), "시작 대기 1.5초");
   console.log("pitch-page: 피아노 음색·스케일 안내 ok");
 }
 
@@ -151,7 +151,7 @@ console.log("pitch-page ok");
 
 // 비브라토 예시(도-레), 코스 일시정지, 3초 단위 유지 성공 + 피아노 안내
 {
-  assert.ok(src.includes("function renderVwEx(") && src.includes('id="vwEx"') && src.includes("const SOLFA") && src.includes(".vm .meter,.vm #note{display:none}") && src.includes("el.hidden = true") && !src.includes("// top-left holds the 기준음 button") && src.includes("g2.fillText(midiName(nn), L / 2, by + 1)") && src.includes("if (C.mode === 'vib') P.hist.length = 0; else P.hist.push(") && src.includes("vibReset(); P.hist.length = 0;") && src.includes("const VIB_LW = 40") && src.includes("p.x <= lw()"), "비브라토: 안내줄·스피커·눈금 숫자·위 미터 삭제, 음 이름은 그래프 왼쪽 칸, 폭 넓어도 기준음에서 시작하면 하단 기준");
+  assert.ok(src.includes("function renderVwEx(") && src.includes('id="vwEx"') && src.includes("const SOLFA") && src.includes(".vm .meter,.vm #note{display:none}") && src.includes("el.hidden = true") && !src.includes("// top-left holds the 기준음 button") && src.includes("g2.fillText(midiName(nn), L / 2, by + 1)") && src.includes("if (C.mode === 'vib' || voMode()) P.hist.length = 0; else P.hist.push(") && src.includes("vibReset(); P.hist.length = 0;") && src.includes("const VIB_LW = 40") && src.includes("p.x <= lw()"), "비브라토: 안내줄·스피커·눈금 숫자·위 미터 삭제, 음 이름은 그래프 왼쪽 칸, 폭 넓어도 기준음에서 시작하면 하단 기준");
   assert.ok(src.includes("function setPause(") && src.includes('id="pauseOv"') && src.includes("PTAP"), "코스 일시정지");
   assert.ok(src.includes("const MILE = [3, 6, 9, 12, 15, 18, 21];") && src.includes("const thrAt = i => 3 * (i + 1);") && src.includes("HOLD_KEYS"), "3초 단위 성공 시간");
   console.log("pitch-page: 비브라토 예시·일시정지·3초 단위 ok");
@@ -248,9 +248,19 @@ console.log("pitch-page ok");
 {
   const fs = require('fs'), path = require('path'), assert2 = require('assert');
   const src2 = fs.readFileSync(path.join(__dirname, '..', 'pitch', 'index.html'), 'utf8');
-  assert2.ok(src2.includes("const sus = P.earphone && n.d > .45, pd = sus ? n.d - .06 : PING;") && src2.includes("guideTone(n.m, pd, 0, sus, true); if (!sus) {"), "이어폰이면 스케일 피아노를 막대 길이만큼 이어서, 스피커는 짧은 신호음만");
+  assert2.ok(src2.includes("const pd = n.d + .08;") && src2.includes("guideTone(n.m, pd, 0, true, true, .9); n.mute = 0; return;") && src2.includes("vol: vol || (keepMic ? .4 : .6)"), "발성 피아노는 더 크게(.9), 음 사이를 이어서(레가토)");
   assert2.ok(src2.includes("rr(x0, y, ex - x0, h, 5)") && src2.includes("rgba(255,255,255,.95)' : 'rgba(255,255,255,.5)'; g2.fillRect(x0 + w - 3"), "막대가 시간 따라 차오르고 끝 표시가 있어요");
   assert2.ok(src2.includes("n.vm < n.d * .5 && ratio < .6") && src2.includes("P.shortRun >= 3") && src2.includes("피아노는 시작 신호예요. 막대 끝까지 이어서 불러 보세요"), "짧게만 부르는 판이 3번 이어지면 안내");
   assert2.ok(src2.includes("function scaleEarTip()") && src2.includes("발성 스케일 연습에는<br>이어폰 착용을 권장합니다") && src2.includes("CFG.earTip = 1") && src2.includes("setTimeout(scaleEarTip, 400)"), "스케일 연습 진입 시 이어폰 권장 팝업(다시 보지 않기 가능)");
 }
 
+/* (11/05 사용자) 발성 = 시간만 기록: 점수·기록 도전·결과 화면·목소리 그래프 없음, 소리 감지 큰 아이콘 */
+{
+  const fs = require('fs'), path = require('path'), assert3 = require('assert');
+  const src3 = fs.readFileSync(path.join(__dirname, '..', 'pitch', 'index.html'), 'utf8');
+  assert3.ok(src3.includes('id="voAlive"') && src3.includes('id="voSt"') && src3.includes('id="voTm"') && src3.includes("#v-practice.scaleView #voAlive{display:flex}"), "소리 감지 큰 아이콘 + 이번/오늘 시간");
+  assert3.ok(src3.includes("const voMode = () => C.mode === 'course' && C.stage === 3;") && src3.includes("function voStep(") && src3.includes("function voFlush(") && src3.includes("vocal: 1"), "발성 시간 기록(소리 낸 시간만, 세션에 vocal 표시)");
+  assert3.ok(src3.includes("const h = voMode() ? [] : P.hist;") && src3.includes("&& !voMode()"), "발성에서는 목소리 그래프를 그리지 않아요");
+  assert3.ok(src3.includes("const kk = P.earphone ? 0 :"), "이어폰이면 되돌림 보정 없음(내 목소리를 되돌림으로 배우지 않음)");
+  console.log('pitch-page: 발성 시간 기록 ok');
+}
