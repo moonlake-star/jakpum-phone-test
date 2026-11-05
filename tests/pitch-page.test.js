@@ -238,4 +238,5 @@ console.log("pitch-page ok");
   assert.ok(src.includes("vibGuideOn() ? .5 : .8") && src.includes("my = cy + 6") && src.includes("(V.gA == null ? .75 : V.gA)"), "지금 선은 가운데, 대기 중 가이드는 또렷하게, 마이크 아이콘은 아래쪽");
   assert.ok(src.includes("function renderScBar()") && src.includes("function scIcon(S)") && src.includes("if (b.dataset.t === 'scale' && !P.running)") && !src.includes('id="scBack"') && !src.includes("${qkHtml()}`;\n    el.querySelector('#cGo').onclick = startStage; qkWire"), "발성 탭은 바로 연습 화면, 스케일·속도는 위쪽 버튼(음 모양 막대 아이콘)");
   console.log("pitch-page: 발성 탭 바로 진입·위쪽 버튼 ok");
+  assert.ok(src.includes(".vstreak{height:34px;box-sizing:border-box}") && src.includes("-webkit-line-clamp:2"), "안내 한 줄이 두 줄로 바뀌어도 화면이 흔들리지 않게 높이 고정");
 }
