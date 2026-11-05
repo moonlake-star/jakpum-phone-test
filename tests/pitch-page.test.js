@@ -217,7 +217,7 @@ console.log("pitch-page ok");
 {
   const src = fs.readFileSync(__dirname + "/../pitch/index.html", "utf8");
   assert.ok(src.includes('id="vLad"') && src.includes("const VST_N = 5, VST_NEED = 3;") && src.includes("if (V.streak % 5 === 0) vibPass(V.rate);") && src.includes("function vibPass(rate)"), "속도 사다리: 5연속 3번이면 다음 칸");
-  assert.ok(src.includes("const vibFrac = () => vibGuideOn() ? .62 : .8;") && src.includes("가이드 사인파") && src.includes("function vibBeat()") && src.includes('id="vgT"') && src.includes('id="vgB"'), "가이드 사인파(앞날 공간) + 켜기/끄기·−/＋·박자 버튼");
+  assert.ok(src.includes("const vibFrac = () => vibGuideOn() ? .5 : .8;") && src.includes("가이드 사인파") && src.includes("function vibBeat()") && src.includes('id="vgT"') && src.includes('id="vgB"'), "가이드 사인파(앞날 공간) + 켜기/끄기·−/＋·박자 버튼");
   console.log("pitch-page: 속도 사다리·가이드 사인파 ok");
 }
 {
@@ -235,4 +235,5 @@ console.log("pitch-page ok");
   assert.ok(src.includes("소리 내기 전에도 도전할 가이드 파형은 옅게 계속 보여요"), "소리 내기 전에도 가이드 파형이 옅게 보임");
   assert.ok(src.includes("const ctx = actx(), out = pianoOut(ctx), rate = vibGuideRate(), n = 8,") && src.includes("btn.classList.add(i % 4 ? 'bp' : 'bp1')") && src.includes("@keyframes bpop1") && src.includes("<small>발성 연습</small>"), "박자 버튼: 2마디(8박), 박마다 버튼 튕김, 이름은 발성 연습");
   console.log("pitch-page: 박자 8박·발성 연습 ok");
+  assert.ok(src.includes("vibGuideOn() ? .5 : .8") && src.includes("my = H - 46") && src.includes("(V.gA == null ? .75 : V.gA)"), "지금 선은 가운데, 대기 중 가이드는 또렷하게, 마이크 아이콘은 아래쪽");
 }

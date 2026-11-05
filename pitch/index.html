@@ -1322,7 +1322,7 @@ function vibStep(now) {
   vibGuideStep(now);
 }
 const VM = { 3: ['3연속', 'NICE ✨', '#ffffff'], 5: ['비브라토 성공!', 'GREAT 👍', '#ffd27a'], 10: ['10연속!', 'EXCELLENT 🔥', '#ff9f43'], 20: ['20연속!!', 'AMAZING ⭐', '#ffd23f'] };
-const vibFrac = () => vibGuideOn() ? .62 : .8;   // 가이드가 켜져 있으면 '지금' 선을 왼쪽으로 옮겨 오른쪽에 파형이 보일 자리를 만들어요
+const vibFrac = () => vibGuideOn() ? .5 : .8;   // 가이드가 켜져 있으면 '지금' 선을 왼쪽으로 옮겨 오른쪽에 파형이 보일 자리를 만들어요
 function vibXY() { const last = V.tr[V.tr.length - 1]; if (V.yEnd && last && last.t - V.yEnd.t < 120) return { x: PIANO_W + (P.W - PIANO_W) * vibFrac(), y: V.yEnd.y }; return { x: PIANO_W + (P.W - PIANO_W) * vibFrac(), y: P.H / 2 - (last ? last.d : 0) * vpc() }; }
 function fireVib(n) {
   const k = VM[n] ? n : (n > 20 && n % 10 === 0 ? 20 : 0); if (!k) return;
@@ -1377,11 +1377,11 @@ function drawVib(now) {
   g2.globalAlpha = 1; g2.restore();
   // 가이드 사인파: 소리를 내기 시작하면 '지금' 선에서 시작해 오른쪽(앞날)으로 도전 속도·폭 그대로 다가와요
   if (vibGuideOn()) {
-    const lv = !!live; V.gA = (V.gA == null ? .4 : V.gA) + ((lv ? 1 : .4) - (V.gA == null ? .4 : V.gA)) * .08; if (V.gT0 == null) { V.gT0 = now; V.gPh = 0; }   /* 소리 내기 전에도 도전할 가이드 파형은 옅게 계속 보여요(목표가 보이게) */
+    const lv = !!live; V.gA = (V.gA == null ? .75 : V.gA) + ((lv ? 1 : .75) - (V.gA == null ? .75 : V.gA)) * .08; if (V.gT0 == null) { V.gT0 = now; V.gPh = 0; }   /* 소리 내기 전에도 도전할 가이드 파형은 옅게 계속 보여요(목표가 보이게) */
     const gdt = Math.min(.1, (now - (V.gLast || now)) / 1000); V.gLast = now; if (V.gT0 != null) V.gPh = (V.gPh || 0) + 2 * Math.PI * vibGuideRate() * gdt;   // 속도가 바뀌어도 파형이 튀지 않게 위상을 적분
     if (V.gT0 != null && V.gA >= .02) {
-      const f = vibGuideRate(), A = vibMid(); g2.save(); g2.beginPath(); g2.rect(L, 0, W - L, H); g2.clip(); g2.lineWidth = 2; g2.lineJoin = 'round';
-      const gr = g2.createLinearGradient(nowX, 0, W, 0); gr.addColorStop(0, 'rgba(127,227,255,' + (.8 * V.gA).toFixed(2) + ')'); gr.addColorStop(1, 'rgba(127,227,255,0)'); g2.strokeStyle = gr;   // 앞으로 갈수록 옅어지는 실선(정신없지 않게)
+      const f = vibGuideRate(), A = vibMid(); g2.save(); g2.beginPath(); g2.rect(L, 0, W - L, H); g2.clip(); g2.lineWidth = 2.6; g2.lineJoin = 'round';
+      const gr = g2.createLinearGradient(nowX, 0, W, 0); gr.addColorStop(0, 'rgba(127,227,255,' + (.8 * V.gA).toFixed(2) + ')'); gr.addColorStop(1, 'rgba(127,227,255,' + (.2 * V.gA).toFixed(2) + ')'); g2.strokeStyle = gr;   // 앞으로 갈수록 옅어지는 실선(정신없지 않게)
       g2.beginPath(); let st = false;
       for (let x = nowX; x <= W; x += 3) { const y = cy - A * Math.sin(V.gPh + 2 * Math.PI * f * (x - nowX) / pps) * pc; if (!st) { g2.moveTo(x, y); st = true; } else g2.lineTo(x, y); }
       g2.stroke(); g2.restore();
@@ -1392,7 +1392,7 @@ function drawVib(now) {
   if (live) { const y = vibXY().y; g2.fillStyle = col; g2.globalAlpha = .35; g2.beginPath(); g2.arc(nowX, y, 13, 0, 6.2832); g2.fill(); g2.globalAlpha = 1; g2.fillStyle = '#fff'; g2.beginPath(); g2.arc(nowX, y, 5.5, 0, 6.2832); g2.fill(); }
   else { g2.save(); g2.textAlign = 'center'; g2.textBaseline = 'middle'; g2.fillStyle = 'rgba(255,255,255,.55)'; g2.font = '600 13px system-ui,sans-serif'; g2.fillText('한 음을 길게 내면서', L + (W - L) / 2, cy - 54); g2.fillText(CFG.vw === 1 ? '소리를 물결치듯 흔들어 보세요' : `${R.name} 폭(±${vibMid()}센트)으로 크게 흔들어 보세요`, L + (W - L) / 2, cy - 34); g2.restore();
     /* 소리를 기다리는 중: 깜빡이는 마이크 아이콘 + 퍼지는 물결 */
-    { const ph = (now / 1000 * .9) % 1, bl = .55 + .45 * Math.sin(now / 1000 * 2 * Math.PI * 1.1), mx = nowX, my = cy + 6;
+    { const ph = (now / 1000 * .9) % 1, bl = .55 + .45 * Math.sin(now / 1000 * 2 * Math.PI * 1.1), mx = nowX, my = H - 46;   /* 가이드 파형을 가리지 않게 아래쪽에 */
       g2.save(); g2.strokeStyle = '#ffc04d'; g2.globalAlpha = (1 - ph) * .5; g2.lineWidth = 2; g2.beginPath(); g2.arc(mx, my, 20 + ph * 26, 0, 6.2832); g2.stroke();
       g2.globalAlpha = .25 + .2 * bl; g2.fillStyle = '#ffc04d'; g2.beginPath(); g2.arc(mx, my, 22, 0, 6.2832); g2.fill();
       g2.globalAlpha = .55 + .45 * bl; g2.strokeStyle = g2.fillStyle = '#fff'; g2.lineWidth = 2.2; g2.lineCap = 'round';
