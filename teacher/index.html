@@ -522,8 +522,8 @@
 <div id="v2Shade" class="v2only"></div>
 <div id="toast"></div>
 <script src="../lesson-replies.js"></script>
-<script src="../tune.js?v=20261106-0900"></script>
-<script src="../adv.js?v=20261106-0900"></script>
+<script src="../tune.js?v=20261106-0930"></script>
+<script src="../adv.js?v=20261106-0930"></script>
 <script src="../pitch-embed.js?v=20261105-1850"></script>
 
 <script>
@@ -4832,6 +4832,15 @@ function pvWarp(x, sr, f0, Dk) {
   const out = new Float32Array(n); for (let k = 0; k < n; k++) out[k] = ws[k] > 0.05 ? y[k] / ws[k] : x[Math.min(n - 1, Math.max(0, Math.round(Dk(k))))];
   return out;
 }
+// (11/06 사용자 '음색도 폰에서') 음별 음색: 같은 분석 표시에서 한 주기 조각을 1/비율로 줄여(=목소리 결만 올라감) 원래 자리·간격에 붙임 → 음 높이·길이 그대로 (서버 Praat 'Change gender'의 근사)
+function pvFormant(x, sr, f0, r) {
+  const n = x.length, mk = pvMarks(x, sr, f0), y = new Float32Array(n), ws = new Float32Array(n);
+  for (const [c, L, v] of mk) { const q = v ? r : 1, Lr = Math.max(4, Math.round(L / q));
+    for (let k = -Lr; k <= Lr; k++) { const o = c + k, s_ = c + k * q; if (o < 0 || o >= n || s_ < 0 || s_ > n - 1) continue;
+      const i = Math.floor(s_), fr = s_ - i, a = x[i], b = i + 1 < n ? x[i + 1] : a, w = 0.5 + 0.5 * Math.cos(Math.PI * k / Lr); y[o] += (a + (b - a) * fr) * w; ws[o] += w; } }
+  const out = new Float32Array(n); for (let k = 0; k < n; k++) out[k] = ws[k] > 0.05 ? y[k] / ws[k] : x[k];
+  return out;
+}
 function pvSrc(b, c, i0, i1) {   // 보정 전 보컬(p0)의 '타이밍 고치기 전' 소리(타이밍 미리듣기로 바뀐 곳은 기억해 둔 원래 조각으로)
   const x = b.getChannelData(Math.min(c, b.numberOfChannels - 1)).slice(i0, i1);
   for (const r of mkPv.orig.p0?.regs || []) { const a = Math.max(i0, r.i0), e = Math.min(i1, r.i0 + r.ch[0].length); if (a < e) x.set(r.ch[Math.min(c, r.ch.length - 1)].subarray(a - r.i0, e - r.i0), a - i0); }
@@ -4861,12 +4870,12 @@ function pvClusterRatio(cv, cl, dry, lvCol, sr, i0, n) {   // 덩어리 안 칸�
   return pvPerSample(cv, m, sr, i0, n, (c) => c == null ? 1 : 2 ** (c / 1200));
 }
 // (11/06 사용자 '수정한 사운드를 재생하면 바로 들어볼 수 있게') 디테일 보정(흐름·기울기·이어짐·비브라토 / 볼륨·무음·페이드)도 같은 PSOLA로 미리듣기
-// 음정: 음정선 보정본(하늘색) 선이 adv.js 미리보기로 바뀐 만큼(바뀐 선 − 처음 선)만 높이를 옮김 · 볼륨·무음: 샘플마다 곱함 · 음색(포먼트)·곡 전체 고침은 아직 소리에 반영 안 함(근사)
-const PV_ADV_P = ["drift", "vib", "vs", "tilt_in", "tilt_out", "tr_ms"], PV_ADV_G = ["gain_db", "mute", "fade_in", "fade_out"];
+// 음정: 음정선 보정본(하늘색) 선이 adv.js 미리보기로 바뀐 만큼(바뀐 선 − 처음 선)만 높이를 옮김 · 볼륨·무음: 샘플마다 곱함 · 음별 음색(포먼트): 한 주기 조각을 줄이거나 늘려 목소리 결만 옮김 · 곡 전체 음색·일괄 고침은 아직 소리에 반영 안 함(근사)
+const PV_ADV_P = ["drift", "vib", "vs", "tilt_in", "tilt_out", "tr_ms"], PV_ADV_G = ["gain_db", "mute", "fade_in", "fade_out"], PV_ADV_F = ["formant"];
 function pvAdvPlan() {
-  const notes = (mkPv.adv || []).filter(n => [...PV_ADV_P, ...PV_ADV_G].some(k => k in n)); if (!notes.length) return null;
-  const regs = []; for (const n of notes.slice().sort((a, b) => a.t0 - b.t0)) { const t1 = n.t1 + (n.tr_ms ? 0.15 : 0), L = regs[regs.length - 1];
-    if (L && n.t0 - L.t1 < 0.3) { L.t1 = Math.max(L.t1, t1); L.notes.push(n); } else regs.push({ t0: n.t0, t1, notes: [n] }); }
+  const notes = (mkPv.adv || []).filter(n => [...PV_ADV_P, ...PV_ADV_G, ...PV_ADV_F].some(k => k in n)); if (!notes.length) return null;
+  const regs = []; for (const n of notes.slice().sort((a, b) => a.t0 - b.t0)) { const fp = n.formant ? 0.1 : 0, t0 = n.t0 - fp, t1 = n.t1 + (n.tr_ms ? 0.15 : 0) + fp, L = regs[regs.length - 1];   // 음색은 서버처럼 앞뒤 0.1초 여유를 두고 만듦
+    if (L && t0 - L.t1 < 0.3) { L.t1 = Math.max(L.t1, t1); L.notes.push(n); } else regs.push({ t0: Math.max(0, t0), t1, notes: [n] }); }
   return { sig: JSON.stringify(notes), regs };
 }
 function pvAdvGain(cl, sr, i0, n) {
@@ -4917,7 +4926,12 @@ function pvApply(name) {   // 한 트랙에 지금 고친 정음·타이밍 전�
       const reg = { i0, ch: Array.from({ length: buf.numberOfChannels }, (_, c) => buf.getChannelData(c).slice(i0, i1)) }; st.regs.push(reg);
       const gain = pvAdvGain(cl, sr, i0, n), usePitch = !!(mp && mp.any && cl.notes.some(nt => PV_ADV_P.some(k => k in nt)));
       const f0 = usePitch ? pvPerSample(cv, mp.f0, sr, i0, n, (c) => c == null ? 0 : PV_C2HZ(c)) : null, rat = usePitch ? pvPerSample(cv, mp.delta, sr, i0, n, (c) => c == null ? 1 : 2 ** (c / 1200)) : null;
-      for (let c = 0; c < buf.numberOfChannels; c++) { const out = buf.getChannelData(c), org = reg.ch[c], sh = usePitch ? pvPsola(org, sr, f0, rat) : org;
+      const fn = cl.notes.filter(nt => nt.formant && nt.t1 - nt.t0 >= 0.08), fcur = fn.length ? pvF0(cv, lvCol, sr, i0, n) : null;   // 음색: 높이를 옮긴 뒤의 소리에 얹음(서버와 같은 차례), 볼륨은 그 다음
+      for (let c = 0; c < buf.numberOfChannels; c++) { const out = buf.getChannelData(c), org = reg.ch[c]; let sh = usePitch ? pvPsola(org, sr, f0, rat) : org;
+        if (fn.length) { sh = Float32Array.from(sh); const pad = Math.round(0.1 * sr), xf = Math.round(0.03 * sr);
+          for (const nt of fn) { const a = Math.max(0, Math.round(nt.t0 * sr) - i0), b = Math.min(n, Math.round(nt.t1 * sr) - i0), a0 = Math.max(0, a - pad), b0 = Math.min(n, b + pad); if (b0 - a0 < 3 * xf) continue;
+            const z = pvFormant(sh.subarray(a0, b0), sr, fcur.subarray(a0, b0), 2 ** (nt.formant / 12)), r = Math.min(xf, (b - a) >> 1);
+            for (let k = a0; k < b0; k++) { const w = k < a || k >= b ? 0 : k < a + r ? (k - a + 1) / r : k >= b - r ? (b - k) / r : 1; if (w > 0) sh[k] = sh[k] * (1 - w) + z[k - a0] * w; } } }
         for (let k = 0; k < n; k++) { const a = k < X ? k / X : k > n - X ? (n - k) / X : 1, v = sh[k] * (gain ? gain[k] : 1); out[i0 + k] = org[k] * (1 - a) + v * a; } } } }
   return true;
 }
@@ -7028,7 +7042,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-06-0900-pv-notice";
+const BUILD = "2026-11-06-0930-pv-formant";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
