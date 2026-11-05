@@ -9,7 +9,7 @@
     if (cur) return;
     if (!document.getElementById("pitchEmbCss")) { const s = document.createElement("style"); s.id = "pitchEmbCss"; s.textContent = CSS; document.head.appendChild(s); }
     const d = document.createElement("div"); d.id = "pitchEmb";
-    const f = document.createElement("iframe"); f.setAttribute("allow", "microphone; autoplay"); f.title = "발성 연습";
+    const f = document.createElement("iframe"); f.setAttribute("allow", "microphone; autoplay"); f.title = "매일 연습";
     f.src = "../pitch/?embed=1" + (who === "student" ? "&from=student" : "&as=teacher");
     d.appendChild(f); document.body.appendChild(d);
     const shut = () => { try { f.src = "about:blank"; } catch (e) {} d.remove(); cur = null; };
