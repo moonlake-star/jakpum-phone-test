@@ -893,6 +893,14 @@ function askVoice() {
   d.innerHTML = `<div class="vpc"><b>목소리 성별을 골라 주세요</b><div class="note2" style="margin-top:8px">코스의 음 높이와 발성 스케일이 여기에 맞춰져요.<br>나중에 설정(⚙)에서 바꿀 수 있어요.</div><div class="seg">${Object.keys(VOICE).map(k => `<button data-v="${k}">${VOICE[k].name}</button>`).join('')}</div></div>`;
   document.body.appendChild(d); d.querySelectorAll('button').forEach(b => b.onclick = () => { setVoice(b.dataset.v); d.remove(); setMode('free'); voiceChanged(); sayHello(); });   // 고른 뒤엔 자유 화면에서 시작
 }
+/* (11/05 사용자) 자유 연습 처음 들어가면 한 번: 편한 음정으로 시작하라는 안내 팝업 */
+function freeHint() {
+  if (C.mode !== 'free' || CFG.freeHint || $('#voicePop') || $('#freePop') || P.running) return;
+  CFG.freeHint = 1; saveCfg();
+  const d = document.createElement('div'); d.id = 'freePop'; d.style.cssText = 'position:fixed;inset:0;z-index:80;background:rgba(10,12,14,.84);display:flex;align-items:center;justify-content:center;padding:20px';
+  d.innerHTML = '<div class="vpc"><b>본인이 편한 음정으로<br>자유롭게 시작해 보아요</b><div class="note2" style="margin-top:10px">높거나 낮은 음을 억지로 내지 않아도 괜찮아요.<br>편안한 한 음을 길게 내 보세요.</div><div class="seg"><button type="button" id="freePopOk" style="grid-column:1/-1">시작하기</button></div></div>';
+  document.body.appendChild(d); const done = () => d.remove(); $('#freePopOk').onclick = done; d.addEventListener('pointerdown', e => { if (e.target === d) done(); });
+}
 /* (11/05 사용자) 스케일 속도: 기본 70%(예전 100%보다 느리게), +/- 로 5%씩 40~120%. 음 길이·간격만 늘이고 짧은 피아노 '핑'은 그대로 */
 const SPD_MIN = .4, SPD_MAX = 1.2;
 const spdNow = () => { const v = Number(CFG.spd); return clamp(Math.round((isFinite(v) && v > 0 ? v : .7) * 20) / 20, SPD_MIN, SPD_MAX); };
@@ -946,6 +954,7 @@ function setMode(v) {
   if (C.phase === 'play' || C.phase === 'count') abortCourse();
   if (P.pressed != null) releaseKey(); vibReset(); if (v === 'vib') endHold();
   C.mode = v; CFG.mode = v; if (v === 'vib') vibEnter();   // 들어올 때마다 랜덤 기준음을 들려줘요
+  if (v === 'free') setTimeout(freeHint, 0);
   saveCfg(); if (P.ghostHold !== undefined) renderGhostMark();
   if (v === 'course') { if (C.stage === 3) C.stage = 0; loadStage(C.stage); } else { C.phase = 'idle'; renderCourseUI(); }
 }
@@ -1061,7 +1070,7 @@ function fireMilestone(T, rec, gm) {
   if (!P.running) P.warnedMon = true;
   const c = cursorXY(); burst(c.x, c.y, T >= 15 ? 60 : T >= 10 ? 46 : 28, T >= 10 ? ['#ffd27a', '#ff9f43', '#ffffff', '#7fe3ff'] : ['#ffd27a', '#ffffff', '#e48d16']);
   try { if (navigator.vibrate) navigator.vibrate(T >= 10 ? [30, 40, 30] : 25); } catch (e) {}
-  if (gm != null) guideTone(gm, .45);                              // success time: the held note sounds again on the piano as a pitch guide
+  if (gm != null) guideTone(gm, .45, 0, false, P.k != null);   // 되돌림 비율을 아는 경우엔 마이크를 쉬지 않고 분리 감지로 처리                              // success time: the held note sounds again on the piano as a pitch guide
   else sfx(rec ? 'rec' : T >= 12 ? 'big' : 'mile');
   if (rec) sfx('rec'); if (T >= 6) flash(fx[2]);
 }
@@ -1084,7 +1093,7 @@ function updateHold(now, dt, sm, dev) {
     }
   }
   if (!ok && h.note != null) {
-    if (now < P.toneUntil) { h.ms += dt; h.gap = 0; h.lastT = now; }     // guide tone playing through the speaker: the mic is muted, assume the note is still held
+    if (now < P.toneUntil || P.echoNow) { h.ms += dt; h.gap = 0; h.lastT = now; }     // guide tone playing through the speaker: the mic is muted, assume the note is still held
     else { h.gap += dt; if (h.gap > 250) { endHold(); return; } }
   }
   if (h.note != null) {
@@ -1482,10 +1491,11 @@ function loop(ts) {
     P.an.getFloatTimeDomainData(P.buf);
     let rms = 0; for (let i = 0; i < P.buf.length; i++) rms += P.buf[i] * P.buf[i]; rms = Math.sqrt(rms / P.buf.length);
     const ec = refStep(now, rms), echo = ec.on && (ec.E === Infinity || rms <= ec.E * ECHO_X + ECHO_ADD);
-    const tone = P.pressed != null || now < P.toneUntil || echo;
+    const tone = P.pressed != null || now < P.toneUntil || echo; P.echoNow = echo;
     if (P.cal) calStep(now, rms, tone || now < P.sfxUntil);
     if (!tone && now < P.sfxUntil) { if (P.lastM != null && now - P.lastMT < 600) m = P.lastM; }   // chime playing through speakers: carry the last pitch
     else if (!tone && rms > Math.max(P.sens, P.gate)) { const vbm = C.mode === 'vib', r = yin(P.buf, P.ctx.sampleRate, vbm ? .24 : .15); if (r && r.clarity > (vbm ? .68 : .8)) m = freqM(r.freq); }
+    else if (tone && P.pressed == null && C.mode === 'free' && P.hd.note != null && P.lastM != null && now - P.lastMT < 700) m = P.lastM;   // 3초 성공 피아노 음이 나는 동안: 목소리 선이 끊기지 않게 마지막 음을 이어 줘요(유지 시간도 그대로 이어짐)
   }
   m = octFix(m, now);
   // median-of-3 smoothing
