@@ -889,8 +889,8 @@ CFG.guide = 'on'; CFG.vibOpen = 'always'; CFG.rcMe = 0; CFG.rc = VOICE_RC[scaleC
 function setVoice(g) { CFG.sc = CFG.sc || {}; if (CFG.sc.g !== g) { CFG.sc.g = g; CFG.sc.off = 0; } CFG.rc = VOICE_RC[g]; CFG.vset = 1; saveCfg(); }
 function voiceChanged() { renderVoiceSeg(); if (C.mode === 'course' && C.phase !== 'play' && C.phase !== 'count') loadStage(C.stage); else renderCourseUI(); }
 function renderVoiceSeg() { const h = $('#segVoice'), g = scaleCfg(CFG.sc).g; h.innerHTML = Object.keys(VOICE).map(k => `<button data-v="${k}" class="${k === g ? 'on' : ''}">${VOICE[k].name}</button>`).join(''); h.querySelectorAll('button').forEach(b => b.onclick = () => { setVoice(b.dataset.v); voiceChanged(); }); }
-/* 성별을 고른 직후: 주변 소리 확인이 끝나면 잠깐 '소리를 내 보세요' 안내 */
-function sayHello() { if (P.cal || !P.mon) { P.hello = true; return; } micPop('🎤 소리를 내 보세요', '', 1500); }
+/* (11/05 사용자) 소리 내라는 안내 팝업은 없앰 — 대기 중엔 비브라토 화면의 깜빡이는 마이크 아이콘만 */
+function sayHello() {}
 /* 처음 한 번만: 목소리 성별(남/여)를 팝업으로 물어봐요. 이후엔 설정(⚙)에서 바꿔요 */
 function snNotice() {
   if (!SN || localStorage.getItem('vn_me_notice2') || $('#voicePop')) return false;
@@ -905,22 +905,13 @@ function askVoice() {
   d.innerHTML = `<div class="vpc"><b>목소리 성별을 골라 주세요</b><div class="note2" style="margin-top:8px">코스의 음 높이와 발성 스케일이 여기에 맞춰져요.<br>나중에 설정(⚙)에서 바꿀 수 있어요.</div><div class="seg">${Object.keys(VOICE).map(k => `<button data-v="${k}">${VOICE[k].name}</button>`).join('')}</div></div>`;
   document.body.appendChild(d); d.querySelectorAll('button').forEach(b => b.onclick = () => { setVoice(b.dataset.v); d.remove(); setMode('free'); voiceChanged(); sayHello(); });   // 고른 뒤엔 자유 화면에서 시작
 }
-/* (11/05 사용자) 안내 팝업을 닫은 뒤에도 소리가 안 나면(3초) '소리를 내 보세요' 팝업. 목소리가 잡히면 바로 닫아요(최대 15초) */
-function waitVoice() {
-  const t0 = performance.now(); let shown = false;
-  const iv = setInterval(() => {
-    const now = performance.now(), voiced = P.lastMT > t0;
-    if (voiced || now - t0 > 15000 || C.mode !== 'free' || cur !== 'practice') { clearInterval(iv); if (shown) hideMicPop(); return; }
-    if (!shown && now - t0 > 3000 && P.mon && !P.cal) { shown = true; micPop('🎤 소리를 내 보세요', '편한 음으로 길게 \'아~\' 해 보세요'); }
-  }, 250);
-}
 /* (11/05 사용자) 자유 연습 처음 들어가면 한 번: 편한 음정으로 시작하라는 안내 팝업 */
 function freeHint() {
   if (C.mode !== 'free' || CFG.freeHint || $('#voicePop') || $('#freePop') || P.running) return;
   CFG.freeHint = 1; saveCfg();
   const d = document.createElement('div'); d.id = 'freePop'; d.style.cssText = 'position:fixed;inset:0;z-index:80;background:rgba(10,12,14,.84);display:flex;align-items:center;justify-content:center;padding:20px';
   d.innerHTML = '<div class="vpc"><b>본인이 편한 음정으로<br>자유롭게 시작해 보아요</b><div class="note2" style="margin-top:10px">높거나 낮은 음을 억지로 내지 않아도 괜찮아요.<br>편안한 한 음을 길게 내 보세요.</div><div class="seg"><button type="button" id="freePopOk" style="grid-column:1/-1">시작하기</button></div></div>';
-  document.body.appendChild(d); const done = () => { d.remove(); waitVoice(); }; $('#freePopOk').onclick = done; d.addEventListener('pointerdown', e => { if (e.target === d) done(); });
+  document.body.appendChild(d); const done = () => d.remove(); $('#freePopOk').onclick = done; d.addEventListener('pointerdown', e => { if (e.target === d) done(); });
 }
 /* (11/05 사용자) 스케일 속도: 기본 70%(예전 100%보다 느리게), +/- 로 5%씩 40~120%. 음 길이·간격만 늘이고 짧은 피아노 '핑'은 그대로 */
 const SPD_MIN = .4, SPD_MAX = 1.2;
@@ -1217,7 +1208,7 @@ function vibTick(now, dt, m) {
   let sum = 0; for (const x of V.buf) sum += x.m; const mean = sum / V.buf.length; V.ctr = mean;
   const tg = P.target; V.base = tg != null ? tg + 12 * Math.round((mean - tg) / 12) : mean;
   const d = (m - V.base) * 100, ds = V.pd == null ? d : (d + V.pd) / 2; V.pd = d;
-  V.tr.push({ t: now, d }); while (V.tr.length && V.tr[0].t < now - (6000)) V.tr.shift();
+  V.tr.push({ t: now, d }); while (V.tr.length && V.tr[0].t < now - (7000)) V.tr.shift();
   if (now - V.lastAn >= 100) { V.lastAn = now; vibStep(now); }
   if (V.rate != null && V.verdict && V.verdict !== 'none') {           // count finished cycles at the measured speed
     V.cyc += V.rate * dt / 1000;
@@ -1236,20 +1227,22 @@ function vibAnalyze(win) {
   for (let q = 0; q < N; q++) { const t = tS + q * 1000 / FS; while (j < n - 2 && tr[j + 1].t < t) j++; const t0 = tr[j].t, t1 = tr[j + 1].t, f = t1 > t0 ? clamp((t - t0) / (t1 - t0), 0, 1) : 0; x[q] = md[j - i0] * (1 - f) + md[j + 1 - i0] * f; }
   let sx = 0, sy = 0, sxx = 0, sxy = 0; for (let q = 0; q < N; q++) { sx += q; sy += x[q]; sxx += q * q; sxy += q * x[q]; }
   const den = N * sxx - sx * sx, sl = den ? (N * sxy - sx * sy) / den : 0, ic = (sy - sl * sx) / N;
+  const xd = new Float64Array(N); for (let q = 0; q < N; q++) xd[q] = x[q] - ic - sl * q;
   let sw = 0, sw2 = 0, e2 = 0; for (let q = 0; q < N; q++) { const w = .5 - .5 * Math.cos(2 * Math.PI * q / (N - 1)); x[q] = (x[q] - ic - sl * q) * w; sw += w; sw2 += w * w; e2 += x[q] * x[q]; }
   const sig2 = e2 / sw2, F = [], Pw = []; let tot = 0;
-  for (let f = .5; f <= 20.001; f += .125) { let re = 0, im = 0; const wv = 2 * Math.PI * f / FS; for (let q = 0; q < N; q++) { re += x[q] * Math.cos(wv * q); im += x[q] * Math.sin(wv * q); } F.push(f); Pw.push(re * re + im * im); tot += re * re + im * im; }
+  for (let f = .25; f <= 20.001; f += .125) { let re = 0, im = 0; const wv = 2 * Math.PI * f / FS; for (let q = 0; q < N; q++) { re += x[q] * Math.cos(wv * q); im += x[q] * Math.sin(wv * q); } F.push(f); Pw.push(re * re + im * im); tot += re * re + im * im; }
   let pk = -1, pv = 0; for (let k = 0; k < F.length; k++) if (F[k] >= Math.min(RW.lo, SLOW_LO) && F[k] <= 9 && Pw[k] > pv) { pv = Pw[k]; pk = k; } if (pk < 1 || pk > F.length - 2 || tot <= 0) return null;
   const d2 = Pw[pk - 1] + Pw[pk + 1] - 2 * Pw[pk], off = d2 ? clamp((Pw[pk - 1] - Pw[pk + 1]) / (2 * d2), -.5, .5) : 0, rate = F[pk] + off * .125;
   let band = 0; const bw = rate < 2 ? .5 : 1.25; for (let k = 0; k < F.length; k++) if (Math.abs(F[k] - rate) <= bw) band += Pw[k];   // 아주 느릴 땐 좁게(느린 음정 흐름과 구분)
   const Q = band / tot, qn = clamp((Q - .14) / .86, 0, 1);
   let ext = Math.sqrt(2 * sig2 * qn);
+  if (rate < 1.2 && Q >= .5) { const sd = Array.from(xd).sort((u, v) => u - v), pp = sd[Math.floor(N * .9)] - sd[Math.floor(N * .1)]; ext = Math.max(ext, Math.sqrt(2 * sig2) * .92, pp / 1.9 * .95); }   // 아주 느릴 땐 창에 몇 주기 안 들어가 퍼짐 때문에 폭이 작게 나와요: 집중도가 좋으면 전체 흔들림 크기로 봐요
   const w = .65 * (P.an ? P.an.fftSize / P.ctx.sampleRate : .043), xa = Math.PI * rate * w; ext /= Math.max(.5, (Math.sin(xa) / xa) * Math.cos(Math.PI * rate * .0167));   // undo averaging loss of the pitch window
   return { rate, ext, Q };
 }
 /* (11/05 사용자) 느린 비브라토도 음정 궤적이 깨끗하면(스펙트럼 집중도 Q ≥ .55, 폭은 범위 안) 성공으로 인정: 목표 속도보다 느려도 SLOW_LO(약 2.2Hz)까지.
    성공이지만 V.slow = true 로 표시해서 '조금 더 빠르게 도전' 안내에 써요 */
-const SLOW_LO = .7, SLOW_Q = .55, SLOW_WIN = 1900, ULTRA_WIN = 3400;   /* (11/05 사용자) 초보자: 맨 아래 칸은 초당 1번도 안 되는 아주 느린 물결(약 0.7Hz)부터 */
+const SLOW_LO = .4, SLOW_Q = .55, SLOW_WIN = 1900, ULTRA_WIN = 3400, CRAWL_WIN = 5200;   /* (11/05 사용자) 초보자: 맨 아래 칸은 초당 1번도 안 되는 아주 느린 물결(약 0.4Hz, 한 번 흔드는 데 2초 넘게)부터 */
 /* (11/05 사용자) 속도 사다리: 폭마다 [느려도 인정하는 하한 ~ 목표 상한]을 5칸으로 나눠요. 한 칸에서 '5연속 성공'을 3번 하면 다음 칸이 열리고,
    그 칸의 가운데 속도·폭으로 사인파 가이드를 오른쪽(앞날) 공간에 미리 보여줘요. */
 const VST_N = 5, VST_NEED = 3;
@@ -1308,11 +1301,12 @@ $('#vgD').onclick = () => vibGuideAdj(-.5); $('#vgU').onclick = () => vibGuideAd
 function vibStep(now) {
   let r = vibAnalyze(); const R = VR();
   if (!(r && r.Q >= .4 && r.ext >= 8)) { const r2 = vibAnalyze(SLOW_WIN); if (r2 && r2.Q >= .4 && r2.ext >= 8 && r2.rate < 3.2) r = r2; }
-  if (!(r && r.Q >= .4 && r.ext >= 8)) { const r3 = vibAnalyze(ULTRA_WIN); if (r3 && r3.Q >= .6 && r3.ext >= 15 && r3.rate < 1.9) r = r3; }   // 1Hz 안팎 물결: 3.4초 창, 더 엄격하게(음정이 흘러가는 것과 구분)   // 아주 느린(2Hz대) 비브라토는 더 긴 창(1.9초)으로 다시 봐요
+  if (!(r && r.Q >= .4 && r.ext >= 8)) { const r3 = vibAnalyze(ULTRA_WIN); if (r3 && r3.Q >= .6 && r3.ext >= 15 && r3.rate < 1.9) r = r3; }
+  if (!(r && r.Q >= .4 && r.ext >= 8)) { const r4 = vibAnalyze(CRAWL_WIN); if (r4 && r4.Q >= .6 && r4.ext >= 15 && r4.rate < 1.0) r = r4; }   // 0.5Hz 안팎(2초에 한 번): 5.2초 창   // 1Hz 안팎 물결: 3.4초 창, 더 엄격하게(음정이 흘러가는 것과 구분)   // 아주 느린(2Hz대) 비브라토는 더 긴 창(1.9초)으로 다시 봐요
   V.dbg = r;
   if (r && r.Q >= .4 && r.ext >= 8) {
     V.lastExtT = now; V.rate = V.rate == null ? r.rate : V.rate * .7 + r.rate * .3; V.extent = V.extent == null ? r.ext : V.extent * .7 + r.ext * .3;
-    const rOk = V.rate >= R.rate[0] && V.rate <= R.rate[1], eOk = V.extent >= R.ext[0] && V.extent <= R.ext[1], was = V.verdict;
+    const rOk = V.rate >= R.rate[0] && V.rate <= R.rate[1], eOk = V.rate < 1.2 ? V.extent >= R.ext[0] * .8 && V.extent <= R.ext[1] * 1.1 : V.extent >= R.ext[0] && V.extent <= R.ext[1], was = V.verdict;   // 아주 느릴 땐 창에 주기가 적게 들어가 폭이 작게 나와서 기준을 조금 낮춰요
     const slowOk = !rOk && eOk && V.rate >= SLOW_LO && V.rate < R.rate[0] && r.Q >= SLOW_Q;
     V.slow = slowOk;
     V.eOkMs = eOk ? (V.eOkMs || 0) + 100 : 0;
@@ -1355,7 +1349,7 @@ function updateVibHud() {
 function drawVib(now) {
   const W = P.W, H = P.H, L = PIANO_W, nowX = L + (W - L) * vibFrac(), cy = H / 2, pc = vpc(), R = VR();
   /* 그래프 흐르는 속도: 느린 물결(초보자)일수록 천천히 흘러서 내 파형과 가이드를 충분히 볼 수 있게. 한 주기 길이는 거의 일정하게 유지 */
-  const fTgt = clamp(.2 * (vibGuideOn() ? vibGuideRate() : (V.rS || 2.5)), .12, .5); V.ppsF = V.ppsF == null ? fTgt : V.ppsF + (fTgt - V.ppsF) * .04;
+  const fTgt = clamp(.2 * (vibGuideOn() ? vibGuideRate() : (V.rS || 2.5)), .09, .5); V.ppsF = V.ppsF == null ? fTgt : V.ppsF + (fTgt - V.ppsF) * .04;
   const pps = (W - L) * V.ppsF, WIN = (nowX - L) / pps;
   g2.setTransform(P.dpr, 0, 0, P.dpr, 0, 0); g2.fillStyle = '#22282c'; g2.fillRect(0, 0, W, H);
   g2.fillStyle = 'rgba(76,195,138,.15)'; g2.fillRect(L, cy - R.ext[1] * pc, W - L, (R.ext[1] - R.ext[0]) * pc); g2.fillRect(L, cy + R.ext[0] * pc, W - L, (R.ext[1] - R.ext[0]) * pc);
@@ -1364,7 +1358,7 @@ function drawVib(now) {
   const tr = V.tr, live = tr.length && now - V.lastT < 400, col = V.verdict === 'ok' ? '#7fe3a8' : '#ffb43a';
   g2.save(); g2.beginPath(); g2.rect(L, 0, W - L, H); g2.clip(); g2.lineJoin = 'round'; g2.lineCap = 'round';
   /* 보이는 선만 부드럽게(판정은 원본 그대로): 느릴수록 더 많이 펴 줘서 '불안하게 떠는' 것처럼 안 보이게 */
-  const fS = vibGuideOn() ? vibGuideRate() : (V.rS || 3), sw = clamp(.22 / Math.max(fS, .5), .04, .28);
+  const fS = vibGuideOn() ? vibGuideRate() : (V.rS || 3), sw = clamp(.22 / Math.max(fS, .45), .04, .4);
   const segs = []; { let cur = null, pt0 = 0; for (const q of tr) { if ((now - q.t) / 1000 > WIN + .1) continue; if (!cur || q.t - pt0 > 150) { cur = []; segs.push(cur); } cur.push(q); pt0 = q.t; } }
   V.yEnd = null;
   const sm = segs.map(sg => sg.map((q, i) => { let a = 0, w = 0; for (let k = i; k >= 0; k--) { const dt = (q.t - sg[k].t) / 1000; if (dt > sw) break; const ww = 1 - dt / sw; a += sg[k].d * ww; w += ww; } for (let k = i + 1; k < sg.length; k++) { const dt = (sg[k].t - q.t) / 1000; if (dt > sw) break; const ww = 1 - dt / sw; a += sg[k].d * ww; w += ww; } return { x: nowX - (now - q.t) / 1000 * pps, y: cy - clamp(a / w, -(R.max - 5), R.max - 5) * pc, t: q.t }; }));
@@ -1392,7 +1386,7 @@ function drawVib(now) {
   if (live) { const y = vibXY().y; g2.fillStyle = col; g2.globalAlpha = .35; g2.beginPath(); g2.arc(nowX, y, 13, 0, 6.2832); g2.fill(); g2.globalAlpha = 1; g2.fillStyle = '#fff'; g2.beginPath(); g2.arc(nowX, y, 5.5, 0, 6.2832); g2.fill(); }
   else { g2.save(); g2.textAlign = 'center'; g2.textBaseline = 'middle'; g2.fillStyle = 'rgba(255,255,255,.55)'; g2.font = '600 13px system-ui,sans-serif'; g2.fillText('한 음을 길게 내면서', L + (W - L) / 2, cy - 54); g2.fillText(CFG.vw === 1 ? '소리를 물결치듯 흔들어 보세요' : `${R.name} 폭(±${vibMid()}센트)으로 크게 흔들어 보세요`, L + (W - L) / 2, cy - 34); g2.restore();
     /* 소리를 기다리는 중: 깜빡이는 마이크 아이콘 + 퍼지는 물결 */
-    { const ph = (now / 1000 * .9) % 1, bl = .55 + .45 * Math.sin(now / 1000 * 2 * Math.PI * 1.1), mx = nowX, my = H - 46;   /* 가이드 파형을 가리지 않게 아래쪽에 */
+    { const ph = (now / 1000 * .9) % 1, bl = .55 + .45 * Math.sin(now / 1000 * 2 * Math.PI * 1.1), mx = nowX, my = cy + 6;
       g2.save(); g2.strokeStyle = '#ffc04d'; g2.globalAlpha = (1 - ph) * .5; g2.lineWidth = 2; g2.beginPath(); g2.arc(mx, my, 20 + ph * 26, 0, 6.2832); g2.stroke();
       g2.globalAlpha = .25 + .2 * bl; g2.fillStyle = '#ffc04d'; g2.beginPath(); g2.arc(mx, my, 22, 0, 6.2832); g2.fill();
       g2.globalAlpha = .55 + .45 * bl; g2.strokeStyle = g2.fillStyle = '#fff'; g2.lineWidth = 2.2; g2.lineCap = 'round';
@@ -1694,7 +1688,6 @@ async function startMonitor(manual) {
     P.an = ctx.createAnalyser(); P.an.fftSize = 2048; P.an.smoothingTimeConstant = 0; P.src.connect(P.an);
     P.buf = new Float32Array(P.an.fftSize); P.mon = true; P.monDenied = false; P.monOff = false; P.recent = []; octReset(); detectEar();
     if (!P.calOnce) { P.calOnce = true; startCal(); }   // (11/05 사용자) 주변 소리 확인은 발성 연습 창을 열 때 한 번만(다른 탭에 갔다 오거나 화면이 꺼졌다 켜져도 다시 안 함. 필요하면 설정의 '다시 맞추기')
-    else if (P.hello) { P.hello = false; micPop('🎤 소리를 내 보세요', '', 1500); }
     return true;
   } catch (e) {
     P.monDenied = true;
@@ -1703,14 +1696,14 @@ async function startMonitor(manual) {
   } finally { P.monBusy = false; setMonUI(); }
 }
 /* 주변 소리 자동 맞춤: 연습 화면에 들어와 마이크가 켜지면 1.5초 동안 배경 소리 크기를 재고, 그보다 확실히 큰 소리만 목소리로 봐요 */
-/* 한 개의 팝업으로 안내: 주변 소리 확인 중 → (처음이면) 소리를 내 보세요 */
+/* 한 개의 팝업으로 안내: 주변 소리 확인 중 → (끝) */
 let micPopT = 0;
 function micPop(title, sub, ms) { let d = $('#micPop'); if (!d) { d = document.createElement('div'); d.id = 'micPop'; document.body.appendChild(d); }
   d.innerHTML = `<b>${title}</b>${sub ? `<span>${sub}</span>` : ''}`; void d.offsetWidth; d.classList.add('show'); clearTimeout(micPopT); if (ms) micPopT = setTimeout(hideMicPop, ms); }
 function hideMicPop() { clearTimeout(micPopT); const d = $('#micPop'); if (d) d.classList.remove('show'); }
 function startCal() { P.cal = { t0: performance.now(), v: [] }; P.gate = 0; micPop('🎤 주변 소리를 확인하고 있어요', '잠깐만 조용히 해 주세요'); }
 function calStep(now, rms, skip) { const c = P.cal; if (!skip) c.v.push(rms); if (now - c.t0 >= 750) finishCal(); }   /* (11/05) 확인 시간 절반 */
-function calDone(status, ms) { if (P.hello) { P.hello = false; micPop('🎤 소리를 내 보세요', status || '', status ? 1600 : 1500); } else if (status) micPop(status, '', ms); else hideMicPop(); }   // (11/05 사용자) 조용하면 '준비됐어요' 창은 띄우지 않고 닫아요
+function calDone(status, ms) { if (status) micPop(status, '', ms); else hideMicPop(); }   // (11/05 사용자) 조용하면 '준비됐어요' 창은 띄우지 않고 닫아요
 function finishCal() {
   const c = P.cal; P.cal = null;
   if (!c || c.v.length < 20) { P.gate = 0; calDone(null); return; }
