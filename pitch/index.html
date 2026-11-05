@@ -903,13 +903,22 @@ function askVoice() {
   d.innerHTML = `<div class="vpc"><b>목소리 성별을 골라 주세요</b><div class="note2" style="margin-top:8px">코스의 음 높이와 발성 스케일이 여기에 맞춰져요.<br>나중에 설정(⚙)에서 바꿀 수 있어요.</div><div class="seg">${Object.keys(VOICE).map(k => `<button data-v="${k}">${VOICE[k].name}</button>`).join('')}</div></div>`;
   document.body.appendChild(d); d.querySelectorAll('button').forEach(b => b.onclick = () => { setVoice(b.dataset.v); d.remove(); setMode('free'); voiceChanged(); sayHello(); });   // 고른 뒤엔 자유 화면에서 시작
 }
+/* (11/05 사용자) 안내 팝업을 닫은 뒤에도 소리가 안 나면(3초) '소리를 내 보세요' 팝업. 목소리가 잡히면 바로 닫아요(최대 15초) */
+function waitVoice() {
+  const t0 = performance.now(); let shown = false;
+  const iv = setInterval(() => {
+    const now = performance.now(), voiced = P.lastMT > t0;
+    if (voiced || now - t0 > 15000 || C.mode !== 'free' || cur !== 'practice') { clearInterval(iv); if (shown) hideMicPop(); return; }
+    if (!shown && now - t0 > 3000 && P.mon && !P.cal) { shown = true; micPop('🎤 소리를 내 보세요', '편한 음으로 길게 \'아~\' 해 보세요'); }
+  }, 250);
+}
 /* (11/05 사용자) 자유 연습 처음 들어가면 한 번: 편한 음정으로 시작하라는 안내 팝업 */
 function freeHint() {
   if (C.mode !== 'free' || CFG.freeHint || $('#voicePop') || $('#freePop') || P.running) return;
   CFG.freeHint = 1; saveCfg();
   const d = document.createElement('div'); d.id = 'freePop'; d.style.cssText = 'position:fixed;inset:0;z-index:80;background:rgba(10,12,14,.84);display:flex;align-items:center;justify-content:center;padding:20px';
   d.innerHTML = '<div class="vpc"><b>본인이 편한 음정으로<br>자유롭게 시작해 보아요</b><div class="note2" style="margin-top:10px">높거나 낮은 음을 억지로 내지 않아도 괜찮아요.<br>편안한 한 음을 길게 내 보세요.</div><div class="seg"><button type="button" id="freePopOk" style="grid-column:1/-1">시작하기</button></div></div>';
-  document.body.appendChild(d); const done = () => d.remove(); $('#freePopOk').onclick = done; d.addEventListener('pointerdown', e => { if (e.target === d) done(); });
+  document.body.appendChild(d); const done = () => { d.remove(); waitVoice(); }; $('#freePopOk').onclick = done; d.addEventListener('pointerdown', e => { if (e.target === d) done(); });
 }
 /* (11/05 사용자) 스케일 속도: 기본 70%(예전 100%보다 느리게), +/- 로 5%씩 40~120%. 음 길이·간격만 늘이고 짧은 피아노 '핑'은 그대로 */
 const SPD_MIN = .4, SPD_MAX = 1.2;
