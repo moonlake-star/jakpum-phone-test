@@ -199,3 +199,8 @@ console.log("pitch-page ok");
   assert.ok(src.includes("C.mode === 'free' && P.hd.note != null && P.lastM != null") && src.includes("guideTone(gm, .45, 0, false, P.k != null)") && src.includes("now < P.toneUntil || P.echoNow"), "3초 성공 피아노 음이 나도 목소리 선이 끊기지 않게");
   console.log("pitch-page: 자유 연습 안내·선 이어짐 ok");
 }
+{
+  const src = fs.readFileSync(__dirname + "/../pitch/index.html", "utf8");
+  assert.ok(src.includes("yin(P.buf, sr, vbm ? .24 : .22)") && src.includes("yin(P.buf, sr, .38)") && src.includes("r.clarity > (vbm ? .68 : .55)"), "기식음 섞인 목소리: 기본 기준을 넓히고, 방금 잡히던 음 근처(±150센트)면 더 후하게");
+  console.log("pitch-page: 기식음 후하게 ok");
+}
