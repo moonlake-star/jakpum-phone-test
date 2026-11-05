@@ -933,7 +933,11 @@
       const gl = mk("advGlB", "🎛 일괄 보정");
       const paintAdv = () => { gl.hidden = !st.advOn; wrap.classList.toggle("advOn", st.advOn);
         seg.querySelectorAll("[data-md2]").forEach(x => { const on_ = (x.dataset.md2 === "1") === !!st.advOn; x.classList.toggle("on", on_); x.setAttribute("aria-pressed", on_ ? "true" : "false"); }); };
-      seg.querySelectorAll("[data-md2]").forEach(x => x.onclick = () => { const v = x.dataset.md2 === "1"; if (v === !!st.advOn) return; st.advOn = v; if (st.fixMode === "a") st.fixMode = "p"; paintAdv(); if (wrap.querySelector(".tfMulti") && sheetClose) { try { sheetClose(); } catch {} } wrap.querySelectorAll(".tfFix").forEach(y => y.remove()); });
+      const landTip = () => { if (!wrap.querySelector(".tfBox.port") || Math.min(G.innerWidth, G.innerHeight) > 700) return;   // (11/05 사용자) 폰을 세로로 들고 보정 모드로 들어가면 안내 팝업
+        wrap.querySelectorAll(".tfLandTip").forEach(x => x.remove()); const rp = document.createElement("div"); rp.className = "tfRot tfLandTip"; rp.setAttribute("role", "status");
+        rp.innerHTML = `<div class="rpBox"><div style="font-size:34px;margin-bottom:6px" aria-hidden="true">📱</div><p style="font-size:15px;color:#f1f1f1;line-height:1.5;word-break:keep-all">폰에선 가로 모드가 보정 시 더 편리할 수 있어요</p><div class="rpBar"><i style="animation-duration:3s"></i></div></div>`;
+        const shut = () => { if (!rp.isConnected) return; rp.classList.add("out"); setTimeout(() => rp.remove(), 300); }; rp.addEventListener("pointerdown", (e) => { e.stopPropagation(); shut(); }); wrap.appendChild(rp); setTimeout(shut, 3000); };
+      seg.querySelectorAll("[data-md2]").forEach(x => x.onclick = () => { const v = x.dataset.md2 === "1"; if (v === !!st.advOn) return; st.advOn = v; if (st.fixMode === "a") st.fixMode = "p"; paintAdv(); if (wrap.querySelector(".tfMulti") && sheetClose) { try { sheetClose(); } catch {} } wrap.querySelectorAll(".tfFix").forEach(y => y.remove()); if (v) landTip(); });
       gl.onclick = () => { try { G.TuneAdv.globalSheet(wrap.querySelector(".tfBox") || wrap, st, cv); } catch (e) { console.warn("고급 보정", e); } };
       paintAdv(); }
     const editGo = typeof o.onFix !== "function" && typeof o.onEdit === "function" ? () => { const t = +getT() || 0; close(); try { o.onEdit(t); } catch (e) { console.warn("편집", e); } } : null;
