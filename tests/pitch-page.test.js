@@ -216,7 +216,7 @@ console.log("pitch-page ok");
 }
 {
   const src = fs.readFileSync(__dirname + "/../pitch/index.html", "utf8");
-  assert.ok(src.includes('id="vLad"') && src.includes("const VST_N = 5, VST_NEED = 3;") && src.includes("if (V.streak % 5 === 0) vibPass(V.rate);") && src.includes("function vibPass(rate)"), "속도 사다리: 5연속 3번이면 다음 칸");
+  assert.ok(src.includes('id="vLad"') && src.includes("const VST_N = 5, VST_NEED = 3, VIB_GRACE = 600;") && src.includes("if (V.streak % 5 === 0) vibPass(V.rate);") && src.includes("function vibPass(rate)"), "속도 사다리: 5연속 3번이면 다음 칸");
   assert.ok(src.includes("const vibFrac = () => vibGuideOn() ? .5 : .8;") && src.includes("가이드 사인파") && src.includes("function vibBeat()") && src.includes('id="vgT"') && src.includes('id="vgB"'), "가이드 사인파(앞날 공간) + 켜기/끄기·−/＋·박자 버튼");
   console.log("pitch-page: 속도 사다리·가이드 사인파 ok");
 }
