@@ -88,7 +88,7 @@ console.log("pitch-page ok");
 
 // 성별 선택 직후 자유 화면 + 한 개의 팝업('주변 소리 확인 중' → '소리를 내 보세요')
 {
-  assert.ok(src.includes("setMode('free'); voiceChanged(); sayHello();") && src.includes("function micPop(") && src.includes("🎤 소리를 내 보세요"), "성별 선택 후 자유 화면 + 안내 팝업");
+  assert.ok(src.includes("setMode('free'); voiceChanged(); sayHello();") && src.includes("function micPop("), "성별 선택 후 자유 화면 + 안내 팝업");
   assert.ok(!/toast\('주변/.test(src), "주변 소리 안내는 팝업 하나로 통합");
   console.log("pitch-page: 첫 진입 안내 팝업 ok");
 }
@@ -211,7 +211,7 @@ console.log("pitch-page ok");
 }
 {
   const src = fs.readFileSync(__dirname + "/../pitch/index.html", "utf8");
-  assert.ok(src.includes("const SLOW_LO = .7, SLOW_Q = .55, SLOW_WIN = 1900, ULTRA_WIN = 3400;") && src.includes("V.slow = slowOk;") && src.includes("okslow: '궤적 좋아요 · 조금 더 빠르게 도전!'") && src.includes("Math.min(RW.lo, SLOW_LO)"), "느려도 궤적이 깨끗하면 성공 인정(+ 더 빠르게 안내)");
+  assert.ok(src.includes("const SLOW_LO = .4, SLOW_Q = .55, SLOW_WIN = 1900, ULTRA_WIN = 3400, CRAWL_WIN = 5200;") && src.includes("V.slow = slowOk;") && src.includes("okslow: '궤적 좋아요 · 조금 더 빠르게 도전!'") && src.includes("Math.min(RW.lo, SLOW_LO)"), "느려도 궤적이 깨끗하면 성공 인정(+ 더 빠르게 안내)");
   console.log("pitch-page: 느린 비브라토 인정 ok");
 }
 {
@@ -222,18 +222,18 @@ console.log("pitch-page ok");
 }
 {
   const src = fs.readFileSync(__dirname + "/../pitch/index.html", "utf8");
-  assert.ok(src.includes("function waitVoice()") && src.includes("const done = () => { d.remove(); waitVoice(); }") && src.includes("now - t0 > 3000 && P.mon && !P.cal"), "안내 팝업 뒤 3초 동안 소리가 없으면 '소리를 내 보세요'");
+  assert.ok(!src.includes("function waitVoice()") && !src.includes("소리를 내 보세요") && src.includes("const done = () => d.remove();"), "(11/05) '소리를 내 보세요' 팝업은 없앰");
   console.log("pitch-page: 소리 안 내면 안내 ok");
 }
 {
   const src = fs.readFileSync(__dirname + "/../pitch/index.html", "utf8");
-  assert.ok(src.includes("lo = SLOW_LO, hi = R.rate[1]") && src.includes("B.e(S.cur) * 1.12") && src.includes("vibAnalyze(ULTRA_WIN)") && src.includes("vibAnalyze(SLOW_WIN)") && src.includes("for (let f = .5; f <= 20.001; f += .125)") && src.includes("CFG.vstv !== 3"), "가이드는 아주 느린(2Hz대)부터 시작, 느린 비브라토는 긴 창으로 인식");
+  assert.ok(src.includes("lo = SLOW_LO, hi = R.rate[1]") && src.includes("B.e(S.cur) * 1.12") && src.includes("vibAnalyze(ULTRA_WIN)") && src.includes("vibAnalyze(SLOW_WIN)") && src.includes("for (let f = .25; f <= 20.001; f += .125)") && src.includes("CFG.vstv !== 3"), "가이드는 아주 느린(2Hz대)부터 시작, 느린 비브라토는 긴 창으로 인식");
   assert.ok(src.includes("function vibGuideStep(now)") && src.includes("V.eOkMs >= 1500") && src.includes("clamp(V.rS * 1.2 + .05, B.lo, B.hi)") && src.includes("clamp(tgt - V.gRate, -.03, .03)") && src.includes("createLinearGradient(nowX, 0, W, 0)") && !src.includes("지나간 가이드는 옅게"), "폭이 안정되면 가이드가 내 속도 +0.5Hz로 천천히 따라 오르고, 앞쪽 선은 옅어지는 실선 하나");
   console.log("pitch-page: 가이드 자동 속도·차분한 선 ok");
-  assert.ok(src.includes("const pps = (W - L) * V.ppsF") && src.includes("clamp(.2 * (vibGuideOn() ? vibGuideRate()") && src.includes("소리를 기다리는 중: 깜빡이는 마이크 아이콘") && src.includes("sw = clamp(.22 / Math.max(fS, .5), .04, .28)") && src.includes("g2.quadraticCurveTo"), "느린 가이드는 그래프도 천천히 흐름, 대기 중 깜빡이는 마이크, 느릴수록 선을 부드럽게");
+  assert.ok(src.includes("const pps = (W - L) * V.ppsF") && src.includes("clamp(.2 * (vibGuideOn() ? vibGuideRate()") && src.includes("소리를 기다리는 중: 깜빡이는 마이크 아이콘") && src.includes("sw = clamp(.22 / Math.max(fS, .45), .04, .4)") && src.includes("g2.quadraticCurveTo"), "느린 가이드는 그래프도 천천히 흐름, 대기 중 깜빡이는 마이크, 느릴수록 선을 부드럽게");
   console.log("pitch-page: 느린 시작·대기 아이콘·부드러운 선 ok");
   assert.ok(src.includes("소리 내기 전에도 도전할 가이드 파형은 옅게 계속 보여요"), "소리 내기 전에도 가이드 파형이 옅게 보임");
   assert.ok(src.includes("const ctx = actx(), out = pianoOut(ctx), rate = vibGuideRate(), n = 8,") && src.includes("btn.classList.add(i % 4 ? 'bp' : 'bp1')") && src.includes("@keyframes bpop1") && src.includes("<small>발성 연습</small>"), "박자 버튼: 2마디(8박), 박마다 버튼 튕김, 이름은 발성 연습");
   console.log("pitch-page: 박자 8박·발성 연습 ok");
-  assert.ok(src.includes("vibGuideOn() ? .5 : .8") && src.includes("my = H - 46") && src.includes("(V.gA == null ? .75 : V.gA)"), "지금 선은 가운데, 대기 중 가이드는 또렷하게, 마이크 아이콘은 아래쪽");
+  assert.ok(src.includes("vibGuideOn() ? .5 : .8") && src.includes("my = cy + 6") && src.includes("(V.gA == null ? .75 : V.gA)"), "지금 선은 가운데, 대기 중 가이드는 또렷하게, 마이크 아이콘은 아래쪽");
 }
