@@ -69,3 +69,22 @@ const code = g(/const JOIN_STAFF = [^\n]*\n/) + g(/const staffOf = [^\n]*\n/) + 
   assert.ok(s4.includes("async function staffVerify(tid, fix)") && s4.includes("강사 앱에 반영됨") && s4.includes("data-resend") && s4.includes("staffConfigFor(cfg, tid), s.cfg_id"), "강사 앱 반영 확인·다시 보내기");
   console.log("staff: 반영 확인 ok");
 }
+
+// (11/05 사용자) 강사도 올리자마자 서버를 바로 깨움: 강사 설정에 kick_url 전달 + 반영 확인에 포함
+{
+  const src = require("fs").readFileSync(require("path").join(__dirname, "..", "teacher", "index.html"), "utf8");
+  const a = src.indexOf("function staffConfigFor(c, tid)"), b = src.indexOf("async function staffSync(tid)");
+  assert.ok(a > 0 && b > a, "staffConfigFor 위치");
+  const staffConfigFor = new Function(src.slice(a, b) + "; return staffConfigFor;")();
+  const base = { kick_url: "https://script.google.com/macros/s/ABC/exec", student_page_url: "https://x/s/", github_token: "SECRET", staff: { T1: { name: "송", sys: "S", folder: "F", adv: false } },
+    students: { A: { teacher_id: "T1", name: "가" }, B: { teacher_id: "T2", name: "나" } } };
+  const c = staffConfigFor(base, "T1");
+  assert.strictEqual(c.kick_url, base.kick_url, "강사 설정에 바로 처리 주소");
+  assert.deepStrictEqual(Object.keys(c.students), ["A"], "남의 수강생은 안 넘김");
+  assert.ok(!JSON.stringify(c).includes("SECRET") && !("github_token" in c), "키·토큰은 안 넘김");
+  const { kick_url, ...noKick } = base;
+  assert.ok(!("kick_url" in staffConfigFor(noKick, "T1")), "주소가 없으면 빈 칸도 안 만듦");
+  // 반영 확인: 작업칸 + 바로 처리 주소가 둘 다 있어야 '반영됨'
+  assert.ok(/const has = async \(\) => \{[^}]*students\?\.\[sl\[0\]\][^}]*kick_url/.test(src), "staffVerify가 kick_url까지 확인");
+  console.log("staff: 강사 kick_url ok");
+}
