@@ -269,3 +269,8 @@ console.log("pitch-page ok");
 { const srcC = fs.readFileSync(__dirname + "/../pitch/index.html", "utf8");
   assert.ok(srcC.includes("guideChord(n.m, Math.min(.96, n.pre));"), "코드 길이 0.96초(첫 음 전까지)");
   assert.ok(srcC.includes("{ dur, vol: .36, hold: true }"), "코드는 끝까지 울림"); }
+
+/* (11/05 사용자) 비브라토 화면 상하 다이어트: 점수 줄·아래 안내 줄 접기(파형 칸 안에 같은 안내 있음) */
+{ const sD = fs.readFileSync(__dirname + "/../pitch/index.html", "utf8");
+  assert.ok(sD.includes("#v-practice.vibView .stats,#v-practice.vibView .hint{display:none}"), "비브라토: 점수 줄·아래 안내 숨김");
+  assert.ok(sD.includes("classList.toggle('vibView', vm)"), "비브라토 화면일 때만 적용"); }
