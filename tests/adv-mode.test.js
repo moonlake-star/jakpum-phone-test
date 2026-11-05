@@ -61,3 +61,6 @@ console.log("adv-mode ok", md.toFixed(4));
   as.ok(T5.includes("mgNb = fixed ?") && T5.includes("data-merge") && T5.includes('<span class="i">합치기</span>'), "옆 조각이 있을 때만 ⇔ 버튼");
   as.ok(T5.includes("plain = isCut && !!o.cut && same()") && T5.includes("midi: plain ? null : rnd(m)"), "안 고친 조각끼리면 기록 삭제");
   as.ok(T5.includes("cv._fixes = prior.filter(x => !(x.t0 < a1 && x.t1 > a0)).concat(plain ? [] : [f]);"), "두 조각 기록을 하나로 바꿔 끼움"); }
+// (11/05 사용자) 큰 음 줄이기: − 를 누르면 숫자가 더 마이너스로(−20% → −30%), + 는 0쪽으로
+{ const A3 = require("fs").readFileSync(__dirname + "/../adv.js", "utf8");
+  require("assert").ok(A3.includes("if (o.inv) s = -s;") && A3.includes('def: 0, inv: true, fmt: (v) => (v > 0 ? "−" : "") + pct(v)'), "큰 음 줄이기 − = 더 마이너스"); }
