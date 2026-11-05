@@ -177,7 +177,7 @@
   .tabs { display:flex; gap:6px; margin:10px 0; } .tabs button { flex:1 1 auto; min-height:42px; padding:0 10px; white-space:nowrap; }
   .tabs button:not(.on) { background:transparent; color:var(--accent); border:2px solid var(--accent); }
   .todo-item { display:flex; justify-content:space-between; gap:8px; align-items:center; padding:9px 0; border-top:1px solid var(--line); cursor:pointer; }
-  .todo-item:first-of-type { border-top:0; }
+  .todo-item:first-of-type { border-top:0; } .tdSw { touch-action:pan-y; user-select:none; -webkit-user-select:none; }
   .chip { white-space:nowrap; } .todo-item > span:first-child { min-width:0; }
   input[type=file] { width:100%; max-width:100%; font-size:.9rem; }
   .cand { border-top:1px solid var(--line); padding:10px 0; }
@@ -1132,9 +1132,14 @@ function paintList(data, stale) {
   if (typeof anoTodos === "function") try { todo.push(...anoTodos().map(x => ({ ...x, c: x.c2, cc: x.c }))); } catch {}
   todo.sort((a, b) => (b.bell ? 1 : 0) - (a.bell ? 1 : 0));
   const bells = todo.filter(x => x.bell).length;
-  const todoHtml = `<div class="card"><h3 style="margin:0 0 4px">오늘 할 일 ${bells ? `<span class="chip todo">🔔 검토 대기 ${bells}</span>` : ""}</h3>` + (todo.length ? todo.map((x, n) =>
-      `<div class="todo-item" data-n="${n}"><span>${esc(x.t)}</span><span class="chip ${x.c.includes("완성") ? "ok" : "todo"}">${esc(x.c)}</span></div>`).join("")
-    : `<p class="muted" style="margin:4px 0">할 일 없음 👍</p>`) + `</div>`;
+  // (11/05 사용자) 오늘 할 일 정리: 옆으로 밀면 숨김(그 일의 상태가 바뀌면 다시 나타남) · 4개까지만 보이고 나머지는 '더 보기' · 숨긴 건 '다시 보기'
+  const tdKey = (x) => x.t + "|" + x.c, tdHide = LS.get("vn_todo_hide") || {}, TD_SHOW = 4;
+  const tdVis = todo.map((x, n) => ({ x, n })).filter(({ x }) => !tdHide[tdKey(x)]), tdHidN = todo.length - tdVis.length;
+  const tdRow = ({ x, n }, i) => `<div class="todo-item tdSw${i >= TD_SHOW ? " tdMore hidden" : ""}" data-n="${n}"><span>${esc(x.t)}</span><span class="chip ${x.c.includes("완성") ? "ok" : "todo"}">${esc(x.c)}</span></div>`;
+  const todoHtml = `<div class="card" id="todoCard"><h3 style="margin:0 0 4px">오늘 할 일 ${bells ? `<span class="chip todo">🔔 검토 대기 ${bells}</span>` : ""}</h3>` +
+    (tdVis.length ? `<p class="muted" style="font-size:.78rem;margin:0 0 2px">옆으로 밀면 숨겨요</p>` + tdVis.map(tdRow).join("") + (tdVis.length > TD_SHOW ? `<button type="button" class="small ghost" id="tdMoreBtn" style="margin-top:6px">더 보기 (${tdVis.length - TD_SHOW})</button>` : "")
+      : `<p class="muted" style="margin:4px 0">${todo.length ? "남은 할 일 없음 👍" : "할 일 없음 👍"}</p>`) +
+    (tdHidN ? `<div class="muted" style="font-size:.82rem;margin-top:8px">숨긴 ${tdHidN}개 · <a href="#" id="tdShowAll">다시 보기</a></div>` : "") + `</div>`;
   const order = data.slice().sort((a, b) => (isTeacher(cfg.students[a.sid] || {}) - isTeacher(cfg.students[b.sid] || {})) || ((enrollOf(cfg.students[a.sid]) !== "active") - (enrollOf(cfg.students[b.sid]) !== "active")));   // 쉬는 중·그만둠은 아래로
   const blocks = order.map((d) => {
     const st = cfg.students[d.sid]; if (!st) return "";
@@ -1173,7 +1178,8 @@ function paintList(data, stale) {
   try { paintCare(data); if (!isStaffApp() && portalUrl()) usageOf().then(() => paintCare(data)).catch(() => {}); } catch {}
   $("vList").querySelectorAll(".stuCard.tap").forEach(el => el.onclick = () => openStudent(el.dataset.s));
   $("vList").querySelectorAll(".stuCard .retry").forEach(el => el.onclick = (e) => { e.stopPropagation(); renderList(); });
-  $("vList").querySelectorAll(".todo-item").forEach(el => el.onclick = () => {
+  $("vList").querySelectorAll(".todo-item[data-n]").forEach(el => el.onclick = () => {
+    if (el.dataset.sw) { delete el.dataset.sw; return; }   // 밀기 직후엔 열지 않음
     const x = todo[+el.dataset.n];
     if (x.k === "lesson") { goBack = () => renderList(); openLesson(x.sid, x.i, () => renderList()); }
     else if (x.k === "subs") openStudent(x.sid, "subs");
@@ -1181,6 +1187,18 @@ function paintList(data, stale) {
     else if (x.k === "ano") anoSheet({ c: x.cc });
     else { const j = cfg.students[x.sid]._jobs.find(y => y.reqId === x.reqId); if (j) openMkJob(j, () => renderList()); }
   });
+  if ($("tdMoreBtn")) $("tdMoreBtn").onclick = () => { $("vList").querySelectorAll(".tdMore").forEach(e => e.classList.remove("hidden")); $("tdMoreBtn").remove(); };
+  if ($("tdShowAll")) $("tdShowAll").onclick = (e) => { e.preventDefault(); const h = LS.get("vn_todo_hide") || {}; todo.forEach(x => { delete h[tdKey(x)]; }); LS.set("vn_todo_hide", h); paintList(allData, false); };
+  $("vList").querySelectorAll(".tdSw").forEach(el => { let x0 = 0, y0 = 0, dx = 0, on = false, locked = false;
+    el.addEventListener("pointerdown", (e) => { x0 = e.clientX; y0 = e.clientY; dx = 0; on = true; locked = false; el.style.transition = "none"; });
+    el.addEventListener("pointermove", (e) => { if (!on) return; const mx = e.clientX - x0, my = e.clientY - y0;
+      if (!locked && Math.abs(my) > 12 && Math.abs(my) > Math.abs(mx)) { on = false; el.style.transform = ""; return; }   // 세로 스크롤
+      if (Math.abs(mx) > 10) locked = true; if (locked) { dx = mx; el.style.transform = `translateX(${dx}px)`; el.style.opacity = String(Math.max(.25, 1 - Math.abs(dx) / 260)); } });
+    const end = () => { if (!on) return; on = false; el.style.transition = "transform .18s, opacity .18s";
+      if (Math.abs(dx) > 80) { el.dataset.sw = "1"; setTimeout(() => { delete el.dataset.sw; }, 400); const x = todo[+el.dataset.n], h = LS.get("vn_todo_hide") || {}; h[tdKey(x)] = Date.now(); const ks = Object.keys(h); if (ks.length > 300) ks.sort((a, b) => h[a] - h[b]).slice(0, ks.length - 300).forEach(k => delete h[k]); LS.set("vn_todo_hide", h);
+        el.style.transform = `translateX(${dx > 0 ? 120 : -120}%)`; el.style.opacity = "0"; setTimeout(() => paintList(allData, false), 190); }
+      else { if (Math.abs(dx) > 10) { el.dataset.sw = "1"; setTimeout(() => { delete el.dataset.sw; }, 400); } el.style.transform = ""; el.style.opacity = ""; } dx = 0; };
+    el.addEventListener("pointerup", end); el.addEventListener("pointercancel", end); });
 }
 let listGen = 0, lastTouch = 0;
 document.addEventListener("pointerdown", () => { lastTouch = Date.now(); }, true);
@@ -6925,7 +6943,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-05-1925-mklabel";
+const BUILD = "2026-11-05-1945-todoswipe";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
