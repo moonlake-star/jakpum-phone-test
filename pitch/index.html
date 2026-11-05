@@ -708,7 +708,9 @@ function pianoOut(ctx) {
   if (P.out && P.outCtx === ctx) return P.out;
   const pre = ctx.createGain(); pre.gain.value = 1.8;
   const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -12; comp.knee.value = 8; comp.ratio.value = 12; comp.attack.value = .003; comp.release.value = .2;
-  pre.connect(comp); comp.connect(ctx.destination); P.out = pre; P.outCtx = ctx; return pre;
+  pre.connect(comp); comp.connect(ctx.destination); P.out = pre; P.outCtx = ctx;
+  try { const ra = ctx.createAnalyser(); ra.fftSize = 2048; comp.connect(ra); P.refAn = ra; P.refBuf = new Float32Array(ra.fftSize); P.refH = []; } catch (e) { P.refAn = null; }
+  return pre;
 }
 function pianoWave(ctx, f) {
   const N = 12, re = new Float32Array(N + 1), im = new Float32Array(N + 1), low = clamp((260 - f) / 150, 0, 1);
@@ -792,11 +794,11 @@ async function detectEar() {
 try { if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) navigator.mediaDevices.addEventListener('devicechange', detectEar); } catch (e) {}
 const sfxOn = () => CFG.sfx === 'on' || (CFG.sfx === 'auto' && P.earphone);
 const SFX = { mile: [[660, 0], [880, .07], [1175, .14]], big: [[660, 0], [880, .07], [1175, .14], [1568, .22]], hit: [[988, 0]], tick: [[520, 0]], go: [[880, 0]],
-  clear: [[523, 0], [659, .1], [784, .2], [1047, .3]], star: [[784, 0], [1047, .09]], rec: [[880, 0], [1175, .1], [1568, .2], [2093, .3]], combo: [[784, 0], [988, .06]] };
+  clear: [[523, 0], [659, .1], [784, .2], [1047, .3]], star: [[784, 0], [1047, .09]], rec: [[880, 0], [1175, .1], [1568, .2], [2093, .3]], combo: [[784, 0], [988, .06]], pop: [[988, 0], [1480, .075]] };
 // (11/05 사용자 '클리어 효과음이 너무 크지 않게') 클리어·기록·마일스톤 효과음은 작게, 높은 음(1.4kHz↑)은 더 작게(귀에는 더 크게 들려서)
-const SFX_VOL = { clear: .04, rec: .035, big: .04, mile: .045 };
-function sfx(kind) {
-  if (!sfxOn()) return;
+const SFX_VOL = { clear: .04, rec: .035, big: .04, mile: .045, pop: .05 };
+function sfx(kind, force) {
+  if (force ? CFG.sfx === 'off' : !sfxOn()) return;   // force: 효과음 '끔'만 지키고 자동(이어폰 감지)과 상관없이 낸다
   try {
     const ctx = actx(), t0 = ctx.currentTime, seq = SFX[kind] || SFX.hit; let end = 0;
     seq.forEach(([f, d]) => { const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'triangle'; o.frequency.value = f;
@@ -1140,7 +1142,9 @@ const vibRange = () => { const rc = VOICE_RC[vibVoiceG()]; return [rc - 7, rc + 
 const vibRoot = () => (P.running && V.root != null) ? V.root : VIB_ROOT[vibVoiceG()];
 function vibPickRoot() { const [a, b] = vibRange(); let m = a; for (let i = 0; i < 8; i++) { m = a + Math.floor(Math.random() * (b - a + 1)); if (m !== V.lastRoot) break; } V.lastRoot = m; V.root = m; return m; }
 const VIB_CUE = 1.55;
+const repOpen = () => !!P.rep && $('#modal').classList.contains('open');
 function vibCue() {
+  if (repOpen()) return;
   try {
     const ctx = actx(), t0 = ctx.currentTime + .02, r = vibRoot(), w = CFG.vw, now = performance.now();
     pianoVoice(ctx, mFreq(r), t0, { dur: .8, vol: .5 }); pianoVoice(ctx, mFreq(r + w), t0 + .55, { dur: 1, vol: .5 });
@@ -1277,6 +1281,35 @@ function drawVib(now) {
 }
 
 /* ============ course engine ============ */
+/* ===== 분리 감지: 앱이 낸 피아노 소리가 스피커→마이크로 되돌아와 '목소리'로 잡히는 것을 막아요 =====
+   피아노 출력을 직접 재서(P.refAn) 그 소리가 마이크에 도착할 시간(출력 지연+여운) 동안은
+   '되돌아오는 소리 크기(E = k × 기준음 크기)'보다 확실히 큰 소리만 목소리로 쳐요.
+   k(되돌아오는 비율)는 판마다 처음 나는 도미솔 코드 때(수강생이 아직 노래하기 전) 마이크가 들은 크기로 학습해요.
+   k를 아직 모르면: 이어폰이 아니라고 보이면 피아노가 울리는 동안은 마이크를 쉬어요. */
+const REF_ON = .003, ECHO_X = 1.4, ECHO_ADD = .002;
+const latMs = () => { const c = P.ctx; let l = c ? ((c.outputLatency || 0) + (c.baseLatency || 0)) * 1000 : 0; return clamp(l > 0 ? l + 60 : 160, 80, 500); };
+function refStep(now, rms) {
+  const a = P.refAn; if (!a || !P.refH) return { on: false, E: 0 };
+  a.getFloatTimeDomainData(P.refBuf);
+  let s = 0; const b = P.refBuf; for (let i = 0; i < b.length; i++) s += b[i] * b[i]; const v = Math.sqrt(s / b.length);
+  const H = P.refH, L = latMs();
+  H.push({ t: now, v }); while (H.length && now - H[0].t > L + 400) H.shift();
+  let pk = 0; for (const h of H) { const ag = now - h.t; if (ag >= L * .6 && ag <= L + 260 && h.v > pk) pk = h.v; }   // 지금 마이크에 도착 중인 소리 = 지연(L)만큼 전에 난 소리
+  P.refNow = v; P.refPk = pk;
+  // k 학습: 코드가 울린 뒤 도착 구간의 마이크 최대 크기 ÷ 코드의 최대 크기
+  const cm = P.chordM;
+  if (cm) {
+    if (now - cm.t >= L - 20 && now - cm.t <= L + 480) cm.mic = Math.max(cm.mic, rms);
+    cm.ref = Math.max(cm.ref, v);
+    if (now - cm.t > L + 480) {
+      if (cm.ref > REF_ON * 3) { const k = cm.mic / cm.ref; (P.kH = P.kH || []).push(k); while (P.kH.length > 3) P.kH.shift(); P.k = Math.min.apply(null, P.kH); }
+      P.chordM = null;
+    }
+  }
+  if (pk <= REF_ON) return { on: false, E: 0 };
+  const kk = P.k != null ? P.k : (P.earphone ? 0 : Infinity);
+  return { on: true, E: kk === Infinity ? Infinity : kk * pk };
+}
 function guideTone(m, dur, at, hold, keepMic) {
   at = at || 0;
   try {
@@ -1289,6 +1322,7 @@ function guideChord(m, dur) {                                  // do-mi-sol: the
   try {
     const ctx = actx(), t0 = ctx.currentTime;
     [0, 4, 7].forEach(d => pianoVoice(ctx, mFreq(m + d), t0, { dur, vol: .36 }));
+    if (!P.chordM) P.chordM = { t: performance.now() + (t0 - ctx.currentTime) * 1000, mic: 0, ref: 0 };
     if (!P.earphone) P.toneUntil = Math.max(P.toneUntil, performance.now() + dur * 1000 + 120);
   } catch (e) {}
 }
@@ -1436,12 +1470,15 @@ function loop(ts) {
   P.raf = requestAnimationFrame(loop);
   if (!$('#v-practice').classList.contains('active')) return;
   if (C.paused) { draw(P.pauseAt); return; }
-  const now = performance.now(), dt = P.lastT ? Math.min(100, now - P.lastT) : 16; P.lastT = now;
+  const now = performance.now();
+  if (P.rep) { if ($('#modal').classList.contains('open')) { draw(P.repAt || (P.repAt = now)); return; } P.rep = false; P.repAt = 0; P.lastT = 0; }   // 리포트 화면: 뒤는 멈춰요
+  const dt = P.lastT ? Math.min(100, now - P.lastT) : 16; P.lastT = now;
   let m = null;
   if (P.mon && P.an) {
     P.an.getFloatTimeDomainData(P.buf);
     let rms = 0; for (let i = 0; i < P.buf.length; i++) rms += P.buf[i] * P.buf[i]; rms = Math.sqrt(rms / P.buf.length);
-    const tone = P.pressed != null || now < P.toneUntil;
+    const ec = refStep(now, rms), echo = ec.on && (ec.E === Infinity || rms <= ec.E * ECHO_X + ECHO_ADD);
+    const tone = P.pressed != null || now < P.toneUntil || echo;
     if (P.cal) calStep(now, rms, tone || now < P.sfxUntil);
     if (!tone && now < P.sfxUntil) { if (P.lastM != null && now - P.lastMT < 600) m = P.lastM; }   // chime playing through speakers: carry the last pitch
     else if (!tone && rms > Math.max(P.sens, P.gate)) { const vbm = C.mode === 'vib', r = yin(P.buf, P.ctx.sampleRate, vbm ? .24 : .15); if (r && r.clarity > (vbm ? .68 : .8)) m = freqM(r.freq); }
@@ -1784,6 +1821,7 @@ function showReport(uid, ctx) {
   <div class="repact"><button class="btn pri" id="mMore" style="width:100%;height:48px;font-size:16px">더 도전하기 ▶</button>
     <div class="row" style="margin-top:8px"><button class="btn sm sp" id="mProg">성장 기록 보기</button><button class="btn sm sp" id="mClose">닫기</button></div>
     <div class="note2" style="text-align:center;margin-top:6px">종료해도 언제든 다시 도전할 수 있어요. 기록은 오늘 평균에 합쳐져요.</div></div>`, 'rep');
+  P.rep = true; P.repAt = 0; if (C.mode === 'vib') sfx('pop', true);   // 리포트가 뜨는 동안: 뒤 화면 정지·기준음 없음, 비브라토는 '뾰롱'
   $('#mClose').onclick = closeModal; $('#mProg').onclick = () => { closeModal(); go('progress'); };
   $('#mMore').onclick = () => { closeModal(); go('practice'); startSession(); };
 }

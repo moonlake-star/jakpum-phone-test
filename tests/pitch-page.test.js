@@ -187,3 +187,9 @@ console.log("pitch-page ok");
   assert.ok(src.includes('id="pauseBtn"') && src.includes("performance.now() - (P.pauseAt || 0) < 600"), "⏸ 버튼 + 탭 직후 click 으로 곧바로 풀리지 않게");
   console.log("pitch-page: 속도·스케일 빠른 전환·일시정지 ok");
 }
+{
+  const src = fs.readFileSync(__dirname + "/../pitch/index.html", "utf8");
+  assert.ok(src.includes("function refStep(now, rms)") && src.includes("comp.connect(ra); P.refAn = ra") && src.includes("ec.on && (ec.E === Infinity || rms <= ec.E * ECHO_X + ECHO_ADD)") && src.includes("P.chordM = { t:"), "피아노 출력을 재서 스피커→마이크 되돌림은 목소리로 치지 않기(코드 때 비율 k 학습)");
+  assert.ok(src.includes("pop: [[988, 0], [1480, .075]]") && src.includes("sfx('pop', true)") && src.includes("if (P.rep) {") && src.includes("if (repOpen()) return;"), "리포트 화면: 비브라토 뾰롱, 뒤 화면 정지, 기준음 차단");
+  console.log("pitch-page: 피아노 되돌림 분리·리포트 화면 ok");
+}
