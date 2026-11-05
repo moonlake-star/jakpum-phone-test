@@ -303,5 +303,6 @@
 #tuneFs .tfAdvG{margin:0 0 0 8px!important;min-height:0!important;height:28px!important;padding:0 11px!important;border-radius:14px!important;border:1.5px solid #ffb86b!important;background:#2a1a08!important;color:#ffcf99!important;font-size:12.5px!important;font-weight:800;white-space:nowrap}`;
   try { const s = document.createElement("style"); s.textContent = css; document.head.appendChild(s); } catch {}
 
-  G.TuneAdv = { panel, globalSheet, preview, state, uvList, relabel, uvSheet, UV_NAME, undoLast: (st, cv) => undo(state(st), st, cv), _t: { shapeNote, notesFromCurve, midiBytes, clean, N_DEF } };
+  function resetNote(st, cv, b) { const A = state(st); change(A, st, cv, () => { A.ne.notes = (A.ne.notes || []).filter(x => !(near(x.t0, b.t0) && near(x.t1, b.t1))); }); }   // 이 음의 고급 고침만 지움
+  G.TuneAdv = { panel, resetNote, globalSheet, preview, state, uvList, relabel, uvSheet, UV_NAME, undoLast: (st, cv) => undo(state(st), st, cv), _t: { shapeNote, notesFromCurve, midiBytes, clean, N_DEF } };
 })(typeof window !== "undefined" ? window : globalThis);
