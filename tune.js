@@ -279,16 +279,26 @@
     g.restore();
   }
   function tgCol(cv) { return cv.target ? 2 + (cv.levels || []).length : 0; }   // 정음(목표음) 열(서버 v2부터)
+  // (11/06 21:50 사용자) 음표를 위아래로 옮기면(반음·미세) 하늘색 '보정 후' 선도 바로 같이 움직이게: 그 구간 보정 후 음높이 = 서버 값 + (새 정음 − 서버가 고른 정음) (근사 · 정확한 건 완성본 다시 만들기 뒤)
+  function syncCorr(cv) {
+    const o_ = cv._orig, ks = cv._kShift || (cv._kShift = {}), kt = tgCol(cv); if (!kt || !cv.pts) return; const L = (cv.levels || []).length; if (!L) return;
+    const idx = new Set([...Object.keys(o_ || {}), ...Object.keys(ks)]); if (!idx.size) return; const base = cv._advBase, kc = 2 + L - 1;
+    for (const si of idx) { const i = +si, p = cv.pts[i]; if (!p) continue; const o0 = o_ && si in o_ ? o_[si] : null;
+      const want = o0 != null && p[kt] != null ? p[kt] - o0 : 0, d = want - (ks[si] || 0); if (!d) continue;
+      for (let c = 2; c < 2 + L; c++) if (p[c] != null) p[c] += d;
+      if (base && base[i] != null) base[i] += d;   // 고급 보정 미리보기(adv.js)가 되돌릴 때 쓰는 기준도 같이
+      if (want) ks[si] = want; else delete ks[si]; } }
   function draw(el, cv, t, lv, st) {
     if (!el || !el.getContext || !cv) return;
     const w = el.clientWidth, h = el.clientHeight; if (!w || !h) return;
     const r = G.devicePixelRatio || 1; if (el.width !== Math.round(w * r) || el.height !== Math.round(h * r)) { el.width = Math.round(w * r); el.height = Math.round(h * r); }   // 높이만 바뀌어도 다시 맞춤(옛 그림이 늘어나 터치 위치가 위로 어긋나던 버그)
     const g = el.getContext("2d"); g.setTransform(r, 0, 0, r, 0, 0); g.clearRect(0, 0, w, h);
     const full = !!(st && st.full), W8 = full ? (st.win || 6) / (st.xz || 1) : WIN, k = col(cv, lv), lane = k && h > 110 && !(st && st.advOn) ? (full ? 64 : LANE) : 0, H = h - lane, T = lane, kt = tgCol(cv);   // (10/30 15:39 사용자) 고친 양 = 그래프 위
+    if (cv._orig || cv._kShift) { try { syncCorr(cv); } catch {} }
     let [lo, hi] = range(cv);
     if (full && (st.yz || 1) > 1) {   // 전체화면 핀치 확대: 배율은 손가락으로만 바뀜. 가운데는 지금 음을 부드럽게 따라가고, 손으로 위아래로 밀면 그 자리에 머묾
       const half = (hi - lo) / 2 / st.yz, now = Date.now();
-      if (!st.panAt || now - st.panAt > 4000) {   // 재생 중엔 지금 부르는 음(노란선 근처)을 화면 가운데로 따라감 — 화면 밖 음도 들어오게
+      if ((!st.panAt || now - st.panAt > 4000) && !st.sel && !st.dragging && !st.msel) {   // (11/06 21:48 사용자 '음표를 위아래로 옮길 때 화면이 엉뚱하게 움직임') 음을 고르거나 옮기는 중엔 따라가지 않음 · 재생 중엔 지금 부르는 음(노란선 근처)을 화면 가운데로 따라감 — 화면 밖 음도 들어오게
         const v = []; for (const p of cv.pts || []) { if (p[0] < t - 0.6) continue; if (p[0] > t + 1.2) break; v.push(p[1]); }
         let c = null; if (v.length) { v.sort((a, b) => a - b); c = v[Math.floor(v.length / 2)]; } else { const f = fitAt(cv, t, 0); if (f) c = f[2]; }
         if (c != null) st.yc = st.yc == null ? c : st.yc + (c - st.yc) * 0.15; }
@@ -296,7 +306,8 @@
     } else if (full && st.yo) { lo += st.yo; hi += st.yo; }   // (11/02 19:48 사용자) 확대 안 해도 위아래로 밀어 보기
     if (full && st.focusC != null) {   // 고치기 창이 뜨며 그래프가 줄어들 때 고른 막대가 화면 안(위아래 20% 안쪽)에 오게 한 번 옮김
       const fc = st.focusC, m = (hi - lo) * 0.2; st.focusC = null;
-      if (fc < lo + m || fc > hi - m) { const sh = fc - (lo + hi) / 2; if ((st.yz || 1) > 1) { st.yc = (st.yc ?? (lo + hi) / 2) + sh; st.panAt = Date.now(); } else st.yo = (st.yo || 0) + sh; lo += sh; hi += sh; }
+      const mn = st.focusMin; st.focusMin = false;
+      if (fc < lo + m || fc > hi - m) { const sh = mn ? (fc < lo + m ? fc - (lo + m) : fc - (hi - m)) : fc - (lo + hi) / 2; /* 끄는 중(mn)엔 화면 안쪽으로 들어올 만큼만 살짝 */ if ((st.yz || 1) > 1) { st.yc = (st.yc ?? (lo + hi) / 2) + sh; st.panAt = Date.now(); } else st.yo = (st.yo || 0) + sh; lo += sh; hi += sh; }
     }
     if (st && st.zoom && !full) {   // 확대: 화면 안(지금 앞뒤 8초) 음이 모두 들어오게 — 기본 ±4반음, 크게 도약하면 그만큼 넓힘(10/30 13:28 사용자)
       const f = fitAt(cv, t, k);
@@ -678,7 +689,7 @@
       x.onclick = (e) => { if (e.detail === 0) step(+x.dataset.d, true); };   // 키보드(Enter)
       x.addEventListener("contextmenu", (e) => e.preventDefault()); });
     // (11/06 16:02 사용자) 끄는 동안엔 저장 안 함 → 손을 뗄 때 한 번만(제자리로 돌아오면 기록 없음) — 되돌리기 기록에 중간 단계가 안 남게
-    if (st) { st.onBarDrag = (k, start) => { if (start) st._dragBase = m; const nm_ = rnd(st._dragBase + k); if (nm_ !== m) { m = nm_; paint(); preview(); sndFor(m, 400); } };
+    if (st) { st.onBarDrag = (k, start) => { if (start) st._dragBase = m; const nm_ = rnd(st._dragBase + k); if (nm_ !== m) { m = nm_; st.focusC = m * 100; st.focusMin = true; paint(); preview(); sndFor(m, 400); } }; /* 끄는 음이 화면 밖으로 나가면 그만큼만 따라감 */
       st.onBarDragEnd = () => { if (st._dragBase != null && Math.abs(m - st._dragBase) > 0.004) persist(); st._dragBase = null; }; }
     const nb = d.querySelector("[data-p]");   // 음 이름을 누르는 동안 그 음 소리
     nb.addEventListener("pointerdown", (e) => { e.preventDefault(); snd(m); });
@@ -768,7 +779,7 @@
       if (st.beatOn && edge !== "r") { const bt = beatNear(cv, n0); if (bt != null && Math.abs(bt - n0) <= BEAT_SNAP) { const dd = bt - n0; n0 = bt; if (edge === "c") n1 += dd; } }   // (11/06) 🥁 박자 맞춤: 음 시작을 가까운 박에 착(스마트 어택)
       // (11/06 17:59 사용자) 늘렸다 줄였다 하다 처음 자리(누르기 시작할 때 길이)로 돌아오면 진동 + 그 자리에 살짝 붙음(±0.015초)
       const DET = 0.015, home = Math.abs(n0 - a0) <= DET && Math.abs(n1 - a1) <= DET; if (home) { n0 = a0; n1 = a1; }
-      if (home && !st._tbHome && st._tbAway) { buzz(30); st.pulse = st.hdl && st.hdl[edge] ? { x: st.hdl[edge].x, y: st.hdl[edge].y, at: performance.now() } : st.pulse; }
+      if (home && !st._tbHome && st._tbAway) { buzz(40); st.pulse = st.hdl && st.hdl[edge] ? { x: st.hdl[edge].x, y: st.hdl[edge].y, at: performance.now() } : st.pulse; }
       st._tbHome = home; if (!home) st._tbAway = true;
       tClamp(edge === "c" ? "m" : edge); tPaint(); tPreview(); };
     st.onBarDragXEnd = () => { const b0 = st._tb; st._tb = null; if (b0 && (Math.abs(n0 - b0[0]) > 0.004 || Math.abs(n1 - b0[1]) > 0.004)) tPersist(); };   // 손 뗄 때 한 번만 저장
@@ -1180,13 +1191,13 @@
         // (11/06 16:20 사용자) ① 양 끝 화살표: 바로 끌면 안 움직임 — 꾹(0.35초) 누른 뒤 좌우로 = 길이 미세
         const ed = H_ ? (hit(H_.l) ? "l" : hit(H_.r) ? "r" : null) : null;
         if (ed && st.onBarDragX) { const d0 = drag = { hArm: true, edge: ed, x0: l0.x, y0: l0.y, id: e.pointerId, cx: e.clientX, cy: e.clientY };
-          const armH = () => { if (drag !== d0 || d0.cancel) return; d0.hArmed = true; st.hdlArmed = ed; st.onBarDragX(0, ed, true); if (e.pointerType !== "mouse") { buzz(40); st.pulse = { x: l0.x, y: l0.y, at: performance.now() }; } };
+          const armH = () => { if (drag !== d0 || d0.cancel) return; d0.hArmed = true; st.hdlArmed = ed; st.onBarDragX(0, ed, true); if (e.pointerType !== "mouse") { buzz(50); st.pulse = { x: l0.x, y: l0.y, at: performance.now() }; } };
           if (e.pointerType === "mouse") armH(); else d0.lp = setTimeout(armH, LONG_MS); return; }   // (11/06 ③) 마우스는 정확하니 꾹 없이 바로
         // ② 고른 음 가운데: 바로 위아래 = 반음씩 · 바로 좌우 = 자리 옮기기 · 꾹 누른 뒤 = 둘 다 미세 · 두 번 톡 = 가까운 음에 착
         const hb0 = hitBar(l0);
         if (hb0 && Math.abs(hb0.t0 - st.sel.t0) < 0.02 && l0.x >= st.kb.L && st.onBarDrag) { const d0 = drag = { selBody: true, x0: l0.x, y0: l0.y, axis: null, fine: false, id: e.pointerId, cx: e.clientX, cy: e.clientY, a: along(e), b: across(e), t: +getT() || 0, mode: null };
           if (e.pointerType === "mouse" && e.altKey) d0.fine = true;   // (11/06 ③) 마우스: Alt(Option)+끌기 = 미세
-          else d0.lp = setTimeout(() => { if (drag !== d0 || d0.axis) return; d0.fine = true; buzz(25); st.pulse = { x: l0.x, y: l0.y, at: performance.now() }; }, LONG_MS); return; } }
+          else d0.lp = setTimeout(() => { if (drag !== d0 || d0.axis) return; d0.fine = true; buzz(40); st.pulse = { x: l0.x, y: l0.y, at: performance.now() }; }, LONG_MS); return; } }
       if (pts.size === 1 && e.pointerType === "mouse" && e.button === 0 && st.advOn && typeof o.onResetRange === "function" && st.map && st.kb) {   // (11/06 ③) 마우스: 빈 곳 끌기 = 여러 음 고르기(이동은 휠)
         const l0 = loc(e.clientX, e.clientY, cvEl.getBoundingClientRect());
         if (l0.x >= st.kb.L && !hitT(l0) && !hitBar(l0)) { const tt = timeAt(st, l0.x); drag = { a: along(e), b: across(e), t: +getT() || 0, id: e.pointerId, mode: null, cx: e.clientX, cy: e.clientY, armed: { x: l0.x, t: tt, mouse: true } }; return; } }
@@ -1213,6 +1224,13 @@
             if (typeof o.onResetRange === "function" && st.map && tt != null) { pauseNow(); d0.armed = { x: l0.x, t: tt }; st.msel = [tt, tt]; armTip(true); return; }
             d0.long = true; pauseNow();
             if (tt != null) { lastView = view; o.onAdd(tt); } }, 390); } }
+        // (11/06 21:47 사용자) 보정 모드: 고르지 않은 음표도 꾹(0.6초) 누르면 그 음을 고르면서 바로 미세 음정(위아래) + 진동
+        if (st.advOn && typeof o.onFix === "function" && e.pointerType !== "mouse" && st.kb && st.map && !drag.edgeLp && !drag.h0) { const d0 = drag, l0 = loc(d0.cx, d0.cy, cvEl.getBoundingClientRect()), hb = hitBar(l0);
+          if (hb && l0.x >= st.kb.L && !(st.sel && Math.abs(hb.t0 - st.sel.t0) < 0.02)) { clearTimeout(d0.lp); d0.lp = setTimeout(() => { if (drag !== d0 || d0.mode) return; pauseNow();
+            st._quiet = true; try { fixSheet(wrap, cv, hb, o.onFix, getT, st); } catch {} st._quiet = false; if (!st.onBarDrag) return;
+            const l1 = loc(d0.cx, d0.cy, cvEl.getBoundingClientRect());   // 고치기 칸이 열리며 그래프가 움직였을 수 있어 다시 잼
+            drag = { selBody: true, fine: true, axis: null, x0: l1.x, y0: l1.y, id: d0.id, cx: d0.cx, cy: d0.cy, a: d0.a, b: d0.b, t: d0.t, mode: null, lp: null };
+            buzz(40); st.pulse = { x: l1.x, y: l1.y, at: performance.now() }; }, LONG_MS); } }   // 음표 위 꾹은 여러 음 고르기보다 이것이 먼저
     });
     cvEl.addEventListener("pointermove", (e) => {
       if (!pts.has(e.pointerId)) { if (e.pointerType === "mouse") mouseHover(e); return; } pts.set(e.pointerId, { a: along(e), b: across(e) });
@@ -1231,7 +1249,7 @@
           if (drag.fine) drag.axis = "v"; else if (Math.abs(dy) >= Math.abs(dx)) drag.axis = "v"; else { drag.selBody = false; drag.mode = "time"; pauseNow(); return; }
           st.onBarDrag(0, true); }
         drag.moved = true; st.dragging = true;
-        if (drag.axis === "v") { const c = (st.kb.inv(l0.y) - st.kb.inv(drag.y0)) / 100; st.onBarDrag(drag.fine ? Math.round(c * FINE * 100) / 100 : Math.round(c), false); }
+        if (drag.axis === "v") { if (drag.cpp == null) drag.cpp = st.kb.inv(drag.y0) - st.kb.inv(drag.y0 + 1); const c = (drag.y0 - l0.y) * drag.cpp / 100; /* (11/06) 누를 때의 눈금으로 계산(끄는 중 화면이 움직여도 값이 튀지 않게) */ st.onBarDrag(drag.fine ? Math.round(c * FINE * 100) / 100 : Math.round(c), false); }
         return; }
       if (drag.pen) { const l0 = loc(e.clientX, e.clientY, cvEl.getBoundingClientRect()), mp = st.map; if (!mp || !st.kb || !st.penPts) return; if (Math.abs(l0.x - drag.x0) >= 4) drag.moved = true;
         st.penPts.push([mp.t0 + (Math.max(mp.L, Math.min(mp.w, l0.x)) - mp.L) / Math.max(1, mp.w - mp.L) * mp.W8, st.kb.inv(l0.y)]); return; }
@@ -1239,7 +1257,7 @@
         if (drag.moved) { const tx = (x) => mp.t0 + (Math.max(mp.L, Math.min(mp.w, x)) - mp.L) / Math.max(1, mp.w - mp.L) * mp.W8, a = tx(drag.x0), b = tx(l0.x); st.msel = [Math.max(0, Math.min(a, b)), Math.max(a, b)]; if (st.onMSel) st.onMSel(); } return; }
       if (drag.barX) { const l0 = loc(e.clientX, e.clientY, cvEl.getBoundingClientRect()), mp = st.map; if (Math.abs(l0.x - drag.x0) >= 3) drag.moved = true;
         if (drag.moved && mp && st.onBarDragX) st.onBarDragX(Math.round((l0.x - drag.x0) / Math.max(1, mp.w - mp.L) * mp.W8 * 100) / 100, drag.edge, false); return; }
-      if (drag.bar) { const r0 = cvEl.getBoundingClientRect(), l0 = loc(e.clientX, e.clientY, r0), k = Math.round((st.kb.inv(l0.y) - st.kb.inv(drag.y0)) / 100);
+      if (drag.bar) { const r0 = cvEl.getBoundingClientRect(), l0 = loc(e.clientX, e.clientY, r0); if (drag.cpp == null) drag.cpp = st.kb.inv(drag.y0) - st.kb.inv(drag.y0 + 1); const k = Math.round((drag.y0 - l0.y) * drag.cpp / 100);
         if (k !== drag.k) { drag.k = k; drag.moved = true; if (st.onBarDrag) st.onBarDrag(k, false); } return; }
       if (drag.kb) { const r0 = cvEl.getBoundingClientRect(), l0 = loc(e.clientX, e.clientY, r0), m = Math.round(st.kb.inv(l0.y) / 100); if (m !== st.kbDown) { st.kbDown = m; tone(m); } return; }   // 건반 위로 밀면 따라 바뀜
       const dA = along(e) - drag.a, dB = across(e) - drag.b;

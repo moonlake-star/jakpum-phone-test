@@ -162,11 +162,11 @@
       const a = Math.max(0, Math.abs(dd) - 7) / 16, k = Math.sign(dd) * (a + a * a / 30);   // 빨리(멀리) 끌수록 성큼
       let n = Math.trunc(k); const nDef = (o.def - d.v0) / o.step * sgn;
       if (Math.abs(k - nDef) < 0.7 && Math.abs(nDef - Math.round(nDef)) < 1e-6) n = Math.round(nDef);   // 원래 값 근처면 거기 붙음
-      if (n === d.n) return; d.n = n; if (put(d.v0 + n * o.step * sgn)) { const home = Math.abs(get() - o.def) < 1e-9; vib(home ? 30 : 8); d.home = home; bubble(true); } });
+      if (n === d.n) return; d.n = n; if (put(d.v0 + n * o.step * sgn)) { const home = Math.abs(get() - o.def) < 1e-9; vib(home ? 40 : 15); d.home = home; bubble(true); } });
     const end = (e) => { if (!d || (e && e.pointerId !== d.id)) return; const was = d; d = null; c.classList.remove("act"); bubble(false);
       if (was.drag || !e || e.type !== "pointerup") return;
-      const now = Date.now(); if (now - lastTap < 320) { lastTap = 0; put(o.def); vib(30); return; }   // 두 번 톡 = 원래 값
-      lastTap = now; const r = c.getBoundingClientRect(); put(get() + ((o.vert ? e.clientY > r.top + r.height / 2 : e.clientX < r.left + r.width / 2) ? -1 : 1) * o.step * sgn); };   // 세로 칸: 위 절반 톡 = 올림 · 아래 절반 = 내림
+      const now = Date.now(); if (now - lastTap < 320) { lastTap = 0; put(o.def); vib(40); return; }   // 두 번 톡 = 원래 값
+      lastTap = now; const r = c.getBoundingClientRect(); if (put(get() + ((o.vert ? e.clientY > r.top + r.height / 2 : e.clientX < r.left + r.width / 2) ? -1 : 1) * o.step * sgn)) vib(15); };   // 세로 칸: 위 절반 톡 = 올림 · 아래 절반 = 내림
     c.addEventListener("pointerup", end); c.addEventListener("pointercancel", end); c.addEventListener("lostpointercapture", () => { if (d) end(null); });
     c.addEventListener("keydown", (e) => { const k = e.key; if (k === "ArrowRight" || k === "ArrowUp") put(get() + o.step * sgn); else if (k === "ArrowLeft" || k === "ArrowDown") put(get() - o.step * sgn); else if (k === "Enter" || k === "0") put(o.def); else return; e.preventDefault(); e.stopPropagation(); });
     c.addEventListener("dblclick", (e) => { e.preventDefault(); put(o.def); });   // 마우스 두 번 클릭
