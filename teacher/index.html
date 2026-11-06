@@ -522,7 +522,7 @@
 <div id="v2Shade" class="v2only"></div>
 <div id="toast"></div>
 <script src="../lesson-replies.js"></script>
-<script src="../tune.js?v=20261106-2250"></script>
+<script src="../tune.js?v=20261106-2300"></script>
 <script src="../adv.js?v=20261106-2230"></script>
 <script src="../pitch-embed.js?v=20261105-1850"></script>
 
@@ -5350,7 +5350,7 @@ async function openMkJob(j, backTo) {
     const tnOpts = tc ? { notes: () => tc.doc.notes,
       onNote: (n) => Tune.sheet(n, { onSave: (u) => tnDo(() => { tnKeepAi(n); Object.assign(n, u); }), onDelete: () => tnDo(() => tnRemove(tc, n)) }),
       onDelNote: (n) => { const i = tc.doc.notes.indexOf(n); if (i < 0) return; tnDo(() => tnRemove(tc, n)); Tune.undo("주석을 지웠어요", () => tnDo(() => { tc.doc.notes.splice(Math.min(i, tc.doc.notes.length), 0, n); tc.doc.deleted = (tc.doc.deleted || []).filter(d => d.id !== n.id); })); },
-      onAdd: (tt) => Tune.sheet({ t0: Math.round(tt * 10) / 10, t1: Math.round(tt * 10) / 10, text: "", src: "teacher" }, { onSave: (u) => tnDo(() => tc.doc.notes.push({ ...u, id: "t" + Date.now().toString(36), src: "teacher" })) }) } : {};
+      onAdd: (tt, t1) => Tune.sheet({ t0: Math.round(tt * 10) / 10, t1: Math.round((t1 ?? tt) * 10) / 10, text: "", src: "teacher" }, { onSave: (u) => tnDo(() => tc.doc.notes.push({ ...u, id: "t" + Date.now().toString(36), src: "teacher" })) }) } : {};
     if (!$("mkTune")) return;
     // (11/03 13:08) 타이밍을 고쳐 다시 만든 곡은 보컬 시간이 바뀜 → 고친 정음·타이밍은 '원래 녹음 시간'으로 저장하고, 화면·미리듣기에선 지금 시간(cv.tmap)으로 바꿔 씀
     const tmS = Array.isArray(cv.tmap) && cv.tmap.length > 2 ? cv.tmap : null, toA = (t) => Tune.mapT(t, tmS), toO = (t) => Tune.mapT(t, tmS, true), r4 = (x) => Math.round(x * 1e4) / 1e4;
@@ -6102,7 +6102,7 @@ function wireBest() {
       const tnOpts = tc ? { teacher: true, lvDef: +(job?.req?.pitch_level ?? 2), notes: () => tc.doc.notes,
         onNote: (n) => Tune.sheet(n, { onSave: (u) => tnDo(() => { tnKeepAi(n); Object.assign(n, u); }), onDelete: () => tnDo(() => tnRemove(tc, n)) }),
         onDelNote: (n) => { const i = tc.doc.notes.indexOf(n); if (i < 0) return; tnDo(() => tnRemove(tc, n)); Tune.undo("주석을 지웠어요", () => tnDo(() => { tc.doc.notes.splice(Math.min(i, tc.doc.notes.length), 0, n); tc.doc.deleted = (tc.doc.deleted || []).filter(d => d.id !== n.id); })); },
-        onAdd: (tt) => Tune.sheet({ t0: Math.round(tt * 10) / 10, t1: Math.round(tt * 10) / 10, text: "", src: "teacher" }, { onSave: (u) => tnDo(() => tc.doc.notes.push({ ...u, id: "t" + Date.now().toString(36), src: "teacher" })) }) } : { teacher: true, lvDef: +(job?.req?.pitch_level ?? 2) };
+        onAdd: (tt, t1) => Tune.sheet({ t0: Math.round(tt * 10) / 10, t1: Math.round((t1 ?? tt) * 10) / 10, text: "", src: "teacher" }, { onSave: (u) => tnDo(() => tc.doc.notes.push({ ...u, id: "t" + Date.now().toString(36), src: "teacher" })) }) } : { teacher: true, lvDef: +(job?.req?.pitch_level ?? 2) };
       Tune.wire(el, cv, () => (tpFile === m.file_id || tpFile === o.file_id ? player.currentTime : 0), () => (tpFile === m.file_id ? +(job?.req?.pitch_level ?? 2) : 0), async (t, still) => {
         try { const [r, id] = active(); if ((tpRoot !== r || tpFile !== id) && !(await tpLoad(r, id))) return; player.currentTime = t; if (still) player.pause(); else if (player.paused) { pauseOthers(player); await player.play(); } tpPaint(); } catch (e) { toast(e.message); } },
       { title: "오늘의 베스트", tapFull: true, play: () => box?.querySelector('[data-abp="play"]')?.click(), paused: () => player.paused || !(tpFile === m.file_id || tpFile === o.file_id),
@@ -7209,7 +7209,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-06-2250-cut-line";
+const BUILD = "2026-11-06-2300-adv-one";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {

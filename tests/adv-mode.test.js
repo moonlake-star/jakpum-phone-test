@@ -46,7 +46,7 @@ console.log("adv-mode ok", md.toFixed(4));
 
 /* (11/05 사용자) 이름 정리: 고급 보정 → 디테일 보정, 곡 전체(일괄) → 일괄 보정, 기본으로 → 심플로 */
 { const T1 = require("fs").readFileSync(__dirname + "/../tune.js", "utf8"), A3 = require("fs").readFileSync(__dirname + "/../adv.js", "utf8"), as = require("assert");
-  as.ok(T1.includes('mk("advGlB", "🎛 일괄 보정")') && T1.includes('<button type="button" data-md2="0">👂 확인</button><button type="button" data-md2="1">🎛 보정</button>'), "버튼 이름: [확인|보정] 토글 + 일괄 보정");
+  as.ok(T1.includes('mk("advGlB", "🎛 일괄 보정")') && T1.includes('<button type="button" data-md2="1" class="tfAdvOne" aria-label="고급 보정 켜기·끄기">🎛 고급</button>'), "버튼 이름: [🎛 고급] 한 개 + 일괄 보정");
   as.ok(A3.includes("<b>🎛 일괄 보정</b>"), "일괄 보정 시트 제목"); }
 
 /* (11/05 사용자) 음별 포먼트: 음 고치기 창 '음색' 탭 · 설명 줄은 일괄 보정 시트·음색 탭에 · 서버 note_edits formant */

@@ -17,7 +17,7 @@ tnCache.F = { doc: { notes: [
 const pub = tnPublic({ folder: { id: "F" } });
 assert.deepStrictEqual(pub, [{ t0: 18.5, t1: 18.5, text: "스팟 확인" }, { t0: 30, t1: 34.5, text: "구간 확인" }]);   // 초안·빈 글·근거는 수강생에게 안 감
 assert.strictEqual(tnPublic({ folder: { id: "X" } }), null);
-assert.ok(html.includes("t1: Math.round(tt * 10) / 10, text: \"\", src: \"teacher\""), "꾹 누르기 = 한 점(스팟)");
+assert.ok(html.includes("t1: Math.round((t1 ?? tt) * 10) / 10, text: \"\", src: \"teacher\""), "꾹 누르기 = 한 점(스팟) · 구간을 주면 구간");
 assert.ok(/tune_notes: tn/.test(html), "확인한 주석이 수강생 노트(makeup)에 실림");
 const stu = fs.readFileSync(path.join(__dirname, "..", "student", "index.html"), "utf8");
 assert.ok(stu.includes("notes: () => tnOk(mk.tune_notes)"), "수강생 화면은 확인 주석만 보기");
