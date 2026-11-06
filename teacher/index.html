@@ -522,8 +522,8 @@
 <div id="v2Shade" class="v2only"></div>
 <div id="toast"></div>
 <script src="../lesson-replies.js"></script>
-<script src="../tune.js?v=20261106-1230"></script>
-<script src="../adv.js?v=20261106-1130"></script>
+<script src="../tune.js?v=20261106-1600"></script>
+<script src="../adv.js?v=20261106-1600"></script>
 <script src="../pitch-embed.js?v=20261105-1850"></script>
 
 <script>
@@ -4923,7 +4923,8 @@ function pvClusterRatio(cv, cl, dry, lvCol, sr, i0, n) {   // 덩어리 안 칸�
 // 음정: 음정선 보정본(하늘색) 선이 adv.js 미리보기로 바뀐 만큼(바뀐 선 − 처음 선)만 높이를 옮김 · 볼륨·무음: 샘플마다 곱함 · 음별 음색(포먼트): 한 주기 조각을 줄이거나 늘려 목소리 결만 옮김 · 곡 전체 음색·일괄 고침은 아직 소리에 반영 안 함(근사)
 const PV_ADV_P = ["drift", "vib", "vs", "tilt_in", "tilt_out", "tr_ms"], PV_ADV_G = ["gain_db", "mute", "fade_in", "fade_out"], PV_ADV_F = ["formant"];
 function pvAdvPlan() {
-  const notes = (mkPv.adv || []).filter(n => [...PV_ADV_P, ...PV_ADV_G, ...PV_ADV_F].some(k => k in n)); if (!notes.length) return null;
+  const notes = (mkPv.adv || []).filter(n => [...PV_ADV_P, ...PV_ADV_G, ...PV_ADV_F].some(k => k in n))
+    .concat(((mkPv.advG || {}).draw || []).filter(d => d && d.t1 > d.t0).map(d => ({ t0: d.t0, t1: d.t1, _draw: 1 }))); if (!notes.length) return null;   // (11/06) 펜으로 그린 구간도 미리듣기에
   const regs = []; for (const n of notes.slice().sort((a, b) => a.t0 - b.t0)) { const fp = n.formant ? 0.1 : 0, t0 = n.t0 - fp, t1 = n.t1 + (n.tr_ms ? 0.15 : 0) + fp, L = regs[regs.length - 1];   // 음색은 서버처럼 앞뒤 0.1초 여유를 두고 만듦
     if (L && t0 - L.t1 < 0.3) { L.t1 = Math.max(L.t1, t1); L.notes.push(n); } else regs.push({ t0: Math.max(0, t0), t1, notes: [n] }); }
   return { sig: JSON.stringify(notes), regs };
@@ -5382,7 +5383,9 @@ async function openMkJob(j, backTo) {
       try { pvApplyAll(); } catch (e) { console.warn("타이밍 미리듣기", e); }
       try { await writeJSON(j.folder.id, MKREQ, r, j.reqId); paintFixN(); } catch (e) { toast("타이밍 저장 실패: " + errMsg(e)); } };
     // (11/04 사용자) 고급 보정 모드: 음별·곡 전체 고침(adv.js) → 원래 녹음 시간으로 바꿔 note_edits에 저장(서버 note_edits.py) · 화면에선 지금 시간
-    const uvT = (g, f) => { const o = { ...g }; for (const k of ["uv_fix", "uv_gain"]) if (Array.isArray(o[k])) o[k] = o[k].map(x => ({ ...x, t0: r4(f(x.t0)), t1: r4(f(x.t1)) })); return o; };   // (11/04) 치찰음·호흡 구간도 화면 시간 ↔ 원래 녹음 시간
+    const uvT = (g, f) => { const o = { ...g }; for (const k of ["uv_fix", "uv_gain"]) if (Array.isArray(o[k])) o[k] = o[k].map(x => ({ ...x, t0: r4(f(x.t0)), t1: r4(f(x.t1)) }));
+      if (Array.isArray(o.draw)) o.draw = o.draw.map(d => { const pts = (d.pts || []).map(q => [r4(f(q[0])), q[1]]); return { ...d, pts, t0: pts[0]?.[0] ?? r4(f(d.t0)), t1: pts[pts.length - 1]?.[0] ?? r4(f(d.t1)) }; });   // (11/06) 펜으로 그린 선도
+      return o; };   // (11/04) 치찰음·호흡 구간도 화면 시간 ↔ 원래 녹음 시간
     const advGet = () => { const ne = r.note_edits || {}; return { notes: (ne.notes || []).map(n => ({ ...n, t0: r4(toA(n.t0)), t1: r4(toA(n.t1)) })), global: uvT(ne.global || {}, toA) }; };
     const pvAdvSync = (ne) => { try { mkPv.adv = (ne.notes || []).map(n => ({ ...n })); mkPv.advG = { ...(ne.global || {}) }; if (window.TuneAdv?.preview) window.TuneAdv.preview(cv, ne); window.TuneAdvPv = (pvAdvPlan()?.regs || []).reduce((q, g) => q + g.notes.length, 0); document.dispatchEvent(new Event("advpv")); } catch (e) { console.warn("디테일 미리듣기", e); } };   // 화면 시간 그대로
     const onAdv = async (ne) => { pvAdvSync(ne); try { pvApplyAll(); } catch (e) { console.warn("디테일 미리듣기", e); }
@@ -7188,7 +7191,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-06-1500-youtube-link";
+const BUILD = "2026-11-06-1600-pen";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
