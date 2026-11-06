@@ -32,7 +32,7 @@ console.log("hist keep ok");
 assert.ok(T.includes('exitCard(o, hist); try {') && T.includes("if (!n && !ss().fail) return;") && T.includes("저장 못 한 고침이 있어요") && T.includes("완성본 다시 만들기</button>"));
 assert.ok(T.includes('document.addEventListener("visibilitychange", hidKeep)'));
 assert.ok(H.includes('histKey: "mk:" + (j.reqId || j.folder.id), saveState: () => ({ busy: mkBusy, fail: mkFail })') && H.includes("remake: () => $(\"mkFinal\")?.click()"));
-assert.ok(H.includes("const mkWrite = async () => { mkBusy++;") && !/onTime = async[^\n]*\n[^\n]*\n[^\n]*\n[^\n]*\n[^\n]*writeJSON\(j\.folder\.id, MKREQ/.test(H));
+assert.ok(H.includes("const mkWrite = () => { mkBusy++;") && !/onTime = async[^\n]*\n[^\n]*\n[^\n]*\n[^\n]*\n[^\n]*writeJSON\(j\.folder\.id, MKREQ/.test(H));
 console.log("exit card wiring ok");
 // (11/06 17:37 사용자) 빈 곳 톡으로 재생이 시작되면 고른 음표 선택 해제
 assert.ok(T.includes("const wasP = isPaused(); toggle(); lastTap = now;") && T.includes("st.sel = null; st.msel = null; } } }"));
@@ -40,3 +40,7 @@ console.log("deselect on play ok");
 // (11/06 17:59 사용자) 화살표 꾹 = 진동 · 늘렸다 처음 자리로 돌아오면 진동(살짝 붙음)
 assert.ok(T.includes('st.onBarDragX(0, ed, true); if (e.pointerType !== "mouse") { buzz(40);') && T.includes("if (home && !st._tbHome && st._tbAway) { buzz(30);") && T.includes("st._tbHome = true; st._tbAway = false; return; }"));
 console.log("arrow buzz ok");
+// (11/06 18:02 사용자) ↶↷ 누르면 바로(저장 안 기다림) · 소리 없이 고름 · 저장은 한 줄로
+assert.ok(T.includes("if (!(st && st._quiet)) { try { sndFor(m, 1000); } catch {} }") && T.includes("st._quiet = true;") && !T.includes("try { await o.histSet(H.S[i]); }"));
+assert.ok(H.includes("mkQ = p.catch(() => {});"));
+console.log("undo fast ok");
