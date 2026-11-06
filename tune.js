@@ -15,7 +15,7 @@
   const learned = (k) => (learnGet()[k] || 0) >= LEARN_N;
   const learn = (k) => { try { const o = learnGet(); o[k] = (o[k] || 0) + 1; localStorage.setItem(LEARN_KEY, JSON.stringify(o)); } catch {} };
   const learnReset = () => { try { localStorage.removeItem(LEARN_KEY); localStorage.removeItem("tune_adv_guide_v1"); } catch {} };
-  const buzz = (ms) => { try { navigator.vibrate && navigator.vibrate(ms || 25); } catch {} };   // 아이폰 사파리는 진동을 지원 안 함 → 대신 화면에 퍼지는 동그라미
+  const buzz = (ms) => { try { navigator.vibrate && navigator.vibrate(Math.max(20, ms || 25)); } catch {} };   // (11/06 22:09) 20ms보다 짧으면 갤럭시 등에서 거의 안 느껴짐   // 아이폰 사파리는 진동을 지원 안 함 → 대신 화면에 퍼지는 동그라미
   const beatNear = (cv, t) => { const B = cv && cv.beats && cv.beats.t; if (!B || !B.length) return null; let lo = 0, hi = B.length - 1; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (B[m] <= t) lo = m; else hi = m; } return Math.abs(B[lo] - t) <= Math.abs(B[hi] - t) ? B[lo] : B[hi]; };   // (11/06) 보정 모드 큰 손잡이 반지름(px) — 손가락·펜으로 잡기 쉽게
   const WIN = 8, HEAD = 0.4, NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"], LANE = 34, ZOOM_HALF = 400;
   function range(cv) {
@@ -238,10 +238,10 @@
       setTimeout(() => { ta.readOnly = false; }, 450); }
   }
   // (11/02) 정음 막대 색 = 기준: 선생님 노랑 · MIDI 보라 · 악보 초록 · 원곡 하늘 · 키·스케일만 회색(기준 정보가 없는 예전 것은 초록)
-  const SRC_C = { teacher: "rgba(255,210,122,.42)", midi: "rgba(199,164,255,.36)", sheet: "rgba(127,217,154,.34)", youtube: "rgba(127,217,255,.32)", scale: "rgba(127,217,154,.28)" };   // (11/06 22:05 사용자) 키·스케일만도 예전처럼 초록(회색은 흰색처럼 보여 덜 눈에 띔)
+  const SRC_C = { teacher: "rgba(255,210,122,.42)", midi: "rgba(199,164,255,.36)", sheet: "rgba(127,217,154,.52)", youtube: "rgba(127,217,255,.32)", scale: "rgba(127,217,154,.46)" };   // (11/06 22:05 사용자) 키·스케일만도 예전처럼 초록(회색은 흰색처럼 보여 덜 눈에 띔)
   function srcCol(cv, tt) {
     if ((cv._fixes || []).some(x => tt >= x.t0 && tt <= x.t1)) return SRC_C.teacher;
-    if (!cv._src) return "rgba(127,217,154,.28)";
+    if (!cv._src) return "rgba(127,217,154,.46)";   // (11/06 22:09 사용자) 초록 더 잘 보이게
     const s = cv._src.find(x => tt >= x[0] && tt <= x[1]); return s ? SRC_C[s[3]] || SRC_C.sheet : cv._midi ? SRC_C.midi : SRC_C.scale;
   }
   // ── (11/02 16:45 사용자 시안 승인) 전주·간주 화면: 카운트다운 · 반주 파형 · 박자 점 · 다가오는 멜로디 미리보기 · 첫 음 건반 ──

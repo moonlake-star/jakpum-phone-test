@@ -80,3 +80,7 @@ console.log("move buzz ok");
 // (11/06 22:02 사용자) 꾹 켜짐 표시 크게(채운 원 + 두 겹 고리, 0.7초)
 assert.ok(T.includes("performance.now() - st.pulse.at < 700") && T.includes("20 + 70 * e_"));
 console.log("pulse ok");
+// (11/06 22:09 사용자) 초록 더 진하게 · 📳 진동 시험 · 진동 최소 20ms
+{ const A = fs.readFileSync(path.join(__dirname, "..", "adv.js"), "utf8");
+  assert.ok(T.includes('scale: "rgba(127,217,154,.46)"') && T.includes("navigator.vibrate(Math.max(20, ms || 25))") && A.includes('data-g="vib">📳 진동 시험') && A.includes("navigator.vibrate(Math.max(20, ms))"));
+  console.log("green / vib test ok"); }
