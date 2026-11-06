@@ -144,6 +144,14 @@
   .medalRow { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; text-align:center; font-size:.85rem; margin-top:8px; }
   .medalRow .md { width:58px; height:58px; margin:0 auto 4px; border-radius:50%; display:grid; place-items:center; font-size:1.7rem; background:radial-gradient(circle at 35% 30%,#ffe7a3,#c8912e 70%); box-shadow:0 0 0 3px #6b4d17; }
   .medalRow .off .md { background:#2b3038; box-shadow:0 0 0 3px #3a414b; filter:grayscale(1); opacity:.5; } .medalRow .off { color:var(--muted); }
+.sgC .sgH{display:flex;align-items:center;gap:8px}.sgC .sgSrc{margin-left:auto;font-size:.72rem;color:var(--muted);background:rgba(127,127,127,.18);border-radius:20px;padding:2px 8px}
+.sgC .sgPl{display:flex;align-items:center;gap:10px;margin-top:8px}.sgC .sgPb{width:46px;height:46px;border-radius:50%;border:0;background:#ffb86b;color:#1b1408;font-size:18px;flex:none;padding:0}
+.sgC .sgSk{flex:1;min-width:0}.sgC input[type=range]{width:100%;accent-color:#ffb86b;margin:0}.sgC .sgTm{display:flex;justify-content:space-between;font-size:.72rem;color:var(--muted)}
+.sgC .sgVo{margin-top:10px;padding:10px;border-radius:12px;background:rgba(0,0,0,.18);border:1px solid var(--line)}.sgC .sgVl{display:flex;font-size:.9rem;color:#ffb86b;font-weight:700}.sgC .sgVl span{margin-left:auto}
+.sgC .sgPre{display:flex;gap:6px;margin-top:4px}.sgC .sgPre button{flex:1;background:transparent;border:1px solid var(--line);color:#ffb86b;border-radius:10px;padding:6px 0;font-size:.85rem;line-height:1.2}
+.sgC .sgPre button.on{border-color:#ffb86b;box-shadow:0 0 10px rgba(255,184,107,.45)}.sgC .sgPre small{display:block;font-size:.66rem;color:var(--muted)}
+.sgC .sgDl{display:flex;gap:6px;margin-top:10px}.sgC .sgDl button{flex:1;background:rgba(127,127,127,.18);color:var(--fg);border:0;border-radius:10px;padding:8px 0;font-size:.82rem;line-height:1.25}.sgC .sgDl small{display:block;font-size:.66rem;color:var(--muted)}
+.sgC .sgWait{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:.88rem;margin-top:6px}.sgC .sgSp{width:16px;height:16px;border:2px solid #444;border-top-color:#ffb86b;border-radius:50%;animation:sgSpin 1s linear infinite;flex:none}@keyframes sgSpin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
@@ -784,6 +792,66 @@ function wireCompare() {   // 번갈아 듣기: 그때 → 끝나면 지금
     if (!pa.classList.contains("open")) pa.click(); else { aa.currentTime = 0; aa.play().catch(() => {}); }
   });
 }
+// ── 🎤 연습 곡(11/07 01:51 사용자 '고고'): 선생님이 켠 곡만 — 원곡을 나눈 보컬·반주 → 가수 목소리 볼륨 조절하며 듣기 · MR/보컬/원곡 받기 ──
+const stemsOk = (st) => !!st && ["mr", "voc", "orig"].every(k => sidOk(st[k]));
+function stemsHtml(mk) {
+  const st = mk?.stems; if (!stemsOk(st)) return "";
+  const v0 = Math.max(0, Math.min(100, Number.isFinite(+st.vol) ? Math.round(+st.vol) : 30)), nm = [st.title, st.artist].filter(x => sidOk(x)).join(" — ");
+  return `<div class="card sgC" id="sgCard"><div class="sgH"><b>🎤 연습 곡</b><span class="sgSrc">선생님이 올림</span></div>${nm ? `<div class="muted" style="font-size:.85rem">${esc(nm)}</div>` : ""}
+    <div class="sgPl"><button type="button" class="sgPb" id="sgPb" aria-label="재생">▶</button><div class="sgSk"><input type="range" id="sgSeek" min="0" max="1000" value="0" aria-label="재생 위치"><div class="sgTm"><span id="sgT0">0:00</span><span id="sgT1">${st.dur ? `${Math.floor(st.dur / 60)}:${String(Math.floor(st.dur % 60)).padStart(2, "0")}` : "–:–"}</span></div></div></div>
+    <div class="sgVo"><div class="sgVl">가수 목소리<span id="sgVv">${v0}%</span></div><input type="range" id="sgVol" min="0" max="100" value="${v0}" aria-label="가수 목소리 크기">
+      <div class="sgPre">${[[0, "MR", "반주만"], [30, "가이드", "살짝"], [100, "원곡", "그대로"]].map(([v, a, b]) => `<button type="button" data-sgv="${v}">${a}<small>${b}</small></button>`).join("")}</div></div>
+    <div class="sgDl">${[["mr", "MR"], ["voc", "보컬"], ["orig", "원곡"]].map(([k, a]) => `<button type="button" data-sgd="${k}">⬇ ${a}</button>`).join("")}</div></div>`;
+}
+let sgP = null;
+function stemsStop() { if (!sgP) return; try { sgP.stop(); } catch {} }
+function wireStems(mk) {
+  stemsStop(); sgP = null; const st = mk?.stems; if (!stemsOk(st) || !$("sgCard")) return;
+  const card = $("sgCard"), mmss = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
+  let vol = +$("sgVol").value, au = null, ctx = null, gain = null, buf = null, srcs = [], t0 = 0, off = 0, playing = false, timer = 0, bufMode = false;
+  try { const x = new Audio(); x.volume = 0.5; bufMode = Math.abs(x.volume - 0.5) > 0.01; } catch {}   // 아이폰은 audio.volume이 안 먹음 → 소리를 받아 웹오디오로
+  const pb = $("sgPb"), seek = $("sgSeek"), T0 = $("sgT0"), T1 = $("sgT1");
+  const paintVol = () => { $("sgVv").textContent = vol + "%"; $("sgVol").value = vol; card.querySelectorAll("[data-sgv]").forEach(b => b.classList.toggle("on", +b.dataset.sgv === vol));
+    if (au) au.voc.volume = vol / 100; if (gain) gain.gain.value = vol / 100; };
+  paintVol();
+  const dur = () => bufMode ? (buf?.mr.duration || 0) : (au?.mr.duration || 0), now = () => bufMode ? (playing ? ctx.currentTime - t0 : off) : (au?.mr.currentTime || 0);
+  const stopTimer = () => { clearInterval(timer); timer = 0; };
+  const tick = () => { const t = now(), d = dur() || 1; if (!bufMode && au && !au.voc.paused && Math.abs(au.voc.currentTime - t) > 0.06) au.voc.currentTime = t;
+    T0.textContent = mmss(t); if (!seek.matches(":active")) seek.value = Math.round(t / d * 1000); if (bufMode && playing && t >= d - 0.05) stop(); };
+  const stop = () => { if (bufMode) { if (playing) off = now(); srcs.forEach(s => { try { s.stop(); } catch {} }); srcs = []; } else if (au) { au.mr.pause(); au.voc.pause(); } playing = false; pb.textContent = "▶"; stopTimer(); };
+  const load = async () => {
+    if (bufMode) {
+      if (buf) return; pb.textContent = "…"; T1.textContent = "불러오는 중";
+      ctx = ctx || new (window.AudioContext || window.webkitAudioContext)(); gain = ctx.createGain(); gain.connect(ctx.destination); gain.gain.value = vol / 100;
+      const get = async (id) => ctx.decodeAudioData(await (await fetch(driveUrl(id))).arrayBuffer());
+      const [m, v] = await Promise.all([get(st.mr), get(st.voc)]); buf = { mr: m, voc: v }; T1.textContent = mmss(m.duration); return;
+    }
+    if (au) return;
+    const mkA = (id) => { const a = new Audio(); a.preload = "auto"; a.src = driveUrl(id); return a; };
+    au = { mr: mkA(st.mr), voc: mkA(st.voc) }; au.voc.volume = vol / 100; au.mr.onended = stop;
+    au.mr.onloadedmetadata = () => { T1.textContent = mmss(au.mr.duration || 0); };
+  };
+  const play = async () => {
+    await load(); document.querySelectorAll("audio").forEach(a => a.pause());
+    if (bufMode) { if (ctx.state !== "running") await ctx.resume(); if (off >= dur() - 0.05) off = 0; srcs = ["mr", "voc"].map(k => { const s = ctx.createBufferSource(); s.buffer = buf[k]; s.connect(k === "voc" ? gain : ctx.destination); s.start(0, off); return s; }); t0 = ctx.currentTime - off; }
+    else { au.voc.currentTime = au.mr.currentTime; await Promise.all([au.mr.play(), au.voc.play()]); }
+    playing = true; pb.textContent = "❚❚"; stopTimer(); timer = setInterval(tick, 250);
+  };
+  sgP = { stop };
+  pb.onclick = async () => { try { if (playing) stop(); else await play(); } catch (e) { pb.textContent = "▶"; T1.textContent = "못 불러왔어요"; } };
+  seek.oninput = async () => { try { await load(); const t = (+seek.value / 1000) * dur(); if (bufMode) { const was = playing; if (was) stop(); off = t; if (was) await play(); } else { au.mr.currentTime = t; au.voc.currentTime = t; } T0.textContent = mmss(t); } catch {} };
+  $("sgVol").oninput = () => { vol = +$("sgVol").value; paintVol(); };
+  $("sgVol").ondblclick = () => { vol = 100; paintVol(); };
+  card.querySelectorAll("[data-sgv]").forEach(b => b.onclick = () => { vol = +b.dataset.sgv; paintVol(); });
+  card.querySelectorAll("[data-sgd]").forEach(b => b.onclick = async () => {
+    const k = b.dataset.sgd, lab = { mr: "MR", voc: "보컬", orig: "원곡" }[k], name = `${String(st.title || "연습곡").replace(/[\\/:*?"<>|]/g, "_")}_${lab}.mp3`, t = b.textContent;
+    b.disabled = true; b.textContent = "받는 중…";
+    try { const bl = await (await fetch(driveUrl(st[k]))).blob(); const u = URL.createObjectURL(bl), a = document.createElement("a"); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 60000); }
+    catch { window.open(driveUrl(st[k]), "_blank", "noopener"); }   // 받기가 막히면 새 창(⋮ → 다운로드)
+    finally { b.disabled = false; b.textContent = t; }
+  });
+  document.addEventListener("play", () => { if (playing && sgP?.stop === stop) stop(); }, true);   // 다른 녹음을 틀면 멈춤
+}
 function lessonHtml(l, prev, mode = "normal") {
   const MODES = [["simple", "심플"], ["normal", "보통"], ["detail", "자세히"]];
   const modeBar = (m) => `<div class="seg" role="group" aria-label="보기 방식">${MODES.map(([k, n]) => `<button type="button" class="${k === m ? "on" : ""}" data-mode="${k}" aria-pressed="${k === m}">${n}</button>`).join("")}</div>`;
@@ -841,6 +909,7 @@ function lessonHtml(l, prev, mode = "normal") {
     <h2 style="margin:14px 0 4px">${md(l.date)} 레슨</h2>
     ${typeof celebHtml === "function" ? celebHtml(l, typeof data !== "undefined" ? data?.lessons : []) : ""}
     ${has(l.feedback) ? `<div class="card letter"><h2>💬 ${l.teacher_name ? esc(l.teacher_name) + " " : ""}선생님 한마디</h2>${letter}${bestBlock}</div>` : bestBlock ? `<div class="card">${bestBlock}</div>` : ""}
+    ${typeof stemsHtml === "function" ? stemsHtml(l.makeup) : ""}
     ${full && moment && !clips.some(c => (c.note || "").trim() === moment) && !points.some(t => t.trim() === moment) ? `<div class="card moment" role="region" aria-label="선생님이 발견한 오늘의 순간"><div class="muted">🔎 선생님이 발견한 오늘의 순간</div><p class="big">${esc(moment)}</p></div>` : ""}
     ${!ptsIn && points.length ? `<div class="card"><h2>⭐ 오늘의 핵심 포인트</h2>${ptsHtml(points)}</div>` : ""}
     ${typeof gcHtml === "function" ? gcHtml(l.compare) : ""}
@@ -863,7 +932,7 @@ function openLesson(id) {
     $("view").innerHTML = lessonHtml(l, prev, "normal")   /* 10/29 17:28 사용자: 심플/보통/자세히 버튼 없애고 보통만 */.replace('<h2 style="margin:14px 0 4px">',
       `<div class="card greet"><div class="muted">${esc(data.name)}님의 보컬노트 · ${nth}회차 · ${esc(dd)}</div><p class="big" style="margin:4px 0 0">${esc(data.name)}님, 오늘도 수고 많으셨어요 🎵</p></div><h2 style="margin:14px 0 4px">`);
     try { $("view").insertAdjacentHTML("beforeend", Brand.sign()); } catch {}   // (10/30 사용자) 노트 맨 아래 한 줄
-    $("back").onclick = timeline; wirePlayers(); wireCompare();
+    $("back").onclick = timeline; wirePlayers(); wireCompare(); try { if (typeof wireStems === "function") wireStems(l.makeup); } catch {}
     document.querySelectorAll("[data-mode]").forEach(b => b.onclick = () => { LS.set("sn_mode", b.dataset.mode); paint(); });
     // 레슨별 비공개 답신(앱 #39): 이 레슨에 대해 선생님과 주고받는 글. 서버(Apps Script)가 본인 레슨인지 다시 확인
     if (typeof LessonReplies === "undefined") return;
