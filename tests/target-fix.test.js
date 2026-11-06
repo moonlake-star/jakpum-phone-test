@@ -50,7 +50,7 @@ console.log("intro ok");
   assert.ok(t.includes('nb.addEventListener("touchstart", (e) => { if (e.cancelable) e.preventDefault(); }, { passive: false });')); }
 // (11/03 02:54 사용자) 창을 빠져나올 때 '저장 중…' → '✓ 저장됨'
 { const t = require("fs").readFileSync(__dirname + "/../tune.js", "utf8");
-  assert.ok(t.includes("function fxSave(fn, f)") && t.includes("const close_ = (fromPop) => { core(); saveToast();") && t.includes('const done = () => { saveToast();') && t.includes('saveEl.textContent = "✓ 저장됨"'));
+  assert.ok(t.includes("function fxSave(fn, f)") && t.includes("const close_ = (fromPop) => { core(); saveToast();") && t.includes('exitCard(o, hist); try {') && t.includes('if (!c) { saveToast(); return; }') && t.includes('saveEl.textContent = "✓ 저장됨"'));
   assert.ok(!/[^.\w]onFix\(\{/.test(t.slice(t.indexOf("function fixSheet("), t.indexOf("function fixSheet(") + 6000)), "고치기 창의 저장은 전부 fxSave로"); }
 // (11/03 08:14 사용자) 나누면 오른쪽 조각이 바로 골라진 채로
 { const t = require("fs").readFileSync(__dirname + "/../tune.js", "utf8");
