@@ -65,5 +65,5 @@ console.log("align ok");
   assert.ok(A.includes("#tuneFs .advSc,#tuneFs .advSc *,.advSc,.advSc *{touch-action:none!important}") && A.includes('const dd = d.ax === "v" ? dy_ : d.ax === "h" ? dx_ : 0;'));
   console.log("touch drag ok"); }
 // (11/06 19:59 사용자 B) 핀치: 어느 방향이든 위아래·좌우 같은 비율(최대 8배씩)
-assert.ok(T.includes("st.yz = Math.max(1, Math.min(8, pinch.yz * r)); st.xz = Math.max(1, Math.min(8, pinch.xz * r));") && !T.includes("pinch.xz * Math.sqrt(r)") && !T.includes("pinch.ax"));
+assert.ok(T.includes("st.yz = Math.max(1, Math.min(8, pinch.yz * r ** pinch.ep)); st.xz = Math.max(1, Math.min(8, pinch.xz * r ** pinch.et));") && T.includes("et: 0.5 + 0.5 * h_, ep: 1 - 0.5 * h_") && !T.includes("pinch.ax"));   // (20:07) A·B 절충
 console.log("pinch uniform ok");
