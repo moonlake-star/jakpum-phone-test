@@ -41,12 +41,12 @@ console.log("adv-pen ok");
 // (11/06 16:13·16:20 사용자) 음 가운데: 바로 위아래 = 반음, 좌우 = 자리, 꾹 = 미세 · 양 끝 화살표는 꾹 눌러야 길이 · 건반 꾹 진동 없음
 { const t5 = require("fs").readFileSync(__dirname + "/../tune.js", "utf8"), A_ = require("assert");
   A_.ok(t5.includes("const LONG_MS = 600, FINE = 0.25;") && t5.includes("drag.fine ? Math.round(c * FINE * 100) / 100 : Math.round(c)"), "반음/미세");
-  A_.ok(t5.includes('st.onBarDragX(0, "c", true)') && t5.includes("if (!drag.hArmed) { if (Math.hypot(l0.x - drag.x0, l0.y - drag.y0) > 8)"), "좌우 = 자리, 화살표는 꾹 눌러야");
+  A_.ok(!t5.includes('st.onBarDragX(0, "c", true)') && t5.includes('drag.selBody = false; drag.mode = "time"') && t5.includes("if (!drag.hArmed) { if (Math.hypot(l0.x - drag.x0, l0.y - drag.y0) > 8)"), "(11/06 17:03) 음 좌우 옮기기 뺌 — 좌우는 화면 이동, 화살표는 꾹 눌러야");
   A_.ok(!t5.includes('"↕", "#9cc3ff"'), "↕ 동그라미 없앰");
   A_.ok(t5.includes('cvEl.addEventListener("touchstart", (e) => { if (e.cancelable) e.preventDefault(); }, { passive: false })'), "꾹 눌러도 폰 진동 없게"); }
 // (11/06 16:36 사용자) 손짓 안내(두 번 써 보면 사라짐) · 처음 보정 모드 안내 · 꾹 0.6초 진동
 { const t6 = require("fs").readFileSync(__dirname + "/../tune.js", "utf8"), a6 = require("fs").readFileSync(__dirname + "/../adv.js", "utf8"), A_ = require("assert");
-  A_.ok(t6.includes('const LEARN_KEY = "tune_learn_v1", LEARN_N = 2;') && t6.includes('learn(d.fine ? "fine" : d.axis === "v" ? "v" : "h")') && t6.includes('learn("dbl")') && t6.includes('learn("arr")'));
+  A_.ok(t6.includes('const LEARN_KEY = "tune_learn_v1", LEARN_N = 2;') && t6.includes('learn(d.fine ? "fine" : "v")') && t6.includes('learn("dbl")') && t6.includes('learn("arr")'));
   A_.ok((t6.match(/buzz\(25\); st\.pulse = /g) || []).length === 2, "꾹 켜질 때 진동 + 동그라미");
   A_.ok(t6.includes("const advGuide = (force) =>") && a6.includes('data-g="guide"'), "처음 안내 + 다시 보기"); }
 // (11/06) 고급 보정 ② 보정 엔진 선택·A/B(고른 뒤에야 어느 엔진인지 알려 줌)
@@ -58,3 +58,10 @@ console.log("adv-pen ok");
   A_.ok(t8.includes('cvEl.addEventListener("wheel"') && t8.includes("if (e.ctrlKey || e.metaKey) { st.xz = ") && t8.includes("armed: { x: l0.x, t: tt, mouse: true }"));
   A_.ok(t8.includes('mn.className = "tfCtx"') && t8.includes('if (e.pointerType === "mouse" && e.altKey) d0.fine = true;') && t8.includes('if (e.pointerType === "mouse") armH();'));
   A_.ok(t8.includes('document.addEventListener("keydown", st.onKey)') && t8.includes('document.removeEventListener("keydown", st.onKey)'), "키보드 — 닫으면 정리"); }
+// (11/06 17:03 사용자) 되돌리기·다시하기 = 바뀐 음을 골라 보여 줌(여러 음이면 여러 음 고르기)
+{ const t9 = require("fs").readFileSync(__dirname + "/../tune.js", "utf8"), A_ = require("assert");
+  const histDiff = new Function(t9.match(/const histDiff = [\s\S]*?return m_; \};\n/)[0] + "return histDiff;")();
+  const J = (o) => JSON.stringify(o);
+  A_.deepStrictEqual(histDiff({ fx: [J({ t0: 1, t1: 2, midi: 60 })], te: [], ne: [] }, { fx: [J({ t0: 1, t1: 2, midi: 61 })], te: [], ne: [] }), [[1, 2]], "한 음");
+  A_.deepStrictEqual(histDiff({ fx: [], te: [], ne: [] }, { fx: [J({ t0: 1, t1: 2, midi: 60 }), J({ t0: 5, t1: 6, midi: 62 })], te: [], ne: [] }), [[1, 2], [5, 6]], "여러 음");
+  A_.ok(t9.includes("selectChanged(histDiff(snap0, histSnap()))") && t9.includes("st.msel = [a, b]; try { multiSheet(wrap, cv, st, false, true);")); }
