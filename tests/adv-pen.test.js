@@ -26,3 +26,6 @@ assert.ok(tj.includes('e.pointerType === "pen" || e.pointerType === "mouse" || !
 assert.ok(tj.includes("st.advOn && st.snapSel && !d.hdl && Date.now() - (st._bt || 0) < 350"));
 assert.ok(th.includes("if (Array.isArray(o.draw)) o.draw = o.draw.map(") && th.includes("((mkPv.advG || {}).draw || [])"), "시간 바꿔 저장 + 미리듣기");
 console.log("adv-pen ok");
+// (11/06 15:32 사용자) 음을 고른 채 확인↔보정 바꾸면 그 음 고치기 창이 새 모드로 바로
+{ const t2 = require("fs").readFileSync(__dirname + "/../tune.js", "utf8");
+  require("assert").ok(t2.includes("st._selBar = b;") && t2.includes("if (keep) { try { fixSheet(wrap, cv, keep, o.onFix, getT, st);"), "모드 바꿔도 고른 음 창 유지"); }

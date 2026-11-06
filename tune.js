@@ -585,7 +585,7 @@
     const T0 = +b.t0.toFixed(2), T1 = +b.t1.toFixed(2);
     // (11/05 사용자) 합치기: 나눈 조각이 붙어 있으면(앞뒤 0.06초 안) 하나로 다시 붙임 — 오른쪽 조각 먼저, 없으면 왼쪽
     const fxs = cv._fixes || [], mgNb = fixed ? (fxs.find(x => x !== fixed && Math.abs(x.t0 - T1) < 0.06) || fxs.find(x => x !== fixed && Math.abs(x.t1 - T0) < 0.06) || null) : null;
-    if (st) { st.sel = { t0: b.t0, t1: b.t1 }; st.focusC = b.c; }
+    if (st) { st.sel = { t0: b.t0, t1: b.t1 }; st.focusC = b.c; st._selBar = b; }
     const had = !!host.querySelector(".tfFix:not(.tfDock)"); host.querySelectorAll(".tfFix").forEach(x => x.remove());
     const d = document.createElement("div"); d.className = "tfFix";
     const mm = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
@@ -968,7 +968,11 @@
         rp.innerHTML = `<div class="rpBox"><div class="rpPh" aria-hidden="true"><b><i></i></b><u>↺</u></div><p style="font-size:15px;color:#f1f1f1;line-height:1.5;word-break:keep-all">폰에선 가로 모드가 보정 시 더 편리할 수 있어요</p><label class="rpNo"><input type="checkbox" class="rpNoCk"> 다시 보지 않기</label><button type="button" class="rpOk">확인</button></div>`;
         const shut = () => { if (!rp.isConnected) return; try { if (rp.querySelector(".rpNoCk").checked) localStorage.setItem("tune_land_tip_off", "1"); } catch {} rp.classList.add("out"); setTimeout(() => rp.remove(), 300); };
         rp.addEventListener("pointerdown", (e) => { e.stopPropagation(); }); rp.addEventListener("click", (e) => { if (e.target === rp || e.target.closest(".rpOk")) shut(); }); wrap.appendChild(rp); };
-      seg.querySelectorAll("[data-md2]").forEach(x => x.onclick = () => { const v = x.dataset.md2 === "1"; if (v === !!st.advOn) return; st.advOn = v; if (st.fixMode === "a") st.fixMode = "p"; paintAdv(); if (wrap.querySelector(".tfMulti") && sheetClose) { try { sheetClose(); } catch {} } wrap.querySelectorAll(".tfFix").forEach(y => y.remove()); if (v) { landTip(); st.dock && st.dock(); } });
+      seg.querySelectorAll("[data-md2]").forEach(x => x.onclick = () => { const v = x.dataset.md2 === "1"; if (v === !!st.advOn) return; st.advOn = v; if (st.fixMode === "a") st.fixMode = "p";
+        // (11/06 15:32 사용자) 음을 고른 채 확인↔보정을 바꾸면 그 음의 고치기 창이 새 모드로 바로 열림(다른 음을 눌렀다 다시 누를 필요 없이)
+        const keep = st.sel && st._selBar && typeof o.onFix === "function" && wrap.querySelector(".tfFix:not(.tfDock):not(.tfMulti)") ? st._selBar : null;
+        paintAdv(); if (sheetClose && (keep || wrap.querySelector(".tfMulti"))) { try { sheetClose(); } catch {} } wrap.querySelectorAll(".tfFix").forEach(y => y.remove());
+        if (keep) { try { fixSheet(wrap, cv, keep, o.onFix, getT, st); } catch (e) { console.warn("고치기 창", e); } if (v) landTip(); } else if (v) { landTip(); st.dock && st.dock(); } });
       pen.onclick = () => { st.penTool = !st.penTool; st.penPts = null; if (st.penTool) { pauseNow(); undo("음정선 위에 그리면 그 구간 음높이가 그린 대로 · 그린 선을 톡 = 지우기", null, 4500, "확인"); } paintAdv(); };   // (11/06) 펜으로 그리기
       gl.onclick = () => { try { G.TuneAdv.globalSheet(wrap.querySelector(".tfBox") || wrap, st, cv); } catch (e) { console.warn("고급 보정", e); } };
       paintAdv(); }
