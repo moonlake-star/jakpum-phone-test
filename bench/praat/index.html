@@ -8,8 +8,8 @@
 <p style="margin:0 0 14px;color:#b8c0cc">서버에서 쓰는 Praat을 이 폰 안에서 직접 돌려 봅니다. 합성한 목소리(녹음 아님)로 용량·준비 시간·계산 시간·메모리를 잽니다. 처음엔 약 7MB를 내려받습니다(와이파이 권장).</p>
 <button id="go">측정 시작</button><button id="long" disabled>3분 곡 전체 (메모리 시험)</button>
 <div id="out"></div>
-<p style="margin-top:20px"><small>Praat 6.1.38 (GPL) — 소스: <a href="https://github.com/praat/praat/tree/v6.1.38">github.com/praat/praat</a> · 컴파일러 호환용 수정과 빌드 설정은 이 폴더의 <a href="praat-6.1.38-patches.diff">patches.diff</a>, <a href="makefile.defs.emscripten">makefile.defs.emscripten</a> 참고. 소리 계산 코드는 바꾸지 않았습니다.</small></p>
-<script src="praat_web.js"></script>
+<p style="margin-top:20px"><small>Praat 6.1.38 (GPL) — 소스: <a href="https://github.com/praat/praat/tree/v6.1.38">github.com/praat/praat</a> · 컴파일러 호환용 수정과 빌드 설정은 praat 폴더의 <a href="../../praat/praat-6.1.38-patches.diff">patches.diff</a>, <a href="../../praat/makefile.defs.emscripten">makefile.defs.emscripten</a> 참고. 소리 계산 코드는 바꾸지 않았습니다.</small></p>
+<script src="../../praat/praat_web.js"></script>
 <script>
 const out = document.getElementById("out"), goB = document.getElementById("go"), longB = document.getElementById("long");
 const add = (h, cls) => { const d = document.createElement("div"); d.className = "r " + (cls || ""); d.innerHTML = h; out.appendChild(d); return d; };
@@ -47,7 +47,7 @@ writeInfoLine: "RESULT ", fixed$(t1,3), " ", fixed$(t2,3), " ", fixed$(t3,3)
 let BIN = null;   // Praat은 한 번 실행하고 나면 다시 못 돌려서(내부 상태), 측정마다 새로 시작함
 async function fresh() { const lines = []; const P = await PraatModule({ wasmBinary: BIN, print: (s) => lines.push(s), printErr: (s) => lines.push("ERR " + s) }); P._lines = lines; return P; }
 async function load() {
-  const t0 = now(); const r = await fetch("praat_web.wasm.gz"); if (!r.ok) throw new Error("파일을 못 받음 " + r.status);
+  const t0 = now(); const r = await fetch("../../praat/praat_web.wasm.gz"); if (!r.ok) throw new Error("파일을 못 받음 " + r.status);
   const gz = new Uint8Array(await r.arrayBuffer()), t1 = now();
   if (typeof DecompressionStream === "undefined") throw new Error("이 브라우저는 압축 풀기를 지원하지 않아요(DecompressionStream)");
   const bin = new Uint8Array(await new Response(new Blob([gz]).stream().pipeThrough(new DecompressionStream("gzip"))).arrayBuffer()), t2 = now();

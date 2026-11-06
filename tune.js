@@ -966,7 +966,8 @@
         el.textContent = `보정본 · 고친 ${n}곳 미리듣기 (근사) ⓘ`; el.onclick = () => st.advPvInfo(); };
       st.advPvInfo = () => { const old = wrap.querySelector(".tfCfm"); if (old) old.remove();   // 배지를 누르면: 미리듣기와 완성본이 다른 점
         const cf = document.createElement("div"); cf.className = "tfCfm"; cf.setAttribute("role", "dialog");
-        cf.innerHTML = `<div class="tfCfmBox"><b>미리듣기는 대략의 소리예요</b><p>폰에서 빠르게 만든 소리라 완성본과 조금 달라요. 음정 · 타이밍 · 흐름 · 비브라토 · 볼륨 · 음별 음색은 지금 들리고, 곡 전체 음색과 일괄 보정은 안 들려요. 정확한 소리는 <b>완성본 다시 만들기</b> 뒤에 들려요.</p><div class="tfCfmRow"><button type="button" class="pri" data-cf="1">알겠어요</button></div></div>`;
+        const pr = G.PvPraat || window.PvPraat, msg = pr === "ready" ? "<b>고친 음의 높이</b>(음정 · 흐름 · 기울기 · 비브라토)는 폰 안에서 <b>서버와 같은 엔진</b>으로 만들어 완성본과 거의 같아요. 타이밍 · 음색 · 볼륨 · 울림은 아직 대략의 소리고, 곡 전체 음색과 일괄 보정은 안 들려요." : pr === "loading" ? "서버와 같은 엔진을 불러오는 중이에요(처음 한 번만 약 7MB). 그동안은 대략의 소리예요." : "폰에서 빠르게 만든 소리라 완성본과 조금 달라요. 음정 · 타이밍 · 흐름 · 비브라토 · 볼륨 · 음별 음색은 지금 들리고, 곡 전체 음색과 일괄 보정은 안 들려요.";
+        cf.innerHTML = `<div class="tfCfmBox"><b>${pr === "ready" ? "음정은 서버와 거의 같은 소리예요" : "미리듣기는 대략의 소리예요"}</b><p>${msg} 정확한 소리는 <b>완성본 다시 만들기</b> 뒤에 들려요.</p><div class="tfCfmRow"><button type="button" class="pri" data-cf="1">알겠어요</button></div></div>`;
         cf.addEventListener("pointerdown", (e) => e.stopPropagation());
         const ly = G.Brand && G.Brand.layer ? G.Brand.layer(() => cf.remove()) : { close: () => cf.remove() };
         cf.addEventListener("click", (e) => { if (e.target === cf || e.target.dataset.cf) ly.close(); });

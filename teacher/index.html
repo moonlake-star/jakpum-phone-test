@@ -522,8 +522,8 @@
 <div id="v2Shade" class="v2only"></div>
 <div id="toast"></div>
 <script src="../lesson-replies.js"></script>
-<script src="../tune.js?v=20261106-0930"></script>
-<script src="../adv.js?v=20261106-0930"></script>
+<script src="../tune.js?v=20261106-1000"></script>
+<script src="../adv.js?v=20261106-1000"></script>
 <script src="../pitch-embed.js?v=20261105-1850"></script>
 
 <script>
@@ -4896,18 +4896,80 @@ function pvAdvMaps(cv, lvCol) {   // 보정본 열: [처음 선(소리의 높이
   cv.pts.forEach((p, i) => { const b0 = base[i], c0 = p[k]; if (b0 != null) bm.set(Math.round(p[0] * fps), b0); if (b0 != null && c0 != null) { const d = c0 - b0; dm.set(Math.round(p[0] * fps), d); if (Math.abs(d) > 0.5) any = true; } });
   return { f0: lvCol === k ? bm : pvBins(cv, lvCol), delta: dm, any };
 }
+// (11/06 사용자 '서버 프로세싱과 완전 동일하게') 고친 음정은 폰 안에서 서버와 같은 엔진(Praat, WebAssembly)으로 다시 만들어 끼움
+// 먼저 지금처럼 간이 합성(PSOLA)으로 바로 들려주고, Praat이 준비되면(처음 약 7MB 내려받기, 구간당 0.2~0.5초) 같은 구간을 서버 소리로 바꿔 끼움 · ?praat=0 으로 끔
+const PVP = { cache: new Map(), pend: new Map(), state: "idle", jobs: [] };
+if (typeof window !== "undefined") Object.defineProperty(window, "PvPraat", { get: () => PVP.state, configurable: true });   // idle·loading·ready·fail·off — 안내 팝업이 읽음
+const PVP_CTX = 0.3;   // 분석·합성에 앞뒤로 더 쓰는 소리(초) — 구간 가장자리에서도 서버와 같은 분석
+function pvLoadScript(src) { return new Promise((ok, no) => { const e = document.createElement("script"); e.src = src; e.onload = ok; e.onerror = () => no(new Error(src)); document.head.appendChild(e); }); }
+function pvPraatLoad() {
+  if (PVP.p) return PVP.p;
+  PVP.p = (async () => {
+    if (typeof PraatCore !== "undefined" && PraatCore.ready()) return (PVP.state = "ready");
+    if (typeof location !== "undefined" && /[?&]praat=0\b/.test(location.search)) { PVP.state = "off"; return; }
+    PVP.state = "loading";
+    await pvLoadScript("../praat/praat_web.js?v=20261106-1000"); await pvLoadScript("../praat/praat-core.js?v=20261106-1000");
+    const r = await fetch("../praat/praat_web.wasm.gz"); if (!r.ok) throw new Error("praat " + r.status);
+    await PraatCore.init(await r.arrayBuffer(), PraatModule); PVP.state = "ready"; document.dispatchEvent(new Event("advpv"));
+    if (Object.keys(mkTracks).length) setTimeout(() => { try { pvApplyAll(); } catch {} }, 0);
+  })().catch((e) => { PVP.state = "fail"; console.warn("Praat 미리듣기를 못 불러옴(간이 소리로 계속)", e); });
+  return PVP.p;
+}
+function pvTotalBins(cv, lvCol, cls, mp) {   // 칸마다 '보정 전 소리(p0) 높이 → 지금 들려줄 높이' 보정(센트): 고친 음 = 정음 − 부른 높이, 그 밖 = 서버가 만든 높이 − 부른 높이, 디테일 고침 포함
+  const fps = cv.fps || 25, raw = pvBins(cv, 1), ren = new Map(), m = new Map(), fxs = cls.flatMap((c) => c.fx);
+  for (const p of cv.pts || []) if (p[lvCol] != null) ren.set(Math.round(p[0] * fps), p[lvCol]);
+  const adv = mp && mp.any ? mp.delta : null, K = (cv.levels || []).length ? 2 + cv.levels.length - 1 : 0;
+  for (const [k, r0] of raw) { const tk = k / fps, f = fxs.find((x) => tk >= x.t0 - 0.001 && tk <= x.t1 + 0.001), rk = ren.get(k); let cor = null;
+    if (f) { let s_ = 0, c_ = 0; for (let d = -2; d <= 2; d++) { const x = raw.get(k + d); if (x != null) { s_ += x; c_++; } }
+      cor = f.midi * 100 - s_ / c_; if (Math.abs(cor) < 8 && Number.isInteger(f.midi)) cor = 0; cor = Math.max(-1200, Math.min(1200, cor)); if (adv && lvCol === K && adv.get(k) != null) cor += adv.get(k); }
+    else if (rk != null) cor = rk - r0;
+    if (cor != null) m.set(k, cor); }
+  return m;
+}
+function pvShiftAt(bins, fps, t) {   // 분석점 시각 t → 보정(센트): 칸 가운데 값끼리 선형 보간, 소리 없는 칸 쪽은 0
+  const x = t * fps - 0.5, k0 = Math.floor(x), a = bins.get(k0), b = bins.get(k0 + 1), w = x - k0;
+  return a != null && b != null ? a * (1 - w) + b * w : a != null && w < 0.5 ? a : b != null && w >= 0.5 ? b : 0;
+}
+function pvPraatPlan(cv, lvCol, sr, cls, ap, mp, len) {   // 다시 만들 구간들(정음 고침 덩어리 + 높이를 바꾼 디테일 고침) — 가까운 것은 합침
+  const raw = [...cls.map((c) => [c.t0, c.t1])]; if (ap && mp && mp.any) for (const c of ap.regs) if (c.notes.some((nt) => PV_ADV_P.some((k) => k in nt))) raw.push([c.t0, c.t1]);
+  raw.sort((a, b) => a[0] - b[0]); const mg = []; for (const r of raw) { const L = mg[mg.length - 1]; if (L && r[0] - L[1] < 0.3) L[1] = Math.max(L[1], r[1]); else mg.push([r[0], r[1]]); }
+  const X = Math.round(sr * 0.05), bins = mg.length ? pvTotalBins(cv, lvCol, cls, mp) : null, fps = cv.fps || 25, regs = [];
+  for (const [a, b] of mg) { const i0 = Math.max(0, Math.round(a * sr) - X), i1 = Math.min(len, Math.round(b * sr) + X); if (i1 - i0 < 3 * X) continue;
+    let h = 0, c = 0; for (let k = Math.floor((i0 / sr - PVP_CTX) * fps) - 1; k <= Math.ceil((i1 / sr + PVP_CTX) * fps) + 1; k++) { const v = bins.get(k); if (v != null) { h = (h * 31 + Math.round(v * 4) + k) | 0; c++; } }
+    regs.push({ i0, i1, key: `${sr}|${i0}|${i1}|${c}|${h}` }); }
+  return { regs, bins };
+}
+function pvPraatJob(reg, bins, cv, sr) {   // 한 구간: 원래 소리(p0)를 앞뒤 여유와 함께 서버와 같은 순서로 분석 → 보정 → 재합성
+  if (PVP.cache.has(reg.key) || PVP.pend.has(reg.key)) return;
+  const src = mkTracks.p0?.buf; if (!src) return;
+  const pr = (async () => {
+    const c0 = Math.round(sr * PVP_CTX), ia = Math.max(0, reg.i0 - c0), ib = Math.min(src.length, reg.i1 + c0), x = pvSrc(src, 0, ia, ib), fps = cv.fps || 25;
+    const A = await PraatCore.analyze(x, sr), sh = Float64Array.from(A.t, (t) => pvShiftAt(bins, fps, ia / sr + t)), y = await PraatCore.apply(x, sr, A.t, A.f, sh);
+    PVP.cache.set(reg.key, y.slice(reg.i0 - ia, reg.i1 - ia)); if (PVP.cache.size > 60) PVP.cache.delete(PVP.cache.keys().next().value);
+  })().catch((e) => { PVP.cache.set(reg.key, null); console.warn("Praat 구간 실패(간이 소리로 계속)", e); }).finally(() => { PVP.pend.delete(reg.key); if (!PVP.pend.size) setTimeout(() => { for (const o of Object.values(mkPv.orig)) o.sig = "?"; try { pvApplyAll(); } catch {} }, 0); });
+  PVP.pend.set(reg.key, pr); PVP.jobs.push(pr);
+}
 function pvApply(name) {   // 한 트랙에 지금 고친 정음·타이밍 전부 반영(원래 조각을 기억해 두고, 바뀌면 되돌린 뒤 다시 만듦) — 음정 먼저, 타이밍은 그 위에
   const tr = mkTracks[name], buf = tr?.buf, nm = /^([pw])([123])$/.exec(name), cv = mkPv.cv, voc = /^([pwqx][0-3]|wet|dry)$/.test(name); if (!buf || !cv || (!nm && !voc)) return false;
   const dry = !!nm && nm[1] === "p", src = dry ? mkTracks.p0?.buf : buf, pOn = !!nm && !!src;   // 보정본 음정은 보정 전 보컬이 있어야(다 받으면 다시 시도)
   const sr = buf.sampleRate, X = Math.round(sr * 0.05), lvCol = nm ? (typeof Tune !== "undefined" ? Tune.col(cv, +nm[2]) : 1 + +nm[2]) : 1;
   const cls = pOn ? pvClusters(mkPv.fixes) : [], tp = voc ? (mkPv.tplan || { sig: "", regs: [] }) : { sig: "", regs: [] };
   const ap = nm ? pvAdvPlan() : null;   // 디테일 보정 미리듣기(보정본·울림 트랙만)
-  const sig = JSON.stringify(cls.map(c => c.fx.map(f => [f.t0, f.t1, f.midi, dry ? 0 : mkPv.rendered(f)]))) + "|" + tp.sig + (ap ? "|" + ap.sig : "");
+  let pp = null, ppReady = false;   // Praat(서버와 같은 엔진) 구간 계획 — 보정본(p) 트랙만(울림은 대략 그대로)
+  if (dry && src && PVP.state !== "fail" && PVP.state !== "off") {
+    try { const mp0 = ap ? pvAdvMaps(cv, lvCol) : null; pp = pvPraatPlan(cv, lvCol, sr, cls, ap, mp0, buf.length);
+      if (pp.regs.length) { if (PVP.state === "ready") { ppReady = pp.regs.every((r) => PVP.cache.get(r.key)); for (const r of pp.regs) if (!PVP.cache.has(r.key)) pvPraatJob(r, pp.bins, cv, sr); } else pvPraatLoad().then(() => { if (PVP.state === "ready") try { pvApplyAll(); } catch {} }); } }
+    catch (e) { pp = null; console.warn("Praat 계획", e); } }
+  const sig = JSON.stringify(cls.map(c => c.fx.map(f => [f.t0, f.t1, f.midi, dry ? 0 : mkPv.rendered(f)]))) + "|" + tp.sig + (ap ? "|" + ap.sig : "") + (ppReady ? "|P" + pp.regs.map((r) => r.key).join(",") : "");
   const st = mkPv.orig[name] || (mkPv.orig[name] = { sig: "[]|", regs: [] });
   if (st.sig === sig) return false;
   for (const r of st.regs.slice().reverse()) r.ch.forEach((org, c) => buf.getChannelData(c).set(org, r.i0));   // 먼저 원래대로
   st.regs = []; st.sig = sig;
-  for (const cl of cls) {
+  if (ppReady) for (const r of pp.regs) {   // 서버와 같은 엔진으로 만든 소리(정음 고침 + 높이 바꾼 디테일 고침)
+    const i0 = r.i0, n = r.i1 - r.i0, y = PVP.cache.get(r.key), reg = { i0, ch: Array.from({ length: buf.numberOfChannels }, (_, c) => buf.getChannelData(c).slice(i0, r.i1)) }; st.regs.push(reg);
+    for (let c = 0; c < buf.numberOfChannels; c++) { const out = buf.getChannelData(c), org = reg.ch[c];
+      for (let k = 0; k < n; k++) { const a = k < X ? k / X : k > n - X ? (n - k) / X : 1; out[i0 + k] = org[k] * (1 - a) + y[k] * a; } } }
+  else for (const cl of cls) {
     const i0 = Math.max(0, Math.round(cl.t0 * sr) - X), i1 = Math.min(buf.length, Math.round(cl.t1 * sr) + X), n = i1 - i0; if (n < 3 * X) continue;
     const reg = { i0, ch: Array.from({ length: buf.numberOfChannels }, (_, c) => buf.getChannelData(c).slice(i0, i1)) }; st.regs.push(reg);
     const f0 = pvF0(cv, dry ? 1 : lvCol, sr, i0, n), rat = pvClusterRatio(cv, cl, dry, lvCol, sr, i0, n);
@@ -4924,7 +4986,7 @@ function pvApply(name) {   // 한 트랙에 지금 고친 정음·타이밍 전�
     for (const cl of ap.regs) {
       const i0 = Math.max(0, Math.round(cl.t0 * sr) - X), i1 = Math.min(buf.length, Math.round(cl.t1 * sr) + X), n = i1 - i0; if (n < 3 * X) continue;
       const reg = { i0, ch: Array.from({ length: buf.numberOfChannels }, (_, c) => buf.getChannelData(c).slice(i0, i1)) }; st.regs.push(reg);
-      const gain = pvAdvGain(cl, sr, i0, n), usePitch = !!(mp && mp.any && cl.notes.some(nt => PV_ADV_P.some(k => k in nt)));
+      const gain = pvAdvGain(cl, sr, i0, n), usePitch = !ppReady && !!(mp && mp.any && cl.notes.some(nt => PV_ADV_P.some(k => k in nt)));
       const f0 = usePitch ? pvPerSample(cv, mp.f0, sr, i0, n, (c) => c == null ? 0 : PV_C2HZ(c)) : null, rat = usePitch ? pvPerSample(cv, mp.delta, sr, i0, n, (c) => c == null ? 1 : 2 ** (c / 1200)) : null;
       const fn = cl.notes.filter(nt => nt.formant && nt.t1 - nt.t0 >= 0.08), fcur = fn.length ? pvF0(cv, lvCol, sr, i0, n) : null;   // 음색: 높이를 옮긴 뒤의 소리에 얹음(서버와 같은 차례), 볼륨은 그 다음
       for (let c = 0; c < buf.numberOfChannels; c++) { const out = buf.getChannelData(c), org = reg.ch[c]; let sh = usePitch ? pvPsola(org, sr, f0, rat) : org;
@@ -7042,7 +7104,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-06-0930-pv-formant";
+const BUILD = "2026-11-06-1000-praat-preview";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
