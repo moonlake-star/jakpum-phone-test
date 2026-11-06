@@ -53,3 +53,8 @@ console.log("adv-pen ok");
 { const a7 = require("fs").readFileSync(__dirname + "/../adv.js", "utf8"), t7 = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8"), A_ = require("assert");
   A_.ok(a7.includes("function engineBox(st)") && a7.includes('data-ew="A"') && a7.includes("st.engSet({ engine: mk[k], engine_pick: k })") && a7.includes("${pick ? `"), "A/B 고르면 엔진으로");
   A_.ok(t7.includes('engFid("엔진비교_A.mp3")') && t7.includes('if (!r.engine || r.engine === "psola") delete r.engine;')); }
+// (11/06) 고급 보정 ③ 마우스 모드: 휠 이동·Ctrl+휠 확대·빈 곳 끌기 = 여러 음·우클릭 메뉴·Alt 미세·키보드
+{ const t8 = require("fs").readFileSync(__dirname + "/../tune.js", "utf8"), A_ = require("assert");
+  A_.ok(t8.includes('cvEl.addEventListener("wheel"') && t8.includes("if (e.ctrlKey || e.metaKey) { st.xz = ") && t8.includes("armed: { x: l0.x, t: tt, mouse: true }"));
+  A_.ok(t8.includes('mn.className = "tfCtx"') && t8.includes('if (e.pointerType === "mouse" && e.altKey) d0.fine = true;') && t8.includes('if (e.pointerType === "mouse") armH();'));
+  A_.ok(t8.includes('document.addEventListener("keydown", st.onKey)') && t8.includes('document.removeEventListener("keydown", st.onKey)'), "키보드 — 닫으면 정리"); }

@@ -655,7 +655,7 @@
       cv._fixes = prior.filter(x => !(x.t0 < b.t1 && x.t1 > b.t0)).concat(keepFix() ? [{ t0: T0, t1: T1, midi: rnd(m), ...(isCut && same() ? { cut: true } : {}) }] : []); };
     let tm = null;
     const persist = () => { clearTimeout(tm); stEl.textContent = "저장 중…"; tm = setTimeout(() => { tm = null; try { fxSave(onFix, { t0: T0, t1: T1, midi: keepFix() ? rnd(m) : null, ...(isCut && same() ? { cut: true } : {}) }); } catch {} commit(); stEl.textContent = "✓ 저장됨"; }, 450); };
-    const core = () => { if (st) { st.selSnd = null; st.snapSel = null; st.advRepaint = null; } try { sndOff(); } catch {} if (tTm) { clearTimeout(tTm); tTm = null; tSave(); commit(); } if (st) { if (st._dragBase != null && Math.abs(m - st._dragBase) > 0.004) persist(); st._dragBase = null; st.onBarDrag = null; st.onBarDragX = null; st.onBarDragEnd = null; st.onBarDragXEnd = null; st.stopAt = 0; } if (tm) { clearTimeout(tm); tm = null; try { fxSave(onFix, { t0: T0, t1: T1, midi: keepFix() ? rnd(m) : null, ...(isCut && same() ? { cut: true } : {}) }); } catch {} commit(); } toneOff(); if (st) st.sel = null; d.remove(); };
+    const core = () => { if (st) { st.selSnd = null; st.snapSel = null; st.stepSel = null; st.advRepaint = null; } try { sndOff(); } catch {} if (tTm) { clearTimeout(tTm); tTm = null; tSave(); commit(); } if (st) { if (st._dragBase != null && Math.abs(m - st._dragBase) > 0.004) persist(); st._dragBase = null; st.onBarDrag = null; st.onBarDragX = null; st.onBarDragEnd = null; st.onBarDragXEnd = null; st.stopAt = 0; } if (tm) { clearTimeout(tm); tm = null; try { fxSave(onFix, { t0: T0, t1: T1, midi: keepFix() ? rnd(m) : null, ...(isCut && same() ? { cut: true } : {}) }); } catch {} commit(); } toneOff(); if (st) st.sel = null; d.remove(); };
     // (11/02 20:26 사용자) 폰 뒤로(갤럭시 뒤로 밀기) = 고치기 창만 닫기(전체화면은 그대로) — 주석 창과 같은 방식(기록 한 칸)
     const leave = () => { if (sheetClose === close_) sheetClose = null; try { if (history.state && history.state.tuneSheet) { const nl = dropL(); skipPop = true; history.go(-1 - nl); } } catch {} };
     const close_ = (fromPop) => { core(); saveToast(); if (bot) bot._h0 = 0; if (fromPop === true) { if (sheetClose === close_) sheetClose = null; } else leave(); if (st && st.dock) st.dock(); };
@@ -667,7 +667,7 @@
     d.addEventListener("pointerdown", (e) => e.stopPropagation()); d.addEventListener("contextmenu", (e) => e.preventDefault());
    // 아래 큰 스위치(창이 뜨면 숨김)와 같은 동작 · 켜짐 표시는 그림 그릴 때 같이
     const step = (dm, beep) => { m = rnd(m + dm); paint(); preview(); persist(); if (beep) sndFor(m, 500); };
-    if (st) { st.snapSel = (mm) => { const was = m; step(rnd(mm) - m, true); return was; }; st._bt = Date.now(); }   // (11/06) 두 번 톡 맞춤 — 같은 단추(▼▲)와 같은 저장 길
+    if (st) { st.snapSel = (mm) => { const was = m; step(rnd(mm) - m, true); return was; }; st.stepSel = (dm) => step(dm, true); st._bt = Date.now(); }   // (11/06) 두 번 톡 맞춤 — 같은 단추(▼▲)와 같은 저장 길
     // (11/03 10:50 사용자) ▼▲ 톡 = 반음 · 꾹 누르고 있으면 5센트씩 조금씩(소리 따라감) · 반음 단위는 막대를 누른 채 위아래로도
     d.querySelectorAll("[data-d]").forEach(x => { let hold = null, rep_ = null, long = false;
       const stop = () => { clearTimeout(hold); clearInterval(rep_); hold = rep_ = null; if (long) sndOff(); };
@@ -946,7 +946,7 @@
         rp.addEventListener("pointerdown", (e) => { e.stopPropagation(); shut(); });
         bye && bye.remove();   // 안내가 겹치지 않게 '닫을 때는…'은 이번엔 생략
         setTimeout(() => { if (!wrap.isConnected) return; wrap.appendChild(rp); setTimeout(shut, 3500); }, 400); } }
-    const done = () => { saveToast(); G.removeEventListener("resize", layout); G.removeEventListener("orientationchange", layout); wrap.remove(); if (fsClose === done) fsClose = null; };
+    const done = () => { saveToast(); try { document.removeEventListener("keydown", st.onKey); } catch {} G.removeEventListener("resize", layout); G.removeEventListener("orientationchange", layout); wrap.remove(); if (fsClose === done) fsClose = null; };
     fsClose = done;
     const close = () => { const sh = !!sheetClose, nl = dropL(); if (sh) sheetClose(true); done(); try { if (history.state && history.state.tuneFs) { skipPop = true; history.go(-1 - nl - (sh && history.state.tuneSheet ? 1 : 0)); } } catch {} };   // 주석 창·팁 목록이 열린 채 닫으면 그 기록까지 같이 정리
     wrap.querySelectorAll(".tfX").forEach(b => b.onclick = close);
@@ -1104,11 +1104,16 @@
         // (11/06 16:20 사용자) ① 양 끝 화살표: 바로 끌면 안 움직임 — 꾹(0.35초) 누른 뒤 좌우로 = 길이 미세
         const ed = H_ ? (hit(H_.l) ? "l" : hit(H_.r) ? "r" : null) : null;
         if (ed && st.onBarDragX) { const d0 = drag = { hArm: true, edge: ed, x0: l0.x, y0: l0.y, id: e.pointerId, cx: e.clientX, cy: e.clientY };
-          d0.lp = setTimeout(() => { if (drag !== d0 || d0.cancel) return; d0.hArmed = true; st.hdlArmed = ed; st.onBarDragX(0, ed, true); buzz(25); st.pulse = { x: l0.x, y: l0.y, at: performance.now() }; }, LONG_MS); return; }
+          const armH = () => { if (drag !== d0 || d0.cancel) return; d0.hArmed = true; st.hdlArmed = ed; st.onBarDragX(0, ed, true); if (e.pointerType !== "mouse") { buzz(25); st.pulse = { x: l0.x, y: l0.y, at: performance.now() }; } };
+          if (e.pointerType === "mouse") armH(); else d0.lp = setTimeout(armH, LONG_MS); return; }   // (11/06 ③) 마우스는 정확하니 꾹 없이 바로
         // ② 고른 음 가운데: 바로 위아래 = 반음씩 · 바로 좌우 = 자리 옮기기 · 꾹 누른 뒤 = 둘 다 미세 · 두 번 톡 = 가까운 음에 착
         const hb0 = hitBar(l0);
         if (hb0 && Math.abs(hb0.t0 - st.sel.t0) < 0.02 && l0.x >= st.kb.L && st.onBarDrag) { const d0 = drag = { selBody: true, x0: l0.x, y0: l0.y, axis: null, fine: false, id: e.pointerId, cx: e.clientX, cy: e.clientY, a: along(e), b: across(e), t: +getT() || 0, mode: null };
-          d0.lp = setTimeout(() => { if (drag !== d0 || d0.axis) return; d0.fine = true; buzz(25); st.pulse = { x: l0.x, y: l0.y, at: performance.now() }; }, LONG_MS); return; } }
+          if (e.pointerType === "mouse" && e.altKey) d0.fine = true;   // (11/06 ③) 마우스: Alt(Option)+끌기 = 미세
+          else d0.lp = setTimeout(() => { if (drag !== d0 || d0.axis) return; d0.fine = true; buzz(25); st.pulse = { x: l0.x, y: l0.y, at: performance.now() }; }, LONG_MS); return; } }
+      if (pts.size === 1 && e.pointerType === "mouse" && e.button === 0 && st.advOn && typeof o.onResetRange === "function" && st.map && st.kb) {   // (11/06 ③) 마우스: 빈 곳 끌기 = 여러 음 고르기(이동은 휠)
+        const l0 = loc(e.clientX, e.clientY, cvEl.getBoundingClientRect());
+        if (l0.x >= st.kb.L && !hitT(l0) && !hitBar(l0)) { const tt = timeAt(st, l0.x); drag = { a: along(e), b: across(e), t: +getT() || 0, id: e.pointerId, mode: null, cx: e.clientX, cy: e.clientY, armed: { x: l0.x, t: tt, mouse: true } }; return; } }
       if (pts.size === 1 && st.onBarDragX && st.fixMode === "t" && st.sel && st.kb && st.map) { const r0 = cvEl.getBoundingClientRect(), l0 = loc(e.clientX, e.clientY, r0);   // (11/03 13:08) 타이밍 모드: 고른 막대 가운데 끌기 = 옮기기, 양 끝 = 길이
         const tb = (st.tebars || []).find(x => Math.abs(x.t0 - st.sel.t0) < 0.02) || (st.tbars || []).find(x => Math.abs(x.t0 - st.sel.t0) < 0.02);
         if (tb && l0.x >= st.kb.L && Math.abs(l0.y - tb.y) <= Math.max(22, tb.h) && l0.x >= tb.x0 - 16 && l0.x <= tb.x1 + 16) {
@@ -1134,7 +1139,7 @@
             if (tt != null) { lastView = view; o.onAdd(tt); } }, 390); } }
     });
     cvEl.addEventListener("pointermove", (e) => {
-      if (!pts.has(e.pointerId)) return; pts.set(e.pointerId, { a: along(e), b: across(e) });
+      if (!pts.has(e.pointerId)) { if (e.pointerType === "mouse") mouseHover(e); return; } pts.set(e.pointerId, { a: along(e), b: across(e) });
       if (pinch && pts.size >= 2) { const [p1, p2] = [...pts.values()], r = pinch.d > 30 ? Math.hypot(p1.a - p2.a, p1.b - p2.b) / pinch.d : 1;   // 어느 방향으로 벌려도 상하·좌우 같이 확대
         if (st.mMode) { preview = Math.max(0, pinch.t - ((p1.a + p2.a) / 2 - pinch.mid) / span() * ((st.win || 6) / st.xz)); return; }   // 여러 음 고르기 중엔 두 손가락 = 시간 이동
         st.yz = Math.max(1, Math.min(12, pinch.yz * r)); st.xz = Math.max(1, Math.min(4, pinch.xz * Math.sqrt(r)));
@@ -1161,6 +1166,7 @@
         if (k !== drag.k) { drag.k = k; drag.moved = true; if (st.onBarDrag) st.onBarDrag(k, false); } return; }
       if (drag.kb) { const r0 = cvEl.getBoundingClientRect(), l0 = loc(e.clientX, e.clientY, r0), m = Math.round(st.kb.inv(l0.y) / 100); if (m !== st.kbDown) { st.kbDown = m; tone(m); } return; }   // 건반 위로 밀면 따라 바뀜
       const dA = along(e) - drag.a, dB = across(e) - drag.b;
+      if (drag.armed && drag.armed.mouse && !drag.moved) { const l0 = loc(e.clientX, e.clientY, cvEl.getBoundingClientRect()); if (Math.abs(l0.x - drag.armed.x) < 6) return; pauseNow(); st.msel = [drag.armed.t, drag.armed.t]; }
       if (drag.armed) { const l0 = loc(e.clientX, e.clientY, cvEl.getBoundingClientRect()), mp = st.map; if (!mp) return;   // 꾹 누른 채 끌기 = 여러 음 고르기
         if (!drag.moved && Math.abs(l0.x - drag.armed.x) < 12) return; drag.moved = true; armTip(false);
         const tx = (x) => mp.t0 + (Math.max(mp.L, Math.min(mp.w, x)) - mp.L) / Math.max(1, mp.w - mp.L) * mp.W8, a = drag.armed.t, b = tx(l0.x); st.msel = [Math.max(0, Math.min(a, b)), Math.max(a, b)];
@@ -1175,6 +1181,7 @@
       if (!pts.has(e.pointerId)) return; pts.delete(e.pointerId);
       if (pinch) { st.hold = null; if (pts.size === 0) { pinch = null; if (st.mMode && preview != null) { const t_ = preview; preview = null; try { seek(t_, true); } catch {} } } return; }
       if (!drag || drag.id !== e.pointerId) return; const d = drag; drag = null; clearTimeout(d.lp); st.hold = null;
+      if (d.armed && d.armed.mouse && !d.moved) delete d.armed;   // 마우스로 빈 곳을 그냥 누름 = 평소처럼 재생/멈춤
       if (d.armed) { armTip(false); clearInterval(d.auto); d.auto = null; if (preview != null) { const t_ = preview; preview = null; try { seek(t_, true); } catch {} } if (d.moved) { if (st.onMSel) st.onMSel(); return; } if (d.armed.keep) return; st.msel = null; if (e.type === "pointerup") { if (st.notesHidden) st.noteShow = true; lastView = view; o.onAdd(d.armed.t); } return; }   // 숨긴 채 새 주석 = 주석 칸 보이기   // 끌지 않고 뗌 = 새 주석(예전과 같음)
       if (d.long) return;
       if (d.hArm) { clearTimeout(d.lp); st.hdlArmed = null; if (d.hArmed) { if (d.moved) learn("arr"); if (st.onBarDragXEnd) try { st.onBarDragXEnd(); } catch {} } else if (!d.cancel && e.type === "pointerup") undo("‹ › 화살표는 꾹 누른 채 좌우로 끌면 길이가 바뀌어요", null, 2500, "확인"); return; }
@@ -1215,6 +1222,38 @@
           const j = le.x < hx ? -DT_JUMP : DT_JUMP, nt = Math.max(0, Math.min(endT(), (+getT() || 0) + j)); st.panAt = 0; try { seek(nt, isPaused()); } catch {} showMid(j < 0 ? "back" : "fwd"); }
         else { toggle(); lastTap = now; } }
     };
+    // ── (11/06 사용자 '고급 보정 ③ 마우스 모드') 블루투스 마우스·트랙패드: 따로 켜지 않고 마우스를 쓰면 바로 ──
+    let mouseHi = false;
+    const mouseHello = () => { if (mouseHi) return; mouseHi = true; try { if (localStorage.getItem("tune_mouse_tip_v1") === "1") return; localStorage.setItem("tune_mouse_tip_v1", "1"); } catch {}
+      undo("🖱 마우스: 휠 = 앞뒤 이동 · Ctrl+휠 = 확대 · 빈 곳 끌기 = 여러 음 고르기 · 우클릭 = 메뉴 · Alt+끌기 = 미세 · ↑↓ 반음 · 스페이스 = 재생", null, 7000, "확인"); };
+    cvEl.addEventListener("pointerdown", (e) => { if (e.pointerType === "mouse") mouseHello(); }, true);
+    cvEl.addEventListener("wheel", (e) => { e.preventDefault(); mouseHello();
+      if (e.ctrlKey || e.metaKey) { st.xz = Math.max(1, Math.min(4, (st.xz || 1) * Math.exp(-e.deltaY * 0.004))); return; }   // 트랙패드 꼬집기도 여기로 옴
+      if (e.altKey) { st.yz = Math.max(1, Math.min(12, (st.yz || 1) * Math.exp(-e.deltaY * 0.004))); if (st.yz > 1 && st.yc == null) { const f = fitAt(cv, +getT() || 0, 0); st.yc = f ? f[2] : null; } return; }
+      const dd = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY, W = (st.win || 6) / (st.xz || 1), px = e.deltaMode === 1 ? dd * 16 : dd;
+      const nt = Math.max(0, Math.min(endT(), (+getT() || 0) + px / span() * W)); st.panAt = 0; try { seek(nt, isPaused()); } catch {} }, { passive: false });
+    const mouseHover = (e) => { if (!st.map || !st.kb) return; const l0 = loc(e.clientX, e.clientY, cvEl.getBoundingClientRect()), H_ = st.hdl, onH = H_ && [H_.l, H_.r].some(c => c && Math.hypot(l0.x - c.x, l0.y - c.y) <= c.r);
+      const hb = l0.x >= st.kb.L ? (hitT(l0) || hitBar(l0)) : null, onSel = hb && st.sel && Math.abs(hb.t0 - st.sel.t0) < 0.02;
+      cvEl.style.cursor = st.penTool ? "crosshair" : onH ? "ew-resize" : onSel ? "grab" : hb ? "pointer" : l0.x < st.kb.L ? "pointer" : st.advOn ? "text" : "default"; };
+    cvEl.addEventListener("contextmenu", (e) => {   // 우클릭: 음 위면 그 음을 고르고 작은 메뉴(가까운 음에 맞춤·나누기·원본으로)
+      if (!st.advOn || typeof o.onFix !== "function") return; const l0 = loc(e.clientX, e.clientY, cvEl.getBoundingClientRect()), hb = hitT(l0) || hitBar(l0); if (!hb) return;
+      pauseNow(); if (!(st.sel && Math.abs(hb.t0 - st.sel.t0) < 0.02)) { try { fixSheet(wrap, cv, hb, o.onFix, getT, st); } catch {} }
+      wrap.querySelectorAll(".tfCtx").forEach(x => x.remove()); const mn = document.createElement("div"); mn.className = "tfCtx"; mn.setAttribute("role", "menu");
+      const r0 = wrap.getBoundingClientRect(); mn.style.left = Math.min(r0.width - 190, e.clientX - r0.left) + "px"; mn.style.top = Math.min(r0.height - 150, e.clientY - r0.top) + "px";
+      mn.innerHTML = `<button type="button" data-c="snap">🧲 가까운 음에 맞춤</button><button type="button" data-c="cut">✂ 여기서 나누기</button><button type="button" data-c="org">원본으로</button>`;
+      const shut = () => { mn.remove(); document.removeEventListener("pointerdown", away, true); }, away = (ev) => { if (!mn.contains(ev.target)) shut(); };
+      mn.querySelectorAll("[data-c]").forEach(b => b.onclick = () => { const c = b.dataset.c; shut(); setTimeout(() => { const fx = wrap.querySelector(".tfFix:not(.tfDock)"); if (!fx) return;
+        if (c === "snap") { try { st.snapNote && st.snapNote(); } catch {} } else if (c === "cut") { const tt = timeAt(st, l0.x); try { seek(tt, true); } catch {} setTimeout(() => fx.querySelector("[data-cut]")?.click(), 60); } else fx.querySelector("[data-r]")?.click(); }, 30); });
+      wrap.appendChild(mn); setTimeout(() => document.addEventListener("pointerdown", away, true), 0); });
+    st.onKey = (e) => {   // 키보드(블루투스 키보드·맥): 스페이스 재생 · ↑↓ 반음(Alt면 미세) · ←→ 2초 · Ctrl+Z 되돌리기 · Esc 창 닫기
+      if (!wrap.isConnected) return; const tg = e.target; if (tg && (tg.tagName === "INPUT" || tg.tagName === "TEXTAREA" || tg.isContentEditable)) return;
+      const fx = wrap.querySelector(".tfFix:not(.tfDock):not(.tfMulti)"), k = e.key;
+      if (k === " ") { e.preventDefault(); toggle(); return; }
+      if ((k === "ArrowUp" || k === "ArrowDown") && fx && st.stepSel) { e.preventDefault(); st.stepSel((k === "ArrowUp" ? 1 : -1) * (e.altKey ? 0.05 : 1)); return; }
+      if (k === "ArrowLeft" || k === "ArrowRight") { e.preventDefault(); const nt = Math.max(0, Math.min(endT(), (+getT() || 0) + (k === "ArrowLeft" ? -DT_JUMP : DT_JUMP))); try { seek(nt, isPaused()); } catch {} return; }
+      if ((e.ctrlKey || e.metaKey) && (k === "z" || k === "Z" || k === "y")) { const redo = k === "y" || e.shiftKey; const b = wrap.querySelector(`[data-ur="${redo ? 1 : -1}"]`); if (b && !b.disabled) { e.preventDefault(); b.click(); } return; }
+      if (k === "Escape" && sheetClose) { e.preventDefault(); try { sheetClose(); } catch {} } };
+    document.addEventListener("keydown", st.onKey);
     cvEl.addEventListener("pointerup", end); cvEl.addEventListener("pointercancel", (e) => { preview = null; end(e); });
     const ldEl = document.createElement("div"); ldEl.className = "tfLoad"; ldEl.setAttribute("aria-live", "polite"); ldEl.innerHTML = `<div class="tfTipH"><span class="tfHg" aria-label="소리 불러오는 중">⏳</span><span>[Tip]</span><span class="tfPn">톡 하면 닫혀요</span></div><p class="tfTip"></p>`;   // (11/03 11:39 사용자) 큰 돌림표·💡 빼고 작은 모래시계 + [Tip](11/03 11:40)
     const ldTips = fsTips(o); let tipI = -1, ldOn = false; wrap.querySelector(".tfCvBox").appendChild(ldEl);
