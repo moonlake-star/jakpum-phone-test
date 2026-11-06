@@ -22,6 +22,8 @@ console.log("app-tips ok", L.length);
   assert.ok(/\n\s*let lt = null, ln = 0;/.test(br2) && /\n\s*const GRACE = 500;/.test(br2), "변수 선언이 주석에 묻히지 않음"); }
 // (11/03 17:28 사용자) 화면 맨 아래 고정 팁 칸 · 누르면 그 팁이 맨 위인 목록 · 전체화면은 팝업 없이 아래 팁 한 줄/💡 팁 보기 → 목록
 { const b6 = fs.readFileSync(__dirname + "/../brand.js", "utf8"), t6 = fs.readFileSync(__dirname + "/../tune.js", "utf8");
-  assert.ok(b6.includes("function tipBar(on)") && b6.includes("function tipSheet(list, first, host)") && b6.includes("order = [L[f], ...L.filter((_, i) => i !== f)]") && b6.includes("setTimeout(tipBarRefresh, 30)"));
+  assert.ok(b6.includes("function tipBar(on)") && b6.includes("function tipSheet(list, first, host)") && b6.includes("order = [L[f], ...L.filter((_, i) => i !== f)]") && b6.includes("setTimeout(() => { tipBarRefresh(); tipNudge(); }, 30)"));
   for (const f of ["teacher", "student"]) assert.ok(fs.readFileSync(__dirname + `/../${f}/index.html`, "utf8").includes("Brand.tipBar(true)"), f);
   assert.ok(t6.includes('tlEl.onclick = () => openTips(tipI);') && t6.includes('tb.className = "tfTipsBtn"')); }
+// (11/06 23:35 사용자) 화면이 바뀔 때마다 팁 칸이 살짝 올라왔다 제자리로
+{ const b7 = require("fs").readFileSync(__dirname + "/../brand.js", "utf8"); require("assert").ok(b7.includes("#brTipBar.nudge{animation:brTipNudge") && b7.includes("prefers-reduced-motion: reduce){#brTipBar.nudge{animation:none}")); console.log("tip nudge ok"); }
