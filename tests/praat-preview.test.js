@@ -11,8 +11,10 @@ const ref = JSON.parse(fs.readFileSync(F + "ref.json", "utf8")), SR = ref.sr, bu
   const env = { mkTracks: { p0: { buf: buf(p0) }, p1: { buf: buf(p1) } }, mkPv: null, mkDurS: 4, Tune: { col: () => 2, tmapOf: () => null, mapT: (x) => x }, mkPlaying: false, PraatCore: Core, PraatModule: factory, document: { dispatchEvent() {} }, Event: function () {} };
   new Function("env", `with (env) { ${html.slice(a, b)}\n env.pvApply = pvApply; env.PVP = PVP; env.setPv = (o) => { mkPv = o; env.mkPv = o; }; }`)(env);
   env.setPv({ fixes: [{ t0: 1.05, t1: 1.85, midi: 65 }], rendered: () => null, orig: {}, cv, tedits: [], tplan: { sig: "", regs: [] }, adv: null });   // 선생님이 둘째 음(E4)을 F4(65)로 고침
-  env.pvApply("p1"); await env.PVP.p; env.pvApply("p1"); await Promise.all(env.PVP.jobs); await new Promise((r) => setTimeout(r, 20));   // ① 간이 소리로 바로 → Praat 로딩 → 구간 만들기
-  assert.strictEqual(env.PVP.state, "ready", "Praat 준비"); for (const o of Object.values(env.mkPv.orig)) o.sig = "?"; assert.ok(env.pvApply("p1"), "Praat 소리로 바꿔 끼움");
+  // ① 간이 소리를 먼저 들려주지 않음: 서버와 같은 소리가 준비될 때까지 소리 그대로(바뀐 게 없음) → 준비되면 바꿔 끼움
+  assert.strictEqual(env.pvApply("p1"), false, "준비 전엔 그대로"); let same = true; for (let i = 0; i < p1.length; i++) if (p1[i] !== before[i]) { same = false; break; } assert.ok(same, "준비 전엔 간이 소리를 끼우지 않음");
+  assert.ok(env.PVP.busy() || env.PVP.state === "ready", "준비 중 표시"); await env.PVP.p; env.pvApply("p1"); assert.ok(env.PVP.busy(), "구간 만드는 중"); await Promise.all(env.PVP.jobs); await new Promise((r) => setTimeout(r, 20));
+  assert.strictEqual(env.PVP.state, "ready", "Praat 준비"); assert.ok(!env.PVP.busy(), "다 만들었음"); for (const o of Object.values(env.mkPv.orig)) o.sig = "?"; assert.ok(env.pvApply("p1"), "Praat 소리로 바꿔 끼움");
   const med = async (y, t0, t1) => { const A = await Core.analyze(y.slice(Math.round(t0 * SR), Math.round(t1 * SR)), SR), c = Array.from(A.f, (f) => 1200 * Math.log2(f / 440) + 6900).sort((x, y2) => x - y2); return c[c.length >> 1]; };
   const m0 = await med(before, 1.2, 1.7), m1 = await med(p1, 1.2, 1.7);   // 고친 음: E4(64)+30센트 → 정음 F4(65) 쪽으로
   console.log("고친 음 중앙 높이(센트): 전", m0.toFixed(0), "→ 후", m1.toFixed(0), "(정음 6500)"); assert.ok(Math.abs(m1 - 6500) < 20 && Math.abs(m0 - 6500) > 50, "정음으로 옮겨짐");
