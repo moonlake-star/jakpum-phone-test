@@ -424,7 +424,11 @@
             const up = tips.filter(q => q[0] === "v"), dn = tips.filter(q => q[0] !== "v"), top0 = sb.y - hh / 2 - 16;
             up.forEach((q, i) => { if (top0 - i * 24 > T + 10) tag(top0 - i * 24, q[1], q[2]); });
             dn.forEach((q, i) => { const yy = sb.y + hh / 2 + 16 + i * 24; if (yy < T + HP - 8) tag(yy, q[1], q[2]); }); } } }
-      if (st && st.pulse && performance.now() - st.pulse.at < 450) { const k_ = (performance.now() - st.pulse.at) / 450; g.beginPath(); g.arc(st.pulse.x, st.pulse.y, 14 + 26 * k_, 0, Math.PI * 2); g.strokeStyle = `rgba(255,184,107,${1 - k_})`; g.lineWidth = 3; g.stroke(); }   // 꾹 0.6초 켜짐 표시(진동 없는 기기용)
+      if (st && st.pulse && performance.now() - st.pulse.at < 700) {   // (11/06 22:02 사용자) 꾹 켜짐 표시를 더 크고 확실하게: 안쪽 채운 원 + 두 겹 퍼지는 고리(최대 반지름 ~90px)
+        const k_ = (performance.now() - st.pulse.at) / 700, e_ = 1 - (1 - k_) ** 3, X_ = st.pulse.x, Y_ = st.pulse.y;
+        g.beginPath(); g.arc(X_, Y_, 18 + 20 * e_, 0, Math.PI * 2); g.fillStyle = `rgba(255,184,107,${0.32 * (1 - k_)})`; g.fill();
+        g.beginPath(); g.arc(X_, Y_, 20 + 70 * e_, 0, Math.PI * 2); g.strokeStyle = `rgba(255,184,107,${0.95 * (1 - k_)})`; g.lineWidth = 5 * (1 - k_) + 1.5; g.stroke();
+        if (k_ > 0.15) { const k2 = (k_ - 0.15) / 0.85, e2 = 1 - (1 - k2) ** 3; g.beginPath(); g.arc(X_, Y_, 20 + 50 * e2, 0, Math.PI * 2); g.strokeStyle = `rgba(255,226,191,${0.7 * (1 - k2)})`; g.lineWidth = 3; g.stroke(); } }   // 꾹 0.6초 켜짐 표시(진동 없는 기기용)
       if (st && st.advOn && st._adv) for (const d of st._adv.ne.global.draw || []) { if (d.t1 < t0 || d.t0 > t0 + W8) continue;   // 펜으로 그린 선(점선 주황) — 펜 도구로 톡 하면 지움
         g.save(); g.setLineDash([5, 4]); g.strokeStyle = "rgba(255,184,107,.9)"; g.lineWidth = 2; g.beginPath(); d.pts.forEach((q, i) => { const X = xs(q[0]), Y = y(q[1]); if (i) g.lineTo(X, Y); else g.moveTo(X, Y); }); g.stroke(); g.restore(); }
       if (st && st.penPts && st.penPts.length > 1) { g.save(); g.strokeStyle = "#ffb86b"; g.lineWidth = 3; g.lineCap = "round"; g.lineJoin = "round"; g.beginPath(); st.penPts.forEach((q, i) => { const X = xs(q[0]), Y = y(q[1]); if (i) g.lineTo(X, Y); else g.moveTo(X, Y); }); g.stroke(); g.restore(); }
