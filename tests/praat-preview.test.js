@@ -23,5 +23,16 @@ const ref = JSON.parse(fs.readFileSync(F + "ref.json", "utf8")), SR = ref.sr, bu
   // ② 같은 고침을 또 적용해도 소리가 쌓이지 않음 · 고침을 지우면 원래 소리
   const once = Float32Array.from(p1); env.pvApply("p1"); assert.deepStrictEqual(Array.from(p1.slice(30000, 30050)), Array.from(once.slice(30000, 30050)), "한 번만 적용");
   env.mkPv.fixes = []; env.pvApply("p1"); let d = 0; for (let i = 0; i < p1.length; i++) d = Math.max(d, Math.abs(p1[i] - before[i])); assert.ok(d < 1e-6, "지우면 원래 소리 " + d);
+  // ③ 음별 음색·볼륨: 트랙(서버가 이미 고침을 구워 둔 소리)에 또 얹지 않고, 원래 소리(p0)에서 서버와 같은 차례로 다시 만들어 끼움
+  const post = rd("server_post.wav"), t3 = Float32Array.from(post), pre3 = Float32Array.from(post), cv3 = JSON.parse(JSON.stringify(ref.curve));
+  env.mkTracks.p1 = { buf: buf(t3) };
+  env.setPv({ fixes: [], rendered: () => null, orig: {}, cv: cv3, tedits: [], tplan: { sig: "", regs: [] }, adv: ref.ne.notes.map((n) => ({ ...n })), advG: {} });
+  env.pvApply("p1"); await Promise.all(env.PVP.jobs); await new Promise((r) => setTimeout(r, 20)); for (const o of Object.values(env.mkPv.orig)) o.sig = "?"; assert.ok(env.pvApply("p1"), "음색·볼륨 소리로 끼움");
+  const rms = (y, t0, t1) => { let q = 0; const i0 = Math.round(t0 * SR), i1 = Math.round(t1 * SR); for (let i = i0; i < i1; i++) q += y[i] * y[i]; return Math.sqrt(q / (i1 - i0)); }, dB = (a, b) => 20 * Math.log10((a + 1e-9) / (b + 1e-9));
+  const e1 = dB(rms(t3, 1.2, 1.7), rms(pre3, 1.2, 1.7)), e2 = dB(rms(t3, 2.2, 2.3), rms(pre3, 2.2, 2.3)); console.log("음별 볼륨(서버 대비 dB):", e1.toFixed(2), e2.toFixed(2), "끈 음 소리 크기", rms(t3, 3.05, 3.25).toExponential(1));
+  assert.ok(Math.abs(e1) < 1, "−4 dB가 두 번 걸리지 않음 " + e1); assert.ok(Math.abs(e2) < 1, "페이드 가운데 소리 크기 " + e2); assert.ok(rms(t3, 3.05, 3.25) < 1e-4, "끈 음은 조용");
+  const cen = (y, t0, t1) => { const A = Array.from(y.slice(Math.round(t0 * SR), Math.round(t1 * SR))), N = 4096; let sw = 0, s = 0; for (let k = 1; k < 200; k++) { let re = 0, im = 0; for (let i = 0; i < N && i < A.length; i++) { const w = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / N), a = 2 * Math.PI * k * 20 * i / SR; re += A[i] * w * Math.cos(a); im -= A[i] * w * Math.sin(a); } const m = Math.hypot(re, im); sw += m * k * 20; s += m; } return sw / s; };
+  const c1 = cen(t3, 1.2, 1.7), c2 = cen(pre3, 1.2, 1.7); console.log("음색 무게중심(Hz) 폰/서버:", c1.toFixed(0), c2.toFixed(0)); assert.ok(Math.abs(c1 / c2 - 1) < 0.06, "음색이 서버와 비슷 " + c1 / c2);
+  let far3 = 0; for (let i = 0; i < Math.round(0.9 * SR); i++) far3 = Math.max(far3, Math.abs(t3[i] - pre3[i])); assert.ok(far3 < 1e-6, "고친 곳 밖은 그대로");
   console.log("praat-preview ok");
 })().catch((e) => { console.error(e); process.exit(1); });

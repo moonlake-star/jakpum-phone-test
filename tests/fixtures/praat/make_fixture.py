@@ -23,6 +23,10 @@ corr = P.correction_cents(a, key, 1.0, plan=plan, near=8.0)
 out = P.apply(a, corr, y, SR)
 corr2 = corr.copy(); corr2[(a["t"] < 0.9) | ((a["t"] > 1.9) & (a["t"] < 2.9))] = 0   # 일부만 보정(보정 안 한 사이 구간 처리 시험)
 out2 = P.apply(a, corr2, y, SR)
+from jakpum import note_edits as NE
+ne = {"notes": [{"t0": 1.05, "t1": 1.85, "formant": 2.0, "gain_db": -4.0}, {"t0": 2.0, "t1": 2.5, "fade_in": 0.1, "fade_out": 0.1}, {"t0": 3.0, "t1": 3.3, "mute": True}], "global": {}}
+post = NE.post_audio(out, SR, ne, a["t"], plan.get("target"), [])   # 서버: 음별 음색 → 볼륨·페이드·끄기
+save("server_post.wav", post)
 save("in.wav", y); save("server_out.wav", out); save("server_out2.wav", out2)
-json.dump({"sr": SR, "t": a["t"].tolist(), "f": a["f"].tolist(), "corr": corr.tolist(), "corr2": corr2.tolist(), "curve": M.pitch_curve(a["t"], a["cents"], {1: corr}, key, target=plan.get("target"))}, open("ref.json", "w"), separators=(",", ":"))
+json.dump({"sr": SR, "t": a["t"].tolist(), "f": a["f"].tolist(), "corr": corr.tolist(), "corr2": corr2.tolist(), "ne": ne, "curve": M.pitch_curve(a["t"], a["cents"], {1: corr}, key, target=plan.get("target"))}, open("ref.json", "w"), separators=(",", ":"))
 print("points", len(a["t"]), "shifted", int((np.abs(corr) > 0.5).sum()), "max shift", float(np.abs(corr).max()))

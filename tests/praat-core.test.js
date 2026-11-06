@@ -26,5 +26,13 @@ const ref = JSON.parse(fs.readFileSync(F + "ref.json", "utf8")), x = rd("in.wav"
   const A = await Core.analyze(srv, SR), B = await Core.analyze(y3, SR), ds = []; for (let i = 0, j = 0; i < A.t.length; i++) { while (j + 1 < B.t.length && Math.abs(B.t[j + 1] - A.t[i]) <= Math.abs(B.t[j] - A.t[i])) j++; if (Math.abs(B.t[j] - A.t[i]) < 0.006) ds.push(1200 * Math.log2(B.f[j] / A.f[i])); }
   ds.sort((p, q) => Math.abs(p) - Math.abs(q)); const med = Math.abs(ds[ds.length >> 1]), p95 = Math.abs(ds[Math.floor(ds.length * 0.95)]);
   console.log("들리는 높이 차이(서버 대비): 중앙값", med.toFixed(1), "센트, 95%", p95.toFixed(1), "센트 (", ds.length, "점)"); assert.ok(med < 5 && p95 < 20, "25칸/초 복원본의 높이가 서버와 거의 같아야 함");
+  // ④ 음별 음색 + 볼륨·페이드·끄기: 서버 post_audio와 같은 소리 (보정 → 음색 → 볼륨 차례)
+  const post = rd("server_post.wav"), notes = ref.ne.notes, yy = await Core.apply(x, SR, Float64Array.from(ref.t), Float64Array.from(ref.f), Float64Array.from(ref.corr));
+  const yf = await Core.formantNotes(yy, SR, notes, 0), gc = Core.gain(yf.length, SR, notes, 0, yf.length), yp = Float32Array.from(yf, (v, i) => v * gc[i]), c4 = cmp(yp, post);
+  console.log("음색+볼륨 후 서버와 비교:", c4.mx.toExponential(2), c4.snr.toFixed(1), "dB"); assert.ok(c4.snr > 50, "음별 음색·볼륨이 서버와 같아야 함(서버도 두 번 돌리면 58.6 dB까지 달라지는 Praat 잡음 수준)");
+  // 서버 자체 잡음이 없는 안정 구간(1.1~1.8초)에서는 거의 비트 단위로 같아야 함
+  let sm4 = 0; for (let i = Math.round(1.1 * SR); i < Math.round(1.8 * SR); i++) sm4 = Math.max(sm4, Math.abs(yp[i] - post[i])); assert.ok(sm4 < 2e-3, "안정 구간 차이 " + sm4);
+  // 구간만 만들어도 같은 소리(곡 가운데 조각 + 앞뒤 여유로): 볼륨 곡선이 조각 경계에서 이어지는지
+  const off = Math.round(0.9 * SR), len = Math.round(2.2 * SR), g2 = Core.gain(len, SR, notes, off, yf.length); let gm = 0; for (let i = 0; i < len; i++) gm = Math.max(gm, Math.abs(g2[i] - gc[off + i])); assert.ok(gm < 1e-6, "구간 볼륨 곡선이 전체와 같음 " + gm);
   console.log("praat-core ok");
 })().catch((e) => { console.error(e); process.exit(1); });
