@@ -26,4 +26,4 @@ console.log("app-tips ok", L.length);
   for (const f of ["teacher", "student"]) assert.ok(fs.readFileSync(__dirname + `/../${f}/index.html`, "utf8").includes("Brand.tipBar(true)"), f);
   assert.ok(t6.includes('tlEl.onclick = () => openTips(tipI);') && t6.includes('tb.className = "tfTipsBtn"')); }
 // (11/06 23:35 사용자) 화면이 바뀔 때마다 팁 칸이 살짝 올라왔다 제자리로
-{ const b7 = require("fs").readFileSync(__dirname + "/../brand.js", "utf8"); require("assert").ok(b7.includes("#brTipBar.nudge{animation:brTipNudge") && b7.includes("prefers-reduced-motion: reduce){#brTipBar.nudge{animation:none}")); console.log("tip nudge ok"); }
+{ const b7 = require("fs").readFileSync(__dirname + "/../brand.js", "utf8"); require("assert").ok(b7.includes("#brTipBar.nudge{animation:brTipNudge 1.3s") && b7.includes("translateY(-30px)") && b7.includes("brTipFlash")); console.log("tip nudge ok"); }
