@@ -847,7 +847,7 @@
   const FS_TIPS = [
     { text: () => `주황 기준선 왼쪽·오른쪽을 두 번 톡 하면 ${DT_JUMP}초씩 뒤로·앞으로 가요`, need: "const j = le.x < hx ? -DT_JUMP : DT_JUMP" },
     { text: () => "그래프를 좌우로 밀면 시간이 이동해요(멈춘 채 옮겨져요)", need: 'drag.mode === "time"' },
-    { text: () => "두 손가락으로 벌리면 확대, 오므리면 원래 크기예요", need: "st.yz = Math.max(1, Math.min(12, pinch.yz * r))" },
+    { text: () => "두 손가락을 좌우로 벌리면 시간, 위아래로 벌리면 음 높이 확대", need: "if (pinch.ax !== \"t\") st.yz = Math.max(1, Math.min(12, pinch.yz * rb));" },
     { text: () => "그래프를 위아래로 밀면 화면 밖의 높은 음·낮은 음도 볼 수 있어요", need: "drag.yo + dB * per * (rot ? -1 : 1)" },
     { text: () => "왼쪽 건반을 누르고 있으면 그 음이 소리 나요 — 위아래로 밀면 따라 바뀌어요", need: "st.kbDown = m; tone(m);" },
     { text: () => "원음/보정본 스위치는 아무 쪽이나 톡 하면 바뀌어요 — 재생 중에도 같은 자리에서", need: 'want = b.dataset.m === cur ? (cur === "o" ? "p" : "o") : b.dataset.m', when: (o) => typeof o.setMode === "function" },
@@ -1169,7 +1169,8 @@
     cvEl.addEventListener("pointerdown", (e) => {
       pts.set(e.pointerId, { a: along(e), b: across(e) }); try { cvEl.setPointerCapture(e.pointerId); } catch {}
       if (pts.size === 2) { const [p1, p2] = [...pts.values()]; drag = null; preview = null;
-        pinch = { d: Math.hypot(p1.a - p2.a, p1.b - p2.b), xz: st.xz, yz: st.yz, mid: (p1.a + p2.a) / 2, t: +getT() || 0 }; return; }
+        const sa = Math.abs(p1.a - p2.a), sb = Math.abs(p1.b - p2.b), ang = Math.atan2(sb, sa) * 180 / Math.PI;   // (11/06 19:55 사용자 A) 벌리는 방향 따라: 좌우 = 시간만 · 위아래 = 음 높이만 · 대각선 = 둘 다
+        pinch = { d: Math.hypot(p1.a - p2.a, p1.b - p2.b), sa, sb, ax: ang < 30 ? "t" : ang > 60 ? "p" : "tp", xz: st.xz, yz: st.yz, mid: (p1.a + p2.a) / 2, t: +getT() || 0 }; return; }
       if (e.pointerType === "pen") st.penSeen = true;
       if (pts.size === 1 && st.penTool && st.advOn && st.map && st.kb && (e.pointerType === "pen" || e.pointerType === "mouse" || !st.penSeen)) {   // (11/06) ✏️ 펜으로 그리기 — 애플펜슬을 한 번 쓰면 그 뒤로 손가락은 이동·확대만
         const l0 = loc(e.clientX, e.clientY, cvEl.getBoundingClientRect()); if (l0.x >= st.kb.L) { pauseNow(); const mp = st.map, tq = mp.t0 + (l0.x - mp.L) / Math.max(1, mp.w - mp.L) * mp.W8;
@@ -1214,9 +1215,11 @@
     });
     cvEl.addEventListener("pointermove", (e) => {
       if (!pts.has(e.pointerId)) { if (e.pointerType === "mouse") mouseHover(e); return; } pts.set(e.pointerId, { a: along(e), b: across(e) });
-      if (pinch && pts.size >= 2) { const [p1, p2] = [...pts.values()], r = pinch.d > 30 ? Math.hypot(p1.a - p2.a, p1.b - p2.b) / pinch.d : 1;   // 어느 방향으로 벌려도 상하·좌우 같이 확대
+      if (pinch && pts.size >= 2) { const [p1, p2] = [...pts.values()], r = pinch.d > 30 ? Math.hypot(p1.a - p2.a, p1.b - p2.b) / pinch.d : 1;   // (11/06) r은 여러 음 고르기 중 이동에만 · 확대는 아래 방향별
         if (st.mMode) { preview = Math.max(0, pinch.t - ((p1.a + p2.a) / 2 - pinch.mid) / span() * ((st.win || 6) / st.xz)); return; }   // 여러 음 고르기 중엔 두 손가락 = 시간 이동
-        st.yz = Math.max(1, Math.min(12, pinch.yz * r)); st.xz = Math.max(1, Math.min(4, pinch.xz * Math.sqrt(r)));
+        const PB = 40, ra = Math.max(PB, Math.abs(p1.a - p2.a)) / Math.max(PB, pinch.sa), rb = Math.max(PB, Math.abs(p1.b - p2.b)) / Math.max(PB, pinch.sb);   // 축마다 그 방향 손가락 간격 비율(너무 붙어 있으면 40px로 봐서 튀지 않게)
+        if (pinch.ax !== "t") st.yz = Math.max(1, Math.min(12, pinch.yz * rb));
+        if (pinch.ax !== "p") st.xz = Math.max(1, Math.min(4, pinch.xz * ra));
         if (st.yz > 1 && st.yc == null) { const f = fitAt(cv, +getT() || 0, 0); st.yc = f ? f[2] : null; }
         return; }
       if (!drag || drag.id !== e.pointerId) return;
