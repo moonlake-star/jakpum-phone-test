@@ -69,3 +69,10 @@ const fnSrc = (t, n) => t.slice(t.indexOf("function " + n + "("), t.indexOf("\n}
 assert.strictEqual(fnSrc(bn, "pvPsola"), fnSrc(html, "pvPsola"), "속도 재기 = 앱 합성 코드");
 assert.strictEqual(fnSrc(bn, "pvMarks"), fnSrc(html, "pvMarks"), "속도 재기 = 앱 분석 코드");
 console.log("adv-preview-notice ok");
+// ⑨ (11/06 22:13 사용자) 펜으로 그린 구간도 소리가 바뀜(예전엔 선만 바뀌고 소리는 그대로)
+{ const { env, p1 } = build(), before = Float32Array.from(p1);
+  const ne = { notes: [], global: { draw: [{ t0: 1.0, t1: 1.8, pts: [[1.0, cents(220) + 300], [1.8, cents(220) + 300]] }] } };
+  env.mkPv.adv = []; env.mkPv.advG = ne.global; G_preview(env.mkPv.cv, ne); env.pvApply("p1");
+  const d = 1200 * Math.log2(f0Of(p1, 1.3, 1.5) / f0Of(before, 1.3, 1.5));
+  assert.ok(d > 200, "펜 구간 소리 높이 " + d.toFixed(0)); assert.ok(Math.abs(rms(p1, 0.2, 0.8) - rms(before, 0.2, 0.8)) < 1e-4, "앞은 그대로");
+  console.log("pen draw sound ok", d.toFixed(0)); }
