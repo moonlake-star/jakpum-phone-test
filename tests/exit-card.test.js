@@ -90,3 +90,6 @@ console.log("msel empty only ok");
 // (11/06 22:20 사용자) 고른 음 위에 세로줄이 오면 줄 위 ✂ · 톡 = 그 자리 나누기
 assert.ok(T.includes("st.cutAtNow = (tt) =>") && T.includes('g.fillText("✂", X, Y + 1)') && T.includes("st.cutAtNow(+getT() || 0)"));
 console.log("playhead cut ok");
+// (11/06 22:49 사용자) [확인|보정] → [🎛 고급] 한 개 · 기본 모드 고른 구간 안 톡 = 그 구간 한마디
+assert.ok(T.includes('class="tfAdvOne"') && !T.includes('data-md2="0"') && T.includes("try { o.onAdd(ra, rb); } catch {} return; } }") && H.includes("onAdd: (tt, t1) => Tune.sheet({ t0: Math.round(tt * 10) / 10, t1: Math.round((t1 ?? tt) * 10) / 10"));
+console.log("adv one / range note ok");
