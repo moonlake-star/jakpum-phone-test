@@ -238,7 +238,7 @@
       setTimeout(() => { ta.readOnly = false; }, 450); }
   }
   // (11/02) 정음 막대 색 = 기준: 선생님 노랑 · MIDI 보라 · 악보 초록 · 원곡 하늘 · 키·스케일만 회색(기준 정보가 없는 예전 것은 초록)
-  const SRC_C = { teacher: "rgba(255,210,122,.42)", midi: "rgba(199,164,255,.36)", sheet: "rgba(127,217,154,.34)", youtube: "rgba(127,217,255,.32)", scale: "rgba(140,150,165,.30)" };
+  const SRC_C = { teacher: "rgba(255,210,122,.42)", midi: "rgba(199,164,255,.36)", sheet: "rgba(127,217,154,.34)", youtube: "rgba(127,217,255,.32)", scale: "rgba(127,217,154,.28)" };   // (11/06 22:05 사용자) 키·스케일만도 예전처럼 초록(회색은 흰색처럼 보여 덜 눈에 띔)
   function srcCol(cv, tt) {
     if ((cv._fixes || []).some(x => tt >= x.t0 && tt <= x.t1)) return SRC_C.teacher;
     if (!cv._src) return "rgba(127,217,154,.28)";
@@ -882,7 +882,7 @@
     { text: () => "✂ 나누기: 세로줄이 막대 안이면 그 자리, 밖이면 가운데에서 나뉘고 오른쪽 조각이 골라져요", need: "fixSheet(host, cv, { t0: ts, t1: T1, c: Math.round(m * 100) }, onFix, getT, st)", when: (o) => typeof o.onFix === "function" },
     { text: () => "↺ 톡 = 직전 저장으로 되돌리기 · 1초 꾹 = 이 음을 원본으로(확인 후)", need: "hold = setTimeout(() => { fired = true; stop(); askOrig(); }, 1000)", when: (o) => typeof o.onFix === "function" },
     { text: () => "고치기 창은 그래프 빈 곳 톡·뒤로 가기로 닫혀요 — 고친 건 자동 저장돼요", need: "if (!onBar) { sheetClose(); lastTap = 0; return; }", when: (o) => typeof o.onFix === "function" },
-    { text: () => "정음 막대 색 = 기준: 노랑 선생님 · 보라 MIDI · 초록 악보 · 하늘 원곡 · 회색 키·스케일만", need: "const SRC_C = {", when: (o) => typeof o.onFix === "function" },
+    { text: () => "정음 막대 색 = 기준: 노랑 선생님 · 보라 MIDI · 하늘 원곡 · 초록 악보·키·스케일", need: "const SRC_C = {", when: (o) => typeof o.onFix === "function" },
     // (11/03 10:42 사용자) 수강생 화면은 보이는 것·할 수 있는 것이 달라서 팁도 따로
     { text: () => "노란 선 = 내가 부른 음 · 하늘색 = 보정한 음 · 초록 막대 = 맞춰야 할 음이에요", need: '<i style="background:#ffe066"></i>부른 음', when: (o) => !o.teacher },
     { text: () => "기준선 위 말풍선이 지금 몇 반음 높게·낮게 불렀는지 알려줘요", need: "반음 높게 불렀어요", when: (o) => !o.teacher },

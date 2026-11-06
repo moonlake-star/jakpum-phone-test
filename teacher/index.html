@@ -522,7 +522,7 @@
 <div id="v2Shade" class="v2only"></div>
 <div id="toast"></div>
 <script src="../lesson-replies.js"></script>
-<script src="../tune.js?v=20261106-2220"></script>
+<script src="../tune.js?v=20261106-2225"></script>
 <script src="../adv.js?v=20261106-2205"></script>
 <script src="../pitch-embed.js?v=20261105-1850"></script>
 
@@ -5177,7 +5177,7 @@ function tunePending(c, msg = "음정선 불러오는 중…") {   // (11/02) �
     const g = c.getContext("2d"); g.scale(r, r); g.fillStyle = "#6b7480"; g.font = "13px system-ui, sans-serif"; g.textAlign = "center"; g.fillText(msg, w / 2, h / 2); } catch {}
 }
 // ── 🎼 정음 기준(11/02 16:25 사용자 '2 3 오케, 4 A'): 곡 이름 → 인터넷 악보·원곡(유튜브) 멜로디를 서버가 찾아 부른 음에 맞춤 · 악보 사진도 ──
-const REF_LAB = { teacher: ["✏️ 선생님", "#ffd27a"], midi: ["🎹 MIDI", "#c7a4ff"], sheet: ["🌐 악보", "#7fd99a"], youtube: ["🎧 원곡", "#7fd9ff"], scale: ["🎼 키·스케일만", "#5b6573"] };
+const REF_LAB = { teacher: ["✏️ 선생님", "#ffd27a"], midi: ["🎹 MIDI", "#c7a4ff"], sheet: ["🌐 악보", "#7fd99a"], youtube: ["🎧 원곡", "#7fd9ff"], scale: ["🎼 키·스케일만", "#7fd99a"] };
 const songGuess = (r) => String(r.song?.title || r.title || "").replace(/^\d{4}-\d{2}-\d{2}_?/, "").replace(/_?(베스트_이어붙임|베스트|메이크업)$/g, "").replace(/remix.*$/i, "").trim();
 function mkRefShareHTML(pi) {
   const sh = pi?.ref?.share; if (!sh) return `<p class="muted" style="margin:4px 0">아직 이 기준으로 만든 적이 없어요 · 곡 이름을 저장하고 ‘완성본 다시 만들기’를 누르면 서버가 악보·원곡을 찾아요</p>`;
@@ -7209,7 +7209,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-06-2220-pv-info";
+const BUILD = "2026-11-06-2225-scale-green";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
