@@ -64,6 +64,6 @@ console.log("align ok");
 { const A = fs.readFileSync(path.join(__dirname, "..", "adv.js"), "utf8");
   assert.ok(A.includes("#tuneFs .advSc,#tuneFs .advSc *,.advSc,.advSc *{touch-action:none!important}") && A.includes('const dd = d.ax === "v" ? dy_ : d.ax === "h" ? dx_ : 0;'));
   console.log("touch drag ok"); }
-// (11/06 19:55 사용자 A) 핀치: 좌우로 벌리면 시간만 · 위아래면 음 높이만 · 대각선은 둘 다
-assert.ok(T.includes('ax: ang < 30 ? "t" : ang > 60 ? "p" : "tp"') && T.includes('if (pinch.ax !== "p") st.xz = Math.max(1, Math.min(4, pinch.xz * ra));') && !T.includes("pinch.xz * Math.sqrt(r)"));
-console.log("pinch axis ok");
+// (11/06 19:59 사용자 B) 핀치: 어느 방향이든 위아래·좌우 같은 비율(최대 8배씩)
+assert.ok(T.includes("st.yz = Math.max(1, Math.min(8, pinch.yz * r)); st.xz = Math.max(1, Math.min(8, pinch.xz * r));") && !T.includes("pinch.xz * Math.sqrt(r)") && !T.includes("pinch.ax"));
+console.log("pinch uniform ok");
