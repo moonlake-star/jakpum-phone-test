@@ -60,3 +60,7 @@ console.log("align ok");
   assert.ok(A.includes("const ICO = {") && A.includes('"커지는 시간": "fade"') && A.includes(".advCells .advSc .advScL{color:#ffbe7a!important}"));
   assert.ok(H.includes('const PV_ADV_P = ["drift", "vib", "vs", "tilt", "tilt_in"'));
   console.log("scrub vib/vol ok"); }
+// (11/06 19:36 사용자) 터치 끌기: 칸은 touch-action:none(전체화면 규칙보다 우선) · 처음 움직인 방향 하나만
+{ const A = fs.readFileSync(path.join(__dirname, "..", "adv.js"), "utf8");
+  assert.ok(A.includes("#tuneFs .advSc,#tuneFs .advSc *,.advSc,.advSc *{touch-action:none!important}") && A.includes('const dd = d.ax === "v" ? dy_ : d.ax === "h" ? dx_ : 0;'));
+  console.log("touch drag ok"); }
