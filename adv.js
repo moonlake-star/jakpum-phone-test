@@ -37,6 +37,7 @@
     if (g.level && !g.level.quiet && !g.level.loud) delete g.level;
     if (Array.isArray(g.uv_gain)) { g.uv_gain = g.uv_gain.filter(r => r && (r.s_db || r.b_db)); if (!g.uv_gain.length) delete g.uv_gain; }
     if (Array.isArray(g.uv_fix) && !g.uv_fix.length) delete g.uv_fix;
+    if (Array.isArray(g.draw) && !g.draw.length) delete g.draw;
   }
   function change(A, st, cv, fn) {   // 고침 1번 = 되돌리기 1칸 · 그림 바로 · 저장은 0.4초 모아서
     A.hist.push(JSON.stringify(A.ne)); if (A.hist.length > 100) A.hist.shift();
@@ -89,9 +90,31 @@
       ii.forEach(i => { const x = Math.min(1, Math.max(0, (cv.pts[i][0] - (tb - w)) / (2 * w))), s = n.tr_shape || "s";
         const kk = s === "lin" ? x : s === "step" ? (x >= 0.5 ? 1 : 0) : x * x * (3 - 2 * x); cv.pts[i][k] = pa + (pb - pa) * kk; });
     }
+    for (const d of g.draw || []) {   // (11/06) 펜으로 그린 선 — 서버 note_edits.shape_pitch와 같은 규칙(가장자리 30ms 섞음)
+      const P = d.pts || []; if (P.length < 2) continue; const long = d.t1 - d.t0 > 2 * DRAW_EDGE;
+      cv.pts.forEach(p => { if (p[k] == null || p[0] < d.t0 || p[0] > d.t1) return; const want = interp(P, p[0]), e = Math.min(p[0] - d.t0, d.t1 - p[0]), w = long ? Math.min(1, Math.max(0, e / DRAW_EDGE)) : 1; p[k] = p[k] * (1 - w) + want * w; });
+    }
     if (g.ref_hz && g.ref_hz !== 440) { const off = 1200 * Math.log2(g.ref_hz / 440), kt = cv.target ? 2 + (cv.levels || []).length : 0;
       cv.pts.forEach(p => { if (p[k] != null && (!kt || p[kt] != null)) p[k] += off; }); }
   }
+  const DRAW_EDGE = 0.03;
+  function interp(P, x) { if (x <= P[0][0]) return P[0][1]; if (x >= P[P.length - 1][0]) return P[P.length - 1][1]; let lo = 0, hi = P.length - 1; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (P[m][0] <= x) lo = m; else hi = m; } const a = P[lo], b = P[hi]; return a[1] + (b[1] - a[1]) * (x - a[0]) / Math.max(1e-9, b[0] - a[0]); }
+  // ── 펜으로 그리기(11/06 사용자 '고급 보정 다음 단계': 멜로다인 Pitch Draw) — 손으로 그린 점들 → 10ms마다 고르게 + 살짝 매끈하게 → global.draw ──
+  function cleanStroke(raw) {
+    const q = raw.filter(p => Number.isFinite(p[0]) && Number.isFinite(p[1])).sort((a, b) => a[0] - b[0]); if (q.length < 3) return null;
+    const t0 = q[0][0], t1 = q[q.length - 1][0]; if (t1 - t0 < 0.05) return null;
+    const out = []; for (let t = t0; t <= t1 + 1e-9; t += 0.01) out.push([Math.round(t * 1000) / 1000, interp(q, t)]);
+    const sm = out.map((p, i) => { let s_ = 0, n = 0; for (let j = Math.max(0, i - 2); j <= Math.min(out.length - 1, i + 2); j++) { s_ += out[j][1]; n++; } return [p[0], Math.round(s_ / n * 10) / 10]; });   // 손떨림만 살짝(±20ms)
+    return { t0: sm[0][0], t1: sm[sm.length - 1][0], pts: sm };
+  }
+  function addDraw(st, cv, raw) {
+    const d = cleanStroke(raw); if (!d) return null; const A = state(st);
+    change(A, st, cv, () => { const g = A.ne.global; g.draw = (g.draw || []).filter(x => x.t1 <= d.t0 || x.t0 >= d.t1); g.draw.push(d); g.draw.sort((a, b) => a.t0 - b.t0); });
+    return d;
+  }
+  function drawAt(st, t) { const A = state(st); return (A.ne.global.draw || []).find(x => t >= x.t0 - 0.05 && t <= x.t1 + 0.05) || null; }
+  function removeDraw(st, cv, d) { const A = state(st); change(A, st, cv, () => { A.ne.global.draw = (A.ne.global.draw || []).filter(x => !(near(x.t0, d.t0) && near(x.t1, d.t1))); }); }
+  function flatNote(st, cv, b) { const A = state(st); change(A, st, cv, () => { const n = noteOf(A, b, true); n.drift = 0; }); }   // 두 번 톡 맞춤: 흐름 평평하게
 
   // ── 조절 줄(− 값 +) — 손가락으로 누르기 쉽게 44px · 꾹 누르면 계속 ──
   function stepper(label, get, set, o) {
@@ -311,5 +334,5 @@
   try { const s = document.createElement("style"); s.textContent = css; document.head.appendChild(s); } catch {}
 
   function resetNote(st, cv, b) { const A = state(st); change(A, st, cv, () => { A.ne.notes = (A.ne.notes || []).filter(x => !(near(x.t0, b.t0) && near(x.t1, b.t1))); }); }   // 이 음의 고급 고침만 지움
-  G.TuneAdv = { panel, resetNote, globalSheet, preview, state, uvList, relabel, uvSheet, UV_NAME, undoLast: (st, cv) => undo(state(st), st, cv), _t: { shapeNote, notesFromCurve, midiBytes, clean, N_DEF } };
+  G.TuneAdv = { panel, resetNote, globalSheet, preview, state, uvList, relabel, uvSheet, UV_NAME, addDraw, drawAt, removeDraw, flatNote, cleanStroke, undoLast: (st, cv) => undo(state(st), st, cv), _t: { shapeNote, notesFromCurve, midiBytes, clean, N_DEF } };
 })(typeof window !== "undefined" ? window : globalThis);
