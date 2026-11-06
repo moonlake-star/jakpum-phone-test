@@ -33,3 +33,8 @@ console.log("adv-pen ok");
 { const t3 = require("fs").readFileSync(__dirname + "/../tune.js", "utf8"), A_ = require("assert");
   A_.ok(t3.includes("st.onBarDragEnd = () => { if (st._dragBase != null && Math.abs(m - st._dragBase) > 0.004) persist();") && t3.includes("st.onBarDragXEnd = () =>"));
   A_.ok(!/st\.onBarDrag = \(k, start\) => \{[^\n]*persist\(\)/.test(t3), "끄는 중엔 저장 안 함"); }
+// (11/06) 🥁 박자 격자·박자 맞춤(스마트 어택)
+{ const t4 = require("fs").readFileSync(__dirname + "/../tune.js", "utf8"), A_ = require("assert");
+  const beatNear = new Function(t4.match(/const beatNear = [^\n]*\n/)[0] + "return beatNear;")();
+  A_.strictEqual(beatNear({ beats: { t: [0.35, 1.05, 1.75, 2.45] } }, 1.5), 1.75); A_.strictEqual(beatNear({ beats: { t: [0.35, 1.05] } }, 0.6), 0.35); A_.strictEqual(beatNear({}, 1), null);
+  A_.ok(t4.includes("if (st.beatOn && edge !== \"r\") { const bt = beatNear(cv, n0); if (bt != null && Math.abs(bt - n0) <= BEAT_SNAP)") && t4.includes('mk("advBeatB"') && t4.includes("st.advOn && st.beatOn && cv.beats && cv.beats.t")); }

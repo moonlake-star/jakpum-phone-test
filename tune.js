@@ -6,7 +6,9 @@
 (function (G) {
   const BAR_GAP = 0.5;   // 정음 막대 이어 붙이는 최대 틈(초) — 서버 pitch.BRIDGE_S와 같게
   const DT_JUMP = 2;   // (11/03 10:24 사용자) 그래프 두 번 톡 = 2초 이동
-  const HANDLE_R = 15;   // (11/06) 보정 모드 큰 손잡이 반지름(px) — 손가락·펜으로 잡기 쉽게
+  const HANDLE_R = 15;
+  const BEAT_SNAP = 0.12;   // (11/06) 박자 맞춤: 음 시작이 박에서 이만큼(초) 안이면 박에 붙임
+  const beatNear = (cv, t) => { const B = cv && cv.beats && cv.beats.t; if (!B || !B.length) return null; let lo = 0, hi = B.length - 1; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (B[m] <= t) lo = m; else hi = m; } return Math.abs(B[lo] - t) <= Math.abs(B[hi] - t) ? B[lo] : B[hi]; };   // (11/06) 보정 모드 큰 손잡이 반지름(px) — 손가락·펜으로 잡기 쉽게
   const WIN = 8, HEAD = 0.4, NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"], LANE = 34, ZOOM_HALF = 400;
   function range(cv) {
     if (cv._rng) return cv._rng;
@@ -327,6 +329,11 @@
     const vis = []; for (const p of cv.pts || []) { if (p[0] < t0 - 0.3) continue; if (p[0] > t0 + W8 + 0.3) break; vis.push(p); }
     if (RB) { g.fillStyle = "#0c0e12"; g.fillRect(L, T + HP, w - L, RB); g.fillStyle = "#232a34"; g.fillRect(L, T + HP, w - L, 1); }   // 주석 칸 자리(음정선 아래)
     g.save(); g.beginPath(); g.rect(L, T, w - L, HP); g.clip();
+    if (full && st && st.advOn && st.beatOn && cv.beats && cv.beats.t) {   // (11/06) 🥁 반주 박자 격자: 박 = 옅은 세로줄, 마디 첫 박(추정) = 조금 진하게 + 마디 번호
+      const B = cv.beats.t, dn = cv.beats.down || 0; g.font = "10px system-ui, sans-serif"; g.textBaseline = "top";
+      for (let i = 0; i < B.length; i++) { if (B[i] < t0 - 0.1) continue; if (B[i] > t0 + W8 + 0.1) break; const X = Math.round(xs(B[i])) + 0.5, bar = (i - dn) % 4 === 0;
+        g.fillStyle = bar ? "rgba(255,207,153,.32)" : "rgba(255,207,153,.12)"; g.fillRect(X, T, 1, HP);
+        if (bar && i >= dn) { g.fillStyle = "rgba(255,207,153,.6)"; g.fillText(String(Math.floor((i - dn) / 4) + 1), X + 3, T + 3); } } }
     if (full && kt) {   // 정음(목표음) = 초록 막대: 보정이 맞추려는 바로 그 음
       const bh = Math.max(6, (HP - 12) / ((hi - lo) / 100) * 0.55), bars = []; let run = null;
       const fxOf = (tt) => (cv._fixes || []).findIndex(x => tt >= x.t0 - 1e-6 && tt < x.t1 - 1e-6);   // 나눈·고친 구간 경계에서 막대도 끊음
@@ -737,6 +744,7 @@
     saved = curS();
     st.onBarDragX = (dt, edge, start) => { if (start) { st._tb = [n0, n1]; return; } const [a0, a1] = st._tb || [n0, n1];
       if (edge === "l") n0 = a0 + dt; else if (edge === "r") n1 = a1 + dt; else { n0 = a0 + dt; n1 = a1 + dt; }
+      if (st.beatOn && edge !== "r") { const bt = beatNear(cv, n0); if (bt != null && Math.abs(bt - n0) <= BEAT_SNAP) { const dd = bt - n0; n0 = bt; if (edge === "c") n1 += dd; } }   // (11/06) 🥁 박자 맞춤: 음 시작을 가까운 박에 착(스마트 어택)
       tClamp(edge === "c" ? "m" : edge); tPaint(); tPreview(); };
     st.onBarDragXEnd = () => { const b0 = st._tb; st._tb = null; if (b0 && (Math.abs(n0 - b0[0]) > 0.004 || Math.abs(n1 - b0[1]) > 0.004)) tPersist(); };   // 손 뗄 때 한 번만 저장
   }
@@ -845,7 +853,8 @@
     { text: () => "🌬 치찰음·호흡: 보정 모드에서 구간을 고르면 나오는 🌬 버튼 → 그 구간의 ㅅ·ㅊ(숨소리) 크기 조절", need: "G.TuneAdv.uvSheet(host.querySelector", when: (o) => typeof o.onAdv === "function" },
     { text: () => "보정 모드: 고른 음 위 ↕ 동그라미를 끌면 음정, 양 끝 ‹ › 를 끌면 길이", need: "dot(cx, ky, R, \"↕\"", when: (o) => typeof o.onAdv === "function" },
     { text: () => "보정 모드: 음을 두 번 톡 = 가까운 음계 음에 맞추고 흐름 평평하게", need: "const snapNote = () =>", when: (o) => typeof o.onAdv === "function" },
-    { text: () => "✏️ 펜: 음정선 위에 그리면 그 구간 음높이가 그린 대로 · 선 톡 = 지우기", need: "drag = { pen: true", when: (o) => typeof o.onAdv === "function" }
+    { text: () => "✏️ 펜: 음정선 위에 그리면 그 구간 음높이가 그린 대로 · 선 톡 = 지우기", need: "drag = { pen: true", when: (o) => typeof o.onAdv === "function" },
+    { text: () => "🥁 박자: 반주 박자 격자 · 음을 끌어 옮기면 시작이 가까운 박에 붙어요", need: "st.beatOn && edge !== \"r\"", when: (o) => typeof o.onAdv === "function" }
   ];
   const fsTips = (o) => FS_TIPS.filter(x => !x.when || x.when(o));
   // (11/05 사용자) 되돌리기·다시하기(↶ ↷) + 길게 누르면 작업 기록 창 — 음을 다시 찾지 않아도 순서대로 한 단계씩
@@ -958,9 +967,11 @@
       // (11/05 사용자 '추천모드로 진행') [👂 확인 | 🎛 보정] 두 칸 토글 · 보정 모드에서만 일괄 보정·치찰음/호흡 · 원음/보정본 스위치는 두 모드 모두 그대로 · 모드를 바꿔도 재생 위치·확대·선택은 그대로
       const seg = document.createElement("span"); seg.className = "tfModeSeg"; seg.setAttribute("role", "group"); seg.setAttribute("aria-label", "화면 모드: 확인 · 보정");
       seg.innerHTML = `<button type="button" data-md2="0">👂 확인</button><button type="button" data-md2="1">🎛 보정</button>`; seg.addEventListener("pointerdown", (e) => e.stopPropagation()); xb.parentNode.insertBefore(seg, xb);
-      const gl = mk("advGlB", "🎛 일괄 보정"), pen = mk("advPenB", "✏️ 펜");
+      const gl = mk("advGlB", "🎛 일괄 보정"), pen = mk("advPenB", "✏️ 펜"), bt = mk("advBeatB", "🥁 박자");
+      bt.onclick = () => { if (!(cv.beats && cv.beats.t && cv.beats.t.length)) { undo("이 곡은 아직 박자 정보가 없어요 · 완성본을 다시 만들면 생겨요(반주가 있는 곡)", null, 4500, "확인"); return; }
+        st.beatOn = !st.beatOn; if (st.beatOn) undo(`박자 ${Math.round(cv.beats.bpm)}BPM · 음 끝을 끌어 옮기면 시작이 가까운 박에 붙어요${cv.beats.conf < 0.3 ? " · 박 찾기가 불확실한 곡이에요" : ""}`, null, 4500, "확인"); paintAdv(); };   // (11/06) 박자 격자·맞춤
       pen.setAttribute("aria-pressed", "false");
-      const paintAdv = () => { gl.hidden = !st.advOn; pen.hidden = !st.advOn; if (!st.advOn) st.penTool = false; pen.classList.toggle("on", !!st.penTool); pen.setAttribute("aria-pressed", st.penTool ? "true" : "false"); pen.textContent = st.penTool ? "✏️ 그리는 중 · 끝" : "✏️ 펜"; wrap.classList.toggle("advOn", st.advOn);
+      const paintAdv = () => { gl.hidden = !st.advOn; pen.hidden = !st.advOn; bt.hidden = !st.advOn; bt.classList.toggle("on", !!st.beatOn); bt.setAttribute("aria-pressed", st.beatOn ? "true" : "false"); if (!st.advOn) st.penTool = false; pen.classList.toggle("on", !!st.penTool); pen.setAttribute("aria-pressed", st.penTool ? "true" : "false"); pen.textContent = st.penTool ? "✏️ 그리는 중 · 끝" : "✏️ 펜"; wrap.classList.toggle("advOn", st.advOn);
         seg.querySelectorAll("[data-md2]").forEach(x => { const on_ = (x.dataset.md2 === "1") === !!st.advOn; x.classList.toggle("on", on_); x.setAttribute("aria-pressed", on_ ? "true" : "false"); }); };
       st.dock = () => { if (!st.advOn || typeof st.onTime !== "function" || !st.onAdv || !G.TuneAdv || wrap.querySelector(".tfFix")) return;   // (11/05 사용자) 보정 모드 = 늘 떠 있는 고치기 창(음을 안 골랐으면 안내만)
         const bt = wrap.querySelector(".tfBot"); if (!bt) return; const dk = document.createElement("div"); dk.className = "tfFix inBot tfUni tfDock";
