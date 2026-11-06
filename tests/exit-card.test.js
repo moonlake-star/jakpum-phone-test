@@ -77,3 +77,6 @@ console.log("long-press fine / view / blue ok");
 // (11/06 21:59 사용자) 반음 옮김 진동 · 미세 5센트마다 짧게 · 빈 곳 꾹 구간 고르기 시작 진동
 assert.ok(T.includes("if (Math.abs(nm_ - m) > 0.5) buzz(20); else if (Math.floor(nm_ * 20 + 1e-6) !== Math.floor(m * 20 + 1e-6)) buzz(10);") && T.includes("armTip(true); buzz(40); return; }"));
 console.log("move buzz ok");
+// (11/06 22:02 사용자) 꾹 켜짐 표시 크게(채운 원 + 두 겹 고리, 0.7초)
+assert.ok(T.includes("performance.now() - st.pulse.at < 700") && T.includes("20 + 70 * e_"));
+console.log("pulse ok");
