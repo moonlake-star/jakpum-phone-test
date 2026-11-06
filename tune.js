@@ -7,8 +7,15 @@
   const BAR_GAP = 0.5;   // 정음 막대 이어 붙이는 최대 틈(초) — 서버 pitch.BRIDGE_S와 같게
   const DT_JUMP = 2;   // (11/03 10:24 사용자) 그래프 두 번 톡 = 2초 이동
   const HANDLE_R = 15;
-  const LONG_MS = 350, FINE = 0.25;   // (11/06 16:13 사용자) 꾹 누르는 시간 · 미세 조절은 손가락 움직임의 1/4만큼
+  const LONG_MS = 600, FINE = 0.25;   // (11/06 16:36 사용자) 꾹 0.6초가 지나면 켜지고 진동   // (11/06 16:13 사용자) 꾹 누르는 시간 · 미세 조절은 손가락 움직임의 1/4만큼
   const BEAT_SNAP = 0.12;   // (11/06) 박자 맞춤: 음 시작이 박에서 이만큼(초) 안이면 박에 붙임
+  // (11/06 16:36 사용자) 다른 강사도 알 수 있게: 고른 음 둘레에 손짓 안내 글 — 손짓을 두 번 써 보면 그 글은 사라짐(이 기기 기억)
+  const LEARN_KEY = "tune_learn_v1", LEARN_N = 2;
+  const learnGet = () => { try { return JSON.parse(localStorage.getItem(LEARN_KEY) || "{}") || {}; } catch { return {}; } };
+  const learned = (k) => (learnGet()[k] || 0) >= LEARN_N;
+  const learn = (k) => { try { const o = learnGet(); o[k] = (o[k] || 0) + 1; localStorage.setItem(LEARN_KEY, JSON.stringify(o)); } catch {} };
+  const learnReset = () => { try { localStorage.removeItem(LEARN_KEY); localStorage.removeItem("tune_adv_guide_v1"); } catch {} };
+  const buzz = (ms) => { try { navigator.vibrate && navigator.vibrate(ms || 25); } catch {} };   // 아이폰 사파리는 진동을 지원 안 함 → 대신 화면에 퍼지는 동그라미
   const beatNear = (cv, t) => { const B = cv && cv.beats && cv.beats.t; if (!B || !B.length) return null; let lo = 0, hi = B.length - 1; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (B[m] <= t) lo = m; else hi = m; } return Math.abs(B[lo] - t) <= Math.abs(B[hi] - t) ? B[lo] : B[hi]; };   // (11/06) 보정 모드 큰 손잡이 반지름(px) — 손가락·펜으로 잡기 쉽게
   const WIN = 8, HEAD = 0.4, NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"], LANE = 34, ZOOM_HALF = 400;
   function range(cv) {
@@ -396,7 +403,17 @@
             g.beginPath(); g.moveTo(bk, y0); g.lineTo(tip - nk, y0); g.lineTo(tip, sb.y); g.lineTo(tip - nk, y1); g.lineTo(bk, y1); g.closePath(); g.fillStyle = on ? "#ffb86b" : "#e8f8ff"; g.fill(); g.lineWidth = 2; g.strokeStyle = "#0b0d11"; g.stroke();
             g.fillStyle = "#0b0d11"; g.font = "bold 15px system-ui, sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(dir < 0 ? "‹" : "›", (x0 + x1) / 2, sb.y + 1); g.textAlign = "left"; };
           if (lx >= L - 4) arrow(lx, -1, st.hdlArmed === "l"); if (rx <= w + 4) arrow(rx, 1, st.hdlArmed === "r");
-          st.hdl = { l: { x: lx - R * 0.75, y: sb.y, r: R + 8 }, r: { x: rx + R * 0.75, y: sb.y, r: R + 8 } }; } }
+          st.hdl = { l: { x: lx - R * 0.75, y: sb.y, r: R + 8 }, r: { x: rx + R * 0.75, y: sb.y, r: R + 8 } };
+          const tips = [["v", "↕ 잡자마자 끌기 = ", "반음씩"], ["h", "↔ 잡자마자 끌기 = ", "자리 옮기기"], ["fine", "꾹 0.6초 → 끌기 = ", "미세"], ["dbl", "두 번 톡 = ", "가까운 음에 착"], ["arr", "‹ › 꾹 0.6초 → 끌기 = ", "앞·뒤 길이"]].filter(q => !learned(q[0]));
+          if (tips.length && !st.dragging) { g.font = "11.5px system-ui, sans-serif"; g.textBaseline = "middle"; const cx = Math.max(L + 70, Math.min(w - 70, (Math.max(L, sb.x0) + Math.min(w, sb.x1)) / 2));
+            const tag = (yy, a, b2) => { const wa = g.measureText(a).width; g.font = "bold 11.5px system-ui, sans-serif"; const wb = g.measureText(b2).width; g.font = "11.5px system-ui, sans-serif";
+              const W_ = wa + wb + 14, X0 = Math.max(L + 2, Math.min(w - W_ - 2, cx - W_ / 2)); g.fillStyle = "rgba(24,29,37,.92)"; g.strokeStyle = "#3b4250"; g.lineWidth = 1;
+              g.beginPath(); if (g.roundRect) g.roundRect(X0, yy - 10, W_, 20, 8); else g.rect(X0, yy - 10, W_, 20); g.fill(); g.stroke();
+              g.fillStyle = "#cfd3da"; g.fillText(a, X0 + 7, yy); g.fillStyle = "#ffcf99"; g.font = "bold 11.5px system-ui, sans-serif"; g.fillText(b2, X0 + 7 + wa, yy); g.font = "11.5px system-ui, sans-serif"; };
+            const up = tips.filter(q => q[0] === "v"), dn = tips.filter(q => q[0] !== "v"), top0 = sb.y - hh / 2 - 16;
+            up.forEach((q, i) => { if (top0 - i * 24 > T + 10) tag(top0 - i * 24, q[1], q[2]); });
+            dn.forEach((q, i) => { const yy = sb.y + hh / 2 + 16 + i * 24; if (yy < T + HP - 8) tag(yy, q[1], q[2]); }); } } }
+      if (st && st.pulse && performance.now() - st.pulse.at < 450) { const k_ = (performance.now() - st.pulse.at) / 450; g.beginPath(); g.arc(st.pulse.x, st.pulse.y, 14 + 26 * k_, 0, Math.PI * 2); g.strokeStyle = `rgba(255,184,107,${1 - k_})`; g.lineWidth = 3; g.stroke(); }   // 꾹 0.6초 켜짐 표시(진동 없는 기기용)
       if (st && st.advOn && st._adv) for (const d of st._adv.ne.global.draw || []) { if (d.t1 < t0 || d.t0 > t0 + W8) continue;   // 펜으로 그린 선(점선 주황) — 펜 도구로 톡 하면 지움
         g.save(); g.setLineDash([5, 4]); g.strokeStyle = "rgba(255,184,107,.9)"; g.lineWidth = 2; g.beginPath(); d.pts.forEach((q, i) => { const X = xs(q[0]), Y = y(q[1]); if (i) g.lineTo(X, Y); else g.moveTo(X, Y); }); g.stroke(); g.restore(); }
       if (st && st.penPts && st.penPts.length > 1) { g.save(); g.strokeStyle = "#ffb86b"; g.lineWidth = 3; g.lineCap = "round"; g.lineJoin = "round"; g.beginPath(); st.penPts.forEach((q, i) => { const X = xs(q[0]), Y = y(q[1]); if (i) g.lineTo(X, Y); else g.moveTo(X, Y); }); g.stroke(); g.restore(); }
@@ -982,6 +999,14 @@
       st.dock = () => { if (!st.advOn || typeof st.onTime !== "function" || !st.onAdv || !G.TuneAdv || wrap.querySelector(".tfFix")) return;   // (11/05 사용자) 보정 모드 = 늘 떠 있는 고치기 창(음을 안 골랐으면 안내만)
         const bt = wrap.querySelector(".tfBot"); if (!bt) return; const dk = document.createElement("div"); dk.className = "tfFix inBot tfUni tfDock";
         dk.innerHTML = `<div class="tfFixBox"><p class="tfDockMsg">초록 음표를 누르면 여기서<br>음정 · 타이밍 · 고급을 한꺼번에 고쳐요</p></div>`; dk.addEventListener("pointerdown", (e) => e.stopPropagation()); bt.appendChild(dk); };
+      const advGuide = (force) => {   // (11/06 16:36 사용자) 보정 모드 처음 들어오면 손짓 안내 한 번(일괄 보정 창에서 다시 보기)
+        try { if (!force && localStorage.getItem("tune_adv_guide_v1") === "1") return; } catch {}
+        wrap.querySelectorAll(".tfGuide").forEach(x => x.remove()); const gd = document.createElement("div"); gd.className = "tfRot tfGuide"; gd.setAttribute("role", "dialog"); gd.setAttribute("aria-label", "보정 모드 손짓");
+        gd.innerHTML = `<div class="rpBox gdBox"><b style="font-size:16px">🎛 보정 모드 손짓</b><ol class="gdL"><li><span>초록 음 톡</span><em>음 고르기</em></li><li><span>↕ 잡자마자 위아래</span><em>반음씩</em></li><li><span>↔ 잡자마자 좌우</span><em>자리 옮기기</em></li><li><span>꾹 0.6초(진동) → 끌기</span><em>미세 조절</em></li><li><span>두 번 톡</span><em>가까운 음에 착</em></li><li><span>양 끝 ‹ › 꾹 0.6초 → 좌우</span><em>앞·뒤 길이</em></li><li><span>두 손가락</span><em>확대 · 이동</em></li></ol><p class="gdS">고른 음 옆에도 안내가 떠요 · 두 번씩 써 보면 사라져요</p><button type="button" class="rpOk">알겠어요</button></div>`;
+        const gone = () => { try { localStorage.setItem("tune_adv_guide_v1", "1"); } catch {} gd.classList.add("out"); setTimeout(() => gd.remove(), 300); };
+        const ly = G.Brand && G.Brand.layer ? G.Brand.layer(gone) : { close: gone };   // 뒤로 가기 = 이 안내만 닫기
+        gd.addEventListener("pointerdown", (e) => e.stopPropagation()); gd.addEventListener("click", (e) => { if (e.target === gd || e.target.closest(".rpOk")) ly.close(); }); wrap.appendChild(gd); };
+      st.advGuide = () => { learnReset(); advGuide(true); };
       const landTip = () => { if (!wrap.querySelector(".tfBox.port") || Math.min(G.innerWidth, G.innerHeight) > 700) return;   // (11/05 사용자) 폰을 세로로 들고 보정 모드로 들어가면 안내 팝업 — '다시 보지 않기' 체크하면 이후 안 뜸
         try { if (localStorage.getItem("tune_land_tip_off") === "1") return; } catch {}
         wrap.querySelectorAll(".tfLandTip").forEach(x => x.remove()); const rp = document.createElement("div"); rp.className = "tfRot tfLandTip"; rp.setAttribute("role", "dialog");
@@ -992,7 +1017,7 @@
         // (11/06 15:32 사용자) 음을 고른 채 확인↔보정을 바꾸면 그 음의 고치기 창이 새 모드로 바로 열림(다른 음을 눌렀다 다시 누를 필요 없이)
         const keep = st.sel && st._selBar && typeof o.onFix === "function" && wrap.querySelector(".tfFix:not(.tfDock):not(.tfMulti)") ? st._selBar : null;
         paintAdv(); if (sheetClose && (keep || wrap.querySelector(".tfMulti"))) { try { sheetClose(); } catch {} } wrap.querySelectorAll(".tfFix").forEach(y => y.remove());
-        if (keep) { try { fixSheet(wrap, cv, keep, o.onFix, getT, st); } catch (e) { console.warn("고치기 창", e); } if (v) landTip(); } else if (v) { landTip(); st.dock && st.dock(); } });
+        if (keep) { try { fixSheet(wrap, cv, keep, o.onFix, getT, st); } catch (e) { console.warn("고치기 창", e); } if (v) { landTip(); if (!wrap.querySelector(".tfLandTip")) advGuide(); } } else if (v) { landTip(); if (!wrap.querySelector(".tfLandTip")) advGuide(); st.dock && st.dock(); } });
       pen.onclick = () => { st.penTool = !st.penTool; st.penPts = null; if (st.penTool) { pauseNow(); undo("음정선 위에 그리면 그 구간 음높이가 그린 대로 · 그린 선을 톡 = 지우기", null, 4500, "확인"); } paintAdv(); };   // (11/06) 펜으로 그리기
       gl.onclick = () => { try { G.TuneAdv.globalSheet(wrap.querySelector(".tfBox") || wrap, st, cv); } catch (e) { console.warn("고급 보정", e); } };
       paintAdv(); }
@@ -1079,11 +1104,11 @@
         // (11/06 16:20 사용자) ① 양 끝 화살표: 바로 끌면 안 움직임 — 꾹(0.35초) 누른 뒤 좌우로 = 길이 미세
         const ed = H_ ? (hit(H_.l) ? "l" : hit(H_.r) ? "r" : null) : null;
         if (ed && st.onBarDragX) { const d0 = drag = { hArm: true, edge: ed, x0: l0.x, y0: l0.y, id: e.pointerId, cx: e.clientX, cy: e.clientY };
-          d0.lp = setTimeout(() => { if (drag !== d0 || d0.cancel) return; d0.hArmed = true; st.hdlArmed = ed; st.onBarDragX(0, ed, true); undo("미세 길이 조절 — 천천히 좌우로", null, 1200, "·"); }, LONG_MS); return; }
+          d0.lp = setTimeout(() => { if (drag !== d0 || d0.cancel) return; d0.hArmed = true; st.hdlArmed = ed; st.onBarDragX(0, ed, true); buzz(25); st.pulse = { x: l0.x, y: l0.y, at: performance.now() }; }, LONG_MS); return; }
         // ② 고른 음 가운데: 바로 위아래 = 반음씩 · 바로 좌우 = 자리 옮기기 · 꾹 누른 뒤 = 둘 다 미세 · 두 번 톡 = 가까운 음에 착
         const hb0 = hitBar(l0);
         if (hb0 && Math.abs(hb0.t0 - st.sel.t0) < 0.02 && l0.x >= st.kb.L && st.onBarDrag) { const d0 = drag = { selBody: true, x0: l0.x, y0: l0.y, axis: null, fine: false, id: e.pointerId, cx: e.clientX, cy: e.clientY, a: along(e), b: across(e), t: +getT() || 0, mode: null };
-          d0.lp = setTimeout(() => { if (drag !== d0 || d0.axis) return; d0.fine = true; undo("미세 조절 — 위아래 = 센트 · 좌우 = 자리", null, 1300, "·"); }, LONG_MS); return; } }
+          d0.lp = setTimeout(() => { if (drag !== d0 || d0.axis) return; d0.fine = true; buzz(25); st.pulse = { x: l0.x, y: l0.y, at: performance.now() }; }, LONG_MS); return; } }
       if (pts.size === 1 && st.onBarDragX && st.fixMode === "t" && st.sel && st.kb && st.map) { const r0 = cvEl.getBoundingClientRect(), l0 = loc(e.clientX, e.clientY, r0);   // (11/03 13:08) 타이밍 모드: 고른 막대 가운데 끌기 = 옮기기, 양 끝 = 길이
         const tb = (st.tebars || []).find(x => Math.abs(x.t0 - st.sel.t0) < 0.02) || (st.tbars || []).find(x => Math.abs(x.t0 - st.sel.t0) < 0.02);
         if (tb && l0.x >= st.kb.L && Math.abs(l0.y - tb.y) <= Math.max(22, tb.h) && l0.x >= tb.x0 - 16 && l0.x <= tb.x1 + 16) {
@@ -1122,7 +1147,7 @@
       if (drag.selBody) { const l0 = loc(e.clientX, e.clientY, cvEl.getBoundingClientRect()), mp = st.map, dx = l0.x - drag.x0, dy = l0.y - drag.y0;
         if (!drag.axis) { if (Math.max(Math.abs(dx), Math.abs(dy)) < 8) return; clearTimeout(drag.lp);
           drag.axis = Math.abs(dy) >= Math.abs(dx) ? "v" : (st.onBarDragX ? "h" : "x"); if (drag.axis === "v") st.onBarDrag(0, true); else if (drag.axis === "h") st.onBarDragX(0, "c", true); }
-        drag.moved = true;
+        drag.moved = true; st.dragging = true;
         if (drag.axis === "v") { const c = (st.kb.inv(l0.y) - st.kb.inv(drag.y0)) / 100; st.onBarDrag(drag.fine ? Math.round(c * FINE * 100) / 100 : Math.round(c), false); }
         else if (drag.axis === "h" && mp) st.onBarDragX(Math.round(dx / Math.max(1, mp.w - mp.L) * mp.W8 * (drag.fine ? FINE : 1) * 100) / 100, "c", false);
         return; }
@@ -1152,12 +1177,13 @@
       if (!drag || drag.id !== e.pointerId) return; const d = drag; drag = null; clearTimeout(d.lp); st.hold = null;
       if (d.armed) { armTip(false); clearInterval(d.auto); d.auto = null; if (preview != null) { const t_ = preview; preview = null; try { seek(t_, true); } catch {} } if (d.moved) { if (st.onMSel) st.onMSel(); return; } if (d.armed.keep) return; st.msel = null; if (e.type === "pointerup") { if (st.notesHidden) st.noteShow = true; lastView = view; o.onAdd(d.armed.t); } return; }   // 숨긴 채 새 주석 = 주석 칸 보이기   // 끌지 않고 뗌 = 새 주석(예전과 같음)
       if (d.long) return;
-      if (d.hArm) { clearTimeout(d.lp); st.hdlArmed = null; if (d.hArmed) { if (st.onBarDragXEnd) try { st.onBarDragXEnd(); } catch {} } else if (!d.cancel && e.type === "pointerup") undo("‹ › 화살표는 꾹 누른 채 좌우로 끌면 길이가 바뀌어요", null, 2500, "확인"); return; }
-      if (d.selBody) { clearTimeout(d.lp);
+      if (d.hArm) { clearTimeout(d.lp); st.hdlArmed = null; if (d.hArmed) { if (d.moved) learn("arr"); if (st.onBarDragXEnd) try { st.onBarDragXEnd(); } catch {} } else if (!d.cancel && e.type === "pointerup") undo("‹ › 화살표는 꾹 누른 채 좌우로 끌면 길이가 바뀌어요", null, 2500, "확인"); return; }
+      if (d.selBody) { clearTimeout(d.lp); st.dragging = false;
+        if (d.axis) learn(d.fine ? "fine" : d.axis === "v" ? "v" : "h");
         if (d.axis === "v" && st.onBarDragEnd) { try { st.onBarDragEnd(); } catch {} return; }
         if (d.axis === "h" && st.onBarDragXEnd) { try { st.onBarDragXEnd(); } catch {} return; }
         if (d.axis || d.fine || e.type !== "pointerup") return;
-        if (st.snapSel && Date.now() - (st._bt || 0) < 350) { st._bt = 0; snapNote(); return; }   // 두 번 톡 = 가까운 음에 착
+        if (st.snapSel && Date.now() - (st._bt || 0) < 350) { st._bt = 0; learn("dbl"); snapNote(); return; }   // 두 번 톡 = 가까운 음에 착
         st._bt = Date.now(); if (st.selSnd) st.selSnd(); return; }
       if (d.pen) { const raw = st.penPts || []; st.penPts = null;
         if (d.moved) { const dd = G.TuneAdv.addDraw(st, cv, raw); if (dd) undo(`그린 선으로 바꿨어요(${(dd.t1 - dd.t0).toFixed(1)}초) · ▶로 들어 보세요`, () => { try { G.TuneAdv.undoLast(st, cv); } catch {} }); else undo("조금 더 길게 그려 주세요(0.05초 넘게)"); }

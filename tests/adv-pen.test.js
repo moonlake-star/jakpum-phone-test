@@ -40,7 +40,12 @@ console.log("adv-pen ok");
   A_.ok(t4.includes("if (st.beatOn && edge !== \"r\") { const bt = beatNear(cv, n0); if (bt != null && Math.abs(bt - n0) <= BEAT_SNAP)") && t4.includes('mk("advBeatB"') && t4.includes("st.advOn && st.beatOn && cv.beats && cv.beats.t")); }
 // (11/06 16:13·16:20 사용자) 음 가운데: 바로 위아래 = 반음, 좌우 = 자리, 꾹 = 미세 · 양 끝 화살표는 꾹 눌러야 길이 · 건반 꾹 진동 없음
 { const t5 = require("fs").readFileSync(__dirname + "/../tune.js", "utf8"), A_ = require("assert");
-  A_.ok(t5.includes("const LONG_MS = 350, FINE = 0.25;") && t5.includes("drag.fine ? Math.round(c * FINE * 100) / 100 : Math.round(c)"), "반음/미세");
+  A_.ok(t5.includes("const LONG_MS = 600, FINE = 0.25;") && t5.includes("drag.fine ? Math.round(c * FINE * 100) / 100 : Math.round(c)"), "반음/미세");
   A_.ok(t5.includes('st.onBarDragX(0, "c", true)') && t5.includes("if (!drag.hArmed) { if (Math.hypot(l0.x - drag.x0, l0.y - drag.y0) > 8)"), "좌우 = 자리, 화살표는 꾹 눌러야");
   A_.ok(!t5.includes('"↕", "#9cc3ff"'), "↕ 동그라미 없앰");
   A_.ok(t5.includes('cvEl.addEventListener("touchstart", (e) => { if (e.cancelable) e.preventDefault(); }, { passive: false })'), "꾹 눌러도 폰 진동 없게"); }
+// (11/06 16:36 사용자) 손짓 안내(두 번 써 보면 사라짐) · 처음 보정 모드 안내 · 꾹 0.6초 진동
+{ const t6 = require("fs").readFileSync(__dirname + "/../tune.js", "utf8"), a6 = require("fs").readFileSync(__dirname + "/../adv.js", "utf8"), A_ = require("assert");
+  A_.ok(t6.includes('const LEARN_KEY = "tune_learn_v1", LEARN_N = 2;') && t6.includes('learn(d.fine ? "fine" : d.axis === "v" ? "v" : "h")') && t6.includes('learn("dbl")') && t6.includes('learn("arr")'));
+  A_.ok((t6.match(/buzz\(25\); st\.pulse = /g) || []).length === 2, "꾹 켜질 때 진동 + 동그라미");
+  A_.ok(t6.includes("const advGuide = (force) =>") && a6.includes('data-g="guide"'), "처음 안내 + 다시 보기"); }
