@@ -63,7 +63,7 @@ assert.ok(tu.includes("st.advBadge = () =>") && tu.includes("미리듣기 (근�
 console.log("adv-preview-wiring ok");
 // 안내: 탭 설명 줄 + 배지를 누르면 팝업 / 속도 재기 화면은 앱과 같은 합성 코드를 씀
 const ad = fs.readFileSync(__dirname + "/../adv.js", "utf8"), bn = fs.readFileSync(__dirname + "/../bench/index.html", "utf8");
-assert.ok(ad.includes("음색은 ▶로 근사 소리가 바로 들려요") && ad.includes("볼륨·페이드는 ▶로 근사 소리가 바로 들려요") && ad.includes("일괄 보정은 폰에서 못 들려줘요"), "탭 안 안내");
+assert.ok(ad.includes("음색은 ▶로 서버와 같은 소리가 들려요") && ad.includes("볼륨·페이드는 ▶로 서버와 같은 소리가 들려요") && ad.includes("일괄 보정은 폰에서 못 들려줘요"), "탭 안 안내");
 assert.ok(tu.includes("st.advPvInfo = () =>") && tu.includes("미리듣기는 대략의 소리예요") && tu.includes("서버와 같은 엔진") && tu.includes("el.onclick = () => st.advPvInfo()"), "배지 팝업");
 const fnSrc = (t, n) => t.slice(t.indexOf("function " + n + "("), t.indexOf("\n}\n", t.indexOf("function " + n + "(")));
 assert.strictEqual(fnSrc(bn, "pvPsola"), fnSrc(html, "pvPsola"), "속도 재기 = 앱 합성 코드");
