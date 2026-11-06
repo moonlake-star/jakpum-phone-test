@@ -1,0 +1,25 @@
+// 앱 미리듣기(pvApply)가 Praat(서버와 같은 엔진)으로 고친 음을 다시 만드는지: 서버 기준 자료(합성 목소리)로
+const fs = require("fs"), assert = require("assert"), path = require("path");
+const html = fs.readFileSync(__dirname + "/../teacher/index.html", "utf8"), a = html.indexOf("let mkPv = {"), b = html.indexOf("// (11/03 11:13 사용자) 멜로다인처럼");
+globalThis.window = globalThis; require("../adv.js");
+const Core = require("../praat/praat-core.js"), factory = require("../praat/praat_web.js"), F = path.join(__dirname, "fixtures/praat/");
+const rd = (f) => { const u = fs.readFileSync(F + f), v = new DataView(u.buffer, u.byteOffset, u.byteLength); let p = 12; while (String.fromCharCode(u[p], u[p + 1], u[p + 2], u[p + 3]) !== "data") p += 8 + v.getUint32(p + 4, true); const n = v.getUint32(p + 4, true) >> 1, y = new Float32Array(n); for (let i = 0; i < n; i++) y[i] = v.getInt16(p + 8 + i * 2, true) / 32768; return y; };
+const ref = JSON.parse(fs.readFileSync(F + "ref.json", "utf8")), SR = ref.sr, buf = (ch) => ({ sampleRate: SR, length: ch.length, numberOfChannels: 1, getChannelData: () => ch });
+(async () => {
+  await Core.init(fs.readFileSync(path.join(__dirname, "../praat/praat_web.wasm.gz")), factory);
+  const p0 = rd("in.wav"), p1 = rd("server_out.wav"), before = Float32Array.from(p1), cv = JSON.parse(JSON.stringify(ref.curve));
+  const env = { mkTracks: { p0: { buf: buf(p0) }, p1: { buf: buf(p1) } }, mkPv: null, mkDurS: 4, Tune: { col: () => 2, tmapOf: () => null, mapT: (x) => x }, mkPlaying: false, PraatCore: Core, PraatModule: factory, document: { dispatchEvent() {} }, Event: function () {} };
+  new Function("env", `with (env) { ${html.slice(a, b)}\n env.pvApply = pvApply; env.PVP = PVP; env.setPv = (o) => { mkPv = o; env.mkPv = o; }; }`)(env);
+  env.setPv({ fixes: [{ t0: 1.05, t1: 1.85, midi: 65 }], rendered: () => null, orig: {}, cv, tedits: [], tplan: { sig: "", regs: [] }, adv: null });   // 선생님이 둘째 음(E4)을 F4(65)로 고침
+  env.pvApply("p1"); await env.PVP.p; env.pvApply("p1"); await Promise.all(env.PVP.jobs); await new Promise((r) => setTimeout(r, 20));   // ① 간이 소리로 바로 → Praat 로딩 → 구간 만들기
+  assert.strictEqual(env.PVP.state, "ready", "Praat 준비"); for (const o of Object.values(env.mkPv.orig)) o.sig = "?"; assert.ok(env.pvApply("p1"), "Praat 소리로 바꿔 끼움");
+  const med = async (y, t0, t1) => { const A = await Core.analyze(y.slice(Math.round(t0 * SR), Math.round(t1 * SR)), SR), c = Array.from(A.f, (f) => 1200 * Math.log2(f / 440) + 6900).sort((x, y2) => x - y2); return c[c.length >> 1]; };
+  const m0 = await med(before, 1.2, 1.7), m1 = await med(p1, 1.2, 1.7);   // 고친 음: E4(64)+30센트 → 정음 F4(65) 쪽으로
+  console.log("고친 음 중앙 높이(센트): 전", m0.toFixed(0), "→ 후", m1.toFixed(0), "(정음 6500)"); assert.ok(Math.abs(m1 - 6500) < 20 && Math.abs(m0 - 6500) > 50, "정음으로 옮겨짐");
+  let far = 0; for (let i = 0; i < Math.round(0.8 * SR); i++) far = Math.max(far, Math.abs(p1[i] - before[i])); for (let i = Math.round(2.2 * SR); i < p1.length; i++) far = Math.max(far, Math.abs(p1[i] - before[i]));
+  assert.ok(far < 1e-6, "고친 곳 밖은 그대로 " + far);
+  // ② 같은 고침을 또 적용해도 소리가 쌓이지 않음 · 고침을 지우면 원래 소리
+  const once = Float32Array.from(p1); env.pvApply("p1"); assert.deepStrictEqual(Array.from(p1.slice(30000, 30050)), Array.from(once.slice(30000, 30050)), "한 번만 적용");
+  env.mkPv.fixes = []; env.pvApply("p1"); let d = 0; for (let i = 0; i < p1.length; i++) d = Math.max(d, Math.abs(p1[i] - before[i])); assert.ok(d < 1e-6, "지우면 원래 소리 " + d);
+  console.log("praat-preview ok");
+})().catch((e) => { console.error(e); process.exit(1); });
