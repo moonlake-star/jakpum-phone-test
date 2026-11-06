@@ -44,3 +44,6 @@ console.log("arrow buzz ok");
 assert.ok(T.includes("if (!(st && st._quiet)) { try { sndFor(m, 1000); } catch {} }") && T.includes("st._quiet = true;") && !T.includes("try { await o.histSet(H.S[i]); }"));
 assert.ok(H.includes("mkQ = p.catch(() => {});"));
 console.log("undo fast ok");
+// (11/06 18:13 사용자) 세로 버튼 줄 좌우 끝 맞춤 · 폰 가로에서 안내 글 숨김(음정선 안 밀리게)
+assert.ok(T.includes("#tuneFs .port .tfAbRow{width:100%;justify-content:space-between}") && T.includes("#tuneFs .port .tfNav button{flex:1;min-width:0!important}") && T.includes("@media (max-height:560px){#tuneFs .tfBox:not(.port) .tfHint"));
+console.log("align ok");
