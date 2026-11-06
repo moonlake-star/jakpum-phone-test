@@ -47,3 +47,8 @@ console.log("undo fast ok");
 // (11/06 18:13 사용자) 세로 버튼 줄 좌우 끝 맞춤 · 폰 가로에서 안내 글 숨김(음정선 안 밀리게)
 assert.ok(T.includes("#tuneFs .port .tfAbRow{width:100%;justify-content:space-between}") && T.includes("#tuneFs .port .tfNav button{flex:1;min-width:0!important}") && T.includes("@media (max-height:560px){#tuneFs .tfBox:not(.port) .tfHint"));
 console.log("align ok");
+// (11/06 18:21·18:24 사용자) −/+ → 끌어서 조절하는 칸 · 흐름 1줄 · 이어짐 1줄 · 두 번 톡 = 원래 값
+{ const A = fs.readFileSync(path.join(__dirname, "..", "adv.js"), "utf8");
+  assert.ok(A.includes("function scrub(label, get, set, o, inLabel)") && A.includes("if (now - lastTap < 320) { lastTap = 0; put(o.def); vib(30); return; }") && A.includes("vib(home ? 30 : 8)"));
+  assert.ok(A.includes('cells(stepper("느린 흐름"') && A.includes('cells(stepper("다음 음까지"'));
+  console.log("scrub ok"); }

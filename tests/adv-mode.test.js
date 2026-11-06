@@ -63,7 +63,7 @@ console.log("adv-mode ok", md.toFixed(4));
   as.ok(T5.includes("cv._fixes = prior.filter(x => !(x.t0 < a1 && x.t1 > a0)).concat(plain ? [] : [f]);"), "두 조각 기록을 하나로 바꿔 끼움"); }
 // (11/05 사용자) 큰 음 줄이기: − 를 누르면 숫자가 더 마이너스로(−20% → −30%), + 는 0쪽으로
 { const A3 = require("fs").readFileSync(__dirname + "/../adv.js", "utf8");
-  require("assert").ok(A3.includes("if (o.inv) s = -s;") && A3.includes('def: 0, inv: true, fmt: (v) => (v > 0 ? "−" : "") + pct(v)'), "큰 음 줄이기 − = 더 마이너스"); }
+  require("assert").ok(A3.includes("const sgn = o.inv ? -1 : 1;") && A3.includes('def: 0, inv: true, fmt: (v) => (v > 0 ? "−" : "") + pct(v)'), "큰 음 줄이기 − = 더 마이너스"); }
 
 /* (11/05 사용자 '추천모드로 진행') [확인|보정] 토글: 보정 모드 = 고친 양 줄·주석 접음, 도구(일괄·치찰음)는 보정 모드에서만, 원음/보정본은 그대로 */
 { const T2 = require("fs").readFileSync(__dirname + "/../tune.js", "utf8"), as = require("assert");

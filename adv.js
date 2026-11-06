@@ -117,22 +117,49 @@
   function flatNote(st, cv, b) { const A = state(st); change(A, st, cv, () => { const n = noteOf(A, b, true); n.drift = 0; }); }   // 두 번 톡 맞춤: 흐름 평평하게
 
   // ── 조절 줄(− 값 +) — 손가락으로 누르기 쉽게 44px · 꾹 누르면 계속 ──
-  function stepper(label, get, set, o) {
-    const row = document.createElement("div"); row.className = "advRow";
-    row.innerHTML = `<span class="advL">${label}</span><button type="button" class="advB" data-s="-1" aria-label="${label} 줄이기">−</button><output class="advV"></output><button type="button" class="advB" data-s="1" aria-label="${label} 늘리기">+</button>`;
-    const out = row.querySelector("output"), paint = () => { out.textContent = o.fmt(get()); row.classList.toggle("on", Math.abs(get() - o.def) > 1e-9); };
-    const go = (s) => { if (o.inv) s = -s; const v = Math.round((get() + s * o.step) / o.step) * o.step;   // inv = 화면에 −로 보이는 값(큰 음 줄이기): −를 누르면 숫자가 더 마이너스로
-      set(Math.min(o.max, Math.max(o.min, +v.toFixed(4)))); paint(); };
-    row.querySelectorAll(".advB").forEach(b => {
-      let hold = null, rep = null;
-      const stop = () => { clearTimeout(hold); clearInterval(rep); hold = rep = null; };
-      b.addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); go(+b.dataset.s); hold = setTimeout(() => { rep = setInterval(() => go(+b.dataset.s), 90); }, 450); });
-      ["pointerup", "pointerleave", "pointercancel"].forEach(ev => b.addEventListener(ev, stop));
-      b.addEventListener("click", (e) => { if (e.detail === 0) go(+b.dataset.s); });
-    });
-    out.addEventListener("dblclick", () => { set(o.def); paint(); });   // 값 두 번 톡 = 기본값
-    paint(); row._paint = paint; return row;
+  // (11/06 18:21 사용자 시안 승인) −/+ 버튼 → 끌어서 조절하는 칸: 좌우(또는 위아래)로 끌기 = 값 · 톡 = 한 칸(왼쪽 절반 내림·오른쪽 절반 올림) · 두 번 톡 = 원래 값
+  // 한 칸마다 짧은 진동, 원래 값에 닿으면 조금 센 진동 + 살짝 붙음 · 끄는 동안 위에 큰 숫자 · 빨리 끌면 성큼 · 손 뗀 뒤 0.4초 모아 한 번 저장(change)
+  const vib = (ms) => { try { navigator.vibrate && navigator.vibrate(ms); } catch {} };
+  let scTipShown = false;
+  function scrub(label, get, set, o, inLabel) {
+    const c = document.createElement("div"); c.className = "advSc"; c.tabIndex = 0; c.setAttribute("role", "slider"); c.setAttribute("aria-label", label + " (좌우로 밀어 조절 · 두 번 톡 = 원래 값)");
+    c.innerHTML = `<i class="advScA">‹</i>${inLabel ? `<small class="advScL">${label}</small>` : ""}<b class="advV"></b><i class="advScA">›</i><i class="advScT"></i>`;
+    const out = c.querySelector(".advV"), q = (v) => Math.min(o.max, Math.max(o.min, +(Math.round(v / o.step) * o.step).toFixed(4)));
+    const paint = () => { const v = get(); out.textContent = o.fmt(v); const on = Math.abs(v - o.def) > 1e-9; c.classList.toggle("on", on); c.setAttribute("aria-valuetext", o.fmt(v)); return on; };
+    const put = (v) => { v = q(v); if (Math.abs(v - get()) < 1e-9) return false; set(v); paint(); return true; };
+    const sgn = o.inv ? -1 : 1;   // inv = 화면에 −로 보이는 값: 왼쪽(−)으로 끌면 숫자가 더 마이너스로
+    let d = null, lastTap = 0, bub = null;
+    const bubble = (on) => { if (on && !bub) { bub = document.createElement("span"); bub.className = "advScB"; c.appendChild(bub); } if (bub) { if (on) bub.textContent = o.fmt(get()); else { bub.remove(); bub = null; } } };
+    c.addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); try { c.setPointerCapture(e.pointerId); } catch {} d = { id: e.pointerId, x: e.clientX, y: e.clientY, v0: get(), n: 0, drag: false, home: Math.abs(get() - o.def) < 1e-9 }; });
+    c.addEventListener("pointermove", (e) => { if (!d || e.pointerId !== d.id) return; const dd = (e.clientX - d.x) - (e.clientY - d.y);   // 오른쪽·위 = 올림
+      if (!d.drag) { if (Math.abs(dd) < 7) return; d.drag = true; c.classList.add("act"); bubble(true); }
+      const a = Math.max(0, Math.abs(dd) - 7) / 16, k = Math.sign(dd) * (a + a * a / 30);   // 빨리(멀리) 끌수록 성큼
+      let n = Math.trunc(k); const nDef = (o.def - d.v0) / o.step * sgn;
+      if (Math.abs(k - nDef) < 0.7 && Math.abs(nDef - Math.round(nDef)) < 1e-6) n = Math.round(nDef);   // 원래 값 근처면 거기 붙음
+      if (n === d.n) return; d.n = n; if (put(d.v0 + n * o.step * sgn)) { const home = Math.abs(get() - o.def) < 1e-9; vib(home ? 30 : 8); d.home = home; bubble(true); } });
+    const end = (e) => { if (!d || (e && e.pointerId !== d.id)) return; const was = d; d = null; c.classList.remove("act"); bubble(false);
+      if (was.drag || !e || e.type !== "pointerup") return;
+      const now = Date.now(); if (now - lastTap < 320) { lastTap = 0; put(o.def); vib(30); return; }   // 두 번 톡 = 원래 값
+      lastTap = now; const r = c.getBoundingClientRect(); put(get() + (e.clientX < r.left + r.width / 2 ? -1 : 1) * o.step * sgn); };
+    c.addEventListener("pointerup", end); c.addEventListener("pointercancel", end); c.addEventListener("lostpointercapture", () => { if (d) end(null); });
+    c.addEventListener("keydown", (e) => { const k = e.key; if (k === "ArrowRight" || k === "ArrowUp") put(get() + o.step * sgn); else if (k === "ArrowLeft" || k === "ArrowDown") put(get() - o.step * sgn); else if (k === "Enter" || k === "0") put(o.def); else return; e.preventDefault(); e.stopPropagation(); });
+    c.addEventListener("dblclick", (e) => { e.preventDefault(); put(o.def); });   // 마우스 두 번 클릭
+    paint(); c._paint = paint;
+    if (!scTipShown) { let seen = false; try { seen = localStorage.getItem("adv_scrub_tip_v1") === "1"; } catch {} if (!seen) { scTipShown = true; try { localStorage.setItem("adv_scrub_tip_v1", "1"); } catch {}
+      setTimeout(() => { if (!c.isConnected || d) return; const t = document.createElement("span"); t.className = "advScB tip"; t.textContent = "↔ 좌우로 밀어 조절 · 두 번 톡 = 원래 값"; c.appendChild(t); setTimeout(() => t.remove(), 3200); }, 300); } }
+    return c;
   }
+  function stepper(label, get, set, o) {   // [이름 ……… (‹ 값 ›)] 한 줄 — 칸은 끌어서 조절
+    const row = document.createElement("div"); row.className = "advRow";
+    row.innerHTML = `<span class="advL">${label}</span>`; const c = scrub(label, get, set, o, false); row.appendChild(c);
+    const paint = () => { row.classList.toggle("on", c._paint()); }; paint(); row._paint = paint; row._sc = { label, get, set, o }; return row;
+  }
+  function cells(...rows) {   // (11/06) 이름을 칸 안에 넣어 한 줄에 여러 칸: [느린 흐름 100%] [앞 −10] [뒤 0]
+    const row = document.createElement("div"); row.className = "advCells";
+    const cs = rows.map(r => { if (r.nodeType && !r._sc) return r; const sc = r._sc, cc = scrub(r._lab || sc.label, sc.get, sc.set, sc.o, true); return cc; });
+    row.append(...cs); row._paint = () => cs.forEach(x => x._paint && x._paint()); return row;
+  }
+  const lab = (r, t) => { r._lab = t; return r; };
   function duo(r1, r2_, l1, l2) {   // 조절 줄 두 개를 한 줄로: [앞 − 값 +] [뒤 − 값 +]
     const row = document.createElement("div"); row.className = "advDuo";
     r1.querySelector(".advL").textContent = l1; r2_.querySelector(".advL").textContent = l2;
@@ -166,12 +193,12 @@
       st._advTab = k; el.querySelectorAll("[data-at]").forEach(x => x.classList.toggle("on", x.dataset.at === k)); body.innerHTML = "";
       const rows = [];
       if (k === "f") rows.push(
-        stepper("느린 흐름", () => get("drift"), (v) => put("drift", v), { step: 0.25, min: 0, max: 2, def: 1, fmt: pct }),
-        duo(stepper("앞 기울기", () => get("tilt_in"), (v) => put("tilt_in", v), { step: 10, min: -300, max: 300, def: 0, fmt: cents }),
-            stepper("뒤 기울기", () => get("tilt_out"), (v) => put("tilt_out", v), { step: 10, min: -300, max: 300, def: 0, fmt: cents }), "앞", "뒤"));
+        cells(stepper("느린 흐름", () => get("drift"), (v) => put("drift", v), { step: 0.25, min: 0, max: 2, def: 1, fmt: pct }),
+          lab(stepper("앞 기울기", () => get("tilt_in"), (v) => put("tilt_in", v), { step: 10, min: -300, max: 300, def: 0, fmt: cents }), "앞"),
+          lab(stepper("뒤 기울기", () => get("tilt_out"), (v) => put("tilt_out", v), { step: 10, min: -300, max: 300, def: 0, fmt: cents }), "뒤")));   // (11/06 18:21) 3줄 → 1줄
       if (k === "c") rows.push(
-        stepper("다음 음까지", () => get("tr_ms"), (v) => put("tr_ms", v), { step: 20, min: 0, max: 800, def: 0, fmt: (v) => v ? `${Math.round(v)}ms` : "그대로" }),
-        chips("곡선", [["s", "부드럽게"], ["lin", "직선"], ["step", "계단"]], () => N().tr_shape || "s", (v) => put("tr_shape", v)));
+        cells(stepper("다음 음까지", () => get("tr_ms"), (v) => put("tr_ms", v), { step: 20, min: 0, max: 800, def: 0, fmt: (v) => v ? `${Math.round(v)}ms` : "그대로" }),
+          chips("곡선", [["s", "부드럽게"], ["lin", "직선"], ["step", "계단"]], () => N().tr_shape || "s", (v) => put("tr_shape", v)).querySelector(".advChips")));   // (11/06 18:21) 2줄 → 1줄
       if (k === "v") rows.push(
         stepper("원래 떨림", () => (N().vib != null ? N().vib : (N().vs ? 0 : 1)), (v) => put("vib", v), { step: 0.25, min: 0, max: 2, def: 1, fmt: pct }),
         stepper("새 떨림 폭", () => getVs("depth", 0), (v) => putVs("depth", v), { step: 5, min: 0, max: 150, def: 0, fmt: (v) => v ? `±${Math.round(v)}센트` : "없음" }),
@@ -343,7 +370,7 @@
 .advPanel .advBody{max-height:min(30vh,210px);overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding-right:2px}
 #tuneFs .tfFix.amode .tfFixBox{padding-top:6px!important;padding-bottom:6px!important}
 .advD{margin:-2px 2px 6px;font-size:11px;line-height:1.4;color:#8a95a1}.advRow{display:flex;align-items:center;gap:6px;min-height:42px}.advL{flex:1;font-size:13.5px;color:#b6bdc7;white-space:nowrap}.advRow.on .advL{color:#ffb86b;font-weight:800}
-.advB{min-height:0!important;width:44px;height:40px!important;padding:0!important;margin:0!important;border-radius:12px!important;border:1.5px solid #3b4250!important;background:#11141a!important;color:#e8e8ea!important;font-size:20px!important;font-weight:900;touch-action:manipulation}
+.advSc{position:relative;flex:none;width:150px;height:44px;box-sizing:border-box;border-radius:12px;border:1.5px solid #3b4250;background:linear-gradient(90deg,#11141a,#171c24 50%,#11141a);display:flex;flex-direction:column;align-items:center;justify-content:center;touch-action:none;-webkit-user-select:none;user-select:none;cursor:ew-resize;outline:none}.advSc:focus-visible{border-color:#9cc3ff}.advSc .advV{min-width:0;font-size:15px;line-height:1.1}.advSc.on .advV{color:#ffcf99}.advSc.on::after{content:"";position:absolute;top:5px;right:7px;width:6px;height:6px;border-radius:50%;background:#ffb86b}.advSc.act{border-color:#ffb86b;box-shadow:0 0 0 3px rgba(255,184,107,.18)}.advScA{position:absolute;top:50%;transform:translateY(-50%);font-style:normal;font-weight:900;font-size:15px;color:#5b6370;pointer-events:none}.advScA:first-child{left:7px}.advSc .advScA:nth-last-child(2){right:7px}.advScT{position:absolute;left:10px;right:10px;bottom:3px;height:5px;background:repeating-linear-gradient(90deg,#3b4250 0 1px,transparent 1px 8px);pointer-events:none;opacity:.8}.advScL{font-size:11px;color:#8d96a3;font-weight:700;line-height:1.1;white-space:nowrap}.advSc.on .advScL{color:#ffb86b}.advScB{position:absolute;left:50%;bottom:calc(100% + 6px);transform:translateX(-50%);background:#ffb86b;color:#1b1206;font-weight:900;font-size:15px;padding:4px 10px;border-radius:10px;white-space:nowrap;pointer-events:none;z-index:5;box-shadow:0 4px 12px rgba(0,0,0,.5)}.advScB.tip{font-size:12px;background:#ffd27a}.advCells{display:flex;gap:8px;align-items:stretch;margin:2px 0}.advCells .advSc{flex:1;width:auto;min-width:0;height:54px}.advCells .advChips{flex:1.3;min-width:0}.advCells .advChips button{flex:1;height:54px!important;padding:0 4px!important}.advB{min-height:0!important;width:44px;height:40px!important;padding:0!important;margin:0!important;border-radius:12px!important;border:1.5px solid #3b4250!important;background:#11141a!important;color:#e8e8ea!important;font-size:20px!important;font-weight:900;touch-action:manipulation}
 .advDuo{display:flex;gap:8px;min-height:42px}.advDuo .advRow{flex:1;min-width:0;gap:3px}.advDuo .advL{flex:none;font-size:13px}.advDuo .advRow .advB{width:32px!important;min-width:0!important;flex:none}.advDuo .advV{min-width:0;flex:1;font-size:12px;white-space:nowrap}
 .advV{min-width:82px;text-align:center;font-weight:800;font-size:14px;color:#e8e8ea;font-variant-numeric:tabular-nums}
 .advChips{display:flex;gap:6px}.advChips button{min-height:0!important;height:36px!important;padding:0 12px!important;margin:0!important;border-radius:12px!important;border:1.5px solid #3b4250!important;background:#11141a!important;color:#cfd3da!important;font-size:13px!important;font-weight:800}.advChips button.on{background:#ffb86b!important;color:#2a1500!important;border-color:#ffb86b!important}
