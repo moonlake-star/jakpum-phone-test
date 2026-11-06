@@ -959,7 +959,7 @@
     st.voice = typeof o.voice === "function" ? o.voice : null;
     st.onTime = typeof o.onTime === "function" ? o.onTime : null;
     // (11/04 17:41 사용자) 기본 = '기본 보정 모드'. '고급 보정 모드'는 원장·원장이 열어 준 강사에게만 버튼이 보이고, 눌러야 켜짐(adv.js)
-    st.onAdv = typeof o.onAdv === "function" && G.TuneAdv ? o.onAdv : null; st.advGet = o.advGet; st.title = o.title; st.advOn = false; if (st.fixMode === "a") st.fixMode = "p";
+    st.onAdv = typeof o.onAdv === "function" && G.TuneAdv ? o.onAdv : null; st.advGet = o.advGet; st.engGet = typeof o.engGet === "function" ? o.engGet : null; st.engSet = o.engSet; st.engPlay = o.engPlay; st.title = o.title; st.advOn = false; if (st.fixMode === "a") st.fixMode = "p";
     st.ghostOn = typeof o.onFix === "function";   // 회색 막대는 고칠 수 있는 화면(선생님)에서만
     st.noteShow = false;   // 보정본에서 [💬 주석]으로 켜 둔 동안은 계속 보임(이 화면을 닫을 때까지)
     st.o = o; st.mMode = false; st.msel = null;   // (11/03 13:08) 타이밍·길이 고치기(선생님 메이크업 화면만)

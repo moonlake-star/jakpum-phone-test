@@ -49,3 +49,7 @@ console.log("adv-pen ok");
   A_.ok(t6.includes('const LEARN_KEY = "tune_learn_v1", LEARN_N = 2;') && t6.includes('learn(d.fine ? "fine" : d.axis === "v" ? "v" : "h")') && t6.includes('learn("dbl")') && t6.includes('learn("arr")'));
   A_.ok((t6.match(/buzz\(25\); st\.pulse = /g) || []).length === 2, "꾹 켜질 때 진동 + 동그라미");
   A_.ok(t6.includes("const advGuide = (force) =>") && a6.includes('data-g="guide"'), "처음 안내 + 다시 보기"); }
+// (11/06) 고급 보정 ② 보정 엔진 선택·A/B(고른 뒤에야 어느 엔진인지 알려 줌)
+{ const a7 = require("fs").readFileSync(__dirname + "/../adv.js", "utf8"), t7 = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8"), A_ = require("assert");
+  A_.ok(a7.includes("function engineBox(st)") && a7.includes('data-ew="A"') && a7.includes("st.engSet({ engine: mk[k], engine_pick: k })") && a7.includes("${pick ? `"), "A/B 고르면 엔진으로");
+  A_.ok(t7.includes('engFid("엔진비교_A.mp3")') && t7.includes('if (!r.engine || r.engine === "psola") delete r.engine;')); }

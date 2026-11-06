@@ -246,6 +246,27 @@
     host.appendChild(d); paint();
     return d;
   }
+  // ── 보정 엔진(11/06 사용자 '고급 보정 ② 엔진 비교'): 곡마다 PSOLA(기본)·WORLD 고르기 + 가장 많이 고친 20초 A/B(어느 쪽이 무엇인지 고르기 전엔 안 알려 줌) ──
+  const ENG = { psola: "기본(PSOLA)", world: "WORLD" };
+  function engineBox(st) {
+    const w = document.createElement("div"); w.className = "advEng";
+    const paint = () => { const e = st.engGet() || {}, mk = e.made, f = e.files || {}, pick = e.pick;
+      w.innerHTML = `<div class="advRow"><span class="advL">보정 엔진</span><span class="advChips">${Object.entries(ENG).map(([k, t]) => `<button type="button" data-en="${k}" class="${(e.engine || "psola") === k ? "on" : ""}">${t}</button>`).join("")}</span></div>
+        <p class="advD">PSOLA = 지금까지 쓰던 방식(자연스러운 숨·자음, 큰 이동엔 약간 금속성) · WORLD = 목소리를 분석해 다시 만듦(큰 이동에 강하지만 숨소리가 얇아질 수 있음). 바꾸면 완성본을 다시 만들 때 적용돼요.</p>
+        ${mk && f.A && f.B ? `<div class="advRow"><span class="advL">A/B 들어 보기 <small style="color:#8d96a3">${Math.floor(mk.t0 / 60)}:${String(Math.floor(mk.t0 % 60)).padStart(2, "0")}부터 20초 · 보컬만</small></span></div>
+          <div class="advChips advAB">${f.o ? `<button type="button" data-ep="o">▶ 원본</button>` : ""}<button type="button" data-ep="A">▶ A</button><button type="button" data-ep="B">▶ B</button></div>
+          <div class="advChips advAB" style="margin-top:6px"><button type="button" data-ew="A">A가 좋아요</button><button type="button" data-ew="B">B가 좋아요</button></div>
+          ${pick ? `<p class="advD" style="color:#ffcf99">고른 쪽: ${pick} = ${ENG[mk[pick]] || mk[pick]} → 이 곡 보정 엔진으로 정했어요</p>` : ""}`
+        : `<div class="advRow"><span class="advL">A/B 비교본</span><span class="advChips"><button type="button" data-eab class="${e.ab ? "on" : ""}">${e.ab ? "✓ 다음 완성본 때 만들기" : "만들기"}</button></span></div>
+          <p class="advD">켜고 '완성본 다시 만들기'를 하면 가장 많이 고친 20초를 두 엔진으로 만들어 A·B로 섞어 둬요. 어느 쪽이 무엇인지는 고른 뒤에 알려 줘요.</p>`}`;
+      w.querySelectorAll("[data-en]").forEach(b => b.onclick = (ev) => { ev.stopPropagation(); Promise.resolve(st.engSet({ engine: b.dataset.en })).then(paint); });
+      const ab = w.querySelector("[data-eab]"); if (ab) ab.onclick = (ev) => { ev.stopPropagation(); Promise.resolve(st.engSet({ engine_ab: !e.ab })).then(paint); };
+      w.querySelectorAll("[data-ep]").forEach(b => b.onclick = (ev) => { ev.stopPropagation(); try { st.engPlay && st.engPlay(b, b.dataset.ep); } catch {} });
+      w.querySelectorAll("[data-ew]").forEach(b => b.onclick = (ev) => { ev.stopPropagation(); const k = b.dataset.ew; Promise.resolve(st.engSet({ engine: mk[k], engine_pick: k })).then(paint); });
+    };
+    paint(); return w;
+  }
+
   // ── 곡 전체(전체화면 위 '🎛 곡 전체') ──
   function globalSheet(host, st, cv) {
     const A = state(st), g = () => A.ne.global;
@@ -266,6 +287,7 @@
       stepper("치찰음(ㅅ·ㅊ)", () => G_("sib_db", 0), (v) => put("sib_db", v), { step: 1, min: -12, max: 6, def: 0, fmt: (v) => `${v > 0 ? "+" : ""}${Math.round(v)}dB` }),
       D(stepper("포먼트(목소리 결)", () => G_("formant", 0), (v) => put("formant", v), { step: 0.25, min: -3, max: 3, def: 0, fmt: (v) => `${v > 0 ? "+" : ""}${v.toFixed(2)}반음` }), "포먼트 = 목소리의 울림 통로. 음정은 그대로 두고 음색만 이동. + 는 얇고 밝은 느낌, − 는 굵고 어두운 느낌. 그림에는 안 보이고 완성본에서 들어 보세요.")];
     rows.forEach(r => { if (!r._desc) { body.appendChild(r); return; } const w = document.createElement("div"), p = document.createElement("p"); p.className = "advD"; p.textContent = r._desc; w.appendChild(r); w.appendChild(p); body.appendChild(w); });
+    if (typeof st.engGet === "function") body.appendChild(engineBox(st));   // (11/06 사용자 '고급 보정 ② 엔진 비교')
     const cnt = () => { d.querySelector(".advGN").textContent = `음 ${A.ne.notes.length}개 고침`; rows.forEach(r => r._paint && r._paint()); };
     cnt();
     const ly = G.Brand && G.Brand.layer ? G.Brand.layer(() => d.remove()) : { close: () => d.remove() };
@@ -331,6 +353,7 @@
 .advGBtns{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.advGBtns button{flex:1;min-width:150px;min-height:0!important;height:44px!important;margin:0!important;border-radius:12px!important;border:1.5px solid #3b4250!important;background:#11141a!important;color:#e8e8ea!important;font-weight:800;font-size:14px!important}
 .advPad{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;height:120px;border-radius:16px;border:1.5px dashed #ffb86b;background:#21170b;color:#ffcf99;touch-action:none;user-select:none;-webkit-user-select:none;cursor:ns-resize}.advPad b{font-size:22px}.advPad small{color:#b9a58a;font-size:12px}
 #tuneFs .gdBox{max-width:340px;text-align:left}#tuneFs .gdL{margin:10px 0 6px;padding:0;list-style:none}#tuneFs .gdL li{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-top:1px solid #2a313c;font-size:14px;color:#cfd3da}#tuneFs .gdL li:first-child{border-top:0}#tuneFs .gdL em{font-style:normal;font-weight:800;color:#ffcf99;white-space:nowrap}#tuneFs .gdS{font-size:12px;color:#8d96a3;margin:4px 0 10px}
+.advEng{grid-column:1/-1;margin-top:8px;padding-top:8px;border-top:1px solid #2a313c}.advAB button{min-width:72px}
 #tuneFs .tfAdvG.on{background:#ffb86b!important;color:#2a1500!important}
 #tuneFs .tfAdvG{margin:0 0 0 8px!important;min-height:0!important;height:28px!important;padding:0 11px!important;border-radius:14px!important;border:1.5px solid #ffb86b!important;background:#2a1a08!important;color:#ffcf99!important;font-size:12.5px!important;font-weight:800;white-space:nowrap}`;
   try { const s = document.createElement("style"); s.textContent = css; document.head.appendChild(s); } catch {}
