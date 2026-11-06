@@ -5,7 +5,7 @@
 // 음정선 미리보기 = 서버 shape_pitch와 같은 규칙(사람처럼 흔들기 제외)을 '보정 후' 선에 그려 줌. 볼륨·치찰음·목소리 결은 그림에 안 보임(완성본에서 확인).
 (function (G) {
   "use strict";
-  const N_DEF = { drift: 1, tilt_in: 0, tilt_out: 0, vib: 1, tr_ms: 0, gain_db: 0, fade_in: 0, fade_out: 0, formant: 0 };
+  const N_DEF = { drift: 1, tilt: 0, tilt_in: 0, tilt_out: 0, vib: 1, tr_ms: 0, gain_db: 0, fade_in: 0, fade_out: 0, formant: 0 };
   const DRIFT_WIN = 0.25;
   const D = (row, t) => { row._desc = t; return row; };   // 설명 한 줄을 붙인 칸
   const near = (a, b) => Math.abs(a - b) < 0.02;
@@ -62,6 +62,7 @@
     const L = n.tilt_len || Math.min(0.4, Math.max(0.03, 0.3 * dur));
     return pp.map((_, i) => {
       let v = dr * slow[i] + vib * (d[i] - slow[i]);
+      if (n.tilt && dur > 0) v += n.tilt * ((tt[i] - tt[0]) / dur - 0.5);   // (11/06 18:54 사용자) 흐름 = 음 전체 기울기(가운데 기준, 시작 −절반 → 끝 +절반)
       if (n.tilt_in) { const x = Math.min(1, Math.max(0, (tt[i] - tt[0]) / L)); v += n.tilt_in * (1 - x) ** 2; }
       if (n.tilt_out) { const x = Math.min(1, Math.max(0, (tt[tt.length - 1] - tt[i]) / L)); v += n.tilt_out * (1 - x) ** 2; }
       if (n.vs) { const u = tt[i] - tt[0] - n.vs.delay; if (u >= 0) { const env = n.vs.fade > 0 ? Math.min(1, u / n.vs.fade) : 1; v += n.vs.depth * env * Math.sin(2 * Math.PI * n.vs.rate * u); } }
@@ -75,7 +76,7 @@
     const g = (ne && ne.global) || {}, notes = ((ne && ne.notes) || []).slice();
     const idx = (a, b) => { const out = []; cv.pts.forEach((p, i) => { if (p[0] >= a && p[0] <= b && p[k] != null) out.push(i); }); return out; };
     for (const n of notes) {
-      if (!["drift", "vib", "vs", "tilt_in", "tilt_out"].some(x => x in n) && g.flat == null) continue;
+      if (!["drift", "vib", "vs", "tilt", "tilt_in", "tilt_out"].some(x => x in n) && g.flat == null) continue;
       const ii = idx(n.t0, n.t1); if (ii.length < 3) continue;
       const nn = g.flat != null && n.drift == null ? { ...n, drift: g.flat } : n;
       const res = shapeNote(nn, ii.map(i => cv.pts[i][0]), ii.map(i => base[i]));
@@ -120,12 +121,37 @@
   // (11/06 18:21 사용자 시안 승인) −/+ 버튼 → 끌어서 조절하는 칸: 좌우(또는 위아래)로 끌기 = 값 · 톡 = 한 칸(왼쪽 절반 내림·오른쪽 절반 올림) · 두 번 톡 = 원래 값
   // 한 칸마다 짧은 진동, 원래 값에 닿으면 조금 센 진동 + 살짝 붙음 · 끄는 동안 위에 큰 숫자 · 빨리 끌면 성큼 · 손 뗀 뒤 0.4초 모아 한 번 저장(change)
   const vib = (ms) => { try { navigator.vibrate && navigator.vibrate(ms); } catch {} };
+  // (11/06 19:01 사용자 시안) 칸 뒤에 기능을 상징하는 희미한 선 그림 — 흐름은 지금 값만큼 기울어짐 · 떨림 폭·원래 떨림은 값만큼 출렁임
+  const wave = (amp, cyc, f) => { let d = ""; for (let i = 0; i <= 60; i++) { const x = i / 60, a = typeof f === "function" ? f(x) : 1; d += `${i ? "L" : "M"}${(6 + x * 88).toFixed(1)} ${(20 - amp * a * Math.sin(x * cyc * 2 * Math.PI)).toFixed(1)}`; } return d; };
+  const arrowV = (x, y0, y1) => `M${x} ${y0} L${x} ${y1} M${x - 2.5} ${y0 + 4} L${x} ${y0} L${x + 2.5} ${y0 + 4} M${x - 2.5} ${y1 - 4} L${x} ${y1} L${x + 2.5} ${y1 - 4}`;   // ↕
+  const arrowH = (x0, x1, y) => `M${x0} ${y} L${x1} ${y} M${x0 + 4} ${y - 3} L${x0} ${y} L${x0 + 4} ${y + 3} M${x1 - 4} ${y - 3} L${x1} ${y} L${x1 - 4} ${y + 3}`;   // ↔
+  const ICO = {
+    // 흐름: 가운데 축(점)을 중심으로 기울어지는 선 + 수평 기준 점선 + 양끝 위아래 화살표(기울일 수 있음) · 0이면 살짝 기운 두 선이 흐리게(움직일 수 있다는 뜻)
+    tilt: (v) => { const k = Math.abs(v || 0), h = k ? Math.sign(v) * Math.min(17, 7 + 10 * k / 300) : 0;   // 조금만 바꿔도 잘 보이게 더 기울임
+      return `M6 ${20 + h} L94 ${20 - h} M48 20 m-1.6 0 a1.6 1.6 0 1 0 3.2 0 a1.6 1.6 0 1 0 -3.2 0 ` + arrowV(8, 5, 35) + " " + arrowV(92, 5, 35) + (k ? "||M6 20 L94 20" : "||M6 30 L94 10 M6 10 L94 30"); },   // 점선: 바꿨으면 수평 기준 · 그대로면 기울일 수 있는 두 방향
+    tr: () => "M6 30 L34 30 C50 30 50 10 66 10 L94 10",
+    vib: (v) => { const k = Math.min(2, v == null ? 1 : v); return wave(6 * k, 4) + "||" + wave(6, 4); },   // 원래 떨림: 점선 = 부른 그대로(100%) · 실선 = 지금 남길 만큼(0% 평평 · 200% 두 배)
+    depth: (v) => { const A = v ? Math.min(14, 8 + 6 * Math.min(150, v) / 150) : 0; return v ? wave(A, 3) + " " + arrowV(72, 20 - A, 20 + A) : "M6 20 L94 20||" + wave(10, 3) + " " + arrowV(72, 10, 30); },   // 떨림 폭 = 위아래 폭(↕) · 없음이면 평평한 선 + 흐린 점선 물결   // 떨림 폭 = 위아래 폭(↕)
+    rate: () => wave(9, 3) + " " + arrowH(14.3, 43.7, 36),   // 주기 = 한 번 출렁이는 좌우 길이(↔)
+    delay: () => wave(8, 3, (x) => (x < 0.22 ? 0 : 1)) + " M25.4 1 L25.4 13 M22.4 9 L25.4 13 L28.4 9",   // 시작 = 떨림이 시작되는 곳 ↓
+    fade: () => wave(12, 4, (x) => (x < 0.3 ? 0 : Math.min(1, (x - 0.3) / 0.6))) + " M70 10 L93 2 M87.6 1.6 L93 2 L89.4 6.4",   // 커지는 시간 = 곧은 음 → 점점 커지는 비브라토 + 비스듬히 오르는 화살표   // 곧은 음 → 점점 커지는 비브라토
+    human: () => { let d = "", seg = [[0, 0.17, 1], [0.17, 0.27, 0.6], [0.27, 0.47, 1.15], [0.47, 0.58, 0.75], [0.58, 0.8, 1.05], [0.8, 0.9, 0.55], [0.9, 1, 0.9]];   // 사람처럼 = 한 번 한 번 길이·높이가 다른 사인파
+      for (let i = 0; i <= 80; i++) { const x = i / 80, sg = seg.find(q => x <= q[1]) || seg[seg.length - 1], u = (x - sg[0]) / (sg[1] - sg[0]); d += `${i ? "L" : "M"}${(6 + x * 88).toFixed(1)} ${(20 - 10 * sg[2] * Math.sin(u * 2 * Math.PI)).toFixed(1)}`; } return d; },
+    // 볼륨: 스피커 + 소리 물결(값이 클수록 물결 수↑ · 무음이면 ✕)
+    gain: (v) => { const n = v <= -25 ? -1 : v < -8 ? 1 : v < 3 ? 2 : 3; let d = "M4 14 L11 14 L21 5 L21 35 L11 26 L4 26 Z";
+      if (n < 0) return d + " M28 13 L42 27 M42 13 L28 27"; for (let k = 0; k < n; k++) { const r = 6 + k * 6.5; d += ` M${23 + r * 0.4} ${20 - r} A${r} ${r} 0 0 1 ${23 + r * 0.4} ${20 + r}`; } return d; },
+    fin: () => "M6 34 L50 8 L94 8",
+    fout: () => "M6 8 L50 8 L94 34" };
+  const ICO_MEET = { gain: "xMinYMid meet" };
+  const ICO_OF = { "흐름": "tilt", "이어짐": "tr", "원래 떨림": "vib", "떨림 폭": "depth", "새 떨림 폭": "depth", "주기": "rate", "시작": "delay", "커지는 시간": "fade", "사람처럼": "human", "볼륨": "gain", "페이드 인": "fin", "페이드 아웃": "fout" };
   let scTipShown = false;
-  function scrub(label, get, set, o, inLabel) {
-    const c = document.createElement("div"); c.className = "advSc"; c.tabIndex = 0; c.setAttribute("role", "slider"); c.setAttribute("aria-label", label + " (좌우로 밀어 조절 · 두 번 톡 = 원래 값)");
-    c.innerHTML = `<i class="advScA">‹</i>${inLabel ? `<small class="advScL">${label}</small>` : ""}<b class="advV"></b><i class="advScA">›</i><i class="advScT"></i>`;
+  function scrub(label, get, set, o, inLabel, en) {
+    const c = document.createElement("div"); c.className = "advSc" + (o.vert ? " vert" : ""); c.tabIndex = 0; c.setAttribute("role", "slider"); c.setAttribute("aria-label", label + " (좌우로 밀어 조절 · 두 번 톡 = 원래 값)");
+    c.innerHTML = `<i class="advScA a1">${o.vert ? "▴" : "‹"}</i>${inLabel ? `<small class="advScL">${label}${en ? `<em>${en}</em>` : ""}</small>` : ""}<b class="advV"></b><i class="advScA a2">${o.vert ? "▾" : "›"}</i><i class="advScT"></i>`;
+    const icoK = o.ico || ICO_OF[label]; if (icoK) { const sv = document.createElementNS("http://www.w3.org/2000/svg", "svg"); sv.setAttribute("class", "advScI"); sv.setAttribute("viewBox", "0 0 100 40"); sv.setAttribute("preserveAspectRatio", ICO_MEET[icoK] || "none"); sv.setAttribute("aria-hidden", "true"); sv.innerHTML = `<path class="ln" d="" /><path class="dash" d="" />`; c.insertBefore(sv, c.firstChild); }
+    const icoP = c.querySelector(".advScI .ln"), icoD = c.querySelector(".advScI .dash"), icoPaint = () => { if (!icoP) return; const [d1, d2] = ICO[icoK](get(), o).split("||"); icoP.setAttribute("d", d1); icoD.setAttribute("d", d2 || ""); };
     const out = c.querySelector(".advV"), q = (v) => Math.min(o.max, Math.max(o.min, +(Math.round(v / o.step) * o.step).toFixed(4)));
-    const paint = () => { const v = get(); out.textContent = o.fmt(v); const on = Math.abs(v - o.def) > 1e-9; c.classList.toggle("on", on); c.setAttribute("aria-valuetext", o.fmt(v)); return on; };
+    const paint = () => { const v = get(); icoPaint(); out.textContent = o.fmt(v); const on = Math.abs(v - o.def) > 1e-9; c.classList.toggle("on", on); c.setAttribute("aria-valuetext", o.fmt(v)); return on; };
     const put = (v) => { v = q(v); if (Math.abs(v - get()) < 1e-9) return false; set(v); paint(); return true; };
     const sgn = o.inv ? -1 : 1;   // inv = 화면에 −로 보이는 값: 왼쪽(−)으로 끌면 숫자가 더 마이너스로
     let d = null, lastTap = 0, bub = null;
@@ -140,7 +166,7 @@
     const end = (e) => { if (!d || (e && e.pointerId !== d.id)) return; const was = d; d = null; c.classList.remove("act"); bubble(false);
       if (was.drag || !e || e.type !== "pointerup") return;
       const now = Date.now(); if (now - lastTap < 320) { lastTap = 0; put(o.def); vib(30); return; }   // 두 번 톡 = 원래 값
-      lastTap = now; const r = c.getBoundingClientRect(); put(get() + (e.clientX < r.left + r.width / 2 ? -1 : 1) * o.step * sgn); };
+      lastTap = now; const r = c.getBoundingClientRect(); put(get() + ((o.vert ? e.clientY > r.top + r.height / 2 : e.clientX < r.left + r.width / 2) ? -1 : 1) * o.step * sgn); };   // 세로 칸: 위 절반 톡 = 올림 · 아래 절반 = 내림
     c.addEventListener("pointerup", end); c.addEventListener("pointercancel", end); c.addEventListener("lostpointercapture", () => { if (d) end(null); });
     c.addEventListener("keydown", (e) => { const k = e.key; if (k === "ArrowRight" || k === "ArrowUp") put(get() + o.step * sgn); else if (k === "ArrowLeft" || k === "ArrowDown") put(get() - o.step * sgn); else if (k === "Enter" || k === "0") put(o.def); else return; e.preventDefault(); e.stopPropagation(); });
     c.addEventListener("dblclick", (e) => { e.preventDefault(); put(o.def); });   // 마우스 두 번 클릭
@@ -156,10 +182,10 @@
   }
   function cells(...rows) {   // (11/06) 이름을 칸 안에 넣어 한 줄에 여러 칸: [느린 흐름 100%] [앞 −10] [뒤 0]
     const row = document.createElement("div"); row.className = "advCells";
-    const cs = rows.map(r => { if (r.nodeType && !r._sc) return r; const sc = r._sc, cc = scrub(r._lab || sc.label, sc.get, sc.set, sc.o, true); return cc; });
+    const cs = rows.map(r => { if (r.nodeType && !r._sc) return r; const sc = r._sc, cc = scrub(r._lab || sc.label, sc.get, sc.set, sc.o, true, r._en); return cc; });
     row.append(...cs); row._paint = () => cs.forEach(x => x._paint && x._paint()); return row;
   }
-  const lab = (r, t) => { r._lab = t; return r; };
+  const lab = (r, t, en) => { r._lab = t; r._en = en; return r; };
   function duo(r1, r2_, l1, l2) {   // 조절 줄 두 개를 한 줄로: [앞 − 값 +] [뒤 − 값 +]
     const row = document.createElement("div"); row.className = "advDuo";
     r1.querySelector(".advL").textContent = l1; r2_.querySelector(".advL").textContent = l2;
@@ -179,7 +205,7 @@
     const A = state(st);
     let el = box.querySelector(".advPanel"); if (el) el.remove();
     el = document.createElement("div"); el.className = "advPanel tfA";
-    const tabs = [["f", "흐름"], ["c", "이어짐"], ["v", "비브라토"], ["g", "볼륨"], ["m", "음색"]];
+    const tabs = [["f", "흐름"], ["v", "비브라토"], ["g", "볼륨"], ["m", "음색"]];   // (11/06 18:50 사용자) 이어짐 탭은 흐름 탭으로 합침(곡선은 늘 부드럽게)
     el.innerHTML = `<div class="advTabs" role="tablist">${tabs.map(([k, t]) => `<button type="button" data-at="${k}">${t}</button>`).join("")}<button type="button" class="advRst" aria-label="이 음 고급 고침 원래대로">↺ 이 음</button></div><div class="advBody"></div>`;
     const body = el.querySelector(".advBody");
     const N = () => noteOf(A, b, false) || {};
@@ -192,15 +218,12 @@
     const show = (k) => {
       st._advTab = k; el.querySelectorAll("[data-at]").forEach(x => x.classList.toggle("on", x.dataset.at === k)); body.innerHTML = "";
       const rows = [];
-      if (k === "f") rows.push(
-        cells(stepper("느린 흐름", () => get("drift"), (v) => put("drift", v), { step: 0.25, min: 0, max: 2, def: 1, fmt: pct }),
-          lab(stepper("앞 기울기", () => get("tilt_in"), (v) => put("tilt_in", v), { step: 10, min: -300, max: 300, def: 0, fmt: cents }), "앞"),
-          lab(stepper("뒤 기울기", () => get("tilt_out"), (v) => put("tilt_out", v), { step: 10, min: -300, max: 300, def: 0, fmt: cents }), "뒤")));   // (11/06 18:21) 3줄 → 1줄
-      if (k === "c") rows.push(
-        cells(stepper("다음 음까지", () => get("tr_ms"), (v) => put("tr_ms", v), { step: 20, min: 0, max: 800, def: 0, fmt: (v) => v ? `${Math.round(v)}ms` : "그대로" }),
-          chips("곡선", [["s", "부드럽게"], ["lin", "직선"], ["step", "계단"]], () => N().tr_shape || "s", (v) => put("tr_shape", v)).querySelector(".advChips")));   // (11/06 18:21) 2줄 → 1줄
+      if (k === "f" || k === "c") {   // (11/06 18:54 사용자) 흐름 탭 한 줄: [흐름 = 음 전체 기울기] [이어짐 = 다음 음으로 넘어가기(늘 부드럽게)] · 앞·뒤 기울기 칸은 뺌
+        const tl = lab(stepper("흐름", () => get("tilt"), (v) => put("tilt", v), { step: 10, min: -300, max: 300, def: 0, vert: true, fmt: (v) => (v ? `${v > 0 ? "↗ +" : "↘ −"}${Math.abs(Math.round(v))}센트` : "평평 그대로") }), "흐름", "Drift");
+        const trC = lab(stepper("이어짐", () => get("tr_ms"), (v) => change(A, st, cv, () => { const n = noteOf(A, b, true); if (v) n.tr_ms = v; else delete n.tr_ms; delete n.tr_shape; }), { step: 20, min: 0, max: 800, def: 0, fmt: (v) => v ? `${Math.round(v)}ms` : "그대로" }), "이어짐", "Transition");
+        rows.push(cells(tl, trC)); }
       if (k === "v") rows.push(   // (11/06 18:25 사용자 시안) 6줄 → 3칸 × 2줄
-        cells(lab(stepper("원래 떨림", () => (N().vib != null ? N().vib : (N().vs ? 0 : 1)), (v) => put("vib", v), { step: 0.25, min: 0, max: 2, def: 1, fmt: pct }), "원래 떨림"), lab(stepper("새 떨림 폭", () => getVs("depth", 0), (v) => putVs("depth", v), { step: 5, min: 0, max: 150, def: 0, fmt: (v) => v ? `±${Math.round(v)}센트` : "없음" }), "떨림 폭"), lab(stepper("주기", () => getVs("rate", 5.5), (v) => putVs("rate", v), { step: 0.25, min: 2, max: 10, def: 5.5, fmt: (v) => `${v.toFixed(2)}Hz` }), "주기")),
+        cells(lab(stepper("원래 떨림", () => (N().vib != null ? N().vib : (N().vs ? 0 : 1)), (v) => put("vib", v), { step: 0.25, min: 0, max: 2, def: 1, vert: true, fmt: pct }), "원래 떨림"), lab(stepper("새 떨림 폭", () => getVs("depth", 0), (v) => putVs("depth", v), { step: 5, min: 0, max: 150, def: 0, vert: true, fmt: (v) => v ? `±${Math.round(v)}센트` : "없음" }), "떨림 폭"), lab(stepper("주기", () => getVs("rate", 5.5), (v) => putVs("rate", v), { step: 0.25, min: 2, max: 10, def: 5.5, fmt: (v) => `${v.toFixed(2)}Hz` }), "주기")),
         cells(lab(stepper("시작", () => getVs("delay", 0.3), (v) => putVs("delay", v), { step: 0.05, min: 0, max: 3, def: VD.delay, fmt: sec }), "시작"), lab(stepper("커지는 시간", () => getVs("fade", 0.4), (v) => putVs("fade", v), { step: 0.05, min: 0, max: 3, def: VD.fade, fmt: sec }), "커지는 시간"), lab(stepper("사람처럼", () => getVs("human", 0), (v) => putVs("human", v), { step: 0.25, min: 0, max: 1, def: 0, fmt: pct }), "사람처럼")));
       if (k === "m") rows.push(
         D(stepper("포먼트(목소리 결)", () => get("formant"), (v) => put("formant", v), { step: 0.25, min: -3, max: 3, def: 0, fmt: (v) => `${v > 0 ? "+" : ""}${v.toFixed(2)}반음` }), "이 음의 음색만 이동(음정은 그대로). + 는 얇고 밝게, − 는 굵고 어둡게. 일괄 보정의 포먼트 값 위에 더해져요."));
@@ -364,7 +387,7 @@
 .advPanel .advBody{max-height:min(30vh,210px);overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding-right:2px}
 #tuneFs .tfFix.amode .tfFixBox{padding-top:6px!important;padding-bottom:6px!important}
 .advD{margin:-2px 2px 6px;font-size:11px;line-height:1.4;color:#8a95a1}.advRow{display:flex;align-items:center;gap:6px;min-height:42px}.advL{flex:1;font-size:13.5px;color:#b6bdc7;white-space:nowrap}.advRow.on .advL{color:#ffb86b;font-weight:800}
-.advSc{position:relative;flex:none;width:150px;height:44px;box-sizing:border-box;border-radius:12px;border:1.5px solid #3b4250;background:linear-gradient(90deg,#11141a,#171c24 50%,#11141a);display:flex;flex-direction:column;align-items:center;justify-content:center;touch-action:none;-webkit-user-select:none;user-select:none;cursor:ew-resize;outline:none}.advSc:focus-visible{border-color:#9cc3ff}.advSc .advV{min-width:0;font-size:15px;line-height:1.1}.advSc.on .advV{color:#ffcf99}.advSc.on::after{content:"";position:absolute;top:5px;right:7px;width:6px;height:6px;border-radius:50%;background:#ffb86b}.advSc.act{border-color:#ffb86b;box-shadow:0 0 0 3px rgba(255,184,107,.18)}.advScA{position:absolute;top:50%;transform:translateY(-50%);font-style:normal;font-weight:900;font-size:15px;color:#5b6370;pointer-events:none}.advScA:first-child{left:7px}.advSc .advScA:nth-last-child(2){right:7px}.advScT{position:absolute;left:10px;right:10px;bottom:3px;height:5px;background:repeating-linear-gradient(90deg,#3b4250 0 1px,transparent 1px 8px);pointer-events:none;opacity:.8}.advScL{font-size:11px;color:#8d96a3;font-weight:700;line-height:1.1;white-space:nowrap}.advSc.on .advScL{color:#ffb86b}.advScB{position:absolute;left:50%;bottom:calc(100% + 6px);transform:translateX(-50%);background:#ffb86b;color:#1b1206;font-weight:900;font-size:15px;padding:4px 10px;border-radius:10px;white-space:nowrap;pointer-events:none;z-index:5;box-shadow:0 4px 12px rgba(0,0,0,.5)}.advScB.tip{font-size:12px;background:#ffd27a}.advCells{display:flex;gap:8px;align-items:stretch;margin:2px 0}.advCells .advSc{flex:1;width:auto;min-width:0;height:54px}.advCells .advChips{flex:1.3;min-width:0}.advCells .advChips button{flex:1;height:54px!important;padding:0 4px!important}/* (11/06 18:34 사용자 시안) 눈금 낮게 · 이름 크게 · 숫자 작게(바꾼 칸만 주황) */.advScT{height:3px!important;bottom:4px!important;opacity:.55!important}.advScL{font-size:13.5px!important;color:#cfd3da!important;font-weight:800!important}.advSc.on .advScL{color:#ffb86b!important}.advSc .advV{font-size:12.5px!important;font-weight:700!important;color:#9aa3ad}.advSc.on .advV{color:#ffcf99}.advScA{font-size:13px!important;color:#454c58!important}.advCells .advSc{gap:1px}.advB{min-height:0!important;width:44px;height:40px!important;padding:0!important;margin:0!important;border-radius:12px!important;border:1.5px solid #3b4250!important;background:#11141a!important;color:#e8e8ea!important;font-size:20px!important;font-weight:900;touch-action:manipulation}
+.advSc{position:relative;flex:none;width:150px;height:44px;box-sizing:border-box;border-radius:12px;border:1.5px solid #3b4250;background:linear-gradient(90deg,#11141a,#171c24 50%,#11141a);display:flex;flex-direction:column;align-items:center;justify-content:center;touch-action:none;-webkit-user-select:none;user-select:none;cursor:ew-resize;outline:none}.advSc:focus-visible{border-color:#9cc3ff}.advSc .advV{min-width:0;font-size:15px;line-height:1.1}.advSc.on .advV{color:#ffcf99}.advSc.on::after{content:"";position:absolute;top:5px;right:7px;width:6px;height:6px;border-radius:50%;background:#ffb86b}.advSc.act{border-color:#ffb86b;box-shadow:0 0 0 3px rgba(255,184,107,.18)}.advScA{position:absolute;top:50%;transform:translateY(-50%);font-style:normal;font-weight:900;font-size:15px;color:#5b6370;pointer-events:none}.advScA.a1{left:7px}.advSc .advScA.a2{right:7px}.advScT{position:absolute;left:10px;right:10px;bottom:3px;height:5px;background:repeating-linear-gradient(90deg,#3b4250 0 1px,transparent 1px 8px);pointer-events:none;opacity:.8}.advScL{font-size:11px;color:#8d96a3;font-weight:700;line-height:1.1;white-space:nowrap}.advSc.on .advScL{color:#ffb86b}.advScB{position:absolute;left:50%;bottom:calc(100% + 6px);transform:translateX(-50%);background:#ffb86b;color:#1b1206;font-weight:900;font-size:15px;padding:4px 10px;border-radius:10px;white-space:nowrap;pointer-events:none;z-index:5;box-shadow:0 4px 12px rgba(0,0,0,.5)}.advScB.tip{font-size:12px;background:#ffd27a}.advCells{display:flex;gap:8px;align-items:stretch;margin:2px 0}.advCells .advSc{flex:1;width:auto;min-width:0;height:54px}.advCells .advChips{flex:1.3;min-width:0}.advCells .advChips button{flex:1;height:54px!important;padding:0 4px!important}.advScL em{font-style:normal;font-size:10px;font-weight:700;color:#6f7884;margin-left:4px}.advScI{position:absolute;inset:6px 18px;width:calc(100% - 36px);height:calc(100% - 12px);pointer-events:none;opacity:.19}.advScI path{fill:none;stroke:#cfd3da;stroke-width:2.2;vector-effect:non-scaling-stroke;stroke-linecap:round;stroke-linejoin:round}.advSc.on .advScI{opacity:.28}.advSc.on .advScI path{stroke:#ffb86b}.advScI .dash{stroke-dasharray:3 4;opacity:.55}.advSc>:not(.advScI){position:relative}.advSc>.advScA,.advSc>.advScT,.advSc>.advScB{position:absolute}/* (11/06 19:22 사용자) 이름은 늘 주황 · 바꾼 칸 = 주황 테두리 + 은은한 빛(점 대신) · 끄는 중 = 더 밝게 */.advCells .advSc .advScL{color:#ffbe7a!important}.advCells .advSc .advScL em{color:#8a6a4a!important}.advSc.on{border-color:#ffb86b!important;box-shadow:0 0 0 1px rgba(255,184,107,.35),0 0 14px rgba(255,184,107,.28)!important}.advSc.on::after{display:none!important}.advSc.on .advV{color:#ffe2bf!important}.advSc.act{box-shadow:0 0 0 2px rgba(255,184,107,.5),0 0 20px rgba(255,184,107,.45)!important}/* (11/06 18:57 사용자) 위아래 값(흐름 기울기·원래 떨림·떨림 폭) 칸: 오른쪽에 세로 눈금 + ▴ 위 · ▾ 아래 */.advSc.vert{cursor:ns-resize}.advSc.vert.on::after{right:auto!important;left:8px}.advSc.vert .advScA{left:auto!important;right:9px!important;transform:none;font-size:12px}.advSc.vert .advScA.a1{top:3px}.advSc.vert .advScA.a2{top:auto;bottom:3px}.advSc.vert .advScT{left:auto!important;right:10px!important;top:17px!important;bottom:17px!important;width:7px!important;height:auto!important;background:repeating-linear-gradient(180deg,#3b4250 0 1px,transparent 1px 4px)!important}.advSc.vert .advScL,.advSc.vert .advV{margin-right:14px}/* (11/06 18:34 사용자 시안) 눈금 낮게 · 이름 크게 · 숫자 작게(바꾼 칸만 주황) */.advScT{height:3px!important;bottom:4px!important;opacity:.55!important}.advScL{font-size:13.5px!important;color:#cfd3da!important;font-weight:800!important}.advSc.on .advScL{color:#ffb86b!important}.advSc .advV{font-size:12.5px!important;font-weight:700!important;color:#9aa3ad}.advSc.on .advV{color:#ffcf99}.advScA{font-size:13px!important;color:#454c58!important}.advCells .advSc{gap:1px}.advB{min-height:0!important;width:44px;height:40px!important;padding:0!important;margin:0!important;border-radius:12px!important;border:1.5px solid #3b4250!important;background:#11141a!important;color:#e8e8ea!important;font-size:20px!important;font-weight:900;touch-action:manipulation}
 .advDuo{display:flex;gap:8px;min-height:42px}.advDuo .advRow{flex:1;min-width:0;gap:3px}.advDuo .advL{flex:none;font-size:13px}.advDuo .advRow .advB{width:32px!important;min-width:0!important;flex:none}.advDuo .advV{min-width:0;flex:1;font-size:12px;white-space:nowrap}
 .advV{min-width:82px;text-align:center;font-weight:800;font-size:14px;color:#e8e8ea;font-variant-numeric:tabular-nums}
 .advChips{display:flex;gap:6px}.advChips button{min-height:0!important;height:36px!important;padding:0 12px!important;margin:0!important;border-radius:12px!important;border:1.5px solid #3b4250!important;background:#11141a!important;color:#cfd3da!important;font-size:13px!important;font-weight:800}.advChips button.on{background:#ffb86b!important;color:#2a1500!important;border-color:#ffb86b!important}
