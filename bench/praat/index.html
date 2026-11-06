@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Praat 폰 측정</title>
+<style>body{margin:0;background:#2b2f36;color:#f1f3f6;font:16px/1.5 system-ui,sans-serif;padding:18px}button{font:inherit;font-weight:800;padding:14px 22px;border:0;border-radius:12px;background:#ffd84a;color:#222;margin:4px 8px 4px 0}button:disabled{opacity:.5}a{color:#ffe36e}
+.r{margin-top:14px;background:#1f2329;border-radius:12px;padding:12px 14px}.big{font-size:22px;font-weight:800;color:#8fe3a3}small{color:#b8c0cc}pre{white-space:pre-wrap;margin:0;font:14px/1.5 ui-monospace,monospace}.bad{color:#ff9a9a}</style></head>
+<body>
+<h2 style="margin:0 0 6px">Praat 폰 측정</h2>
+<p style="margin:0 0 14px;color:#b8c0cc">서버에서 쓰는 Praat을 이 폰 안에서 직접 돌려 봅니다. 합성한 목소리(녹음 아님)로 용량·준비 시간·계산 시간·메모리를 잽니다. 처음엔 약 7MB를 내려받습니다(와이파이 권장).</p>
+<button id="go">측정 시작</button><button id="long" disabled>3분 곡 전체 (메모리 시험)</button>
+<div id="out"></div>
+<p style="margin-top:20px"><small>Praat 6.1.38 (GPL) — 소스: <a href="https://github.com/praat/praat/tree/v6.1.38">github.com/praat/praat</a> · 컴파일러 호환용 수정과 빌드 설정은 이 폴더의 <a href="praat-6.1.38-patches.diff">patches.diff</a>, <a href="makefile.defs.emscripten">makefile.defs.emscripten</a> 참고. 소리 계산 코드는 바꾸지 않았습니다.</small></p>
+<script src="praat_web.js"></script>
+<script>
+const out = document.getElementById("out"), goB = document.getElementById("go"), longB = document.getElementById("long");
+const add = (h, cls) => { const d = document.createElement("div"); d.className = "r " + (cls || ""); d.innerHTML = h; out.appendChild(d); return d; };
+const SR = 44100, now = () => performance.now();
+function voice(dur) {   // 합성 목소리(비브라토 있는 220Hz + 공명)
+  const n = Math.round(SR * dur), y = new Float32Array(n); let ph = 0, pk = 1e-9;
+  for (let i = 0; i < n; i++) { const t = i / SR, f = 220 * 2 ** (0.3 * Math.sin(2 * Math.PI * 5 * t) / 12); ph += 2 * Math.PI * f / SR;
+    let v = 0; for (let k = 1; k <= 30; k++) { const hz = k * 220; v += Math.sin(k * ph) / k * (1 + 2 * Math.exp(-(((hz - 900) / 300) ** 2))); } y[i] = v; pk = Math.max(pk, Math.abs(v)); }
+  for (let i = 0; i < n; i++) y[i] *= 0.3 / pk; return y;
+}
+function wav(y) {
+  const b = new ArrayBuffer(44 + y.length * 2), v = new DataView(b), s = (o, t) => { for (let i = 0; i < t.length; i++) v.setUint8(o + i, t.charCodeAt(i)); };
+  s(0, "RIFF"); v.setUint32(4, 36 + y.length * 2, true); s(8, "WAVEfmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, SR, true); v.setUint32(28, SR * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); s(36, "data"); v.setUint32(40, y.length * 2, true);
+  for (let i = 0; i < y.length; i++) v.setInt16(44 + i * 2, Math.max(-1, Math.min(1, y[i])) * 32767, true); return new Uint8Array(b);
+}
+const script = (dur) => `snd = Read from file: "in.wav"
+stopwatch
+manip = To Manipulation: 0.01, 75, 1000
+t1 = stopwatch
+tier = Create PitchTier: "corr", 0, ${dur}
+for i from 0 to ${Math.floor(dur * 40)}
+  t = i*0.025
+  Add point: t, 220 * 2^(0.3*sin(2*pi*5*t)/12) * 2^(2/12)
+endfor
+selectObject: tier, manip
+Replace pitch tier
+selectObject: manip
+out = Get resynthesis (overlap-add)
+t2 = stopwatch
+selectObject: snd
+g = Change gender: 75, 600, 2^(3/12), 0, 1, 1
+t3 = stopwatch
+writeInfoLine: "RESULT ", fixed$(t1,3), " ", fixed$(t2,3), " ", fixed$(t3,3)
+`;
+let BIN = null;   // Praat은 한 번 실행하고 나면 다시 못 돌려서(내부 상태), 측정마다 새로 시작함
+async function fresh() { const lines = []; const P = await PraatModule({ wasmBinary: BIN, print: (s) => lines.push(s), printErr: (s) => lines.push("ERR " + s) }); P._lines = lines; return P; }
+async function load() {
+  const t0 = now(); const r = await fetch("praat_web.wasm.gz"); if (!r.ok) throw new Error("파일을 못 받음 " + r.status);
+  const gz = new Uint8Array(await r.arrayBuffer()), t1 = now();
+  if (typeof DecompressionStream === "undefined") throw new Error("이 브라우저는 압축 풀기를 지원하지 않아요(DecompressionStream)");
+  const bin = new Uint8Array(await new Response(new Blob([gz]).stream().pipeThrough(new DecompressionStream("gzip"))).arrayBuffer()), t2 = now();
+  BIN = bin; const t3a = now(); await fresh(); const t3 = now();
+  return { mb: gz.length / 1048576, down: t1 - t0, unz: t2 - t1, boot: t3 - t3a, raw: bin.length / 1048576 };
+}
+async function run(dur) {
+  const P = await fresh(), y = voice(dur); P.FS.writeFile("in.wav", wav(y)); P.FS.writeFile("t.praat", script(dur)); P._lines.length = 0;
+  const t = now(); try { P.callMain(["--run", "t.praat"]); } catch (e) { if (typeof e !== "number") throw e; }
+  const wall = now() - t, m = P._lines.join("\n").match(/RESULT (\S+) (\S+) (\S+)/); if (!m) throw new Error("결과를 못 읽음: " + P._lines.slice(-3).join(" | "));
+  const a = +m[1], b = +m[2], c = +m[3];   // Praat stopwatch = 지난번 이후 시간(초)
+  return { dur, wall, analyze: a * 1000, pitch: b * 1000, formant: c * 1000 };
+}
+const f = (ms) => ms < 10 ? ms.toFixed(1) + "ms" : ms < 1000 ? Math.round(ms) + "ms" : (ms / 1000).toFixed(2) + "초";
+goB.onclick = async () => {
+  goB.disabled = true; out.innerHTML = "";
+  add(`<small>기기 ${navigator.hardwareConcurrency || "?"}코어 · 메모리 ${navigator.deviceMemory ? navigator.deviceMemory + "GB(대략)" : "알 수 없음"}</small><br><small>${navigator.userAgent}</small>`);
+  let box = add("내려받는 중…");
+  try {
+    const L = await load();
+    box.innerHTML = `<div class="big">준비 완료</div>내려받기 ${L.mb.toFixed(1)}MB ${f(L.down)} · 압축 풀기(${L.raw.toFixed(0)}MB) ${f(L.unz)} · 시작 ${f(L.boot)}<br><small>다운로드 시간은 와이파이/데이터에 따라 달라요. 시작 시간은 이 폰이 프로그램을 준비하는 시간이에요.</small>`;
+    const rows = [];
+    for (const d of [3, 10, 30]) { box = add(`${d}초 분량 재는 중…`); await new Promise((r) => setTimeout(r, 30)); const r = await run(d); rows.push(r);
+      box.innerHTML = `<b>${d}초 분량</b> — 음 높이 옮기기 분석 ${f(r.analyze)} + 다시 합성 ${f(r.pitch)} · 음색 ${f(r.formant)} <small>(전체 ${f(r.wall)})</small>`; }
+    const r30 = rows[2], k = 6, tot = (r30.analyze + r30.pitch) * k;
+    add(`<div class="big">3분 곡 전체 환산 약 ${f(tot)}</div><small>(음 높이 옮기기, 30초 결과 ×6 · 실제 3분은 아래 버튼으로 직접 재볼 수 있어요)</small>`);
+    longB.disabled = false;
+  } catch (e) { add("실패: " + (e && e.message || e), "bad"); }
+  goB.disabled = false;
+};
+longB.onclick = async () => {
+  longB.disabled = true; const box = add("3분 곡 전체 재는 중… (멈추면 메모리 부족일 수 있어요)");
+  try { await new Promise((r) => setTimeout(r, 30)); const r = await run(180); box.innerHTML = `<div class="big">3분 전체 ${f(r.wall)}</div>음 높이 옮기기 분석 ${f(r.analyze)} + 다시 합성 ${f(r.pitch)} · 음색 ${f(r.formant)}`; }
+  catch (e) { box.className = "r bad"; box.textContent = "실패: " + (e && e.message || e); }
+  longB.disabled = false;
+};
+</script>
+</body></html>

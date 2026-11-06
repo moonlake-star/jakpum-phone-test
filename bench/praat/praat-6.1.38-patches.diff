@@ -1,0 +1,71 @@
+diff --git a/fon/Praat_tests.cpp b/fon/Praat_tests.cpp
+index ad8a0f3..5d3ee15 100644
+--- a/fon/Praat_tests.cpp
++++ b/fon/Praat_tests.cpp
+@@ -745,7 +745,7 @@ public:
+ };
+ 
+ static Vec copy (Vec x) {
+-	return x;
++	return Vec (x.at, x.size);
+ }
+ 
+ /*static void tryVec () {
+diff --git a/melder/melder_strvec.h b/melder/melder_strvec.h
+index 038e57a..344b326 100644
+--- a/melder/melder_strvec.h
++++ b/melder/melder_strvec.h
+@@ -178,7 +178,7 @@ public:
+ 	_autostringautovector&& move () noexcept { return static_cast <_autostringautovector&&> (*this); }   // enable construction and assignment for l-values (variables) via explicit move()
+ 	void initWithCapacity (integer capacity) {
+ 		if (capacity > 0)
+-			our cells = MelderArray:: _alloc <_autostring <T>> (capacity, MelderArray::kInitializationType::ZERO);
++			our elements = MelderArray:: _alloc <_autostring <T>> (capacity, MelderArray::kInitializationType::ZERO);
+ 		our size = 0;
+ 		our _capacity = capacity;
+ 	}
+diff --git a/melder/melder_tensor.h b/melder/melder_tensor.h
+index 3dde021..e93943a 100644
+--- a/melder/melder_tensor.h
++++ b/melder/melder_tensor.h
+@@ -160,12 +160,12 @@ public:
+ 	}
+ 	matrixview<T> asmatrixview (integer nrow, integer ncol) {
+ 		Melder_assert (nrow * ncol <= our size);
+-		return matrixview (our cells, nrow, ncol, ncol * our stride, our stride);
++		throw 0;
+ 	}
+ 	T *begin () const { return & our operator[] (1); }
+ 	T *end () const { return & our operator[] (our size + 1); }
+-	T *asArgumentToFunctionThatExpectsZeroBasedArray () const { return & our operator[] [1]; }
+-	T *asArgumentToFunctionThatExpectsOneBasedArray () const { return & our operator[] [0]; }
++	T *asArgumentToFunctionThatExpectsZeroBasedArray () const { return nullptr; }
++	T *asArgumentToFunctionThatExpectsOneBasedArray () const { return nullptr; }
+ };
+ 
+ template <typename T>
+@@ -244,12 +244,12 @@ public:
+ 	}
+ 	constmatrixview<T> asmatrixview (integer nrow, integer ncol) {
+ 		Melder_assert (nrow * ncol <= our size);
+-		return constmatrixview (our cells, nrow, ncol, ncol * our stride, our stride);
++		throw 0;
+ 	}
+ 	const T *begin () const { return & our operator[] (1); }
+ 	const T *end () const { return & our operator[] (our size + 1); }
+-	const T *asArgumentToFunctionThatExpectsZeroBasedArray () const { return & our operator[] [1]; }
+-	const T *asArgumentToFunctionThatExpectsOneBasedArray () const { return & our operator[] [0]; }
++	const T *asArgumentToFunctionThatExpectsZeroBasedArray () const { return nullptr; }
++	const T *asArgumentToFunctionThatExpectsOneBasedArray () const { return nullptr; }
+ };
+ 
+ /*
+@@ -1039,7 +1039,7 @@ public:
+ 			our cells
+ 			+ (dim2 - 1) * our stride2
+ 			+ (dim3 - 1) * our stride3,
+-			our nidm1,
++			our ndim1,
+ 			our stride1
+ 		);
+ 	}
