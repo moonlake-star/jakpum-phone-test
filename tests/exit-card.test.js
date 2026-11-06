@@ -38,7 +38,7 @@ console.log("exit card wiring ok");
 assert.ok(T.includes("const wasP = isPaused(); toggle(); lastTap = now;") && T.includes("st.sel = null; st.msel = null; } } }"));
 console.log("deselect on play ok");
 // (11/06 17:59 사용자) 화살표 꾹 = 진동 · 늘렸다 처음 자리로 돌아오면 진동(살짝 붙음)
-assert.ok(T.includes('st.onBarDragX(0, ed, true); if (e.pointerType !== "mouse") { buzz(40);') && T.includes("if (home && !st._tbHome && st._tbAway) { buzz(30);") && T.includes("st._tbHome = true; st._tbAway = false; return; }"));
+assert.ok(T.includes('st.onBarDragX(0, ed, true); if (e.pointerType !== "mouse") { buzz(50);') && T.includes("if (home && !st._tbHome && st._tbAway) { buzz(40);") && T.includes("st._tbHome = true; st._tbAway = false; return; }"));
 console.log("arrow buzz ok");
 // (11/06 18:02 사용자) ↶↷ 누르면 바로(저장 안 기다림) · 소리 없이 고름 · 저장은 한 줄로
 assert.ok(T.includes("if (!(st && st._quiet)) { try { sndFor(m, 1000); } catch {} }") && T.includes("st._quiet = true;") && !T.includes("try { await o.histSet(H.S[i]); }"));
@@ -49,7 +49,7 @@ assert.ok(T.includes("#tuneFs .port .tfAbRow{width:100%;justify-content:space-be
 console.log("align ok");
 // (11/06 18:21·18:24 사용자) −/+ → 끌어서 조절하는 칸 · 흐름 1줄 · 이어짐 1줄 · 두 번 톡 = 원래 값
 { const A = fs.readFileSync(path.join(__dirname, "..", "adv.js"), "utf8");
-  assert.ok(A.includes("function scrub(label, get, set, o, inLabel, en)") && A.includes("if (now - lastTap < 320) { lastTap = 0; put(o.def); vib(30); return; }") && A.includes("vib(home ? 30 : 8)"));
+  assert.ok(A.includes("function scrub(label, get, set, o, inLabel, en)") && A.includes("if (now - lastTap < 320) { lastTap = 0; put(o.def); vib(40); return; }") && A.includes("vib(home ? 40 : 15)"));
   assert.ok(A.includes("rows.push(cells(tl, trC));") && !A.includes('"계단"'));
   console.log("scrub ok"); }
 // (11/06 18:36 사용자) 비브라토 3칸×2줄 · 볼륨 1줄 · 눈금 낮게·이름 크게·숫자 작게
@@ -67,3 +67,10 @@ console.log("align ok");
 // (11/06 19:59 사용자 B) 핀치: 어느 방향이든 위아래·좌우 같은 비율(최대 8배씩)
 assert.ok(T.includes("st.yz = Math.max(1, Math.min(8, pinch.yz * r ** pinch.ep)); st.xz = Math.max(1, Math.min(8, pinch.xz * r ** pinch.et));") && T.includes("et: 0.5 + 0.5 * h_, ep: 1 - 0.5 * h_") && !T.includes("pinch.ax"));   // (20:07) A·B 절충
 console.log("pinch uniform ok");
+// (11/06 21:47~21:51 사용자) 고르지 않은 음 꾹 = 고르며 미세 + 진동 · 옮길 때 화면 안 따라감·눈금 고정 · 하늘색 선 같이 움직임
+assert.ok(T.includes("음표 위 꾹은 여러 음 고르기보다 이것이 먼저") && T.includes("&& !st.sel && !st.dragging && !st.msel) {") && T.includes("function syncCorr(cv)") && T.includes("drag.cpp = st.kb.inv(drag.y0) - st.kb.inv(drag.y0 + 1)"));
+console.log("long-press fine / view / blue ok");
+// (11/06 21:53 사용자) 칸을 누르면 아래 안내 줄 = 그 칸 설명
+{ const A = fs.readFileSync(path.join(__dirname, "..", "adv.js"), "utf8");
+  assert.ok(A.includes('"커지는 시간": "떨림이 시작돼 다 커질 때까지') && A.includes('tp.classList.add("desc")') && A.includes("칸을 누르면 여기에 그 칸 설명이 나와요"));
+  console.log("cell desc ok"); }

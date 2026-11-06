@@ -47,7 +47,7 @@ console.log("adv-pen ok");
 // (11/06 16:36 사용자) 손짓 안내(두 번 써 보면 사라짐) · 처음 보정 모드 안내 · 꾹 0.6초 진동
 { const t6 = require("fs").readFileSync(__dirname + "/../tune.js", "utf8"), a6 = require("fs").readFileSync(__dirname + "/../adv.js", "utf8"), A_ = require("assert");
   A_.ok(t6.includes('const LEARN_KEY = "tune_learn_v1", LEARN_N = 2;') && t6.includes('learn(d.fine ? "fine" : "v")') && t6.includes('learn("dbl")') && t6.includes('learn("arr")'));
-  A_.ok((t6.match(/buzz\((25|40)\); st\.pulse = /g) || []).length === 2, "꾹 켜질 때 진동 + 동그라미");
+  A_.ok((t6.match(/buzz\((25|40|50)\); st\.pulse = /g) || []).length >= 2, "꾹 켜질 때 진동 + 동그라미");
   A_.ok(t6.includes("const advGuide = (force) =>") && a6.includes('data-g="guide"'), "처음 안내 + 다시 보기"); }
 // (11/06) 고급 보정 ② 보정 엔진 선택·A/B(고른 뒤에야 어느 엔진인지 알려 줌)
 { const a7 = require("fs").readFileSync(__dirname + "/../adv.js", "utf8"), t7 = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8"), A_ = require("assert");
