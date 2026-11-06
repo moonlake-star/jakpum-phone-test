@@ -15,11 +15,6 @@
     return (cv._rng = [Math.floor(lo / 100) * 100 - 250, Math.ceil(hi / 100) * 100 + 250]);
   }
   function col(cv, lv) { const L = cv.levels || [], i = L.indexOf(+lv); return lv > 0 ? (i >= 0 ? 2 + i : L.length ? 2 + L.length - 1 : 0) : 0; }   // (11/02 17:30) 새 음정선은 강[3]만 — 없는 단계를 찾으면 가장 센 단계   // pts 안 위치(0 = 없음)
-  function centerAt(cv, t) {   // 확대 화면 가운데 = 지금 앞뒤 화면 안 음의 가운데(튀는 점 제외)
-    const v = []; for (const p of cv.pts || []) { if (p[0] < t - WIN * HEAD) continue; if (p[0] > t + WIN * (1 - HEAD)) break; v.push(p[1]); }
-    if (v.length < 3) return null; v.sort((a, b) => a - b); const lo = v[Math.floor(v.length * 0.1)], hi = v[Math.floor(v.length * 0.9)];
-    return (lo + hi) / 2;
-  }
   function fitAt(cv, t, k) {   // [가장 낮은 음, 가장 높은 음, 가운데] — 짧은 도약음도 포함, 앞뒤와 동떨어진 한 점(숨소리·자음)만 제외
     const P = cv.pts || [], idx = []; for (let i = 0; i < P.length; i++) { const p = P[i]; if (p[0] < t - WIN * HEAD) continue; if (p[0] > t + WIN * (1 - HEAD)) break; idx.push(i); }
     if (idx.length < 3) return null;
@@ -252,7 +247,7 @@
     return (buf._jw = { pk, hop: 0.05, per: bl * 0.05, ph: ph * 0.05 });
   }
   function introDraw(g, cv, st, t, nx, m) {
-    const { L, w, T, HP, t0, W8, y, kt } = m, left = Math.max(0, nx[0] - t), sec = Math.ceil(left), mmss = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+    const { L, w, T, HP, t0, W8, y, kt } = m, left = Math.max(0, nx[0] - t), sec = Math.ceil(left);
     const wv = typeof st.wave === "function" ? waveOf(st.wave()) : null, now = performance.now();
     g.save(); g.globalAlpha = Math.max(0, Math.min(1, (left - 0.4) / 2.6));   // (11/02 16:53 사용자) 노래 3초 전쯤부터 스르륵 사라짐
     if (g.globalAlpha <= 0) { g.restore(); return; }
@@ -1230,5 +1225,5 @@
 #tuneFs .tfAbRow{display:flex;align-items:center;justify-content:center;gap:8px;max-width:100%}#tuneFs .tfAbRow>button{width:44px;height:44px;min-height:0!important;flex:none;padding:0;margin:0;border-radius:22px;border:1.5px solid #4a505c;background:#11141a;color:#eceff3;font-size:21px;font-weight:800;line-height:1}#tuneFs .tfAbRow>button:disabled{opacity:.35}#tuneFs .tfAbRow .tfAb,#tuneFs .port .tfAbRow .tfAb{width:min(190px,calc(100vw - 150px))}#tuneFs .port .tfAbRow .tfAb button{padding:0 8px;font-size:15px}`;
   if (typeof document !== "undefined" && document.head) { const s2 = document.createElement("style"); s2.textContent = css2; document.head.appendChild(s2); }
   if (typeof document !== "undefined" && document.head) { const s = document.createElement("style"); s.textContent = css; document.head.appendChild(s); }
-  G.Tune = { tone, toneOff, draw, wire, load, legend, range, col, tgCol, centerAt, fitAt, delta, semiLabel, sangLabel, sheet, undo, openFull, noteName, WIN, HEAD, ZOOM_HALF, tmapOf, mapT };
+  G.Tune = { tone, toneOff, draw, wire, load, legend, range, col, tgCol, fitAt, delta, semiLabel, sangLabel, sheet, undo, openFull, noteName, WIN, HEAD, ZOOM_HALF, tmapOf, mapT };
 })(typeof window !== "undefined" ? window : globalThis);
