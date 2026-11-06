@@ -646,7 +646,7 @@
     const snd = (mm) => { clearTimeout(vtm); if (vh) { try { vh.stop(true); } catch {} vh = null; } toneOff(); if (st && st.voice) { try { vh = st.voice(b.t0, b.t1, mm); } catch { vh = null; } } if (!vh) tone(mm); };
     const sndOff = () => { clearTimeout(vtm); if (vh) { try { vh.stop(); } catch {} vh = null; } toneOff(); };
     const sndFor = (mm, ms) => { snd(mm); vtm = setTimeout(sndOff, ms); };
-    try { sndFor(m, 1000); } catch {}
+    if (!(st && st._quiet)) { try { sndFor(m, 1000); } catch {} }   // (11/06 18:02 사용자) 되돌리기·다시하기로 고를 땐 소리 안 냄
     if (st) st.selSnd = () => { try { sndFor(m, 1000); } catch {} };   // (11/03 15:30 사용자) 이미 고른 막대를 다시 톡 = 처음 고를 때처럼 1초 소리
     const same = () => Math.abs(m - mO) < 0.004, rnd = (x) => Math.round(x * 100) / 100;
     const keepFix = () => !!b.ghost || !(same() && !isCut);   // 회색 막대는 같은 음이어도 '이 음으로 맞춤' 기록   // 서버가 고른 음 그대로면 기록 없음(나눈 조각은 나눔 표시로 남김)
@@ -901,7 +901,8 @@
       onTime: wrapF(o.onTime, (f) => `${mmss(f.t0)} · 타이밍${f.reset ? " 원본으로" : ""}`),
       onAdv: wrapF(o.onAdv, () => "디테일 보정"),
       onResetRange: wrapF(o.onResetRange, (a, b) => `${mmss(a)}~${mmss(b)} · 원본으로`) });
-    H.go = async (i) => { if (i < 0 || i >= H.S.length || i === H.ptr) return false; H.ptr = i; H.keep(); onChange(); try { await o.histSet(H.S[i]); } catch (e) { console.warn("되돌리기", e); } return true; };
+    H.go = async (i) => { if (i < 0 || i >= H.S.length || i === H.ptr) return false; H.ptr = i; H.keep(); onChange();   // (11/06 18:02) 화면 상태는 histSet이 바로 바꾸고, 인터넷 저장은 기다리지 않음(예전엔 저장 끝날 때까지 ~1초 기다린 뒤 음을 골랐음)
+      try { const p = o.histSet(H.S[i]); if (p && typeof p.then === "function") p.catch((e) => console.warn("되돌리기", e)); } catch (e) { console.warn("되돌리기", e); } return true; };
     H.canU = () => H.ptr > 0; H.canR = () => H.ptr < H.S.length - 1;
     return H;
   }
@@ -1113,10 +1114,12 @@
         out.sort((x, y) => x[0] - y[0]); const m_ = []; for (const r of out) { const L_ = m_[m_.length - 1]; if (L_ && r[0] <= L_[1] + 0.02) L_[1] = Math.max(L_[1], r[1]); else m_.push(r.slice()); } return m_; };
       const selectChanged = (rs) => { if (!rs.length) return; const a = rs[0][0], b = rs[rs.length - 1][1], vis = st.map ? st.map.W8 : 6;
         if (!(st.map && a >= st.map.t0 + 0.4 && b <= st.map.t0 + st.map.W8 - 0.4)) { try { seek(Math.max(0, a - Math.min(1, vis * 0.2) + vis * HEAD), true); } catch {} }   // 바뀐 음이 화면 안에 다 들어오게(가장자리에서 잘리면 일부만 골라짐)
-        setTimeout(() => { const bars = (st.tbars || []).filter(x => x.t1 > a + 0.005 && x.t0 < b - 0.005);
-          if (rs.length === 1 && bars.length === 1 && typeof o.onFix === "function") { try { fixSheet(wrap, cv, bars[0], o.onFix, getT, st); } catch {} return; }
+        // (11/06 18:02 사용자) 바로 고르기: 저장(인터넷)을 기다리지 않고 다음 그림 두 장(약 0.03초) 뒤 — 막대가 새 음 높이로 다시 그려진 뒤에 고름 · 소리 없이
+        const raf = G.requestAnimationFrame ? (f) => G.requestAnimationFrame(f) : (f) => setTimeout(f, 16);
+        raf(() => raf(() => { const bars = (st.tbars || []).filter(x => x.t1 > a + 0.005 && x.t0 < b - 0.005); st._quiet = true;
+          try { if (rs.length === 1 && bars.length === 1 && typeof o.onFix === "function") { try { fixSheet(wrap, cv, bars[0], o.onFix, getT, st); } catch {} return; }
           if (typeof o.onResetRange === "function") { st.msel = [a, b]; try { multiSheet(wrap, cv, st, false, true); } catch {} }
-          else if (bars[0] && typeof o.onFix === "function") { try { fixSheet(wrap, cv, bars[0], o.onFix, getT, st); } catch {} } }, 120); };
+          else if (bars[0] && typeof o.onFix === "function") { try { fixSheet(wrap, cv, bars[0], o.onFix, getT, st); } catch {} } } finally { st._quiet = false; } })); };
       const paintHist = () => { if (!histEl) return; const ol = histEl.querySelector("ol"); ol.innerHTML = ""; for (let i = hist.S.length - 1; i >= 0; i--) { const li = document.createElement("li"), b = document.createElement("button"); b.type = "button"; b.dataset.i = i;
           b.className = i === hist.ptr ? "cur" : i > hist.ptr ? "fut" : ""; b.textContent = (i === hist.ptr ? "✓ " : "") + hist.L[i]; li.appendChild(b); ol.appendChild(li); } };
       histUI = () => { ub.disabled = !hist.canU(); rb.disabled = !hist.canR(); paintHist(); };
