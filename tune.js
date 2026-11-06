@@ -441,10 +441,7 @@
       if (st && st.penPts && st.penPts.length > 1) { g.save(); g.strokeStyle = "#ffb86b"; g.lineWidth = 3; g.lineCap = "round"; g.lineJoin = "round"; g.beginPath(); st.penPts.forEach((q, i) => { const X = xs(q[0]), Y = y(q[1]); if (i) g.lineTo(X, Y); else g.moveTo(X, Y); }); g.stroke(); g.restore(); }
       if (st && st.msel) { const a = xs(st.msel[0]), b2 = xs(st.msel[1]), gr_ = !st.advOn, MC = gr_ ? "#7fd99a" : "#ff6ec7";   // (11/06 22:54 사용자 시안 ③) 기본 모드 = 초록(한마디용) · 동그라미 손잡이 · 고급 = 분홍(고치기용) · ‖ 손잡이
         g.fillStyle = gr_ ? "rgba(127,217,154,.10)" : "rgba(255,110,199,.14)"; g.fillRect(a, T, Math.max(2, b2 - a), HP); g.fillStyle = MC; g.fillRect(a, T, 2, HP); g.fillRect(b2 - 2, T, 2, HP);
-        if (gr_) { const gy = T + HP / 2; for (const [gx, dir] of [[a + 1, -1], [b2 - 1, 1]]) { g.beginPath(); g.arc(gx, gy, 13, 0, Math.PI * 2); g.fillStyle = MC; g.fill(); g.lineWidth = 2; g.strokeStyle = "#0b1a10"; g.stroke();
-            g.fillStyle = "#0b1a10"; g.beginPath(); g.moveTo(gx + dir * 5, gy); g.lineTo(gx - dir * 3, gy - 5); g.lineTo(gx - dir * 3, gy + 5); g.closePath(); g.fill(); }
-          if (b2 - a > 90 && typeof st.onAddRange === "function") { const lab = "💬 톡 = 한마디", cx = (a + b2) / 2, ty = T + 22; g.font = "bold 12.5px system-ui, sans-serif"; const tw = g.measureText(lab).width + 20;
-            g.fillStyle = MC; g.beginPath(); if (g.roundRect) g.roundRect(cx - tw / 2, ty - 12, tw, 24, 12); else g.rect(cx - tw / 2, ty - 12, tw, 24); g.fill(); g.fillStyle = "#0b1a10"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(lab, cx, ty + 1); g.textAlign = "left"; g.textBaseline = "alphabetic"; } }
+        if (gr_) { /* 손잡이·💬 표시는 맨 위에(노란 칠에 안 가리게) — 아래 '기본 모드 구간 손잡이' */ }
         else { const gy = T + HP / 2 - 15; g.fillRect(a - 5, gy, 12, 30); g.fillRect(b2 - 8, gy, 12, 30); g.fillStyle = "#1a0714"; for (const gx of [a + 1, b2 - 2]) { g.fillRect(gx - 2, gy + 7, 1.5, 16); g.fillRect(gx + 1, gy + 7, 1.5, 16); } }   // (손잡이: 잡고 끌면 범위 조절)
         for (const b of bars.concat(tb)) if (b.t0 < st.msel[1] && b.t1 > st.msel[0]) { g.strokeStyle = MC; g.lineWidth = 2; g.strokeRect(b.x0 - 1, b.y - b.h / 2 - 1, Math.max(4, b.x1 - b.x0 + 2), b.h + 2); } }
     }
@@ -505,6 +502,12 @@
     if (st && st.notesHidden) st.hits = [];
     else if (st) { let oy0 = 1e9, oy1 = -1e9; for (const p of vis) { for (const kk of [1, k]) { if (!kk || p[kk] == null) continue; const Y = y(p[kk]); if (Y < oy0) oy0 = Y; if (Y > oy1) oy1 = Y; } }   // 지금 화면의 음정선 높이 범위
       drawNotes(g, st, t, xs, L, w, T, H, full, tagB, oy0 <= oy1 ? [oy0, oy1] : null, vis, y); }
+    if (full && st && st.msel && !st.advOn && st.map) {   // (11/07) 기본 모드 구간 손잡이(초록 동그라미)·💬 표시 = 다른 그림 위에
+      const mp = st.map, xs2 = (tt) => mp.L + (tt - mp.t0) / Math.max(1e-6, mp.W8) * (mp.w - mp.L), a = xs2(st.msel[0]), b2 = xs2(st.msel[1]), MC = "#7fd99a", gy = T + HP / 2;
+      for (const [gx, dir] of [[a + 1, -1], [b2 - 1, 1]]) { if (gx < mp.L - 14 || gx > mp.w + 14) continue; g.beginPath(); g.arc(gx, gy, 13, 0, Math.PI * 2); g.fillStyle = MC; g.fill(); g.lineWidth = 2; g.strokeStyle = "#0b1a10"; g.stroke();
+        g.fillStyle = "#0b1a10"; g.beginPath(); g.moveTo(gx + dir * 5, gy); g.lineTo(gx - dir * 3, gy - 5); g.lineTo(gx - dir * 3, gy + 5); g.closePath(); g.fill(); }
+      if (b2 - a > 40 && typeof st.onAddRange === "function") { const lab = b2 - a >= 120 ? "💬 톡 = 한마디" : "💬", cx = Math.max(mp.L + 30, Math.min(mp.w - 30, (a + b2) / 2)), ty = T + HP - 26; g.font = "bold 12.5px system-ui, sans-serif"; const tw = g.measureText(lab).width + 20;
+        g.fillStyle = MC; g.beginPath(); if (g.roundRect) g.roundRect(cx - tw / 2, ty - 12, tw, 24, 12); else g.rect(cx - tw / 2, ty - 12, tw, 24); g.fill(); g.fillStyle = "#0b1a10"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(lab, cx, ty + 1); g.textAlign = "left"; g.textBaseline = "alphabetic"; } }
     if (full && st && st.kbDown != null) {   // (11/02 16:28 사용자) 누른 건반은 손가락에 가려서 → 오른쪽에 음 이름 말풍선
       const m = st.kbDown, yy = Math.max(T + 22, Math.min(T + HP - 22, y(m * 100))), txt = NAMES[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1);
       g.save(); g.font = "bold 22px system-ui, sans-serif"; g.textBaseline = "middle"; const tw = g.measureText(txt).width, bx = L + 14, bw = tw + 28, bh = 40;
