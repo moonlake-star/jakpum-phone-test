@@ -252,7 +252,7 @@
     document.getElementById("advG")?.remove();
     const d = document.createElement("div"); d.id = "advG"; d.className = "advG";
     d.innerHTML = `<div class="advGBox" role="dialog" aria-label="일괄 보정"><div class="advGHd"><b>🎛 일괄 보정</b><span class="advGN"></span><button type="button" class="advX" aria-label="닫기">✕</button></div><div class="advBody"></div>
-      <div class="advGBtns"><button type="button" data-g="undo">↶ 한 단계 되돌리기</button><button type="button" data-g="midi">🎹 MIDI 내보내기</button><button type="button" data-g="reset">디테일 보정 전부 원래대로</button></div>
+      <div class="advGBtns"><button type="button" data-g="undo">↶ 한 단계 되돌리기</button><button type="button" data-g="midi">🎹 MIDI 내보내기</button><button type="button" data-g="reset">디테일 보정 전부 원래대로</button><button type="button" data-g="guide">👆 손짓 안내 다시 보기</button></div>
       <p class="advTip">일괄 보정은 폰에서 못 들려줘요 · 완성본 다시 만들기 뒤에 들려요.</p><p class="advTip">보컬·MR 두 파일로 올린 곡은 완성본을 다시 만들면 보정된 보컬만 담긴 WAV(24bit)도 드라이브 작업 폴더에 생겨요(vocal_tuned.wav).</p></div>`;
     const body = d.querySelector(".advBody"), G_ = (k, dft) => (g()[k] != null ? g()[k] : dft);
     const put = (k, v) => change(A, st, cv, () => { g()[k] = v; });
@@ -275,7 +275,8 @@
     d.querySelectorAll("[data-g]").forEach(x => x.onclick = (e) => { e.stopPropagation();
       if (x.dataset.g === "undo") { if (!undo(A, st, cv)) x.textContent = "↶ 되돌릴 게 없어요"; else x.textContent = "↶ 한 단계 되돌리기"; cnt(); }
       if (x.dataset.g === "reset") change(A, st, cv, () => { A.ne = { notes: [], global: {} }; }), cnt();
-      if (x.dataset.g === "midi") midiDownload(cv, st.title || "보컬"); });
+      if (x.dataset.g === "midi") midiDownload(cv, st.title || "보컬");
+      if (x.dataset.g === "guide") { ly.close(); setTimeout(() => { try { st.advGuide && st.advGuide(); } catch {} }, 320); } });
     host.appendChild(d);
   }
 
@@ -329,6 +330,7 @@
 .advGHd{display:flex;align-items:center;gap:10px}.advGN{color:#9aa3ad;font-size:12.5px}.advX{margin-left:auto!important;min-height:0!important;height:34px!important;width:40px;padding:0!important;border-radius:12px!important;background:#11141a!important;border:1.5px solid #3b4250!important;color:#e8e8ea!important}
 .advGBtns{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.advGBtns button{flex:1;min-width:150px;min-height:0!important;height:44px!important;margin:0!important;border-radius:12px!important;border:1.5px solid #3b4250!important;background:#11141a!important;color:#e8e8ea!important;font-weight:800;font-size:14px!important}
 .advPad{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;height:120px;border-radius:16px;border:1.5px dashed #ffb86b;background:#21170b;color:#ffcf99;touch-action:none;user-select:none;-webkit-user-select:none;cursor:ns-resize}.advPad b{font-size:22px}.advPad small{color:#b9a58a;font-size:12px}
+#tuneFs .gdBox{max-width:340px;text-align:left}#tuneFs .gdL{margin:10px 0 6px;padding:0;list-style:none}#tuneFs .gdL li{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-top:1px solid #2a313c;font-size:14px;color:#cfd3da}#tuneFs .gdL li:first-child{border-top:0}#tuneFs .gdL em{font-style:normal;font-weight:800;color:#ffcf99;white-space:nowrap}#tuneFs .gdS{font-size:12px;color:#8d96a3;margin:4px 0 10px}
 #tuneFs .tfAdvG.on{background:#ffb86b!important;color:#2a1500!important}
 #tuneFs .tfAdvG{margin:0 0 0 8px!important;min-height:0!important;height:28px!important;padding:0 11px!important;border-radius:14px!important;border:1.5px solid #ffb86b!important;background:#2a1a08!important;color:#ffcf99!important;font-size:12.5px!important;font-weight:800;white-space:nowrap}`;
   try { const s = document.createElement("style"); s.textContent = css; document.head.appendChild(s); } catch {}
