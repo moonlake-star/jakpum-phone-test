@@ -628,7 +628,7 @@
       cv._fixes = prior.filter(x => !(x.t0 < b.t1 && x.t1 > b.t0)).concat(keepFix() ? [{ t0: T0, t1: T1, midi: rnd(m), ...(isCut && same() ? { cut: true } : {}) }] : []); };
     let tm = null;
     const persist = () => { clearTimeout(tm); stEl.textContent = "저장 중…"; tm = setTimeout(() => { tm = null; try { fxSave(onFix, { t0: T0, t1: T1, midi: keepFix() ? rnd(m) : null, ...(isCut && same() ? { cut: true } : {}) }); } catch {} commit(); stEl.textContent = "✓ 저장됨"; }, 450); };
-    const core = () => { if (st) { st.selSnd = null; st.snapSel = null; st.advRepaint = null; } try { sndOff(); } catch {} if (tTm) { clearTimeout(tTm); tTm = null; tSave(); commit(); } if (st) { st.onBarDrag = null; st.onBarDragX = null; st.stopAt = 0; } if (tm) { clearTimeout(tm); tm = null; try { fxSave(onFix, { t0: T0, t1: T1, midi: keepFix() ? rnd(m) : null, ...(isCut && same() ? { cut: true } : {}) }); } catch {} commit(); } toneOff(); if (st) st.sel = null; d.remove(); };
+    const core = () => { if (st) { st.selSnd = null; st.snapSel = null; st.advRepaint = null; } try { sndOff(); } catch {} if (tTm) { clearTimeout(tTm); tTm = null; tSave(); commit(); } if (st) { if (st._dragBase != null && Math.abs(m - st._dragBase) > 0.004) persist(); st._dragBase = null; st.onBarDrag = null; st.onBarDragX = null; st.onBarDragEnd = null; st.onBarDragXEnd = null; st.stopAt = 0; } if (tm) { clearTimeout(tm); tm = null; try { fxSave(onFix, { t0: T0, t1: T1, midi: keepFix() ? rnd(m) : null, ...(isCut && same() ? { cut: true } : {}) }); } catch {} commit(); } toneOff(); if (st) st.sel = null; d.remove(); };
     // (11/02 20:26 사용자) 폰 뒤로(갤럭시 뒤로 밀기) = 고치기 창만 닫기(전체화면은 그대로) — 주석 창과 같은 방식(기록 한 칸)
     const leave = () => { if (sheetClose === close_) sheetClose = null; try { if (history.state && history.state.tuneSheet) { const nl = dropL(); skipPop = true; history.go(-1 - nl); } } catch {} };
     const close_ = (fromPop) => { core(); saveToast(); if (bot) bot._h0 = 0; if (fromPop === true) { if (sheetClose === close_) sheetClose = null; } else leave(); if (st && st.dock) st.dock(); };
@@ -650,7 +650,9 @@
       ["pointercancel", "lostpointercapture"].forEach(ev => x.addEventListener(ev, stop));
       x.onclick = (e) => { if (e.detail === 0) step(+x.dataset.d, true); };   // 키보드(Enter)
       x.addEventListener("contextmenu", (e) => e.preventDefault()); });
-    if (st) st.onBarDrag = (k, start) => { if (start) st._dragBase = m; const nm_ = rnd(st._dragBase + k); if (nm_ !== m) { m = nm_; paint(); preview(); persist(); sndFor(m, 400); } };
+    // (11/06 16:02 사용자) 끄는 동안엔 저장 안 함 → 손을 뗄 때 한 번만(제자리로 돌아오면 기록 없음) — 되돌리기 기록에 중간 단계가 안 남게
+    if (st) { st.onBarDrag = (k, start) => { if (start) st._dragBase = m; const nm_ = rnd(st._dragBase + k); if (nm_ !== m) { m = nm_; paint(); preview(); sndFor(m, 400); } };
+      st.onBarDragEnd = () => { if (st._dragBase != null && Math.abs(m - st._dragBase) > 0.004) persist(); st._dragBase = null; }; }
     const nb = d.querySelector("[data-p]");   // 음 이름을 누르는 동안 그 음 소리
     nb.addEventListener("pointerdown", (e) => { e.preventDefault(); snd(m); });
     nb.addEventListener("touchstart", (e) => { if (e.cancelable) e.preventDefault(); }, { passive: false });   // (11/03) 길게 눌러도 폰 진동(길게 누르기 반응) 안 나게 — 누르는 동안 소리만
@@ -735,7 +737,8 @@
     saved = curS();
     st.onBarDragX = (dt, edge, start) => { if (start) { st._tb = [n0, n1]; return; } const [a0, a1] = st._tb || [n0, n1];
       if (edge === "l") n0 = a0 + dt; else if (edge === "r") n1 = a1 + dt; else { n0 = a0 + dt; n1 = a1 + dt; }
-      tClamp(edge === "c" ? "m" : edge); tPaint(); tPreview(); tPersist(); };
+      tClamp(edge === "c" ? "m" : edge); tPaint(); tPreview(); };
+    st.onBarDragXEnd = () => { const b0 = st._tb; st._tb = null; if (b0 && (Math.abs(n0 - b0[0]) > 0.004 || Math.abs(n1 - b0[1]) > 0.004)) tPersist(); };   // 손 뗄 때 한 번만 저장
   }
   // (11/03 13:46 사용자 승인) 여러 음 고르기: 켜 둔 동안 그래프를 좌우로 끌면 그 구간의 음들이 골라짐(시간 이동은 두 손가락) → [↺ 원본으로] = 그 안의 음정·타이밍 고침만 지움(10초 되살리기)
   // (11/05 사용자 시안 승인 '다 고고') 얇은 도구줄: [☑ N음 · 구간 | ▼ ▲ ↺원본 ✕] + 안내 한 줄 · ▼▲ = 고른 음 전부 반음씩 한꺼번에(저장은 한 번에 묶어서)
@@ -1126,6 +1129,8 @@
       if ((d.bar || d.barX) && !d.moved && e.type === "pointerup" && st.advOn && st.snapSel && !d.hdl && Date.now() - (st._bt || 0) < 350) { st._bt = 0; snapNote(); return; }   // (11/06) 보정 모드: 음 두 번 톡 = 가까운 음계 음에 맞춤 + 흐름 평평하게
       if ((d.bar || d.barX) && !d.moved && e.type === "pointerup") st._bt = Date.now();
       if ((d.bar || d.barX) && !d.moved && e.type === "pointerup" && st.selSnd) { st.selSnd(); return; }   // 고른 막대 다시 톡 = 소리
+      if (d.bar && st.onBarDragEnd) { try { st.onBarDragEnd(); } catch {} }
+      if (d.barX && st.onBarDragXEnd) { try { st.onBarDragXEnd(); } catch {} }
       if (d.bar || d.barX || d.msel) return;   // 고른 막대를 위아래(음정)·좌우(타이밍)로 옮긴 것(재생/멈춤 아님)
       if (!d.mode && e.type === "pointerup" && typeof o.onFix === "function" && isPaused() && st.tbars) {   // 멈춘 상태에서 초록 정음 막대 톡 = 정음 고치기
         const le = loc(d.cx ?? e.clientX, d.cy ?? e.clientY, cvEl.getBoundingClientRect()), hb = hitT(le) || hitBar(le);   // (11/03 10:31 아이패드) 누른 자리(뗀 자리 아님) + 손가락 크기만큼 넉넉하게

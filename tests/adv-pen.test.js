@@ -29,3 +29,7 @@ console.log("adv-pen ok");
 // (11/06 15:32 사용자) 음을 고른 채 확인↔보정 바꾸면 그 음 고치기 창이 새 모드로 바로
 { const t2 = require("fs").readFileSync(__dirname + "/../tune.js", "utf8");
   require("assert").ok(t2.includes("st._selBar = b;") && t2.includes("if (keep) { try { fixSheet(wrap, cv, keep, o.onFix, getT, st);"), "모드 바꿔도 고른 음 창 유지"); }
+// (11/06 16:02 사용자) 끄는 동안 저장 안 함 — 손 뗄 때 한 번(제자리면 기록 없음)
+{ const t3 = require("fs").readFileSync(__dirname + "/../tune.js", "utf8"), A_ = require("assert");
+  A_.ok(t3.includes("st.onBarDragEnd = () => { if (st._dragBase != null && Math.abs(m - st._dragBase) > 0.004) persist();") && t3.includes("st.onBarDragXEnd = () =>"));
+  A_.ok(!/st\.onBarDrag = \(k, start\) => \{[^\n]*persist\(\)/.test(t3), "끄는 중엔 저장 안 함"); }
