@@ -70,3 +70,7 @@ console.log("pinch uniform ok");
 // (11/06 21:47~21:51 사용자) 고르지 않은 음 꾹 = 고르며 미세 + 진동 · 옮길 때 화면 안 따라감·눈금 고정 · 하늘색 선 같이 움직임
 assert.ok(T.includes("음표 위 꾹은 여러 음 고르기보다 이것이 먼저") && T.includes("&& !st.sel && !st.dragging && !st.msel) {") && T.includes("function syncCorr(cv)") && T.includes("drag.cpp = st.kb.inv(drag.y0) - st.kb.inv(drag.y0 + 1)"));
 console.log("long-press fine / view / blue ok");
+// (11/06 21:53 사용자) 칸을 누르면 아래 안내 줄 = 그 칸 설명
+{ const A = fs.readFileSync(path.join(__dirname, "..", "adv.js"), "utf8");
+  assert.ok(A.includes('"커지는 시간": "떨림이 시작돼 다 커질 때까지') && A.includes('tp.classList.add("desc")') && A.includes("칸을 누르면 여기에 그 칸 설명이 나와요"));
+  console.log("cell desc ok"); }
