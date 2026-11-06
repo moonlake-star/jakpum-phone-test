@@ -38,7 +38,7 @@ now += 100; h.o.onTime({ t0: 5 }); now += 100; h.o.onAdv(); assert.strictEqual(h
   assert.ok(T.includes('!st.advOn && wrap.querySelector(".tfFix") && sheetClose && sheetClose._fix'), "보정 모드는 빈 곳 톡으로 창을 안 닫음");
   assert.ok(T.includes("st.dock = () =>") && T.includes('"tfFix inBot tfUni tfDock"') && T.includes("if (st && st.dock) st.dock();"), "창이 닫히면 안내 창으로 다시 붙음");
   assert.ok(T.includes("G.TuneAdv.resetNote(st, cv, b)"), "↺ 원본 = 고급 고침도 같이");
-  assert.ok(T.includes('d.className = "tfFix tfMulti" + (st.advOn ? " tfUni" : "")'), "여러 음 고르기 창도 같은 자리·크기(끌 때 그래프가 안 들썩임)");
+  assert.ok(T.includes('d.className = "tfFix tfMulti" + (st.advOn ? " tfUni" : " tfMGr")'), "여러 음 고르기 창도 같은 자리·크기(끌 때 그래프가 안 들썩임)");
   assert.ok(T.includes('<div class="rpPh" aria-hidden="true">') && T.includes("@keyframes rpTurn{") && T.includes("prefers-reduced-motion:reduce){#tuneFs .rpPh b"), "가로 모드 안내: 폰이 돌아가는 움직임");
   // (11/05 사용자) 소리 켬/끄기 없앰 → 볼륨 맨 아래 = 무음 · 새 떨림 시작·커지는 시간은 음 길이에 맞춤
   const A = fs.readFileSync(__dirname + "/../adv.js", "utf8");
