@@ -50,7 +50,7 @@ now += 100; h.o.onTime({ t0: 5 }); now += 100; h.o.onAdv(); assert.strictEqual(h
 
 // 고급 흐름: 앞·뒤 기울기는 한 줄(advDuo)
 { const A = fs.readFileSync(__dirname + "/../adv.js", "utf8");
-  assert.ok(A.includes("function duo(") && A.includes('"앞", "뒤"') && A.includes(".advDuo .advRow .advB{width:32px!important;min-width:0!important"), "기울기 한 줄"); }
+  assert.ok(A.includes("function duo(") && A.includes('), "앞"),') && A.includes('), "뒤")));') && A.includes(".advDuo .advRow .advB{width:32px!important;min-width:0!important"), "기울기 한 줄"); }
 
 // 세로 화면: 보정창 높이는 화면 높이에 맞춰 214~300px(그래프가 그만큼 줄어 창이 위로 올라옴)
 assert.ok(T.includes("height:clamp(190px,36vh,260px)"), "보정창 높이 clamp");
