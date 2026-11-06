@@ -21,7 +21,7 @@ assert.strictEqual(at(1), 6000, "지우면 원래 선");
 A.flatNote(st, cv, { t0: 0.2, t1: 0.6 }); assert.strictEqual(st._adv.ne.notes[0].drift, 0, "두 번 톡: 흐름 평평");
 // tune.js·선생님 앱 연결
 const tj = fs.readFileSync(__dirname + "/../tune.js", "utf8"), th = fs.readFileSync(__dirname + "/../teacher/index.html", "utf8");
-assert.ok(tj.includes("full && st && st.advOn && sc && ins") && tj.includes("const HANDLE_R = 15") && tj.includes("st.hdl = { k:") && tj.includes('mk("advPenB"'));
+assert.ok(tj.includes("full && st && st.advOn && sc && ins") && tj.includes("const HANDLE_R = 15") && tj.includes("st.hdl = { l:") && tj.includes('mk("advPenB"'));
 assert.ok(tj.includes('e.pointerType === "pen" || e.pointerType === "mouse" || !st.penSeen'), "펜을 쓰면 손가락은 이동만");
 assert.ok(tj.includes("st.advOn && st.snapSel && !d.hdl && Date.now() - (st._bt || 0) < 350"));
 assert.ok(th.includes("if (Array.isArray(o.draw)) o.draw = o.draw.map(") && th.includes("((mkPv.advG || {}).draw || [])"), "시간 바꿔 저장 + 미리듣기");
@@ -38,3 +38,9 @@ console.log("adv-pen ok");
   const beatNear = new Function(t4.match(/const beatNear = [^\n]*\n/)[0] + "return beatNear;")();
   A_.strictEqual(beatNear({ beats: { t: [0.35, 1.05, 1.75, 2.45] } }, 1.5), 1.75); A_.strictEqual(beatNear({ beats: { t: [0.35, 1.05] } }, 0.6), 0.35); A_.strictEqual(beatNear({}, 1), null);
   A_.ok(t4.includes("if (st.beatOn && edge !== \"r\") { const bt = beatNear(cv, n0); if (bt != null && Math.abs(bt - n0) <= BEAT_SNAP)") && t4.includes('mk("advBeatB"') && t4.includes("st.advOn && st.beatOn && cv.beats && cv.beats.t")); }
+// (11/06 16:13·16:20 사용자) 음 가운데: 바로 위아래 = 반음, 좌우 = 자리, 꾹 = 미세 · 양 끝 화살표는 꾹 눌러야 길이 · 건반 꾹 진동 없음
+{ const t5 = require("fs").readFileSync(__dirname + "/../tune.js", "utf8"), A_ = require("assert");
+  A_.ok(t5.includes("const LONG_MS = 350, FINE = 0.25;") && t5.includes("drag.fine ? Math.round(c * FINE * 100) / 100 : Math.round(c)"), "반음/미세");
+  A_.ok(t5.includes('st.onBarDragX(0, "c", true)') && t5.includes("if (!drag.hArmed) { if (Math.hypot(l0.x - drag.x0, l0.y - drag.y0) > 8)"), "좌우 = 자리, 화살표는 꾹 눌러야");
+  A_.ok(!t5.includes('"↕", "#9cc3ff"'), "↕ 동그라미 없앰");
+  A_.ok(t5.includes('cvEl.addEventListener("touchstart", (e) => { if (e.cancelable) e.preventDefault(); }, { passive: false })'), "꾹 눌러도 폰 진동 없게"); }

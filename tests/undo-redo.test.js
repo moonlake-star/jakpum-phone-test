@@ -56,4 +56,5 @@ now += 100; h.o.onTime({ t0: 5 }); now += 100; h.o.onAdv(); assert.strictEqual(h
 assert.ok(T.includes("height:clamp(190px,36vh,260px)"), "보정창 높이 clamp");
 
 // 보정 모드 한 줄: ▼ ◀ 음 ▶ ▲ ✂ 길− 길+ (타이밍 줄·'길이 그대로' 칸 없음)
-assert.ok(T.includes('class="tfIc tfTm" data-tm="-1"') && T.includes('class="tfIc tfLen" data-tl="1"') && T.includes("tInfo = () =>"), "한 줄 편집");
+// (11/06 16:20 사용자) 보정 창 윗줄에서 ◀▶·길± 빼고 손짓(음 가운데 좌우 = 자리, 양 끝 화살표 꾹 = 길이)으로 · 🧲 맞춤 단추
+assert.ok(!T.includes('class="tfIc tfTm" data-tm="-1"') && !T.includes('class="tfIc tfLen" data-tl="1"') && T.includes('data-snap aria-label') && T.includes("tInfo = () =>"), "한 줄 편집(손짓으로)");
