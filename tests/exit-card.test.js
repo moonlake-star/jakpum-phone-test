@@ -64,3 +64,6 @@ console.log("align ok");
 { const A = fs.readFileSync(path.join(__dirname, "..", "adv.js"), "utf8");
   assert.ok(A.includes("#tuneFs .advSc,#tuneFs .advSc *,.advSc,.advSc *{touch-action:none!important}") && A.includes('const dd = d.ax === "v" ? dy_ : d.ax === "h" ? dx_ : 0;'));
   console.log("touch drag ok"); }
+// (11/06 19:55 사용자 A) 핀치: 좌우로 벌리면 시간만 · 위아래면 음 높이만 · 대각선은 둘 다
+assert.ok(T.includes('ax: ang < 30 ? "t" : ang > 60 ? "p" : "tp"') && T.includes('if (pinch.ax !== "p") st.xz = Math.max(1, Math.min(4, pinch.xz * ra));') && !T.includes("pinch.xz * Math.sqrt(r)"));
+console.log("pinch axis ok");
