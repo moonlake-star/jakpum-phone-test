@@ -689,7 +689,7 @@
       x.onclick = (e) => { if (e.detail === 0) step(+x.dataset.d, true); };   // 키보드(Enter)
       x.addEventListener("contextmenu", (e) => e.preventDefault()); });
     // (11/06 16:02 사용자) 끄는 동안엔 저장 안 함 → 손을 뗄 때 한 번만(제자리로 돌아오면 기록 없음) — 되돌리기 기록에 중간 단계가 안 남게
-    if (st) { st.onBarDrag = (k, start) => { if (start) st._dragBase = m; const nm_ = rnd(st._dragBase + k); if (nm_ !== m) { m = nm_; st.focusC = m * 100; st.focusMin = true; paint(); preview(); sndFor(m, 400); } }; /* 끄는 음이 화면 밖으로 나가면 그만큼만 따라감 */
+    if (st) { st.onBarDrag = (k, start) => { if (start) st._dragBase = m; const nm_ = rnd(st._dragBase + k); if (nm_ !== m) { if (Math.abs(nm_ - m) > 0.5) buzz(20); else if (Math.floor(nm_ * 20 + 1e-6) !== Math.floor(m * 20 + 1e-6)) buzz(10);   /* (11/06 21:59 사용자) 반음 한 칸 = 진동 · 미세는 5센트마다 짧게 */ m = nm_; st.focusC = m * 100; st.focusMin = true; paint(); preview(); sndFor(m, 400); } }; /* 끄는 음이 화면 밖으로 나가면 그만큼만 따라감 */
       st.onBarDragEnd = () => { if (st._dragBase != null && Math.abs(m - st._dragBase) > 0.004) persist(); st._dragBase = null; }; }
     const nb = d.querySelector("[data-p]");   // 음 이름을 누르는 동안 그 음 소리
     nb.addEventListener("pointerdown", (e) => { e.preventDefault(); snd(m); });
@@ -1221,7 +1221,7 @@
           else if (typeof o.onAdd === "function") d0.lp = setTimeout(() => { if (drag !== d0 || d0.mode) return;
             const tt = timeAt(st, l0.x);
             // (11/03 13:53 사용자) 꾹 누른 뒤: 그냥 떼면 새 주석 · 떼지 않고 좌우로 끌면 여러 음 고르기(따로 버튼 없이) — 선생님 화면만
-            if (typeof o.onResetRange === "function" && st.map && tt != null) { pauseNow(); d0.armed = { x: l0.x, t: tt }; st.msel = [tt, tt]; armTip(true); return; }
+            if (typeof o.onResetRange === "function" && st.map && tt != null) { pauseNow(); d0.armed = { x: l0.x, t: tt }; st.msel = [tt, tt]; armTip(true); buzz(40); return; }   // (11/06 21:59) 구간 고르기 시작 = 진동
             d0.long = true; pauseNow();
             if (tt != null) { lastView = view; o.onAdd(tt); } }, 390); } }
         // (11/06 21:47 사용자) 보정 모드: 고르지 않은 음표도 꾹(0.6초) 누르면 그 음을 고르면서 바로 미세 음정(위아래) + 진동
