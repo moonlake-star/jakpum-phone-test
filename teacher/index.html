@@ -4523,7 +4523,7 @@ function growthLine(st) {   // 레슨 탭 맨 위 한 줄 → 누르면 성장 �
 }
 function paintMakeupTab(sid) {
   const st = cfg.students[sid], jobs = st._jobs || [];
-  const stTxt = { queued: "대기 중 ⏳", working: "만드는 중 ⚙️", done: "완료", error: "실패" };
+  const stTxt = { waiting_download: "노트북이 받는 중 🔗", queued: "대기 중 ⏳", working: "만드는 중 ⚙️", done: "완료", error: "실패" };
   $("stuTab").innerHTML = (jobs.length ? `<div class="card jobs"><h3 style="margin-top:0">🎵 커버·메이크업한 곡 <span class="muted" style="font-size:.85rem;font-weight:400">${jobs.length}곡</span></h3>` + jobs.map((j, i) => `<div class="lesson mkrow" data-i="${i}"><span>${esc(j.req.title || j.folder.name)}${j.req.lesson_folder ? ` <span class="muted">(레슨 구간)</span>` : ""}</span>
       <span class="chip ${j.req.status === "done" ? "ok" : j.req.status === "error" ? "todo" : ""}">${["queued", "working"].includes(j.req.status) ? (j.req.progress?.pct ?? 0) + "% " : ""}${stTxt[j.req.status] || j.req.status}${j.req.sent_at ? " · 보냄" : ""}</span></div>`).join("") + `</div>` : "") +
     `<div id="mkHabit"></div><div class="card"><h3 style="margin-top:0">🪄 새 보컬 메이크업</h3>
@@ -4532,7 +4532,10 @@ function paintMakeupTab(sid) {
       <input id="mkTitle" placeholder="곡명 (파일을 고르면 파일 이름에서 자동으로 채워져요)" style="width:100%;margin:4px 0">
       <div class="muted hidden" id="mkTitleHint" style="font-size:.85rem;margin:-2px 0 4px">✏️ 파일 이름에서 가져왔어요 — 틀리면 바로 고쳐 주세요</div>
       <div class="row" style="margin:6px 0"><label><input type="radio" name="mkMode" value="single" checked> 한 파일(AI가 보컬·MR 분리)</label>
-        <label><input type="radio" name="mkMode" value="two"> 보컬+MR 두 파일</label></div>
+        <label><input type="radio" name="mkMode" value="two"> 보컬+MR 두 파일</label>
+        <label><input type="radio" name="mkMode" value="link"> 🔗 유튜브 링크</label></div>
+      <div id="mkLink" class="hidden"><input id="mkYt" placeholder="유튜브 영상 주소 붙여넣기" inputmode="url" style="width:100%;margin:4px 0">
+        <p class="muted">집 노트북이 켜져 있으면 소리를 받아서 AI가 보컬·MR로 나눠요. 개인 연습용으로만 쓰세요(수강생에게 보내지 않아요).</p></div>
       <div id="mkTwo" class="hidden"><div class="muted" style="margin-top:6px">보컬 wav</div><input type="file" id="mkV" accept="audio/*,.wav,.aif,.aiff,.flac,.mp3">
         <div class="muted" style="margin-top:6px">MR wav</div><input type="file" id="mkM" accept="audio/*,.wav,.aif,.aiff,.flac,.mp3"></div>
       <div id="mkOne"><div class="muted" style="margin-top:6px">노래가 섞인 녹음 한 파일 (3분 이하 권장)</div><input type="file" id="mkS" accept="audio/*,video/*,.wav,.m4a,.mp3,.mp4">
@@ -4559,10 +4562,12 @@ function paintMakeupTab(sid) {
   $("mkTitle").addEventListener("input", () => $("mkTitleHint").classList.add("hidden"));
   document.querySelectorAll('input[name="mkMode"]').forEach(r => r.onchange = () => {
     const one = document.querySelector('input[name="mkMode"]:checked').value === "single";
-    $("mkTwo").classList.toggle("hidden", one); $("mkOne").classList.toggle("hidden", !one); });
+    const md = document.querySelector('input[name="mkMode"]:checked').value;
+    $("mkTwo").classList.toggle("hidden", md !== "two"); $("mkOne").classList.toggle("hidden", md !== "single"); $("mkLink").classList.toggle("hidden", md !== "link");
+    $("btnMkGo").textContent = md === "link" ? "링크로 요청 보내기" : "올리고 AI 메이크업 프로세싱"; });
   $("stuTab").querySelectorAll(".mkrow").forEach(el => el.onclick = () => openMkJob(jobs[+el.dataset.i], () => openStudent(sid, "mk")));
   clearTimeout(window._mkPoll);
-  if (jobs.some(j => ["queued", "working"].includes(j.req.status)))
+  if (jobs.some(j => ["queued", "working", "waiting_download"].includes(j.req.status)))
     window._mkPoll = setTimeout(() => { if (stuCur?.sid === sid && stuCur.tab === "mk" && !$("vStu").classList.contains("hidden") && !document.activeElement?.closest?.("#stuTab")) openStudent(sid, "mk"); }, 15000);
 }
 // 음정 습관 카드: 메이크업한 곡들에서 서버가 찾은 습관(음정성향.json). 레슨 피드백 참고용 + 보정에 반영되는 값
@@ -4651,7 +4656,50 @@ async function paintHabit(sid, mode = "mk") {
     $("mkHabit").querySelectorAll(".npAddCoach").forEach(b => b.onclick = () => npAddToLatest(sid, p.coaching[+b.dataset.i]?.title || "", b));
   } catch (e) { console.warn(e); }
 }
+// ── 유튜브 링크로 메이크업(11/06 사용자): 앱은 '요청'만 만들고, 집 노트북이 유튜브에서 소리를 받아 원본 폴더에 넣으면 앱이 그 파일로 AI 분리를 시작한다.
+// 서버(깃허브)는 유튜브가 막아서 못 받음(시험 2회 실패) → 집 인터넷에서 받는 프로그램이 따로 필요(시험 결과 확인 뒤 만듦). 개인 연습용·드라이브 비공개 폴더에만 보관.
+function ytParse(u) {   // 유튜브 주소 → 영상 하나의 바른 주소(재생목록·채널·남의 사이트는 거절)
+  const s0 = String(u || "").trim(); if (!s0) return null; let x; try { x = new URL(/^https?:\/\//i.test(s0) ? s0 : "https://" + s0); } catch { return null; }
+  const h = x.hostname.replace(/^(www\.|m\.|music\.)/, ""); let id = "";
+  if (h === "youtu.be") id = x.pathname.slice(1).split("/")[0];
+  else if (h === "youtube.com") id = x.pathname === "/watch" ? (x.searchParams.get("v") || "") : (x.pathname.match(/^\/(?:shorts|live|embed)\/([^/?#]+)/) || [])[1] || "";
+  return /^[A-Za-z0-9_-]{11}$/.test(id) ? { id, url: "https://www.youtube.com/watch?v=" + id } : null;
+}
+const YT_AUDIO = /\.(m4a|mp3|wav|aac|ogg|opus|webm|mp4|flac)$/i;
+function ytPickAudio(files, now = Date.now(), settleMs = 15000) {   // 원본 폴더에서 다 올라온 소리 파일 하나(올리는 중인 .part·방금 바뀐 파일은 건너뜀)
+  return (files || []).filter((f) => !f.mimeType?.endsWith?.("folder") && YT_AUDIO.test(f.name) && !/\.(part|ytdl|tmp)$/i.test(f.name) && now - Date.parse(f.modifiedTime || 0) >= settleMs)
+    .sort((a, b) => String(b.modifiedTime).localeCompare(String(a.modifiedTime)))[0] || null;
+}
+async function ytPromote(job) {   // 받은 파일이 보이면 '대기' → 일반 메이크업 요청으로 바꾸고 서버 시작
+  const r = job.req; if (r?.status !== "waiting_download" || !job.reqId) return false;
+  const kids = await list(job.folder.id), orig = kids.find((f) => f.name === "원본" && f.mimeType.endsWith("folder")); if (!orig) return false;
+  const a = ytPickAudio(await list(orig.id)); if (!a) return false;
+  const q = { ...r, status: "queued", mode: "single", source_id: a.id, source_name: a.name, start: null, end: null, downloaded_at: new Date().toISOString(), requested_at: new Date().toISOString() };
+  await writeJSON(job.folder.id, MKREQ, q, job.reqId); job.req = q; kick(); return true;
+}
+function paintYtWait(r) {
+  const mins = Math.max(0, Math.round((Date.now() - Date.parse(r.requested_at || Date.now())) / 60000));
+  $("vMkJob").innerHTML = `<div class="card"><h2 style="margin:0">${esc(r.student_name || "")} · ${esc(r.title || "")}</h2>
+    <div class="bigbox"><div class="ttl">🔗 집 노트북이 유튜브에서 소리를 받는 중</div>
+      <p class="muted" style="margin:6px 0">${esc(r.youtube_url || "")}</p>
+      <div>⏱ ${mins}분 지남 · 받으면 <b>자동으로 AI 분리가 시작돼요</b></div></div>
+    <div class="note-ok"><b>집 노트북이 켜져 있어야 해요.</b><br>이 화면을 닫아도 돼요. 다시 열 때 받아져 있으면 바로 이어서 시작해요.<br><span class="muted">개인 연습용으로만 쓰고, 결과는 비공개 폴더에만 두세요.</span></div></div>`;
+}
+async function submitYoutube() {
+  const sid = $("mkStu").value, yt = ytParse($("mkYt").value), title = cleanPart($("mkTitle").value || "") || "유튜브곡";
+  if (!yt) return toast("유튜브 영상 주소를 넣어 주세요 (재생목록 말고 영상 하나)");
+  const day = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10), b = $("btnMkGo"); b.disabled = true; b.textContent = "요청 만드는 중…";
+  try {
+    const f7 = await mkFolder(sid), jf = await newFolder(`${day}_${title}_메이크업`, f7); await newFolder("원본", jf);
+    const req = { status: "waiting_download", mode: "single", title, student_id: sid, student_name: cfg.students[sid].name, preset: "표준", settings: {}, pitch_level: 3,
+      pitch_key: keyOf($("mkKeyUp").value), youtube_url: yt.url, youtube_id: yt.id, source_id: null, start: null, end: null, requested_at: new Date().toISOString() };
+    const job = { sid, st: cfg.students[sid], req, folder: { id: jf }, files: [], reqId: await writeJSON(jf, MKREQ, req) };
+    b.disabled = false; b.textContent = "올리고 AI 메이크업 프로세싱"; return showProgress(job);
+  } catch (e) { $("mkMsg").innerHTML = `<div class="note-bad"><b>요청을 만들지 못했어요</b><br>${esc(e.message)}</div>`; }
+  b.disabled = false; b.textContent = "링크로 요청 보내기";
+}
 async function submitMakeup() {
+  if (document.querySelector('input[name="mkMode"]:checked').value === "link") return submitYoutube();
   const sid = $("mkStu").value, title = cleanPart($("mkTitle").value || "") , v = $("mkV").files[0], m = $("mkM").files[0];
   const single = document.querySelector('input[name="mkMode"]:checked').value === "single", one = $("mkS").files[0];
   if (single && !one) return toast("녹음 파일을 골라 주세요");
@@ -4702,6 +4750,7 @@ function mkEstimate(r) {
 let progTimer = null;
 function stopProg() { clearInterval(progTimer); progTimer = null; }
 function paintProg(r, clientStage) {
+  if (r.status === "waiting_download") return paintYtWait(r);
   const t0 = Date.parse(r.requested_at || new Date().toISOString()), el = (Date.now() - t0) / 1000, est = mkEstimate(r);
   const sp = r.progress?.pct ?? 0, cap = (STAGE_CAP.find(([a, b]) => sp >= a && sp <= b) || [0, 5])[1];
   const shown = r.status === "done" ? 100 : Math.max(sp, Math.min(Math.round(el / est * 100), cap));
@@ -4737,6 +4786,7 @@ async function showProgress(job, clientStage) {
     if (busy) return; busy = true;
     try {
       job.req = await readJSON(job.reqId);
+      if (job.req.status === "waiting_download") { await ytPromote(job); paintProg(job.req); return; }
       if (job.req.status === "done") { stopProg(); job.files = await list(job.folder.id); return openMkJob(job, goBack); }
       if (job.req.status === "error") { stopProg(); paintProg(job.req); }
     } catch {} finally { busy = false; }
@@ -5177,7 +5227,7 @@ async function editFromBest(job, t) {
 }
 async function openMkJob(j, backTo) {
   goBack = backTo || (() => openStudent(j.sid, "mk"));
-  if (!["done", "error"].includes(j.req.status)) return showProgress(j);
+  if (!["done", "error"].includes(j.req.status)) { if (j.req.status === "waiting_download") ytPromote(j).catch(() => {}); return showProgress(j); }
   stopProg(); mkStop(); mkU = null; mkTracks = {}; mkPv = { fixes: [], rendered: () => null, orig: {}, tedits: [], tplan: null }; mkDurS = 0; mkOffset = 0; mkBefore = false; mkRaw = false; mkJob = j; show("vMkJob");
   if (!j.files?.length) j.files = await list(j.folder.id);
   const r = j.req, by = (n) => j.files.find(f => f.name === n);
@@ -7138,7 +7188,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-06-1330-export-load";
+const BUILD = "2026-11-06-1500-youtube-link";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
