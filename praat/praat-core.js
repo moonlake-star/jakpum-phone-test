@@ -83,6 +83,39 @@ Save as WAV file: "out.wav"
       return Float64Array.from(t, (tt) => { const x = tt * fps - 0.5, k0 = Math.floor(x), a = by.get(k0), b = by.get(k0 + 1), w = x - k0;
         if (a != null && b != null) return a * (1 - w) + b * w; const near = a != null && w < 0.5 ? a : b != null && w >= 0.5 ? b : null; return near != null ? near : 0; });
     },
+    // 서버 formant_shift(): 목소리 결만 위아래(높이·길이 그대로) — Praat 'Change gender'
+    async formantShift(x, sr, semis) {
+      const M = await run(x, sr, `snd = Read from file: "in.wav"
+g = Change gender: 75, 600, ${num(2 ** (semis / 12))}, 0, 1, 1
+Save as WAV file: "out.wav"
+`), z = readWav16(M.FS.readFile("out.wav")), out = new Float32Array(x.length); out.set(z.subarray(0, x.length)); return out;
+    },
+    // 서버 formant_notes(): 음별 음색 — 그 음 앞뒤 0.1초 여유로 따로 바꿔 0.03초 이음매로 이어 붙임(차례로). y는 곡의 [off, off+len) 구간, notes는 곡 시각(초)
+    async formantNotes(y, sr, notes, off) {
+      const out = Float32Array.from(y), pad = Math.floor(0.1 * sr), xf = Math.max(1, Math.floor(0.03 * sr));
+      for (const nt of notes) { if (!nt.formant) continue;
+        const a = Math.max(0, Math.trunc(nt.t0 * sr) - off), b = Math.min(out.length, Math.trunc(nt.t1 * sr) - off); if (b - a < Math.floor(0.08 * sr)) continue;
+        const a0 = Math.max(0, a - pad), b0 = Math.min(out.length, b + pad), z = await Core.formantShift(out.slice(a0, b0), sr, +nt.formant), w = new Float32Array(b0 - a0), i0 = a - a0, i1 = b - a0;
+        for (let i = i0; i < i1; i++) w[i] = 1; const r = Math.min(xf, (i1 - i0) >> 1);
+        for (let i = 0; i < r; i++) { const v = r > 1 ? i / (r - 1) : 0; w[i0 + i] = v; w[i1 - 1 - i] = v; }   // linspace(0,1,r) 오르막 · 반대로 내리막
+        for (let i = 0; i < b0 - a0; i++) out[a0 + i] = out[a0 + i] * (1 - w[i]) + z[i] * w[i]; }
+      return out;
+    },
+    // 서버 gain_curve()의 음별 부분: 샘플마다 곱할 볼륨(곡의 [off, off+n)), 음별 볼륨·끄기·페이드, 15ms로 부드럽게. 고칠 게 없으면 null. N = 곡 전체 샘플 수
+    gain(n, sr, notes, off, N) {
+      if (!notes.some((x) => x.gain_db || x.mute || x.fade_in || x.fade_out)) return null;
+      const e = Math.max(1, Math.floor(0.015 * sr)), lo = Math.max(0, off - e), hi = Math.min(N, off + n + e), lin = new Float64Array(hi - lo).fill(1);
+      for (const x of notes) { const s0 = Math.max(0, Math.trunc(x.t0 * sr)), s1 = Math.min(N, Math.trunc(x.t1 * sr)); if (s1 <= s0) continue;
+        const k = s1 - s0, seg = new Float64Array(k).fill(1); if (x.mute) seg.fill(0); else if (x.gain_db) seg.fill(10 ** (x.gain_db / 20));
+        if (x.fade_in) { const f = Math.min(k, Math.trunc(x.fade_in * sr)); for (let i = 0; i < f; i++) seg[i] *= (f > 1 ? i / (f - 1) : 0) ** 2; }
+        if (x.fade_out) { const f = Math.min(k, Math.trunc(x.fade_out * sr)); for (let i = 0; i < f; i++) seg[k - f + i] *= (f > 1 ? 1 - i / (f - 1) : 0) ** 2; }
+        for (let i = Math.max(s0, lo); i < Math.min(s1, hi); i++) lin[i - lo] *= seg[i - s0]; }
+      const L = Math.floor(e / 2), R = e - L - 1, cs = new Float64Array(hi - lo + 1), at = (i) => lin[Math.min(hi - lo - 1, Math.max(0, i))];
+      for (let i = 0; i < hi - lo; i++) cs[i + 1] = cs[i] + lin[i];
+      const out = new Float32Array(n);   // 거울이 아니라 가장자리 값 되풀이(scipy mode nearest) — 구간 가장자리는 e 이상 여유가 있어 곡 끝에서만 해당
+      for (let i = 0; i < n; i++) { const c = off + i - lo; let sum = 0; for (let j = c - L; j <= c + R; j++) sum += at(j); out[i] = sum / e; }
+      return out;
+    },
     // x(원음) → 보정한 소리. t, f = analyze 결과, shift = 분석점마다 보정(센트)
     async apply(x, sr, t, f, shift, keepMask) {
       if (!shift.some((v) => v)) return Float32Array.from(x);
