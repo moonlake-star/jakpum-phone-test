@@ -1,0 +1,13 @@
+CC = emcc
+CXX = em++
+COMMONFLAGS = -DNO_AUDIO -DNO_GRAPHICS -DNO_NETWORK -D_FILE_OFFSET_BITS=64 -DUNIX -Dlinux -Wno-return-type -Wno-unused -O2 -fexceptions
+CFLAGS = -std=gnu99 $(COMMONFLAGS)
+CXXFLAGS = -std=c++17 $(COMMONFLAGS)
+LINK = em++
+EXECUTABLE = praat_web.js
+LIBS = external/opusfile/libopusfile.a -lm -fexceptions -sALLOW_MEMORY_GROWTH=1 -sINITIAL_MEMORY=128MB -sFORCE_FILESYSTEM=1 -sEXIT_RUNTIME=0 -sINVOKE_RUN=0 -sMODULARIZE=1 -sEXPORT_NAME=PraatModule -sENVIRONMENT=web,worker,node -sSTACK_SIZE=4MB -sEXPORTED_RUNTIME_METHODS=FS,callMain
+AR = emar
+RANLIB = emranlib
+ICON =
+MAIN_ICON =
+INSTALL = true
