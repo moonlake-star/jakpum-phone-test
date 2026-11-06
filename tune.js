@@ -763,9 +763,13 @@
     tSet = (t) => { n0 = t[0]; n1 = t[1]; tPaint(); tPreview(); clearTimeout(tTm); tTm = null; tSave(); };
     tOrig = () => { clearTimeout(tTm); tTm = null; n0 = b.t0; n1 = b.t1; tPaint(); tPreview(); try { fxSave(st.onTime, { t0: b.t0, t1: b.t1, nt0: b.t0, nt1: b.t1, reset: true }); } catch {} };   // 원래 녹음 시간으로(예전에 다시 만든 고침까지 지움)
     saved = curS();
-    st.onBarDragX = (dt, edge, start) => { if (start) { st._tb = [n0, n1]; return; } const [a0, a1] = st._tb || [n0, n1];
+    st.onBarDragX = (dt, edge, start) => { if (start) { st._tb = [n0, n1]; st._tbHome = true; st._tbAway = false; return; } const [a0, a1] = st._tb || [n0, n1];
       if (edge === "l") n0 = a0 + dt; else if (edge === "r") n1 = a1 + dt; else { n0 = a0 + dt; n1 = a1 + dt; }
       if (st.beatOn && edge !== "r") { const bt = beatNear(cv, n0); if (bt != null && Math.abs(bt - n0) <= BEAT_SNAP) { const dd = bt - n0; n0 = bt; if (edge === "c") n1 += dd; } }   // (11/06) 🥁 박자 맞춤: 음 시작을 가까운 박에 착(스마트 어택)
+      // (11/06 17:59 사용자) 늘렸다 줄였다 하다 처음 자리(누르기 시작할 때 길이)로 돌아오면 진동 + 그 자리에 살짝 붙음(±0.015초)
+      const DET = 0.015, home = Math.abs(n0 - a0) <= DET && Math.abs(n1 - a1) <= DET; if (home) { n0 = a0; n1 = a1; }
+      if (home && !st._tbHome && st._tbAway) { buzz(30); st.pulse = st.hdl && st.hdl[edge] ? { x: st.hdl[edge].x, y: st.hdl[edge].y, at: performance.now() } : st.pulse; }
+      st._tbHome = home; if (!home) st._tbAway = true;
       tClamp(edge === "c" ? "m" : edge); tPaint(); tPreview(); };
     st.onBarDragXEnd = () => { const b0 = st._tb; st._tb = null; if (b0 && (Math.abs(n0 - b0[0]) > 0.004 || Math.abs(n1 - b0[1]) > 0.004)) tPersist(); };   // 손 뗄 때 한 번만 저장
   }
@@ -1171,7 +1175,7 @@
         // (11/06 16:20 사용자) ① 양 끝 화살표: 바로 끌면 안 움직임 — 꾹(0.35초) 누른 뒤 좌우로 = 길이 미세
         const ed = H_ ? (hit(H_.l) ? "l" : hit(H_.r) ? "r" : null) : null;
         if (ed && st.onBarDragX) { const d0 = drag = { hArm: true, edge: ed, x0: l0.x, y0: l0.y, id: e.pointerId, cx: e.clientX, cy: e.clientY };
-          const armH = () => { if (drag !== d0 || d0.cancel) return; d0.hArmed = true; st.hdlArmed = ed; st.onBarDragX(0, ed, true); if (e.pointerType !== "mouse") { buzz(25); st.pulse = { x: l0.x, y: l0.y, at: performance.now() }; } };
+          const armH = () => { if (drag !== d0 || d0.cancel) return; d0.hArmed = true; st.hdlArmed = ed; st.onBarDragX(0, ed, true); if (e.pointerType !== "mouse") { buzz(40); st.pulse = { x: l0.x, y: l0.y, at: performance.now() }; } };
           if (e.pointerType === "mouse") armH(); else d0.lp = setTimeout(armH, LONG_MS); return; }   // (11/06 ③) 마우스는 정확하니 꾹 없이 바로
         // ② 고른 음 가운데: 바로 위아래 = 반음씩 · 바로 좌우 = 자리 옮기기 · 꾹 누른 뒤 = 둘 다 미세 · 두 번 톡 = 가까운 음에 착
         const hb0 = hitBar(l0);

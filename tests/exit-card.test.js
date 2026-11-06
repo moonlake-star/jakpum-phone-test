@@ -37,3 +37,6 @@ console.log("exit card wiring ok");
 // (11/06 17:37 사용자) 빈 곳 톡으로 재생이 시작되면 고른 음표 선택 해제
 assert.ok(T.includes("const wasP = isPaused(); toggle(); lastTap = now;") && T.includes("st.sel = null; st.msel = null; } } }"));
 console.log("deselect on play ok");
+// (11/06 17:59 사용자) 화살표 꾹 = 진동 · 늘렸다 처음 자리로 돌아오면 진동(살짝 붙음)
+assert.ok(T.includes('st.onBarDragX(0, ed, true); if (e.pointerType !== "mouse") { buzz(40);') && T.includes("if (home && !st._tbHome && st._tbAway) { buzz(30);") && T.includes("st._tbHome = true; st._tbAway = false; return; }"));
+console.log("arrow buzz ok");
