@@ -871,7 +871,7 @@
     { text: () => "폰의 뒤로 가기(갤럭시는 화면 가장자리 밀기)로도 닫혀요", need: "if (fsClose) { fsClose();" },
     { text: () => "노래가 없는 전주·간주에선 '⏩ 노래 시작 1초 전으로'로 바로 넘어가요", need: "⏩ 노래 시작 1초 전으로" },
     { text: () => "멈춘 뒤 초록 정음 막대를 톡 하면 그 음을 고칠 수 있어요(▼▲, 바로 저장)", need: "hb = hitT(le) || hitBar(le);", when: (o) => typeof o.onFix === "function" },
-    { text: () => "빈 곳·음을 꾹 누른 채 좌우로 끌면 여러 음 고르기 · 그냥 떼면 새 주석", need: "d0.armed = { x: l0.x, t: tt }; st.msel = [tt, tt]; armTip(true);", when: (o) => typeof o.onResetRange === "function" },
+    { text: () => "빈 곳을 꾹 누른 채 좌우로 끌면 여러 음 고르기 · 그냥 떼면 새 주석", need: "d0.armed = { x: l0.x, t: tt }; st.msel = [tt, tt]; armTip(true);", when: (o) => typeof o.onResetRange === "function" },
     { text: () => "여러 음을 고른 뒤 ▼▲ = 고른 음 전부를 반음씩 한꺼번에 · 끌다가 화면 끝에 닿으면 저절로 밀려요", need: 'data-gd="-1"', when: (o) => typeof o.onResetRange === "function" },
     { text: () => "↶ ↷ 되돌리기·다시하기 · 길게 누르면 작업 기록 창(원하는 시점으로 바로 이동)", need: 'data-ur="-1"', when: (o) => typeof o.histGet === "function" },
     { text: () => "위 [확인|보정] 토글: 보정 모드는 고친 양·주석을 접어 그래프가 커져요", need: 'data-md2="1"', when: (o) => typeof o.onAdv === "function" },
@@ -1225,6 +1225,7 @@
           else if (typeof o.onAdd === "function") d0.lp = setTimeout(() => { if (drag !== d0 || d0.mode) return;
             const tt = timeAt(st, l0.x);
             // (11/03 13:53 사용자) 꾹 누른 뒤: 그냥 떼면 새 주석 · 떼지 않고 좌우로 끌면 여러 음 고르기(따로 버튼 없이) — 선생님 화면만
+            if (st.kb && (hitT(l0) || hitBar(l0))) return;   // (11/06 22:18 사용자) 여러 음 고르기·새 주석은 빈 곳 꾹에서만 — 음표 위 꾹은 아무것도 안 함(보정 모드는 미세 음정)
             if (typeof o.onResetRange === "function" && st.map && tt != null) { pauseNow(); d0.armed = { x: l0.x, t: tt }; st.msel = [tt, tt]; armTip(true); buzz(40); return; }   // (11/06 21:59) 구간 고르기 시작 = 진동
             d0.long = true; pauseNow();
             if (tt != null) { lastView = view; o.onAdd(tt); } }, 390); } }
