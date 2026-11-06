@@ -52,3 +52,7 @@ console.log("align ok");
   assert.ok(A.includes("function scrub(label, get, set, o, inLabel)") && A.includes("if (now - lastTap < 320) { lastTap = 0; put(o.def); vib(30); return; }") && A.includes("vib(home ? 30 : 8)"));
   assert.ok(A.includes('cells(stepper("느린 흐름"') && A.includes('cells(stepper("다음 음까지"'));
   console.log("scrub ok"); }
+// (11/06 18:36 사용자) 비브라토 3칸×2줄 · 볼륨 1줄 · 눈금 낮게·이름 크게·숫자 작게
+{ const A = fs.readFileSync(path.join(__dirname, "..", "adv.js"), "utf8");
+  assert.ok(A.includes('"원래 떨림"), lab(') && A.includes('"페이드 아웃"))') && A.includes(".advScT{height:3px!important"));
+  console.log("scrub vib/vol ok"); }
