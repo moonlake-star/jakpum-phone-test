@@ -156,7 +156,9 @@
     "사람처럼": "새 떨림의 빠르기·폭을 조금씩 불규칙하게 · 0%는 기계처럼 일정(떨림 폭을 넣었을 때만)",
     "볼륨": "이 음만 크게·작게(dB) · −24dB 밑으로 내리면 무음",
     "페이드 인": "음 시작을 소리 0에서 서서히 키우는 시간",
-    "페이드 아웃": "음 끝을 서서히 줄여 0으로 만드는 시간" };
+    "페이드 아웃": "음 끝을 서서히 줄여 0으로 만드는 시간",
+    "위치": "이 음을 일찍(‹)·늦게(›) 옮겨요 · 0.02초씩",
+    "길이": "이 음 끝을 짧게(‹)·길게(›) · 0.02초씩" };
   let scTipShown = false;
   function scrub(label, get, set, o, inLabel, en) {
     const c = document.createElement("div"); c.className = "advSc" + (o.vert ? " vert" : ""); c.tabIndex = 0; c.setAttribute("role", "slider"); c.setAttribute("aria-label", label + " (좌우로 밀어 조절 · 두 번 톡 = 원래 값)");
@@ -422,5 +424,5 @@
   try { const s = document.createElement("style"); s.textContent = css; document.head.appendChild(s); } catch {}
 
   function resetNote(st, cv, b) { const A = state(st); change(A, st, cv, () => { A.ne.notes = (A.ne.notes || []).filter(x => !(near(x.t0, b.t0) && near(x.t1, b.t1))); }); }   // 이 음의 고급 고침만 지움
-  G.TuneAdv = { panel, resetNote, globalSheet, preview, state, uvList, relabel, uvSheet, UV_NAME, addDraw, drawAt, removeDraw, flatNote, cleanStroke, undoLast: (st, cv) => undo(state(st), st, cv), _t: { shapeNote, notesFromCurve, midiBytes, clean, N_DEF } };
+  G.TuneAdv = { scrub, panel, resetNote, globalSheet, preview, state, uvList, relabel, uvSheet, UV_NAME, addDraw, drawAt, removeDraw, flatNote, cleanStroke, undoLast: (st, cv) => undo(state(st), st, cv), _t: { shapeNote, notesFromCurve, midiBytes, clean, N_DEF } };
 })(typeof window !== "undefined" ? window : globalThis);

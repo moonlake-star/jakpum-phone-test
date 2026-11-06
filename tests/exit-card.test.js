@@ -93,3 +93,6 @@ console.log("playhead cut ok");
 // (11/06 22:49 사용자) [확인|보정] → [🎛 고급] 한 개 · 기본 모드 고른 구간 안 톡 = 그 구간 한마디
 assert.ok(T.includes('class="tfAdvOne"') && !T.includes('data-md2="0"') && T.includes("try { o.onAdd(ra, rb); } catch {} return; } }") && H.includes("onAdd: (tt, t1) => Tune.sheet({ t0: Math.round(tt * 10) / 10, t1: Math.round((t1 ?? tt) * 10) / 10"));
 console.log("adv one / range note ok");
+// (11/06 22:54 사용자 시안 ①②③ + 22:59 세로 눈금) 기본 모드 한 창 · 음 이름 칸 끌기 · 초록 구간
+assert.ok(T.includes('const bu = !!(tOn && !uni);') && T.includes('G.TuneAdv.scrub("위치"') && T.includes("(st.advOn || st.buMode) && st.sel") && T.includes('nb.classList.add("tfNScr")') && T.includes("st.onBarDrag(nd.fine ? Math.round(dy / 2) / 100 : Math.round(dy / 24), false)") && T.includes('MC = gr_ ? "#7fd99a" : "#ff6ec7"') && T.includes("data-mnote"));
+console.log("basic unify ok");
