@@ -424,6 +424,13 @@
             const up = tips.filter(q => q[0] === "v"), dn = tips.filter(q => q[0] !== "v"), top0 = sb.y - hh / 2 - 16;
             up.forEach((q, i) => { if (top0 - i * 24 > T + 10) tag(top0 - i * 24, q[1], q[2]); });
             dn.forEach((q, i) => { const yy = sb.y + hh / 2 + 16 + i * 24; if (yy < T + HP - 8) tag(yy, q[1], q[2]); }); } } }
+      if (st) st.cutHit = null;
+      if (full && st && st.sel && st.cutAtNow && st.map && !st.dragging && (!st.isPaused || st.isPaused()) && t > st.sel.t0 + 0.04 && t < st.sel.t1 - 0.04) {   // (11/06 22:20 사용자) 고른 음 위에 세로줄이 오면 줄 위에 ✂ — 톡 = 그 자리에서 나누기
+        const sb = (st.tbars || []).find(x => Math.abs(x.t0 - st.sel.t0) < 0.02), mp = st.map, X = mp.L + (t - mp.t0) / Math.max(1e-6, mp.W8) * (mp.w - mp.L);
+        if (sb && X > mp.L + 10 && X < mp.w - 10) { const R = 17, Y = Math.min(T + HP - R - 4, sb.y + Math.max(30, (sb.h || 10) / 2 + 26));
+          g.beginPath(); g.arc(X, Y, R, 0, Math.PI * 2); g.fillStyle = "rgba(255,110,199,.92)"; g.fill(); g.lineWidth = 2; g.strokeStyle = "#1a0714"; g.stroke();
+          g.fillStyle = "#1a0714"; g.font = "bold 18px system-ui,sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText("✂", X, Y + 1); g.textAlign = "left"; g.textBaseline = "alphabetic";
+          st.cutHit = { x: X, y: Y, r: R + 8 }; } }
       if (st && st.pulse && performance.now() - st.pulse.at < 700) {   // (11/06 22:02 사용자) 꾹 켜짐 표시를 더 크고 확실하게: 안쪽 채운 원 + 두 겹 퍼지는 고리(최대 반지름 ~90px)
         const k_ = (performance.now() - st.pulse.at) / 700, e_ = 1 - (1 - k_) ** 3, X_ = st.pulse.x, Y_ = st.pulse.y;
         g.beginPath(); g.arc(X_, Y_, 18 + 20 * e_, 0, Math.PI * 2); g.fillStyle = `rgba(255,184,107,${0.32 * (1 - k_)})`; g.fill();
@@ -670,7 +677,7 @@
       cv._fixes = prior.filter(x => !(x.t0 < b.t1 && x.t1 > b.t0)).concat(keepFix() ? [{ t0: T0, t1: T1, midi: rnd(m), ...(isCut && same() ? { cut: true } : {}) }] : []); };
     let tm = null;
     const persist = () => { clearTimeout(tm); stEl.textContent = "저장 중…"; tm = setTimeout(() => { tm = null; try { fxSave(onFix, { t0: T0, t1: T1, midi: keepFix() ? rnd(m) : null, ...(isCut && same() ? { cut: true } : {}) }); } catch {} commit(); stEl.textContent = "✓ 저장됨"; }, 450); };
-    const core = () => { if (st) { st.selSnd = null; st.snapSel = null; st.stepSel = null; st.advRepaint = null; } try { sndOff(); } catch {} if (tTm) { clearTimeout(tTm); tTm = null; tSave(); commit(); } if (st) { if (st._dragBase != null && Math.abs(m - st._dragBase) > 0.004) persist(); st._dragBase = null; st.onBarDrag = null; st.onBarDragX = null; st.onBarDragEnd = null; st.onBarDragXEnd = null; st.stopAt = 0; } if (tm) { clearTimeout(tm); tm = null; try { fxSave(onFix, { t0: T0, t1: T1, midi: keepFix() ? rnd(m) : null, ...(isCut && same() ? { cut: true } : {}) }); } catch {} commit(); } toneOff(); if (st) st.sel = null; d.remove(); };
+    const core = () => { if (st) { st.selSnd = null; st.snapSel = null; st.stepSel = null; st.advRepaint = null; st.cutAtNow = null; } try { sndOff(); } catch {} if (tTm) { clearTimeout(tTm); tTm = null; tSave(); commit(); } if (st) { if (st._dragBase != null && Math.abs(m - st._dragBase) > 0.004) persist(); st._dragBase = null; st.onBarDrag = null; st.onBarDragX = null; st.onBarDragEnd = null; st.onBarDragXEnd = null; st.stopAt = 0; } if (tm) { clearTimeout(tm); tm = null; try { fxSave(onFix, { t0: T0, t1: T1, midi: keepFix() ? rnd(m) : null, ...(isCut && same() ? { cut: true } : {}) }); } catch {} commit(); } toneOff(); if (st) st.sel = null; d.remove(); };
     // (11/02 20:26 사용자) 폰 뒤로(갤럭시 뒤로 밀기) = 고치기 창만 닫기(전체화면은 그대로) — 주석 창과 같은 방식(기록 한 칸)
     const leave = () => { if (sheetClose === close_) sheetClose = null; try { if (history.state && history.state.tuneSheet) { const nl = dropL(); skipPop = true; history.go(-1 - nl); } } catch {} };
     const close_ = (fromPop) => { core(); saveToast(); if (bot) bot._h0 = 0; if (fromPop === true) { if (sheetClose === close_) sheetClose = null; } else leave(); if (st && st.dock) st.dock(); };
@@ -701,12 +708,14 @@
     // (11/03 10:50 아이패드) 손을 떼도 소리가 안 멈추던 문제: 위 줄 주석에 떼기 처리가 묻혀 빠져 있었음 → 떼기·취소·터치 끝 모두에서 끔
     ["pointerup", "pointerleave", "pointercancel", "touchend", "touchcancel"].forEach(ev => nb.addEventListener(ev, sndOff));
     const cut = d.querySelector("[data-cut]");
-    if (cut) cut.onclick = () => {   // 세로줄 자리에서 나누기 → 두 조각(같은 음, 노란 테두리 없음) · 조각을 눌러 따로 고침
+    const doCut = (tAt) => {   // 세로줄 자리에서 나누기 → 두 조각(같은 음, 노란 테두리 없음) · 조각을 눌러 따로 고침
       clearTimeout(tm); tm = null;
-      const ts = +(atHead ? tNow : (b.t0 + b.t1) / 2).toFixed(2), a = { t0: T0, t1: ts, midi: rnd(m), cut: same() }, c = { t0: ts, t1: T1, midi: rnd(m), cut: same() };
+      const ts = +(tAt != null ? tAt : atHead ? tNow : (b.t0 + b.t1) / 2).toFixed(2), a = { t0: T0, t1: ts, midi: rnd(m), cut: same() }, c = { t0: ts, t1: T1, midi: rnd(m), cut: same() };
       cv._fixes = prior.filter(x => !(x.t0 < b.t1 && x.t1 > b.t0)).concat([a, c]);
       try { fxSave(onFix, a); fxSave(onFix, c); } catch {} sndOff();
-      fixSheet(host, cv, { t0: ts, t1: T1, c: Math.round(m * 100) }, onFix, getT, st); };   // (11/03 08:14 사용자) 나누면 오른쪽 조각이 바로 골라진 채로(창은 그대로, 뒤로 가기 기록도 그대로)
+      fixSheet(host, cv, { t0: ts, t1: T1, c: Math.round(m * 100) }, onFix, getT, st); };
+    if (cut) cut.onclick = () => doCut();
+    if (st) st.cutAtNow = (tt) => { if (tt > b.t0 + 0.04 && tt < b.t1 - 0.04) { buzz(30); doCut(tt); } };   // (11/06 22:20 사용자) 세로줄 위 ✂ 톡 = 그 자리에서 나누기   // (11/03 08:14 사용자) 나누면 오른쪽 조각이 바로 골라진 채로(창은 그대로, 뒤로 가기 기록도 그대로)
     const mrg = d.querySelector("[data-merge]");
     if (mrg) mrg.onclick = () => {   // (11/05 사용자) 합치기: 나눈 조각 둘 → 한 음. 둘 다 '나누기만 한' 조각이고 음을 안 바꿨으면 고침 기록을 지워 서버가 처음 고른 한 음으로, 아니면 지금 고른 음으로 한 덩어리 고침
       clearTimeout(tm); tm = null;
@@ -1027,7 +1036,7 @@
     const tm = wrap.querySelector(".tfTime"), mid = wrap.querySelector(".tfMid"), skipB = wrap.querySelector(".tfSkip");
     skipB.addEventListener("pointerdown", (e) => e.stopPropagation());
     skipB.onclick = () => { if (st.gapNext != null) { st.panAt = 0; try { seek(Math.max(0, st.gapNext - 1), typeof o.paused === "function" ? o.paused() : true); } catch {} } };
-    const isPaused = () => (typeof o.paused === "function" ? o.paused() : true);
+    const isPaused = () => (typeof o.paused === "function" ? o.paused() : true); st.isPaused = isPaused;
     // 가운데 표시: 멈추면 ❚❚가 살짝 튀어나와 머묾, 재생하면 ▶가 잠깐 떴다가 사라짐(10/30 14:27 사용자)
     const showMid = (kind) => { mid.textContent = kind === "pause" ? "❚❚" : kind === "back" ? "⏪" + DT_JUMP : kind === "fwd" ? DT_JUMP + "⏩" : "▶"; mid.className = "tfMid " + (kind === "pause" ? "stay" : "flash"); void mid.offsetWidth; mid.classList.add("go"); };
     st.voice = typeof o.voice === "function" ? o.voice : null;
@@ -1182,6 +1191,7 @@
         const x2 = Math.max(m2.L, Math.min(m2.w, d.lx)), b2 = m2.t0 + (x2 - m2.L) / Math.max(1, m2.w - m2.L) * m2.W8, a2 = d.armed.t;
         st.msel = [Math.max(0, Math.min(a2, b2)), Math.max(a2, b2)]; if (st.onMSel) st.onMSel(); }, 50); };
     cvEl.addEventListener("pointerdown", (e) => {
+      if (pts.size === 0 && st.cutHit && st.cutAtNow) { const lc = loc(e.clientX, e.clientY, cvEl.getBoundingClientRect()); if (Math.hypot(lc.x - st.cutHit.x, lc.y - st.cutHit.y) <= st.cutHit.r) { e.preventDefault(); try { st.cutAtNow(+getT() || 0); } catch {} return; } }   // ✂ 톡
       pts.set(e.pointerId, { a: along(e), b: across(e) }); try { cvEl.setPointerCapture(e.pointerId); } catch {}
       if (pts.size === 2) { const [p1, p2] = [...pts.values()]; drag = null; preview = null;
         // (11/06 19:59 사용자 B) 어느 방향으로 벌려도 위아래·좌우 똑같은 비율(사진 확대처럼)

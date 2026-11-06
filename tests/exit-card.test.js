@@ -87,3 +87,6 @@ console.log("pulse ok");
 // (11/06 22:18 사용자) 여러 음 고르기는 빈 곳 꾹에서만(음표 위 꾹은 안 함)
 assert.ok(T.includes("if (st.kb && (hitT(l0) || hitBar(l0))) return;   // (11/06 22:18 사용자)"));
 console.log("msel empty only ok");
+// (11/06 22:20 사용자) 고른 음 위에 세로줄이 오면 줄 위 ✂ · 톡 = 그 자리 나누기
+assert.ok(T.includes("st.cutAtNow = (tt) =>") && T.includes('g.fillText("✂", X, Y + 1)') && T.includes("st.cutAtNow(+getT() || 0)"));
+console.log("playhead cut ok");
