@@ -64,7 +64,7 @@ console.log("adv-preview-wiring ok");
 // 안내: 탭 설명 줄 + 배지를 누르면 팝업 / 속도 재기 화면은 앱과 같은 합성 코드를 씀
 const ad = fs.readFileSync(__dirname + "/../adv.js", "utf8"), bn = fs.readFileSync(__dirname + "/../bench/index.html", "utf8");
 assert.ok(ad.includes("음색은 ▶로 서버와 같은 소리가 들려요") && ad.includes("칸을 누르면 여기에 그 칸 설명이 나와요") && ad.includes("일괄 보정은 폰에서 못 들려줘요"), "탭 안 안내");
-assert.ok(tu.includes("st.advPvInfo = () =>") && tu.includes("미리듣기는 대략의 소리예요") && tu.includes("서버와 같은 엔진") && tu.includes("el.onclick = () => st.advPvInfo()"), "배지 팝업");
+assert.ok(!tu.includes("st.advPvInfo = () =>") && tu.includes("방금 고친 곳 듣기") && tu.includes("st.playSeg(Math.max(0, L.t0 - PV_PRE) + 0.05, L.t1 + PV_POST)") && tu.includes("PV_PRE = 1.5") && tu.includes('o.mode() !== "p") o.setMode("p")'), "(11/07) 안내 팝업 대신 고친 곳 1.5초 전부터 듣기 버튼");
 const fnSrc = (t, n) => t.slice(t.indexOf("function " + n + "("), t.indexOf("\n}\n", t.indexOf("function " + n + "(")));
 assert.strictEqual(fnSrc(bn, "pvPsola"), fnSrc(html, "pvPsola"), "속도 재기 = 앱 합성 코드");
 assert.strictEqual(fnSrc(bn, "pvMarks"), fnSrc(html, "pvMarks"), "속도 재기 = 앱 분석 코드");

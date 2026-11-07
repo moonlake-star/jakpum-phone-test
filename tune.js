@@ -950,13 +950,16 @@
       if (H.ptr > 0 && H.ptr === H.S.length - 1 && now - H.t < 500) { if (post === H.S[H.ptr - 1]) { H.S.pop(); H.L.pop(); H.ptr--; } else { H.S[H.ptr] = post; H.L[H.ptr] = label; } }
       else { H.S.length = H.ptr + 1; H.L.length = H.ptr + 1; H.S.push(post); H.L.push(label); H.ptr++; if (H.S.length > 101) { H.S.shift(); H.L.shift(); H.ptr--; } }
       H.t = now; H.keep(); onChange(); };
-    const wrapF = (fn, lab) => (typeof fn === "function" ? (...a) => { const r = fn(...a); let l = ""; try { l = lab(...a); } catch {} rec(l || "고침"); return r; } : fn);
+    const wrapF = (fn, lab, rg) => (typeof fn === "function" ? (...a) => { const r = fn(...a); let l = ""; try { l = lab(...a); } catch {}
+      try { const q = rg && rg(...a); if (q && Number.isFinite(q[0]) && Number.isFinite(q[1])) { H.last = { t0: Math.min(q[0], q[1]), t1: Math.max(q[0], q[1]), at: performance.now() }; } } catch {}   // (11/07 09:16) '방금 고친 곳 듣기'용
+      rec(l || "고침"); return r; } : fn);
+    const fr = (f) => [Math.min(f.t0, f.nt0 ?? f.t0), Math.max(f.t1 ?? f.t0, f.nt1 ?? f.t1 ?? f.t0)];
     H.o = Object.assign({}, o, {
-      onFix: wrapF(o.onFix, (f) => `${mmss(f.t0)} · ${f.midi == null ? "음 원본으로" : "음 → " + noteName(Math.round(f.midi))}`),
-      onFixMany: wrapF(o.onFixMany, (l) => `${mmss(l[0].t0)}~ · ${l.length}음 한꺼번에 옮김`),
-      onTime: wrapF(o.onTime, (f) => `${mmss(f.t0)} · 타이밍${f.reset ? " 원본으로" : ""}`),
-      onAdv: wrapF(o.onAdv, () => "디테일 보정"),
-      onResetRange: wrapF(o.onResetRange, (a, b) => `${mmss(a)}~${mmss(b)} · 원본으로`) });
+      onFix: wrapF(o.onFix, (f) => `${mmss(f.t0)} · ${f.midi == null ? "음 원본으로" : "음 → " + noteName(Math.round(f.midi))}`, fr),
+      onFixMany: wrapF(o.onFixMany, (l) => `${mmss(l[0].t0)}~ · ${l.length}음 한꺼번에 옮김`, (l) => [Math.min(...l.map(x => x.t0)), Math.max(...l.map(x => x.t1 ?? x.t0))]),
+      onTime: wrapF(o.onTime, (f) => `${mmss(f.t0)} · 타이밍${f.reset ? " 원본으로" : ""}`, fr),
+      onAdv: wrapF(o.onAdv, () => "디테일 보정", () => (H.selGet ? H.selGet() : null)),
+      onResetRange: wrapF(o.onResetRange, (a, b) => `${mmss(a)}~${mmss(b)} · 원본으로`, (a, b) => [a, b]) });
     H.go = async (i) => { if (i < 0 || i >= H.S.length || i === H.ptr) return false; H.ptr = i; H.keep(); onChange();   // (11/06 18:02) 화면 상태는 histSet이 바로 바꾸고, 인터넷 저장은 기다리지 않음(예전엔 저장 끝날 때까지 ~1초 기다린 뒤 음을 골랐음)
       try { const p = o.histSet(H.S[i]); if (p && typeof p.then === "function") p.catch((e) => console.warn("되돌리기", e)); } catch (e) { console.warn("되돌리기", e); } return true; };
     H.canU = () => H.ptr > 0; H.canR = () => H.ptr < H.S.length - 1;
@@ -1145,18 +1148,21 @@
       const xb = wrap.querySelector(".tfTop .tfX:not(.tfXp)") || wrap.querySelector(".tfTop .tfX"), ur = document.createElement("span"); ur.className = "tfUR"; ur.setAttribute("role", "group"); ur.setAttribute("aria-label", "되돌리기·다시하기");
       ur.innerHTML = `<button type="button" data-ur="-1" aria-label="되돌리기">↶</button><button type="button" data-ur="1" aria-label="다시하기">↷</button>`; ur.addEventListener("pointerdown", (e) => e.stopPropagation());
       const ub = ur.querySelector('[data-ur="-1"]'), rb = ur.querySelector('[data-ur="1"]'), abw = wrap.querySelector(".tfAbW");
-      st.advBadge = () => { const n = +G.TuneAdvPv || 0, host = wrap.querySelector(".tfCvBox"); let el = wrap.querySelector(".tfAdvPv");   // (11/06 사용자 시안 ②) 고급으로 고친 곳이 소리에 반영돼 들리는 중 = 작은 표시(근사)
-        if (!n || !host) { if (el) el.remove(); return; }
-        if (!el) { el = document.createElement("span"); el.className = "tfAdvPv"; el.setAttribute("aria-live", "polite"); host.appendChild(el); }
-        el.textContent = `보정본 · 고친 ${n}곳 미리듣기 (근사) ⓘ`; el.onclick = () => st.advPvInfo(); };
-      st.advPvInfo = () => { const old = wrap.querySelector(".tfCfm"); if (old) old.remove();   // 배지를 누르면: 미리듣기와 완성본이 다른 점
-        const cf = document.createElement("div"); cf.className = "tfCfm"; cf.setAttribute("role", "dialog");
-        const pr = G.PvPraat || window.PvPraat, msg = pr === "ready" ? "고친 <b>음정 · 흐름 · 비브라토 · 볼륨 · 음별 음색</b>은 서버와 같은 엔진으로 만들어 완성본과 거의 같아요. <b>타이밍 · 울림</b>은 대략이고, <b>일괄 보정</b>(곡 전체 음색·치찰음 등)은 안 들려요." : pr === "loading" ? "서버와 같은 엔진을 불러오는 중이에요(처음 한 번만 약 7MB). 그동안은 대략의 소리예요." : "폰에서 빠르게 만든 대략의 소리예요. 일괄 보정은 안 들려요.";   // (11/06 22:04 사용자) 지금 기능에 맞게 고치고 짧게
-        cf.innerHTML = `<div class="tfCfmBox"><b>${pr === "ready" ? "지금 들리는 소리 = 완성본과 거의 같아요" : "미리듣기는 대략의 소리예요"}</b><p>${msg} 최종 소리는 <b>완성본 다시 만들기</b> 뒤에 들려요.</p><div class="tfCfmRow"><button type="button" class="pri" data-cf="1">알겠어요</button></div></div>`;
-        cf.addEventListener("pointerdown", (e) => e.stopPropagation());
-        const ly = G.Brand && G.Brand.layer ? G.Brand.layer(() => cf.remove()) : { close: () => cf.remove() };
-        cf.addEventListener("click", (e) => { if (e.target === cf || e.target.dataset.cf) ly.close(); });
-        wrap.appendChild(cf); };
+      // (11/07 09:16 사용자) '고친 곳 미리듣기 (근사) ⓘ' 안내 팝업 대신 → 고치고 나면 바로 들어 보는 버튼: 마지막으로 고친 곳 1.5초 앞부터 보정본으로, 그 음 끝 1초 뒤 멈춤
+      hist.selGet = () => (st.sel && Number.isFinite(st.sel.t0) ? [st.sel.t0, st.sel.t1 ?? st.sel.t0] : null);
+      const PV_PRE = 1.5, PV_POST = 1;
+      st.advBadge = () => { const L = hist.last, n = hist.ptr, host = wrap.querySelector(".tfCvBox"); let el = wrap.querySelector(".tfAdvPv");
+        if (!L || n < 1 || !host) { if (el) el.remove(); return; }
+        if (!el) { el = document.createElement("button"); el.type = "button"; el.className = "tfAdvPv"; el.setAttribute("aria-live", "polite"); el.addEventListener("pointerdown", (e) => e.stopPropagation()); host.appendChild(el); el.onclick = () => st.pvJump(); }
+        const on = !!st.pvJ && !isPaused();
+        el.classList.toggle("play", on);
+        el.innerHTML = on ? `<span class="ic">❚❚</span>고친 곳 듣는 중` : `<span class="ic">▶</span>방금 고친 곳 듣기<small>${n > 1 ? `고친 ${n}곳` : `${PV_PRE}초 전부터`}</small>`;
+        if (L.at !== el._at) { el._at = L.at; el.classList.remove("pop"); void el.offsetWidth; el.classList.add("pop"); } };
+      st.pvJump = () => { const L = hist.last; if (!L) return;
+        if (st.pvJ && !isPaused()) { st.pvJ = 0; st.stopAt = 0; pauseNow(); st.advBadge(); return; }   // 듣는 중 다시 누르면 멈춤
+        try { if (typeof o.mode === "function" && typeof o.setMode === "function" && o.mode() !== "p") o.setMode("p"); } catch {}   // 원음이었으면 보정본으로
+        st.playSeg(Math.max(0, L.t0 - PV_PRE) + 0.05, L.t1 + PV_POST); st.pvJ = 1; st.advBadge();
+        clearInterval(st.pvJT); st.pvJT = setInterval(() => { if (!wrap.isConnected || isPaused()) { clearInterval(st.pvJT); st.pvJ = 0; try { st.advBadge(); } catch {} } }, 200); };
       { const onPv = () => { if (!wrap.isConnected) { document.removeEventListener("advpv", onPv); return; } st.advBadge(); }; document.addEventListener("advpv", onPv); st.advBadge(); }
       if (abw) { const row = document.createElement("span"); row.className = "tfAbRow"; abw.before(row); row.append(ub, abw, rb); [ub, rb].forEach(x => x.addEventListener("pointerdown", (e) => e.stopPropagation())); }   // (11/05 사용자) 원음|보정본은 붙인 채 폭만 줄이고, 좌 ↶ · 우 ↷
       else { const sg = wrap.querySelector(".tfModeSeg"); if (sg) sg.after(ur); else xb.parentNode.insertBefore(ur, xb); }
@@ -1178,7 +1184,7 @@
           else if (bars[0] && typeof o.onFix === "function") { try { fixSheet(wrap, cv, bars[0], o.onFix, getT, st); } catch {} } } finally { st._quiet = false; } })); };
       const paintHist = () => { if (!histEl) return; const ol = histEl.querySelector("ol"); ol.innerHTML = ""; for (let i = hist.S.length - 1; i >= 0; i--) { const li = document.createElement("li"), b = document.createElement("button"); b.type = "button"; b.dataset.i = i;
           b.className = i === hist.ptr ? "cur" : i > hist.ptr ? "fut" : ""; b.textContent = (i === hist.ptr ? "✓ " : "") + hist.L[i]; li.appendChild(b); ol.appendChild(li); } };
-      histUI = () => { ub.disabled = !hist.canU(); rb.disabled = !hist.canR(); paintHist(); };
+      histUI = () => { ub.disabled = !hist.canU(); rb.disabled = !hist.canR(); paintHist(); try { st.advBadge(); } catch {} };
       const closeHist = () => { if (histEl) { histEl.remove(); histEl = null; } };
       const openHist = () => { closeHist(); histEl = document.createElement("div"); histEl.className = "tfHist"; histEl.setAttribute("role", "dialog"); histEl.setAttribute("aria-label", "작업 기록");
         histEl.innerHTML = `<div class="tfHistBox"><div class="tfHistHd"><b>작업 기록</b><span>누르면 그 시점으로</span><button type="button" class="tfHistX" aria-label="닫기">✕</button></div><ol></ol></div>`;
@@ -1481,7 +1487,7 @@
 #tuneFs .tfTop,#tuneFs .tfBot{display:flex;align-items:center;gap:8px;flex:none}#tuneFs .tfTop{margin-bottom:6px}#tuneFs .tfTitle{font-size:15px}#tuneFs .tfTime{color:#a9b1bc;font-size:13px;font-variant-numeric:tabular-nums}
 #tuneFs .tfAb{display:flex;margin-left:auto;border:1px solid #363c45;border-radius:10px;overflow:hidden}#tuneFs .tfAb button{border:0;border-radius:0;margin:0;background:#11141a;color:#a9b1bc;font-weight:800;min-height:34px;padding:0 14px}#tuneFs .tfAb button.on{background:#9cc3ff;color:#10141a}#tuneFs .tfAb button[data-m=p].on{background:#c9a6ff}
 #tuneFs .tfX{margin-left:8px;display:flex;align-items:center;gap:6px;height:46px;padding:0 16px;border-radius:24px;border:2px solid #eceff3;background:#2a2f38;color:#fff;font-weight:800;font-size:15px;flex:none}#tuneFs .tfX i{font-style:normal;font-size:20px;line-height:1;margin-right:2px}#tuneFs .tfCv{flex:1;min-height:0;width:100%;display:block;border-radius:10px;background:#11141a}
-#tuneFs .tfCvBox{position:relative;flex:1;min-height:0;display:flex}#tuneFs .tfAdvPv{position:absolute;left:50%;bottom:6px;transform:translateX(-50%);z-index:5;pointer-events:auto;cursor:pointer;white-space:nowrap;font-size:11.5px;font-weight:800;color:#d9c8ff;background:rgba(40,30,70,.82);border:1px solid #6d5bb0;border-radius:12px;padding:3px 10px}#tuneFs .tfSkip{position:absolute;left:50%;transform:translateX(-50%);bottom:16%;z-index:5;white-space:nowrap;opacity:1;transition:opacity .2s ease;border:0;border-radius:12px;background:#9cc3ff;color:#111;font-weight:800;font-size:14px;padding:10px 14px}#tuneFs .tfSkip.off{opacity:0;visibility:hidden;pointer-events:none;transition:opacity 1.8s ease,visibility 0s linear 1.8s}/* (11/03 16:19 사용자) 그래프 가운데 아래쪽으로 */#tuneFs .tfMid{position:absolute;left:50%;top:9%;width:48px;height:48px;margin:-24px 0 0 -24px;border-radius:50%;background:rgba(156,195,255,.12);color:rgba(255,255,255,.55);font-size:18px;display:grid;place-items:center;pointer-events:none;opacity:0;transform:scale(.6)}
+#tuneFs .tfCvBox{position:relative;flex:1;min-height:0;display:flex}#tuneFs .tfAdvPv{position:absolute;left:50%;bottom:8px;transform:translateX(-50%);z-index:5;pointer-events:auto;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:7px;font:800 12.5px system-ui,sans-serif;color:#f6f0ff;background:linear-gradient(90deg,#8e6cf0,#b48cff);border:0;border-radius:20px;padding:5px 13px 5px 6px;box-shadow:0 4px 14px rgba(150,110,255,.45)}#tuneFs .tfAdvPv .ic{width:22px;height:22px;border-radius:50%;background:#fff;color:#6b4fd6;display:grid;place-items:center;font-size:10px}#tuneFs .tfAdvPv small{font-weight:600;opacity:.85;font-size:10.5px}#tuneFs .tfAdvPv.play{background:rgba(40,30,70,.92);box-shadow:inset 0 0 0 2px #b48cff}#tuneFs .tfAdvPv.play .ic{background:#b48cff;color:#1b1430}#tuneFs .tfAdvPv.pop{animation:tfPvPop .45s cubic-bezier(.3,1.6,.5,1)}@keyframes tfPvPop{0%{transform:translateX(-50%) scale(.7);opacity:.3}100%{transform:translateX(-50%) scale(1);opacity:1}}#tuneFs .tfSkip{position:absolute;left:50%;transform:translateX(-50%);bottom:16%;z-index:5;white-space:nowrap;opacity:1;transition:opacity .2s ease;border:0;border-radius:12px;background:#9cc3ff;color:#111;font-weight:800;font-size:14px;padding:10px 14px}#tuneFs .tfSkip.off{opacity:0;visibility:hidden;pointer-events:none;transition:opacity 1.8s ease,visibility 0s linear 1.8s}/* (11/03 16:19 사용자) 그래프 가운데 아래쪽으로 */#tuneFs .tfMid{position:absolute;left:50%;top:9%;width:48px;height:48px;margin:-24px 0 0 -24px;border-radius:50%;background:rgba(156,195,255,.12);color:rgba(255,255,255,.55);font-size:18px;display:grid;place-items:center;pointer-events:none;opacity:0;transform:scale(.6)}
 #tuneFs .tfMid.stay.go{animation:tfPop .22s cubic-bezier(.3,1.5,.5,1) forwards}#tuneFs .tfMid.flash.go{animation:tfFlash .3s ease-out forwards}
 @keyframes tfPop{from{opacity:0;transform:scale(.6)}to{opacity:.8;transform:scale(1)}}@keyframes tfFlash{0%{opacity:0;transform:scale(.7)}25%{opacity:.8;transform:scale(1.05)}100%{opacity:0;transform:scale(1.2)}}
 #tuneFs .tfBot{justify-content:space-between;align-items:flex-end;gap:16px}#tuneFs .tfHint{font-size:11.5px;color:#7d8590;line-height:1.4;word-break:keep-all;text-wrap:balance;max-width:34%}
