@@ -141,10 +141,10 @@
     const hits = []; g.save(); g.beginPath(); g.rect(L, T, w - L, HP); g.clip();
     allS.forEach((n, i) => { const x = xs(+n.t0); if (x < L - 10 || x > w + 10) return;
       let best = null, bd = 1e9; for (const p of vis || []) { if (p[1] == null) continue; const dd = Math.abs(p[0] - +n.t0); if (dd < bd) { bd = dd; best = p; } }
-      const py = best && bd < 0.6 ? yf(best[1]) : T + HP / 2, by = Math.max(T + 11, py - 20), ok = n.status === "ok";
-      g.fillStyle = "#11141a"; g.beginPath(); g.arc(x, by, 11, 0, Math.PI * 2); g.fill();
-      g.fillStyle = ok ? "#b48cff" : "#5a4b86"; g.beginPath(); g.arc(x, by, 9, 0, Math.PI * 2); g.fill();
-      g.fillStyle = ok ? "#1b1430" : "#e6dcff"; g.font = "800 11px system-ui, sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(String(i + 1), x, by + 0.5);
+      const py = best && bd < 0.6 ? yf(best[1]) : T + HP / 2, br = 8.5, by = Math.max(T + br + 1, py - 22), c = n.status === "ok" ? "196,163,255" : "150,158,170";   // (11/07 10:01 사용자) 기본 모드 번호 표시와 같은 모양: 음정선 위 점 + 가는 줄 + 번호 깃발
+      g.strokeStyle = `rgb(${c})`; g.lineWidth = 1.2; g.beginPath(); g.moveTo(x, py - 3); g.lineTo(x, by + br); g.stroke();
+      g.fillStyle = `rgb(${c})`; g.beginPath(); g.arc(x, py, 2.6, 0, Math.PI * 2); g.fill(); g.beginPath(); g.arc(x, by, br, 0, Math.PI * 2); g.fill();
+      g.fillStyle = "#10201a"; g.font = "900 11px system-ui, sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(String(i + 1), x, by + 0.5);
       hits.push({ x, y: by, n, num: i + 1, k: kf(n) }); });
     g.restore(); return hits;
   }
