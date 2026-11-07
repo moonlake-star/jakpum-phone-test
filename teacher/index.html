@@ -408,6 +408,7 @@
 
   <section id="vList" class="hidden"></section>
   <section id="vCal" class="hidden"></section>
+  <section id="vSongs" class="hidden"></section>
 
   <section id="vShared" class="hidden">
     <div class="card">
@@ -566,7 +567,7 @@ window.addEventListener("popstate", (e) => {
   const onSub = ["vLesson","vShared","vSubs","vStu","vMkJob","vCal"].some(v => !$(v)?.classList.contains("hidden"));   // (11/02 07:50 사용자) 레슨 캘린더도 뒤로 = 직전 화면
   if (onSub) { try { goBack(); } catch { renderList(); } }
 });
-function show(view) { syncBackHistory(view); try { Brand.bar(); } catch {} for (const v of ["vLogin","vList","vLesson","vShared","vSubs","vStu","vMkJob","vCal"]) $(v).classList.toggle("hidden", v !== view); try { $("v2Dock")?.classList.add("hidden"); document.body.classList.remove("v2send"); document.getElementById("v2Ai")?.remove(); } catch {} $("btnBack").classList.toggle("hidden", ["vLogin","vList"].includes(view)); if (view !== "vMkJob") { mkStop?.(); stopProg?.(); } window.scrollTo(0,0); }
+function show(view) { syncBackHistory(view); try { Brand.bar(); } catch {} for (const v of ["vLogin","vList","vLesson","vShared","vSubs","vStu","vMkJob","vCal","vSongs"]) $(v).classList.toggle("hidden", v !== view); try { $("v2Dock")?.classList.add("hidden"); document.body.classList.remove("v2send"); document.getElementById("v2Ai")?.remove(); } catch {} $("btnBack").classList.toggle("hidden", ["vLogin","vList"].includes(view)); if (view !== "vMkJob") { mkStop?.(); stopProg?.(); } if (view !== "vSongs" && view !== "vMkJob") { try { songStop(); } catch {} } window.scrollTo(0,0); }
 
 // ── 구글 로그인 · 드라이브 ───────────────────────────────
 // 로그인 유지: 구글이 주는 출입증(1시간짜리)을 이 폰에만 보관해, 새로고침·앱 다시 열기에도 다시 묻지 않는다.
@@ -1187,10 +1188,10 @@ function paintList(data, stale) {
       `<div class="muted">${sub}</div></div><div class="stuBody"><div class="sum">${chips || `<span class="muted">아직 기록 없음</span>`}</div></div></div>`;
   });
   // 가입 신청·계정 연결 카드는 맨 아래(2026-10-27 사용자: 맨 위에 늦게 생겨 아래가 밀리며 엉뚱한 게 눌림)
-  $("vList").innerHTML = `<div class="row" style="gap:6px;margin:0 0 8px;flex-wrap:nowrap"><button class="ghost" id="calBtn" style="flex:1">${IC_CAL} 레슨 캘린더</button>${isStaffApp() ? "" : `<button class="ghost" id="nsBtn" style="flex:1">＋ 신규 수강생</button>`}</div>` + pitchLinkHtml() + `<div id="pitchAll"></div><div id="pitchRec"></div>` + segHtml + todoHtml + `<div id="careBox"></div>` + blocks.join("") + `<div id="joinReq">${lastJoinHtml}</div>` +
+  $("vList").innerHTML = `<div class="row" style="gap:6px;margin:0 0 8px;flex-wrap:nowrap"><button class="ghost" id="calBtn" style="flex:1">${IC_CAL} 레슨 캘린더</button>${isStaffApp() ? "" : `<button class="ghost" id="songBtn" style="flex:1">🎵 곡 서랍</button>`}${isStaffApp() ? "" : `<button class="ghost" id="nsBtn" style="flex:1">＋ 신규 수강생</button>`}</div>` + pitchLinkHtml() + `<div id="pitchAll"></div><div id="pitchRec"></div>` + segHtml + todoHtml + `<div id="careBox"></div>` + blocks.join("") + `<div id="joinReq">${lastJoinHtml}</div>` +
     `<p class="muted">${stale ? "최신 내용 확인 중…" : "최신 상태"} · <a href="#" id="reload">새로고침</a> · 앱 버전 ${typeof BUILD === "string" ? BUILD : ""}</p>`;
   $("reload").onclick = (e) => { e.preventDefault(); renderList(); };
-  $("calBtn").onclick = () => openCal();
+  $("calBtn").onclick = () => openCal(); if ($("songBtn")) $("songBtn").onclick = () => openSongs();
   if ($("nsBtn")) $("nsBtn").onclick = () => newStudentSheet();
   if (!isStaffApp()) staffPortalSync().catch(() => {});
   if (isStaffApp()) asgStaffCheck().catch(() => {});
@@ -5230,6 +5231,7 @@ async function mkRefPaint(j, r, pi, by) {
 const SONG_F = { mr: "원곡_반주.mp3", voc: "원곡_보컬.mp3", orig: "원곡.mp3" };
 let sgCur = null;   // { job, au:{mr,voc}, url:{}, blob:{}, vol, timer }
 function songStop() { if (!sgCur?.au) return; for (const a of Object.values(sgCur.au)) { try { a.pause(); } catch {} } clearInterval(sgCur.timer); sgCur.timer = 0; const b = $("sgPb"); if (b) b.textContent = "▶"; }
+const stemIds = (sg) => (sg && sg.stems && ["mr", "voc", "orig"].every(k => typeof sg.stems[k] === "string" && sg.stems[k]) ? { mr: sg.stems.mr, voc: sg.stems.voc, orig: sg.stems.orig } : null);   // (11/07) 서버가 적어 둔 원곡 보컬·반주 id(곡 서랍) 먼저
 function songFiles(by) { const o = {}; for (const [k, n] of Object.entries(SONG_F)) { const f = by(n); if (!f) return null; o[k] = f.id; } return o; }
 function songState(r, ids) {   // ready | home | wait | none | hide
   if (ids) return "ready";
@@ -5241,67 +5243,150 @@ function songState(r, ids) {   // ready | home | wait | none | hide
 function songSave(blob, name) {
   const u = URL.createObjectURL(blob), a = document.createElement("a"); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 60000);
 }
+// ── 🎵 곡 서랍(11/07 10:58 사용자 '고고'): 원곡(유튜브)을 보컬·반주로 나눠 쌓아 두는 공용 곡 목록 ──
+// 드라이브 _시스템/db_backup/곡서랍/<곡 폴더>/song.json(+ MP3 3개) · 앱은 곡 폴더와 song.json(status queued)을 만들고 서버를 깨움 · 서버(song_lib.py)가 받고·나눔
+const SONG_LIB = "곡서랍", SONG_ST = { queued: ["⏳", "서버 대기"], home_wait: ["🏠", "집 노트북이 원곡 받는 중"], working: ["⚙️", "보컬·반주 나누는 중"], done: ["✓", "준비됨"], error: ["⚠", "실패"] };
+let songLib = { root: null, list: [], open: null, poll: 0, q: "" };
+async function songRoot(create) {
+  if (songLib.root) return songLib.root; const db = cfg?.system?.db_backup; if (!db) throw new Error("시스템 폴더를 찾지 못했어요");
+  const f = (await list(db)).find(x => x.name === SONG_LIB && x.mimeType === "application/vnd.google-apps.folder");
+  if (f) return (songLib.root = f.id); if (!create) return null;
+  return (songLib.root = await joinMakeFolder(SONG_LIB, db));
+}
+async function songLoad() {
+  const rid = await songRoot(false); if (!rid) return [];
+  const fos = (await list(rid)).filter(x => x.mimeType === "application/vnd.google-apps.folder"), lim = limiter(6);
+  const out = await Promise.all(fos.map(fo => lim(async () => { try { const fs = await list(fo.id), sf = fs.find(x => x.name === "song.json"); if (!sf) return null;
+    return { folder: fo.id, fileId: sf.id, d: await readJSON(sf.id) }; } catch { return null; } })));
+  return out.filter(Boolean).sort((a, b) => String(b.d.updated || b.d.created || "").localeCompare(String(a.d.updated || a.d.created || "")));
+}
+async function openSongs(focus) {
+  goBack = () => renderList(); show("vSongs"); songLib.open = focus || songLib.open;
+  const v = $("vSongs");
+  v.innerHTML = `<h2 style="margin:4px 0 2px">🎵 곡 서랍</h2><p class="muted" style="margin:0 0 10px;font-size:.88rem">곡 이름(또는 유튜브 주소)을 넣으면 서버가 원곡을 받아 <b>보컬·반주</b>로 나눠요 · 보컬 볼륨을 조절하며 듣고, MR·보컬·원곡을 받을 수 있어요 · 메이크업에 같은 곡을 쓰면 다시 안 나눠요</p>
+    <div class="card" style="padding:12px"><div class="row" style="gap:6px;flex-wrap:nowrap"><input id="slT" placeholder="곡 이름" maxlength="60" style="flex:2;min-width:0"><input id="slA" placeholder="가수(알면)" maxlength="40" style="flex:1;min-width:0"></div>
+      <input id="slY" type="url" inputmode="url" placeholder="유튜브 주소(선택 · 비우면 곡 이름으로 찾음)" style="width:100%;margin-top:6px">
+      <button type="button" id="slAdd" style="width:100%;margin-top:8px">＋ 곡 넣기</button></div>
+    <input id="slQ" placeholder="🔍 곡 찾기" value="${esc(songLib.q)}" style="width:100%;margin:10px 0 4px"><div id="slList"><p class="muted">불러오는 중…</p></div>`;
+  $("slAdd").onclick = songAdd;
+  $("slQ").oninput = () => { songLib.q = $("slQ").value.trim(); songPaintList(); };
+  try { songLib.list = await songLoad(); } catch (e) { $("slList").innerHTML = `<p class="muted">곡 목록을 못 불러왔어요: ${esc(errMsg(e))}</p>`; return; }
+  songPaintList(); songPollArm();
+}
+function songPollArm() {   // 처리 중인 곡이 있으면 20초마다 다시 읽음(화면을 떠나면 멈춤)
+  clearTimeout(songLib.poll);
+  if (!songLib.list.some(x => ["queued", "home_wait", "working"].includes(x.d.status))) return;
+  songLib.poll = setTimeout(async () => { if ($("vSongs").classList.contains("hidden")) return;
+    try { const nx = await songLoad(), ch = JSON.stringify(nx.map(x => [x.folder, x.d.status, x.d.updated])) !== JSON.stringify(songLib.list.map(x => [x.folder, x.d.status, x.d.updated])); songLib.list = nx; if (ch && !(sgCur?.au && !sgCur.au.mr.paused)) songPaintList(); } catch {}   /* 듣는 중이면 다시 그리지 않음(재생 끊김 방지) */
+    songPollArm(); }, 20000);
+}
+function songPaintList() {
+  const box = $("slList"); if (!box) return; const q = songLib.q.toLowerCase();
+  const L = songLib.list.filter(x => !q || `${x.d.title} ${x.d.artist}`.toLowerCase().includes(q));
+  if (!L.length) { box.innerHTML = `<p class="muted">${songLib.list.length ? "찾는 곡이 없어요" : "아직 곡이 없어요 · 위에서 곡을 넣어 보세요"}</p>`; return; }
+  const mm = (t) => (t ? `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}` : "");
+  box.innerHTML = L.map(x => { const d = x.d, [ic, lab] = SONG_ST[d.status] || ["·", d.status || ""], op = songLib.open === x.folder && d.status === "done";
+    return `<div class="card slRow${op ? " op" : ""}" data-sl="${esc(x.folder)}" style="padding:10px 12px;margin:8px 0">
+      <div class="row" style="gap:8px;flex-wrap:nowrap;align-items:center"><div style="flex:1;min-width:0"><b>${esc(d.title || "(이름 없음)")}</b>${d.artist ? ` <span class="muted">— ${esc(d.artist)}</span>` : ""}
+        <div class="muted" style="font-size:.8rem">${ic} ${esc(lab)}${d.status === "done" && d.dur ? ` · ${mm(d.dur)}` : ""}${d.by === "makeup" ? " · 메이크업에서" : ""}${d.status === "error" && d.error ? ` · ${esc(String(d.error).slice(0, 80))}` : ""}</div></div>
+        ${d.status === "done" ? `<button type="button" class="small" data-slp>${op ? "접기" : "▶ 듣기"}</button>` : d.status === "error" ? `<button type="button" class="small" data-slr>다시</button>` : ["queued", "home_wait", "working"].includes(d.status) ? `<div class="sgSp" style="width:16px;height:16px;border:2px solid #444;border-top-color:#ffb86b;border-radius:50%;animation:sgSpin 1s linear infinite"></div>` : ""}
+        <button type="button" class="ghost small" data-sld aria-label="곡 지우기" style="flex:none">🗑</button></div>
+      ${op ? `<div class="slPl" style="margin-top:8px"></div>` : ""}</div>`; }).join("");
+  box.querySelectorAll("[data-sl]").forEach(row => { const x = songLib.list.find(y => y.folder === row.dataset.sl); if (!x) return;
+    const pb = row.querySelector("[data-slp]"); if (pb) pb.onclick = () => { songLib.open = songLib.open === x.folder ? null : x.folder; songStop(); songPaintList(); };
+    const rb = row.querySelector("[data-slr]"); if (rb) rb.onclick = async () => { rb.disabled = true; try { x.d = { ...x.d, status: "queued", error: null, updated: new Date().toISOString() }; await writeJSON(x.folder, "song.json", x.d, x.fileId); songPaintList(); songPollArm(); kick(); toast("다시 해 볼게요"); } catch (e) { toast("실패: " + errMsg(e)); rb.disabled = false; } };
+    row.querySelector("[data-sld]").onclick = async () => { if (!confirm(`‘${x.d.title || "이 곡"}’을 곡 서랍에서 지울까요?\n(드라이브 휴지통으로 — 30일 안엔 되살릴 수 있어요 · 이 곡을 쓰는 메이크업·노트의 원곡 파일도 함께 안 들려요)`)) return;
+      try { await api(`${DRIVE}/files/${x.folder}?fields=id`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trashed: true }) }); songLib.list = songLib.list.filter(y => y !== x); if (songLib.open === x.folder) { songStop(); songLib.open = null; } songPaintList(); toast("지웠어요(휴지통)"); } catch (e) { toast("지우기 실패: " + errMsg(e)); } };
+    const pl = row.querySelector(".slPl"); if (pl) { const ids = stemIds(x.d); if (!ids) { pl.innerHTML = `<p class="muted">파일 정보가 없어요</p>`; return; }
+      songPlayer(pl, ids, { head: `<div class="muted" style="font-size:.85rem">보컬 볼륨을 움직여 MR·가이드·원곡으로 들어 보세요</div>`, vol: Number.isFinite(+x.d.voc_vol) ? +x.d.voc_vol : 30, name: x.d.title,
+        onVol: (vv) => { x.d.voc_vol = vv; writeJSON(x.folder, "song.json", x.d, x.fileId).catch(() => {}); } });
+      pl.querySelector(".sgC")?.classList.remove("card"); }
+  });
+}
+async function songAdd() {
+  const t = $("slT").value.trim(), a = $("slA").value.trim(), y = $("slY").value.trim();
+  if (!t && !y) return toast("곡 이름이나 유튜브 주소를 넣어 주세요");
+  if (y && typeof ytParse === "function" && !ytParse(y)) return toast("유튜브 영상 주소가 아니에요 · youtube.com 이나 youtu.be 주소를 붙여 넣어 주세요");
+  const same = songLib.list.find(x => !y && (x.d.title || "").trim() === t && (x.d.artist || "").trim() === a);
+  if (same && !confirm(`‘${t}’은 이미 곡 서랍에 있어요. 그래도 넣을까요?`)) return;
+  const b = $("slAdd"); b.disabled = true; b.textContent = "넣는 중…";
+  try {
+    const rid = await songRoot(true), nm = `${t || "유튜브"}${a ? " - " + a : ""}`.replace(/[\\/:*?"<>|]/g, "_").slice(0, 60);
+    const fid = await joinMakeFolder(nm, rid), d = { id: "s" + Date.now().toString(36), title: t, artist: a, youtube: y ? (ytParse?.(y) || y) : "", status: "queued", created: new Date().toISOString(), updated: new Date().toISOString(), by: "app" };
+    const sf = await writeJSON(fid, "song.json", d);
+    songLib.list.unshift({ folder: fid, fileId: sf, d }); $("slT").value = $("slA").value = $("slY").value = ""; songPaintList(); songPollArm();
+    const ok = await kick(); toast(ok ? "서버가 원곡을 받으러 갔어요 · 보통 5~10분" : "곡을 넣었어요 · 서버가 다음 확인 때 처리해요");
+  } catch (e) { toast("넣기 실패: " + errMsg(e)); } finally { b.disabled = false; b.textContent = "＋ 곡 넣기"; }
+}
 function songPaint(j, r, by) {
   const el = $("mkSong"); if (!el) return; songStop(); sgCur = null;
-  const ids = songFiles(by), stt = songState(r, ids), s = r.song || {};
+  const ids = stemIds(r.song) || songFiles(by), stt = songState(r, ids), s = r.song || {};
   if (stt === "hide") { el.innerHTML = ""; return; }
   const nm = [s.title, s.artist].filter(Boolean).join(" — ") || "원곡";
-  const head = `<div class="sgH"><b>🎧 원곡 듣기</b>${ids ? `<span class="sgSrc">보컬·반주 나눔</span>` : ""}</div><div class="muted" style="font-size:.85rem">${esc(nm)}</div>`;
+  const head = `<div class="sgH"><b>🎧 원곡 듣기</b>${ids ? `<button type="button" class="sgSrc" data-sglib style="border:0;cursor:pointer">🎵 곡 서랍 ›</button>` : ""}</div><div class="muted" style="font-size:.85rem">${esc(nm)}</div>`;
   if (stt !== "ready") {
     el.innerHTML = `<div class="card sgC">${head}${stt === "none" ? `<p class="muted" style="margin:6px 0 0">아직 원곡 보컬·반주가 없어요 · 위 ‘완성본 다시 만들기’를 누르면 서버가 원곡을 찾아 나눠요(원곡을 못 찾으면 안 생겨요)</p>`
       : `<div class="sgWait"><div class="sgSp"></div>${stt === "home" ? "집 노트북이 원곡 받는 중 · 받으면 저절로 보컬·반주를 나눠요" : "보컬·반주 나누는 중 · 보통 5~10분"}</div>`}</div>`;
     return;
   }
   const v0 = Math.max(0, Math.min(100, Number.isFinite(+s.voc_vol) ? +s.voc_vol : 30));
-  el.innerHTML = `<div class="card sgC">${head}
+  setTimeout(() => { const lb = el.querySelector("[data-sglib]"); if (lb) lb.onclick = () => openSongs(s.lib || null); }, 0);
+  songPlayer(el, ids, { head, vol: v0, name: s.title,
+    extra: `<label class="row" style="gap:8px;margin-top:10px;align-items:center;flex-wrap:nowrap"><input type="checkbox" id="sgStu" ${s.stu_stems ? "checked" : ""}><span>수강생 노트에도 싣기 <span class="muted" style="font-size:.8rem">(다음에 노트를 게시할 때 · 수강생도 볼륨 조절·받기 가능)</span></span></label>`,
+    onVol: (v) => { if (r.song && ["done", "error"].includes(r.status)) { r.song.voc_vol = v; writeJSON(j.folder.id, MKREQ, r, j.reqId).catch(() => {}); } },
+    wire: (Q) => { Q("sgStu").onchange = async () => {
+      const on = Q("sgStu").checked; r.song = { ...(r.song || {}), stu_stems: on };
+      try { await writeJSON(j.folder.id, MKREQ, r, j.reqId); toast(on ? "다음에 레슨 노트를 게시하면 수강생에게도 보여요" : "수강생 노트에 안 실어요(이미 게시한 노트는 다시 게시하면 빠져요)"); }
+      catch (e) { Q("sgStu").checked = !on; toast("저장 실패: " + errMsg(e)); } }; } });
+}
+// 원곡 플레이어(메이크업 화면·곡 서랍 같이 씀): ids = { mr, voc, orig } 드라이브 파일 · o = { head, vol, name, extra, onVol(v), wire(Q) }
+function songPlayer(el, ids, o) {
+  songStop(); const v0 = o.vol ?? 30, Q = (id) => el.querySelector("#" + id);
+  el.innerHTML = `<div class="card sgC">${o.head}
     <div class="sgPl"><button type="button" class="sgPb" id="sgPb">▶</button><div class="sgSk"><input type="range" id="sgSeek" min="0" max="1000" value="0"><div class="sgTm"><span id="sgT0">0:00</span><span id="sgT1">–:–</span></div></div></div>
     <div class="sgVo"><div class="sgVl">보컬 볼륨<span id="sgVv">${v0}%</span></div><input type="range" id="sgVol" min="0" max="100" value="${v0}">
       <div class="sgPre">${[[0, "MR", "0%"], [30, "가이드", "30%"], [100, "원곡", "100%"]].map(([v, a, b]) => `<button type="button" data-sgv="${v}">${a}<small>${b}</small></button>`).join("")}</div></div>
     <div class="sgDl">${[["mr", "MR", "반주만"], ["voc", "보컬", "목소리만"], ["orig", "원곡", "그대로"]].map(([k, a, b]) => `<button type="button" data-sgd="${k}">⬇ ${a}<small>${b}</small></button>`).join("")}</div>
-    <label class="row" style="gap:8px;margin-top:10px;align-items:center;flex-wrap:nowrap"><input type="checkbox" id="sgStu" ${s.stu_stems ? "checked" : ""}><span>수강생 노트에도 싣기 <span class="muted" style="font-size:.8rem">(다음에 노트를 게시할 때 · 수강생도 볼륨 조절·받기 가능)</span></span></label>
+    ${o.extra || ""}
     <p class="muted" style="margin:6px 0 0;font-size:.78rem">재생 중에도 슬라이더를 움직이면 바로 바뀌어요 · 슬라이더 더블탭 = 100%</p></div>`;
-  const me = sgCur = { job: j, au: null, url: {}, blob: {}, vol: v0, timer: 0 }, mmss = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
-  const paintVol = () => { $("sgVv").textContent = me.vol + "%"; $("sgVol").value = me.vol; el.querySelectorAll("[data-sgv]").forEach(b => b.classList.toggle("on", +b.dataset.sgv === me.vol)); if (me.au) me.au.voc.volume = me.vol / 100; };
-  const setVol = (v) => { me.vol = Math.max(0, Math.min(100, Math.round(v))); paintVol(); clearTimeout(me.svT); me.svT = setTimeout(() => { if (r.song && ["done", "error"].includes(r.status)) { r.song.voc_vol = me.vol; writeJSON(j.folder.id, MKREQ, r, j.reqId).catch(() => {}); } }, 1500); };
+  const me = sgCur = { au: null, url: {}, blob: {}, vol: v0, timer: 0 }, mmss = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
+  const paintVol = () => { Q("sgVv").textContent = me.vol + "%"; Q("sgVol").value = me.vol; el.querySelectorAll("[data-sgv]").forEach(b => b.classList.toggle("on", +b.dataset.sgv === me.vol)); if (me.au) me.au.voc.volume = me.vol / 100; };
+  const setVol = (v) => { me.vol = Math.max(0, Math.min(100, Math.round(v))); paintVol(); clearTimeout(me.svT); me.svT = setTimeout(() => { try { o.onVol && o.onVol(me.vol); } catch {} }, 1500); };
   paintVol();
   const blob = async (k) => me.blob[k] ||= await readBlob(ids[k]);
   const load = async () => {
     if (me.au) return me.au;
-    $("sgPb").textContent = "…"; $("sgT1").textContent = "불러오는 중";
+    Q("sgPb").textContent = "…"; Q("sgT1").textContent = "불러오는 중";
     const [bm, bv] = await Promise.all([blob("mr"), blob("voc")]);
     if (sgCur !== me) throw new Error("stale");
     const mk = (b) => { const a = new Audio(); a.preload = "auto"; a.src = me.url[b.size] = URL.createObjectURL(b); return a; };
     me.au = { mr: mk(bm), voc: mk(bv) }; me.au.voc.volume = me.vol / 100;
     await new Promise(res => { if (me.au.mr.readyState >= 1) return res(); me.au.mr.onloadedmetadata = res; setTimeout(res, 4000); });
-    $("sgT1").textContent = mmss(me.au.mr.duration || 0);
+    Q("sgT1").textContent = mmss(me.au.mr.duration || 0);
     me.au.mr.onended = () => songStop();
     return me.au;
   };
   const tick = () => { if (sgCur !== me || !me.au) return; const { mr, voc } = me.au, t = mr.currentTime, d = mr.duration || 1;
     if (!voc.paused && Math.abs(voc.currentTime - t) > 0.06) voc.currentTime = t;   // 두 파일이 어긋나지 않게
-    $("sgT0").textContent = mmss(t); if (!$("sgSeek").matches(":active")) $("sgSeek").value = Math.round(t / d * 1000); };
-  $("sgPb").onclick = async () => {
+    Q("sgT0").textContent = mmss(t); if (!Q("sgSeek").matches(":active")) Q("sgSeek").value = Math.round(t / d * 1000); };
+  Q("sgPb").onclick = async () => {
     try {
       const a = await load();
       if (!a.mr.paused) return songStop();
       pauseOthers("song"); a.voc.currentTime = a.mr.currentTime;
-      await Promise.all([a.mr.play(), a.voc.play()]); $("sgPb").textContent = "❚❚"; clearInterval(me.timer); me.timer = setInterval(tick, 250);
-    } catch (e) { if (e.message !== "stale") { $("sgPb").textContent = "▶"; toast("원곡을 못 불러왔어요: " + errMsg(e)); } }
+      await Promise.all([a.mr.play(), a.voc.play()]); Q("sgPb").textContent = "❚❚"; clearInterval(me.timer); me.timer = setInterval(tick, 250);
+    } catch (e) { if (e.message !== "stale") { Q("sgPb").textContent = "▶"; toast("원곡을 못 불러왔어요: " + errMsg(e)); } }
   };
-  $("sgSeek").oninput = async () => { try { const a = await load(), t = (+$("sgSeek").value / 1000) * (a.mr.duration || 0); a.mr.currentTime = t; a.voc.currentTime = t; $("sgT0").textContent = mmss(t); } catch {} };
-  $("sgVol").oninput = () => setVol(+$("sgVol").value);
-  $("sgVol").ondblclick = () => setVol(100);
+  Q("sgSeek").oninput = async () => { try { const a = await load(), t = (+Q("sgSeek").value / 1000) * (a.mr.duration || 0); a.mr.currentTime = t; a.voc.currentTime = t; Q("sgT0").textContent = mmss(t); } catch {} };
+  Q("sgVol").oninput = () => setVol(+Q("sgVol").value);
+  Q("sgVol").ondblclick = () => setVol(100);
   el.querySelectorAll("[data-sgv]").forEach(b => b.onclick = () => setVol(+b.dataset.sgv));
   el.querySelectorAll("[data-sgd]").forEach(b => b.onclick = async () => {
     const k = b.dataset.sgd, lab = { mr: "MR", voc: "보컬", orig: "원곡" }[k], t0 = b.innerHTML; b.disabled = true; b.innerHTML = "받는 중…";
-    try { songSave(await blob(k), `${(s.title || "원곡").replace(/[\\/:*?"<>|]/g, "_")}_${lab}.mp3`); toast(`${lab} 파일을 받았어요(다운로드 폴더)`); }
+    try { songSave(await blob(k), `${(o.name || "원곡").replace(/[\\/:*?"<>|]/g, "_")}_${lab}.mp3`); toast(`${lab} 파일을 받았어요(다운로드 폴더)`); }
     catch (e) { toast("받기 실패: " + errMsg(e)); } finally { b.disabled = false; b.innerHTML = t0; }
   });
-  $("sgStu").onchange = async () => {
-    const on = $("sgStu").checked; r.song = { ...(r.song || {}), stu_stems: on };
-    try { await writeJSON(j.folder.id, MKREQ, r, j.reqId); toast(on ? "다음에 레슨 노트를 게시하면 수강생에게도 보여요" : "수강생 노트에 안 실어요(이미 게시한 노트는 다시 게시하면 빠져요)"); }
-    catch (e) { $("sgStu").checked = !on; toast("저장 실패: " + errMsg(e)); }
-  };
+  try { o.wire && o.wire(Q); } catch {}
 }
 // (11/05 00:14 사용자) 레슨 '오늘의 베스트' 전체화면에서 음표 고치기: 그 메이크업 작업 화면을 열고 같은 자리에서 전체화면(음정·타이밍·나누기·고급)
 async function editFromBest(job, t) {
@@ -5806,7 +5891,7 @@ function mkSideFiles(o) {   // 수강생 노트용: 원음(보정 전, 같은 �
   const job = o?.file_id ? bestMakeupJob(o) : null, fs = (job?.req?.status === "done" && job.files) || [];
   const b = fs.find(x => x.name === "before.mp3"), c = fs.find(x => x.name === "pitch_curve.json");
   const tn = c ? tnPublic(job) : null;
-  const sg = job?.req?.song?.stu_stems && typeof songFiles === "function" ? songFiles((n) => fs.find(x => x.name === n)) : null;   // (11/07) 선생님이 켠 곡만 원곡 보컬·반주
+  const sg = job?.req?.song?.stu_stems && typeof songFiles === "function" ? (stemIds(job.req.song) || songFiles((n) => fs.find(x => x.name === n))) : null;   // (11/07) 선생님이 켠 곡만 원곡 보컬·반주
   return { ...(b ? { before_id: b.id } : {}), ...(c ? { curve_id: c.id, curve_lv: +(job.req.pitch_level ?? 2) } : {}), ...(tn && tn.length ? { tune_notes: tn } : {}),
     ...(sg ? { stems: { ...sg, title: job.req.song.title || "", artist: job.req.song.artist || "", vol: Number.isFinite(+job.req.song.voc_vol) ? +job.req.song.voc_vol : 30 } } : {}) };
 }
@@ -7305,7 +7390,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-07-1110-pop-small";
+const BUILD = "2026-11-07-1200-song-lib";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {

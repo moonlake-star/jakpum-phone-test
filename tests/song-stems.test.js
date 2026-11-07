@@ -21,3 +21,8 @@ const h = sx.stemsHtml({ stems: { mr: "a", voc: "b", orig: "c", title: "<x>", vo
 assert.ok(h.includes("🎤 연습 곡") && h.includes("&lt;x>") && h.includes('id="sgVv">0%') && h.includes("2:05") && (h.match(/data-sgd=/g) || []).length === 3);
 assert.ok(S.includes('stemsHtml(l.makeup) : ""}') && S.includes('wireStems(l.makeup)') && S.includes("bufMode = Math.abs(x.volume - 0.5) > 0.01"), "아이폰 볼륨 대체");
 console.log("song stems ok");
+// (11/07 10:58 사용자 '고고') 🎵 곡 서랍: 첫 화면 버튼 · 곡 넣기(song.json queued + 서버 깨우기) · 목록 상태 · 같은 플레이어 · 메이크업은 서버가 적은 id 먼저
+assert.ok(T.includes('<section id="vSongs" class="hidden"></section>') && T.includes('"vCal","vSongs"]') && T.includes('id="songBtn"') && T.includes("async function openSongs(focus)"));
+assert.ok(T.includes('status: "queued"') && T.includes("const ok = await kick();") && T.includes("function songPlayer(el, ids, o)") && T.includes("stemIds(r.song) || songFiles(by)") && T.includes("(stemIds(job.req.song) || songFiles("));
+assert.ok(T.includes('home_wait: ["🏠", "집 노트북이 원곡 받는 중"]') && T.includes("trashed: true }) }); songLib.list"), "상태 표시·지우기(휴지통)");
+console.log("song lib ok");
