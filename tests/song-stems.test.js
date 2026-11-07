@@ -31,3 +31,4 @@ console.log("song lib ok");
   assert.deepStrictEqual({ ...cx.ytTitle("[MV] 애즈원(As One) - 원하고 원망하죠 (Official Music Video)") }, { title: "원하고 원망하죠", artist: "애즈원(As One)" });
   assert.deepStrictEqual({ ...cx.ytTitle("둥지", "남진 - Topic") }, { title: "둥지", artist: "남진" });
   assert.ok(T.includes('youtube.com/oembed?format=json&url=') && T.includes("ytParse?.(y)?.url || y")); console.log("yt autofill ok"); }
+assert.ok(T.includes('x.name === "노트북_신호.json"') && T.includes("m <= 15 ?") && T.includes("songHomePaint();"), "(11/07) 곡 서랍에 집 노트북 상태");
