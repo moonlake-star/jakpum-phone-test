@@ -98,3 +98,5 @@ assert.ok(T.includes('const bu = !!(tOn && !uni);') && T.includes('G.TuneAdv.scr
 console.log("basic unify ok");
 
 assert.ok(T.includes("const n_ = nd = { id: e.pointerId, y: e.clientY, fine: true, ax: false };") && T.includes("n_.fine = false; buzz(40);"), "(11/07) 음 이름 칸: 바로 밀면 미세, 꾹 뒤 반음");
+// (11/07 09:47 사용자 시안 고) 고급 모드 한마디: 번호 + 지나갈 때·번호 톡 말풍선 + 체크 버튼(기기에 기억)
+assert.ok(T.includes("function drawAdvNotes(g, st, xs, L, w, T, HP, vis, yf)") && T.includes('mk("advNoteB", "💬 한마디")') && T.includes('localStorage.setItem("tune_adv_notes"') && T.includes("st.advBub(h)") && T.includes("Math.hypot(le.x - q.x, le.y - q.y) <= 16"), "고급 한마디");
