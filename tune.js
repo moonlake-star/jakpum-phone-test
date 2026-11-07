@@ -318,7 +318,9 @@
     }
     // (10/31 07:57 사용자) 주석 칸이 음정선을 가리지 않게: 주석이 있으면 아래쪽은 칸 자리로 비워 두고 음정선은 그 위에만 그림
     const hasN = full && !!(st && typeof st.notes === "function" && (st.notes() || []).length) && H > 200 && !(st && st.notesHidden);   // (11/03 16:55 사용자 시안 승인) 강사 화면 보정본 = 주석 숨김   // 작은 화면은 덮개(전체화면으로 보기) 아래라 그대로
-    const RB = hasN ? noteBand(st, full) : 0, HP = H - RB;
+    const RB0 = hasN ? noteBand(st, full) : 0; let RB = RB0;
+    if (full && st) { if (st.rbS == null || Math.abs(st.rbS - RB0) < 0.6) st.rbS = RB0; else st.rbS += (RB0 - st.rbS) * 0.22; RB = Math.round(st.rbS); }   // (11/07 09:31 사용자 영상) 🎛 고급을 켜면 주석 칸이 없어지며 음정선이 툭 내려갔음 → 0.3초 동안 부드럽게 옮겨 가 보던 음을 눈으로 따라갈 수 있게
+    const HP = H - RB;
     const L = full ? 44 : 30, y = (c) => T + HP - 6 - (c - lo) / (hi - lo) * (HP - 12);
     const t0 = t - W8 * HEAD, xs = (tt) => L + (tt - t0) / W8 * (w - L), sc = cv.scale;
     g.font = (full ? "12px" : "10px") + " system-ui, sans-serif"; g.textBaseline = "middle";
@@ -1029,6 +1031,7 @@
       <span class="tfCtl">${hasAb ? `<span class="tfAbW"><span class="tfAbL">듣는 소리</span><span class="tfAb" role="group" aria-label="듣는 소리: 원음·보정본"><button type="button" data-m="o">🎤 원음</button><i class="tfSwap" aria-hidden="true">⇄</i><button type="button" data-m="p">✨ 보정본</button></span></span>` : ""}<span class="tfNav"><button type="button" data-j="0" aria-label="처음으로">⏮ 처음</button><button type="button" data-j="-5" aria-label="5초 뒤로">-5초</button><button type="button" class="tfPP" data-pp="1" aria-label="재생/일시정지">▶</button><button type="button" data-j="5" aria-label="5초 앞으로">+5초</button></span></span>
       <span class="tfNote">자동 단순 보정이라 정확하지 않을 수 있어요.<br>정식 음원은 전문 엔지니어가 한 음 한 음 더 정밀하게 다듬어요.</span></div></div>`;
     document.body.appendChild(wrap);
+    wrap.style.opacity = "0"; requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(() => { wrap.style.transition = "opacity .18s ease"; wrap.style.opacity = "1"; }, 120)));   // (11/07 09:31 사용자 영상) 처음 0.2초 그래프·버튼이 자리 잡으며 움찔하던 걸 안 보이게: 자리 잡은 뒤 나타남
     wrap.addEventListener("dblclick", (e) => e.preventDefault());   // (11/03 10:50 아이패드) 버튼을 연타해도 화면이 확대되지 않게(확대는 두 손가락으로만)
     const box = wrap.querySelector(".tfBox"), cvEl = wrap.querySelector(".tfCv"), st = { full: true, xz: 1, yz: 1, yc: null, panAt: 0, notes: o.notes, teacher: !!o.teacher, lvDef: o.lvDef, wave: o.wave }; wrap._st = st;   /* 시험·점검용(화면 상태 읽기) */
     const rot = false;   // (10/30 17:51 사용자) 가로도 남김 — 세로로 들면 세로, 폰을 돌리면 가로
