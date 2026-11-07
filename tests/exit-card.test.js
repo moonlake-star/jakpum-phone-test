@@ -96,3 +96,5 @@ console.log("adv one / range note ok");
 // (11/06 22:54 사용자 시안 ①②③ + 22:59 세로 눈금) 기본 모드 한 창 · 음 이름 칸 끌기 · 초록 구간
 assert.ok(T.includes('const bu = !!(tOn && !uni);') && T.includes('G.TuneAdv.scrub("위치"') && T.includes("(st.advOn || st.buMode) && st.sel") && T.includes('nb.classList.add("tfNScr")') && T.includes("st.onBarDrag(nd.fine ? Math.round(dy / 2) / 100 : Math.round(dy / 24), false)") && T.includes('MC = gr_ ? "#7fd99a" : "#ff6ec7"') && T.includes("data-mnote"));
 console.log("basic unify ok");
+
+assert.ok(T.includes("const n_ = nd = { id: e.pointerId, y: e.clientY, fine: true, ax: false };") && T.includes("n_.fine = false; buzz(40);"), "(11/07) 음 이름 칸: 바로 밀면 미세, 꾹 뒤 반음");

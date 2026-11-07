@@ -719,11 +719,11 @@
     if (st) { st.onBarDrag = (k, start) => { if (start) st._dragBase = m; const nm_ = rnd(st._dragBase + k); if (nm_ !== m) { if (Math.abs(nm_ - m) > 0.5) buzz(20); else if (Math.floor(nm_ * 20 + 1e-6) !== Math.floor(m * 20 + 1e-6)) buzz(10);   /* (11/06 21:59 사용자) 반음 한 칸 = 진동 · 미세는 5센트마다 짧게 */ m = nm_; st.focusC = m * 100; st.focusMin = true; paint(); preview(); sndFor(m, 400); } }; /* 끄는 음이 화면 밖으로 나가면 그만큼만 따라감 */
       st.onBarDragEnd = () => { if (st._dragBase != null && Math.abs(m - st._dragBase) > 0.004) persist(); st._dragBase = null; }; }
     const nb = d.querySelector("[data-p]");   // 음 이름을 누르는 동안 그 음 소리
-    // (11/06 22:54 사용자 시안 ② 승인) 음 이름 칸에서 바로: 위아래로 밀면 반음씩(24px마다) · 꾹 0.6초(진동) 뒤 밀면 미세(2px = 1센트) · 톡 = 소리
+    // (11/06 22:54 사용자 시안 ② 승인) 음 이름 칸에서 바로 위아래로 밀기 · (11/07 09:39 뒤바꿈) 바로 밀면 미세(2px = 1센트) · 꾹 0.6초(진동) 뒤 밀면 반음씩(24px마다) · 톡 = 소리
     let nd = null; if (st && st.onBarDrag) nb.classList.add("tfNScr");
     nb.addEventListener("pointerdown", (e) => { e.preventDefault(); snd(m); if (!(st && st.onBarDrag)) return; try { nb.setPointerCapture(e.pointerId); } catch {}
-      const n_ = nd = { id: e.pointerId, y: e.clientY, fine: false, ax: false };
-      n_.lp = setTimeout(() => { if (nd !== n_ || n_.ax) return; n_.fine = true; buzz(40); nb.classList.remove("fineOn"); void nb.offsetWidth; nb.classList.add("fineOn"); }, LONG_MS); });
+      const n_ = nd = { id: e.pointerId, y: e.clientY, fine: true, ax: false };   // (11/07 09:39 사용자) 이 칸은 ▼▲ 버튼이 옆에 있으니: 바로 밀면 미세(센트) · 꾹 0.6초(진동) 뒤 밀면 반음씩
+      n_.lp = setTimeout(() => { if (nd !== n_ || n_.ax) return; n_.fine = false; buzz(40); nb.classList.remove("fineOn"); void nb.offsetWidth; nb.classList.add("fineOn"); }, LONG_MS); });
     nb.addEventListener("pointermove", (e) => { if (!nd || e.pointerId !== nd.id || !st || !st.onBarDrag) return; const dy = nd.y - e.clientY;
       if (!nd.ax) { if (Math.abs(dy) < 7) return; nd.ax = true; clearTimeout(nd.lp); st.onBarDrag(0, true); }
       st.onBarDrag(nd.fine ? Math.round(dy / 2) / 100 : Math.round(dy / 24), false); });
@@ -921,7 +921,7 @@
     { text: () => "보정본에선 주석이 숨겨져요 · 위 💬 한마디 버튼(지나갈 때 반짝)으로 보기", need: "st.notesHidden = (pm && !st.noteShow)", when: (o) => !!o.teacher && typeof o.onNote === "function" },
     { text: () => "⏱ 타이밍: ◀▶ 일찍·늦게, −/+ 길이 · 막대 가운데를 끌면 옮기기, 끝을 끌면 길이", need: "st.onBarDragX = (dt, edge, start)", when: (o) => typeof o.onTime === "function" },
     { text: () => "타이밍 고친 음은 하늘색, 원래 자리는 점선 · 가운데 숫자를 누르면 그 근처만 들려요", need: 'g.fillStyle = "#5fd4ff"; g.fillRect(x0', when: (o) => typeof o.onTime === "function" },
-    { text: () => "음 이름 칸: 누르면 소리 · 위아래로 밀면 반음 · 꾹 누른 뒤 밀면 미세", need: 'n_.lp = setTimeout(() => { if (nd !== n_ || n_.ax) return; n_.fine = true; buzz(40);', when: (o) => typeof o.onFix === "function" },
+    { text: () => "음 이름 칸: 누르면 소리 · 위아래로 밀면 미세(센트) · 꾹 누른 뒤 밀면 반음씩", need: 'n_.lp = setTimeout(() => { if (nd !== n_ || n_.ax) return; n_.fine = false; buzz(40);', when: (o) => typeof o.onFix === "function" },
     { text: () => "✂ 나누기: 세로줄이 막대 안이면 그 자리, 밖이면 가운데에서 나뉘고 오른쪽 조각이 골라져요", need: "fixSheet(host, cv, { t0: ts, t1: T1, c: Math.round(m * 100) }, onFix, getT, st)", when: (o) => typeof o.onFix === "function" },
     { text: () => "↺ 톡 = 직전 저장으로 되돌리기 · 1초 꾹 = 이 음을 원본으로(확인 후)", need: "hold = setTimeout(() => { fired = true; stop(); askOrig(); }, 1000)", when: (o) => typeof o.onFix === "function" },
     { text: () => "고치기 창은 그래프 빈 곳 톡·뒤로 가기로 닫혀요 — 고친 건 자동 저장돼요", need: "if (!onBar) { sheetClose(); lastTap = 0; return; }", when: (o) => typeof o.onFix === "function" },
