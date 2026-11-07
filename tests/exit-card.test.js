@@ -99,4 +99,4 @@ console.log("basic unify ok");
 
 assert.ok(T.includes("const n_ = nd = { id: e.pointerId, y: e.clientY, fine: true, ax: false };") && T.includes("n_.fine = false; buzz(40);"), "(11/07) 음 이름 칸: 바로 밀면 미세, 꾹 뒤 반음");
 // (11/07 09:47 사용자 시안 고) 고급 모드 한마디: 번호 + 지나갈 때·번호 톡 말풍선 + 체크 버튼(기기에 기억)
-assert.ok(T.includes("function drawAdvNotes(g, st, xs, L, w, T, HP, vis, yf)") && T.includes('mk("advNoteB", "💬 한마디")') && T.includes('localStorage.setItem("tune_adv_notes"') && T.includes("st.advBub(h)") && T.includes("Math.hypot(le.x - q.x, le.y - q.y) <= 16"), "고급 한마디");
+assert.ok(T.includes("function drawFlags(g, st, t, xs, L, w, T, HP, vis, yf, auto)") && T.includes('mk("advNoteB", "💬 한마디")') && T.includes('localStorage.setItem("tune_adv_notes"') && T.includes("const want = st.advOn ? [] : H_.filter(h => h.act)") && T.includes("Math.hypot(le.x - q.x, le.y - q.y) <= 16") && T.includes("const POP_MIN = 3") && T.includes("const down = ai === 1".replace("const down","down")) , "(11/07 10:43) 주석 말풍선: 고급=번호 톡만, 기본·수강생=재생 구간 저절로, 겹치면 아래");
