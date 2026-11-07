@@ -26,3 +26,8 @@ assert.ok(T.includes('<section id="vSongs" class="hidden"></section>') && T.incl
 assert.ok(T.includes('status: "queued"') && T.includes("const ok = await kick();") && T.includes("function songPlayer(el, ids, o)") && T.includes("stemIds(r.song) || songFiles(by)") && T.includes("(stemIds(job.req.song) || songFiles("));
 assert.ok(T.includes('home_wait: ["🏠", "집 노트북이 원곡 받는 중"]') && T.includes("trashed: true }) }); songLib.list"), "상태 표시·지우기(휴지통)");
 console.log("song lib ok");
+// (11/07 17:33 사용자) 유튜브 주소 → 곡 제목(버전)·가수 자동
+{ const a = T.indexOf("function ytTitle"), b = T.indexOf("async function ytInfo"); const cx = {}; require("vm").createContext(cx); require("vm").runInContext(T.slice(a, b), cx);
+  assert.deepStrictEqual({ ...cx.ytTitle("[MV] 애즈원(As One) - 원하고 원망하죠 (Official Music Video)") }, { title: "원하고 원망하죠", artist: "애즈원(As One)" });
+  assert.deepStrictEqual({ ...cx.ytTitle("둥지", "남진 - Topic") }, { title: "둥지", artist: "남진" });
+  assert.ok(T.includes('youtube.com/oembed?format=json&url=') && T.includes("ytParse?.(y)?.url || y")); console.log("yt autofill ok"); }
