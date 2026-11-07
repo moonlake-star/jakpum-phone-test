@@ -331,7 +331,20 @@ const S_TIPS = [
 ];
 try { if (typeof Brand !== "undefined" && Brand.setTips) Brand.setTips(() => (typeof data !== "undefined" && data ? S_TIPS.map(t => t.text) : []));   /* 로그인 전엔 팁 칸 없음 */ } catch {}
 try { if (typeof Brand !== "undefined" && Brand.tipBar) { const go = () => Brand.tipBar(true); if (document.body) go(); else addEventListener("DOMContentLoaded", go); } } catch {}   // (11/03 17:28 사용자) 화면 맨 아래 고정 팁 칸
-function myLessons(ym) {   // '나의 레슨': 이번 달 달력 + 그 달 레슨 목록(누르면 노트) + 배지
+// (11/07 17:24 사용자) 갤럭시 뒤로 밀기: 노트·나의 레슨 화면 → '← 전체 노트'와 같게 · 첫 화면은 2초 안에 두 번 밀어야 닫힘(한 번에 앱이 꺼지지 않게)
+let snBackSkip = false, snHomeAt = 0;
+function snSub() { try { if (!history.state?.snSub) history.pushState({ snSub: 1 }, "", location.href); } catch {} }
+function snHome() { try { if (!history.state?.snHome && !history.state?.snSub) history.pushState({ snHome: 1 }, "", location.pathname); } catch {} }
+function snToast(m) { let t = document.getElementById("snToast"); if (!t) { t = document.createElement("div"); t.id = "snToast"; t.style.cssText = "position:fixed;left:50%;bottom:90px;transform:translateX(-50%);z-index:200;background:rgba(30,34,42,.95);color:#fff;padding:10px 16px;border-radius:20px;font-size:14px;pointer-events:none"; document.body.appendChild(t); } t.textContent = m; t.style.display = "block"; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = "none", 2000); }
+addEventListener("popstate", (e) => {
+  if (e && (e.tuneClosed || e.layerClosed)) return;   // 전체화면·작은 창만 닫힘(tune.js·Brand.layer)
+  if (snBackSkip) { snBackSkip = false; setTimeout(snHome, 0); return; }
+  const b = document.getElementById("back"); if (b && typeof b.onclick === "function") { b.onclick(); return; }
+  if (typeof data === "undefined" || !data) return;   // 로그인 전 화면
+  if (Date.now() - snHomeAt < 2000) { try { history.back(); } catch {} return; }
+  snHomeAt = Date.now(); snToast("한 번 더 뒤로 밀면 닫혀요"); try { history.pushState({ snHome: 1 }, "", location.pathname); } catch {}
+});
+function myLessons(ym) { snSub();   // '나의 레슨': 이번 달 달력 + 그 달 레슨 목록(누르면 노트) + 배지
   const s = data.status || {}, days = Array.isArray(s.days) ? s.days : [];
   ym = ym || calYm(new Date());
   const by = {}; days.forEach(d => (by[d.date] ||= []).push(d));
@@ -422,7 +435,8 @@ function monthHtml(ms) {
 const pitchLinkHtml = () => `<a class="card pitchGo" href="../pitch/?from=student" data-pitch-open="student" aria-label="연습 천재 열기">${typeof PitchEmbed !== "undefined" && PitchEmbed.cardInner ? PitchEmbed.cardInner("student") : "연습 천재"}</a>`;
 function timeline() {
   try { Brand.bar(); } catch {}
-  history.replaceState(null, "", location.pathname);
+  if (history.state?.snSub) { snBackSkip = true; try { history.back(); } catch { snBackSkip = false; } }   // 화면 버튼으로 돌아옴 → 쌓인 칸 정리
+  else { history.replaceState(history.state, "", location.pathname); setTimeout(snHome, 0); }
   const ls = data.lessons, seen = seenLocal();
   const bests = ls.filter(l => l.best?.file_id);
   $("view").innerHTML = `${statusHtml(data.status)}${typeof goalHtml === "function" ? goalHtml(data.goal) : ""}${typeof monthHtml === "function" ? monthHtml(data.months) : ""}${growthHtml(data.growth)}${pitchLinkHtml()}<div class="card"><h2>${esc(data.name)}님의 레슨 노트</h2>
@@ -922,8 +936,9 @@ function lessonHtml(l, prev, mode = "normal") {
 }
 
 function openLesson(id) {
+  snSub();
   const ls = data.lessons, i = ls.findIndex(l => l.id === id), l = ls[i], prev = ls.slice(i + 1).find(x => x.best?.file_id);
-  history.replaceState(null, "", `${location.pathname}?l=${encodeURIComponent(id)}`);
+  history.replaceState(history.state, "", `${location.pathname}?l=${encodeURIComponent(id)}`);
   try { UT.cur = id; track("note", { lesson: id }); } catch {}
   // 읽음: 서버에 기록된 뒤에만 이 기기에도 표시(실패하면 다음에 열 때 다시 보냄 — 감사 #53)
   if (!l.seen_at && !seenLocal()[id]) call("seen", { lesson: id }).then(() => { const s = seenLocal(); s[id] = Date.now(); LS.set("sn_seen", s); }).catch(() => {});
