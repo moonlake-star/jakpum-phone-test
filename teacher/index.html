@@ -1197,7 +1197,7 @@ function paintList(data, stale) {
       `<div class="muted">${sub}</div></div><div class="stuBody"><div class="sum">${chips || `<span class="muted">아직 기록 없음</span>`}</div></div></div>`;
   });
   // 가입 신청·계정 연결 카드는 맨 아래(2026-10-27 사용자: 맨 위에 늦게 생겨 아래가 밀리며 엉뚱한 게 눌림)
-  $("vList").innerHTML = `<div class="row" style="gap:6px;margin:0 0 8px;flex-wrap:nowrap"><button class="ghost topBtn" id="calBtn">${IC_CAL} 레슨 캘린더</button>${isStaffApp() ? "" : `<button class="ghost topBtn" id="songBtn">🎵 곡 서랍</button>`}${isStaffApp() ? "" : `<button class="ghost topBtn" id="nsBtn">＋ 신규 수강생</button>`}</div>` + pitchLinkHtml() + `<div id="pitchAll"></div><div id="pitchRec"></div>` + segHtml + todoHtml + `<div id="careBox"></div>` + blocks.join("") + `<div id="joinReq">${lastJoinHtml}</div>` +
+  $("vList").innerHTML = `<div class="row" style="gap:6px;margin:0 0 8px;flex-wrap:nowrap"><button class="ghost topBtn" id="calBtn">${IC_CAL} 레슨 캘린더</button>${isStaffApp() ? "" : `<button class="ghost topBtn" id="songBtn">🎵 곡 서랍</button>`}</div>` + pitchLinkHtml() + `<div id="pitchAll"></div><div id="pitchRec"></div>` + segHtml + todoHtml + `<div id="careBox"></div>` + blocks.join("") + (isStaffApp() ? "" : `<button class="ghost" id="nsBtn" style="width:100%;margin:4px 0 8px">＋ 신규 수강생 등록</button>`) + `<div id="joinReq">${lastJoinHtml}</div>` +
     `<p class="muted">${stale ? "최신 내용 확인 중…" : "최신 상태"} · <a href="#" id="reload">새로고침</a> · 앱 버전 ${typeof BUILD === "string" ? BUILD : ""}</p>`;
   $("reload").onclick = (e) => { e.preventDefault(); renderList(); };
   $("calBtn").onclick = () => openCal(); if ($("songBtn")) $("songBtn").onclick = () => openSongs();
