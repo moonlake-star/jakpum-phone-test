@@ -9,4 +9,5 @@ const r = {}; const histGet = () => JSON.stringify({ fx: r.target_fixes || [], t
 assert.ok(H.includes("const histGet = () => JSON.stringify({ fx: r.target_fixes || [], te: r.time_edits || [], ne: r.note_edits || null });"));
 assert.strictEqual(histGet(), JSON.stringify({ fx: [], te: [], ne: null })); assert.ok(H.includes("histEmpty: JSON.stringify({ fx: [], te: [], ne: null })"));
 assert.ok(A.includes('if (x.dataset.g === "reset") { if (!(typeof st.resetAll === "function" && st.resetAll()))'));
+assert.ok(T.includes('if (typeof o.remake === "function") { try { close(); } catch {} setTimeout(() => { try { o.remake(); }'), "처음으로 뒤 완성본 다시 만들기 자동 시작");
 console.log("reset-all ok");

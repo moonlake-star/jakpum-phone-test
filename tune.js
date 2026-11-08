@@ -1271,13 +1271,15 @@
       // (11/09 01:47 사용자 고) ↺ 곡 전체 처음으로: 음높이·쪼개기·타이밍·디테일·펜·일괄 보정 값을 모두 지움 = 서버가 처음 인식한 상태. 작업 기록에 한 칸 → ↶ 한 번이면 복구
       st.resetAll = () => { if (typeof o.histEmpty !== "string") return false; const old = wrap.querySelector(".tfCfm.all"); if (old) old.remove();
         const cf = document.createElement("div"); cf.className = "tfCfm all"; cf.setAttribute("role", "dialog");
-        cf.innerHTML = `<div class="tfCfmBox"><b>곡 전체를 처음으로 되돌릴까요?</b><p>음높이·쪼개기·타이밍·디테일·펜·일괄 보정까지 모두 지우고, 서버가 처음 인식한 상태로 돌아가요. ↶ 한 번이면 다시 살릴 수 있어요.</p><div class="tfCfmRow"><button type="button" data-cf="0">취소</button><button type="button" class="pri" data-cf="1">처음으로</button></div></div>`;
+        cf.innerHTML = `<div class="tfCfmBox"><b>곡 전체를 처음으로 되돌릴까요?</b><p>음높이·쪼개기·타이밍·디테일·펜·일괄 보정까지 모두 지우고, 서버가 처음 인식한 상태로 돌아가요.${typeof o.remake === "function" ? " 그래프·소리는 완성본을 새로 만들어야 바뀌어서, 바로 <b>완성본 다시 만들기</b>를 시작해요(몇 분)." : ""} 고침은 ↶로 다시 살릴 수 있어요.</p><div class="tfCfmRow"><button type="button" data-cf="0">취소</button><button type="button" class="pri" data-cf="1">처음으로</button></div></div>`;
         cf.addEventListener("pointerdown", (e) => e.stopPropagation());
         const ly = G.Brand && G.Brand.layer ? G.Brand.layer(() => cf.remove()) : { close: () => cf.remove() };
         cf.addEventListener("click", (e) => { if (e.target === cf) ly.close(); });
         cf.querySelectorAll("[data-cf]").forEach(x => x.onclick = async (e) => { e.stopPropagation(); ly.close(); if (x.dataset.cf !== "1") return;
           let now_ = hist.S[hist.ptr]; try { if (typeof o.histGet === "function") now_ = o.histGet(); } catch {} if (now_ === o.histEmpty) { tip("이미 처음 상태예요"); return; }
-          hist.S.length = hist.ptr + 1; hist.L.length = hist.ptr + 1; hist.S.push(o.histEmpty); hist.L.push("↺ 곡 전체 처음으로"); hist.keep(); await step(hist.S.length - 1); tip("↺ 곡 전체 처음으로 · ↶로 되돌릴 수 있어요"); });
+          hist.S.length = hist.ptr + 1; hist.L.length = hist.ptr + 1; hist.S.push(o.histEmpty); hist.L.push("↺ 곡 전체 처음으로"); hist.keep(); await step(hist.S.length - 1); tip("↺ 곡 전체 처음으로 · ↶로 되돌릴 수 있어요");
+          // (11/09 08:15 사용자 '처음으로 했는데 그래프가 그대로') 음정선·보정본 소리는 마지막 완성본에 고침이 들어간 채 만들어져 있음 → 바로 다시 만들기(서버가 원래 녹음에서 새로)
+          if (typeof o.remake === "function") { try { close(); } catch {} setTimeout(() => { try { o.remake(); } catch (e2) { console.warn("다시 만들기", e2); } }, 250); } });
         (wrap.querySelector(".tfBox") || wrap).appendChild(cf); return true; };
       [ub, rb].forEach(b => { let tm_ = null, fired = false; const stop = () => { clearTimeout(tm_); tm_ = null; };
         b.addEventListener("pointerdown", (e) => { e.preventDefault(); fired = false; try { b.setPointerCapture(e.pointerId); } catch {} tm_ = setTimeout(() => { fired = true; tm_ = null; try { navigator.vibrate && navigator.vibrate(15); } catch {} openHist(); }, 500); });
