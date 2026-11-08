@@ -54,7 +54,7 @@ console.log("adv-mode ok", md.toFixed(4));
   as.ok(A4.includes('const tabs = [["f", "흐름"], ["v", "비브라토"]];') && !A4.includes('if (k === "m") rows.push(') && A4.includes('put("formant", v)'), "탭 2개 · 음별 포먼트 탭 뺌 · 곡 전체 포먼트는 일괄 보정에");
   as.ok(A4.includes("fade_out: 0, formant: 0 }"), "음별 포먼트 기본값(0은 저장 안 함)");
   as.ok((A4.match(/p\.className = "advD"/g) || []).length === 2, "설명 줄 표시: 음 창·일괄 시트 두 곳");
-  as.ok(A4.includes("디테일 보정 전부 원래대로"), "초기화 버튼 이름"); }
+  as.ok(A4.includes("↺ 곡 전체 처음으로") && !A4.includes("디테일 보정 전부 원래대로"), "초기화 버튼 이름(11/09: 곡 전체 처음으로 하나로)"); }
 
 /* (11/05 사용자) 합치기: 나눈 조각 옆에 붙은 조각이 있을 때만 ⇔ 버튼 · 둘 다 안 고친 조각이면 고침 기록을 지워 서버가 고른 한 음으로, 아니면 지금 음으로 한 덩어리 */
 { const T5 = require("fs").readFileSync(__dirname + "/../tune.js", "utf8"), as = require("assert");

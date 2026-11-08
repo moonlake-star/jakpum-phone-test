@@ -329,7 +329,7 @@
     document.getElementById("advG")?.remove();
     const d = document.createElement("div"); d.id = "advG"; d.className = "advG";
     d.innerHTML = `<div class="advGBox" role="dialog" aria-label="일괄 보정"><div class="advGHd"><b>🎛 일괄 보정</b><span class="advGN"></span><button type="button" class="advX" aria-label="닫기">✕</button></div><div class="advBody"></div>
-      <div class="advGBtns"><button type="button" data-g="undo">↶ 한 단계 되돌리기</button><button type="button" data-g="midi">🎹 MIDI 내보내기</button><button type="button" data-g="reset">디테일 보정 전부 원래대로</button><button type="button" data-g="guide">👆 손짓 안내 다시 보기</button><button type="button" data-g="vib">📳 진동 시험</button></div><p class="advVibR" aria-live="polite"></p>
+      <div class="advGBtns"><button type="button" data-g="undo">↶ 한 단계 되돌리기</button><button type="button" data-g="midi">🎹 MIDI 내보내기</button><button type="button" data-g="reset">↺ 곡 전체 처음으로</button><button type="button" data-g="guide">👆 손짓 안내 다시 보기</button><button type="button" data-g="vib">📳 진동 시험</button></div><p class="advVibR" aria-live="polite"></p>
       <p class="advTip">일괄 보정은 폰에서 못 들려줘요 · 완성본 다시 만들기 뒤에 들려요.</p><p class="advTip">보컬·MR 두 파일로 올린 곡은 완성본을 다시 만들면 보정된 보컬만 담긴 WAV(24bit)도 드라이브 작업 폴더에 생겨요(vocal_tuned.wav).</p></div>`;
     const body = d.querySelector(".advBody"), G_ = (k, dft) => (g()[k] != null ? g()[k] : dft);
     const put = (k, v) => change(A, st, cv, () => { g()[k] = v; });
@@ -352,7 +352,7 @@
     d.addEventListener("pointerdown", (e) => e.stopPropagation());
     d.querySelectorAll("[data-g]").forEach(x => x.onclick = (e) => { e.stopPropagation();
       if (x.dataset.g === "undo") { if (!undo(A, st, cv)) x.textContent = "↶ 되돌릴 게 없어요"; else x.textContent = "↶ 한 단계 되돌리기"; cnt(); }
-      if (x.dataset.g === "reset") change(A, st, cv, () => { A.ne = { notes: [], global: {} }; }), cnt();
+      if (x.dataset.g === "reset") { if (!(typeof st.resetAll === "function" && st.resetAll())) { change(A, st, cv, () => { A.ne = { notes: [], global: {} }; }); cnt(); } }   // (11/09 01:47) 곡 전체 처음으로(확인 창) — 기록 기능이 없는 화면만 예전처럼 디테일만
       if (x.dataset.g === "midi") midiDownload(cv, st.title || "보컬");
       if (x.dataset.g === "vib") {   // (11/06 22:09 사용자 '진동이 안 느껴져') 이 기기·브라우저에서 진동이 되는지 바로 확인
         const out = d.querySelector(".advVibR"), ua = navigator.userAgent || "", has = typeof navigator.vibrate === "function"; let ok = false; try { ok = has && navigator.vibrate([300, 150, 300]); } catch {}
