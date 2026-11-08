@@ -38,6 +38,7 @@ async function run(eventName, payload, old = []) {
   const merged = {pull_request:{merged:true,base:{ref:'main'},number:565,merge_commit_sha:'abcdef0123456789',html_url:'https://github.com/PR/565'}};
   let c = await run('pull_request', merged);
   assert.equal(c.length, 1);
+  assert.equal(c[0].issue_number, 569, 'post to existing issue, not PR');
   assert(c[0].body.includes('@moonlake-star'));
   assert(c[0].body.includes('병합 완료'));
   assert.equal((await run('pull_request',merged,[c[0].body])).length,0, 'duplicate suppressed');
