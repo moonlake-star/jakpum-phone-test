@@ -452,7 +452,7 @@
       if (st) st.cutHit = null;
       if (full && st && st.sel && st.cutAtNow && st.map && !st.dragging && (!st.isPaused || st.isPaused()) && t > st.sel.t0 + 0.04 && t < st.sel.t1 - 0.04) {   // (11/06 22:20 사용자) 고른 음 위에 세로줄이 오면 줄 위에 ✂ — 톡 = 그 자리에서 나누기
         const sb = (st.tbars || []).find(x => Math.abs(x.t0 - st.sel.t0) < 0.02), mp = st.map, X = mp.L + (t - mp.t0) / Math.max(1e-6, mp.W8) * (mp.w - mp.L);
-        if (sb && X > mp.L + 10 && X < mp.w - 10) { const R = 17, Y = Math.min(T + HP - R - 4, sb.y + Math.max(30, (sb.h || 10) / 2 + 26));
+        if (sb && X > mp.L + 10 && X < mp.w - 10) { const R = 17, Y = Math.min(T + HP - R - 4, sb.y + Math.max(74, (sb.h || 10) / 2 + 68));   /* (11/09 00:11 사용자) 가위를 더 아래로 — '두 번 톡' 안내 밑 */
           g.beginPath(); g.arc(X, Y, R, 0, Math.PI * 2); g.fillStyle = "rgba(255,110,199,.92)"; g.fill(); g.lineWidth = 2; g.strokeStyle = "#1a0714"; g.stroke();
           g.fillStyle = "#1a0714"; g.font = "bold 18px system-ui,sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText("✂", X, Y + 1); g.textAlign = "left"; g.textBaseline = "alphabetic";
           st.cutHit = { x: X, y: Y, r: R + 8 }; } }
