@@ -836,12 +836,12 @@ function stemEngine(d) {
     const est = Math.max(a.byteLength, b.byteLength) / (d.bytesPerSec || 20000);   // 160kbps MP3 ≈ 20000바이트/초
     if (AC && est <= (d.maxDecodeSec || 480)) {   // 4분 스테레오 ≈ 한 트랙 약 90MB → 8분 넘을 듯하면 디코드하지 않고 폴백
       const ra = a.slice(0), rb = b.slice(0);   // decodeAudioData가 원본을 비우므로 폴백용 사본
-      try { ctx = new AC(); const m = await decode(a), v = await decode(b); if (dead) throw stale();
+      try { ctx ||= new AC(); const m = await decode(a), v = await decode(b); if (dead) throw stale();
         gain = ctx.createGain(); gain.gain.value = vol / 100; gain.connect(ctx.destination); buf = { mr: m, voc: v }; mode = "web"; return E; }
       catch (e) { closeCtx(); buf = null; if (e && e.message === "stale") throw e; if (dead) throw stale(); d.fallback = String(e && e.message || e); }
       return html(ra, rb);
     }
-    return html(a, b);
+    closeCtx(); return html(a, b);
   })().catch((e) => { loading = null; throw e; });
   const html = async (a, b) => {
     const U = d.URL || G.URL; urls = [a, b].map(x => U.createObjectURL(new G.Blob([x], { type: "audio/mpeg" })));
@@ -865,10 +865,14 @@ function stemEngine(d) {
   };
   const E = {
     load, pos, dur, mode: () => mode, isPlaying: () => playing, isDead: () => dead, vol: () => vol, fallbackReason: () => d.fallback || "",
+    unlock() {   // 사용자 터치 안에서 동기로 부르기: 소리 장치를 미리 만들고 깨움(모바일 자동재생 정책). 못 해도 조용히 넘어감
+      if (dead || ctx || mode || !AC) { try { if (ctx && ctx.state !== "running") ctx.resume(); } catch {} return; }
+      try { ctx = new AC(); const p = ctx.resume(); if (p && p.catch) p.catch(() => {}); } catch { ctx = null; }
+    },
     async play() {
       await load(); if (dead) throw stale(); if (playing || starting) return; starting = true;
       try {
-        if (mode === "web" && ctx.state !== "running") await ctx.resume(); if (dead) throw stale();
+        if (mode === "web" && ctx.state !== "running") { await Promise.race([ctx.resume(), new Promise(res => setTimeout(res, d.resumeMs || 3000))]); if (dead) throw stale(); if (ctx.state !== "running") throw new Error("blocked"); }
         if (off >= dur() - 0.05) off = 0;
         await begin(); if (dead) throw stale(); playing = true; stopTimer(); timer = tm.set(tick, 250);
       } finally { starting = false; }
