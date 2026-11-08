@@ -156,14 +156,14 @@
 </head>
 <body>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@700&display=swap">
-<script src="../brand.js?v=20261107-tipshort"></script>
+<script src="../brand.js?v=20261109-0142"></script>
 <script>try { Brand.splash("student"); } catch {}</script>
 <main>
   <h1><button type="button" class="fzBtn" id="fzBtn" aria-label="글씨 크기 바꾸기"><small>가</small><b>가</b></button><span class="brMark" aria-hidden="true"></span>내 보컬 노트 <span class="muted" style="font-size:.85rem">뮤직스튜디오 작품</span></h1>
   <div id="view"><p class="muted">불러오는 중…</p></div>
 </main>
 <script src="../lesson-replies.js"></script>
-<script src="../tune.js?v=20261109-0136"></script>
+<script src="../tune.js?v=20261109-0142"></script>
 <script src="../pitch-embed.js?v=20261105-1850"></script>
 <script>
 // ── 설정(비밀값 아님): 수강생 로그인용 구글 클라이언트 ID, 노트 연결(Apps Script 웹 앱) 주소 ──
@@ -333,16 +333,15 @@ try { if (typeof Brand !== "undefined" && Brand.setTips) Brand.setTips(() => (ty
 try { if (typeof Brand !== "undefined" && Brand.tipBar) { const go = () => Brand.tipBar(true); if (document.body) go(); else addEventListener("DOMContentLoaded", go); } } catch {}   // (11/03 17:28 사용자) 화면 맨 아래 고정 팁 칸
 // (11/07 17:24 사용자) 갤럭시 뒤로 밀기: 노트·나의 레슨 화면 → '← 전체 노트'와 같게 · 첫 화면은 2초 안에 두 번 밀어야 닫힘(한 번에 앱이 꺼지지 않게)
 let snBackSkip = false, snHomeAt = 0;
-function snSub() { try { if (!history.state?.snSub) history.pushState({ snSub: 1 }, "", location.href); } catch {} }
-function snHome() { try { if (!history.state?.snHome && !history.state?.snSub) history.pushState({ snHome: 1 }, "", location.pathname); } catch {} }
+function snSub() {}   // (11/09 01:38) 기록 칸은 brand.js(Brand.backArm)가 화면을 만질 때만 쌓음
+function snHome() {}
 function snToast(m) { let t = document.getElementById("snToast"); if (!t) { t = document.createElement("div"); t.id = "snToast"; t.style.cssText = "position:fixed;left:50%;bottom:90px;transform:translateX(-50%);z-index:200;background:rgba(30,34,42,.95);color:#fff;padding:10px 16px;border-radius:20px;font-size:14px;pointer-events:none"; document.body.appendChild(t); } t.textContent = m; t.style.display = "block"; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = "none", 2000); }
 addEventListener("popstate", (e) => {
-  if (e && (e.tuneClosed || e.layerClosed)) return;   // 전체화면·작은 창만 닫힘(tune.js·Brand.layer)
-  if (snBackSkip) { snBackSkip = false; setTimeout(snHome, 0); return; }
+  if (e && (e.tuneClosed || e.layerClosed || e.jkSkip)) return;   // 전체화면·작은 창만 닫힘(tune.js·Brand.layer) · 칸 비우기
+  if (snBackSkip) { snBackSkip = false; return; }
   const b = document.getElementById("back"); if (b && typeof b.onclick === "function") { b.onclick(); return; }
   if (typeof data === "undefined" || !data) return;   // 로그인 전 화면
-  if (Date.now() - snHomeAt < 2000) { try { history.back(); } catch {} return; }
-  snHomeAt = Date.now(); snToast("한 번 더 뒤로 밀면 닫혀요"); try { history.pushState({ snHome: 1 }, "", location.pathname); } catch {}
+  snHomeAt = Date.now(); snToast("한 번 더 뒤로 밀면 닫혀요"); try { Brand.backToBase(); } catch {}   // (11/09) 뒤로 가기 처리 중엔 새 칸을 만들지 않음
 });
 function myLessons(ym) { snSub();   // '나의 레슨': 이번 달 달력 + 그 달 레슨 목록(누르면 노트) + 배지
   const s = data.status || {}, days = Array.isArray(s.days) ? s.days : [];
@@ -435,8 +434,7 @@ function monthHtml(ms) {
 const pitchLinkHtml = () => `<a class="card pitchGo" href="../pitch/?from=student" data-pitch-open="student" aria-label="연습 천재 열기">${typeof PitchEmbed !== "undefined" && PitchEmbed.cardInner ? PitchEmbed.cardInner("student") : "연습 천재"}</a>`;
 function timeline() {
   try { Brand.bar(); } catch {}
-  if (history.state?.snSub) { snBackSkip = true; try { history.back(); } catch { snBackSkip = false; } }   // 화면 버튼으로 돌아옴 → 쌓인 칸 정리
-  else { history.replaceState(history.state, "", location.pathname); setTimeout(snHome, 0); }
+  history.replaceState(history.state, "", location.pathname);   // (11/09) 화면 버튼으로 돌아와도 기록 칸은 그대로(남은 칸 = 뒤로 가기 여유)
   const ls = data.lessons, seen = seenLocal();
   const bests = ls.filter(l => l.best?.file_id);
   $("view").innerHTML = `${statusHtml(data.status)}${typeof goalHtml === "function" ? goalHtml(data.goal) : ""}${typeof monthHtml === "function" ? monthHtml(data.months) : ""}${growthHtml(data.growth)}${pitchLinkHtml()}<div class="card"><h2>${esc(data.name)}님의 레슨 노트</h2>

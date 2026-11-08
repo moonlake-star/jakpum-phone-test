@@ -1551,7 +1551,7 @@
   let fsClose = null, skipPop = false, sheetClose = null;
   const dropL = () => { try { return G.Brand && G.Brand.dropLayers ? G.Brand.dropLayers() : 0; } catch { return 0; } };
   if (typeof G.addEventListener === "function") G.addEventListener("popstate", (e) => {
-    if (e && e.layerClosed) return;   // 맨 위 작은 창(Brand.layer)만 닫힘 — 고치기 창·전체화면은 그대로
+    if (e && (e.layerClosed || e.jkSkip)) return;   // 맨 위 작은 창(Brand.layer)만 닫힘 · 칸 비우기(11/09) — 고치기 창·전체화면은 그대로
     if (skipPop) { skipPop = false; try { e.tuneClosed = true; } catch {} return; }
     if (sheetClose) { sheetClose(true); try { e.tuneClosed = true; } catch {} return; }   // 주석 창이 열려 있으면 그것만 닫음
     if (fsClose) { fsClose(); try { e.tuneClosed = true; } catch {} }

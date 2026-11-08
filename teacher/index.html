@@ -395,7 +395,7 @@
 </head>
 <body>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@700&display=swap">
-<script src="../brand.js?v=20261107-tipshort"></script>
+<script src="../brand.js?v=20261109-0142"></script>
 <script>try { Brand.splash("teacher"); } catch {}</script>
 <main>
   <header><button id="btnBack" class="ghost small hidden">← 뒤로</button><h1><span class="brMark" aria-hidden="true"></span>작품 보컬노트</h1><button id="btnUi" class="ghost small hidden" style="display:none" type="button" title="화면 방식 바꾸기">V1 화면</button></header>
@@ -533,7 +533,7 @@
 <div id="v2Shade" class="v2only"></div>
 <div id="toast"></div>
 <script src="../lesson-replies.js"></script>
-<script src="../tune.js?v=20261109-0136"></script>
+<script src="../tune.js?v=20261109-0142"></script>
 <script src="../adv.js?v=20261109-0124"></script>
 <script src="../pitch-embed.js?v=20261105-1850"></script>
 
@@ -556,24 +556,16 @@ function toast(msg) { const t = $("toast"); t.textContent = msg; t.style.display
 let backSkip = false;
 const VIEWS = ["vLogin","vList","vLesson","vShared","vSubs","vStu","vMkJob","vCal","vSongs"];   // (11/07 17:24) 화면 목록 한 곳에서 — 새 화면을 빠뜨려 뒤로 가기에 앱이 닫히던 것(곡 서랍) 방지
 let homeBackAt = 0;
-function syncBackHistory(view) {
-  try {
-    const sub = !["vLogin", "vList"].includes(view), has = history.state?.jakpumSub === true;
-    if (sub && !has) history.pushState({ jakpumSub: true }, "");
-    else if (!sub && has) { backSkip = true; history.back(); }      // 화면 버튼으로 목록에 돌아옴 → 남은 칸 정리
-    else if (view === "vList" && !history.state?.jakpumHome) history.pushState({ jakpumHome: true }, "");   // (11/07 17:24 사용자) 첫 화면에도 한 칸: 뒤로 한 번에 앱이 닫히지 않게
-  } catch {}
-}
+function syncBackHistory(view) {}   // (11/09 01:38) 기록 칸은 brand.js(Brand.backArm)가 화면을 만질 때만 쌓음 — 여기서 만들면 '건너뛸 칸'이 되어 앱이 닫혔음
 window.addEventListener("popstate", (e) => {
-  if (e && (e.tuneClosed || e.layerClosed)) return;   // 음정선 전체화면·맨 위 작은 창만 닫힘(tune.js·Brand.layer)
+  if (e && (e.tuneClosed || e.layerClosed || e.jkSkip)) return;   // 음정선 전체화면·맨 위 작은 창만 닫힘(tune.js·Brand.layer) · 칸 비우기
   if (backSkip) { backSkip = false; return; }
   if (typeof v2SheetClose === "function" && v2SheetClose(true)) return;   // 전달하기 시트가 열려 있으면 뒤로 가기 = 시트만 닫기
-  const sh = typeof document !== "undefined" && document.querySelector?.(".attSheet"); if (sh) { sh.remove(); try { history.pushState({ jakpumSub: true }, ""); } catch {} return; }   // (11/02 07:50) 옮기기·확인 창이 열려 있으면 창만 닫기
+  const sh = typeof document !== "undefined" && document.querySelector?.(".attSheet"); if (sh) { sh.remove(); return; }   // (11/02 07:50) 옮기기·확인 창이 열려 있으면 창만 닫기
   const onSub = VIEWS.filter(v => v !== "vLogin" && v !== "vList").some(v => !$(v)?.classList.contains("hidden"));   // (11/02 07:50 사용자) 레슨 캘린더도 뒤로 = 직전 화면 · (11/07) 모든 화면
   if (onSub) { try { goBack(); } catch { renderList(); } return; }
-  if (!$("vList")?.classList.contains("hidden")) {   // (11/07 17:24 사용자) 첫 화면: 2초 안에 한 번 더 밀어야 닫힘
-    if (Date.now() - homeBackAt < 2000) { try { history.back(); } catch {} return; }
-    homeBackAt = Date.now(); toast("한 번 더 뒤로 밀면 앱이 닫혀요"); try { history.pushState({ jakpumHome: true }, ""); } catch {}
+  if (!$("vList")?.classList.contains("hidden")) {   // 첫 화면: 안내 + 쌓인 칸 비움 → 한 번 더 밀면 닫힘 (뒤로 가기 처리 중엔 새 칸을 만들지 않음 — 11/09)
+    homeBackAt = Date.now(); toast("한 번 더 뒤로 밀면 앱이 닫혀요"); try { Brand.backToBase(); } catch {}
   }
 });
 function show(view) { syncBackHistory(view); try { Brand.bar(); } catch {} for (const v of VIEWS) $(v).classList.toggle("hidden", v !== view); try { $("v2Dock")?.classList.add("hidden"); document.body.classList.remove("v2send"); document.getElementById("v2Ai")?.remove(); } catch {} $("btnBack").classList.toggle("hidden", ["vLogin","vList"].includes(view)); if (view !== "vMkJob") { mkStop?.(); stopProg?.(); } if (view !== "vSongs" && view !== "vMkJob") { try { songDestroy(); } catch {} } window.scrollTo(0,0); }
@@ -7509,7 +7501,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-09-0136-tapplay";
+const BUILD = "2026-11-09-0142-back";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
@@ -7884,7 +7876,7 @@ function v2AiOpen(me) {
 }
 function v2SheetOpen() {
   document.body.classList.add("v2send"); v2PubPaint(cur);
-  try { history.pushState({ jakpumSub: true, v2sheet: true }, ""); } catch {}
+  try { history.pushState(Object.assign({}, history.state || {}, { v2sheet: true }), ""); } catch {}
   $("sendCard").scrollTop = 0;
 }
 function v2SheetClose(fromPop) {
