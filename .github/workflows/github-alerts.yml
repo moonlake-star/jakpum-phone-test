@@ -36,6 +36,8 @@ jobs:
             const event = context.eventName;
             const payload = context.payload;
             const mention = '@moonlake-star';
+            // Post to a regular issue: PR comments received 403 even with issues:write.
+            const alertIssueNumber = 566;
             let number;
             let key;
             let body;
@@ -73,10 +75,10 @@ jobs:
               body = `${mention} ${ok ? '✅ GitHub Pages 배포 성공' : '❌ GitHub Pages 배포 실패'} (PR #${number}, ${sha.slice(0, 8)}). ${ok ? '앱을 새로고침해 변경 내용을 확인하세요.' : '배포 실패 원인을 확인해야 합니다.'} ${payload.deployment_status?.target_url || context.serverUrl + '/' + owner + '/' + repo + '/deployments'}`;
             } else { return; }
             const marker = `<!-- vocalnote-github-alert:${key} -->`;
-            const existing = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: number, per_page: 100 });
+            const existing = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: alertIssueNumber, per_page: 100 });
             if (existing.some(comment => comment.body?.includes(marker))) {
               core.info(`Notification already sent: ${key}`);
               return;
             }
-            const result = await github.rest.issues.createComment({ owner, repo, issue_number: number, body: `${body}\n\n${marker}` });
+            const result = await github.rest.issues.createComment({ owner, repo, issue_number: alertIssueNumber, body: `${body}\n\n${marker}` });
             core.info(`GitHub comment created: ${result.data.html_url}; phone push delivery remains unverified.`);
