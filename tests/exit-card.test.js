@@ -35,7 +35,7 @@ assert.ok(H.includes('histKey: "mk:" + (j.reqId || j.folder.id), saveState: () =
 assert.ok(H.includes("const mkWrite = () => { mkBusy++;") && !/onTime = async[^\n]*\n[^\n]*\n[^\n]*\n[^\n]*\n[^\n]*writeJSON\(j\.folder\.id, MKREQ/.test(H));
 console.log("exit card wiring ok");
 // (11/06 17:37 사용자) 빈 곳 톡으로 재생이 시작되면 고른 음표 선택 해제
-assert.ok(T.includes("const wasP = isPaused(); toggle(); lastTap = now;") && T.includes("st.sel = null; st.msel = null; } } }"));
+assert.ok(T.includes("else if (st.sel || st.msel) {") && T.includes("st.sel = null; st.msel = null; lastTap = 0; }") && T.includes("else { toggle(); lastTap = now; } }"), "(11/09) 고른 채 빈 곳 톡 = 선택 해제만");
 console.log("deselect on play ok");
 // (11/06 17:59 사용자) 화살표 꾹 = 진동 · 늘렸다 처음 자리로 돌아오면 진동(살짝 붙음)
 assert.ok(T.includes('st.onBarDragX(0, ed, true); if (e.pointerType !== "mouse") { buzz(50);') && T.includes("if (home && !st._tbHome && st._tbAway) { buzz(40);") && T.includes("st._tbHome = true; st._tbAway = false; return; }"));
@@ -100,3 +100,5 @@ console.log("basic unify ok");
 assert.ok(T.includes("const n_ = nd = { id: e.pointerId, y: e.clientY, fine: true, ax: false };") && T.includes("n_.fine = false; buzz(40);"), "(11/07) 음 이름 칸: 바로 밀면 미세, 꾹 뒤 반음");
 // (11/07 09:47 사용자 시안 고) 고급 모드 한마디: 번호 + 지나갈 때·번호 톡 말풍선 + 체크 버튼(기기에 기억)
 assert.ok(T.includes("function drawFlags(g, st, t, xs, L, w, T, HP, vis, yf, auto)") && T.includes('mk("advNoteB", "💬 한마디")') && T.includes('localStorage.setItem("tune_adv_notes"') && T.includes("const want = st.advOn ? [] : H_.filter(h => h.act)") && T.includes("Math.hypot(le.x - q.x, le.y - q.y) <= 16") && T.includes("const POP_MIN = 3") && T.includes("const down = ai === 1".replace("const down","down")) , "(11/07 10:43) 주석 말풍선: 고급=번호 톡만, 기본·수강생=재생 구간 저절로, 겹치면 아래");
+
+assert.ok(T.includes("PV_SHOW = 6000") && T.includes('el.classList.toggle("gone", !on && performance.now() - L.at > PV_SHOW)'), "(11/09) 고친 곳 듣기 버튼 6초 뒤 사라짐");
