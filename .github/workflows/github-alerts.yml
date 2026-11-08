@@ -1,0 +1,82 @@
+name: GitHub Mobile - merge and Pages alerts
+
+on:
+  pull_request:
+    types: [closed]
+  deployment_status:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'Existing PR to receive a clearly labeled test comment'
+        type: number
+        required: true
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: github-mobile-alert-${{ github.event_name }}-${{ github.event.pull_request.number || github.event.deployment.sha || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  notify:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' && github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main') ||
+      (github.event_name == 'deployment_status' && github.event.deployment.environment == 'github-pages' && contains(fromJSON('["success","failure","error"]'), github.event.deployment_status.state))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post one labeled PR comment to generate GitHub notification
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const event = context.eventName;
+            const payload = context.payload;
+            const mention = '@moonlake-star';
+            let number;
+            let key;
+            let body;
+            if (event === 'workflow_dispatch') {
+              number = Number(core.getInput('pr_number') || payload.inputs?.pr_number);
+              if (!Number.isSafeInteger(number) || number < 1) {
+                number = Number(payload.inputs?.pr_number);
+              }
+              if (!Number.isSafeInteger(number) || number < 1) throw new Error('Valid PR number required');
+              const pr = await github.rest.pulls.get({ owner, repo, pull_number: number });
+              if (!pr.data || !pr.data.number) throw new Error('Target PR not found');
+              key = `test-${context.runId}`;
+              body = `[시험 알림 — 실제 병합·배포 아님] ${mention} GitHub Mobile 멘션 시험. 테스트 실행: ${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+            } else if (event === 'pull_request') {
+              const pr = payload.pull_request;
+              if (!pr?.merged || pr.base.ref !== 'main') return;
+              number = pr.number;
+              key = `merged-${pr.merge_commit_sha}`;
+              body = `${mention} ✅ PR #${number} 병합 완료 (${pr.merge_commit_sha?.slice(0, 8) || 'unknown'}). 배포 성공은 별도 확인이 필요합니다. ${pr.html_url}`;
+            } else if (event === 'deployment_status') {
+              const deployment = payload.deployment;
+              const state = payload.deployment_status?.state;
+              if (deployment?.environment !== 'github-pages' || !['success','failure','error'].includes(state)) return;
+              const sha = deployment.sha;
+              if (!sha) throw new Error('Deployment SHA missing');
+              const prs = await github.paginate(github.rest.repos.listPullRequestsAssociatedWithCommit, { owner, repo, commit_sha: sha, per_page: 100 });
+              const matched = prs.filter(p => p.merged_at && p.base?.ref === 'main').sort((a, b) => b.number - a.number)[0];
+              if (!matched) {
+                core.warning(`No merged PR linked to deployed SHA ${sha}; no recipient PR for a comment.`);
+                return;
+              }
+              number = matched.number;
+              key = `pages-${state}-${sha}`;
+              const ok = state === 'success';
+              body = `${mention} ${ok ? '✅ GitHub Pages 배포 성공' : '❌ GitHub Pages 배포 실패'} (PR #${number}, ${sha.slice(0, 8)}). ${ok ? '앱을 새로고침해 변경 내용을 확인하세요.' : '배포 실패 원인을 확인해야 합니다.'} ${payload.deployment_status?.target_url || context.serverUrl + '/' + owner + '/' + repo + '/deployments'}`;
+            } else { return; }
+            const marker = `<!-- vocalnote-github-alert:${key} -->`;
+            const existing = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: number, per_page: 100 });
+            if (existing.some(comment => comment.body?.includes(marker))) {
+              core.info(`Notification already sent: ${key}`);
+              return;
+            }
+            const result = await github.rest.issues.createComment({ owner, repo, issue_number: number, body: `${body}\n\n${marker}` });
+            core.info(`GitHub comment created: ${result.data.html_url}; phone push delivery remains unverified.`);
