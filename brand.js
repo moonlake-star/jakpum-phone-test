@@ -78,7 +78,16 @@
       try { if (history.state && history.state.brLayer === L.id) { lSkip++; history.back(); } } catch {} } }; }
   function dropLayers() { const n = layers.length; while (layers.length) { const L = layers.pop(); try { L.closeFn(false); } catch {} } return n; }   // 아래 창(전체화면 등)이 버튼으로 닫힐 때: 위 작은 창들을 기록 없이 닫고 개수 알려줌 → 그만큼 더 뒤로
   const lMark = (e) => { try { e.layerClosed = true; e.tuneClosed = true; } catch {} };   // 다른 뒤로 가기 처리(전체화면·화면 이동)는 건너뛰게
-  if (typeof G.addEventListener === "function") G.addEventListener("popstate", (e) => { if (lSkip > 0) { lSkip--; lMark(e); return; } if (layers.length) { const L = layers.pop(); try { L.closeFn(true); } catch {} lMark(e); } });
+  // (11/09 01:38 사용자 '뒤로 가기에 앱이 꺼지는 경우가 있음') 크롬 규칙: 화면을 만지지 않은 채(뒤로 가기 직후 등) 만든 기록 칸은 '건너뛸 칸'이 되어,
+  //   다음 뒤로 가기가 이 앱의 칸을 통째로 건너뛰고 앱을 닫음. 예전엔 뒤로 가기를 처리하면서 칸을 다시 만들었음(= 건너뛸 칸) → 두 번째 뒤로에 종료.
+  //   → 칸은 '화면을 만질 때'(pointerdown·keydown)만 미리 BACK_BUF칸 쌓아 둠. 뒤로 가기 처리 중엔 절대 새 칸을 만들지 않음.
+  const BACK_BUF = 5; let bSkip = 0;
+  const bN = () => +((history.state || {}).jkG) || 0, bLayered = () => { const s = history.state || {}; return !!(s.tuneFs || s.tuneSheet || s.brLayer || s.v2sheet); };
+  function backArm() { try { if (bLayered() || bN() >= BACK_BUF) return; for (let k = bN() + 1; k <= BACK_BUF; k++) history.pushState(Object.assign({}, history.state || {}, { jkG: k }), "", location.href); } catch {} }
+  function backToBase() { try { const k = bN(); if (k > 0) { bSkip++; history.go(-k); } } catch {} }   // 첫 화면에서 뒤로: 쌓아 둔 칸을 한 번에 비움 → 다음 뒤로 가기 = 앱 닫기(그 사이 화면을 만지면 다시 쌓임)
+  if (typeof G.addEventListener === "function") { G.addEventListener("pointerdown", backArm, true); G.addEventListener("keydown", backArm, true);
+    G.addEventListener("popstate", (e) => { if (bSkip > 0) { bSkip--; try { e.jkSkip = true; e.layerClosed = true; e.tuneClosed = true; } catch {} } }); }
+  if (typeof G.addEventListener === "function") G.addEventListener("popstate", (e) => { if (e && e.jkSkip) return; if (lSkip > 0) { lSkip--; lMark(e); return; } if (layers.length) { const L = layers.pop(); try { L.closeFn(true); } catch {} lMark(e); } });
   function tipSheet(list, first, host) {   // 팁 목록 창: 고른 팁이 맨 위(강조), 나머지가 아래로 · 바깥 톡·✕ = 닫기
     document.getElementById("brTipSheet")?.remove(); const L = (list || []).map(String); if (!L.length) return;
     const f = Math.min(Math.max(0, first | 0), L.length - 1), order = [L[f], ...L.filter((_, i) => i !== f)];
@@ -110,5 +119,5 @@
   const audioKeep = (fn) => { keepFn = typeof fn === "function" ? fn : null; };
   G.addEventListener("pagehide", audioRelease);
   document.addEventListener("visibilitychange", () => { if (document.hidden) audioRelease(); });
-  G.Brand = { audioRelease, audioKeep, splash, loading, setTips, tipBar, tipSheet, layer, dropLayers, bar, mark, sign, LOGO };
+  G.Brand = { backArm, backToBase, audioRelease, audioKeep, splash, loading, setTips, tipBar, tipSheet, layer, dropLayers, bar, mark, sign, LOGO };
 })(window);

@@ -8,8 +8,8 @@ assert.ok(tu.includes("G.Brand.layer(() => cf.remove())"), "원본 되돌리기 
 assert.ok(T.includes("Brand.layer(() => d.remove())"), "선생님 확인 창");
 assert.ok(S.includes("fzLy = typeof Brand !== \"undefined\" && Brand.layer"), "수강생 글씨 크기 창");
 // 작은 창이 닫힌 뒤로 가기는 전체화면·화면 이동이 건너뜀
-assert.ok(tu.includes("if (e && e.layerClosed) return;"));
-assert.ok(T.includes("if (e && (e.tuneClosed || e.layerClosed)) return;"));
+assert.ok(tu.includes("if (e && (e.layerClosed || e.jkSkip)) return;"));
+assert.ok(T.includes("if (e && (e.tuneClosed || e.layerClosed || e.jkSkip)) return;"));
 // 전체화면을 버튼으로 닫을 때 위 작은 창 기록까지 정리
 assert.ok(tu.includes("history.go(-1 - nl - (sh && history.state.tuneSheet ? 1 : 0))"));
 // 동작: 가짜 history 위에서 brand.js 실행
