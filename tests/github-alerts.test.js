@@ -39,6 +39,7 @@ async function run(eventName, payload, old = []) {
   let c = await run('pull_request', merged);
   assert.equal(c.length, 1);
   assert(c[0].body.includes('@moonlake-star'));
+  assert.equal(c[0].issue_number,566,'Posts to actual alert issue; PR comments were 403');
   assert(c[0].body.includes('병합 완료'));
   assert.equal((await run('pull_request',merged,[c[0].body])).length,0, 'duplicate suppressed');
   assert.equal((await run('pull_request',{pull_request:{...merged.pull_request,merged:false}})).length,0);
