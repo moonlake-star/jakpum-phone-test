@@ -1444,7 +1444,7 @@
         if (now - lastTap < 320) { toggle(); lastTap = 0;   // 첫 톡의 재생/멈춤은 되돌리고
           const r0 = cvEl.getBoundingClientRect(), le = loc(e.clientX, e.clientY, r0), L = (st.kb && st.kb.L) || 44, hx = L + HEAD * ((rot ? r0.height : r0.width) - L);
           const j = le.x < hx ? -DT_JUMP : DT_JUMP, nt = Math.max(0, Math.min(endT(), (+getT() || 0) + j)); st.panAt = 0; try { seek(nt, isPaused()); } catch {} showMid(j < 0 ? "back" : "fwd"); }
-        else if (st.sel || st.msel) { try { if (sheetClose && wrap.querySelector(".tfFix")) sheetClose(); } catch {} st.sel = null; st.msel = null; lastTap = 0; }   // (11/09 00:40 사용자) 음표를 고른 채 빈 곳 톡 = 선택 해제만(재생 안 함 · 고친 건 닫을 때 저장)
+        // (11/09 01:36 사용자) 음표를 고른 채 빈 곳 톡 = 다시 재생(선택 해제 안 함) — 00:40 '선택 해제만'은 되돌림
         else { toggle(); lastTap = now; } }   // (11/06 17:37 사용자) 빈 곳 톡으로 재생이 시작되면 고른 음표는 선택 해제(고친 건 닫을 때 저장됨)
     };
     // ── (11/06 사용자 '고급 보정 ③ 마우스 모드') 블루투스 마우스·트랙패드: 따로 켜지 않고 마우스를 쓰면 바로 ──
