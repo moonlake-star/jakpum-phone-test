@@ -721,7 +721,7 @@
         <div class="tfFixRow tfP"><button type="button" data-d="-1" aria-label="반음 내림">▼</button><button type="button" class="tfFixN" data-p aria-label="누르면 소리 · 위아래로 밀면 반음 · 꾹 누른 뒤 밀면 미세"></button><button type="button" data-d="1" aria-label="반음 올림">▲</button>${canCut ? `<button type="button" class="tfCut tfIc" data-cut aria-label="두 음으로 나누기(세로줄 자리, 막대 밖이면 가운데)">✂</button>` : ""}${mgNb ? `<button type="button" class="tfCut tfIc" data-merge aria-label="옆 조각과 하나로 합치기">⇔</button>` : ""}<button type="button" class="tfIc" data-r aria-label="톡 = 직전 저장으로, 1초 꾹 = 원본으로">↺</button></div></div><div class="tfBuT"></div></div>`; }
     else     if (uni) { d.classList.add("tfUni");
       d.innerHTML = `<div class="tfFixBox"><div class="tfUniTop"><span class="tfFixSt"></span>
-        <div class="tfFixRow tfP"><button type="button" data-d="-1" aria-label="반음 내림">▼</button><button type="button" class="tfFixN" data-p aria-label="누르는 동안 이 음 소리"></button><button type="button" data-d="1" aria-label="반음 올림">▲</button><button type="button" class="tfIc tfSnap" data-snap aria-label="가까운 음에 맞춤(두 번 톡과 같음)">🧲</button>${canCut ? `<button type="button" class="tfCut tfIc" data-cut aria-label="두 음으로 나누기(세로줄 자리, 막대 밖이면 가운데)">✂</button>` : ""}${mgNb ? `<button type="button" class="tfCut tfIc" data-merge aria-label="옆 조각과 하나로 합치기">⇔</button>` : ""}</div></div><div class="tfUniAdv"></div><button type="button" class="tfOrg" data-r aria-label="이 음을 원본으로(음정·타이밍·고급 모두, 확인 창)">원본</button></div>`; }
+        <div class="tfFixRow tfP"><button type="button" data-d="-1" aria-label="반음 내림">▼</button><button type="button" class="tfFixN" data-p aria-label="누르는 동안 이 음 소리"></button><button type="button" data-d="1" aria-label="반음 올림">▲</button><button type="button" class="tfIc tfSnap" data-snap aria-label="가까운 음에 맞춤(두 번 톡과 같음)">🧲</button>${canCut ? `<button type="button" class="tfCut tfIc" data-cut aria-label="두 음으로 나누기(세로줄 자리, 막대 밖이면 가운데)">✂</button>` : ""}${mgNb ? `<button type="button" class="tfCut tfIc" data-merge aria-label="옆 조각과 하나로 합치기">⇔</button>` : ""}</div></div><div class="tfUniAdv"></div><button type="button" class="tfOrg" data-r aria-label="이 음 원래대로(음정·타이밍·고급 모두, 확인 창)">↺ 이 음</button></div>`; }
     else d.innerHTML = `<div class="tfFixBox"><div class="tfFixHd">${tOn ? `<span class="tfFixMd" role="group" aria-label="고칠 것"><button type="button" data-md="p">🎵 음정</button><button type="button" data-md="t">⏱ 타이밍</button>${st && st.onAdv && st.advOn ? `<button type="button" data-md="a">🎛 고급</button>` : ""}</span>` : "<b>정음</b>"}<span class="tfFixTm">${mm(b.t0)}~${mm(b.t1)}</span><span class="tfFixSt"></span></div>
       ${tOn ? `<div class="tfFixRow tfT"><button type="button" data-tm="-1" aria-label="일찍(앞으로)">◀</button><button type="button" class="tfFixN tfTN" data-tp aria-label="이 음 듣기"></button><button type="button" data-tm="1" aria-label="늦게(뒤로)">▶</button><button type="button" class="tfIc" data-tl="-1" aria-label="짧게">−</button><button type="button" class="tfIc" data-tl="1" aria-label="길게">+</button><button type="button" class="tfIc" data-tr aria-label="톡 = 직전 저장으로, 1초 꾹 = 원본으로">↺</button></div>
       <div class="tfFixLab tfT"><span>일찍</span><span class="n">누르면 듣기</span><span>늦게</span><span class="i">짧게</span><span class="i">길게</span><span class="i">되돌리기</span></div>` : ""}
@@ -825,7 +825,7 @@
       tOrig(); if (uni && advBox) { try { G.TuneAdv.resetNote(st, cv, b); G.TuneAdv.panel(advBox, b, st, cv); placeOrg(); } catch {} } H[hk] = []; saved = curS(); stEl.textContent = "↺ 원본으로 · 저장됨"; };
     const askOrig = () => { const old = (host.querySelector(".tfCfm")); if (old) old.remove();
       const cf = document.createElement("div"); cf.className = "tfCfm"; cf.setAttribute("role", "dialog");
-      cf.innerHTML = `<div class="tfCfmBox"><b>원본으로 되돌릴까요?</b><p>이 음의 ${uni ? "음정·타이밍·고급" : "음정·타이밍"} 고침을 모두 지우고, 보컬 분리 후 기본 보정만 한 상태로 돌아가요.</p><div class="tfCfmRow"><button type="button" data-cf="0">취소</button><button type="button" class="pri" data-cf="1">확인</button></div></div>`;
+      cf.innerHTML = `<div class="tfCfmBox"><b>이 음을 원래대로 되돌릴까요?</b><p>이 음의 ${uni ? "음정·타이밍·고급" : "음정·타이밍"} 고침을 모두 지우고, 보컬 분리 후 기본 보정만 한 상태로 돌아가요.</p><div class="tfCfmRow"><button type="button" data-cf="0">취소</button><button type="button" class="pri" data-cf="1">확인</button></div></div>`;
       cf.addEventListener("pointerdown", (e) => e.stopPropagation());
       const ly = G.Brand && G.Brand.layer ? G.Brand.layer(() => cf.remove()) : { close: () => cf.remove() };   // 뒤로 가기 = 이 확인 창만 닫힘
       cf.addEventListener("click", (e) => { if (e.target === cf) ly.close(); });
@@ -1268,6 +1268,17 @@
         if (st.onAdv && G.TuneAdv) { st._adv = null; try { G.TuneAdv.preview(cv, G.TuneAdv.state(st).ne); } catch {} }
         st.sel = null; tip(i < from ? `↶ ${hist.L[from]} 취소` : `↷ ${hist.L[i]} 다시`);
         try { selectChanged(histDiff(snap0, histSnap())); } catch (e) { console.warn("되돌린 음 고르기", e); } };
+      // (11/09 01:47 사용자 고) ↺ 곡 전체 처음으로: 음높이·쪼개기·타이밍·디테일·펜·일괄 보정 값을 모두 지움 = 서버가 처음 인식한 상태. 작업 기록에 한 칸 → ↶ 한 번이면 복구
+      st.resetAll = () => { if (typeof o.histEmpty !== "string") return false; const old = wrap.querySelector(".tfCfm.all"); if (old) old.remove();
+        const cf = document.createElement("div"); cf.className = "tfCfm all"; cf.setAttribute("role", "dialog");
+        cf.innerHTML = `<div class="tfCfmBox"><b>곡 전체를 처음으로 되돌릴까요?</b><p>음높이·쪼개기·타이밍·디테일·펜·일괄 보정까지 모두 지우고, 서버가 처음 인식한 상태로 돌아가요. ↶ 한 번이면 다시 살릴 수 있어요.</p><div class="tfCfmRow"><button type="button" data-cf="0">취소</button><button type="button" class="pri" data-cf="1">처음으로</button></div></div>`;
+        cf.addEventListener("pointerdown", (e) => e.stopPropagation());
+        const ly = G.Brand && G.Brand.layer ? G.Brand.layer(() => cf.remove()) : { close: () => cf.remove() };
+        cf.addEventListener("click", (e) => { if (e.target === cf) ly.close(); });
+        cf.querySelectorAll("[data-cf]").forEach(x => x.onclick = async (e) => { e.stopPropagation(); ly.close(); if (x.dataset.cf !== "1") return;
+          let now_ = hist.S[hist.ptr]; try { if (typeof o.histGet === "function") now_ = o.histGet(); } catch {} if (now_ === o.histEmpty) { tip("이미 처음 상태예요"); return; }
+          hist.S.length = hist.ptr + 1; hist.L.length = hist.ptr + 1; hist.S.push(o.histEmpty); hist.L.push("↺ 곡 전체 처음으로"); hist.keep(); await step(hist.S.length - 1); tip("↺ 곡 전체 처음으로 · ↶로 되돌릴 수 있어요"); });
+        (wrap.querySelector(".tfBox") || wrap).appendChild(cf); return true; };
       [ub, rb].forEach(b => { let tm_ = null, fired = false; const stop = () => { clearTimeout(tm_); tm_ = null; };
         b.addEventListener("pointerdown", (e) => { e.preventDefault(); fired = false; try { b.setPointerCapture(e.pointerId); } catch {} tm_ = setTimeout(() => { fired = true; tm_ = null; try { navigator.vibrate && navigator.vibrate(15); } catch {} openHist(); }, 500); });
         b.addEventListener("pointerup", () => { const f_ = fired; stop(); if (!f_ && !b.disabled) step(hist.ptr + +b.dataset.ur); });
