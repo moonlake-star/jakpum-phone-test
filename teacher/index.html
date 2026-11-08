@@ -574,7 +574,7 @@ window.addEventListener("popstate", (e) => {
     homeBackAt = Date.now(); toast("한 번 더 뒤로 밀면 앱이 닫혀요"); try { history.pushState({ jakpumHome: true }, ""); } catch {}
   }
 });
-function show(view) { syncBackHistory(view); try { Brand.bar(); } catch {} for (const v of VIEWS) $(v).classList.toggle("hidden", v !== view); try { $("v2Dock")?.classList.add("hidden"); document.body.classList.remove("v2send"); document.getElementById("v2Ai")?.remove(); } catch {} $("btnBack").classList.toggle("hidden", ["vLogin","vList"].includes(view)); if (view !== "vMkJob") { mkStop?.(); stopProg?.(); } if (view !== "vSongs" && view !== "vMkJob") { try { songStop(); } catch {} } window.scrollTo(0,0); }
+function show(view) { syncBackHistory(view); try { Brand.bar(); } catch {} for (const v of VIEWS) $(v).classList.toggle("hidden", v !== view); try { $("v2Dock")?.classList.add("hidden"); document.body.classList.remove("v2send"); document.getElementById("v2Ai")?.remove(); } catch {} $("btnBack").classList.toggle("hidden", ["vLogin","vList"].includes(view)); if (view !== "vMkJob") { mkStop?.(); stopProg?.(); } if (view !== "vSongs" && view !== "vMkJob") { try { songDestroy(); } catch {} } window.scrollTo(0,0); }
 
 // ── 구글 로그인 · 드라이브 ───────────────────────────────
 // 로그인 유지: 구글이 주는 출입증(1시간짜리)을 이 폰에만 보관해, 새로고침·앱 다시 열기에도 다시 묻지 않는다.
@@ -725,7 +725,7 @@ async function list(folder) {
   return out;
 }
 const readJSON = (id) => autoBusy((async () => (await api(`${DRIVE}/files/${id}?alt=media`)).json())(), true);
-const readBlob = (id, fresh) => autoBusy((async () => (await api(`${DRIVE}/files/${id}?alt=media${fresh ? "&_=" + Date.now() : ""}`, fresh ? { cache: "no-store" } : {})).blob())(), true);   // 받는 동안(본문 포함) 안내
+const readBlob = (id, fresh, quiet) => { const p = (async () => (await api(`${DRIVE}/files/${id}?alt=media${fresh ? "&_=" + Date.now() : ""}`, fresh ? { cache: "no-store" } : {})).blob())(); return quiet ? p : autoBusy(p, true); };   // quiet: 곡 플레이어는 카드 안 글자만(전체 화면 팝업 없음)   // 받는 동안(본문 포함) 안내
 async function writeJSON(folder, name, obj, existingId) {
   const body = new Blob([JSON.stringify(obj, null, 1)], { type: "application/json" });
   if (existingId) { await api(`${UPLOAD}/files/${existingId}?uploadType=media`, { method: "PATCH", body }); return existingId; }
@@ -5236,8 +5236,9 @@ async function mkRefPaint(j, r, pi, by) {
 }
 // ── 🎧 원곡 듣기(11/07 01:51 사용자 '고고'): 서버가 원곡을 보컬·반주로 나눠 둔 MP3(원곡_보컬/원곡_반주/원곡) → 보컬 볼륨만 조절하며 듣기 · 셋 다 받기 · 곡마다 수강생 노트에 싣기 ──
 const SONG_F = { mr: "원곡_반주.mp3", voc: "원곡_보컬.mp3", orig: "원곡.mp3" };
-let sgCur = null;   // { job, au:{mr,voc}, url:{}, blob:{}, vol, timer }
-function songStop() { if (!sgCur?.au) return; for (const a of Object.values(sgCur.au)) { try { a.pause(); } catch {} } clearInterval(sgCur.timer); sgCur.timer = 0; const b = $("sgPb"); if (b) b.textContent = "▶"; }
+let sgCur = null;   // { eng, el, folder, vol, blob:{} } — 곡 플레이어 한 개(엔진은 곡당 한 번만 만들고 목록이 다시 그려져도 유지)
+function songStop() { try { sgCur?.eng?.pause(); } catch {} const b = $("sgPb"); if (b) b.textContent = "▶"; }   // 일시정지만(다른 소리를 틀 때)
+function songDestroy() { const c = sgCur; sgCur = null; if (!c) return; clearTimeout(c.svT); try { c.eng?.destroy(); } catch {} }   // 곡 바꿈·접기·화면 나감: 타이머·URL·AudioContext 정리
 const stemIds = (sg) => (sg && sg.stems && ["mr", "voc", "orig"].every(k => typeof sg.stems[k] === "string" && sg.stems[k]) ? { mr: sg.stems.mr, voc: sg.stems.voc, orig: sg.stems.orig } : null);   // (11/07) 서버가 적어 둔 원곡 보컬·반주 id(곡 서랍) 먼저
 function songFiles(by) { const o = {}; for (const [k, n] of Object.entries(SONG_F)) { const f = by(n); if (!f) return null; o[k] = f.id; } return o; }
 function songState(r, ids) {   // ready | home | wait | none | hide
@@ -5246,6 +5247,10 @@ function songState(r, ids) {   // ready | home | wait | none | hide
   if (s.yt_wait) return "home";
   if (!["done", "error"].includes(r.status)) return "wait";
   return "none";
+}
+function quietSave(fn) {   // 볼륨 저장: 전체 화면 '불러오는 중' 없이 배경에서 · 실패해도 재생엔 영향 없음
+  globalThis.__quiet = (globalThis.__quiet || 0) + 1; let p; try { p = Promise.resolve(fn()); } catch (e) { p = Promise.reject(e); }
+  return p.catch(() => {}).finally(() => { globalThis.__quiet--; });
 }
 function songSave(blob, name) {
   const u = URL.createObjectURL(blob), a = document.createElement("a"); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 60000);
@@ -5301,13 +5306,14 @@ function songPollArm() {   // 처리 중인 곡이 있으면 20초마다 다시 
   clearTimeout(songLib.poll);
   if (!songLib.list.some(x => ["queued", "home_wait", "working"].includes(x.d.status))) return;
   songLib.poll = setTimeout(async () => { if ($("vSongs").classList.contains("hidden")) return; songHomePaint();
-    try { const nx = await songLoad(), ch = JSON.stringify(nx.map(x => [x.folder, x.d.status, x.d.updated])) !== JSON.stringify(songLib.list.map(x => [x.folder, x.d.status, x.d.updated])); songLib.list = nx; if (ch && !(sgCur?.au && !sgCur.au.mr.paused)) songPaintList(); } catch {}   /* 듣는 중이면 다시 그리지 않음(재생 끊김 방지) */
+    try { const nx = await songLoad(), ch = JSON.stringify(nx.map(x => [x.folder, x.d.status, x.d.updated])) !== JSON.stringify(songLib.list.map(x => [x.folder, x.d.status, x.d.updated])); songLib.list = nx; if (ch) songPaintList(); } catch {}   /* 다시 그려도 열린 플레이어 카드는 그대로 옮겨 둠(songPaintList) */
     songPollArm(); }, 20000);
 }
 function songPaintList() {
   const box = $("slList"); if (!box) return; const q = songLib.q.toLowerCase();
+  const keep = sgCur?.folder && sgCur.el && box.contains(sgCur.el) && !sgCur.eng.isDead() ? sgCur : null; if (keep) keep.el.remove();   // 듣는 중인 카드는 떼어 두었다가 새 목록에 그대로 끼움(재생·불러오기 유지)
   const L = songLib.list.filter(x => !q || `${x.d.title} ${x.d.artist}`.toLowerCase().includes(q));
-  if (!L.length) { box.innerHTML = `<p class="muted">${songLib.list.length ? "찾는 곡이 없어요" : "아직 곡이 없어요 · 위에서 곡을 넣어 보세요"}</p>`; return; }
+  if (!L.length) { if (keep) songDestroy(); box.innerHTML = `<p class="muted">${songLib.list.length ? "찾는 곡이 없어요" : "아직 곡이 없어요 · 위에서 곡을 넣어 보세요"}</p>`; return; }
   const mm = (t) => (t ? `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}` : "");
   box.innerHTML = L.map(x => { const d = x.d, [ic, lab] = SONG_ST[d.status] || ["·", d.status || ""], op = songLib.open === x.folder && d.status === "done";
     return `<div class="card slRow${op ? " op" : ""}" data-sl="${esc(x.folder)}" style="padding:10px 12px;margin:8px 0">
@@ -5317,15 +5323,17 @@ function songPaintList() {
         <button type="button" class="ghost small" data-sld aria-label="곡 지우기" style="flex:none">🗑</button></div>
       ${op ? `<div class="slPl" style="margin-top:8px"></div>` : ""}</div>`; }).join("");
   box.querySelectorAll("[data-sl]").forEach(row => { const x = songLib.list.find(y => y.folder === row.dataset.sl); if (!x) return;
-    const pb = row.querySelector("[data-slp]"); if (pb) pb.onclick = () => { songLib.open = songLib.open === x.folder ? null : x.folder; songStop(); songPaintList(); };
+    const pb = row.querySelector("[data-slp]"); if (pb) pb.onclick = () => { songLib.open = songLib.open === x.folder ? null : x.folder; songDestroy(); songPaintList(); };
     const rb = row.querySelector("[data-slr]"); if (rb) rb.onclick = async () => { rb.disabled = true; try { x.d = { ...x.d, status: "queued", error: null, updated: new Date().toISOString() }; await writeJSON(x.folder, "song.json", x.d, x.fileId); songPaintList(); songPollArm(); kick(); toast("다시 해 볼게요"); } catch (e) { toast("실패: " + errMsg(e)); rb.disabled = false; } };
     row.querySelector("[data-sld]").onclick = async () => { if (!confirm(`‘${x.d.title || "이 곡"}’을 곡 서랍에서 지울까요?\n(드라이브 휴지통으로 — 30일 안엔 되살릴 수 있어요 · 이 곡을 쓰는 메이크업·노트의 원곡 파일도 함께 안 들려요)`)) return;
-      try { await api(`${DRIVE}/files/${x.folder}?fields=id`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trashed: true }) }); songLib.list = songLib.list.filter(y => y !== x); if (songLib.open === x.folder) { songStop(); songLib.open = null; } songPaintList(); toast("지웠어요(휴지통)"); } catch (e) { toast("지우기 실패: " + errMsg(e)); } };
+      try { await api(`${DRIVE}/files/${x.folder}?fields=id`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trashed: true }) }); songLib.list = songLib.list.filter(y => y !== x); if (songLib.open === x.folder) { songDestroy(); songLib.open = null; } songPaintList(); toast("지웠어요(휴지통)"); } catch (e) { toast("지우기 실패: " + errMsg(e)); } };
     const pl = row.querySelector(".slPl"); if (pl) { const ids = stemIds(x.d); if (!ids) { pl.innerHTML = `<p class="muted">파일 정보가 없어요</p>`; return; }
-      songPlayer(pl, ids, { head: `<div class="muted" style="font-size:.85rem">보컬 볼륨을 움직여 MR·가이드·원곡으로 들어 보세요</div>`, vol: Number.isFinite(+x.d.voc_vol) ? +x.d.voc_vol : 30, name: x.d.title,
-        onVol: (vv) => { x.d.voc_vol = vv; writeJSON(x.folder, "song.json", x.d, x.fileId).catch(() => {}); } });
+      if (keep && keep.folder === x.folder) { pl.appendChild(keep.el); return; }
+      songPlayer(pl, ids, { folder: x.folder, head: `<div class="muted" style="font-size:.85rem">보컬 볼륨을 움직여 MR·가이드·원곡으로 들어 보세요</div>`, vol: Number.isFinite(+x.d.voc_vol) ? +x.d.voc_vol : 30, name: x.d.title,
+        onVol: (vv) => { const cx = songLib.list.find(y => y.folder === x.folder) || x; cx.d.voc_vol = vv; quietSave(() => writeJSON(cx.folder, "song.json", cx.d, cx.fileId)); } });
       pl.querySelector(".sgC")?.classList.remove("card"); }
   });
+  if (keep && !box.contains(keep.el)) songDestroy();   // 듣던 곡 카드가 목록에서 빠졌으면(검색·삭제) 소리도 끝냄
 }
 // (11/07 17:33 사용자) 유튜브 주소만 넣으면 곡 제목(버전)·가수를 채움: 유튜브 oEmbed(제목·채널) → '가수 - 곡 (Live)' 꼴 나누기 · 서버 song_lib.parse_title과 같은 규칙
 function ytTitle(t, ch) {
@@ -5354,7 +5362,7 @@ async function songAdd() {
   } catch (e) { toast("넣기 실패: " + errMsg(e)); } finally { b.disabled = false; b.textContent = "＋ 곡 넣기"; }
 }
 function songPaint(j, r, by) {
-  const el = $("mkSong"); if (!el) return; songStop(); sgCur = null;
+  const el = $("mkSong"); if (!el) return; songDestroy();
   const ids = stemIds(r.song) || songFiles(by), stt = songState(r, ids), s = r.song || {};
   if (stt === "hide") { el.innerHTML = ""; return; }
   const nm = [s.title, s.artist].filter(Boolean).join(" — ") || "원곡";
@@ -5368,15 +5376,91 @@ function songPaint(j, r, by) {
   setTimeout(() => { const lb = el.querySelector("[data-sglib]"); if (lb) lb.onclick = () => openSongs(s.lib || null); }, 0);
   songPlayer(el, ids, { head, vol: v0, name: s.title,
     extra: `<label class="row" style="gap:8px;margin-top:10px;align-items:center;flex-wrap:nowrap"><input type="checkbox" id="sgStu" ${s.stu_stems ? "checked" : ""}><span>수강생 노트에도 싣기 <span class="muted" style="font-size:.8rem">(다음에 노트를 게시할 때 · 수강생도 볼륨 조절·받기 가능)</span></span></label>`,
-    onVol: (v) => { if (r.song && ["done", "error"].includes(r.status)) { r.song.voc_vol = v; writeJSON(j.folder.id, MKREQ, r, j.reqId).catch(() => {}); } },
+    onVol: (v) => { if (r.song && ["done", "error"].includes(r.status)) { r.song.voc_vol = v; quietSave(() => writeJSON(j.folder.id, MKREQ, r, j.reqId)); } },
     wire: (Q) => { Q("sgStu").onchange = async () => {
       const on = Q("sgStu").checked; r.song = { ...(r.song || {}), stu_stems: on };
       try { await writeJSON(j.folder.id, MKREQ, r, j.reqId); toast(on ? "다음에 레슨 노트를 게시하면 수강생에게도 보여요" : "수강생 노트에 안 실어요(이미 게시한 노트는 다시 게시하면 빠져요)"); }
       catch (e) { Q("sgStu").checked = !on; toast("저장 실패: " + errMsg(e)); } }; } });
 }
+// <stem-engine> (11/08 사용자 재현 버그: 보컬 0%→켜면 끊기고 MR보다 뒤처짐) — 선생님 앱·수강생 앱 똑같은 코드(tests/stem-engine.test.js가 두 파일이 같은지 검사)
+// 하나의 AudioContext 시계에서 MR·보컬 두 AudioBufferSourceNode를 같은 시각·같은 위치로 시작 → 볼륨은 GainNode만 움직임(재탐색·재요청·재시작 없음)
+// 메모리가 걱정되는 긴 곡·디코드 실패·WebAudio 없음 → 오디오 태그 2개 폴백(어긋남 보정은 0.25초 넘을 때만·2초에 한 번)
+// d = { vol, fetchBuf(k:"mr"|"voc") → Promise<ArrayBuffer>, onTick(E), onEnd(), AC?, Audio?, timers?, maxDecodeSec? }
+function stemEngine(d) {
+  const G = typeof globalThis !== "undefined" ? globalThis : window, AC = "AC" in d ? d.AC : (G.AudioContext || G.webkitAudioContext), MkAudio = d.Audio || ((...a) => new G.Audio(...a));
+  const tm = d.timers || { set: (f, ms) => G.setInterval(f, ms), clear: (t) => G.clearInterval(t) }, stale = () => new Error("stale"), clamp = (v) => Math.max(0, Math.min(100, Math.round(+v) || 0));
+  let vol = clamp(d.vol ?? 30), dead = false, loading = null, ctx = null, gain = null, buf = null, au = null, urls = [], srcs = [], t0 = 0, off = 0, playing = false, starting = false, timer = 0, mode = "", gen = 0, driftAt = 0;
+  const dur = () => (mode === "web" ? buf.mr.duration : mode === "html" ? (au.mr.duration || 0) : 0);
+  const pos = () => { if (mode === "web") return playing ? Math.min(Math.max(off, ctx.currentTime - t0), dur()) : off; if (mode === "html") return playing ? au.mr.currentTime : off; return off; };
+  const stopTimer = () => { if (timer) tm.clear(timer); timer = 0; };
+  const killSrcs = () => { gen++; for (const s of srcs) { s.onended = null; try { s.stop(); } catch {} try { s.disconnect(); } catch {} } srcs = []; };
+  const decode = (ab) => new Promise((ok, no) => { try { const p = ctx.decodeAudioData(ab, ok, no); if (p && p.then) p.then(ok, no); } catch (e) { no(e); } });
+  const closeCtx = () => { try { ctx && ctx.close && ctx.close(); } catch {} ctx = null; gain = null; };
+  const load = () => loading ||= (async () => {
+    const a = await d.fetchBuf("mr"), b = await d.fetchBuf("voc"); if (dead) throw stale();
+    const est = Math.max(a.byteLength, b.byteLength) / (d.bytesPerSec || 20000);   // 160kbps MP3 ≈ 20000바이트/초
+    if (AC && est <= (d.maxDecodeSec || 480)) {   // 4분 스테레오 ≈ 한 트랙 약 90MB → 8분 넘을 듯하면 디코드하지 않고 폴백
+      const ra = a.slice(0), rb = b.slice(0);   // decodeAudioData가 원본을 비우므로 폴백용 사본
+      try { ctx = new AC(); const m = await decode(a), v = await decode(b); if (dead) throw stale();
+        gain = ctx.createGain(); gain.gain.value = vol / 100; gain.connect(ctx.destination); buf = { mr: m, voc: v }; mode = "web"; return E; }
+      catch (e) { closeCtx(); buf = null; if (e && e.message === "stale") throw e; if (dead) throw stale(); d.fallback = String(e && e.message || e); }
+      return html(ra, rb);
+    }
+    return html(a, b);
+  })().catch((e) => { loading = null; throw e; });
+  const html = async (a, b) => {
+    const U = d.URL || G.URL; urls = [a, b].map(x => U.createObjectURL(new G.Blob([x], { type: "audio/mpeg" })));
+    au = { mr: MkAudio(), voc: MkAudio() }; au.mr.preload = au.voc.preload = "auto"; au.mr.src = urls[0]; au.voc.src = urls[1]; au.voc.volume = vol / 100; mode = "html";
+    await new Promise(res => { if (au.mr.readyState >= 1) return res(); au.mr.onloadedmetadata = res; setTimeout(res, 4000); }); if (dead) throw stale();
+    au.mr.onended = () => { if (playing) end(); }; return E;
+  };
+  const end = () => { off = 0; if (mode === "web") killSrcs(); else if (au) { au.mr.pause(); au.voc.pause(); try { au.mr.currentTime = au.voc.currentTime = 0; } catch {} } playing = false; stopTimer(); try { d.onEnd && d.onEnd(); } catch {} };
+  const begin = () => {
+    if (mode === "web") {
+      const my = ++gen, when = ctx.currentTime + 0.06; srcs = ["mr", "voc"].map(k => { const s = ctx.createBufferSource(); s.buffer = buf[k]; s.connect(k === "voc" ? gain : ctx.destination); return s; });
+      srcs[0].onended = () => { if (gen === my && playing) end(); }; srcs.forEach(s => s.start(when, off)); t0 = when - off; return;
+    }
+    return (async () => { au.mr.currentTime = au.voc.currentTime = off; await Promise.all([au.mr.play(), au.voc.play()]); })();
+  };
+  const tick = () => {
+    if (mode === "html" && playing) { const { mr, voc } = au, n = Date.now(), ok = !mr.seeking && !voc.seeking && mr.readyState >= 3 && voc.readyState >= 3;
+      if (ok && n - driftAt > 2000 && Math.abs(voc.currentTime - mr.currentTime) > 0.25) { driftAt = n; voc.currentTime = mr.currentTime; } }
+    if (mode === "web" && playing && pos() >= dur() - 0.02) return end();
+    try { d.onTick && d.onTick(E); } catch {}
+  };
+  const E = {
+    load, pos, dur, mode: () => mode, isPlaying: () => playing, isDead: () => dead, vol: () => vol, fallbackReason: () => d.fallback || "",
+    async play() {
+      await load(); if (dead) throw stale(); if (playing || starting) return; starting = true;
+      try {
+        if (mode === "web" && ctx.state !== "running") await ctx.resume(); if (dead) throw stale();
+        if (off >= dur() - 0.05) off = 0;
+        await begin(); if (dead) throw stale(); playing = true; stopTimer(); timer = tm.set(tick, 250);
+      } finally { starting = false; }
+    },
+    pause() { if (!playing) return; off = pos(); if (mode === "web") killSrcs(); else if (au) { au.mr.pause(); au.voc.pause(); } playing = false; stopTimer(); },
+    async seek(t) {   // 곡 안 위치만 옮김(네트워크 없음)
+      await load(); if (dead) throw stale(); t = Math.max(0, Math.min(t, Math.max(0, dur() - 0.05)));
+      if (mode === "web") { off = t; if (playing) { killSrcs(); begin(); } }
+      else { off = t; try { au.mr.currentTime = au.voc.currentTime = t; } catch {} }
+    },
+    setVol(v) {   // 보컬 소리 크기만: 재생·재탐색·네트워크 없음
+      vol = clamp(v);
+      if (gain) { const g = gain.gain, n = ctx.currentTime; try { g.cancelScheduledValues(n); g.setTargetAtTime(vol / 100, n, 0.015); } catch { g.value = vol / 100; } }
+      if (au) au.voc.volume = vol / 100;
+    },
+    destroy() {   // 화면을 떠나거나 곡을 바꿀 때: 타이머·소리·URL·AudioContext 모두 정리
+      if (dead) return; dead = true; stopTimer(); playing = false; killSrcs();
+      if (au) { for (const a of [au.mr, au.voc]) { try { a.pause(); a.onended = a.onloadedmetadata = null; a.removeAttribute && a.removeAttribute("src"); a.load && a.load(); } catch {} } au = null; }
+      const U = d.URL || G.URL; for (const u of urls) { try { U.revokeObjectURL(u); } catch {} } urls = []; buf = null; closeCtx();
+    },
+  };
+  return E;
+}
+// </stem-engine>
 // 원곡 플레이어(메이크업 화면·곡 서랍 같이 씀): ids = { mr, voc, orig } 드라이브 파일 · o = { head, vol, name, extra, onVol(v), wire(Q) }
 function songPlayer(el, ids, o) {
-  songStop(); const v0 = o.vol ?? 30, Q = (id) => el.querySelector("#" + id);
+  songDestroy(); const v0 = o.vol ?? 30, Q = (id) => el.querySelector("#" + id);
   el.innerHTML = `<div class="card sgC">${o.head}
     <div class="sgPl"><button type="button" class="sgPb" id="sgPb">▶</button><div class="sgSk"><input type="range" id="sgSeek" min="0" max="1000" value="0"><div class="sgTm"><span id="sgT0">0:00</span><span id="sgT1">–:–</span></div></div></div>
     <div class="sgVo"><div class="sgVl">보컬 볼륨<span id="sgVv">${v0}%</span></div><input type="range" id="sgVol" min="0" max="100" value="${v0}">
@@ -5384,35 +5468,26 @@ function songPlayer(el, ids, o) {
     <div class="sgDl">${[["mr", "MR", "반주만"], ["voc", "보컬", "목소리만"], ["orig", "원곡", "그대로"]].map(([k, a, b]) => `<button type="button" data-sgd="${k}">⬇ ${a}<small>${b}</small></button>`).join("")}</div>
     ${o.extra || ""}
     <p class="muted" style="margin:6px 0 0;font-size:.78rem">재생 중에도 슬라이더를 움직이면 바로 바뀌어요 · 슬라이더 더블탭 = 100%</p></div>`;
-  const me = sgCur = { au: null, url: {}, blob: {}, vol: v0, timer: 0 }, mmss = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
-  const paintVol = () => { Q("sgVv").textContent = me.vol + "%"; Q("sgVol").value = me.vol; el.querySelectorAll("[data-sgv]").forEach(b => b.classList.toggle("on", +b.dataset.sgv === me.vol)); if (me.au) me.au.voc.volume = me.vol / 100; };
-  const setVol = (v) => { me.vol = Math.max(0, Math.min(100, Math.round(v))); paintVol(); clearTimeout(me.svT); me.svT = setTimeout(() => { try { o.onVol && o.onVol(me.vol); } catch {} }, 1500); };
+  const me = sgCur = { eng: null, el, folder: o.folder || null, vol: v0, blob: {}, svT: 0 }, mmss = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`, alive = () => sgCur === me && !me.eng.isDead();
+  const blob = (k) => (me.blob[k] ||= readBlob(ids[k], false, true).catch((e) => { delete me.blob[k]; throw e; }));   // 같은 파일 요청은 하나로(받기·재생 겹쳐도 한 번) · 실패하면 다음에 다시
+  const eng = me.eng = stemEngine({ vol: v0, fetchBuf: async (k) => (await blob(k)).arrayBuffer(),
+    onTick: (E) => { if (!alive()) return; if (!el.isConnected) return songDestroy(); const t = E.pos(), dd = E.dur() || 1; Q("sgT0").textContent = mmss(t); if (!Q("sgSeek").matches(":active")) Q("sgSeek").value = Math.round(t / dd * 1000); },
+    onEnd: () => { if (!alive()) return; Q("sgPb").textContent = "▶"; Q("sgT0").textContent = "0:00"; Q("sgSeek").value = 0; } });
+  const paintVol = () => { Q("sgVv").textContent = me.vol + "%"; Q("sgVol").value = me.vol; el.querySelectorAll("[data-sgv]").forEach(b => b.classList.toggle("on", +b.dataset.sgv === me.vol)); };
+  const setVol = (v) => { me.vol = Math.max(0, Math.min(100, Math.round(v))); eng.setVol(me.vol); paintVol(); clearTimeout(me.svT); me.svT = setTimeout(() => { try { o.onVol && o.onVol(me.vol); } catch {} }, 1500); };   // 소리 크기만 즉시 · 저장은 마지막 값 한 번(배경)
   paintVol();
-  const blob = async (k) => me.blob[k] ||= await readBlob(ids[k]);
-  const load = async () => {
-    if (me.au) return me.au;
-    Q("sgPb").textContent = "…"; Q("sgT1").textContent = "불러오는 중";
-    const [bm, bv] = await Promise.all([blob("mr"), blob("voc")]);
-    if (sgCur !== me) throw new Error("stale");
-    const mk = (b) => { const a = new Audio(); a.preload = "auto"; a.src = me.url[b.size] = URL.createObjectURL(b); return a; };
-    me.au = { mr: mk(bm), voc: mk(bv) }; me.au.voc.volume = me.vol / 100;
-    await new Promise(res => { if (me.au.mr.readyState >= 1) return res(); me.au.mr.onloadedmetadata = res; setTimeout(res, 4000); });
-    Q("sgT1").textContent = mmss(me.au.mr.duration || 0);
-    me.au.mr.onended = () => songStop();
-    return me.au;
-  };
-  const tick = () => { if (sgCur !== me || !me.au) return; const { mr, voc } = me.au, t = mr.currentTime, d = mr.duration || 1;
-    if (!voc.paused && Math.abs(voc.currentTime - t) > 0.06) voc.currentTime = t;   // 두 파일이 어긋나지 않게
-    Q("sgT0").textContent = mmss(t); if (!Q("sgSeek").matches(":active")) Q("sgSeek").value = Math.round(t / d * 1000); };
+  let loadP = null;
+  const load = () => loadP ||= (async () => { Q("sgPb").textContent = "…"; Q("sgT1").textContent = "불러오는 중";   // 카드 안 작은 글자만
+    try { await eng.load(); } catch (e) { loadP = null; if (alive()) { Q("sgPb").textContent = "▶"; Q("sgT1").textContent = "–:–"; } throw e; }
+    if (alive()) Q("sgT1").textContent = mmss(eng.dur()); })();
   Q("sgPb").onclick = async () => {
     try {
-      const a = await load();
-      if (!a.mr.paused) return songStop();
-      pauseOthers("song"); a.voc.currentTime = a.mr.currentTime;
-      await Promise.all([a.mr.play(), a.voc.play()]); Q("sgPb").textContent = "❚❚"; clearInterval(me.timer); me.timer = setInterval(tick, 250);
-    } catch (e) { if (e.message !== "stale") { Q("sgPb").textContent = "▶"; toast("원곡을 못 불러왔어요: " + errMsg(e)); } }
+      if (eng.isPlaying()) { eng.pause(); Q("sgPb").textContent = "▶"; return; }
+      await load(); if (!alive()) return;
+      pauseOthers("song"); await eng.play(); if (alive()) Q("sgPb").textContent = "❚❚";
+    } catch (e) { if (e.message !== "stale" && alive()) { Q("sgPb").textContent = "▶"; toast("원곡을 못 불러왔어요: " + errMsg(e)); } }
   };
-  Q("sgSeek").oninput = async () => { try { const a = await load(), t = (+Q("sgSeek").value / 1000) * (a.mr.duration || 0); a.mr.currentTime = t; a.voc.currentTime = t; Q("sgT0").textContent = mmss(t); } catch {} };
+  Q("sgSeek").oninput = async () => { try { await load(); if (!alive()) return; const t = (+Q("sgSeek").value / 1000) * eng.dur(); await eng.seek(t); Q("sgT0").textContent = mmss(t); } catch {} };
   Q("sgVol").oninput = () => setVol(+Q("sgVol").value);
   Q("sgVol").ondblclick = () => setVol(100);
   el.querySelectorAll("[data-sgv]").forEach(b => b.onclick = () => setVol(+b.dataset.sgv));

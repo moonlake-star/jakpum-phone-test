@@ -19,7 +19,7 @@ const sx = { sidOk: (x) => typeof x === "string" && x.trim() !== "", esc: (s) =>
 assert.strictEqual(sx.stemsHtml({ stems: { mr: "a", voc: "b" } }), "");
 const h = sx.stemsHtml({ stems: { mr: "a", voc: "b", orig: "c", title: "<x>", vol: 0, dur: 125 } });
 assert.ok(h.includes("🎤 연습 곡") && h.includes("&lt;x>") && h.includes('id="sgVv">0%') && h.includes("2:05") && (h.match(/data-sgd=/g) || []).length === 3);
-assert.ok(S.includes('stemsHtml(l.makeup) : ""}') && S.includes('wireStems(l.makeup)') && S.includes("bufMode = Math.abs(x.volume - 0.5) > 0.01"), "아이폰 볼륨 대체");
+assert.ok(S.includes('stemsHtml(l.makeup) : ""}') && S.includes('wireStems(l.makeup)') && S.includes("function stemEngine(d)"), "하나의 시계(WebAudio) 엔진 — 아이폰 포함");
 console.log("song stems ok");
 // (11/07 10:58 사용자 '고고') 🎵 곡 서랍: 첫 화면 버튼 · 곡 넣기(song.json queued + 서버 깨우기) · 목록 상태 · 같은 플레이어 · 메이크업은 서버가 적은 id 먼저
 assert.ok(T.includes('<section id="vSongs" class="hidden"></section>') && T.includes('"vCal","vSongs"]') && T.includes('id="songBtn"') && T.includes("async function openSongs(focus)"));
