@@ -54,7 +54,7 @@ console.log("align ok");
   console.log("scrub ok"); }
 // (11/06 18:36 사용자) 비브라토 3칸×2줄 · 볼륨 1줄 · 눈금 낮게·이름 크게·숫자 작게
 { const A = fs.readFileSync(path.join(__dirname, "..", "adv.js"), "utf8");
-  assert.ok(A.includes('"원래 떨림"), lab(') && A.includes('"페이드 아웃"))') && A.includes(".advScT{height:3px!important"));
+  assert.ok(A.includes('"원래 떨림"), lab(') && A.includes('"볼륨")));   // (11/09') && !A.includes('"페이드 아웃"), "페이드') && A.includes(".advScT{height:3px!important"));
   // (11/06 19:25 사용자 고고) 흐름 = 음 전체 기울기(tilt) · 세로 칸(▴▾·세로 눈금) · 칸 뒤 선 그림 · 이름 주황 · 바꾼 칸 테두리 빛
   assert.ok(A.includes('stepper("흐름", () => get("tilt"), (v) => put("tilt", v)') && A.includes("vert: true") && A.includes("if (n.tilt && dur > 0) v += n.tilt * ((tt[i] - tt[0]) / dur - 0.5);"));
   assert.ok(A.includes("const ICO = {") && A.includes('"커지는 시간": "fade"') && A.includes(".advCells .advSc .advScL{color:#ffbe7a!important}"));

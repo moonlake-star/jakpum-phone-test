@@ -220,7 +220,7 @@
     const A = state(st);
     let el = box.querySelector(".advPanel"); if (el) el.remove();
     el = document.createElement("div"); el.className = "advPanel tfA";
-    const tabs = [["f", "흐름"], ["v", "비브라토"], ["g", "볼륨"], ["m", "음색"]];   // (11/06 18:50 사용자) 이어짐 탭은 흐름 탭으로 합침(곡선은 늘 부드럽게)
+    const tabs = [["f", "흐름"], ["v", "비브라토"], ["g", "볼륨"], ["m", "포먼트"]];   // (11/06 18:50 사용자) 이어짐 탭은 흐름 탭으로 합침(곡선은 늘 부드럽게)
     el.innerHTML = `<div class="advTabs" role="tablist">${tabs.map(([k, t]) => `<button type="button" data-at="${k}">${t}</button>`).join("")}<button type="button" class="advRst" aria-label="이 음 고급 고침 원래대로">↺ 이 음</button></div><div class="advBody"></div>`;
     const body = el.querySelector(".advBody");
     const N = () => noteOf(A, b, false) || {};
@@ -243,10 +243,10 @@
       if (k === "m") rows.push(
         D(stepper("포먼트(목소리 결)", () => get("formant"), (v) => put("formant", v), { step: 0.25, min: -3, max: 3, def: 0, fmt: (v) => `${v > 0 ? "+" : ""}${v.toFixed(2)}반음` }), "이 음의 음색만 이동(음정은 그대로). + 는 얇고 밝게, − 는 굵고 어둡게. 일괄 보정의 포먼트 값 위에 더해져요."));
       if (k === "g") rows.push(   // (11/06 18:25 사용자 시안) 3줄 → 1줄
-        cells(lab(stepper("볼륨", () => (N().mute ? MUTE_DB : get("gain_db")), (v) => change(A, st, cv, () => { const n = noteOf(A, b, true); if (v <= MUTE_DB) { n.mute = true; delete n.gain_db; } else { n.mute = false; n.gain_db = v; } }), { step: 1, min: MUTE_DB, max: 12, def: 0, fmt: (v) => (v <= MUTE_DB ? "무음" : `${v > 0 ? "+" : ""}${Math.round(v)}dB`) }), "볼륨"), lab(stepper("페이드 인", () => get("fade_in"), (v) => put("fade_in", v), { step: 0.05, min: 0, max: 2, def: 0, fmt: sec }), "페이드 인"), lab(stepper("페이드 아웃", () => get("fade_out"), (v) => put("fade_out", v), { step: 0.05, min: 0, max: 2, def: 0, fmt: sec }), "페이드 아웃")));
+        cells(lab(stepper("볼륨", () => (N().mute ? MUTE_DB : get("gain_db")), (v) => change(A, st, cv, () => { const n = noteOf(A, b, true); if (v <= MUTE_DB) { n.mute = true; delete n.gain_db; } else { n.mute = false; n.gain_db = v; } }), { step: 1, min: MUTE_DB, max: 12, def: 0, fmt: (v) => (v <= MUTE_DB ? "무음" : `${v > 0 ? "+" : ""}${Math.round(v)}dB`) }), "볼륨")));   // (11/09 01:12 사용자) 페이드 인·아웃 칸 삭제(쓸 일 거의 없음) — 예전에 넣은 값은 서버가 그대로 적용
       rows.forEach(r => { if (!r._desc) { body.appendChild(r); return; } const w = document.createElement("div"), p = document.createElement("p"); p.className = "advD"; p.textContent = r._desc; w.appendChild(r); w.appendChild(p); body.appendChild(w); });
       const tip = document.createElement("p"); tip.className = "advTip";
-      tip.textContent = k === "m" ? "음색은 ▶로 서버와 같은 소리가 들려요(선엔 안 보여요) · 고친 뒤 잠깐 준비해요" : "칸을 누르면 여기에 그 칸 설명이 나와요 · 밀어서 조절 · 두 번 톡 = 원래 값";   // (11/06 21:53 사용자) 긴 안내 대신 누른 칸 설명
+      tip.textContent = k === "m" ? "포먼트는 ▶로 서버와 같은 소리가 들려요(선엔 안 보여요) · 고친 뒤 잠깐 준비해요" : "칸을 누르면 여기에 그 칸 설명이 나와요 · 밀어서 조절 · 두 번 톡 = 원래 값";   // (11/06 21:53 사용자) 긴 안내 대신 누른 칸 설명
       body.appendChild(tip);
     };
     el.querySelectorAll("[data-at]").forEach(x => x.onclick = (e) => { e.stopPropagation(); show(x.dataset.at); });
