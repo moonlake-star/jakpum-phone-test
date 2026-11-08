@@ -220,7 +220,7 @@
     const A = state(st);
     let el = box.querySelector(".advPanel"); if (el) el.remove();
     el = document.createElement("div"); el.className = "advPanel tfA";
-    const tabs = [["f", "흐름"], ["v", "비브라토"], ["g", "볼륨"], ["m", "포먼트"]];   // (11/06 18:50 사용자) 이어짐 탭은 흐름 탭으로 합침(곡선은 늘 부드럽게)
+    const tabs = [["f", "흐름"], ["v", "비브라토"]];   // (11/09 01:21 사용자 고고) 볼륨은 흐름 탭 안으로 · 음별 포먼트 탭 뺌(높이·길이를 고쳐도 엔진이 목소리 결을 그대로 지킴, 곡 전체 포먼트는 일괄 보정에)   // (11/06 18:50 사용자) 이어짐 탭은 흐름 탭으로 합침(곡선은 늘 부드럽게)
     el.innerHTML = `<div class="advTabs" role="tablist">${tabs.map(([k, t]) => `<button type="button" data-at="${k}">${t}</button>`).join("")}<button type="button" class="advRst" aria-label="이 음 고급 고침 원래대로">↺ 이 음</button></div><div class="advBody"></div>`;
     const body = el.querySelector(".advBody");
     const N = () => noteOf(A, b, false) || {};
@@ -236,23 +236,20 @@
       if (k === "f" || k === "c") {   // (11/06 18:54 사용자) 흐름 탭 한 줄: [흐름 = 음 전체 기울기] [이어짐 = 다음 음으로 넘어가기(늘 부드럽게)] · 앞·뒤 기울기 칸은 뺌
         const tl = lab(stepper("흐름", () => get("tilt"), (v) => put("tilt", v), { step: 10, min: -300, max: 300, def: 0, vert: true, fmt: (v) => (v ? `${v > 0 ? "↗ +" : "↘ −"}${Math.abs(Math.round(v))}센트` : "평평 그대로") }), "흐름", "Drift");
         const trC = lab(stepper("이어짐", () => get("tr_ms"), (v) => change(A, st, cv, () => { const n = noteOf(A, b, true); if (v) n.tr_ms = v; else delete n.tr_ms; delete n.tr_shape; }), { step: 20, min: 0, max: 800, def: 0, fmt: (v) => v ? `${Math.round(v)}ms` : "그대로" }), "이어짐", "Transition");
-        rows.push(cells(tl, trC)); }
+        const vlC = lab(stepper("볼륨", () => (N().mute ? MUTE_DB : get("gain_db")), (v) => change(A, st, cv, () => { const n = noteOf(A, b, true); if (v <= MUTE_DB) { n.mute = true; delete n.gain_db; } else { n.mute = false; n.gain_db = v; } }), { step: 1, min: MUTE_DB, max: 12, def: 0, fmt: (v) => (v <= MUTE_DB ? "무음" : `${v > 0 ? "+" : ""}${Math.round(v)}dB`) }), "볼륨");   // (11/09 01:21) 볼륨 = 흐름 탭 셋째 칸(페이드 인·아웃 칸은 삭제)
+        rows.push(cells(tl, trC, vlC)); }
       if (k === "v") rows.push(   // (11/06 18:25 사용자 시안) 6줄 → 3칸 × 2줄
         cells(lab(stepper("원래 떨림", () => (N().vib != null ? N().vib : (N().vs ? 0 : 1)), (v) => put("vib", v), { step: 0.25, min: 0, max: 2, def: 1, vert: true, fmt: pct }), "원래 떨림"), lab(stepper("새 떨림 폭", () => getVs("depth", 0), (v) => putVs("depth", v), { step: 5, min: 0, max: 150, def: 0, vert: true, fmt: (v) => v ? `±${Math.round(v)}센트` : "없음" }), "떨림 폭"), lab(stepper("주기", () => getVs("rate", 5.5), (v) => putVs("rate", v), { step: 0.25, min: 2, max: 10, def: 5.5, fmt: (v) => `${v.toFixed(2)}Hz` }), "주기")),
         cells(lab(stepper("시작", () => getVs("delay", 0.3), (v) => putVs("delay", v), { step: 0.05, min: 0, max: 3, def: VD.delay, fmt: sec }), "시작"), lab(stepper("커지는 시간", () => getVs("fade", 0.4), (v) => putVs("fade", v), { step: 0.05, min: 0, max: 3, def: VD.fade, fmt: sec }), "커지는 시간"), lab(stepper("사람처럼", () => getVs("human", 0), (v) => putVs("human", v), { step: 0.25, min: 0, max: 1, def: 0, fmt: pct }), "사람처럼")));
-      if (k === "m") rows.push(
-        D(stepper("포먼트(목소리 결)", () => get("formant"), (v) => put("formant", v), { step: 0.25, min: -3, max: 3, def: 0, fmt: (v) => `${v > 0 ? "+" : ""}${v.toFixed(2)}반음` }), "이 음의 음색만 이동(음정은 그대로). + 는 얇고 밝게, − 는 굵고 어둡게. 일괄 보정의 포먼트 값 위에 더해져요."));
-      if (k === "g") rows.push(   // (11/06 18:25 사용자 시안) 3줄 → 1줄
-        cells(lab(stepper("볼륨", () => (N().mute ? MUTE_DB : get("gain_db")), (v) => change(A, st, cv, () => { const n = noteOf(A, b, true); if (v <= MUTE_DB) { n.mute = true; delete n.gain_db; } else { n.mute = false; n.gain_db = v; } }), { step: 1, min: MUTE_DB, max: 12, def: 0, fmt: (v) => (v <= MUTE_DB ? "무음" : `${v > 0 ? "+" : ""}${Math.round(v)}dB`) }), "볼륨")));   // (11/09 01:12 사용자) 페이드 인·아웃 칸 삭제(쓸 일 거의 없음) — 예전에 넣은 값은 서버가 그대로 적용
       rows.forEach(r => { if (!r._desc) { body.appendChild(r); return; } const w = document.createElement("div"), p = document.createElement("p"); p.className = "advD"; p.textContent = r._desc; w.appendChild(r); w.appendChild(p); body.appendChild(w); });
       const tip = document.createElement("p"); tip.className = "advTip";
       tip.textContent = k === "m" ? "포먼트는 ▶로 서버와 같은 소리가 들려요(선엔 안 보여요) · 고친 뒤 잠깐 준비해요" : "칸을 누르면 여기에 그 칸 설명이 나와요 · 밀어서 조절 · 두 번 톡 = 원래 값";   // (11/06 21:53 사용자) 긴 안내 대신 누른 칸 설명
       body.appendChild(tip);
     };
     el.querySelectorAll("[data-at]").forEach(x => x.onclick = (e) => { e.stopPropagation(); show(x.dataset.at); });
-    el.querySelector(".advRst").onclick = (e) => { e.stopPropagation(); change(A, st, cv, () => { A.ne.notes = A.ne.notes.filter(x => !(near(x.t0, b.t0) && near(x.t1, b.t1))); }); show(st._advTab || "f"); };
+    el.querySelector(".advRst").onclick = (e) => { e.stopPropagation(); change(A, st, cv, () => { A.ne.notes = A.ne.notes.filter(x => !(near(x.t0, b.t0) && near(x.t1, b.t1))); }); show((tabs.some(x => x[0] === st._advTab) ? st._advTab : "f")); };
     el.addEventListener("pointerdown", (e) => e.stopPropagation());
-    box.appendChild(el); show(st._advTab || "f");
+    box.appendChild(el); show((tabs.some(x => x[0] === st._advTab) ? st._advTab : "f"));
     return el;
   }
 
