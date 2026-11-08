@@ -51,7 +51,7 @@ console.log("adv-mode ok", md.toFixed(4));
 
 /* (11/05 사용자) 음별 포먼트: 음 고치기 창 '음색' 탭 · 설명 줄은 일괄 보정 시트·음색 탭에 · 서버 note_edits formant */
 { const A4 = require("fs").readFileSync(__dirname + "/../adv.js", "utf8"), as = require("assert");
-  as.ok(A4.includes('["m", "포먼트"]') && A4.includes('if (k === "m") rows.push(') && A4.includes('put("formant", v)'), "포먼트 탭");
+  as.ok(A4.includes('const tabs = [["f", "흐름"], ["v", "비브라토"]];') && !A4.includes('if (k === "m") rows.push(') && A4.includes('put("formant", v)'), "탭 2개 · 음별 포먼트 탭 뺌 · 곡 전체 포먼트는 일괄 보정에");
   as.ok(A4.includes("fade_out: 0, formant: 0 }"), "음별 포먼트 기본값(0은 저장 안 함)");
   as.ok((A4.match(/p\.className = "advD"/g) || []).length === 2, "설명 줄 표시: 음 창·일괄 시트 두 곳");
   as.ok(A4.includes("디테일 보정 전부 원래대로"), "초기화 버튼 이름"); }

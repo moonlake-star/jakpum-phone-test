@@ -392,7 +392,11 @@
       const tiny = new Set();
       for (const r of runs) {
         if (!r.fx && r.t1 - r.t0 < 0.1) { r.seg.forEach(([p]) => tiny.add(p)); continue; }
-        for (const [p, x0, x1] of r.seg) { g.fillStyle = srcCol(cv, p[0]); const mv = (cv._tedits || []).some(x => p[0] >= x.t0 - 1e-6 && p[0] < x.t1 - 1e-6); if (mv) g.globalAlpha = 0.22; g.fillRect(x0, y(p[kt]) - bh / 2, Math.max(1, x1 - x0 + 0.5), bh); g.globalAlpha = 1; }   // 옮기는 중인 음은 원래 자리를 흐리게
+        // (11/09 01:21 사용자 A안) 음별 볼륨이 보이게: 키운 음 = 막대 두껍게 · 줄인 음 = 얇게 · 끈 음 = 흐리게+빗금 (꼬리표는 아래에서)
+        const vn = ((st && st._adv && st._adv.ne && st._adv.ne.notes) || []).find(x => x.t0 <= (r.t0 + r.t1) / 2 && x.t1 >= (r.t0 + r.t1) / 2 && (x.mute || x.gain_db));
+        r.gd = vn ? (vn.mute ? "m" : vn.gain_db) : 0; const rh = r.gd && r.gd !== "m" ? bh * Math.max(0.4, Math.min(1.8, Math.pow(10, r.gd / 40))) : bh; r.h = Math.max(rh, bh);
+        for (const [p, x0, x1] of r.seg) { g.fillStyle = srcCol(cv, p[0]); const mv = (cv._tedits || []).some(x => p[0] >= x.t0 - 1e-6 && p[0] < x.t1 - 1e-6); if (mv) g.globalAlpha = 0.22; if (r.gd === "m") g.globalAlpha = 0.28; g.fillRect(x0, y(p[kt]) - rh / 2, Math.max(1, x1 - x0 + 0.5), rh); g.globalAlpha = 1; }
+        if (r.gd === "m") { g.save(); g.beginPath(); g.rect(r.x0, r.y - bh / 2, Math.max(2, r.x1 - r.x0), bh); g.clip(); g.strokeStyle = "rgba(220,224,232,.55)"; g.lineWidth = 1.5; for (let X = r.x0 - bh; X < r.x1 + bh; X += 6) { g.beginPath(); g.moveTo(X, r.y + bh / 2); g.lineTo(X + bh, r.y - bh / 2); g.stroke(); } g.restore(); }   // 옮기는 중인 음은 원래 자리를 흐리게
         delete r.seg; bars.push(r); }
       // (11/03 15:35 사용자) 부른 음 선은 있는데 정음 막대가 없는 곳(ㅅ·ㅊ·ㅎ 뒤 모음, 꺾기·짧은 음 등 자동 보정이 일부러 안 건드린 곳)도 고칠 수 있게
       // → 선생님 화면에서만 회색 점선 막대(부른 높이에 가까운 음)로 보여 주고, 톡 하면 다른 막대처럼 고치기 창 — 고치기 전엔 자동 보정에 아무 영향 없음
@@ -406,6 +410,11 @@
         if (f && !f.cut) { g.strokeStyle = "#ffd27a"; g.lineWidth = 2; g.strokeRect(b.x0, b.y - b.h / 2, Math.max(4, b.x1 - b.x0), b.h); }
         if (f && f.cut) { g.fillStyle = "#0f1115"; g.fillRect(b.x0 - 1.5, b.y - b.h / 2 - 3, 3, b.h + 6); }
         if (st && st.sel && st.sel.t0 < b.t1 && st.sel.t1 > b.t0) { g.save(); g.shadowColor = "#9cc3ff"; g.shadowBlur = 10; g.strokeStyle = "#9cc3ff"; g.lineWidth = 3; g.strokeRect(b.x0 - 2, b.y - b.h / 2 - 2, Math.max(6, b.x1 - b.x0 + 4), b.h + 4); g.restore(); } }
+      for (const b of bars) { if (!b.gd) continue;   // (11/09 A안) 볼륨 꼬리표: +4dB(주황) · −6dB·무음(하늘)
+        const s = b.gd === "m" ? "무음" : `${b.gd > 0 ? "+" : "−"}${Math.abs(Math.round(b.gd))}dB`; g.font = "bold 10.5px system-ui, sans-serif"; g.textBaseline = "middle";
+        const tw = g.measureText(s).width + 10, tx = b.x0 + 2, ty = b.y - b.h / 2 - 10, up = b.gd !== "m" && b.gd > 0;
+        g.fillStyle = "rgba(17,20,26,.92)"; g.strokeStyle = up ? "#ffb86b" : "#7fb8ff"; g.lineWidth = 1.2; g.beginPath(); (g.roundRect ? g.roundRect(tx, ty - 7.5, tw, 15, 7) : g.rect(tx, ty - 7.5, tw, 15)); g.fill(); g.stroke();
+        g.fillStyle = up ? "#ffcf99" : "#b9dcff"; g.fillText(s, tx + 5, ty + 0.5); }
       if (st) st.tbars = bars;
       // (11/03 13:08 사용자 시안) 타이밍·길이 고친 음 = 새 자리에 하늘색 막대 + 원래 자리 점선
       const tb = [];
