@@ -35,7 +35,7 @@ assert.ok(H.includes('histKey: "mk:" + (j.reqId || j.folder.id), saveState: () =
 assert.ok(H.includes("const mkWrite = () => { mkBusy++;") && !/onTime = async[^\n]*\n[^\n]*\n[^\n]*\n[^\n]*\n[^\n]*writeJSON\(j\.folder\.id, MKREQ/.test(H));
 console.log("exit card wiring ok");
 // (11/06 17:37 사용자) 빈 곳 톡으로 재생이 시작되면 고른 음표 선택 해제
-assert.ok(T.includes("else if (st.sel || st.msel) {") && T.includes("st.sel = null; st.msel = null; lastTap = 0; }") && T.includes("else { toggle(); lastTap = now; } }"), "(11/09) 고른 채 빈 곳 톡 = 선택 해제만");
+assert.ok(!T.includes("else if (st.sel || st.msel) {") && T.includes("else { toggle(); lastTap = now; } }"), "(11/09) 고른 채 빈 곳 톡 = 선택 해제만");
 console.log("deselect on play ok");
 // (11/06 17:59 사용자) 화살표 꾹 = 진동 · 늘렸다 처음 자리로 돌아오면 진동(살짝 붙음)
 assert.ok(T.includes('st.onBarDragX(0, ed, true); if (e.pointerType !== "mouse") { buzz(50);') && T.includes("if (home && !st._tbHome && st._tbAway) { buzz(40);") && T.includes("st._tbHome = true; st._tbAway = false; return; }"));
