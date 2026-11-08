@@ -438,7 +438,9 @@
           const arrow = (x, dir, on) => { const x0 = dir < 0 ? x - R * 1.5 : x, x1 = dir < 0 ? x : x + R * 1.5, tip = dir < 0 ? x0 : x1, bk = dir < 0 ? x1 : x0, y0 = sb.y - hh / 2, y1 = sb.y + hh / 2, nk = R * 0.6 * -dir;
             g.beginPath(); g.moveTo(bk, y0); g.lineTo(tip - nk, y0); g.lineTo(tip, sb.y); g.lineTo(tip - nk, y1); g.lineTo(bk, y1); g.closePath(); g.fillStyle = on ? "#ffb86b" : "#e8f8ff"; g.fill(); g.lineWidth = 2; g.strokeStyle = "#0b0d11"; g.stroke();
             g.fillStyle = "#0b0d11"; g.font = "bold 15px system-ui, sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(dir < 0 ? "‹" : "›", (x0 + x1) / 2, sb.y + 1); g.textAlign = "left"; };
-          if (lx >= L - 4) arrow(lx, -1, st.hdlArmed === "l"); if (rx <= w + 4) arrow(rx, 1, st.hdlArmed === "r");
+          const nbH = (dir) => bars.some(x => x !== sb && Math.abs(x.y - sb.y) < hh && (dir < 0 ? x.x1 > lx - R * 1.5 && x.x0 < lx - 1 : x.x0 < rx + R * 1.5 && x.x1 > rx + 1));   // (11/09 00:21 사용자 '쪼갰더니 앞부분이 사라짐') 바로 옆 음(나눈 앞 조각)을 손잡이가 가렸음 → 그땐 반투명
+          const drawA = (x, dir, on) => { const ga = g.globalAlpha; if (!on && nbH(dir)) g.globalAlpha = 0.42; arrow(x, dir, on); g.globalAlpha = ga; };
+          if (lx >= L - 4) drawA(lx, -1, st.hdlArmed === "l"); if (rx <= w + 4) drawA(rx, 1, st.hdlArmed === "r");
           st.hdl = { l: { x: lx - R * 0.75, y: sb.y, r: R + 8 }, r: { x: rx + R * 0.75, y: sb.y, r: R + 8 } };
           const tips = [["v", "↕ 잡자마자 끌기 = ", "반음씩"], ["fine", "꾹 0.6초 → 위아래 = ", "미세"], ["dbl", "두 번 톡 = ", "가까운 음에 착"], ["arr", "‹ › 꾹 0.6초 → 끌기 = ", "앞·뒤 길이"]].filter(q => !learned(q[0]) && (q[0] !== "dbl" || st.advOn));
           if (tips.length && !st.dragging) { g.font = "11.5px system-ui, sans-serif"; g.textBaseline = "middle"; const cx = Math.max(L + 70, Math.min(w - 70, (Math.max(L, sb.x0) + Math.min(w, sb.x1)) / 2));
@@ -613,7 +615,7 @@
         if (h0) { if (!h0.del) { st.hold = { n: h0.n, at: performance.now() }; d0.lp = setTimeout(() => { st.hold = null; if (drag !== d0 || d0.moved) return; d0.long = true; if (ctl && !o.paused()) o.play(); lastView = view; o.onNote(h0.n); }, 600); } }
         else if (typeof o.onAdd === "function") d0.lp = setTimeout(() => { if (drag !== d0 || d0.moved) return;
           d0.long = true; if (ctl && !o.paused()) o.play();
-          const tt = timeAt(st, e.clientX - r0.left); if (tt != null) { lastView = view; o.onAdd(tt); } }, 390); } });
+          const tt = timeAt(st, e.clientX - r0.left); if (tt != null) { lastView = view; o.onAdd(tt); } }, LONG_MS); } });   // (11/09) 0.39 → 0.6초
     el.addEventListener("pointermove", (e) => {
       if (!drag || drag.id !== e.pointerId) return;
       const dx = e.clientX - drag.x; if (!drag.moved && Math.abs(dx) < 8) return; clearTimeout(drag.lp); st.hold = null;
@@ -1335,7 +1337,7 @@
             if (st.kb && (hitT(l0) || hitBar(l0))) return;   // (11/06 22:18 사용자) 여러 음 고르기·새 주석은 빈 곳 꾹에서만 — 음표 위 꾹은 아무것도 안 함(보정 모드는 미세 음정)
             if (typeof o.onResetRange === "function" && st.map && tt != null) { pauseNow(); d0.armed = { x: l0.x, t: tt }; st.msel = [tt, tt]; armTip(true); buzz(40); return; }   // (11/06 21:59) 구간 고르기 시작 = 진동
             d0.long = true; pauseNow();
-            if (tt != null) { lastView = view; o.onAdd(tt); } }, 390); } }
+            if (tt != null) { lastView = view; o.onAdd(tt); } }, LONG_MS); } }   // (11/09 00:21 사용자) 빈 곳 꾹 0.39초 → 0.6초
         // (11/06 21:47 사용자) 보정 모드: 고르지 않은 음표도 꾹(0.6초) 누르면 그 음을 고르면서 바로 미세 음정(위아래) + 진동
         if ((st.advOn || st.buMode) && typeof o.onFix === "function" && e.pointerType !== "mouse" && st.kb && st.map && !drag.edgeLp && !drag.h0) { const d0 = drag, l0 = loc(d0.cx, d0.cy, cvEl.getBoundingClientRect()), hb = hitBar(l0);
           if (hb && l0.x >= st.kb.L && !(st.sel && Math.abs(hb.t0 - st.sel.t0) < 0.02)) { clearTimeout(d0.lp); d0.lp = setTimeout(() => { if (drag !== d0 || d0.mode) return; pauseNow();
