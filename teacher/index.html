@@ -5214,6 +5214,7 @@ function mkStartTrack(t, at) {
 function mkPlay(at) {
   if (typeof PVP !== "undefined" && PVP.busy()) { PVP.later = () => mkPlay(at); toast("서버와 같은 소리 준비 중… 끝나면 바로 재생해요"); return; }   // 고친 소리가 준비될 때까지 기다렸다가
   pauseOthers("mk"); mkStop(); try { if (mkCtx.state !== "running") mkCtx.resume(); } catch {} mkOffset = at; mkT0 = mkCtx.currentTime - at; mkPlaying = true;
+  try { Brand.audioRelease?.(); } catch {}   // (11/09 블루투스 볼륨 조절) 재생을 시작하면 다른 소리 장치(종소리·기준음·미리듣기 등)는 모두 쉬게 함 — 재생 중인 이 장치만 남김(audioKeep)
   for (const t of Object.values(mkTracks)) if (t.buf) mkStartTrack(t, at);
   mkApply(); paintTransport();
 }
