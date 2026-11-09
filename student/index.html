@@ -843,7 +843,7 @@ function stemEngine(d) {
     const est = Math.max(a.byteLength, b.byteLength) / (d.bytesPerSec || 20000);   // 160kbps MP3 ≈ 20000바이트/초
     if (AC && est <= (d.maxDecodeSec || 480)) {   // 4분 스테레오 ≈ 한 트랙 약 90MB → 8분 넘을 듯하면 디코드하지 않고 폴백
       const ra = a.slice(0), rb = b.slice(0);   // decodeAudioData가 원본을 비우므로 폴백용 사본
-      try { ctx ||= new AC({ latencyHint: "playback" }); const m = await decode(a), v = await decode(b); if (dead) throw stale();
+      try { ctx ||= new AC(); const m = await decode(a), v = await decode(b); if (dead) throw stale();
         let tail = ctx.destination; try { const lim = ctx.createDynamicsCompressor(); lim.threshold.value = -1; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.003; lim.release.value = 0.12; lim.connect(ctx.destination); tail = lim; } catch {}   // 최종단 리미터(없는 기기는 그대로)
         try { EN = energy(m, v); } catch { EN = null; }
         master = ctx.createGain(); master.gain.value = boostGain(boostOn); master.connect(tail);
@@ -880,7 +880,7 @@ function stemEngine(d) {
     load, pos, dur, mode: () => mode, isPlaying: () => playing, isDead: () => dead, vol: () => vol, fallbackReason: () => d.fallback || "",
     unlock() {   // 사용자 터치 안에서 동기로 부르기: 소리 장치를 미리 만들고 깨움(모바일 자동재생 정책). 못 해도 조용히 넘어감
       if (dead || ctx || mode || !AC) { try { if (ctx && ctx.state !== "running") ctx.resume(); } catch {} return; }
-      try { ctx = new AC({ latencyHint: "playback" }); const p = ctx.resume(); if (p && p.catch) p.catch(() => {}); } catch { ctx = null; }
+      try { ctx = new AC(); const p = ctx.resume(); if (p && p.catch) p.catch(() => {}); } catch { ctx = null; }
     },
     async play() {
       await load(); if (dead) throw stale(); if (playing || starting) return; starting = true; tm.clear(idleT); idleT = null;
