@@ -51,7 +51,7 @@ console.log("adv-pen ok");
   A_.ok(t6.includes("const advGuide = (force) =>") && a6.includes('data-g="guide"'), "처음 안내 + 다시 보기"); }
 // (11/06) 고급 보정 ② 보정 엔진 선택·A/B(고른 뒤에야 어느 엔진인지 알려 줌)
 { const a7 = require("fs").readFileSync(__dirname + "/../adv.js", "utf8"), t7 = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8"), A_ = require("assert");
-  A_.ok(a7.includes("function engineBox(st)") && a7.includes('data-ew="A"') && a7.includes("st.engSet({ engine: mk[k], engine_pick: k })") && a7.includes("${pick ? `"), "A/B 고르면 엔진으로");
+  A_.ok(a7.includes("function engineBox(st)") && a7.includes('data-ew="A"') && a7.includes("{ engine: en, engine_pick: k }") && a7.includes("${pick ? `"), "A/B 고르면 엔진으로");
   A_.ok(t7.includes('engFid("엔진비교_A.mp3")') && t7.includes('if (!r.engine || r.engine === "psola") delete r.engine;')); }
 // (11/06) 고급 보정 ③ 마우스 모드: 휠 이동·Ctrl+휠 확대·빈 곳 끌기 = 여러 음·우클릭 메뉴·Alt 미세·키보드
 { const t8 = require("fs").readFileSync(__dirname + "/../tune.js", "utf8"), A_ = require("assert");
