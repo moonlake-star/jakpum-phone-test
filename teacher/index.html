@@ -597,9 +597,9 @@ function getToken(interactive) {
       callback: (r) => { pending = null;
         if (r.error) return reject(new Error("로그인 실패: " + r.error));
         token = r.access_token; LS.set("vn_tok", { t: token, exp: Date.now() + (r.expires_in - 120) * 1000 }); resolve(token); },
-      error_callback: (e) => { pending = null; if (e.type !== "popup_closed") { $("btnLoginRd")?.classList.remove("hidden"); LS.set("vn_popup_bad", 1); }
+      error_callback: (e) => { pending = null; if (e.type !== "popup_closed") { if (IOS_APP) $("btnLoginRd")?.classList.remove("hidden"); LS.set("vn_popup_bad", 1); }
         reject(new Error(e.type === "popup_closed" ? "로그인 창이 닫혔어요" : IOS_APP ? "홈 화면 앱에서는 구글 로그인 창이 막혀요 — 아래 [페이지 이동으로 로그인]을 눌러 주세요"
-          : "로그인 창을 열지 못했어요 — 아래 [페이지 이동으로 로그인]을 누르거나, 아이패드·아이폰은 설정 › Safari › '팝업 차단'을 끄고 다시 눌러 주세요")); },
+          : "로그인 창이 막혔어요 — 주소창 오른쪽의 '팝업 차단됨' 표시를 눌러 이 사이트 팝업을 허용한 뒤 다시 눌러 주세요(아이패드·아이폰: 설정 › Safari › 팝업 차단 끄기)")); },
     });
     tokenClient.requestAccessToken({ prompt: interactive && !LS.get("vn_hint") ? "select_account" : "" });
   });
@@ -642,7 +642,8 @@ function resumeOnTap() {
   const go = (e) => { e.preventDefault(); e.stopPropagation(); document.removeEventListener("click", go, true);
     bar.textContent = "연결 중…";
     resumeMode = false;
-    if (IOS_APP || LS.get("vn_popup_bad")) { bar.textContent = "구글로 이동 중…"; return loginRedirect(); }   // (11/03 10:20 사용자) 이 기기는 창이 막힘 → 바로 페이지 이동 로그인(돌아오면 이어서)
+    // (11/10 08:09 사용자 노트북 '액세스 차단됨 redirect_uri_mismatch') 페이지 이동 로그인은 구글 설정에 이 주소가 없어 막힘 → 아이폰 홈 화면 앱만 그 방식, 나머지는 늘 로그인 창
+    if (IOS_APP) { bar.textContent = "구글로 이동 중…"; return loginRedirect(); }   // (11/03 10:20 사용자) 이 기기는 창이 막힘 → 바로 페이지 이동 로그인(돌아오면 이어서)
     getToken(false).then(() => { bar.remove(); start(); }).catch(err => { bar.remove(); $("loginMsg").textContent = err.message; $("btnLoginRd")?.classList.remove("hidden"); show("vLogin"); }); };
   document.addEventListener("click", go, true);
 }
@@ -7787,7 +7788,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261109-2340";
+const BUILD = "20261110-0815";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
