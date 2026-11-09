@@ -5069,7 +5069,7 @@ function pvApply(name) {   // 한 트랙에 지금 고친 정음·타이밍 전�
     const f0 = pvF0(cv, lvCol, sr, i0, n), Dk = (k) => tp.D((i0 + k) / sr) * sr - i0;
     // (11/09 11:18 사용자 '길이 조금 고쳤는데 드르르') 간이 PSOLA(봉우리 찾기)는 거칠게 들릴 때가 있음 → 서버와 같은 Praat(DurationTier)으로 만든 소리가 준비되면 그걸로
     const wk = `W|${name}|${sr}|${i0}|${i1}|${tp.sig}|${sig.length}|${sig.split("").reduce((q, ch) => (q * 31 + ch.charCodeAt(0)) | 0, 7)}`, wy = PVP.cache.get(wk);
-    if (wy === undefined && PVP.state !== "fail" && PVP.state !== "off") { pvWarpJob(wk, reg.ch[0].slice(), sr, i0, tp); continue; }   // 간이 소리(재 보니 늘인 곳이 HNR 8dB로 거칢 = 드르르)는 들려주지 않고, Praat 소리가 준비되면 바로 반영
+    if (wy === undefined && PVP.state !== "fail" && PVP.state !== "off") { pvWarpJob(wk, reg.ch[0].slice(), sr, i0, tp); if (PVP.state === "ready" || PVP.state === "loading") continue; }   // 간이 소리(재 보니 늘인 곳이 HNR 8dB로 거칢 = 드르르)는 들려주지 않고, Praat 소리가 준비되면 바로 반영
     for (let c = 0; c < buf.numberOfChannels; c++) { const out = buf.getChannelData(c), org = reg.ch[c], sh = wy && wy.length >= n ? wy : pvWarp(org, sr, f0, Dk);
       for (let k = 0; k < n; k++) { const a = k < X ? k / X : k > n - X ? (n - k) / X : 1; out[i0 + k] = org[k] * (1 - a) + sh[k] * a; } } }
   if (ap && !(ppReady && pp.exact)) { const mp = pvAdvMaps(cv, lvCol);   // 디테일 보정: 지금까지 만든 소리 위에 높이 차이·볼륨을 얹음(서버와 같은 소리를 이미 끼웠으면 건너뜀)
@@ -7579,7 +7579,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-09-1129-pvwait";
+const BUILD = "2026-11-09-1130-pvfix";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
