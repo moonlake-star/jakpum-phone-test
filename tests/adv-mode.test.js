@@ -80,6 +80,6 @@ console.log("adv-mode ok", md.toFixed(4));
 
 // (11/09 사용자) 고급 버튼은 아래 줄 · 박자 줄은 늘 켜짐/맞춤은 스위치 · 팝업 '다음부터 고급으로' 체크 → 열 때 바로 고급
 { const T9 = require("fs").readFileSync(require("path").join(__dirname, "..", "tune.js"), "utf8");
-  assert.ok(T9.includes('advRow.appendChild(seg)') && T9.includes('class="rpAdvCk"') && T9.includes('localStorage.setItem("tune_adv_default", "1")') && T9.includes('localStorage.getItem("tune_adv_default") === "1") setTimeout('), "아래 줄 고급 버튼 · 기본 고급 체크");
+  assert.ok(T9.includes('advRow.appendChild(seg)') && T9.includes('st.placeAdv = ()') && T9.includes('class="rpAdvCk"') && T9.includes('localStorage.setItem("tune_adv_default", "1")') && T9.includes('localStorage.getItem("tune_adv_default") === "1") setTimeout('), "아래 줄 고급 버튼 · 기본 고급 체크");
   assert.ok(T9.includes('mk("advBeatB", "🥁 박자 맞춤")') && !T9.includes("st.advOn && st.beatOn && cv.beats"), "박자 줄 항상 · 맞춤 스위치");
   console.log("adv-default ok"); }

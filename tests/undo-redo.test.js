@@ -30,7 +30,7 @@ now += 100; h.o.onTime({ t0: 5 }); now += 100; h.o.onAdv(); assert.strictEqual(h
   // 높이만 바뀌어도 캔버스 그림 크기를 다시 맞춤(터치가 위로 어긋나던 버그)
   assert.ok(T.includes("el.width !== Math.round(w * r) || el.height !== Math.round(h * r)"), "캔버스 높이 변화도 다시 맞춤");
   // (11/05 사용자) 폰 세로 + 보정 모드 진입 시 가로 모드 안내 팝업
-  assert.ok(T.includes("const landTip = ()") && T.includes("폰에선 가로 모드가 보정 시 더 편리할 수 있어요") && T.includes("else if (v) { landTip(); if (!wrap.querySelector(\".tfLandTip\")) advGuide(); st.dock && st.dock(); }") && T.includes("tune_land_tip_off"), "보정 진입 시 가로 모드 안내 + 다시 보지 않기");
+  assert.ok(T.includes("const landTip = ()") && T.includes("고급 모드를 켰어요") && T.includes("else if (v) { landTip(); if (!wrap.querySelector(\".tfLandTip\")) advGuide(); st.dock && st.dock(); }") && T.includes("tune_adv_pop_seen"), "고급 처음 켤 때 한 번 팝업(다음부터 고급 체크)");
   // (11/05 사용자) 가로 + 🎛 고급 창 = 오른쪽 전체 높이 패널(그래프가 얇은 띠로 눌리지 않게)
   assert.ok(T.includes(".tfBox:not(.port):has(.tfFix.inBot.tfUni){display:grid") && T.includes(".tfBox:not(.port) .tfFix.inBot.tfUni{grid-column:2;grid-row:2/4"), "가로 고급 창 = 오른쪽 패널");
   // (11/05 사용자 시안 승인) 보정 모드 = 탭 없는 한 창(음정·타이밍·고급) · 빈 곳·다른 음을 눌러도 안 닫힘 · 안 골랐을 때는 안내 창
@@ -39,7 +39,7 @@ now += 100; h.o.onTime({ t0: 5 }); now += 100; h.o.onAdv(); assert.strictEqual(h
   assert.ok(T.includes("st.dock = () =>") && T.includes('"tfFix inBot tfUni tfDock"') && T.includes("if (st && st.dock) st.dock();"), "창이 닫히면 안내 창으로 다시 붙음");
   assert.ok(T.includes("G.TuneAdv.resetNote(st, cv, b)"), "↺ 원본 = 고급 고침도 같이");
   assert.ok(T.includes('d.className = "tfFix tfMulti" + (st.advOn ? " tfUni" : " tfMGr")'), "여러 음 고르기 창도 같은 자리·크기(끌 때 그래프가 안 들썩임)");
-  assert.ok(T.includes('<div class="rpPh" aria-hidden="true">') && T.includes("@keyframes rpTurn{") && T.includes("prefers-reduced-motion:reduce){#tuneFs .rpPh b"), "가로 모드 안내: 폰이 돌아가는 움직임");
+  assert.ok(T.includes("@keyframes rpTurn{") && T.includes("prefers-reduced-motion:reduce){#tuneFs .rpPh b"), "가로 모드 안내: 폰이 돌아가는 움직임");
   // (11/05 사용자) 소리 켬/끄기 없앰 → 볼륨 맨 아래 = 무음 · 새 떨림 시작·커지는 시간은 음 길이에 맞춤
   const A = fs.readFileSync(__dirname + "/../adv.js", "utf8");
   assert.ok(!A.includes('chips("소리"') && A.includes("const MUTE_DB = -25;") && A.includes('v <= MUTE_DB ? "무음"') && A.includes("n.mute = true; delete n.gain_db;"), "볼륨 맨 아래 = 무음");
