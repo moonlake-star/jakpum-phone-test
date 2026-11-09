@@ -16,3 +16,4 @@ assert.ok(T.includes("이번에 고친 곳 <b>${n}곳</b>") && T.includes("곡 �
 assert.ok(T.includes('data-m="o">🎤 보정 전') && T.includes('data-m="p">✨ 보정 후') && A.includes('data-ep="o">▶ 보정 전'), "보정 전/후로 통일");
 assert.ok(A.includes('<div class="advDng"><button type="button" data-g="reset">🗑 모든 고침 지우고 처음 상태로') && !A.includes("↺ 곡 전체 원본으로"), "처음 상태로 = 따로 떨어진 빨간 칸");
 console.log("done-card ok");
+assert.ok(H.includes('fb.classList.toggle("ghost", !d)') && !H.includes('for (const id of ["mkFinal", "mkdNote"])'), "새로 만들기 버튼은 늘 보임");

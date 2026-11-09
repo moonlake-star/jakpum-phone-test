@@ -5795,7 +5795,8 @@ async function openMkJob(j, backTo) {
     el.innerHTML = d ? `<span class="mkTag warn">✏️ 반영 전</span>고친 내용이 완성본에 아직 없어요` : `<span class="mkTag ok">✅ 최신</span>완성본${when ? " · " + when : ""}`;
     $("mkdSub").textContent = d ? `${parts || "고친 내용"} · 지금 듣는 소리에는 이미 들어가 있어요${r.note_edits?.global && Object.keys(r.note_edits.global).length ? "(일괄 보정은 새로 만들어야 들려요)" : ""}`
       : `${parts ? "고친 내용(" + parts + ") 모두 들어가 있어요" : "자동 보정 그대로"}${meas.mix_lufs_out != null ? " · " + meas.mix_lufs_out + " LUFS" : ""}`;
-    for (const id of ["mkFinal", "mkdNote"]) $(id)?.classList.toggle("hidden", !d);
+    $("mkdNote")?.classList.toggle("hidden", !d);   // (11/09 23:33 사용자 '완성본 새로 만들기가 어디 있냐') 최신일 때도 버튼은 늘 보이게(서버 개선 반영용) — 최신이면 작은 회색 버튼
+    const fb = $("mkFinal"); if (fb) { fb.classList.toggle("ghost", !d); fb.textContent = d ? "🔊 완성본 새로 만들기" : "🔊 완성본 새로 만들기 (최신 기능으로 한 번 더)"; }
     document.querySelector("#mkDone .mkdPh")?.classList.toggle("hidden", !d && !phoneFresh());
     if ($("mkMix")) $("mkMix").textContent = d ? "▶ 지난 완성본 듣기" : "▶ 듣기";
     $("mkdWho").innerHTML = phoneFresh() ? "보낼 파일: ⚡ 방금 폰에서 만든 mp3(지금 소리 그대로)" : d ? "⚠ 지금 보내면 <b>고친 게 빠진 지난 완성본</b>이 나가요 · 보내기를 누르면 고를 수 있어요" : `보낼 파일: 서버 완성본${when ? "(" + when + ")" : ""}`; };
@@ -7786,7 +7787,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261109-2140";
+const BUILD = "20261109-2340";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
