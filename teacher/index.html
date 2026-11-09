@@ -5195,7 +5195,7 @@ function voiceTone(t0, t1, midi) {
   return (vtNow = h);
 }
 function pvApplyAll() { try { pvTimePlan(); } catch (e) { console.warn("타이밍 미리듣기", e); mkPv.tplan = { sig: "", regs: [] }; } let ch = false; for (const n of Object.keys(mkTracks)) if (pvApply(n)) ch = true; if (ch) mkPhone = null; if (ch && mkPlaying) mkPlay(mkNow()); return ch; }   // 재생 중이면 같은 자리에서 다시(바뀐 소리로)
-function mkStop() { for (const t of Object.values(mkTracks)) { try { t.src?.stop(); } catch {} t.src = null; } mkPlaying = false; audioIdle(); }
+function mkStop() { for (const t of Object.values(mkTracks)) { try { t.src?.stop(); } catch {} t.src = null; } mkPlaying = false; try { Brand.focusHold?.("mk", false); } catch {} audioIdle(); }
 // (11/05 사용자 '에어팟: 이 앱에서 재생하다 다른 앱을 재생하면 볼륨 조절이 한동안 안 먹다가 갑자기 먹음') 소리 장치를 다 쓰고도 계속 열어 두면 블루투스가 이 앱 소리 연결을 안 놓아서,
 // 재생이 멈추고 1.5초 지나면(그리고 화면을 벗어나면) 소리 장치를 쉬게 함 — 다시 재생할 때 자동으로 깨움
 const audioIdleCtx = () => [typeof mkCtx !== "undefined" ? mkCtx : null, typeof chimeCtx !== "undefined" ? chimeCtx : null, typeof loudCtx !== "undefined" ? loudCtx : null];
@@ -5214,6 +5214,7 @@ function mkStartTrack(t, at) {
 function mkPlay(at) {
   if (typeof PVP !== "undefined" && PVP.busy()) { PVP.later = () => mkPlay(at); toast("서버와 같은 소리 준비 중… 끝나면 바로 재생해요"); return; }   // 고친 소리가 준비될 때까지 기다렸다가
   pauseOthers("mk"); mkStop(); try { if (mkCtx.state !== "running") mkCtx.resume(); } catch {} mkOffset = at; mkT0 = mkCtx.currentTime - at; mkPlaying = true;
+  try { Brand.focusHold?.("mk", true, () => { mkStop(); try { paintTransport(); } catch {} }); } catch {}   // 다른 앱 소리와 겹침 방지·다른 앱이 시작하면 멈춤
   try { Brand.audioRelease?.(); } catch {}   // (11/09 블루투스 볼륨 조절) 재생을 시작하면 다른 소리 장치(종소리·기준음·미리듣기 등)는 모두 쉬게 함 — 재생 중인 이 장치만 남김(audioKeep)
   for (const t of Object.values(mkTracks)) if (t.buf) mkStartTrack(t, at);
   mkApply(); paintTransport();
@@ -5555,9 +5556,10 @@ function stemEngine(d) {
     await new Promise(res => { if (au.mr.readyState >= 1) return res(); au.mr.onloadedmetadata = res; setTimeout(res, 4000); }); if (dead) throw stale();
     au.mr.onended = () => { if (playing) end(); }; return E;
   };
-  const end = () => { off = 0; if (mode === "web") killSrcs(); else if (au) { au.mr.pause(); au.voc.pause(); try { au.mr.currentTime = au.voc.currentTime = 0; } catch {} } playing = false; stopTimer(); sleepSoon(); try { d.onEnd && d.onEnd(); } catch {} };
+  const end = () => { off = 0; if (mode === "web") killSrcs(); else if (au) { au.mr.pause(); au.voc.pause(); try { au.mr.currentTime = au.voc.currentTime = 0; } catch {} } playing = false; stopTimer(); sleepSoon(); fh(false); try { d.onEnd && d.onEnd(); } catch {} };
   // (11/09 사용자 '블루투스 이어폰 볼륨 조절 안 됨 또 발생') 멈춘 뒤에도 소리 장치를 열어 두면 이어폰이 이 앱 소리 연결을 붙잡음 → 멈추고 1.5초 뒤 쉬게 함(재생 때 자동 깨움)
   let idleT = null;
+  const fh = (on) => { try { d.focus && d.focus(on, () => { if (playing) { E.pause(); try { d.onPause && d.onPause(); } catch {} } }); } catch {} };   // 다른 앱과 소리 겹침 방지(Brand.focusHold)
   const sleepSoon = () => { tm.clear(idleT); idleT = tm.set(() => { try { if (!playing && !starting && ctx && ctx.state === "running") ctx.suspend(); } catch {} }, 1500); };
   const begin = () => {
     if (mode === "web") {
@@ -5583,10 +5585,10 @@ function stemEngine(d) {
       try {
         if (mode === "web" && ctx.state !== "running") { await Promise.race([ctx.resume(), new Promise(res => setTimeout(res, d.resumeMs || 3000))]); if (dead) throw stale(); if (ctx.state !== "running") throw new Error("blocked"); }
         if (off >= dur() - 0.05) off = 0;
-        await begin(); if (dead) throw stale(); playing = true; stopTimer(); timer = tm.set(tick, 250);
+        await begin(); if (dead) throw stale(); playing = true; fh(true); stopTimer(); timer = tm.set(tick, 250);
       } finally { starting = false; }
     },
-    pause() { if (!playing) return; off = pos(); if (mode === "web") killSrcs(); else if (au) { au.mr.pause(); au.voc.pause(); } playing = false; stopTimer(); sleepSoon(); },
+    pause() { if (!playing) return; off = pos(); if (mode === "web") killSrcs(); else if (au) { au.mr.pause(); au.voc.pause(); } playing = false; stopTimer(); sleepSoon(); fh(false); },
     async seek(t) {   // 곡 안 위치만 옮김(네트워크 없음)
       await load(); if (dead) throw stale(); t = Math.max(0, Math.min(t, Math.max(0, dur() - 0.05)));
       if (mode === "web") { off = t; if (playing) { killSrcs(); begin(); } }
@@ -5603,7 +5605,7 @@ function stemEngine(d) {
     },
     boost: () => boostOn,
     destroy() {   // 화면을 떠나거나 곡을 바꿀 때: 타이머·소리·URL·AudioContext 모두 정리
-      if (dead) return; dead = true; stopTimer(); playing = false; killSrcs();
+      if (dead) return; dead = true; fh(false); stopTimer(); playing = false; killSrcs();
       if (au) { for (const a of [au.mr, au.voc]) { try { a.pause(); a.onended = a.onloadedmetadata = null; a.removeAttribute && a.removeAttribute("src"); a.load && a.load(); } catch {} } au = null; }
       const U = d.URL || G.URL; for (const u of urls) { try { U.revokeObjectURL(u); } catch {} } urls = []; buf = null; closeCtx();
     },
@@ -5624,7 +5626,7 @@ function songPlayer(el, ids, o) {
     <p class="muted" style="margin:6px 0 0;font-size:.78rem">재생 중에도 슬라이더를 움직이면 바로 바뀌어요 · 슬라이더 더블탭 = 100%</p></div>`;
   const me = sgCur = { eng: null, el, folder: o.folder || null, vol: v0, blob: {}, svT: 0 }, mmss = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`, alive = () => sgCur === me && !me.eng.isDead();
   const blob = (k) => (me.blob[k] ||= readBlob(ids[k], false, true).catch((e) => { delete me.blob[k]; throw e; }));   // 같은 파일 요청은 하나로(받기·재생 겹쳐도 한 번) · 실패하면 다음에 다시
-  const eng = me.eng = stemEngine({ vol: v0, boost: boostPref(), fetchBuf: async (k) => (await blob(k)).arrayBuffer(),
+  const eng = me.eng = stemEngine({ vol: v0, boost: boostPref(), focus: (on, lost) => Brand.focusHold?.("song", on, lost), onPause: () => { if (alive()) Q("sgPb").textContent = "▶"; }, fetchBuf: async (k) => (await blob(k)).arrayBuffer(),
     onTick: (E) => { if (!alive()) return; if (!el.isConnected) return songDestroy(); const t = E.pos(), dd = E.dur() || 1; Q("sgT0").textContent = mmss(t); if (!Q("sgSeek").matches(":active")) Q("sgSeek").value = Math.round(t / dd * 1000); },
     onEnd: () => { if (!alive()) return; Q("sgPb").textContent = "▶"; Q("sgT0").textContent = "0:00"; Q("sgSeek").value = 0; } });
   const paintVol = () => { Q("sgVv").textContent = me.vol + "%"; Q("sgVol").value = me.vol; el.querySelectorAll("[data-sgv]").forEach(b => b.classList.toggle("on", +b.dataset.sgv === me.vol)); };

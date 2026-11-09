@@ -14,7 +14,7 @@ const mk = (vars) => { const timers = []; const fakeSet = (f, ms) => { timers.pu
 { const { api, st } = mk({}); api.audioIdle(true); assert.strictEqual(st.mkCtx.state, "suspended", "화면을 벗어나면 바로"); }
 { const { api, st } = mk({ mkPlaying: true }); api.audioIdle(true); assert.strictEqual(st.mkCtx.state, "running", "재생 중에는 안 쉼"); assert.strictEqual(st.chimeCtx.state, "suspended"); }
 { const { api, st } = mk({ vtNow: {} }); api.audioIdle(true); assert.strictEqual(st.mkCtx.state, "running", "음 미리듣기 중에는 안 쉼"); }
-assert.ok(T.includes("function mkStop() {") && /mkPlaying = false; audioIdle\(\); }/.test(T), "멈추면 쉬게 예약");
+assert.ok(T.includes("function mkStop() {") && /mkPlaying = false; try \{ Brand\.focusHold\?\.\("mk", false\); \} catch \{\} audioIdle\(\); }/.test(T), "멈추면 쉬게 예약");
 assert.ok(T.includes('pauseOthers("mk"); mkStop(); try { if (mkCtx.state !== "running") mkCtx.resume(); } catch {}'), "재생 때 깨움");
 assert.ok(T.includes('try { if (mkCtx.state !== "running") mkCtx.resume(); } catch {}   // (11/05) 쉬고 있던 소리 장치 깨우기'), "음 미리듣기 때 깨움");
 assert.ok(T.includes("    audioIdle();\n    return new Promise(r => setTimeout(r, 600));"), "구분음 뒤 쉬게");
