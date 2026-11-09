@@ -537,6 +537,7 @@
     <button id="btnSave" class="full" style="order:6">검수 저장</button>
     <p class="muted" id="saveMsg" style="order:7"></p>
   </section>
+  <style>#lgFoot{display:none}#vList:not(.hidden) ~ #lgFoot{display:block}</style><p id="lgFoot" class="muted" style="text-align:center;margin:28px 0 12px"><button type="button" id="btnLogout" class="ghost small">로그아웃</button></p>
 </main>
 <div id="v2Dock" class="v2only hidden"><div class="in"><span id="v2DockMsg" class="muted"></span>
   <div class="btns"><button type="button" class="ghost" id="v2Save">임시저장</button><button type="button" class="ghost" id="v2PvDock" aria-label="수강생 화면 미리보기">👀 미리보기</button><button type="button" id="v2Send" aria-label="수강생에게 전달하기">✈ 전달하기</button></div></div></div>
@@ -7766,6 +7767,14 @@ document.addEventListener("click", (e) => {
   detailsAnimate(d, d._anim ? !d._want : !d.open);   // 움직이는 중에 또 누르면 반대로
 }, true);
 // ── 버튼 ────────────────────────────────────────────────
+// (11/09 사용자) 로그아웃 — 구글 로그인 정보(출입증·계정 기억)와 이 계정의 목록 임시 저장분만 지움. 녹음·메이크업·설정 같은 이 폰의 자료는 그대로 둠
+$("btnLogout").onclick = () => {
+  if (!confirm("로그아웃할까요? 다시 들어오려면 구글 로그인이 필요해요. (이 폰에 저장된 녹음·설정은 지워지지 않아요)")) return;
+  for (const k of ["vn_tok", "vn_ctok", "vn_hint", "vn_cfg_id", "vn_cfg", "vn_list"]) LS.set(k, null);
+  try { const t = token; token = null; if (t && window.google?.accounts?.oauth2) google.accounts.oauth2.revoke(t, () => {}); } catch {}
+  try { google.accounts.id.disableAutoSelect(); } catch {}
+  location.reload();
+};
 $("btnLogin").onclick = login; $("btnLoginRd").onclick = loginRedirect; if (IOS_APP) $("btnLoginRd").classList.remove("hidden");
 $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
