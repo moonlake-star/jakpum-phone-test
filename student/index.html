@@ -824,7 +824,7 @@ function stemEngine(d) {
   const tm = d.timers || { set: (f, ms) => G.setInterval(f, ms), clear: (t) => G.clearInterval(t) }, stale = () => new Error("stale"), clamp = (v) => Math.max(0, Math.min(100, Math.round(+v) || 0));
   // (11/09 11:46 사용자 '곡 서랍·메이크업 음원은 이미 마스터링된 파일일 가능성이 높음') 고정 +4 dB 대신: 원곡(반주+보컬) 실효값이 BOOST_TARGET보다 작을 때만 그만큼 올림(최대 +6 dB)
   //   → 이미 크게 마스터링된 곡은 더 키우지 않아 리미터로 찌그러지지 않음 · 보컬을 줄이면 comp가 원곡 크기로 되돌림
-  const BOOST_TARGET = -14, boostGain = (on) => (on ? lift() * comp() : 1);
+  const BOOST_TARGET = -11, boostGain = (on) => (on ? lift() * comp() : 1);
   const lift = () => { if (!EN || !EN.n) return 1; const lv = 10 * Math.log10((EN.mm + 2 * EN.mv + EN.vv) / EN.n + 1e-12); return Math.max(1, Math.min(10 ** (6 / 20), 10 ** ((BOOST_TARGET - lv) / 20))); };
   let EN = null;   // 반주·보컬 에너지(원곡 크기 맞춤용): mm, vv, mv
   const comp = () => { if (!EN) return 1; const g = vol / 100, e = EN.mm + 2 * g * EN.mv + g * g * EN.vv, eo = EN.mm + 2 * EN.mv + EN.vv; return e > 1e-12 ? Math.max(1, Math.min(10 ** (9 / 20), Math.sqrt(eo / e))) : 1; };

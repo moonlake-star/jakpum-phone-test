@@ -2,7 +2,7 @@
 // 실제 폰 청감·화면 끔 동작은 검증하지 않음(합성 mock만)
 const fs = require("fs"), assert = require("assert"), vm = require("vm");
 const T = fs.readFileSync(__dirname + "/../teacher/index.html", "utf8");
-const a = T.indexOf("const LOUD_DB"), b = T.indexOf('player.addEventListener("play", () => loudRoute(player));');
+const a = T.indexOf("const LOUD_TARGET"), b = T.indexOf('player.addEventListener("play", () => loudRoute(player));');
 assert.ok(a > 0 && b > a, "크게 듣기 블록");
 const code = T.slice(a, b);
 function world(on) {
