@@ -1100,11 +1100,12 @@
         el.querySelector("[data-retry]").onclick = async (e) => { const b = e.currentTarget; b.disabled = true; b.textContent = "저장 중…"; try { await o.saveRetry(); } catch {} paint(); if (!ss().fail) { el.className = "tuneExit"; el.innerHTML = `<div class="teHd">✓ 저장됐어요</div>`; tm = setTimeout(close, 1800); } };
         el.querySelector("[data-x]").onclick = close; if (typeof o.saveRetry !== "function") el.querySelector("[data-retry]").remove(); return; }
       el.className = "tuneExit";
-      el.innerHTML = `<div class="teHd">${s.busy ? "💾 저장 중…" : "✓ 자동 저장됐어요"}<small>방금 · 이 곡</small></div>
+      // (11/09 16:44 사용자 '버튼 의미를 모르겠다' → 시안 고) 이번에 고친 곳 / 곡 전체를 같이 · 되돌리기 기록 문구 뺌 · 버튼 이름은 곡 화면과 같게
+      const ds = (() => { try { return typeof o.doneState === "function" ? o.doneState() || {} : {}; } catch { return {}; } })();
+      el.innerHTML = `<div class="teHd">${s.busy ? "💾 저장 중…" : "✓ 저장됨"}<small>방금 · 이 곡</small></div>
+        <div class="teLn">이번에 고친 곳 <b>${n}곳</b>${ds.total != null ? ` · 아직 완성본엔 없음(곡 전체 <b>${ds.total}곳</b>)` : " · 아직 완성본엔 없음"}</div>
         <div class="teChips">${chip("🎵", "음정", c.fx)}${chip("📏", "타이밍·길이", c.te)}${chip("🎛", "디테일", c.det)}${chip("✏️", "펜", c.pen)}</div>
-        ${steps > 0 ? `<div class="teLn">↶ 되돌리기 기록 <b>${steps}단계</b> — 다시 열어도 이어서 쓸 수 있어요</div>` : ""}
-        <div class="teLn">🔊 완성본 소리에 넣으려면 <b>완성본 다시 만들기</b>를 눌러 주세요</div>
-        <div class="teActs"><button type="button" data-x>닫기</button>${typeof o.remake === "function" ? `<button type="button" class="pri" data-mk>완성본 다시 만들기</button>` : ""}</div><i class="teBar"></i>`;
+        <div class="teActs"><button type="button" data-x>나중에</button>${typeof o.remake === "function" ? `<button type="button" class="pri" data-mk>🔊 완성본 새로 만들기</button>` : ""}</div><i class="teBar"></i>`;
       el.querySelector("[data-x]").onclick = close; const mk = el.querySelector("[data-mk]"); if (mk) mk.onclick = () => { close(); try { o.remake(); } catch {} }; };
     document.body.appendChild(el); paint();
     const t0 = Date.now(); let busyT = null;   // 저장이 끝날 때까지 지켜보다가(최대 15초) 실패면 빨간 카드로 · 끝나면 6초 뒤 닫힘
@@ -1122,7 +1123,7 @@
       <button type="button" class="tfX" aria-label="닫기"><i>✕</i>닫기</button></div>
       <div class="tfCvBox"><canvas class="tfCv"></canvas><span class="tfMid" aria-hidden="true"></span><button type="button" class="tfSkip off">⏩ 노래 시작 1초 전으로</button><span class="tfBye" aria-live="polite">닫을 때는 <b>✕</b> 또는 폰의 <b>뒤로 가기</b></span></div>
       <div class="tfBot"><span class="tfHint">톡 = 재생·멈춤 · 좌우로 밀면 이동<span class="tfSep"> · </span><br>두 손가락으로 벌리면 확대 · 기준선 왼쪽·오른쪽 두 번 톡 = 2초 뒤로·앞으로<span class="tfSep"> · </span><br>${typeof o.onFix === "function" ? "건반 = 그 음 소리 · 멈춘 뒤 초록 정음 막대 톡 = 정음 고치기" : "왼쪽 건반을 누르면 그 음 소리"}</span>
-      <span class="tfCtl">${hasAb ? `<span class="tfAbW"><span class="tfAbL">듣는 소리</span><span class="tfAb" role="group" aria-label="듣는 소리: 원음·보정본"><button type="button" data-m="o">🎤 원음</button><i class="tfSwap" aria-hidden="true">⇄</i><button type="button" data-m="p">✨ 보정본</button></span></span>` : ""}<span class="tfNav"><button type="button" data-j="0" aria-label="처음으로">⏮ 처음</button><button type="button" data-j="-5" aria-label="5초 뒤로">-5초</button><button type="button" class="tfPP" data-pp="1" aria-label="재생/일시정지">▶</button><button type="button" data-j="5" aria-label="5초 앞으로">+5초</button></span></span>
+      <span class="tfCtl">${hasAb ? `<span class="tfAbW"><span class="tfAbL">듣는 소리</span><span class="tfAb" role="group" aria-label="듣는 소리: 보정 전·보정 후"><button type="button" data-m="o">🎤 보정 전</button><i class="tfSwap" aria-hidden="true">⇄</i><button type="button" data-m="p">✨ 보정 후</button></span></span>` : ""}<span class="tfNav"><button type="button" data-j="0" aria-label="처음으로">⏮ 처음</button><button type="button" data-j="-5" aria-label="5초 뒤로">-5초</button><button type="button" class="tfPP" data-pp="1" aria-label="재생/일시정지">▶</button><button type="button" data-j="5" aria-label="5초 앞으로">+5초</button></span></span>
       <span class="tfNote">자동 단순 보정이라 정확하지 않을 수 있어요.<br>정식 음원은 전문 엔지니어가 한 음 한 음 더 정밀하게 다듬어요.</span></div></div>`;
     document.body.appendChild(wrap);
     wrap.style.opacity = "0"; requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(() => { wrap.style.transition = "opacity .18s ease"; wrap.style.opacity = "1"; }, 120)));   // (11/07 09:31 사용자 영상) 처음 0.2초 그래프·버튼이 자리 잡으며 움찔하던 걸 안 보이게: 자리 잡은 뒤 나타남
@@ -1307,13 +1308,13 @@
       // (11/09 01:47 사용자 고) ↺ 곡 전체 처음으로: 음높이·쪼개기·타이밍·디테일·펜·일괄 보정 값을 모두 지움 = 서버가 처음 인식한 상태. 작업 기록에 한 칸 → ↶ 한 번이면 복구
       st.resetAll = () => { if (typeof o.histEmpty !== "string") return false; const old = wrap.querySelector(".tfCfm.all"); if (old) old.remove();
         const cf = document.createElement("div"); cf.className = "tfCfm all"; cf.setAttribute("role", "dialog");
-        cf.innerHTML = `<div class="tfCfmBox"><b>곡 전체를 원본으로 되돌릴까요?</b><p>음높이·쪼개기·타이밍·디테일·펜·일괄 보정까지 모두 지우고, 서버가 처음 인식한 상태로 돌아가요.${typeof o.remake === "function" ? " 그래프·소리는 완성본을 새로 만들어야 바뀌어서, 바로 <b>완성본 다시 만들기</b>를 시작해요(몇 분)." : ""} 고침은 ↶로 다시 살릴 수 있어요.</p><div class="tfCfmRow"><button type="button" data-cf="0">취소</button><button type="button" class="pri" data-cf="1">원본으로</button></div></div>`;
+        cf.innerHTML = `<div class="tfCfmBox"><b>모든 고침을 지우고 처음 상태로 돌릴까요?</b><p>음높이·쪼개기·타이밍·디테일·펜·일괄 보정까지 모두 지우고, 서버가 처음 인식한 상태로 돌아가요.${typeof o.remake === "function" ? " 그래프·소리는 완성본을 새로 만들어야 바뀌어서, 바로 <b>완성본 새로 만들기</b>를 시작해요(몇 분)." : ""} 고침은 ↶로 다시 살릴 수 있어요.</p><div class="tfCfmRow"><button type="button" data-cf="0">취소</button><button type="button" class="pri" data-cf="1">처음 상태로</button></div></div>`;
         cf.addEventListener("pointerdown", (e) => e.stopPropagation());
         const ly = G.Brand && G.Brand.layer ? G.Brand.layer(() => cf.remove()) : { close: () => cf.remove() };
         cf.addEventListener("click", (e) => { if (e.target === cf) ly.close(); });
         cf.querySelectorAll("[data-cf]").forEach(x => x.onclick = async (e) => { e.stopPropagation(); ly.close(); if (x.dataset.cf !== "1") return;
           let now_ = hist.S[hist.ptr]; try { if (typeof o.histGet === "function") now_ = o.histGet(); } catch {} if (now_ === o.histEmpty) { tip("이미 처음 상태예요"); return; }
-          hist.S.length = hist.ptr + 1; hist.L.length = hist.ptr + 1; hist.S.push(o.histEmpty); hist.L.push("↺ 곡 전체 원본으로"); hist.keep(); await step(hist.S.length - 1); tip("↺ 곡 전체 원본으로 · 완성본 다시 만드는 중");
+          hist.S.length = hist.ptr + 1; hist.L.length = hist.ptr + 1; hist.S.push(o.histEmpty); hist.L.push("🗑 모든 고침 지움"); hist.keep(); await step(hist.S.length - 1); tip("🗑 모든 고침 지움 · 완성본 새로 만드는 중");
           // (11/09 08:15 사용자 '처음으로 했는데 그래프가 그대로') 음정선·보정본 소리는 마지막 완성본에 고침이 들어간 채 만들어져 있음 → 바로 다시 만들기(서버가 원래 녹음에서 새로)
           if (typeof o.remake === "function") { try { close(); } catch {} setTimeout(() => { try { o.remake(); } catch (e2) { console.warn("다시 만들기", e2); } }, 250); } });
         (wrap.querySelector(".tfBox") || wrap).appendChild(cf); return true; };
