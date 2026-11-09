@@ -53,10 +53,10 @@ function world(opt = {}) {
 
   // (3b) 크게 듣기(11/09): MR·보컬 → 마스터(+4 dB) → 리미터 → 출력 · 켜고 끄는 건 재생·네트워크에 영향 없음 · 리미터 없는 기기도 소리는 남
   { const w = world(), E = w.make(); await E.play(); const c = w.ctxs[0], [master, vg] = c.gains;
-    assert.ok(Math.abs(master.gain.value - 10 ** (4 / 20)) < 1e-9, "기본 켜짐 +4 dB"); assert.strictEqual(vg.to, master, "보컬 → 마스터");
+    assert.ok(master.gain.value >= 1 && master.gain.value <= 10 ** (6 / 20) * 10 ** (9 / 20) + 1e-9, "기본 켜짐(작은 곡만 키움)"); assert.strictEqual(vg.to, master, "보컬 → 마스터");
     assert.strictEqual(w.sources[0].to, master, "MR → 마스터"); assert.strictEqual(master.to, c.comp, "마스터 → 리미터"); assert.strictEqual(c.comp.to, c.destination, "리미터 → 출력"); assert.strictEqual(c.comp.threshold.value, -1);
     const src0 = w.sources.length, net0 = w.net; E.setBoost(false); assert.strictEqual(master.gain.value, 1); assert.strictEqual(E.boost(), false);
-    E.setBoost(true); assert.ok(master.gain.value > 1.5); assert.strictEqual(w.sources.length, src0); assert.strictEqual(w.net, net0); assert.ok(E.isPlaying());
+    E.setBoost(true); assert.ok(master.gain.value >= 1); assert.strictEqual(w.sources.length, src0); assert.strictEqual(w.net, net0); assert.ok(E.isPlaying());
     E.destroy();
     const w2 = world({ noComp: true }), E2 = w2.make({ boost: false }); await E2.play(); const [m2] = w2.ctxs[0].gains;
     assert.strictEqual(m2.gain.value, 1, "boost:false → 그대로"); assert.strictEqual(m2.to, w2.ctxs[0].destination, "리미터 없으면 바로 출력"); E2.destroy();

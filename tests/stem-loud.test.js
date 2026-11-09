@@ -8,4 +8,8 @@ assert.ok(Math.abs(20 * Math.log10(comp(EN, 0)) - 3.01) < 0.05, "보컬 0%면 +3
 assert.ok(comp(null, 30) === 1, "에너지 모르면 그대로");
 assert.ok(comp({ mm: 0.01, vv: 1, mv: 0 }, 0) <= 10 ** (9 / 20) + 1e-9, "최대 +9 dB");
 assert.ok(T.includes("lim.threshold.value = -1;") && T.includes("try { EN = energy(m, v); } catch { EN = null; }") && T.includes("setMaster(0.05);"));
+// (11/09 11:46) 이미 마스터링된 곡은 더 안 키움: 원곡 실효값 −9 dBFS → ×1 · 조용한 곡 −24 dBFS → 최대 +6 dB · −17 dBFS → +3 dB
+const lift = new Function("EN", "const BOOST_TARGET = -14;" + T.match(/const lift = \(\) => \{[^\n]*\};/)[0] + " return lift();");
+const en = (db) => { const e = 10 ** (db / 10) / 2; return { mm: e * 1000, vv: e * 1000, mv: 0, n: 1000 }; };
+assert.strictEqual(lift(en(-9)), 1, "마스터링된 곡 그대로"); assert.ok(Math.abs(20 * Math.log10(lift(en(-24))) - 6) < 1e-6, "최대 +6"); assert.ok(Math.abs(20 * Math.log10(lift(en(-17))) - 3) < 1e-6, "+3"); assert.strictEqual(lift(null), 1);
 console.log("stem-loud ok");
