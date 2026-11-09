@@ -812,7 +812,7 @@ function stemsHtml(mk) {
   return `<div class="card sgC" id="sgCard"><div class="sgH"><b>🎤 연습 곡</b><span class="sgSrc">선생님이 올림</span></div>${nm ? `<div class="muted" style="font-size:.85rem">${esc(nm)}</div>` : ""}
     <div class="sgPl"><button type="button" class="sgPb" id="sgPb" aria-label="재생">▶</button><div class="sgSk"><input type="range" id="sgSeek" min="0" max="1000" value="0" aria-label="재생 위치"><div class="sgTm"><span id="sgT0">0:00</span><span id="sgT1">${st.dur ? `${Math.floor(st.dur / 60)}:${String(Math.floor(st.dur % 60)).padStart(2, "0")}` : "–:–"}</span></div></div></div>
     <div class="sgVo"><div class="sgVl">가수 목소리<span id="sgVv">${v0}%</span></div><input type="range" id="sgVol" min="0" max="100" value="${v0}" aria-label="가수 목소리 크기">
-      <div class="sgPre">${[[0, "MR", "반주만"], [30, "가이드", "살짝"], [100, "원곡", "그대로"]].map(([v, a, b]) => `<button type="button" data-sgv="${v}">${a}<small>${b}</small></button>`).join("")}</div></div>
+      <div class="sgPre">${[[0, "MR", "반주만"], [30, "가이드", "살짝"], [100, "원곡", "그대로"]].map(([v, a, b]) => `<button type="button" data-sgv="${v}">${a}<small>${b}</small></button>`).join("")}</div><div class="sgPre"><button type="button" id="sgBoost" aria-label="크게 듣기">🔊 크게 듣기<small id="sgBoostS"></small></button></div></div>
     <div class="sgDl">${[["mr", "MR"], ["voc", "보컬"], ["orig", "원곡"]].map(([k, a]) => `<button type="button" data-sgd="${k}">⬇ ${a}</button>`).join("")}</div></div>`;
 }
 // <stem-engine> (11/08 사용자 재현 버그: 보컬 0%→켜면 끊기고 MR보다 뒤처짐) — 선생님 앱·수강생 앱 똑같은 코드(tests/stem-engine.test.js가 두 파일이 같은지 검사)
@@ -822,20 +822,23 @@ function stemsHtml(mk) {
 function stemEngine(d) {
   const G = typeof globalThis !== "undefined" ? globalThis : window, AC = "AC" in d ? d.AC : (G.AudioContext || G.webkitAudioContext), MkAudio = d.Audio || ((...a) => new G.Audio(...a));
   const tm = d.timers || { set: (f, ms) => G.setInterval(f, ms), clear: (t) => G.clearInterval(t) }, stale = () => new Error("stale"), clamp = (v) => Math.max(0, Math.min(100, Math.round(+v) || 0));
-  let vol = clamp(d.vol ?? 30), dead = false, loading = null, ctx = null, gain = null, buf = null, au = null, urls = [], srcs = [], t0 = 0, off = 0, playing = false, starting = false, timer = 0, mode = "", gen = 0, driftAt = 0;
+  const BOOST_DB = 4, boostGain = (on) => (on ? 10 ** (BOOST_DB / 20) : 1);   // (11/09 사용자 '다른 앱보다 작음') 최종단 +4 dB → 리미터. 켜짐이 기본
+  let vol = clamp(d.vol ?? 30), boostOn = d.boost !== false, master = null, dead = false, loading = null, ctx = null, gain = null, buf = null, au = null, urls = [], srcs = [], t0 = 0, off = 0, playing = false, starting = false, timer = 0, mode = "", gen = 0, driftAt = 0;
   const dur = () => (mode === "web" ? buf.mr.duration : mode === "html" ? (au.mr.duration || 0) : 0);
   const pos = () => { if (mode === "web") return playing ? Math.min(Math.max(off, ctx.currentTime - t0), dur()) : off; if (mode === "html") return playing ? au.mr.currentTime : off; return off; };
   const stopTimer = () => { if (timer) tm.clear(timer); timer = 0; };
   const killSrcs = () => { gen++; for (const s of srcs) { s.onended = null; try { s.stop(); } catch {} try { s.disconnect(); } catch {} } srcs = []; };
   const decode = (ab) => new Promise((ok, no) => { try { const p = ctx.decodeAudioData(ab, ok, no); if (p && p.then) p.then(ok, no); } catch (e) { no(e); } });
-  const closeCtx = () => { try { ctx && ctx.close && ctx.close(); } catch {} ctx = null; gain = null; };
+  const closeCtx = () => { try { ctx && ctx.close && ctx.close(); } catch {} ctx = null; gain = null; master = null; };
   const load = () => loading ||= (async () => {
     const a = await d.fetchBuf("mr"), b = await d.fetchBuf("voc"); if (dead) throw stale();
     const est = Math.max(a.byteLength, b.byteLength) / (d.bytesPerSec || 20000);   // 160kbps MP3 ≈ 20000바이트/초
     if (AC && est <= (d.maxDecodeSec || 480)) {   // 4분 스테레오 ≈ 한 트랙 약 90MB → 8분 넘을 듯하면 디코드하지 않고 폴백
       const ra = a.slice(0), rb = b.slice(0);   // decodeAudioData가 원본을 비우므로 폴백용 사본
       try { ctx ||= new AC(); const m = await decode(a), v = await decode(b); if (dead) throw stale();
-        gain = ctx.createGain(); gain.gain.value = vol / 100; gain.connect(ctx.destination); buf = { mr: m, voc: v }; mode = "web"; return E; }
+        let tail = ctx.destination; try { const lim = ctx.createDynamicsCompressor(); lim.threshold.value = -3; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.003; lim.release.value = 0.12; lim.connect(ctx.destination); tail = lim; } catch {}   // 최종단 리미터(없는 기기는 그대로)
+        master = ctx.createGain(); master.gain.value = boostGain(boostOn); master.connect(tail);
+        gain = ctx.createGain(); gain.gain.value = vol / 100; gain.connect(master); buf = { mr: m, voc: v }; mode = "web"; return E; }
       catch (e) { closeCtx(); buf = null; if (e && e.message === "stale") throw e; if (dead) throw stale(); d.fallback = String(e && e.message || e); }
       return html(ra, rb);
     }
@@ -850,7 +853,7 @@ function stemEngine(d) {
   const end = () => { off = 0; if (mode === "web") killSrcs(); else if (au) { au.mr.pause(); au.voc.pause(); try { au.mr.currentTime = au.voc.currentTime = 0; } catch {} } playing = false; stopTimer(); try { d.onEnd && d.onEnd(); } catch {} };
   const begin = () => {
     if (mode === "web") {
-      const my = ++gen, when = ctx.currentTime + 0.06; srcs = ["mr", "voc"].map(k => { const s = ctx.createBufferSource(); s.buffer = buf[k]; s.connect(k === "voc" ? gain : ctx.destination); return s; });
+      const my = ++gen, when = ctx.currentTime + 0.06; srcs = ["mr", "voc"].map(k => { const s = ctx.createBufferSource(); s.buffer = buf[k]; s.connect(k === "voc" ? gain : master); return s; });
       srcs[0].onended = () => { if (gen === my && playing) end(); }; srcs.forEach(s => s.start(when, off)); t0 = when - off; return;
     }
     return (async () => { au.mr.currentTime = au.voc.currentTime = off; await Promise.all([au.mr.play(), au.voc.play()]); })();
@@ -886,6 +889,10 @@ function stemEngine(d) {
       if (gain) { const g = gain.gain, n = ctx.currentTime; try { g.cancelScheduledValues(n); g.setTargetAtTime(vol / 100, n, 0.015); } catch { g.value = vol / 100; } }
       if (au) au.voc.volume = vol / 100;
     },
+    setBoost(on) {   // 크게 듣기(+4 dB·리미터) 켜고 끄기: 재생 끊김 없음. 오디오 태그 폴백(아주 긴 곡)은 해당 없음
+      boostOn = !!on; if (master) { const g = master.gain, n = ctx.currentTime; try { g.cancelScheduledValues(n); g.setTargetAtTime(boostGain(boostOn), n, 0.03); } catch { g.value = boostGain(boostOn); } }
+    },
+    boost: () => boostOn,
     destroy() {   // 화면을 떠나거나 곡을 바꿀 때: 타이머·소리·URL·AudioContext 모두 정리
       if (dead) return; dead = true; stopTimer(); playing = false; killSrcs();
       if (au) { for (const a of [au.mr, au.voc]) { try { a.pause(); a.onended = a.onloadedmetadata = null; a.removeAttribute && a.removeAttribute("src"); a.load && a.load(); } catch {} } au = null; }
@@ -900,16 +907,19 @@ function stemsStop() { if (!sgP) return; try { sgP.stop(); } catch {} }
 function stemsDestroy() { const p = sgP; sgP = null; if (p) { try { p.destroy(); } catch {} } }
 document.addEventListener("play", () => { try { sgP?.stop(); } catch {} }, true);   // 다른 녹음을 틀면 멈춤(한 번만 등록)
 function wireStems(mk) {
+  const boostPref = () => { try { return localStorage.getItem("jk_stemBoost") !== "0"; } catch { return true; } }, boostSave = (on) => { try { localStorage.setItem("jk_stemBoost", on ? "1" : "0"); } catch {} };
   stemsDestroy(); const st = mk?.stems; if (!stemsOk(st) || !$("sgCard")) return;
   const card = $("sgCard"), mmss = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
   let vol = +$("sgVol").value;
   const pb = $("sgPb"), seek = $("sgSeek"), T0 = $("sgT0"), T1 = $("sgT1");
-  const eng = stemEngine({ vol, fetchBuf: async (k) => (await fetch(driveUrl(st[k]))).arrayBuffer(),   // 하나의 재생 시계(WebAudio) · 곡당 한 번만 받음
+  const eng = stemEngine({ vol, boost: boostPref(), fetchBuf: async (k) => (await fetch(driveUrl(st[k]))).arrayBuffer(),   // 하나의 재생 시계(WebAudio) · 곡당 한 번만 받음
     onTick: (E) => { if (sgP?.eng !== E) return; if (!card.isConnected) return stemsDestroy(); const t = E.pos(), d = E.dur() || 1; T0.textContent = mmss(t); if (!seek.matches(":active")) seek.value = Math.round(t / d * 1000); },
     onEnd: () => { pb.textContent = "▶"; T0.textContent = "0:00"; seek.value = 0; } });
   const alive = () => sgP?.eng === eng && !eng.isDead();
   const paintVol = () => { $("sgVv").textContent = vol + "%"; $("sgVol").value = vol; card.querySelectorAll("[data-sgv]").forEach(b => b.classList.toggle("on", +b.dataset.sgv === vol)); eng.setVol(vol); };   // 소리 크기만 바뀜(다시 재생·재탐색 없음)
   paintVol();
+  const paintBoost = () => { const on = eng.boost(); $("sgBoost").classList.toggle("on", on); $("sgBoostS").textContent = on ? "켜짐 +4dB" : "꺼짐"; };
+  paintBoost(); $("sgBoost").onclick = () => { eng.setBoost(!eng.boost()); boostSave(eng.boost()); paintBoost(); };
   let loadP = null;
   const load = () => loadP ||= (async () => { pb.textContent = "…"; T1.textContent = "불러오는 중";
     try { await eng.load(); } catch (e) { loadP = null; throw e; } if (alive()) T1.textContent = mmss(eng.dur()); })();
