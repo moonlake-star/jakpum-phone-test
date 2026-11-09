@@ -13,4 +13,4 @@ assert.strictEqual(store.vn_tok.t, "abc123"); assert.ok(store.vn_tok.exp > Date.
 assert.ok(te.includes('if (!window.google?.accounts) { $("loginMsg").textContent = "구글 로그인 준비 중이에요'), "준비 전엔 기다렸다 열지 않음(창 막힘)");
 console.log("login-redirect ok");
 // (11/03 10:20) 창이 막혔던 기기는 '이어서 연결'도 페이지 이동으로
-assert.ok(te.includes('LS.set("vn_popup_bad", 1);') && te.includes('if (IOS_APP || LS.get("vn_popup_bad")) { bar.textContent = "구글로 이동 중…"; return loginRedirect(); }'));
+assert.ok(te.includes('LS.set("vn_popup_bad", 1);') && te.includes('if (IOS_APP) { bar.textContent = "구글로 이동 중…"; return loginRedirect(); }') && !te.includes('IOS_APP || LS.get("vn_popup_bad")'), '페이지 이동 로그인은 아이폰 홈 화면 앱만(11/10 redirect_uri_mismatch)');
