@@ -27,3 +27,6 @@ const T = fs.readFileSync(__dirname + "/../teacher/index.html", "utf8"), S = fs.
 assert.ok(T.includes("Brand.audioKeep?.((c) => (c === mkCtx && (mkPlaying || !!vtNow)) || (c === loudCtx && loudActive()))"), "선생님 앱: 재생 중 알림");
 assert.ok(S.includes('if (c.state !== "running") c.resume(); clearTimeout(chime.t)') && S.includes("chime.c.suspend()"), "수강생 앱: 종소리 깨우기·쉬기");
 console.log("bg-release: ok");
+// (11/09) 메이크업 재생을 시작할 때 다른 소리 장치를 모두 쉬게 함(블루투스에서 장치가 여러 개 열려 있으면 볼륨이 꼬임)
+{ const T2 = fs.readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  assert.ok(/mkPlaying = true;\s*\n\s*try \{ Brand\.audioRelease\?\.\(\); \} catch \{\}/.test(T2), "재생 시작 때 audioRelease"); console.log("bg-release: 재생 시작 때 다른 장치 쉬기 연결 ok"); }

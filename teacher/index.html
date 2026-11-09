@@ -5214,6 +5214,7 @@ function mkStartTrack(t, at) {
 function mkPlay(at) {
   if (typeof PVP !== "undefined" && PVP.busy()) { PVP.later = () => mkPlay(at); toast("서버와 같은 소리 준비 중… 끝나면 바로 재생해요"); return; }   // 고친 소리가 준비될 때까지 기다렸다가
   pauseOthers("mk"); mkStop(); try { if (mkCtx.state !== "running") mkCtx.resume(); } catch {} mkOffset = at; mkT0 = mkCtx.currentTime - at; mkPlaying = true;
+  try { Brand.audioRelease?.(); } catch {}   // (11/09 블루투스 볼륨 조절) 재생을 시작하면 다른 소리 장치(종소리·기준음·미리듣기 등)는 모두 쉬게 함 — 재생 중인 이 장치만 남김(audioKeep)
   for (const t of Object.values(mkTracks)) if (t.buf) mkStartTrack(t, at);
   mkApply(); paintTransport();
 }
@@ -5236,7 +5237,7 @@ function mkAutoGain() {
 //   폰에서 음을 고쳐도 울림이 고친 소리로 바로 따라옴(예전엔 서버 울림 파일을 간이 방식으로 옮겨 드르륵) · 울림 파일(w·x·wet)은 안 받음(데이터 절약)
 let mkRev = null;
 async function mkIrLoad(fileId) {
-  mkCtx ??= new AudioContext({ latencyHint: "playback" });   // (11/09 블루투스 볼륨 시험) 재생용 일반 출력 경로 if (mkRev && mkRev.ctx === mkCtx) return mkRev.p;
+  mkCtx ??= new AudioContext(); if (mkRev && mkRev.ctx === mkCtx) return mkRev.p;
   const R = mkRev = { ctx: mkCtx, send: mkCtx.createGain(), conv: mkCtx.createConvolver(), buf: null };
   R.send.gain.value = 0; R.conv.normalize = false; R.send.connect(R.conv); R.conv.connect(mkBus());
   R.p = (async () => { R.buf = await mkCtx.decodeAudioData(await (await readBlob(fileId, true)).arrayBuffer()); R.conv.buffer = R.buf;
@@ -5245,7 +5246,7 @@ async function mkIrLoad(fileId) {
 }
 async function mkLoad(name, fileId) {
   if (mkTracks[name]?.buf || mkTracks[name]?.loading) return mkTracks[name]?.loading;
-  mkCtx ??= new AudioContext({ latencyHint: "playback" });   // (11/09 블루투스 볼륨 시험) 재생용 일반 출력 경로
+  mkCtx ??= new AudioContext();
   const g = mkCtx.createGain(); g.gain.value = 0; g.connect(mkBus()); if (/^[pq][0-3]$/.test(name) && mkRev && mkRev.ctx === mkCtx) g.connect(mkRev.send);
   const t = mkTracks[name] = { gain: g, buf: null, src: null };
   t.loading = (async () => { t.buf = await mkCtx.decodeAudioData(await (await readBlob(fileId, true)).arrayBuffer());
@@ -5538,7 +5539,7 @@ function stemEngine(d) {
     const est = Math.max(a.byteLength, b.byteLength) / (d.bytesPerSec || 20000);   // 160kbps MP3 ≈ 20000바이트/초
     if (AC && est <= (d.maxDecodeSec || 480)) {   // 4분 스테레오 ≈ 한 트랙 약 90MB → 8분 넘을 듯하면 디코드하지 않고 폴백
       const ra = a.slice(0), rb = b.slice(0);   // decodeAudioData가 원본을 비우므로 폴백용 사본
-      try { ctx ||= new AC({ latencyHint: "playback" }); const m = await decode(a), v = await decode(b); if (dead) throw stale();
+      try { ctx ||= new AC(); const m = await decode(a), v = await decode(b); if (dead) throw stale();
         let tail = ctx.destination; try { const lim = ctx.createDynamicsCompressor(); lim.threshold.value = -1; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.003; lim.release.value = 0.12; lim.connect(ctx.destination); tail = lim; } catch {}   // 최종단 리미터(없는 기기는 그대로)
         try { EN = energy(m, v); } catch { EN = null; }
         master = ctx.createGain(); master.gain.value = boostGain(boostOn); master.connect(tail);
@@ -5575,7 +5576,7 @@ function stemEngine(d) {
     load, pos, dur, mode: () => mode, isPlaying: () => playing, isDead: () => dead, vol: () => vol, fallbackReason: () => d.fallback || "",
     unlock() {   // 사용자 터치 안에서 동기로 부르기: 소리 장치를 미리 만들고 깨움(모바일 자동재생 정책). 못 해도 조용히 넘어감
       if (dead || ctx || mode || !AC) { try { if (ctx && ctx.state !== "running") ctx.resume(); } catch {} return; }
-      try { ctx = new AC({ latencyHint: "playback" }); const p = ctx.resume(); if (p && p.catch) p.catch(() => {}); } catch { ctx = null; }
+      try { ctx = new AC(); const p = ctx.resume(); if (p && p.catch) p.catch(() => {}); } catch { ctx = null; }
     },
     async play() {
       await load(); if (dead) throw stale(); if (playing || starting) return; starting = true; tm.clear(idleT); idleT = null;
@@ -7013,7 +7014,7 @@ function loudRoute(a) {
     if (!loudOn || !a || loudRouted.has(a)) { if (loudOn && loudCtx && loudCtx.state !== "running") loudCtx.resume(); return; }
     const AC = window.AudioContext || window.webkitAudioContext; if (!AC || !/^(blob|data):/.test(a.currentSrc || a.src || "")) return;
     if (!loudCtx) {
-      loudCtx = new AC({ latencyHint: "playback" }); let tail = loudCtx.destination;
+      loudCtx = new AC(); let tail = loudCtx.destination;
       try { const lim = loudCtx.createDynamicsCompressor(); lim.threshold.value = -1; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.003; lim.release.value = 0.12; lim.connect(loudCtx.destination); tail = lim; } catch {}
       loudMaster = loudCtx.createGain(); loudMaster.gain.value = loudGain(true); loudMaster.connect(tail);
       try { loudAn = loudCtx.createAnalyser(); loudAn.fftSize = 4096; if (!loudT) loudT = setInterval(loudTick, 200); } catch { loudAn = null; }
