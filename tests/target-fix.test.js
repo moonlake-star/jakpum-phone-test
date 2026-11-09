@@ -68,7 +68,7 @@ console.log("intro ok");
   assert.ok(t.includes("step(+x.dataset.d * 0.05, false)") && t.includes("if (!wasLong) step(+x.dataset.d, true);"), "톡 반음 · 꾹 미세");
   assert.ok(t.includes("if (hb0 && Math.abs(hb0.t0 - st.sel.t0) < 0.02") && t.includes("if (st.onBarDrag) st.onBarDrag(k, false);"), "막대 끌어 반음");
   assert.ok(t.includes('["pointerup", "pointerleave", "pointercancel", "touchend", "touchcancel"].forEach(ev => nb.addEventListener(ev, sndOff));'), "떼면 소리 끔");
-  assert.ok(t.includes('wrap.addEventListener("dblclick", (e) => e.preventDefault());') && t.includes("#tuneFs button,#tuneFs .tfFix,#tuneFs .tfFix *{touch-action:manipulation}"), "연타 확대 막기"); }
+  assert.ok(t.includes('wrap.addEventListener("dblclick", (e) => e.preventDefault());') && t.includes("#tuneFs button,#tuneFs .tfFix,#tuneFs .tfFix *{touch-action:pan-x pan-y}"), "연타 확대 막기"); }
 // (11/03 15:16 사용자) 음 이름이 사라짐(타이밍 버튼도 tfFixN이라 거기로 들어감) → 음 이름 칸은 [data-p]로 · 목소리 되풀이는 몇 주기(20ms 안) 평균 + 낮은 소리 필터
 assert.ok(tune.includes('paint = () => { d.querySelector("[data-p]").innerHTML') && !tune.includes('paint = () => { d.querySelector(".tfFixN").innerHTML'));
 assert.ok(src.includes("k * per <= sr * 0.02") && src.includes('lp.type = "lowpass"') && src.includes("s.playbackRate.value = L / (N * per)"));
