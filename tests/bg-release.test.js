@@ -24,6 +24,6 @@ doc.hidden = false; listeners["d:visibilitychange"](); assert.strictEqual(c1.sta
 c1.state = "closed"; assert.doesNotThrow(() => api.audioRelease());
 // 화면 쪽 연결
 const T = fs.readFileSync(__dirname + "/../teacher/index.html", "utf8"), S = fs.readFileSync(__dirname + "/../student/index.html", "utf8");
-assert.ok(T.includes("Brand.audioKeep?.((c) => c === mkCtx && (mkPlaying || !!vtNow))"), "선생님 앱: 재생 중 알림");
+assert.ok(T.includes("Brand.audioKeep?.((c) => (c === mkCtx && (mkPlaying || !!vtNow)) || (c === loudCtx && loudActive()))"), "선생님 앱: 재생 중 알림");
 assert.ok(S.includes('if (c.state !== "running") c.resume(); clearTimeout(chime.t)') && S.includes("chime.c.suspend()"), "수강생 앱: 종소리 깨우기·쉬기");
 console.log("bg-release: ok");

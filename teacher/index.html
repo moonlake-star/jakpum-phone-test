@@ -519,7 +519,7 @@
           <button class="small ghost" data-mini="prev" aria-label="처음/이전">⏮</button><button class="small ghost" data-mini="-5">-5</button>
           <button class="small" id="miniBtn">❚❚</button>
           <button class="small ghost" data-mini="+5">+5</button><button class="small ghost" data-mini="next" aria-label="다음">⏭</button>
-          <span id="miniT" class="muted" style="min-width:3.2em;text-align:center">0:00</span></div>
+          <span id="miniT" class="muted" style="min-width:3.2em;text-align:center">0:00</span><button type="button" class="small ghost" data-tploud style="padding:4px 6px;font-size:.75rem" aria-label="크게 듣기">🔈 크게 듣기</button></div>
         <div style="position:relative;width:100%"><input type="range" id="miniSeek" min="0" max="1000" step="1" value="0" style="width:100%"><div class="seamStrip" id="miniMarks" aria-hidden="true" style="top:50%;transform:translateY(-50%)"></div></div>
       </div>
     </div>
@@ -5114,7 +5114,7 @@ function audioIdle(now) {
   if (now) go(); else audioIdleT = setTimeout(go, 1500);
 }
 if (typeof document !== "undefined") document.addEventListener("visibilitychange", () => { if (document.hidden) audioIdle(true); });
-try { Brand.audioKeep?.((c) => c === mkCtx && (mkPlaying || !!vtNow)); } catch {}   // 중앙 놓기(brand.js)에도 "재생 중인 건 두기" 알림
+try { Brand.audioKeep?.((c) => (c === mkCtx && (mkPlaying || !!vtNow)) || (c === loudCtx && loudActive())); } catch {}   // 중앙 놓기(brand.js)에도 "재생 중인 건 두기" 알림
 const mkNow = () => mkPlaying ? Math.min(mkCtx.currentTime - mkT0, mkDurS) : mkOffset;
 function mkStartTrack(t, at) {
   const s = mkCtx.createBufferSource(); s.buffer = t.buf; s.connect(t.gain); s.start(0, Math.min(at, t.buf.duration)); t.src = s;
@@ -6784,7 +6784,35 @@ async function sendPitchReview(sid, folderId, songId, body, label) {
 }
 
 const player = new Audio(); let playingBtn = null, playSharedSeq = 0;
+// (11/09 사용자 '레슨 녹음도 크게') 크게 듣기 — 직접 켠 때만 오디오 태그를 WebAudio(+6 dB·리미터)로 보냄. 기본 꺼짐.
+// 주의: 한 번 보낸 태그는 되돌릴 수 없어 '꺼짐'은 증폭만 1배로. 같은 출처(blob:)만 보냄(다른 도메인은 소리가 사라질 수 있음).
+// 화면이 꺼지면 소리 장치를 놓는 규칙(Brand.audioRelease) 때문에, 켠 채로 재생 중일 때만 예외로 둠(아래 audioKeep).
+const LOUD_DB = 6, loudGain = (on) => (on ? 10 ** (LOUD_DB / 20) : 1);
+let loudCtx = null, loudMaster = null, loudOn = (() => { try { return localStorage.getItem("jk_lessonLoud") === "1"; } catch { return false; } })(); const loudRouted = new WeakSet();
+function loudRoute(a) {
+  try {
+    if (!loudOn || !a || loudRouted.has(a)) { if (loudOn && loudCtx && loudCtx.state !== "running") loudCtx.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext; if (!AC || !/^(blob|data):/.test(a.currentSrc || a.src || "")) return;
+    if (!loudCtx) {
+      loudCtx = new AC(); let tail = loudCtx.destination;
+      try { const lim = loudCtx.createDynamicsCompressor(); lim.threshold.value = -3; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.003; lim.release.value = 0.12; lim.connect(loudCtx.destination); tail = lim; } catch {}
+      loudMaster = loudCtx.createGain(); loudMaster.gain.value = loudGain(true); loudMaster.connect(tail);
+    }
+    if (loudCtx.state !== "running") loudCtx.resume();
+    loudCtx.createMediaElementSource(a).connect(loudMaster); loudRouted.add(a);
+  } catch {}
+}
+function loudActive() { return !!loudCtx && ((player && !player.paused) || (typeof full !== "undefined" && full && !full.paused)); }
+function loudSet(on) {
+  loudOn = !!on; try { localStorage.setItem("jk_lessonLoud", loudOn ? "1" : "0"); } catch {}
+  if (loudMaster) { const g = loudMaster.gain, n = loudCtx.currentTime; try { g.cancelScheduledValues(n); g.setTargetAtTime(loudGain(loudOn), n, 0.03); } catch { g.value = loudGain(loudOn); } }
+  if (loudOn) for (const a of [player, typeof full !== "undefined" ? full : null]) if (a && !a.paused) loudRoute(a);
+  loudPaint();
+}
+function loudPaint() { document.querySelectorAll("[data-tploud]").forEach(b => { b.classList.toggle("on", loudOn); b.textContent = loudOn ? "🔊 크게 듣기 켜짐" : "🔈 크게 듣기"; }); }
+player.addEventListener("play", () => loudRoute(player)); try { loudPaint(); } catch {}
 // 한 번에 하나만 재생: 새로 재생하면 나머지는 일시정지(위치는 그대로). 메이크업 미리듣기도 멈춤
+document.addEventListener("click", (e) => { const b = e.target.closest?.("[data-tploud]"); if (b) { e.stopPropagation(); loudSet(!loudOn); } }, true);
 function pauseOthers(me) {
   for (const a of [player, full, ...document.querySelectorAll("audio")]) if (a !== me && a && !a.paused) a.pause();
   if (me !== "song" && typeof songStop === "function") songStop();
@@ -6824,7 +6852,7 @@ function tpNext(t, dur, act) {   // 순수 함수(시험용): 누른 버튼에 �
 let tpRoot = null, tpFile = null, tpEpoch = 0, tpPromise = null, tpActionSeq = 0, tpQueueLabel = "";
 function tpHTML(iconOnly = true, withTime = true) {   // 처음·끝은 아이콘만(2026-10-27). 클립 카드는 시간을 '듣기'와 '메이크업' 사이에 따로 표시
   return `<div class="tp" style="margin-top:6px"><div class="tpWaveBox"><canvas class="tpWave" aria-hidden="true"></canvas><input type="range" class="tpSeek" min="0" max="1000" value="0" aria-label="재생 위치" style="width:100%"></div>
-    ${withTime ? `<div class="row" style="justify-content:space-between"><span class="tpTime muted">0:00 / 0:00</span></div>` : ""}
+    ${withTime ? `<div class="row" style="justify-content:space-between"><span class="tpTime muted">0:00 / 0:00</span><button type="button" class="small ghost${typeof loudOn !== "undefined" && loudOn ? " on" : ""}" data-tploud style="padding:4px 8px;font-size:.78rem" aria-label="크게 듣기">${typeof loudOn !== "undefined" && loudOn ? "🔊 크게 듣기 켜짐" : "🔈 크게 듣기"}</button></div>` : ""}
     <div class="row tpBtns" style="margin-top:4px;gap:4px;flex-wrap:nowrap;display:grid;grid-template-columns:1fr 1fr 1.1fr 1fr 1fr"><button class="small ghost" style="min-width:0;padding:8px 2px" data-tp="start" aria-label="처음으로 이동" title="처음으로 이동">⏮</button><button class="small ghost" style="min-width:0;padding:8px 2px" data-tp="back" aria-label="5초 뒤로">-5</button><button class="small" style="min-width:0;padding:8px 2px" data-tp="play" aria-label="재생">▶</button><button class="small ghost" style="min-width:0;padding:8px 2px" data-tp="fwd" aria-label="5초 앞으로">+5</button><button class="small ghost" style="min-width:0;padding:8px 2px" data-tp="end" aria-label="끝으로 이동" title="끝으로 이동">⏭</button></div></div>`;
 }
 let tpTimeEl = null;   // 재생 바 밖(예: 클립 카드의 '듣기'와 '메이크업' 사이)에 시간을 보여 줄 곳
@@ -7027,7 +7055,7 @@ function renderSegs() {
 // 듣기용.mp3는 고정 비트레이트(40kbps = 초당 5,000바이트)라 시각 → 파일 위치를 바로 계산할 수 있다.
 // 2분 조각씩 받아 재생하고, 끝나기 20초 전에 다음 조각을 미리 받아 이어 붙인다.
 const BPS = 5000, CHUNK = 120;
-const full = new Audio(); let nowIdx = -1, chunkStart = 0, nextChunk = null, listenFile = null;
+const full = new Audio(); full.addEventListener("play", () => loudRoute(full)); let nowIdx = -1, chunkStart = 0, nextChunk = null, listenFile = null;
 ["timeupdate", "play", "pause"].forEach(ev => full.addEventListener(ev, () => tsTick()));   // 글 속 시각 막대 재생기 표시 맞춤
 // 연타 대비: 재생 요청마다 번호를 매겨, 늦게 도착한 예전 요청의 조각은 버림(blob URL도 해제)
 let playSeq = 0;
@@ -7756,7 +7784,7 @@ function playChime() {
   try {
     chimeCtx ??= new (window.AudioContext || window.webkitAudioContext)();
     const ctx = chimeCtx; if (ctx.state === "suspended") ctx.resume();
-    const t0 = ctx.currentTime + 0.02, out = ctx.createGain(); out.gain.value = 0.12; out.connect(ctx.destination);
+    const t0 = ctx.currentTime + 0.02, out = ctx.createGain(); out.gain.value = 0.17; out.connect(ctx.destination);   // (11/09) 종소리 +3 dB(재생이 커져서 상대적으로 작아짐)
     [1318.5, 1661.2, 1975.5].forEach((f, k) => {
       const t = t0 + k * 0.11;
       for (const [mult, amp] of [[1, 1], [2.76, 0.18]]) {   // 종소리 느낌: 기본음 + 약한 비정수배 배음
