@@ -4974,6 +4974,18 @@ function pvTimePlan() {   // 나올 시각 u의 소리 = 지금 들리는 서버
 }
 // (11/03 03:00 사용자) 미리듣기가 튐: 고친 막대마다 따로 다시 만들고 짧게(20ms) 이어 붙여 이음매가 많았음
 // → 0.3초 안으로 붙은 고침은 한 덩어리로 한 번에 PSOLA(사이 빈 곳은 서버가 맞춘 높이 그대로), 덩어리 끝은 50ms로 이어 붙임
+// (11/09 16:29 사용자 '원음으로 돌렸는데 보정본에서 튐') 🎤 원음 구간 + 바로 붙은 정음 없는 틈(최대 0.3초)은 다시 합성하지 않고 보정 전 녹음(p0) 그대로 — 서버 pitch.raw_spans와 같은 규칙
+const PV_RAW_GAP = 0.3;
+function pvOffExt(cv, fixes) { const kt = typeof Tune !== "undefined" && Tune.tgCol ? Tune.tgCol(cv) : 0, P = (cv && cv.pts) || [];
+  return (fixes || []).map((f) => { if (!f.off || !kt || !P.length) return f; let a = f.t0, b = f.t1;
+    let i = P.findIndex((p) => p[0] >= f.t0 - 0.005) - 1; for (; i >= 0 && P[i][kt] == null && f.t0 - P[i][0] <= PV_RAW_GAP; i--) a = P[i][0];
+    let j = P.findIndex((p) => p[0] > f.t1 + 0.005); if (j >= 0) for (; j < P.length && P[j][kt] == null && P[j][0] - f.t1 <= PV_RAW_GAP; j++) b = P[j][0];
+    return { ...f, t0: a, t1: b, rawExt: 1 }; }); }
+function pvRawPaste(buf, src, spans, sr) {   // 원음 자리: p0 그대로(30ms 이음) — 되돌릴 조각은 부른 쪽(regs)이 이미 기억
+  const R = Math.round(sr * 0.03);
+  for (const f of spans) { const i0 = Math.max(0, Math.round(f.t0 * sr)), i1 = Math.min(buf.length, Math.round(f.t1 * sr)); if (i1 - i0 < 2 * R) continue;
+    for (let c = 0; c < buf.numberOfChannels; c++) { const out = buf.getChannelData(c), x = pvSrc(src, c, i0, i1), n = i1 - i0;
+      for (let k = 0; k < n; k++) { const a = k < R ? k / R : k > n - R ? (n - k) / R : 1; out[i0 + k] = out[i0 + k] * (1 - a) + x[k] * a; } } } }
 function pvClusters(fixes) { const out = []; for (const f of [...fixes].sort((a, b) => a.t0 - b.t0)) { const L = out[out.length - 1];
   if (L && f.t0 - L.t1 < 0.3) { L.t1 = Math.max(L.t1, f.t1); L.fx.push(f); } else out.push({ t0: f.t0, t1: f.t1, fx: [f] }); } return out; }
 function pvClusterRatio(cv, cl, dry, lvCol, sr, i0, n) {   // 덩어리 안 칸마다 보정량(센트) → 샘플마다 비율
@@ -5093,7 +5105,7 @@ function pvApply(name) {   // 한 트랙에 지금 고친 정음·타이밍 전�
   const tr = mkTracks[name], buf = tr?.buf, nm = /^([pw])([123])$/.exec(name), cv = mkPv.cv, voc = /^([pwqx][0-3]|wet|dry)$/.test(name); if (!buf || !cv || (!nm && !voc)) return false;
   const dry = !!nm && nm[1] === "p", src = dry ? mkTracks.p0?.buf : buf, pOn = !!nm && !!src;   // 보정본 음정은 보정 전 보컬이 있어야(다 받으면 다시 시도)
   const sr = buf.sampleRate, X = Math.round(sr * 0.05), lvCol = nm ? (typeof Tune !== "undefined" ? Tune.col(cv, +nm[2]) : 1 + +nm[2]) : 1;
-  const cls = pOn ? pvClusters(mkPv.fixes) : [], tp = voc ? (mkPv.tplan || { sig: "", regs: [] }) : { sig: "", regs: [] };
+  const fxE = pOn ? pvOffExt(cv, mkPv.fixes) : [], cls = pOn ? pvClusters(fxE) : [], tp = voc ? (mkPv.tplan || { sig: "", regs: [] }) : { sig: "", regs: [] };
   const ap = nm ? pvAdvPlan() : null;   // 디테일 보정 미리듣기(보정본·울림 트랙만)
   let pp = null, ppReady = false;   // Praat(서버와 같은 엔진) 구간 계획 — 보정본(p) 트랙만(울림은 대략 그대로)
   if (dry && src && PVP.state !== "fail" && PVP.state !== "off") {
@@ -5118,6 +5130,7 @@ function pvApply(name) {   // 한 트랙에 지금 고친 정음·타이밍 전�
       // (11/09 15:19 사용자 '반음만 옮겨도 미리듣기에서 드르륵') 울림(리버브만 담긴) 트랙은 목소리 주기가 안 보여 간이 PSOLA가 거칠게 깨짐 → 고친 음 동안 울림은 잠시 빼고(완성본에선 제대로)
       const from = dry ? pvSrc(src, c, i0, i1) : org, sh = dry ? pvPsola(from, sr, f0, rat) : new Float32Array(n);
       for (let k = 0; k < n; k++) { const a = k < X ? k / X : k > n - X ? (n - k) / X : 1; out[i0 + k] = org[k] * (1 - a) + sh[k] * a; } } }
+  if (dry && src) pvRawPaste(buf, src, fxE.filter((f) => f.off), sr);   // 🎤 원음 = 다시 합성한 소리 대신 부른 그대로
   for (const [u0, u1] of tp.regs) {   // 타이밍·길이(창 안만, 곡 길이 그대로)
     const i0 = Math.max(0, Math.round(u0 * sr)), i1 = Math.min(buf.length, Math.round(u1 * sr)), n = i1 - i0; if (n < 3 * X) continue;
     const reg = { i0, ch: Array.from({ length: buf.numberOfChannels }, (_, c) => buf.getChannelData(c).slice(i0, i1)) }; st.regs.push(reg);
@@ -7698,7 +7711,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-09-1531-rev";
+const BUILD = "20261109-1650";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
