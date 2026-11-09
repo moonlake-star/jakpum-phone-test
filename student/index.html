@@ -859,9 +859,10 @@ function stemEngine(d) {
     await new Promise(res => { if (au.mr.readyState >= 1) return res(); au.mr.onloadedmetadata = res; setTimeout(res, 4000); }); if (dead) throw stale();
     au.mr.onended = () => { if (playing) end(); }; return E;
   };
-  const end = () => { off = 0; if (mode === "web") killSrcs(); else if (au) { au.mr.pause(); au.voc.pause(); try { au.mr.currentTime = au.voc.currentTime = 0; } catch {} } playing = false; stopTimer(); sleepSoon(); try { d.onEnd && d.onEnd(); } catch {} };
+  const end = () => { off = 0; if (mode === "web") killSrcs(); else if (au) { au.mr.pause(); au.voc.pause(); try { au.mr.currentTime = au.voc.currentTime = 0; } catch {} } playing = false; stopTimer(); sleepSoon(); fh(false); try { d.onEnd && d.onEnd(); } catch {} };
   // (11/09 사용자 '블루투스 이어폰 볼륨 조절 안 됨 또 발생') 멈춘 뒤에도 소리 장치를 열어 두면 이어폰이 이 앱 소리 연결을 붙잡음 → 멈추고 1.5초 뒤 쉬게 함(재생 때 자동 깨움)
   let idleT = null;
+  const fh = (on) => { try { d.focus && d.focus(on, () => { if (playing) { E.pause(); try { d.onPause && d.onPause(); } catch {} } }); } catch {} };   // 다른 앱과 소리 겹침 방지(Brand.focusHold)
   const sleepSoon = () => { tm.clear(idleT); idleT = tm.set(() => { try { if (!playing && !starting && ctx && ctx.state === "running") ctx.suspend(); } catch {} }, 1500); };
   const begin = () => {
     if (mode === "web") {
@@ -887,10 +888,10 @@ function stemEngine(d) {
       try {
         if (mode === "web" && ctx.state !== "running") { await Promise.race([ctx.resume(), new Promise(res => setTimeout(res, d.resumeMs || 3000))]); if (dead) throw stale(); if (ctx.state !== "running") throw new Error("blocked"); }
         if (off >= dur() - 0.05) off = 0;
-        await begin(); if (dead) throw stale(); playing = true; stopTimer(); timer = tm.set(tick, 250);
+        await begin(); if (dead) throw stale(); playing = true; fh(true); stopTimer(); timer = tm.set(tick, 250);
       } finally { starting = false; }
     },
-    pause() { if (!playing) return; off = pos(); if (mode === "web") killSrcs(); else if (au) { au.mr.pause(); au.voc.pause(); } playing = false; stopTimer(); sleepSoon(); },
+    pause() { if (!playing) return; off = pos(); if (mode === "web") killSrcs(); else if (au) { au.mr.pause(); au.voc.pause(); } playing = false; stopTimer(); sleepSoon(); fh(false); },
     async seek(t) {   // 곡 안 위치만 옮김(네트워크 없음)
       await load(); if (dead) throw stale(); t = Math.max(0, Math.min(t, Math.max(0, dur() - 0.05)));
       if (mode === "web") { off = t; if (playing) { killSrcs(); begin(); } }
@@ -907,7 +908,7 @@ function stemEngine(d) {
     },
     boost: () => boostOn,
     destroy() {   // 화면을 떠나거나 곡을 바꿀 때: 타이머·소리·URL·AudioContext 모두 정리
-      if (dead) return; dead = true; stopTimer(); playing = false; killSrcs();
+      if (dead) return; dead = true; fh(false); stopTimer(); playing = false; killSrcs();
       if (au) { for (const a of [au.mr, au.voc]) { try { a.pause(); a.onended = a.onloadedmetadata = null; a.removeAttribute && a.removeAttribute("src"); a.load && a.load(); } catch {} } au = null; }
       const U = d.URL || G.URL; for (const u of urls) { try { U.revokeObjectURL(u); } catch {} } urls = []; buf = null; closeCtx();
     },
@@ -925,7 +926,7 @@ function wireStems(mk) {
   const card = $("sgCard"), mmss = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
   let vol = +$("sgVol").value;
   const pb = $("sgPb"), seek = $("sgSeek"), T0 = $("sgT0"), T1 = $("sgT1");
-  const eng = stemEngine({ vol, boost: boostPref(), fetchBuf: async (k) => (await fetch(driveUrl(st[k]))).arrayBuffer(),   // 하나의 재생 시계(WebAudio) · 곡당 한 번만 받음
+  const eng = stemEngine({ vol, boost: boostPref(), focus: (on, lost) => Brand.focusHold?.("song", on, lost), onPause: () => { pb.textContent = "▶"; }, fetchBuf: async (k) => (await fetch(driveUrl(st[k]))).arrayBuffer(),   // 하나의 재생 시계(WebAudio) · 곡당 한 번만 받음
     onTick: (E) => { if (sgP?.eng !== E) return; if (!card.isConnected) return stemsDestroy(); const t = E.pos(), d = E.dur() || 1; T0.textContent = mmss(t); if (!seek.matches(":active")) seek.value = Math.round(t / d * 1000); },
     onEnd: () => { pb.textContent = "▶"; T0.textContent = "0:00"; seek.value = 0; } });
   const alive = () => sgP?.eng === eng && !eng.isDead();

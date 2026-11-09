@@ -116,6 +116,31 @@
       try { if (c.state === "closed") { ACX.delete(c); continue; } if (c.state === "running" && !(keepFn && keepFn(c))) c.suspend(); } catch {}
     }
   }
+  // (11/09 사용자 '다른 앱 재생 중에 보컬노트를 틀면 다른 앱 소리가 잠깐 멈췄다 작게 다시 나오고 겹침') 안드로이드는 WebAudio만 쓰는 소리를
+  // '잠깐 나는 소리'로 보고 다른 앱 음악을 줄이기만 함(겹침). 재생 중에는 소리 없는 오디오 태그를 같이 돌려 '음악 재생 앱'으로 인식시킴 → 다른 앱은 멈추고,
+  // 다른 앱이 소리를 시작하면(이 태그가 멈추면) 이 앱 재생도 멈춤. 쓰는 쪽은 토큰별로 켜고 끔(focusHold(토큰, 켬/끔, 뺏겼을 때 할 일)).
+  const FH = { el: null, users: new Map(), ownAt: 0 };
+  function silentWav() {
+    const n = 8000, b = new Uint8Array(44 + n), v = new DataView(b.buffer), w = (o, t) => { for (let i = 0; i < t.length; i++) b[o + i] = t.charCodeAt(i); };
+    w(0, "RIFF"); v.setUint32(4, 36 + n, true); w(8, "WAVEfmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, 8000, true); v.setUint32(28, 8000, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true);
+    w(36, "data"); v.setUint32(40, n, true); b.fill(128, 44); return URL.createObjectURL(new Blob([b], { type: "audio/wav" }));
+  }
+  function focusHold(token, on, onLost) {
+    try {
+      if (on) {
+        FH.users.set(token, typeof onLost === "function" ? onLost : null);
+        if (!FH.el) {
+          const a = new Audio(); a.loop = true; a.src = silentWav(); a.setAttribute("aria-hidden", "true"); FH.el = a;
+          a.addEventListener("pause", () => { if (!FH.users.size || !a.paused || Date.now() - FH.ownAt < 800) return;   // 우리가 멈춘 게 아니라 다른 앱이 소리를 시작함
+            const cbs = [...FH.users.values()]; FH.users.clear(); for (const cb of cbs) { try { cb && cb(); } catch {} } });
+        }
+        if (FH.el.paused) { const p = FH.el.play(); if (p && p.catch) p.catch(() => {}); }
+      } else {
+        FH.users.delete(token);
+        if (!FH.users.size && FH.el && !FH.el.paused) { FH.ownAt = Date.now(); FH.el.pause(); }
+      }
+    } catch {}
+  }
   const audioKeep = (fn) => { keepFn = typeof fn === "function" ? fn : null; };
   // (11/09 12:59 사용자 '블루투스 이어폰이면 화면이 먼저 가고 소리가 늦음') 소리가 귀에 닿기까지의 지연(초): 수동 설정(jk_outLat = ms) > 브라우저가 알려 주는 값
   //   (AudioContext.outputLatency + baseLatency, 블루투스면 보통 0.15~0.3초) > 마지막으로 잰 값. 그래프·막대는 이만큼 늦춰 그림(Tune.wire)
@@ -126,5 +151,5 @@
   function outLat() { const m = outLatMode(); return m === "auto" ? outLatAuto() : m / 1000; }
   G.addEventListener("pagehide", audioRelease);
   document.addEventListener("visibilitychange", () => { if (document.hidden) audioRelease(); });
-  G.Brand = { outLat, outLatMode, outLatSet, outLatAuto, backArm, backToBase, audioRelease, audioKeep, splash, loading, setTips, tipBar, tipSheet, layer, dropLayers, bar, mark, sign, LOGO };
+  G.Brand = { outLat, outLatMode, outLatSet, outLatAuto, backArm, backToBase, audioRelease, audioKeep, focusHold, splash, loading, setTips, tipBar, tipSheet, layer, dropLayers, bar, mark, sign, LOGO };
 })(window);
