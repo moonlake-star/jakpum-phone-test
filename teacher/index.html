@@ -5175,11 +5175,11 @@ function pvApplyAll() { try { pvTimePlan(); } catch (e) { console.warn("타이�
 function mkStop() { for (const t of Object.values(mkTracks)) { try { t.src?.stop(); } catch {} t.src = null; } mkPlaying = false; audioIdle(); }
 // (11/05 사용자 '에어팟: 이 앱에서 재생하다 다른 앱을 재생하면 볼륨 조절이 한동안 안 먹다가 갑자기 먹음') 소리 장치를 다 쓰고도 계속 열어 두면 블루투스가 이 앱 소리 연결을 안 놓아서,
 // 재생이 멈추고 1.5초 지나면(그리고 화면을 벗어나면) 소리 장치를 쉬게 함 — 다시 재생할 때 자동으로 깨움
-const audioIdleCtx = () => [typeof mkCtx !== "undefined" ? mkCtx : null, typeof chimeCtx !== "undefined" ? chimeCtx : null];
+const audioIdleCtx = () => [typeof mkCtx !== "undefined" ? mkCtx : null, typeof chimeCtx !== "undefined" ? chimeCtx : null, typeof loudCtx !== "undefined" ? loudCtx : null];
 let audioIdleT = null;
 function audioIdle(now) {
   clearTimeout(audioIdleT);
-  const go = () => { for (const c of audioIdleCtx()) { try { if (c && c.state === "running" && !(c === mkCtx && (mkPlaying || vtNow))) c.suspend(); } catch {} } };
+  const go = () => { for (const c of audioIdleCtx()) { try { if (c && c.state === "running" && !(c === mkCtx && (mkPlaying || vtNow)) && !(typeof loudCtx !== "undefined" && c === loudCtx && loudActive())) c.suspend(); } catch {} } };
   if (now) go(); else audioIdleT = setTimeout(go, 1500);
 }
 if (typeof document !== "undefined") document.addEventListener("visibilitychange", () => { if (document.hidden) audioIdle(true); });
@@ -5528,7 +5528,10 @@ function stemEngine(d) {
     await new Promise(res => { if (au.mr.readyState >= 1) return res(); au.mr.onloadedmetadata = res; setTimeout(res, 4000); }); if (dead) throw stale();
     au.mr.onended = () => { if (playing) end(); }; return E;
   };
-  const end = () => { off = 0; if (mode === "web") killSrcs(); else if (au) { au.mr.pause(); au.voc.pause(); try { au.mr.currentTime = au.voc.currentTime = 0; } catch {} } playing = false; stopTimer(); try { d.onEnd && d.onEnd(); } catch {} };
+  const end = () => { off = 0; if (mode === "web") killSrcs(); else if (au) { au.mr.pause(); au.voc.pause(); try { au.mr.currentTime = au.voc.currentTime = 0; } catch {} } playing = false; stopTimer(); sleepSoon(); try { d.onEnd && d.onEnd(); } catch {} };
+  // (11/09 사용자 '블루투스 이어폰 볼륨 조절 안 됨 또 발생') 멈춘 뒤에도 소리 장치를 열어 두면 이어폰이 이 앱 소리 연결을 붙잡음 → 멈추고 1.5초 뒤 쉬게 함(재생 때 자동 깨움)
+  let idleT = null;
+  const sleepSoon = () => { tm.clear(idleT); idleT = tm.set(() => { try { if (!playing && !starting && ctx && ctx.state === "running") ctx.suspend(); } catch {} }, 1500); };
   const begin = () => {
     if (mode === "web") {
       const my = ++gen, when = ctx.currentTime + 0.06; srcs = ["mr", "voc"].map(k => { const s = ctx.createBufferSource(); s.buffer = buf[k]; s.connect(k === "voc" ? gain : master); return s; });
@@ -5549,14 +5552,14 @@ function stemEngine(d) {
       try { ctx = new AC(); const p = ctx.resume(); if (p && p.catch) p.catch(() => {}); } catch { ctx = null; }
     },
     async play() {
-      await load(); if (dead) throw stale(); if (playing || starting) return; starting = true;
+      await load(); if (dead) throw stale(); if (playing || starting) return; starting = true; tm.clear(idleT); idleT = null;
       try {
         if (mode === "web" && ctx.state !== "running") { await Promise.race([ctx.resume(), new Promise(res => setTimeout(res, d.resumeMs || 3000))]); if (dead) throw stale(); if (ctx.state !== "running") throw new Error("blocked"); }
         if (off >= dur() - 0.05) off = 0;
         await begin(); if (dead) throw stale(); playing = true; stopTimer(); timer = tm.set(tick, 250);
       } finally { starting = false; }
     },
-    pause() { if (!playing) return; off = pos(); if (mode === "web") killSrcs(); else if (au) { au.mr.pause(); au.voc.pause(); } playing = false; stopTimer(); },
+    pause() { if (!playing) return; off = pos(); if (mode === "web") killSrcs(); else if (au) { au.mr.pause(); au.voc.pause(); } playing = false; stopTimer(); sleepSoon(); },
     async seek(t) {   // 곡 안 위치만 옮김(네트워크 없음)
       await load(); if (dead) throw stale(); t = Math.max(0, Math.min(t, Math.max(0, dur() - 0.05)));
       if (mode === "web") { off = t; if (playing) { killSrcs(); begin(); } }
@@ -6958,6 +6961,7 @@ function loudSet(on) {
 }
 function loudPaint() { document.querySelectorAll("[data-tploud]").forEach(b => { b.classList.toggle("on", loudOn); b.textContent = loudOn ? "🔊 크게 듣기 켜짐" : "🔈 크게 듣기"; }); }
 player.addEventListener("play", () => loudRoute(player)); try { loudPaint(); } catch {}
+for (const ev of ["pause", "ended"]) player.addEventListener(ev, () => { try { audioIdle(); } catch {} });
 // 한 번에 하나만 재생: 새로 재생하면 나머지는 일시정지(위치는 그대로). 메이크업 미리듣기도 멈춤
 document.addEventListener("click", (e) => { const b = e.target.closest?.("[data-tploud]"); if (b) { e.stopPropagation(); loudSet(!loudOn); } }, true);
 function pauseOthers(me) {
@@ -7202,7 +7206,7 @@ function renderSegs() {
 // 듣기용.mp3는 고정 비트레이트(40kbps = 초당 5,000바이트)라 시각 → 파일 위치를 바로 계산할 수 있다.
 // 2분 조각씩 받아 재생하고, 끝나기 20초 전에 다음 조각을 미리 받아 이어 붙인다.
 const BPS = 5000, CHUNK = 120;
-const full = new Audio(); full.addEventListener("play", () => loudRoute(full)); let nowIdx = -1, chunkStart = 0, nextChunk = null, listenFile = null;
+const full = new Audio(); full.addEventListener("play", () => loudRoute(full)); for (const ev of ["pause", "ended"]) full.addEventListener(ev, () => { try { audioIdle(); } catch {} }); let nowIdx = -1, chunkStart = 0, nextChunk = null, listenFile = null;
 ["timeupdate", "play", "pause"].forEach(ev => full.addEventListener(ev, () => tsTick()));   // 글 속 시각 막대 재생기 표시 맞춤
 // 연타 대비: 재생 요청마다 번호를 매겨, 늦게 도착한 예전 요청의 조각은 버림(blob URL도 해제)
 let playSeq = 0;

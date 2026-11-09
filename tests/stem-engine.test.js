@@ -13,7 +13,7 @@ function world(opt = {}) {
   class Ctx {
     constructor() { this.state = "suspended"; this.destination = {}; this.closed = false; w.ctxs.push(this); }
     get currentTime() { return w.now; }
-    async resume() { this.state = "running"; } async close() { this.closed = true; this.state = "closed"; }
+    async resume() { this.state = "running"; } async suspend() { if (this.state === "running") this.state = "suspended"; } async close() { this.closed = true; this.state = "closed"; }
     createGain() { const g = { gain: new Param(), connect(t) { this.to = t; } }; this.gain = g; (this.gains ||= []).push(g); return g; }
     createDynamicsCompressor() { if (opt.noComp) throw new Error("no comp"); const c = { threshold: { value: 0 }, knee: { value: 0 }, ratio: { value: 0 }, attack: { value: 0 }, release: { value: 0 }, connect(t) { this.to = t; } }; this.comp = c; return c; }
     createBufferSource() { const s = { buffer: null, starts: [], stops: 0, connect(t) { this.to = t; }, disconnect() {}, start(when, off) { this.starts.push([when, off]); }, stop() { this.stops++; } }; w.sources.push(s); return s; }
@@ -48,7 +48,7 @@ function world(opt = {}) {
     let ended = 0; E.destroy();
     const w2 = world(), E2 = w2.make({ onEnd: () => ended++ }); await E2.play();
     for (let i = 0; i < 1000; i++) { w2.advance(0.25); if (!E2.isPlaying()) break; }   // 250ms tick × 4분
-    assert.strictEqual(ended, 1, "4분 뒤 한 번 끝남"); assert.strictEqual(w2.timers.size, 0, "끝나면 타이머 정리"); assert.strictEqual(w2.sources.length, 2);
+    assert.strictEqual(ended, 1, "4분 뒤 한 번 끝남"); assert.ok(w2.timers.size <= 1, "끝나면 재생 타이머 정리(남는 건 소리 장치 쉬기 하나)"); w2.advance(1.5); assert.strictEqual(w2.ctxs[0].state, "suspended", "끝나고 1.5초 뒤 소리 장치 쉼(블루투스 볼륨 조절)"); assert.strictEqual(w2.sources.length, 2);
     console.log("stem-engine: 1회 로드·볼륨 왕복·같은 시계·4분 ok"); }
 
   // (3b) 크게 듣기(11/09): MR·보컬 → 마스터(+4 dB) → 리미터 → 출력 · 켜고 끄는 건 재생·네트워크에 영향 없음 · 리미터 없는 기기도 소리는 남
@@ -64,7 +64,7 @@ function world(opt = {}) {
 
   // (4) pause→resume · seek · 재생 중 seek: 네트워크 0, 두 소스가 항상 같은 위치로 시작
   { const w = world(), E = w.make(); await E.play(); w.advance(10); const t10 = E.pos(); assert.ok(Math.abs(t10 - 10) < 0.1);
-    E.pause(); assert.ok(!E.isPlaying()); assert.strictEqual(w.timers.size, 0); w.advance(5); assert.ok(Math.abs(E.pos() - t10) < 0.01, "멈춘 동안 위치 그대로");
+    E.pause(); assert.ok(!E.isPlaying()); assert.ok(w.timers.size <= 1, "재생 타이머는 없고 쉬기 타이머만"); w.advance(5); assert.ok(Math.abs(E.pos() - t10) < 0.01, "멈춘 동안 위치 그대로");
     await E.play(); const [a, b] = w.sources.slice(-2); assert.deepStrictEqual(a.starts, b.starts); assert.ok(Math.abs(a.starts[0][1] - t10) < 0.01, "멈춘 자리에서 다시");
     await E.seek(100); const [c, d] = w.sources.slice(-2); assert.deepStrictEqual(c.starts, d.starts); assert.strictEqual(c.starts[0][1], 100);
     w.advance(2); assert.ok(Math.abs(E.pos() - 102) < 0.1); assert.strictEqual(w.net, 2, "시킹·재시작에 네트워크 없음"); assert.strictEqual(w.timers.size, 1);
