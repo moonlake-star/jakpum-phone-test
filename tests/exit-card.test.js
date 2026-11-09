@@ -29,7 +29,7 @@ assert.deepStrictEqual(M.histCount(base, now), { fx: 2, te: 1, det: 2, pen: 1 })
 assert.deepStrictEqual(M.histCount(base, base), { fx: 0, te: 0, det: 0, pen: 0 });
 console.log("hist keep ok");
 // 6) 카드 · 선생님 화면 연결
-assert.ok(T.includes('exitCard(o, hist); try {') && T.includes("if (!n && !ss().fail) return;") && T.includes("저장 못 한 고침이 있어요") && T.includes("완성본 다시 만들기</button>"));
+assert.ok(T.includes('exitCard(o, hist); try {') && T.includes("if (!n && !ss().fail) return;") && T.includes("저장 못 한 고침이 있어요") && T.includes("🔊 완성본 새로 만들기</button>"));
 assert.ok(T.includes('document.addEventListener("visibilitychange", hidKeep)'));
 assert.ok(H.includes('histKey: "mk:" + (j.reqId || j.folder.id), histEmpty: JSON.stringify({ fx: [], te: [], ne: null }), saveState: () => ({ busy: mkBusy, fail: mkFail })') && H.includes("remake: () => $(\"mkFinal\")?.click()"));
 assert.ok(H.includes("const mkWrite = () => { mkBusy++;") && !/onTime = async[^\n]*\n[^\n]*\n[^\n]*\n[^\n]*\n[^\n]*writeJSON\(j\.folder\.id, MKREQ/.test(H));
