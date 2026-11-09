@@ -22,12 +22,18 @@
     return new Uint8Array(require("zlib").gunzipSync(Buffer.from(buf)));
   }
   async function fresh() { const lines = []; const M = await state.factory({ wasmBinary: state.bin, print: (s) => lines.push(s), printErr: (s) => lines.push("ERR " + s) }); M._lines = lines; return M; }
+  // (11/09 20:49 실제 목소리 5곡 시험) 큰 소리(봉우리 1.0 근처)는 Praat이 결과를 16비트 WAV로 쓸 때 한 샘플만 넘쳐도 '잘림 경고'를 냄
+  //   → 예전엔 그 경고를 오류로 보고 미리듣기가 간이 엔진(지글지글·드르륵)으로 떨어졌음. 그래서 ① 넣는 소리를 봉우리 0.45로 낮춰 넣고 결과를 다시 키움 ② 경고·조언 줄은 오류로 안 봄
+  const HEAD = 0.45;
   async function run(x, sr, script) {
-    const M = await fresh(); M.FS.writeFile("in.wav", wavFloat(x, sr)); M.FS.writeFile("t.praat", script);
+    let pk = 0; for (let i = 0; i < x.length; i++) { const v = Math.abs(x[i]); if (v > pk) pk = v; }
+    const g = pk > HEAD ? HEAD / pk : 1, xin = g === 1 ? x : Float32Array.from(x, (v) => v * g);
+    const M = await fresh(); M._g = g; M.FS.writeFile("in.wav", wavFloat(xin, sr)); M.FS.writeFile("t.praat", script);
     try { M.callMain(["--run", "t.praat"]); } catch (e) { if (typeof e !== "number") throw e; }
-    const err = M._lines.filter((l) => /^ERR|not completed|Error/.test(l)); if (err.length) throw new Error("Praat: " + err.slice(0, 3).join(" | "));
+    const err = M._lines.filter((l) => /^ERR|not completed|Error/.test(l) && !/Warning|Advice|clipped|scale the amplitudes|binary file/i.test(l)); if (err.length) throw new Error("Praat: " + err.slice(0, 3).join(" | "));
     return M;
   }
+  function outWav(M) { const y = readWav16(M.FS.readFile("out.wav")); if (M._g !== 1) { const k = 1 / M._g; for (let i = 0; i < y.length; i++) y[i] *= k; } return y; }
   const num = (v) => Number(v).toPrecision(15);
   const Core = {
     // gz = praat_web.wasm.gz 바이트, factory = praat_web.js의 PraatModule
@@ -61,7 +67,7 @@ selectObject: manip
 out = Get resynthesis (overlap-add)
 Save as WAV file: "out.wav"
 `);
-      return readWav16(M.FS.readFile("out.wav"));
+      return outWav(M);
     },
     // 서버 apply()의 마지막 단계: 보정한 곳(과 0.3초 이하 빈 곳)만 새 소리, 나머지 원음, 이음매 0.05초
     mask(n, sr, t, shift, keepMask) {
@@ -88,7 +94,7 @@ Save as WAV file: "out.wav"
       const M = await run(x, sr, `snd = Read from file: "in.wav"
 g = Change gender: 75, 600, ${num(2 ** (semis / 12))}, 0, 1, 1
 Save as WAV file: "out.wav"
-`), z = readWav16(M.FS.readFile("out.wav")), out = new Float32Array(x.length); out.set(z.subarray(0, x.length)); return out;
+`), z = outWav(M), out = new Float32Array(x.length); out.set(z.subarray(0, x.length)); return out;
     },
     // 서버 formant_notes(): 음별 음색 — 그 음 앞뒤 0.1초 여유로 따로 바꿔 0.03초 이음매로 이어 붙임(차례로). y는 곡의 [off, off+len) 구간, notes는 곡 시각(초)
     async formantNotes(y, sr, notes, off) {
@@ -132,7 +138,7 @@ selectObject: manip
 out = Get resynthesis (overlap-add)
 Save as WAV file: "out.wav"
 `);
-      return readWav16(M.FS.readFile("out.wav"));
+      return outWav(M);
     },
     async apply(x, sr, t, f, shift, keepMask) {
       if (!shift.some((v) => v)) return Float32Array.from(x);
