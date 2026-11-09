@@ -5,7 +5,7 @@ const rd = (f) => { const u = fs.readFileSync(F + f), v = new DataView(u.buffer,
   const n = v.getUint32(p + 4, true) >> 1, y = new Float32Array(n); for (let i = 0; i < n; i++) y[i] = v.getInt16(p + 8 + i * 2, true) / 32768; return y; };
 const W = JSON.parse(fs.readFileSync(F + "warp.json", "utf8")), x = rd("in.wav"), srv = rd("server_warp.wav");
 const H = fs.readFileSync(path.join(__dirname, "../teacher/index.html"), "utf8");
-assert.ok(H.includes("pvWarpJob(wk, reg.ch[0].slice(), sr, i0, tp); if (PVP.state === \"ready\" || PVP.state === \"loading\") continue; }") && H.includes("function pvWarpJob(key, x, sr, i0, tp)") && H.includes("sh = wy && wy.length >= n ? wy : pvWarp(org, sr, f0, Dk);"), "준비되면 Praat 소리로");
+assert.ok(H.includes("pvWarpJob(wk, jz ? pvSrc(src, 0, i0, i1) : reg.ch[0].slice(), sr, i0, tp, jz); if (PVP.state === \"ready\" || PVP.state === \"loading\") continue; }") && H.includes("function pvWarpJob(key, x, sr, i0, tp, pz)") && H.includes("sh = wy && wy.length >= n ? wy : pvWarp(org, sr, f0, Dk);"), "준비되면 Praat 소리로");
 (async () => {
   await Core.init(fs.readFileSync(path.join(__dirname, "../praat/praat_web.wasm.gz")), factory);
   const y = await Core.warp(x, W.sr, W.anc); const n = Math.min(y.length, srv.length);
