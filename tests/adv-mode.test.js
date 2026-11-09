@@ -77,3 +77,9 @@ console.log("adv-mode ok", md.toFixed(4));
 /* (11/05 사용자) 닫기 버튼: 가로 = 토글과 같은 높이로 줄임 · 세로(보정 모드) = 맨 오른쪽 위에 고정 */
 { const T3 = require("fs").readFileSync(__dirname + "/../tune.js", "utf8"), as = require("assert");
   as.ok(T3.includes("#tuneFs .tfBox:not(.port) .tfTop .tfX{height:36px!important") && T3.includes("#tuneFs.advOn .port .tfTop .tfX{position:absolute;right:0;top:4px;margin:0}"), "닫기 버튼 가로 크기·세로 위치"); }
+
+// (11/09 사용자) 고급 버튼은 아래 줄 · 박자 줄은 늘 켜짐/맞춤은 스위치 · 팝업 '다음부터 고급으로' 체크 → 열 때 바로 고급
+{ const T9 = require("fs").readFileSync(require("path").join(__dirname, "..", "tune.js"), "utf8");
+  assert.ok(T9.includes('advRow.appendChild(seg)') && T9.includes('class="rpAdvCk"') && T9.includes('localStorage.setItem("tune_adv_default", "1")') && T9.includes('localStorage.getItem("tune_adv_default") === "1") setTimeout('), "아래 줄 고급 버튼 · 기본 고급 체크");
+  assert.ok(T9.includes('mk("advBeatB", "🥁 박자 맞춤")') && !T9.includes("st.advOn && st.beatOn && cv.beats"), "박자 줄 항상 · 맞춤 스위치");
+  console.log("adv-default ok"); }
