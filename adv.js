@@ -312,13 +312,23 @@
         ${mk && f.A && f.B ? `<div class="advRow"><span class="advL">A/B 들어 보기 <small style="color:#8d96a3">${Math.floor(mk.t0 / 60)}:${String(Math.floor(mk.t0 % 60)).padStart(2, "0")}부터 20초 · 보컬만</small></span></div>
           <div class="advChips advAB">${f.o ? `<button type="button" data-ep="o">▶ 보정 전</button>` : ""}<button type="button" data-ep="A">▶ A</button><button type="button" data-ep="B">▶ B</button></div>
           <div class="advChips advAB" style="margin-top:6px"><button type="button" data-ew="A">A가 좋아요</button><button type="button" data-ew="B">B가 좋아요</button></div>
-          ${pick ? `<p class="advD" style="color:#ffcf99">고른 쪽: ${pick} = ${ENG[mk[pick]] || mk[pick]} → 이 곡 보정 엔진으로 정했어요</p>` : ""}`
+          ${pick ? `<p class="advD" style="color:#ffcf99">고른 쪽: ${pick} = ${ENG[mk[pick]] || mk[pick]}${mk[pick] === e.engine ? " → 이 곡 보정 엔진" : " · 엔진은 그대로(" + (ENG[e.engine] || e.engine) + ")"}</p>` : ""}`
         : `<div class="advRow"><span class="advL">A/B 비교본</span><span class="advChips"><button type="button" data-eab class="${e.ab ? "on" : ""}">${e.ab ? "✓ 다음 완성본 때 만들기" : "만들기"}</button></span></div>
           <p class="advD">켜고 '완성본 다시 만들기'를 하면 가장 많이 고친 20초를 두 엔진으로 만들어 A·B로 섞어 둬요. 어느 쪽이 무엇인지는 고른 뒤에 알려 줘요.</p>`}`;
       w.querySelectorAll("[data-en]").forEach(b => b.onclick = (ev) => { ev.stopPropagation(); Promise.resolve(st.engSet({ engine: b.dataset.en })).then(paint); });
       const ab = w.querySelector("[data-eab]"); if (ab) ab.onclick = (ev) => { ev.stopPropagation(); Promise.resolve(st.engSet({ engine_ab: !e.ab })).then(paint); };
       w.querySelectorAll("[data-ep]").forEach(b => b.onclick = (ev) => { ev.stopPropagation(); try { st.engPlay && st.engPlay(b, b.dataset.ep); } catch {} });
-      w.querySelectorAll("[data-ew]").forEach(b => b.onclick = (ev) => { ev.stopPropagation(); const k = b.dataset.ew; Promise.resolve(st.engSet({ engine: mk[k], engine_pick: k })).then(paint); });
+      // (11/09 21:23 사용자 고) A/B에서 고르면 몰래 엔진이 바뀌던 것 → 확인 창 한 번(바꾸기 / 고른 쪽만 기록)
+      w.querySelectorAll("[data-ew]").forEach(b => b.onclick = (ev) => { ev.stopPropagation(); const k = b.dataset.ew, en = mk[k], nm = ENG[en] || en;
+        if (!en || en === e.engine) { Promise.resolve(st.engSet({ engine_pick: k })).then(paint); return; }
+        const host = w.closest("#tuneFs") || document.body, old = host.querySelector(".tfCfm"); if (old) old.remove();
+        const cf = document.createElement("div"); cf.className = "tfCfm"; cf.setAttribute("role", "dialog");
+        cf.innerHTML = `<div class="tfCfmBox"><b>이 곡 보정 엔진을 ${nm}(으)로 바꿀까요?</b><p>지금은 ${ENG[e.engine] || e.engine}예요. 바꾸면 다음 '완성본 새로 만들기'부터 ${nm}(으)로 만들어요. 폰 미리듣기는 계속 기본(PSOLA) 소리예요.</p><div class="tfCfmRow"><button type="button" data-cf="0">그대로 두기</button><button type="button" class="pri" data-cf="1">${nm}(으)로 바꾸기</button></div></div>`;
+        cf.addEventListener("pointerdown", (x) => x.stopPropagation());
+        const ly = G.Brand && G.Brand.layer ? G.Brand.layer(() => cf.remove()) : { close: () => cf.remove() };
+        cf.addEventListener("click", (x) => { if (x.target === cf) ly.close(); });
+        cf.querySelectorAll("[data-cf]").forEach(x => x.onclick = (y) => { y.stopPropagation(); ly.close(); Promise.resolve(st.engSet(x.dataset.cf === "1" ? { engine: en, engine_pick: k } : { engine_pick: k })).then(paint); });
+        host.appendChild(cf); });
     };
     paint(); return w;
   }

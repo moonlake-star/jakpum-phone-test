@@ -545,7 +545,7 @@
 <div id="toast"></div>
 <script src="../lesson-replies.js"></script>
 <script src="../tune.js?v=20261109-2010"></script>
-<script src="../adv.js?v=20261109-1705"></script>
+<script src="../adv.js?v=20261109-2135"></script>
 <script src="../pitch-embed.js?v=20261105-1850"></script>
 
 <script>
@@ -4899,7 +4899,7 @@ async function makeupFromLesson(cid, back) {
 // 미리듣기: 보컬(원음)·보컬(울림)·MR 세 갈래를 동시에 재생하며 비율만 바로 조절
 // ── 메이크업 미리듣기 엔진: 여러 갈래를 같은 시각에 함께 재생하고 '크기'만 바꿔 즉시 전환/조절 ──
 // 갈래: 애프터 보컬(음정 단계별 p0~p3) · 울림(센드 1.0) · MR · 비포 보컬 · 비포 MR
-const REV_UNIT = 0.00144;   // 리버브 1% = 센드 0.00144  → 30% = 표준(0.0432, 11/02 17:39 사용자 — 전엔 15%) · (11/02 15:22 사용자) 최대 50% → 100%
+const REV_UNIT = 0.00144;   // 리버브 1% = 센드 0.00144  → 20% = 표준(0.0288, 11/09 21:23 사용자 — 전엔 30%·15%) · (11/02 15:22 사용자) 최대 50% → 100%
 const PITCH_NAMES = ["끔", "켬", "켬", "켬"];   // (11/02 17:30 사용자) 세기 고르기 없앰 — 보정은 강 하나, 끔/켬만
 let mkCtx = null, mkT0 = 0, mkOffset = 0, mkPlaying = false, mkTracks = {}, mkTick = null, mkBefore = false, mkRaw = false, mkJob = null, mkDurS = 0, mkBound = "center", mkHasW = false;
 // ── (11/02 17:09 사용자) 고친 정음을 폰에서 바로 미리 듣기 · (11/02 17:39 사용자) 소리를 완성본과 최대한 비슷하게 ──
@@ -5268,7 +5268,7 @@ function mkApply() {
   if (!$("mkVol")) return;
   mkPhone = null;   // 크기·고침이 바뀌면 방금 만든 파일은 옛것
   const v = +$("mkVol").value, r = +$("mkRev").value, m = +$("mkMr").value, lv = +($("mkPitch")?.value || 0);
-  $("mkVolT").textContent = (v > 0 ? "+" : "") + v + " dB"; $("mkRevT").textContent = r + "%" + (r === 30 ? " (표준)" : "");
+  $("mkVolT").textContent = (v > 0 ? "+" : "") + v + " dB"; $("mkRevT").textContent = r + "%" + (r === 20 ? " (표준)" : "");
   $("mkMrT").textContent = (m > 0 ? "+" : "") + m + " dB"; if ($("mkPitchT")) $("mkPitchT").textContent = PITCH_NAMES[lv];
   if (mkRaw) { $("mkRevT").textContent = "보정 전엔 없음"; if ($("mkPitchT")) $("mkPitchT").textContent = "보정 전엔 없음"; }
   if (!mkCtx) return;
@@ -5690,7 +5690,7 @@ async function openMkJob(j, backTo) {
   const boundBox = !pi.boundary_used ? "" : `<p class="muted" style="margin:6px 0 0;font-size:.8rem">🎯 ${mdl.n ? `애매한 음은 이 수강생의 확인된 습관으로 판단 — 학습 모형 v${pi.model_v || "?"}, 확인된 음 ${mdl.n}개(신뢰 ${Math.round((mdl.trust || 0) * 100)}%)` : "아직 확인된 습관 자료가 없어 기본 보정(키·스케일·멜로디)이에요 — 아래 ‘음정 판단 확인’이 쌓이면 이 수강생에 맞춰져요"}${pi.guard ? " · ⚠️ 습관 반영이 너무 많이 바꿔서 이번엔 기본 방식으로 만들었어요" : ""}${pi.melody_notes ? ` · MIDI 멜로디 사용(${pi.melody_notes}음)` : ""}</p>`;
   const hasP = !!by("vocal_dry_p0.mp3"), hasB = !!by("before_vocal.mp3") || !!by("before.mp3");
   let curveF = null, tuneOk = false;   // (11/02 15:29 고침) 블록 안 const라 아래 음정선 불러오기에서 ReferenceError → 메이크업 화면 음정선이 늘 검은 칸이던 원인
-  const revNow = Math.round((r.result?.wet_gain ?? 0.0432) / REV_UNIT);
+  const revNow = Math.round((r.result?.wet_gain ?? 0.0288) / REV_UNIT);   // (11/09 21:23 사용자) 기본 30% → 20%
   let body = `<div class="card"><h2 style="margin:0">${esc(j.st.name)} · ${esc(r.title || "")}</h2>
     <p class="muted">${r.status === "done" ? `완성 ${r.render_count || 1}번째 · 길이 ${fmt(meas.duration_sec || 0)} · 최종 ${meas.mix_lufs_out ?? "?"} LUFS${pi.key ? ` · 키 ${esc(pi.key.name)}${pi.key_auto ? "(자동 인식)" : ""}` : ""}` :
       `실패: ${esc(r.error || "")}`}</p></div>`;
@@ -5938,7 +5938,7 @@ async function openMkJob(j, backTo) {
         setMode: (m) => document.querySelector(`#mkAb [data-ab="${m === "p" ? 1 : 0}"]`)?.click(), histKey: "mk:" + (j.reqId || j.folder.id), histEmpty: JSON.stringify({ fx: [], te: [], ne: null }), saveState: () => ({ busy: mkBusy, fail: mkFail }), saveRetry: () => mkWrite().then(() => paintFixN()), remake: () => $("mkFinal")?.click(), doneState: () => ({ total: (r.target_fixes || []).filter(x => !x.cut).length + (r.time_edits || []).length + (r.note_edits?.notes || []).length }), onFix, onFixMany, histGet, histSet, onTime, ...(canAdv() ? { onAdv, advGet, engGet, engSet, engPlay } : {}), onResetRange: (t0, t1) => resetSome(true, true, [t0, t1]), countRange: (a, b) => (r.target_fixes || []).concat(r.time_edits || []).filter(x => toA(x.t0) < b && toA(x.t1) > a).length, voice: voiceTone, wave: () => mkTracks.mr?.buf || mkTracks.before?.buf || null, ...tnOpts });
   }).catch((e) => { tuneWired = true; console.warn("음정선", e); const c = $("mkTune"); if (c) c.replaceWith(Object.assign(document.createElement("p"), { className: "muted", textContent: "음정선을 불러오지 못했어요 (" + String(e?.message || e).slice(0, 60) + ")" })); });
   // 슬라이더가 기본값에 닿으면 짧고 약한 진동(안드로이드). 기본값: 보컬 0dB · 리버브 30% · MR 0dB · 음정 켬
-  const DEF = { mkVol: 0, mkRev: 30, mkMr: 0, mkPitch: 3 };
+  const DEF = { mkVol: 0, mkRev: 20, mkMr: 0, mkPitch: 3 };
   for (const [id, d] of Object.entries(DEF)) { const el = $(id); if (!el) continue; let prev = +el.value;
     el.addEventListener("input", () => { const now = +el.value; if (now === d && prev !== d) { try { navigator.vibrate?.(12); } catch {} } prev = now; }); }
   const dec = { ...(r.pitch_review?.decisions || {}) };
@@ -7785,7 +7785,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261109-2125";
+const BUILD = "20261109-2135";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
