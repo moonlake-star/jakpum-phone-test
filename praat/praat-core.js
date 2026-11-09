@@ -124,7 +124,8 @@ Save as WAV file: "out.wav"
     },
     // x(원음) → 보정한 소리. t, f = analyze 결과, shift = 분석점마다 보정(센트)
     // (11/09 11:18 사용자 '길이 조금 고쳤는데 드르르') 타이밍·길이 미리듣기도 서버(timing._psola_warp)와 같은 Praat DurationTier로. anc = [[원래초, 새초], …](x 시작 = 0, 처음·끝은 제자리)
-    async warp(x, sr, anc) {
+    // (11/09 21:10 사용자 '멀어져간사람아 여전히 지글') pitch = { t, f }(새 높이)를 주면 높이와 길이를 한 Manipulation에서 한 번에(서버 보정본 위에 한 번 더 PSOLA하지 않음)
+    async warp(x, sr, anc, pitch) {
       const dur = x.length / sr, eps = 0.002; let pts = `Add point: 0, 1\n`;
       for (let i = 0; i + 1 < anc.length; i++) { const [o0, n0] = anc[i], [o1, n1] = anc[i + 1]; if (o1 - o0 <= 2 * eps) continue; const r = (n1 - n0) / (o1 - o0);
         pts += `Add point: ${num(o0 + eps)}, ${num(r)}\nAdd point: ${num(o1 - eps)}, ${num(r)}\n`; }
@@ -134,7 +135,7 @@ manip = To Manipulation: 0.01, 75, 1000
 dt = Create DurationTier: "d", 0, ${num(dur)}
 ${pts}selectObject: dt, manip
 Replace duration tier
-selectObject: manip
+${pitch && pitch.t.length ? `pt = Create PitchTier: "p", 0, ${num(dur)}\n${Array.from(pitch.t, (tt, i) => `Add point: ${num(tt)}, ${num(pitch.f[i])}`).join("\n")}\nselectObject: pt, manip\nReplace pitch tier\n` : ""}selectObject: manip
 out = Get resynthesis (overlap-add)
 Save as WAV file: "out.wav"
 `);
