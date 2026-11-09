@@ -117,7 +117,14 @@
     }
   }
   const audioKeep = (fn) => { keepFn = typeof fn === "function" ? fn : null; };
+  // (11/09 12:59 사용자 '블루투스 이어폰이면 화면이 먼저 가고 소리가 늦음') 소리가 귀에 닿기까지의 지연(초): 수동 설정(jk_outLat = ms) > 브라우저가 알려 주는 값
+  //   (AudioContext.outputLatency + baseLatency, 블루투스면 보통 0.15~0.3초) > 마지막으로 잰 값. 그래프·막대는 이만큼 늦춰 그림(Tune.wire)
+  let olAuto = (() => { try { return +localStorage.getItem("jk_outLatAuto") || 0; } catch { return 0; } })(), olSaveAt = 0;
+  function outLatMode() { try { const v = localStorage.getItem("jk_outLat"); return v == null || v === "auto" ? "auto" : Math.max(0, Math.min(600, +v || 0)); } catch { return "auto"; } }
+  function outLatSet(v) { try { localStorage.setItem("jk_outLat", v === "auto" ? "auto" : String(Math.round(+v || 0))); } catch {} }
+  function outLatAuto() { for (const c of ACX) { try { if (c.state !== "running") continue; const v = (+c.outputLatency || 0) + (+c.baseLatency || 0); if (v > 0 && v < 1) { olAuto = v; if (Date.now() - olSaveAt > 5000) { olSaveAt = Date.now(); try { localStorage.setItem("jk_outLatAuto", v.toFixed(3)); } catch {} } return v; } } catch {} } return olAuto; }
+  function outLat() { const m = outLatMode(); return m === "auto" ? outLatAuto() : m / 1000; }
   G.addEventListener("pagehide", audioRelease);
   document.addEventListener("visibilitychange", () => { if (document.hidden) audioRelease(); });
-  G.Brand = { backArm, backToBase, audioRelease, audioKeep, splash, loading, setTips, tipBar, tipSheet, layer, dropLayers, bar, mark, sign, LOGO };
+  G.Brand = { outLat, outLatMode, outLatSet, outLatAuto, backArm, backToBase, audioRelease, audioKeep, splash, loading, setTips, tipBar, tipSheet, layer, dropLayers, bar, mark, sign, LOGO };
 })(window);

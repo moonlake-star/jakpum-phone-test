@@ -585,8 +585,12 @@
   }
   // 붙이기: getT()=지금 초, getLv()=보여 줄 보정 단계(0이면 원음만), seek(초). 화면에서 빠지면 저절로 멈춤.
   // 확대/전체 버튼: el 바로 앞에 붙임(Tune.controls). 기본 = 확대.
+  // (11/09 12:59 사용자) 블루투스 이어폰 지연 보정: 재생 중(시각이 앞으로 가는 중)이면 그래프 시각 = 소리 시각 − 소리가 귀에 닿는 지연(Brand.outLat)
+  function latWrap(getT) { let lastRaw = null, lastMove = 0;
+    return () => { const r = +getT() || 0, now = Date.now(); if (lastRaw != null && r > lastRaw + 1e-4 && r - lastRaw < 1) lastMove = now; lastRaw = r;
+      let L = 0; try { L = now - lastMove < 400 && G.Brand && G.Brand.outLat ? G.Brand.outLat() : 0; } catch {} return L > 0 ? Math.max(0, r - L) : r; }; }
   function wire(el, cv, getT, getLv, seek, opts) {
-    if (!el || !cv) return;
+    if (!el || !cv) return; getT = latWrap(getT);
     const st = { zoom: true, lo: null, hi: null, notes: opts && opts.notes, teacher: !!(opts && opts.teacher), lvDef: opts && opts.lvDef, noX: !!(opts && opts.tapFull) };
     const bar = document.createElement("div"); bar.className = "tuneZoom";
     // (10/30 14:20 사용자) 작은 화면은 확대(지금 음 근처)로 고정 — 버튼은 '전체화면' 하나만, 잘 보이게
