@@ -305,8 +305,12 @@
   function syncCorr(cv) {
     const o_ = cv._orig, ks = cv._kShift || (cv._kShift = {}), kt = tgCol(cv); if (!kt || !cv.pts) return; const L = (cv.levels || []).length; if (!L) return;
     const idx = new Set([...Object.keys(o_ || {}), ...Object.keys(ks)]); if (!idx.size) return; const base = cv._advBase, kc = 2 + L - 1;
+    // (11/09 14:45 사용자 '음표 높이를 바꾸면 파란선도') 서버가 정음을 안 줬던 곳(o0 없음)에 선생님이 음을 정하면: 그 음 덩어리의 부른 높이(중앙값)를 새 음으로 옮긴 만큼
+    const nullMed = {}; { const ids = [...idx].map(Number).filter(i => cv.pts[i] && !(o_ && i in o_ && o_[i] != null) && cv.pts[i][kt] != null).sort((a, b) => a - b); let run = [];
+      const flush = () => { if (!run.length) return; const v = run.map(i => cv.pts[i][1]).filter(x => x != null).sort((a, b) => a - b); const m = v.length ? v[v.length >> 1] : null; for (const i of run) nullMed[i] = m; run = []; };
+      for (const i of ids) { if (run.length && (i !== run[run.length - 1] + 1 || cv.pts[i][kt] !== cv.pts[run[0]][kt])) flush(); run.push(i); } flush(); }
     for (const si of idx) { const i = +si, p = cv.pts[i]; if (!p) continue; const o0 = o_ && si in o_ ? o_[si] : null;
-      const want = o0 != null && p[kt] != null ? p[kt] - o0 : 0, d = want - (ks[si] || 0); if (!d) continue;
+      const want = o0 != null && p[kt] != null ? p[kt] - o0 : p[kt] != null && nullMed[i] != null ? p[kt] - nullMed[i] : 0, d = want - (ks[si] || 0); if (!d) continue;
       for (let c = 2; c < 2 + L; c++) if (p[c] != null) p[c] += d;
       if (base && base[i] != null) base[i] += d;   // 고급 보정 미리보기(adv.js)가 되돌릴 때 쓰는 기준도 같이
       if (want) ks[si] = want; else delete ks[si]; } }
