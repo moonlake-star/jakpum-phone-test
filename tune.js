@@ -1287,8 +1287,8 @@
         const raf = G.requestAnimationFrame ? (f) => G.requestAnimationFrame(f) : (f) => setTimeout(f, 16);
         raf(() => raf(() => { const bars = (st.tbars || []).filter(x => x.t1 > a + 0.005 && x.t0 < b - 0.005); st._quiet = true;
           try { if (rs.length === 1 && bars.length === 1 && typeof o.onFix === "function") { try { fixSheet(wrap, cv, bars[0], o.onFix, getT, st); } catch {} return; }
-          if (typeof o.onResetRange === "function") { st.msel = [a, b]; try { multiSheet(wrap, cv, st, false, true); } catch {} }
-          else if (bars[0] && typeof o.onFix === "function") { try { fixSheet(wrap, cv, bars[0], o.onFix, getT, st); } catch {} } } finally { st._quiet = false; } })); };
+          // (11/10 08:34 사용자 '길이 조정 후 되돌리기를 눌렀더니 구간 주석 창·구간 선택 창이 뜸') 여러 음·길이가 바뀐 되돌리기는 그 자리로 화면만 옮기고 창은 안 띄움
+          } finally { st._quiet = false; } })); };
       const paintHist = () => { if (!histEl) return; const ol = histEl.querySelector("ol"); ol.innerHTML = ""; for (let i = hist.S.length - 1; i >= 0; i--) { const li = document.createElement("li"), b = document.createElement("button"); b.type = "button"; b.dataset.i = i;
           b.className = i === hist.ptr ? "cur" : i > hist.ptr ? "fut" : ""; b.textContent = (i === hist.ptr ? "✓ " : "") + hist.L[i]; li.appendChild(b); ol.appendChild(li); } };
       histUI = () => { ub.disabled = !hist.canU(); rb.disabled = !hist.canR(); paintHist(); try { st.advBadge(); } catch {} };
