@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>소리 진단</title>
+<style>body{font-family:sans-serif;background:#12161a;color:#eef1f5;margin:0;padding:16px;line-height:1.5}
+button{display:block;width:100%;margin:10px 0;padding:18px;font-size:18px;border-radius:14px;border:1px solid #4a5560;background:#222a31;color:#eef1f5}
+button.on{background:#e48d16;color:#111}small{color:#a9b1bc}#info{font-size:13px;color:#a9b1bc;white-space:pre-wrap}</style></head>
+<body>
+<h2>소리 진단 (임시)</h2>
+<small>버튼을 눌러 소리를 낸 채로, 폰 볼륨 버튼으로 에어팟 볼륨이 바뀌는지 확인하세요. 한 번에 하나만 눌러 주세요(누르면 앞의 소리는 꺼져요).</small>
+<button id="a">① 일반 오디오 태그 (톤)</button>
+<button id="b">② 웹오디오 (톤)</button>
+<button id="c">③ 일반 오디오 태그 (샘플 음악 파일)</button>
+<button id="s">■ 모두 끄기</button>
+<div id="info"></div>
+<script>
+const $=id=>document.getElementById(id);
+function wav(sec,hz,amp){const sr=44100,n=sr*sec,b=new ArrayBuffer(44+n*2),v=new DataView(b);
+ const w=(o,s)=>{for(let i=0;i<s.length;i++)v.setUint8(o+i,s.charCodeAt(i))};
+ w(0,'RIFF');v.setUint32(4,36+n*2,true);w(8,'WAVEfmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,sr,true);v.setUint32(28,sr*2,true);v.setUint16(32,2,true);v.setUint16(34,16,true);w(36,'data');v.setUint32(40,n*2,true);
+ for(let i=0;i<n;i++)v.setInt16(44+i*2,Math.sin(2*Math.PI*hz*i/sr)*amp*32767,true);
+ return URL.createObjectURL(new Blob([b],{type:'audio/wav'}))}
+let au=null,ac=null,osc=null;
+function stop(){try{if(au){au.pause();au.src='';au=null}}catch(e){}try{if(osc){osc.stop();osc=null}if(ac){ac.close();ac=null}}catch(e){}
+ ['a','b','c'].forEach(k=>$(k).classList.remove('on'));info('멈춤')}
+function info(t){const st=(matchMedia('(display-mode: standalone)').matches?'설치된 앱 화면':'브라우저 화면');
+ $('info').textContent=t+'\n'+st+(ac?' · 웹오디오 '+ac.sampleRate+'Hz '+ac.state:'')+'\n'+navigator.userAgent.slice(0,120)}
+$('a').onclick=()=>{stop();au=new Audio(wav(1,440,.25));au.loop=true;au.play();$('a').classList.add('on');info('① 재생 중')};
+$('b').onclick=()=>{stop();ac=new AudioContext();osc=ac.createOscillator();osc.frequency.value=440;const g=ac.createGain();g.gain.value=.25;osc.connect(g);g.connect(ac.destination);osc.start();$('b').classList.add('on');info('② 재생 중')};
+$('c').onclick=()=>{stop();au=new Audio('../sample.mp3');au.loop=true;au.play();$('c').classList.add('on');info('③ 재생 중')};
+$('s').onclick=stop;info('대기');
+</script></body></html>
