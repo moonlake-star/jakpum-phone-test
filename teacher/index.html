@@ -5668,10 +5668,20 @@ async function openMkJob(j, backTo) {
     const teD = () => { const cur = r.time_edits || [], M = Tune.tmapOf(cur, teDur()), all = cur.concat(te0Snap.filter(x => !cur.some(y => y.t0 < x.t1 && y.t1 > x.t0)));
       return all.map(e => ({ t0: r4(toA(e.t0)), t1: r4(toA(e.t1)), nt0: r4(Tune.mapT(e.t0, M)), nt1: r4(Tune.mapT(e.t1, M)) })).filter(e => Math.abs(e.t0 - e.nt0) > 0.005 || Math.abs(e.t1 - e.nt1) > 0.005).map(e => ({ ...e, c: cAt((e.t0 + e.t1) / 2) })); };
     cv._tedits = teD(); mkPv.tedits = (r.time_edits || []).slice();
+    // (11/09 10:47 사용자 '되돌리기를 했으면 그래프에도') 서버가 '고침 없이 고른 정음'(마지막 열, cv.base)을 주면: 그 값을 처음 음(_orig)으로,
+    //   완성본에 이미 들어간 고침만큼은 '이미 옮겨진 양'(_kShift)으로 → 되돌리면 막대·하늘색 선이 바로 원래 자리로. 완성본 당시 정음은 _rend(미리듣기 기준)
+    { const kt = Tune.tgCol(cv); if (cv.base && kt && !cv._rend) { const kb = kt + 1, o_ = cv._orig || (cv._orig = {}), ks = cv._kShift || (cv._kShift = {}), rd = cv._rend = {};
+        (cv.pts || []).forEach((p, i) => { const v = p[kt], b = p[kb]; if (v != null) rd[i] = v; if (v != null && b !== v && !(i in o_)) { o_[i] = b; if (b != null) ks[i] = v - b; } }); } }
+    // 완성본에 들어간 고침을 지웠으면(고침 목록엔 없는데 완성본 정음 ≠ 서버 정음) 폰 미리듣기도 서버 정음으로 되돌려 들려줌
+    const bakedFx = () => { const kt = Tune.tgCol(cv), rd = cv._rend; if (!cv.base || !rd || !kt) return []; const kb = kt + 1, cur = dF(), out = []; let run = null;
+      (cv.pts || []).forEach((p, i) => { const b = p[kb], v = rd[i], on = v != null && b != null && b !== v && !cur.some(f => p[0] >= f.t0 - 0.001 && p[0] <= f.t1 + 0.001);
+        if (on && run && run.b === b && run.i === i - 1) { run.t1 = p[0]; run.i = i; } else { if (run) out.push(run); run = on ? { t0: p[0], t1: p[0], b, i } : null; } });
+      if (run) out.push(run); return out.map(x => ({ t0: x.t0, t1: r4(x.t1 + 0.02), midi: x.b / 100, virt: true })); };
+    const pvF = () => dF().concat(bakedFx());
     { const kt = Tune.tgCol(cv), o_ = cv._orig || (cv._orig = {});   // 저장만 하고 아직 다시 안 만든 고침: 막대를 그 음에 두고(서버가 맞춘 음은 _orig에) 미리듣기
       for (const f of dF()) (cv.pts || []).forEach((p, i) => { if (kt && p[0] >= f.t0 - 0.001 && p[0] <= f.t1 + 0.001 && (p[kt] != null || p[1] != null)) { if (!(i in o_)) o_[i] = p[kt]; p[kt] = f.midi * 100; } });   // (11/03 15:35) 정음이 없던 곳(회색 막대)도
-      mkPv.cv = cv; mkPv.rendered = (f) => { const i = (cv.pts || []).findIndex(p => p[0] >= f.t0 - 0.001 && p[0] <= f.t1 + 0.001 && p[kt] != null); if (i < 0) return null; const v = i in o_ ? o_[i] : cv.pts[i][kt]; return v == null ? null : Math.round(v / 100); };
-      mkPv.fixes = dF(); try { pvApplyAll(); } catch {} }
+      mkPv.cv = cv; mkPv.rendered = (f) => { const i = (cv.pts || []).findIndex(p => p[0] >= f.t0 - 0.001 && p[0] <= f.t1 + 0.001 && p[kt] != null); if (i < 0) return null; const v = cv._rend && i in cv._rend ? cv._rend[i] : i in o_ ? o_[i] : cv.pts[i][kt]; return v == null ? null : Math.round(v / 100); };
+      mkPv.fixes = pvF(); try { pvApplyAll(); } catch {} }
     cv._fixes = dF(); cv._src = (pi.ref?.segs || []).slice(); cv._midi = !!r.melody_id;   // 정음 막대 색 = 기준   // (11/02 15:48 사용자) 선생님이 고친 정음(노란 테두리)
     // (11/06 사용자) 전체화면을 나올 때 '저장됨/저장 못 함' 알림용: 고침 저장이 몇 개 진행 중인지 · 마지막 저장이 실패했는지(r 전체를 쓰므로 다음 저장이 되면 실패는 풀림)
     let mkBusy = 0, mkFail = false;
@@ -5680,13 +5690,13 @@ async function openMkJob(j, backTo) {
     const mkWrite = () => { mkBusy++; const p = mkQ.then(() => writeJSON(j.folder.id, MKREQ, r, j.reqId)).then(() => { mkFail = false; }, (e) => { mkFail = true; throw e; }).finally(() => { mkBusy--; }); mkQ = p.catch(() => {}); return p; };
     const onFix = async (f0_) => { const f = tmS ? { ...f0_, t0: r4(toO(f0_.t0)), t1: r4(toO(f0_.t1)) } : f0_;
       const cur = (r.target_fixes || []).filter(x => !(x.t0 < f.t1 && x.t1 > f.t0)); if (f.midi != null) cur.push(f); r.target_fixes = cur.sort((a, b) => a.t0 - b.t0);
-      mkPv.fixes = dF(); try { pvApplyAll(); } catch (e) { console.warn("미리듣기", e); }
+      mkPv.fixes = pvF(); try { pvApplyAll(); } catch (e) { console.warn("미리듣기", e); }
       try { await mkWrite(); paintFixN(); } catch (e) { toast("정음 저장 실패: " + errMsg(e)); } };   // (11/02 17:02) 바로 저장 — 알림은 창 안 '✓ 저장됨'으로
     // (11/05 사용자) 여러 음 고르기 ▼▲ 일괄 이동: 막대 여러 개를 한 번에 받아 드라이브에는 한 번만 저장(onFix를 막대 수만큼 부르면 저장도 그만큼 일어남)
     const onFixMany = async (list) => { let cur = (r.target_fixes || []).slice();
       for (const f0 of list) { const f = tmS ? { ...f0, t0: r4(toO(f0.t0)), t1: r4(toO(f0.t1)) } : f0; cur = cur.filter(x => !(x.t0 < f.t1 && x.t1 > f.t0)); if (f.midi != null) cur.push(f); }
       r.target_fixes = cur.sort((a, b) => a.t0 - b.t0);
-      mkPv.fixes = dF(); try { pvApplyAll(); } catch (e) { console.warn("미리듣기", e); }
+      mkPv.fixes = pvF(); try { pvApplyAll(); } catch (e) { console.warn("미리듣기", e); }
       try { await mkWrite(); paintFixN(); } catch (e) { toast("정음 저장 실패: " + errMsg(e)); } };
     // (11/03 13:08 사용자 승인) 타이밍·길이: 화면 시간 {t0,t1 → nt0,nt1} → 원래 시간으로 저장(서버 time_edits) · 겹치는 예전 고침은 바꿈 · 폰에서 바로 간이 미리듣기
     const onTime = async (f) => { const o0 = r4(toO(f.t0)), o1 = r4(toO(f.t1)), n0 = r4(f.nt0), n1 = r4(f.nt1);
@@ -5718,7 +5728,7 @@ async function openMkJob(j, backTo) {
       if (notes.length || Object.keys(g).length) r.note_edits = { notes, global: g }; else delete r.note_edits;
       try { await mkWrite(); paintFixN(); } catch (e) { toast("디테일 보정 저장 실패: " + errMsg(e)); } };
     // (11/03 13:46 사용자 시안 승인) 곡 전체(또는 고른 것만) 원본으로: 선생님이 고친 것만 지움(보컬 분리·기본 보정·자동 음정 보정은 그대로) · 10초 되살리기 · 지운 것은 작업 파일에 '지난 고침'으로 보관
-    const applyAll = async (fx, te, msg) => { r.target_fixes = fx; r.time_edits = te; cv._fixes = dF(); cv._tedits = teD(); mkPv.fixes = dF(); mkPv.tedits = te.slice();
+    const applyAll = async (fx, te, msg) => { r.target_fixes = fx; r.time_edits = te; cv._fixes = dF(); cv._tedits = teD(); mkPv.fixes = pvF(); mkPv.tedits = te.slice();
       const kt = Tune.tgCol(cv), o_ = cv._orig || {};   // 막대도 서버가 처음 고른 음으로(남은 고침은 그 음에)
       for (const i in o_) if (cv.pts[i]) cv.pts[i][kt] = o_[i];
       for (const f of dF()) (cv.pts || []).forEach((p, i) => { if (kt && p[0] >= f.t0 - 0.001 && p[0] <= f.t1 + 0.001 && (p[kt] != null || p[1] != null)) { if (!(i in o_)) o_[i] = p[kt]; p[kt] = f.midi * 100; } });
@@ -7547,7 +7557,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-09-1049-orgtap";
+const BUILD = "2026-11-09-1056-base";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
