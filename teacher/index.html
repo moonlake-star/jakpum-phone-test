@@ -533,7 +533,7 @@
 <div id="v2Shade" class="v2only"></div>
 <div id="toast"></div>
 <script src="../lesson-replies.js"></script>
-<script src="../tune.js?v=20261109-1049"></script>
+<script src="../tune.js?v=20261109-1102"></script>
 <script src="../adv.js?v=20261109-0148"></script>
 <script src="../pitch-embed.js?v=20261105-1850"></script>
 
@@ -5744,6 +5744,14 @@ async function openMkJob(j, backTo) {
       Tune.undo(`고친 것 ${gone}곳을 지웠어요`, () => { applyAll(fx0, te0, "되살렸어요"); }, 10000, "되살리기");
       return gone; };
     // (11/05 사용자) 전체화면 ↶ ↷ 되돌리기·다시하기: 지금 고침 전체(정음·타이밍·디테일 보정)를 글자로 주고받음 → 그 상태로 되돌려 저장(applyAll)
+    // (11/09 10:47 사용자 고) 인식 옥타브 표시: r.octave_marks = [{t0, t1, d:±1}](원래 녹음 시간) — 서버가 그 구간 음 높이를 한 옥타브 바꿔 읽음(소리는 그대로)
+    const octHit = (a, b) => (r.octave_marks || []).find(m => m.t0 < b - 0.005 && m.t1 > a + 0.005);
+    cv.octOf = (t0, t1) => (octHit(r4(toO(t0)), r4(toO(t1))) || {}).d || 0;
+    cv.onOctave = (t0, t1, d) => { const a = r4(toO(t0)), b = r4(toO(t1)), prev = (octHit(a, b) || {}).d || 0, delta = (d - prev) * 1200; if (!delta) return;
+      r.octave_marks = (r.octave_marks || []).filter(m => !(m.t0 < b - 0.005 && m.t1 > a + 0.005)); if (d) r.octave_marks.push({ t0: a, t1: b, d });
+      const o_ = cv._orig || {}, rd = cv._rend || {};   // 그래프 바로: 그 구간 점(원음·보정 후·정음·서버 정음)을 한 옥타브 · 소리 기준(_orig·_rend)도 같이
+      (cv.pts || []).forEach((p, i) => { if (p[0] >= t0 - 0.001 && p[0] <= t1 + 0.001) { for (let c = 1; c < p.length; c++) if (p[c] != null) p[c] += delta; if (o_[i] != null) o_[i] += delta; if (rd[i] != null) rd[i] += delta; } });
+      mkWrite().catch(() => {}); try { paintFixN(); } catch {} };
     const histGet = () => JSON.stringify({ fx: r.target_fixes || [], te: r.time_edits || [], ne: r.note_edits || null });
     const histSet = mkHistSet = async (js) => { const h = JSON.parse(js); if (h.ne) r.note_edits = h.ne; else delete r.note_edits; pvAdvSync(advGet()); await applyAll(h.fx || [], h.te || []); };
     Tune.wire($("mkTune"), cv, () => mkNow(), () => (mkRaw ? 0 : lvNow()), (t, still) => { const tt = Math.max(0, Math.min(t, mkDurS ? mkDurS - 0.05 : t)); if (still) { if (mkPlaying) mkStop(); mkOffset = tt; paintTransport(); return; } if (!mkPlaying) { mkOffset = tt; $("mkPP").click(); } else mkSeekTo(t); },
@@ -7557,7 +7565,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-09-1056-base";
+const BUILD = "2026-11-09-1102-oct";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
