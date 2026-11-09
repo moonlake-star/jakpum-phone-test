@@ -4762,8 +4762,51 @@ function mkEstimate(r) {
   if (r.mode === "single" && !r.render_count) return 30 + 75 + dur * 1.1 + 25;  // 서버 준비·분리 도구 설치·분리·보정
   return r.mode === "single" ? 85 : 95;
 }
-let progTimer = null;
-function stopProg() { clearInterval(progTimer); progTimer = null; }
+let progTimer = null, progJobId = null;
+function stopProg() { clearInterval(progTimer); progTimer = null; progJobId = null; try { mkBarPaint(); } catch {} }
+// (11/09 12:30 사용자 시안 승인) 메이크업을 만드는 동안 어느 화면에서든 팁 박스 바로 위에 얇은 진행 막대 · 누르면 그 곡 진행 화면
+//   목록 = localStorage(jk_mkWatch, 3시간 지나면 버림) · 30초마다 요청 파일 확인 · 다 되면 초록 '완성!' 10초 · 실패는 누를 때까지
+const MKW_KEY = "jk_mkWatch", MKW_TTL = 3 * 3600e3; let mkwData = {}, mkwTimer = 0, mkwEl = null;
+function mkwList() { try { const L = JSON.parse(localStorage.getItem(MKW_KEY) || "[]"); return Array.isArray(L) ? L.filter(x => x && x.reqId && Date.now() - (x.at || 0) < MKW_TTL) : []; } catch { return []; } }
+function mkwSave(L) { try { localStorage.setItem(MKW_KEY, JSON.stringify(L.slice(0, 6))); } catch {} }
+function mkWatch(job) { if (!job || !job.reqId || !job.folder) return; const L = mkwList().filter(x => x.reqId !== job.reqId);
+  L.unshift({ reqId: job.reqId, folderId: job.folder.id, folderName: job.folder.name || "", title: job.req?.title || job.folder.name || "메이크업", sid: job.sid || null, at: Date.now() }); mkwSave(L);
+  mkwData[job.reqId] = { req: job.req }; mkwArm(); mkBarPaint(); }
+function mkwDrop(id) { mkwSave(mkwList().filter(x => x.reqId !== id)); delete mkwData[id]; mkBarPaint(); }
+function mkwPct(r) { if (!r) return 0; if (r.status === "done") return 100; const el = (Date.now() - Date.parse(r.requested_at || new Date().toISOString())) / 1000, est = mkEstimate(r), sp = r.progress?.pct ?? 0, cap = (STAGE_CAP.find(([a, b]) => sp >= a && sp <= b) || [0, 5])[1];
+  return Math.max(sp, Math.min(Math.round(el / est * 100), cap)); }
+async function mkwPoll() { const L = mkwList(); if (!L.length) { clearInterval(mkwTimer); mkwTimer = 0; mkBarPaint(); return; }
+  for (const x of L) { const d = mkwData[x.reqId] || (mkwData[x.reqId] = {}); if (d.doneAt || d.err) continue;
+    try { d.req = await readJSON(x.reqId); if (d.req?.status === "done") d.doneAt = Date.now(); else if (d.req?.status === "error") d.err = d.req.error || "실패"; } catch {} }
+  mkBarPaint(); }
+function mkwArm() { if (!mkwTimer && mkwList().length) { mkwTimer = setInterval(mkwPoll, 30000); setTimeout(mkwPoll, 500); } }
+async function mkwOpen(x) { try { const req = await readJSON(x.reqId), job = { reqId: x.reqId, folder: { id: x.folderId, name: x.folderName }, sid: x.sid, st: x.sid ? cfg.students?.[x.sid] : null, req };
+    if (req.status === "done" || req.status === "error") mkwDrop(x.reqId); openMkJob(job, () => (typeof goBack === "function" ? goBack() : renderList())); } catch (e) { toast("열지 못했어요: " + errMsg(e)); } }
+function mkBarPaint() {
+  if (typeof document === "undefined" || !document.body) return;
+  const L = mkwList(), now = Date.now(), onProg = progJobId && !$("vMkJob")?.classList.contains("hidden");
+  for (const x of L) { const d = mkwData[x.reqId]; if (d && d.doneAt && now - d.doneAt > 10000) { mkwDrop(x.reqId); return; } }
+  const vis = L.filter(x => !(onProg && x.reqId === progJobId));
+  if (!vis.length) { if (mkwEl) { mkwEl.remove(); mkwEl = null; } return; }
+  if (!mkwEl) { mkwEl = document.createElement("div"); mkwEl.id = "mkBar"; document.body.appendChild(mkwEl); }
+  const D = (x) => mkwData[x.reqId] || {}, run = vis.filter(x => !D(x).err && !D(x).doneAt), done = vis.filter(x => D(x).doneAt), bad = vis.filter(x => D(x).err);
+  const nm = (x) => esc(String(x.title || "메이크업")), row = [];
+  if (run.length === 1) { const x = run[0], r = D(x).req, p = mkwPct(r), est = r ? mkEstimate(r) : 0, el = r ? (now - Date.parse(r.requested_at || new Date().toISOString())) / 1000 : 0, left = est - el;
+    row.push(`<button type="button" class="mkbI" data-w="${x.reqId}"><span class="mkbR">🪄 <b>${nm(x)}</b><em>${p}%</em><i>›</i></span><span class="mkbB"><u style="width:${p}%"></u></span><span class="mkbS"><span>${esc(r?.progress?.stage || (r ? "서버가 일을 시작하길 기다리는 중" : "확인 중…"))}</span><span>${!r ? "" : left > 5 ? `약 ${left >= 60 ? Math.floor(left / 60) + "분 " : ""}${Math.round(left % 60)}초 남음` : "거의 다 됐어요"}</span></span></button>`); }
+  else if (run.length > 1) { const ps = run.map(x => mkwPct(D(x).req)), av = Math.round(ps.reduce((a, b) => a + b, 0) / ps.length);
+    row.push(`<button type="button" class="mkbI" data-w="${run[0].reqId}"><span class="mkbR">🪄 <b>${run.length}곡 만드는 중</b><em>평균 ${av}%</em><i>›</i></span><span class="mkbB"><u style="width:${av}%"></u></span><span class="mkbS"><span>${run.map((x, i) => `${nm(x).slice(0, 8)}… ${ps[i]}%`).join(" · ")}</span><span></span></span></button>`); }
+  for (const x of done) row.push(`<button type="button" class="mkbI ok" data-w="${x.reqId}"><span class="mkbR">✅ <b>${nm(x)}</b><em>완성!</em><i>›</i></span><span class="mkbB"><u style="width:100%"></u></span><span class="mkbS"><span>눌러서 바로 듣기</span><span></span></span></button>`);
+  for (const x of bad) row.push(`<button type="button" class="mkbI bad" data-w="${x.reqId}"><span class="mkbR">⚠ <b>${nm(x)}</b><em>실패</em><i>›</i></span><span class="mkbS"><span>눌러서 이유 보기·다시 만들기</span><span></span></span></button>`);
+  mkwEl.innerHTML = row.join(""); mkwEl.classList.toggle("tip", document.body.classList.contains("brTipOn"));
+  mkwEl.querySelectorAll("[data-w]").forEach(b => b.onclick = () => { const x = L.find(y => y.reqId === b.dataset.w); if (x) mkwOpen(x); });
+}
+if (typeof document !== "undefined" && document.createElement) { try { const st = document.createElement("style"); st.textContent = `#mkBar{position:fixed;left:0;right:0;bottom:calc(6px + env(safe-area-inset-bottom));z-index:37;max-width:760px;margin:0 auto;padding:0 10px;box-sizing:border-box;display:flex;flex-direction:column;gap:6px;pointer-events:none}#mkBar.tip{bottom:calc(48px + env(safe-area-inset-bottom))}
+#mkBar .mkbI{pointer-events:auto;display:block;width:100%;text-align:left;margin:0;padding:8px 12px;min-height:0;background:#1e2430;border:1.5px solid #3a4a66;border-radius:14px;box-shadow:0 -4px 18px rgba(0,0,0,.45);color:#eceff3;font:inherit}
+#mkBar .mkbR{display:flex;align-items:center;gap:8px;font-size:13.5px}#mkBar .mkbR b{font-size:14px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#mkBar .mkbR em{margin-left:auto;font-style:normal;color:#9cc3ff;font-weight:800;flex:none}#mkBar .mkbR i{font-style:normal;color:#6b7280;flex:none}
+#mkBar .mkbB{display:block;height:6px;border-radius:3px;background:#2c3445;margin-top:6px;overflow:hidden}#mkBar .mkbB u{display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,#7fb2ff,#a98bff);transition:width .6s}
+#mkBar .mkbS{display:flex;gap:8px;font-size:12px;color:#9aa3ad;margin-top:4px}#mkBar .mkbS span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#mkBar .mkbS span:last-child{margin-left:auto;flex:none}
+#mkBar .mkbI.ok{border-color:#3f7a54;background:#18261d}#mkBar .mkbI.ok em{color:#6fd98e}#mkBar .mkbI.ok .mkbB u{background:#6fd98e}#mkBar .mkbI.bad{border-color:#7a3f3f;background:#2a1a1a}#mkBar .mkbI.bad em{color:#ff9a9a}`; (document.head || document.documentElement).appendChild(st);
+  setInterval(() => { try { mkBarPaint(); } catch {} }, 5000); setTimeout(() => { try { mkwArm(); mkBarPaint(); } catch {} }, 1500); } catch {} }
 function paintProg(r, clientStage) {
   if (r.status === "waiting_download") return paintYtWait(r);
   const t0 = Date.parse(r.requested_at || new Date().toISOString()), el = (Date.now() - t0) / 1000, est = mkEstimate(r);
@@ -4791,7 +4834,7 @@ function paintProg(r, clientStage) {
           : `<div class="note-ok"><b>이 화면은 닫아도 돼요.</b><br>서버에서 계속 만들고, 끝나면 메일로 알려 드려요. 이 화면에 있으면 다 됐을 때 결과가 저절로 열려요.</div>`}</div>`;
 }
 async function showProgress(job, clientStage) {
-  stopProg(); show("vMkJob"); paintProg(job.req, clientStage);
+  stopProg(); show("vMkJob"); paintProg(job.req, clientStage); if (job.reqId) { progJobId = job.reqId; try { mkWatch(job); } catch {} }
   if (job.sid && cfg.students[job.sid]) { const L = (cfg.students[job.sid]._jobs ??= []); if (job.reqId && !L.find(x => x.reqId === job.reqId)) L.unshift({ ...job, st: cfg.students[job.sid] }); }
   if (!job.reqId) return;  // 아직 요청 저장 전
   let busy = false;
@@ -4802,7 +4845,7 @@ async function showProgress(job, clientStage) {
     try {
       job.req = await readJSON(job.reqId);
       if (job.req.status === "waiting_download") { await ytPromote(job); paintProg(job.req); return; }
-      if (job.req.status === "done") { stopProg(); job.files = await list(job.folder.id); return openMkJob(job, goBack); }
+      if (job.req.status === "done") { stopProg(); try { mkwDrop(job.reqId); } catch {} job.files = await list(job.folder.id); return openMkJob(job, goBack); }
       if (job.req.status === "error") { stopProg(); paintProg(job.req); }
     } catch {} finally { busy = false; }
   }, 4000);
@@ -7614,7 +7657,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-09-1212-l11";
+const BUILD = "2026-11-09-1234-mkbar";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
