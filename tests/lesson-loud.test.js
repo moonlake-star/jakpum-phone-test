@@ -6,7 +6,7 @@ const a = T.indexOf("const LOUD_DB"), b = T.indexOf('player.addEventListener("pl
 assert.ok(a > 0 && b > a, "크게 듣기 블록");
 const code = T.slice(a, b);
 function world(on) {
-  const w = { routed: [], ctxs: [], store: on ? { jk_lessonLoud: "1" } : {} };
+  const w = { routed: [], ctxs: [], store: on === "default" ? {} : on ? { jk_lessonLoud: "1" } : { jk_lessonLoud: "0" } };
   class Param { constructor() { this.value = 1; } cancelScheduledValues() {} setTargetAtTime(v) { this.value = v; } }
   class Ctx { constructor() { this.state = "suspended"; this.destination = { id: "dest" }; this.currentTime = 0; w.ctxs.push(this); }
     resume() { this.state = "running"; } createGain() { const g = { gain: new Param(), connect(t) { this.to = t; } }; (this.gains ||= []).push(g); return g; }
@@ -17,8 +17,9 @@ function world(on) {
   vm.createContext(ctx); const mk = vm.runInContext("(function(){" + code + "; return { loudRoute, loudSet, loudActive, get ctx(){return loudCtx}, get on(){return loudOn} }; })()", ctx);
   return { w, mk, player, full, els };
 }
-// (1) 기본 꺼짐: blob이어도 보내지 않음
+// (1) 끈 사람(0): blob이어도 보내지 않음 · (11/09 11:42) 아무것도 안 고른 사람은 기본 켜짐
 { const { w, mk, player } = world(false); player.currentSrc = "blob:x"; mk.loudRoute(player); assert.strictEqual(w.routed.length, 0); assert.strictEqual(mk.ctx, null); assert.strictEqual(mk.on, false); }
+{ const { mk } = world("default"); assert.strictEqual(mk.on, true, "기본 켜짐"); }
 // (2) 켜면: blob만 보냄 → 마스터(+6 dB) → 리미터 → 출력, 같은 태그는 한 번만
 { const { w, mk, player } = world(false); player.currentSrc = "blob:x"; player.paused = false; mk.loudSet(true);
   assert.strictEqual(w.routed.length, 1, "재생 중이던 태그도 바로 보냄"); const c = w.ctxs[0], m = c.gains[0];

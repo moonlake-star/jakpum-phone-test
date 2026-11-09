@@ -5139,13 +5139,28 @@ function mkPlay(at) {
   for (const t of Object.values(mkTracks)) if (t.buf) mkStartTrack(t, at);
   mkApply(); paintTransport();
 }
+// (11/09 11:42 사용자 '앱 출력 볼륨이 작은 편 — 전체 맥시마이징') 메이크업 재생 최종단: 자동 크기 맞춤(+0~12 dB) → 리미터(천장 −1 dBFS) → 출력
+//   완성본 크기가 곡마다 달라서(예전 완성본 = 원본 녹음 크기) 반주+보컬 실효값을 재서 약 −14 dBFS(시판 음원·스트리밍 수준)가 되게 올림. 이미 크면 그대로
+let mkMaster = null; const MK_TARGET_DB = -14;
+function mkBus() {
+  if (mkMaster && mkMaster.context === mkCtx) return mkMaster;
+  mkMaster = mkCtx.createGain(); mkMaster.gain.value = 1; let tail = mkCtx.destination;
+  try { const lim = mkCtx.createDynamicsCompressor(); lim.threshold.value = -1; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.002; lim.release.value = 0.1; lim.connect(mkCtx.destination); tail = lim; } catch {}
+  mkMaster.connect(tail); return mkMaster;
+}
+function mkRmsDb(b) { if (!b) return null; let s = 0, c = 0; for (let ch = 0; ch < b.numberOfChannels; ch++) { const x = b.getChannelData(ch); for (let i = 0; i < x.length; i += 41) { s += x[i] * x[i]; c++; } } return c ? s / c : null; }
+function mkAutoGain() {
+  try { const em = mkRmsDb(mkTracks.mr?.buf), ev = mkRmsDb((mkTracks.p0 || mkTracks.p3)?.buf); if (em == null && ev == null) return;
+    const lv = 10 * Math.log10((em || 0) + (ev || 0) + 1e-12), g = Math.max(0, Math.min(12, MK_TARGET_DB - lv)), m = mkBus(), n = mkCtx.currentTime;
+    try { m.gain.cancelScheduledValues(n); m.gain.setTargetAtTime(10 ** (g / 20), n, 0.05); } catch { m.gain.value = 10 ** (g / 20); } mkPv.autoDb = Math.round(g * 10) / 10; } catch {}
+}
 async function mkLoad(name, fileId) {
   if (mkTracks[name]?.buf || mkTracks[name]?.loading) return mkTracks[name]?.loading;
   mkCtx ??= new AudioContext();
-  const g = mkCtx.createGain(); g.gain.value = 0; g.connect(mkCtx.destination);
+  const g = mkCtx.createGain(); g.gain.value = 0; g.connect(mkBus());
   const t = mkTracks[name] = { gain: g, buf: null, src: null };
   t.loading = (async () => { t.buf = await mkCtx.decodeAudioData(await (await readBlob(fileId, true)).arrayBuffer());
-    mkDurS = Math.max(mkDurS, t.buf.duration); let re = false; try { re = pvApplyAll(); } catch {} if (mkPlaying && !re) mkStartTrack(t, mkNow()); mkApply(); })();   // 다시 만들었으면 pvApplyAll이 전부 다시 틀었음(두 번 겹쳐 나오지 않게)
+    mkDurS = Math.max(mkDurS, t.buf.duration); mkAutoGain(); let re = false; try { re = pvApplyAll(); } catch {} if (mkPlaying && !re) mkStartTrack(t, mkNow()); mkApply(); })();   // 다시 만들었으면 pvApplyAll이 전부 다시 틀었음(두 번 겹쳐 나오지 않게)
   return t.loading;
 }
 let mkLastGain = {}, mkPhone = null;   // 마지막으로 정한 트랙별 크기(폰에서 바로 만들 때 같은 배합으로) · 폰에서 만든 완성본
@@ -6827,14 +6842,14 @@ const player = new Audio(); let playingBtn = null, playSharedSeq = 0;
 // 주의: 한 번 보낸 태그는 되돌릴 수 없어 '꺼짐'은 증폭만 1배로. 같은 출처(blob:)만 보냄(다른 도메인은 소리가 사라질 수 있음).
 // 화면이 꺼지면 소리 장치를 놓는 규칙(Brand.audioRelease) 때문에, 켠 채로 재생 중일 때만 예외로 둠(아래 audioKeep).
 const LOUD_DB = 6, loudGain = (on) => (on ? 10 ** (LOUD_DB / 20) : 1);
-let loudCtx = null, loudMaster = null, loudOn = (() => { try { return localStorage.getItem("jk_lessonLoud") === "1"; } catch { return false; } })(); const loudRouted = new WeakSet();
+let loudCtx = null, loudMaster = null, loudOn = (() => { try { return localStorage.getItem("jk_lessonLoud") !== "0"; } catch { return true; } })(); const loudRouted = new WeakSet();   // (11/09 11:42) 크게 듣기 기본 켜짐(끈 사람만 0)
 function loudRoute(a) {
   try {
     if (!loudOn || !a || loudRouted.has(a)) { if (loudOn && loudCtx && loudCtx.state !== "running") loudCtx.resume(); return; }
     const AC = window.AudioContext || window.webkitAudioContext; if (!AC || !/^(blob|data):/.test(a.currentSrc || a.src || "")) return;
     if (!loudCtx) {
       loudCtx = new AC(); let tail = loudCtx.destination;
-      try { const lim = loudCtx.createDynamicsCompressor(); lim.threshold.value = -3; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.003; lim.release.value = 0.12; lim.connect(loudCtx.destination); tail = lim; } catch {}
+      try { const lim = loudCtx.createDynamicsCompressor(); lim.threshold.value = -1; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.003; lim.release.value = 0.12; lim.connect(loudCtx.destination); tail = lim; } catch {}
       loudMaster = loudCtx.createGain(); loudMaster.gain.value = loudGain(true); loudMaster.connect(tail);
     }
     if (loudCtx.state !== "running") loudCtx.resume();
@@ -7586,7 +7601,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-09-1137-loud";
+const BUILD = "2026-11-09-1145-maxi";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
