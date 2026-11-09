@@ -822,11 +822,14 @@ function stemsHtml(mk) {
 function stemEngine(d) {
   const G = typeof globalThis !== "undefined" ? globalThis : window, AC = "AC" in d ? d.AC : (G.AudioContext || G.webkitAudioContext), MkAudio = d.Audio || ((...a) => new G.Audio(...a));
   const tm = d.timers || { set: (f, ms) => G.setInterval(f, ms), clear: (t) => G.clearInterval(t) }, stale = () => new Error("stale"), clamp = (v) => Math.max(0, Math.min(100, Math.round(+v) || 0));
-  const BOOST_DB = 4, boostGain = (on) => (on ? 10 ** (BOOST_DB / 20) * comp() : 1);   // (11/09 11:35 사용자 '여전히 3dB 넘게 작음') + 보컬을 줄여도 원곡과 같은 크기로(comp)
+  // (11/09 11:46 사용자 '곡 서랍·메이크업 음원은 이미 마스터링된 파일일 가능성이 높음') 고정 +4 dB 대신: 원곡(반주+보컬) 실효값이 BOOST_TARGET보다 작을 때만 그만큼 올림(최대 +6 dB)
+  //   → 이미 크게 마스터링된 곡은 더 키우지 않아 리미터로 찌그러지지 않음 · 보컬을 줄이면 comp가 원곡 크기로 되돌림
+  const BOOST_TARGET = -14, boostGain = (on) => (on ? lift() * comp() : 1);
+  const lift = () => { if (!EN || !EN.n) return 1; const lv = 10 * Math.log10((EN.mm + 2 * EN.mv + EN.vv) / EN.n + 1e-12); return Math.max(1, Math.min(10 ** (6 / 20), 10 ** ((BOOST_TARGET - lv) / 20))); };
   let EN = null;   // 반주·보컬 에너지(원곡 크기 맞춤용): mm, vv, mv
   const comp = () => { if (!EN) return 1; const g = vol / 100, e = EN.mm + 2 * g * EN.mv + g * g * EN.vv, eo = EN.mm + 2 * EN.mv + EN.vv; return e > 1e-12 ? Math.max(1, Math.min(10 ** (9 / 20), Math.sqrt(eo / e))) : 1; };
   const energy = (m, v) => { const a = m.getChannelData(0), b = v.getChannelData(0), a2 = m.numberOfChannels > 1 ? m.getChannelData(1) : a, b2 = v.numberOfChannels > 1 ? v.getChannelData(1) : b, n = Math.min(a.length, b.length);
-    let mm = 0, vv = 0, mv = 0; for (let i = 0; i < n; i += 37) { const x = (a[i] + a2[i]) / 2, y = (b[i] + b2[i]) / 2; mm += x * x; vv += y * y; mv += x * y; } return { mm, vv, mv }; };
+    let mm = 0, vv = 0, mv = 0; for (let i = 0; i < n; i += 37) { const x = (a[i] + a2[i]) / 2, y = (b[i] + b2[i]) / 2; mm += x * x; vv += y * y; mv += x * y; } return { mm, vv, mv, n: Math.ceil(n / 37) }; };
   const setMaster = (tc) => { if (!master) return; const g = master.gain, n = ctx.currentTime, v = boostGain(boostOn); try { g.cancelScheduledValues(n); g.setTargetAtTime(v, n, tc); } catch { g.value = v; } };   // (11/09 사용자 '다른 앱보다 작음') 최종단 +4 dB → 리미터. 켜짐이 기본
   let vol = clamp(d.vol ?? 30), boostOn = d.boost !== false, master = null, dead = false, loading = null, ctx = null, gain = null, buf = null, au = null, urls = [], srcs = [], t0 = 0, off = 0, playing = false, starting = false, timer = 0, mode = "", gen = 0, driftAt = 0;
   const dur = () => (mode === "web" ? buf.mr.duration : mode === "html" ? (au.mr.duration || 0) : 0);
@@ -896,7 +899,7 @@ function stemEngine(d) {
       setMaster(0.05);   // 보컬을 줄이면 전체를 그만큼 올려 원곡과 같은 크기(최대 +9 dB · 리미터가 봉우리를 잡음)
       if (au) au.voc.volume = vol / 100;
     },
-    setBoost(on) {   // 크게 듣기(+4 dB·리미터) 켜고 끄기: 재생 끊김 없음. 오디오 태그 폴백(아주 긴 곡)은 해당 없음
+    setBoost(on) {   // 크게 듣기(작은 곡만 −14 dBFS까지·리미터) 켜고 끄기: 재생 끊김 없음. 오디오 태그 폴백(아주 긴 곡)은 해당 없음
       boostOn = !!on; setMaster(0.03);
     },
     boost: () => boostOn,
