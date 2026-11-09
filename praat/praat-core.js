@@ -117,6 +117,23 @@ Save as WAV file: "out.wav"
       return out;
     },
     // x(원음) → 보정한 소리. t, f = analyze 결과, shift = 분석점마다 보정(센트)
+    // (11/09 11:18 사용자 '길이 조금 고쳤는데 드르르') 타이밍·길이 미리듣기도 서버(timing._psola_warp)와 같은 Praat DurationTier로. anc = [[원래초, 새초], …](x 시작 = 0, 처음·끝은 제자리)
+    async warp(x, sr, anc) {
+      const dur = x.length / sr, eps = 0.002; let pts = `Add point: 0, 1\n`;
+      for (let i = 0; i + 1 < anc.length; i++) { const [o0, n0] = anc[i], [o1, n1] = anc[i + 1]; if (o1 - o0 <= 2 * eps) continue; const r = (n1 - n0) / (o1 - o0);
+        pts += `Add point: ${num(o0 + eps)}, ${num(r)}\nAdd point: ${num(o1 - eps)}, ${num(r)}\n`; }
+      pts += `Add point: ${num(dur)}, 1\n`;
+      const M = await run(x, sr, `snd = Read from file: "in.wav"
+manip = To Manipulation: 0.01, 75, 1000
+dt = Create DurationTier: "d", 0, ${num(dur)}
+${pts}selectObject: dt, manip
+Replace duration tier
+selectObject: manip
+out = Get resynthesis (overlap-add)
+Save as WAV file: "out.wav"
+`);
+      return readWav16(M.FS.readFile("out.wav"));
+    },
     async apply(x, sr, t, f, shift, keepMask) {
       if (!shift.some((v) => v)) return Float32Array.from(x);
       const nf = Float64Array.from(f, (v, i) => v * 2 ** (shift[i] / 1200)), y = await Core.resynth(x, sr, t, nf), n = Math.min(x.length, y.length), m = Core.mask(n, sr, t, shift, keepMask), out = new Float32Array(n);

@@ -4977,7 +4977,7 @@ function pvPraatLoad() {
     if (typeof document === "undefined") { PVP.state = "fail"; return; }
     if (typeof location !== "undefined" && /[?&]praat=0\b/.test(location.search)) { PVP.state = "off"; return; }
     PVP.state = "loading";
-    await pvLoadScript("../praat/praat_web.js?v=20261106-1130"); await pvLoadScript("../praat/praat-core.js?v=20261106-1130");
+    await pvLoadScript("../praat/praat_web.js?v=20261106-1130"); await pvLoadScript("../praat/praat-core.js?v=20261109-1127");
     const r = await fetch("../praat/praat_web.wasm.gz"); if (!r.ok) throw new Error("praat " + r.status);
     await PraatCore.init(await r.arrayBuffer(), PraatModule); PVP.state = "ready"; document.dispatchEvent(new Event("advpv"));
   })().catch((e) => { PVP.state = "fail"; console.warn("Praat 미리듣기를 못 불러옴(간이 소리로 계속)", e); if (typeof toast === "function") toast("서버와 같은 엔진을 못 불러와 대략의 소리로 들려요"); });
@@ -5024,6 +5024,17 @@ function pvPraatJob(reg, bins, cv, sr) {   // 한 구간: 원래 소리(p0)를 �
   })().catch((e) => { PVP.cache.set(reg.key, null); console.warn("Praat 구간 실패(간이 소리로 계속)", e); }).finally(() => { PVP.pend.delete(reg.key); if (!PVP.pend.size) setTimeout(() => { for (const o of Object.values(mkPv.orig)) o.sig = "?"; try { pvApplyAll(); } catch {} PVP.flush(); }, 0); });
   PVP.pend.set(reg.key, pr); PVP.jobs.push(pr);
 }
+function pvWarpJob(key, x, sr, i0, tp) {   // 타이밍 미리듣기 한 구간을 Praat으로(끝나면 다시 반영) — 기다리지 않고 그동안은 간이 소리
+  if (PVP.pend.has(key)) return;
+  if (PVP.state !== "ready") { pvPraatLoad().then(() => setTimeout(() => { try { pvApplyAll(); } catch {} }, 0)); return; }
+  const pr = (async () => {
+    const t0 = i0 / sr, L = x.length / sr, anc = []; let last = -1;
+    for (let u = 0; u <= L + 1e-9; u += 0.01) { const o = Math.max(0, Math.min(L, tp.D(t0 + Math.min(u, L)) - t0)); if (o > last + 1e-4) { anc.push([o, Math.min(u, L)]); last = o; } }
+    if (!anc.length || anc[0][0] > 1e-3) anc.unshift([0, 0]); const e = anc[anc.length - 1]; if (Math.abs(e[0] - L) > 1e-3) anc.push([L, L]);
+    const y = await PraatCore.warp(x, sr, anc); PVP.cache.set(key, y.slice(0, x.length)); if (PVP.cache.size > 60) PVP.cache.delete(PVP.cache.keys().next().value);
+  })().catch((e) => { PVP.cache.set(key, null); console.warn("Praat 타이밍 구간 실패(간이 소리로 계속)", e); }).finally(() => { PVP.pend.delete(key); if (!PVP.pend.size) setTimeout(() => { for (const o of Object.values(mkPv.orig)) o.sig = "?"; try { pvApplyAll(); } catch {} PVP.flush(); }, 0); });
+  PVP.pend.set(key, pr); PVP.jobs.push(pr);
+}
 function pvApply(name) {   // 한 트랙에 지금 고친 정음·타이밍 전부 반영(원래 조각을 기억해 두고, 바뀌면 되돌린 뒤 다시 만듦) — 음정 먼저, 타이밍은 그 위에
   const tr = mkTracks[name], buf = tr?.buf, nm = /^([pw])([123])$/.exec(name), cv = mkPv.cv, voc = /^([pwqx][0-3]|wet|dry)$/.test(name); if (!buf || !cv || (!nm && !voc)) return false;
   const dry = !!nm && nm[1] === "p", src = dry ? mkTracks.p0?.buf : buf, pOn = !!nm && !!src;   // 보정본 음정은 보정 전 보컬이 있어야(다 받으면 다시 시도)
@@ -5056,7 +5067,10 @@ function pvApply(name) {   // 한 트랙에 지금 고친 정음·타이밍 전�
     const i0 = Math.max(0, Math.round(u0 * sr)), i1 = Math.min(buf.length, Math.round(u1 * sr)), n = i1 - i0; if (n < 3 * X) continue;
     const reg = { i0, ch: Array.from({ length: buf.numberOfChannels }, (_, c) => buf.getChannelData(c).slice(i0, i1)) }; st.regs.push(reg);
     const f0 = pvF0(cv, lvCol, sr, i0, n), Dk = (k) => tp.D((i0 + k) / sr) * sr - i0;
-    for (let c = 0; c < buf.numberOfChannels; c++) { const out = buf.getChannelData(c), org = reg.ch[c], sh = pvWarp(org, sr, f0, Dk);
+    // (11/09 11:18 사용자 '길이 조금 고쳤는데 드르르') 간이 PSOLA(봉우리 찾기)는 거칠게 들릴 때가 있음 → 서버와 같은 Praat(DurationTier)으로 만든 소리가 준비되면 그걸로
+    const wk = `W|${name}|${sr}|${i0}|${i1}|${tp.sig}|${sig.length}|${sig.split("").reduce((q, ch) => (q * 31 + ch.charCodeAt(0)) | 0, 7)}`, wy = PVP.cache.get(wk);
+    if (wy === undefined && PVP.state !== "fail" && PVP.state !== "off") pvWarpJob(wk, reg.ch[0].slice(), sr, i0, tp);
+    for (let c = 0; c < buf.numberOfChannels; c++) { const out = buf.getChannelData(c), org = reg.ch[c], sh = wy && wy.length >= n ? wy : pvWarp(org, sr, f0, Dk);
       for (let k = 0; k < n; k++) { const a = k < X ? k / X : k > n - X ? (n - k) / X : 1; out[i0 + k] = org[k] * (1 - a) + sh[k] * a; } } }
   if (ap && !(ppReady && pp.exact)) { const mp = pvAdvMaps(cv, lvCol);   // 디테일 보정: 지금까지 만든 소리 위에 높이 차이·볼륨을 얹음(서버와 같은 소리를 이미 끼웠으면 건너뜀)
     for (const cl of ap.regs) {
@@ -7565,7 +7579,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-09-1121-mono";
+const BUILD = "2026-11-09-1127-pvwarp";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
