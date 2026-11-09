@@ -14,8 +14,9 @@ function world(opt = {}) {
     constructor() { this.state = "suspended"; this.destination = {}; this.closed = false; w.ctxs.push(this); }
     get currentTime() { return w.now; }
     async resume() { this.state = "running"; } async close() { this.closed = true; this.state = "closed"; }
-    createGain() { const g = { gain: new Param(), connect() {} }; this.gain = g; return g; }
-    createBufferSource() { const s = { buffer: null, starts: [], stops: 0, connect() {}, disconnect() {}, start(when, off) { this.starts.push([when, off]); }, stop() { this.stops++; } }; w.sources.push(s); return s; }
+    createGain() { const g = { gain: new Param(), connect(t) { this.to = t; } }; this.gain = g; (this.gains ||= []).push(g); return g; }
+    createDynamicsCompressor() { if (opt.noComp) throw new Error("no comp"); const c = { threshold: { value: 0 }, knee: { value: 0 }, ratio: { value: 0 }, attack: { value: 0 }, release: { value: 0 }, connect(t) { this.to = t; } }; this.comp = c; return c; }
+    createBufferSource() { const s = { buffer: null, starts: [], stops: 0, connect(t) { this.to = t; }, disconnect() {}, start(when, off) { this.starts.push([when, off]); }, stop() { this.stops++; } }; w.sources.push(s); return s; }
     decodeAudioData(ab) { w.decodes++; if (opt.decodeFail) return Promise.reject(new Error("decode fail")); return Promise.resolve({ duration: opt.dur || 240, numberOfChannels: 2 }); }
   }
   class Aud { constructor() { this.currentTime = 0; this.paused = true; this.readyState = 4; this.seeking = false; this.duration = opt.dur || 240; this.volume = 1; this.sets = 0; w.audios.push(this); }
@@ -49,6 +50,17 @@ function world(opt = {}) {
     for (let i = 0; i < 1000; i++) { w2.advance(0.25); if (!E2.isPlaying()) break; }   // 250ms tick × 4분
     assert.strictEqual(ended, 1, "4분 뒤 한 번 끝남"); assert.strictEqual(w2.timers.size, 0, "끝나면 타이머 정리"); assert.strictEqual(w2.sources.length, 2);
     console.log("stem-engine: 1회 로드·볼륨 왕복·같은 시계·4분 ok"); }
+
+  // (3b) 크게 듣기(11/09): MR·보컬 → 마스터(+4 dB) → 리미터 → 출력 · 켜고 끄는 건 재생·네트워크에 영향 없음 · 리미터 없는 기기도 소리는 남
+  { const w = world(), E = w.make(); await E.play(); const c = w.ctxs[0], [master, vg] = c.gains;
+    assert.ok(Math.abs(master.gain.value - 10 ** (4 / 20)) < 1e-9, "기본 켜짐 +4 dB"); assert.strictEqual(vg.to, master, "보컬 → 마스터");
+    assert.strictEqual(w.sources[0].to, master, "MR → 마스터"); assert.strictEqual(master.to, c.comp, "마스터 → 리미터"); assert.strictEqual(c.comp.to, c.destination, "리미터 → 출력"); assert.strictEqual(c.comp.threshold.value, -3);
+    const src0 = w.sources.length, net0 = w.net; E.setBoost(false); assert.strictEqual(master.gain.value, 1); assert.strictEqual(E.boost(), false);
+    E.setBoost(true); assert.ok(master.gain.value > 1.5); assert.strictEqual(w.sources.length, src0); assert.strictEqual(w.net, net0); assert.ok(E.isPlaying());
+    E.destroy();
+    const w2 = world({ noComp: true }), E2 = w2.make({ boost: false }); await E2.play(); const [m2] = w2.ctxs[0].gains;
+    assert.strictEqual(m2.gain.value, 1, "boost:false → 그대로"); assert.strictEqual(m2.to, w2.ctxs[0].destination, "리미터 없으면 바로 출력"); E2.destroy();
+    console.log("stem-engine: 크게 듣기(마스터·리미터·끄기·리미터 없는 기기) ok"); }
 
   // (4) pause→resume · seek · 재생 중 seek: 네트워크 0, 두 소스가 항상 같은 위치로 시작
   { const w = world(), E = w.make(); await E.play(); w.advance(10); const t10 = E.pos(); assert.ok(Math.abs(t10 - 10) < 0.1);
