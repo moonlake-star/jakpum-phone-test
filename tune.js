@@ -718,14 +718,14 @@
     if (st) st.bu = bu;
     if (bu) { d.classList.add("tfUni", "tfBu");
       d.innerHTML = `<div class="tfFixBox"><div class="tfUniTop"><span class="tfFixSt"></span>
-        <div class="tfFixRow tfP"><button type="button" data-d="-1" aria-label="반음 내림">▼</button><button type="button" class="tfFixN" data-p aria-label="누르면 소리 · 위아래로 밀면 반음 · 꾹 누른 뒤 밀면 미세"></button><button type="button" data-d="1" aria-label="반음 올림">▲</button>${canCut ? `<button type="button" class="tfCut tfIc" data-cut aria-label="두 음으로 나누기(세로줄 자리, 막대 밖이면 가운데)">✂</button>` : ""}${mgNb ? `<button type="button" class="tfCut tfIc" data-merge aria-label="옆 조각과 하나로 합치기">⇔</button>` : ""}<button type="button" class="tfIc" data-r aria-label="톡 = 직전 저장으로, 1초 꾹 = 원본으로">↺</button></div></div><div class="tfBuT"></div></div>`; }
+        <div class="tfFixRow tfP"><button type="button" data-d="-1" aria-label="반음 내림">▼</button><button type="button" class="tfFixN" data-p aria-label="누르면 소리 · 위아래로 밀면 반음 · 꾹 누른 뒤 밀면 미세"></button><button type="button" data-d="1" aria-label="반음 올림">▲</button>${canCut ? `<button type="button" class="tfCut tfIc" data-cut aria-label="두 음으로 나누기(세로줄 자리, 막대 밖이면 가운데)">✂</button>` : ""}${mgNb ? `<button type="button" class="tfCut tfIc" data-merge aria-label="옆 조각과 하나로 합치기">⇔</button>` : ""}<button type="button" class="tfIc" data-r aria-label="이 음 원래대로(음정·타이밍·고급 모두, 확인 창)">↺</button></div></div><div class="tfBuT"></div></div>`; }
     else     if (uni) { d.classList.add("tfUni");
       d.innerHTML = `<div class="tfFixBox"><div class="tfUniTop"><span class="tfFixSt"></span>
         <div class="tfFixRow tfP"><button type="button" data-d="-1" aria-label="반음 내림">▼</button><button type="button" class="tfFixN" data-p aria-label="누르는 동안 이 음 소리"></button><button type="button" data-d="1" aria-label="반음 올림">▲</button><button type="button" class="tfIc tfSnap" data-snap aria-label="가까운 음에 맞춤(두 번 톡과 같음)">🧲</button>${canCut ? `<button type="button" class="tfCut tfIc" data-cut aria-label="두 음으로 나누기(세로줄 자리, 막대 밖이면 가운데)">✂</button>` : ""}${mgNb ? `<button type="button" class="tfCut tfIc" data-merge aria-label="옆 조각과 하나로 합치기">⇔</button>` : ""}</div></div><div class="tfUniAdv"></div><button type="button" class="tfOrg" data-r aria-label="이 음 원래대로(음정·타이밍·고급 모두, 확인 창)">↺ 이 음</button></div>`; }
     else d.innerHTML = `<div class="tfFixBox"><div class="tfFixHd">${tOn ? `<span class="tfFixMd" role="group" aria-label="고칠 것"><button type="button" data-md="p">🎵 음정</button><button type="button" data-md="t">⏱ 타이밍</button>${st && st.onAdv && st.advOn ? `<button type="button" data-md="a">🎛 고급</button>` : ""}</span>` : "<b>정음</b>"}<span class="tfFixTm">${mm(b.t0)}~${mm(b.t1)}</span><span class="tfFixSt"></span></div>
       ${tOn ? `<div class="tfFixRow tfT"><button type="button" data-tm="-1" aria-label="일찍(앞으로)">◀</button><button type="button" class="tfFixN tfTN" data-tp aria-label="이 음 듣기"></button><button type="button" data-tm="1" aria-label="늦게(뒤로)">▶</button><button type="button" class="tfIc" data-tl="-1" aria-label="짧게">−</button><button type="button" class="tfIc" data-tl="1" aria-label="길게">+</button><button type="button" class="tfIc" data-tr aria-label="톡 = 직전 저장으로, 1초 꾹 = 원본으로">↺</button></div>
       <div class="tfFixLab tfT"><span>일찍</span><span class="n">누르면 듣기</span><span>늦게</span><span class="i">짧게</span><span class="i">길게</span><span class="i">되돌리기</span></div>` : ""}
-      <div class="tfFixRow tfP"><button type="button" data-d="-1" aria-label="반음 내림">▼</button><button type="button" class="tfFixN" data-p aria-label="누르는 동안 이 음 소리"></button><button type="button" data-d="1" aria-label="반음 올림">▲</button>${canCut ? `<button type="button" class="tfCut tfIc" data-cut aria-label="두 음으로 나누기(세로줄 자리, 막대 밖이면 가운데)">✂</button>` : ""}${mgNb ? `<button type="button" class="tfCut tfIc" data-merge aria-label="옆 조각과 하나로 합치기">⇔</button>` : ""}<button type="button" class="tfIc" data-r aria-label="톡 = 직전 저장으로, 1초 꾹 = 원본으로">↺</button></div>
+      <div class="tfFixRow tfP"><button type="button" data-d="-1" aria-label="반음 내림">▼</button><button type="button" class="tfFixN" data-p aria-label="누르는 동안 이 음 소리"></button><button type="button" data-d="1" aria-label="반음 올림">▲</button>${canCut ? `<button type="button" class="tfCut tfIc" data-cut aria-label="두 음으로 나누기(세로줄 자리, 막대 밖이면 가운데)">✂</button>` : ""}${mgNb ? `<button type="button" class="tfCut tfIc" data-merge aria-label="옆 조각과 하나로 합치기">⇔</button>` : ""}<button type="button" class="tfIc" data-r aria-label="이 음 원래대로(음정·타이밍·고급 모두, 확인 창)">↺</button></div>
       <div class="tfFixLab tfP"><span>톡 반음 · 꾹 미세</span><span class="n">누르면 소리</span><span>톡 반음 · 꾹 미세</span>${canCut ? `<span class="i">나누기</span>` : ""}${mgNb ? `<span class="i">합치기</span>` : ""}<span class="i">되돌리기</span></div></div>`;
     // (11/02 19:28 사용자 시안 승인) 전체화면이면 아래 이동 버튼·안내 문구 자리에(원음/보정본 큰 버튼은 그대로 위에)
     // (11/02 02:02 사용자 시안) 스위치 아래 칸(이동 버튼·안내)만 같은 높이의 고치기 창으로 바뀜 → 그래프·주석·스위치는 그대로
@@ -834,9 +834,9 @@
     d.querySelectorAll("[data-r],[data-tr]").forEach(x => { let hold = null, fired = false;
       const stop = () => { clearTimeout(hold); hold = null; x.classList.remove("hold"); };
       x.addEventListener("pointerdown", (e) => { e.preventDefault(); fired = false; try { x.setPointerCapture(e.pointerId); } catch {} x.classList.add("hold"); hold = setTimeout(() => { fired = true; stop(); askOrig(); }, 1000); });
-      x.addEventListener("pointerup", () => { const f_ = fired; stop(); if (!f_) { if (uni) askOrig(); else undo(); } });
+      x.addEventListener("pointerup", () => { const f_ = fired; stop(); if (!f_) askOrig(); });   // (11/09 10:47 사용자 고) 기본·고급 모두 톡 = 이 음 원래대로(확인 창) · 한 단계 되돌리기는 아래 ↶
       ["pointercancel", "lostpointercapture"].forEach(ev => x.addEventListener(ev, stop));
-      x.onclick = (e) => { if (e.detail === 0) { if (uni) askOrig(); else undo(); } };
+      x.onclick = (e) => { if (e.detail === 0) askOrig(); };
       x.addEventListener("contextmenu", (e) => e.preventDefault()); });
     // ── 타이밍·길이 ──
     const setMd = (md) => { if (!tOn) return; if (md === "a" && !(st.onAdv && st.advOn)) md = "p"; st.fixMode = md; d.classList.toggle("tmode", md === "t"); d.classList.toggle("amode", md === "a");
@@ -985,7 +985,7 @@
     { text: () => "타이밍 고친 음은 하늘색, 원래 자리는 점선 · 가운데 숫자를 누르면 그 근처만 들려요", need: 'g.fillStyle = "#5fd4ff"; g.fillRect(x0', when: (o) => typeof o.onTime === "function" },
     { text: () => "음 이름 칸: 누르면 소리 · 위아래로 밀면 미세(센트) · 꾹 누른 뒤 밀면 반음씩", need: 'n_.lp = setTimeout(() => { if (nd !== n_ || n_.ax) return; n_.fine = false; buzz(40);', when: (o) => typeof o.onFix === "function" },
     { text: () => "✂ 나누기: 세로줄이 막대 안이면 그 자리, 밖이면 가운데에서 나뉘고 오른쪽 조각이 골라져요", need: "fixSheet(host, cv, { t0: ts, t1: T1, c: Math.round(m * 100) }, onFix, getT, st)", when: (o) => typeof o.onFix === "function" },
-    { text: () => "↺ 톡 = 직전 저장으로 되돌리기 · 1초 꾹 = 이 음을 원본으로(확인 후)", need: "hold = setTimeout(() => { fired = true; stop(); askOrig(); }, 1000)", when: (o) => typeof o.onFix === "function" },
+    { text: () => "↺ 톡 = 이 음 원래대로(확인 후) · 한 단계 되돌리기는 아래 ↶", need: "hold = setTimeout(() => { fired = true; stop(); askOrig(); }, 1000)", when: (o) => typeof o.onFix === "function" },
     { text: () => "고치기 창은 그래프 빈 곳 톡·뒤로 가기로 닫혀요 — 고친 건 자동 저장돼요", need: "if (!onBar) { sheetClose(); lastTap = 0; return; }", when: (o) => typeof o.onFix === "function" },
     { text: () => "정음 막대 색 = 기준: 노랑 선생님 · 보라 MIDI · 하늘 원곡 · 초록 악보·키·스케일", need: "const SRC_C = {", when: (o) => typeof o.onFix === "function" },
     // (11/03 10:42 사용자) 수강생 화면은 보이는 것·할 수 있는 것이 달라서 팁도 따로
