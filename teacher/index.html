@@ -5690,7 +5690,7 @@ async function openMkJob(j, backTo) {
   const boundBox = !pi.boundary_used ? "" : `<p class="muted" style="margin:6px 0 0;font-size:.8rem">🎯 ${mdl.n ? `애매한 음은 이 수강생의 확인된 습관으로 판단 — 학습 모형 v${pi.model_v || "?"}, 확인된 음 ${mdl.n}개(신뢰 ${Math.round((mdl.trust || 0) * 100)}%)` : "아직 확인된 습관 자료가 없어 기본 보정(키·스케일·멜로디)이에요 — 아래 ‘음정 판단 확인’이 쌓이면 이 수강생에 맞춰져요"}${pi.guard ? " · ⚠️ 습관 반영이 너무 많이 바꿔서 이번엔 기본 방식으로 만들었어요" : ""}${pi.melody_notes ? ` · MIDI 멜로디 사용(${pi.melody_notes}음)` : ""}</p>`;
   const hasP = !!by("vocal_dry_p0.mp3"), hasB = !!by("before_vocal.mp3") || !!by("before.mp3");
   let curveF = null, tuneOk = false;   // (11/02 15:29 고침) 블록 안 const라 아래 음정선 불러오기에서 ReferenceError → 메이크업 화면 음정선이 늘 검은 칸이던 원인
-  const revNow = Math.round((r.result?.wet_gain ?? 0.0288) / REV_UNIT);   // (11/09 21:23 사용자) 기본 30% → 20%
+  const revNow = Math.round((r.wet_gain ?? r.result?.wet_gain ?? 0.0288) / REV_UNIT);   // (11/09 21:23 사용자) 기본 30% → 20% · (21:34) 저장값을 바꿨으면(r.wet_gain) 그 값부터 — 실시간 리버브라 바로 들림
   let body = `<div class="card"><h2 style="margin:0">${esc(j.st.name)} · ${esc(r.title || "")}</h2>
     <p class="muted">${r.status === "done" ? `완성 ${r.render_count || 1}번째 · 길이 ${fmt(meas.duration_sec || 0)} · 최종 ${meas.mix_lufs_out ?? "?"} LUFS${pi.key ? ` · 키 ${esc(pi.key.name)}${pi.key_auto ? "(자동 인식)" : ""}` : ""}` :
       `실패: ${esc(r.error || "")}`}</p></div>`;
@@ -5784,11 +5784,12 @@ async function openMkJob(j, backTo) {
   songPaint(j, r, by);
   // (11/09 16:44 사용자 '버튼 의미를 모르겠다' → 시안 고) 완성본 카드 하나: 지금 고친 게 완성본에 들어갔는지(baked_sig = 완성본 요청 때 고침 지문)로 상태·버튼을 바꿈
   const sigOpen = mkEditsSig(r), revOpen = revNow;
-  const mkDirty = () => (r.baked_sig != null ? mkEditsSig(r) !== r.baked_sig : mkEditsSig(r) !== sigOpen) || +($("mkVol")?.value || 0) !== 0 || +($("mkMr")?.value || 0) !== 0 || +($("mkRev")?.value ?? revOpen) !== revOpen;
+  const revBaked = r.result?.wet_gain, mkDirty = () => (r.baked_sig != null ? mkEditsSig(r) !== r.baked_sig : mkEditsSig(r) !== sigOpen) || (revBaked != null && r.wet_gain != null && Math.abs(r.wet_gain - revBaked) > 1e-4) || +($("mkVol")?.value || 0) !== 0 || +($("mkMr")?.value || 0) !== 0 || +($("mkRev")?.value ?? revOpen) !== revOpen;
   const phoneFresh = () => !!(mkPhone && mkPhone.sig === mkEditsSig(r));
   const paintFixN = () => { const n = (r.target_fixes || []).filter(x => !x.cut).length, nt = (r.time_edits || []).length, na = (r.note_edits?.notes || []).length + (Object.keys(r.note_edits?.global || {}).length ? 1 : 0), el = $("mkFixN");
     if (!el) return; const d = mkDirty(), sl = +($("mkVol")?.value || 0) || +($("mkMr")?.value || 0) || +($("mkRev")?.value ?? revOpen) !== revOpen;
-    const parts = [n ? `정음 ${n}` : "", nt ? `타이밍 ${nt}` : "", na ? `디테일 ${na}` : "", sl ? "크기·리버브" : ""].filter(Boolean).join(" · ");
+    const rvP = revBaked != null && r.wet_gain != null && Math.abs(r.wet_gain - revBaked) > 1e-4;
+    const parts = [n ? `정음 ${n}` : "", nt ? `타이밍 ${nt}` : "", na ? `디테일 ${na}` : "", sl ? "크기·리버브" : "", rvP && !sl ? `리버브 ${Math.round(r.wet_gain / REV_UNIT)}%` : ""].filter(Boolean).join(" · ");
     const when = r.done_at ? new Date(r.done_at).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
     $("mkDone").classList.toggle("dirty", d);
     el.innerHTML = d ? `<span class="mkTag warn">✏️ 반영 전</span>고친 내용이 완성본에 아직 없어요` : `<span class="mkTag ok">✅ 최신</span>완성본${when ? " · " + when : ""}`;
@@ -7785,7 +7786,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261109-2135";
+const BUILD = "20261109-2140";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
