@@ -345,7 +345,12 @@
     if (full && st) { if (st.rbS == null || Math.abs(st.rbS - RB0) < 0.6) st.rbS = RB0; else st.rbS += (RB0 - st.rbS) * 0.22; RB = Math.round(st.rbS); }   // (11/07 09:31 사용자 영상) 🎛 고급을 켜면 주석 칸이 없어지며 음정선이 툭 내려갔음 → 0.3초 동안 부드럽게 옮겨 가 보던 음을 눈으로 따라갈 수 있게
     const HP = H - RB;
     const L = full ? 44 : 30, y = (c) => T + HP - 6 - (c - lo) / (hi - lo) * (HP - 12);
-    const t0 = t - W8 * HEAD, xs = (tt) => L + (tt - t0) / W8 * (w - L), sc = cv.scale;
+    const t0 = t - W8 * HEAD, xs0 = (tt) => L + (tt - t0) / W8 * (w - L), sc = cv.scale;
+    // (11/09 11:18 사용자 '보컬은 한 음씩이라 뒤 음을 당기면 앞 음도 밀려야') 타이밍 고침(아직 완성본 전)이 있으면 그래프 전체를 서버와 같은 시간표로 미리 옮겨 그림
+    //   → 당긴 음 앞의 음은 그만큼 짧아져(눌려) 보이고, 늘린 음 뒤의 음은 밀려 보임. 원래 자리 점선·새 자리 하늘색 막대는 원래 좌표(xs0)
+    let xs = xs0; if (cv._tedits && cv._tedits.length) { const key = cv._tedits.map(e => `${e.t0},${e.t1},${e.nt0},${e.nt1}`).join(";");
+      if (cv._twK !== key) { cv._twK = key; const P = cv.pts || [], dur = P.length ? +P[P.length - 1][0] + 2 : 600; cv._twM = tmapOf(cv._tedits, dur); }
+      const M = cv._twM; if (M && M.length > 2) xs = (tt) => xs0(mapT(tt, M)); }
     g.font = (full ? "12px" : "10px") + " system-ui, sans-serif"; g.textBaseline = "middle";
     let lastY = -99;
     for (let m = Math.floor(hi / 100); m >= Math.ceil(lo / 100); m--) {
@@ -419,8 +424,8 @@
       // (11/03 13:08 사용자 시안) 타이밍·길이 고친 음 = 새 자리에 하늘색 막대 + 원래 자리 점선
       const tb = [];
       for (const te of cv._tedits || []) { if (te.nt1 < t0 - 0.5 || te.nt0 > t0 + W8 + 0.5) continue; const yy = y(te.c);
-        g.save(); g.setLineDash([4, 3]); g.strokeStyle = "rgba(230,233,238,.55)"; g.lineWidth = 1.5; g.strokeRect(xs(te.t0), yy - bh / 2, Math.max(4, xs(te.t1) - xs(te.t0)), bh); g.restore();
-        const x0 = xs(te.nt0), x1 = xs(te.nt1); g.fillStyle = "#5fd4ff"; g.fillRect(x0, yy - bh / 2, Math.max(3, x1 - x0), bh);
+        g.save(); g.setLineDash([4, 3]); g.strokeStyle = "rgba(230,233,238,.55)"; g.lineWidth = 1.5; g.strokeRect(xs0(te.t0), yy - bh / 2, Math.max(4, xs0(te.t1) - xs0(te.t0)), bh); g.restore();
+        const x0 = xs0(te.nt0), x1 = xs0(te.nt1); g.fillStyle = "#5fd4ff"; g.fillRect(x0, yy - bh / 2, Math.max(3, x1 - x0), bh);
         if (st && st.sel && Math.abs(st.sel.t0 - te.t0) < 0.02) { g.fillStyle = "#e8f8ff"; g.fillRect(x0, yy - bh / 2, 3, bh); g.fillRect(x1 - 3, yy - bh / 2, 3, bh); }   // 고른 음: 양 끝 손잡이
         tb.push({ x0, x1, y: yy, h: bh, t0: te.t0, t1: te.t1, c: te.c, te }); }
       if (st) st.tebars = tb;
@@ -1107,7 +1112,7 @@
     document.body.appendChild(wrap);
     wrap.style.opacity = "0"; requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(() => { wrap.style.transition = "opacity .18s ease"; wrap.style.opacity = "1"; }, 120)));   // (11/07 09:31 사용자 영상) 처음 0.2초 그래프·버튼이 자리 잡으며 움찔하던 걸 안 보이게: 자리 잡은 뒤 나타남
     wrap.addEventListener("dblclick", (e) => e.preventDefault());   // (11/03 10:50 아이패드) 버튼을 연타해도 화면이 확대되지 않게(확대는 두 손가락으로만)
-    const box = wrap.querySelector(".tfBox"), cvEl = wrap.querySelector(".tfCv"), st = { full: true, xz: 1, yz: 1, yc: null, panAt: 0, notes: o.notes, teacher: !!o.teacher, lvDef: o.lvDef, wave: o.wave }; wrap._st = st;   /* 시험·점검용(화면 상태 읽기) */
+    const box = wrap.querySelector(".tfBox"), cvEl = wrap.querySelector(".tfCv"), st = { full: true, xz: 1, yz: 1, yc: null, panAt: 0, notes: o.notes, teacher: !!o.teacher, lvDef: o.lvDef, wave: o.wave }; wrap._st = st; wrap._cv = cv;   /* 시험·점검용(화면 상태 읽기) */
     const rot = false;   // (10/30 17:51 사용자) 가로도 남김 — 세로로 들면 세로, 폰을 돌리면 가로
     const layout = () => { const W = G.innerWidth, H = G.innerHeight, port = H > W;
       box.style.width = W + "px"; box.style.height = H + "px"; box.style.transform = "translate(-50%,-50%)";
