@@ -7,7 +7,7 @@ assert.ok(tune.includes("noteName,") && tune.includes("cv._fixes"), "고친 곳 
 assert.ok(src.includes("cv._fixes = dF();") && src.includes("onFix, onFixMany, histGet, histSet, onTime, ...(canAdv() ? { onAdv, advGet, engGet, engSet, engPlay } : {}), onResetRange:") && src.includes("voice: voiceTone, wave: () => mkTracks.mr?.buf") && src.includes('id="mkFixN"'));
 // 같은 구간은 바꿔 끼움
 const onFixBody = src.match(/const onFix = async \(f0_\) => \{[^\n]*\n[^\n]*\n/)[0];   // (11/03) 타이밍 고친 곡은 원래 시간으로 바꿔 저장
-assert.ok(/filter\(x => !\(x\.t0 < f\.t1 && x\.t1 > f\.t0\)\)/.test(onFixBody) && onFixBody.includes("if (f.midi != null) cur.push(f)"));
+assert.ok(/filter\(x => !\(x\.t0 < f\.t1 && x\.t1 > f\.t0\)\)/.test(onFixBody) && onFixBody.includes("if (f.midi != null || f.off) cur.push(f)"));
 console.log("target-fix ok");
 assert.ok(tune.includes("data-cut") && tune.includes("fxOf(q[0]) === fxOf(p[0])"), "세로줄 자리에서 나누기 + 막대가 나눈 경계에서 끊김");
 assert.ok(!tune.includes('aria-label="이 음 듣기">♪') && tune.includes('nb.addEventListener("pointerdown"'), "음 이름 누르는 동안 소리");
