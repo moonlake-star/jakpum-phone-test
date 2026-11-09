@@ -161,6 +161,7 @@
 <main>
   <h1><button type="button" class="fzBtn" id="fzBtn" aria-label="글씨 크기 바꾸기"><small>가</small><b>가</b></button><span class="brMark" aria-hidden="true"></span>내 보컬 노트 <span class="muted" style="font-size:.85rem">뮤직스튜디오 작품</span></h1>
   <div id="view"><p class="muted">불러오는 중…</p></div>
+  <p id="lgFoot" class="muted" style="text-align:center;margin:28px 0 12px;display:none"><button type="button" id="btnLogout" class="ghost small">로그아웃</button></p>
 </main>
 <script src="../lesson-replies.js"></script>
 <script src="../tune.js?v=20261109-1705"></script>
@@ -206,7 +207,16 @@ const params = new URLSearchParams(location.search);
 function exp(tok) { try { return JSON.parse(atob(tok.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).exp * 1000; } catch { return 0; } }
 function saved() { const v = LS.get("sn_tok"); return v && exp(v) > Date.now() + 60000 ? v : null; }
 
+// (11/09 사용자) 로그아웃 — 저장된 로그인과 구글 '자동 선택'만 끔. 읽은 표시·글씨 크기 같은 이 폰의 설정은 그대로 둠
+function lgFootSet() { try { const f = document.getElementById("lgFoot"); if (f) f.style.display = idToken && data ? "" : "none"; } catch {} }
+function doLogout() {
+  if (!confirm("로그아웃할까요? 다시 들어오려면 구글 로그인이 필요해요.")) return;
+  LS.set("sn_tok", null); idToken = null; data = null;
+  try { google.accounts.id.disableAutoSelect(); } catch {}
+  lgFootSet(); loginView("로그아웃했어요. 다른 구글 계정으로 들어갈 수 있어요.");
+}
 function loginView(msg) {
+  lgFootSet();
   $("view").innerHTML = `<div class="card"><h2>로그인</h2>
     <p>선생님이 보내 드린 레슨 노트를 보려면 <b>구글 계정</b>으로 로그인해 주세요. 처음 한 번만 선생님 승인이 필요해요.</p>
     <div id="gbtn" style="margin:12px 0"></div><p class="muted">${esc(msg || "")}</p>
@@ -268,7 +278,7 @@ async function load() {
     if (j.state === "pending") return $("view").innerHTML = `<div class="card"><h2>가입 신청 완료 🙌</h2><p>${esc(j.name || "")}님, 선생님이 확인하시면 바로 볼 수 있어요. 승인되면 이 페이지를 다시 열어 주세요.</p></div>`;
     if (j.state === "rejected") return $("view").innerHTML = `<div class="card"><p>이 계정은 연결되지 않았어요. 선생님께 문의해 주세요.</p></div>`;
     if (j.state === "closed") return $("view").innerHTML = `<div class="card"><p>지금은 노트를 볼 수 없어요. 선생님께 문의해 주세요.</p></div>`;
-    data = j;
+    data = j; lgFootSet();
     try { utWire(); track("open", { lesson: "" }); } catch {}
     // 출석·수강권 현황(선생님 앱이 '_status' 칸으로 보냄, 2026-10-29): 레슨 목록에서는 빼고 맨 위 카드로
     const sx = (j.lessons || []).find(l => l && l.id === "_status"); data.status = sx && sx.kind === "status" ? sx : null;
@@ -286,6 +296,7 @@ async function load() {
   } finally { try { Brand.loading(false); } catch {} }
 }
 
+try { document.getElementById("btnLogout").onclick = doLogout; } catch {}
 const seenLocal = () => LS.get("sn_seen") || {};
 
 // 3층 '나의 음악 이야기': 학생이 눌러야 열림. 게시된(=선생님이 승인한) 내 노트의 한마디·베스트만 날짜순으로 모아 보여줌.
