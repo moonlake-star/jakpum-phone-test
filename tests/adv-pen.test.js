@@ -64,4 +64,4 @@ console.log("adv-pen ok");
   const J = (o) => JSON.stringify(o);
   A_.deepStrictEqual(histDiff({ fx: [J({ t0: 1, t1: 2, midi: 60 })], te: [], ne: [] }, { fx: [J({ t0: 1, t1: 2, midi: 61 })], te: [], ne: [] }), [[1, 2]], "한 음");
   A_.deepStrictEqual(histDiff({ fx: [], te: [], ne: [] }, { fx: [J({ t0: 1, t1: 2, midi: 60 }), J({ t0: 5, t1: 6, midi: 62 })], te: [], ne: [] }), [[1, 2], [5, 6]], "여러 음");
-  A_.ok(t9.includes("selectChanged(histDiff(snap0, histSnap()))") && t9.includes("st.msel = [a, b]; try { multiSheet(wrap, cv, st, false, true);")); }
+  A_.ok(t9.includes("selectChanged(histDiff(snap0, histSnap()))") && !t9.includes("st.msel = [a, b]; try { multiSheet(wrap, cv, st, false, true);") /* 11/10: 여러 음 되돌리기는 창 안 띄움 */); }
