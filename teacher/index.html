@@ -4757,7 +4757,16 @@ async function submitMakeup() {
 }
 // ── 진행 막대: 서버가 기록하는 단계·퍼센트 + 예상 시간으로 부드럽게 ──
 const STAGE_CAP = [[0, 5], [6, 11], [12, 19], [20, 75], [76, 79], [80, 91], [92, 99], [100, 100]];
+// (11/09 12:35 사용자 '예상 시간이 많이 틀림 — 실제 처리 시간 학습') 서버가 끝난 메이크업마다 기록·학습한 _시스템/db_backup/처리시간.json의
+//   종류별 '작업 = a + b×곡 길이' + 대기(요청→서버 시작) 중앙값으로 예상. 아직 표본이 없으면 예전 고정 공식
+let mkEta = { model: null, at: 0, p: null };
+function mkEtaLoad() { if (mkEta.p || Date.now() - mkEta.at < 10 * 60e3) return mkEta.p; const db = cfg?.system?.db_backup; if (!db) return null;
+  mkEta.p = (async () => { try { const f = (await list(db)).find(x => x.name === "처리시간.json"); if (f) mkEta.model = (await readJSON(f.id))?.model || null; } catch {} mkEta.at = Date.now(); mkEta.p = null; })(); return mkEta.p; }
 function mkEstimate(r) {
+  try { mkEtaLoad(); } catch {}
+  const M = mkEta.model, kind = r.mode === "single" && !r.render_count ? "sep" : r.mode === "single" ? "single" : "two", m = M && M[kind];
+  if (m && m.n >= 1 && (m.a != null || m.b != null)) { const au = (r.end != null && r.start != null) ? (r.end - r.start) : (r.result?.measure?.duration_sec ?? r.dur ?? 180);
+    return Math.max(30, Math.round((M.queue_s ?? 45) + (m.a || 0) + (m.b || 0) * au)); }
   const dur = (r.end != null && r.start != null) ? (r.end - r.start) : 90;
   if (r.mode === "single" && !r.render_count) return 30 + 75 + dur * 1.1 + 25;  // 서버 준비·분리 도구 설치·분리·보정
   return r.mode === "single" ? 85 : 95;
@@ -7657,7 +7666,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-09-1234-mkbar";
+const BUILD = "2026-11-09-1240-eta";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
