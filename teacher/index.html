@@ -5115,7 +5115,8 @@ function pvApply(name) {   // 한 트랙에 지금 고친 정음·타이밍 전�
     const reg = { i0, ch: Array.from({ length: buf.numberOfChannels }, (_, c) => buf.getChannelData(c).slice(i0, i1)) }; st.regs.push(reg);
     const f0 = pvF0(cv, dry ? 1 : lvCol, sr, i0, n), rat = pvClusterRatio(cv, cl, dry, lvCol, sr, i0, n);
     for (let c = 0; c < buf.numberOfChannels; c++) { const out = buf.getChannelData(c), org = reg.ch[c];
-      const from = dry ? pvSrc(src, c, i0, i1) : org, sh = pvPsola(from, sr, f0, rat);
+      // (11/09 15:19 사용자 '반음만 옮겨도 미리듣기에서 드르륵') 울림(리버브만 담긴) 트랙은 목소리 주기가 안 보여 간이 PSOLA가 거칠게 깨짐 → 고친 음 동안 울림은 잠시 빼고(완성본에선 제대로)
+      const from = dry ? pvSrc(src, c, i0, i1) : org, sh = dry ? pvPsola(from, sr, f0, rat) : new Float32Array(n);
       for (let k = 0; k < n; k++) { const a = k < X ? k / X : k > n - X ? (n - k) / X : 1; out[i0 + k] = org[k] * (1 - a) + sh[k] * a; } } }
   for (const [u0, u1] of tp.regs) {   // 타이밍·길이(창 안만, 곡 길이 그대로)
     const i0 = Math.max(0, Math.round(u0 * sr)), i1 = Math.min(buf.length, Math.round(u1 * sr)), n = i1 - i0; if (n < 3 * X) continue;
@@ -5133,7 +5134,7 @@ function pvApply(name) {   // 한 트랙에 지금 고친 정음·타이밍 전�
       const gain = pvAdvGain(cl, sr, i0, n), usePitch = !ppReady && !!(mp && mp.any && cl.notes.some(nt => nt._draw || PV_ADV_P.some(k => k in nt)));
       const f0 = usePitch ? pvPerSample(cv, mp.f0, sr, i0, n, (c) => c == null ? 0 : PV_C2HZ(c)) : null, rat = usePitch ? pvPerSample(cv, mp.delta, sr, i0, n, (c) => c == null ? 1 : 2 ** (c / 1200)) : null;
       const fn = cl.notes.filter(nt => nt.formant && nt.t1 - nt.t0 >= 0.08), fcur = fn.length ? pvF0(cv, lvCol, sr, i0, n) : null;   // 음색: 높이를 옮긴 뒤의 소리에 얹음(서버와 같은 차례), 볼륨은 그 다음
-      for (let c = 0; c < buf.numberOfChannels; c++) { const out = buf.getChannelData(c), org = reg.ch[c]; let sh = usePitch ? pvPsola(org, sr, f0, rat) : org;
+      for (let c = 0; c < buf.numberOfChannels; c++) { const out = buf.getChannelData(c), org = reg.ch[c]; let sh = usePitch ? (nm && nm[1] === "w" ? new Float32Array(n) : pvPsola(org, sr, f0, rat)) : org;   // 울림 트랙은 높이를 바꾼 디테일 동안 잠시 뺌(위와 같은 이유)
         if (fn.length) { sh = Float32Array.from(sh); const pad = Math.round(0.1 * sr), xf = Math.round(0.03 * sr);
           for (const nt of fn) { const a = Math.max(0, Math.round(nt.t0 * sr) - i0), b = Math.min(n, Math.round(nt.t1 * sr) - i0), a0 = Math.max(0, a - pad), b0 = Math.min(n, b + pad); if (b0 - a0 < 3 * xf) continue;
             const z = pvFormant(sh.subarray(a0, b0), sr, fcur.subarray(a0, b0), 2 ** (nt.formant / 12)), r = Math.min(xf, (b - a) >> 1);
@@ -7674,7 +7675,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-09-1447-cnull";
+const BUILD = "2026-11-09-1523-wet";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
