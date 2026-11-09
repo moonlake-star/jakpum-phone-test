@@ -385,7 +385,7 @@
     if (full && st && st.advOn && cv.beats && cv.beats.t) {   // (11/09 사용자) 박자 세로줄은 늘 켜짐(맞춤만 스위치)
        // (11/06) 🥁 반주 박자 격자: 박 = 옅은 세로줄, 마디 첫 박(추정) = 조금 진하게 + 마디 번호
       const B = cv.beats.t, dn = cv.beats.down || 0; g.font = "10px system-ui, sans-serif"; g.textBaseline = "top";
-      for (let i = 0; i < B.length; i++) { if (B[i] < t0 - 0.1) continue; if (B[i] > t0 + W8 + 0.1) break; const X = Math.round(xs(B[i])) + 0.5, bar = (i - dn) % 4 === 0;
+      for (let i = 0; i < B.length; i++) { if (B[i] < t0 - 0.1) continue; if (B[i] > t0 + W8 + 0.1) break; const X = Math.round(xs0(B[i])) + 0.5, bar = (i - dn) % 4 === 0;   // (11/09 19:52 사용자 '음 길이를 늘리면 왜 눈금도 같이 이동') 박자 눈금은 곡의 박이라 고정(원래 좌표)
         g.fillStyle = bar ? "rgba(255,207,153,.32)" : "rgba(255,207,153,.12)"; g.fillRect(X, T, 1, HP);
         if (bar && i >= dn) { g.fillStyle = "rgba(255,207,153,.6)"; g.fillText(String(Math.floor((i - dn) / 4) + 1), X + 3, T + 3); } } }
     if (full && kt) {   // 정음(목표음) = 초록 막대: 보정이 맞추려는 바로 그 음
@@ -517,7 +517,7 @@
         const hh = Math.max(-half, Math.min(half, -d / 50 * half)); g.fillStyle = Math.abs(d) <= 15 ? "#5b6573" : hh > 0 ? "#ffd27a" : "#9cc3ff"; g.fillRect(X, hh > 0 ? mid - hh : mid, bw, Math.abs(hh)); }   // 높게 부른 곳 = 위·노랑, 낮게 = 아래·파랑
     }
     // (10/31 15:38 사용자) 세로줄 오른쪽(아직 안 부른 쪽)도 어둡게 하지 않음 — 음정 선이 끝까지 같은 밝기
-    g.fillStyle = "#ff9f5a"; g.fillRect(Math.round(xs(t)) - 1, 2, 2.5, h - 4);   // (10/31 15:34 사용자) 지금 세로줄 = 주황
+    g.fillStyle = "#ff9f5a"; g.fillRect(Math.round(xs0(t)) - 1, 2, 2.5, h - 4);   // 재생 시각은 이미 옮겨진 소리의 시각 → 고정 좌표   // (10/31 15:34 사용자) 지금 세로줄 = 주황
     const kL = k || col(cv, (st && st.lvDef) || 2) || col(cv, (cv.levels || [])[0]), d = delta(cv, kL, t);   // 원음으로 들을 때도 '어떻게 불렀나'는 보여 줌
     let tagB = T + 8 + (full ? 22 : 16) + (st && st.teacher ? (full ? 16 : 12) : 0);   // 말풍선 자리 고정: '높게/낮게' 표시가 떴다 사라져도 말풍선은 안 움직임(10/30 16:18 사용자)
     const lb = st ? (st.lab = st.lab || { a: 0, d: null, seen: 0, at: 0 }) : { a: 1, d, seen: 0, at: 0 }, nowL = performance.now();   // (10/30 17:18 사용자) 0.15초 페이드
@@ -529,7 +529,7 @@
       const s = sangLabel(d), sub = st && st.teacher && k ? "보정: " + semiLabel(d).slice(2) : "";   // (10/30 17:33 사용자) 원음으로 들을 땐 '보정: …' 안 띄움
       g.font = (full ? "bold 15px" : "bold 11px") + " system-ui, sans-serif";
       const g2 = (full ? "12px" : "9.5px") + " system-ui, sans-serif", tw1 = g.measureText(s.txt).width; g.font = g2; const tw2 = sub ? g.measureText(sub).width : 0;
-      const tw = Math.max(tw1, tw2), x0 = Math.min(w - tw - 8, Math.round(xs(t)) + 6), bh1 = full ? 22 : 16, bh2 = sub ? (full ? 16 : 12) : 0;
+      const tw = Math.max(tw1, tw2), x0 = Math.min(w - tw - 8, Math.round(xs0(t)) + 6), bh1 = full ? 22 : 16, bh2 = sub ? (full ? 16 : 12) : 0;
       g.fillStyle = "rgba(17,20,26,.85)"; g.fillRect(x0 - 3, T + 4, tw + 6, bh1 + bh2);
       g.font = (full ? "bold 15px" : "bold 11px") + " system-ui, sans-serif"; g.fillStyle = s.c; g.fillText(s.txt, x0, T + 4 + bh1 / 2);
       if (sub) { g.font = g2; g.fillStyle = "#a9b1bc"; g.fillText(sub, x0, T + 4 + bh1 + bh2 / 2 - 2); }
