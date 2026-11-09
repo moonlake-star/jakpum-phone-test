@@ -26,7 +26,7 @@ console.log("intro ok");
   assert.ok(!t.includes("#tuneFs:has(.tfFix) .tfBot,"), "원음/보정본은 숨기지 않음");
   assert.ok(t.includes('<span class="tfAbL">듣는 소리</span>') && !t.includes("⇆ 톡 하면 바뀌어요") && t.includes('<i class="tfSwap" aria-hidden="true">⇄</i>') && t.includes('.tfAb:has([data-m="p"].on)::before{left:50%'), "미끄러지는 손잡이 스위치");
   assert.ok(t.includes('want = b.dataset.m === cur ? (cur === "o" ? "p" : "o") : b.dataset.m'), "켜진 쪽을 눌러도 바뀜");
-  assert.ok(!t.includes('<span class="tfFixAb" role="group"') && t.includes('data-r aria-label="톡 = 직전 저장으로, 1초 꾹 = 원본으로">↺</button>') && !t.includes('data-ok aria-label="닫기"') && t.includes('<span class="i">되돌리기</span>'), "(11/03) 창 안 스위치·✓ 없음, 빈 곳 톡으로 닫기"); assert.ok(t.includes("if (!onBar) { sheetClose(); lastTap = 0; return; }") && t.includes("#tuneFs .tfTitle{display:none}"), "한 줄 버튼 + 이름표");
+  assert.ok(!t.includes('<span class="tfFixAb" role="group"') && t.includes('data-r aria-label="이 음 원래대로(음정·타이밍·고급 모두, 확인 창)">↺</button>') && !t.includes('data-ok aria-label="닫기"') && t.includes('<span class="i">되돌리기</span>'), "(11/03) 창 안 스위치·✓ 없음, 빈 곳 톡으로 닫기"); assert.ok(t.includes("if (!onBar) { sheetClose(); lastTap = 0; return; }") && t.includes("#tuneFs .tfTitle{display:none}"), "한 줄 버튼 + 이름표");
   assert.ok(t.includes("mO = ov.length ? Math.round(ov[ov.length >> 1] / 100) : m0") && t.includes("fxSave(onFix, { t0: T0, t1: T1, midi: null })")); }
 // (11/02 19:48 사용자) 고치기 창이 뜨면 고른 막대가 보이게 그래프를 옮김 · 확대 안 해도 위아래로 밀어 보기
 { const t = require("fs").readFileSync(__dirname + "/../tune.js", "utf8");
