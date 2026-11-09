@@ -5,3 +5,4 @@ assert.ok(A.includes("이 곡 보정 엔진을 ${nm}(으)로 바꿀까요?") && 
 assert.ok(!A.includes("→ 이 곡 보정 엔진으로 정했어요"), "옛 문구 없음");
 assert.ok(H.includes("r.result?.wet_gain ?? 0.0288"), "리버브 기본 20%");
 console.log("eng-confirm ok");
+assert.ok(H.includes("r.wet_gain ?? r.result?.wet_gain ?? 0.0288") && H.includes("Math.abs(r.wet_gain - revBaked) > 1e-4"), "저장 리버브를 바꾸면 그 값부터 · 완성본엔 반영 전 표시");
