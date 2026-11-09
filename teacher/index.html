@@ -5209,10 +5209,21 @@ function mkAutoGain() {
     const lv = 10 * Math.log10((em || 0) + (ev || 0) + 1e-12), g = Math.max(0, Math.min(12, MK_TARGET_DB - lv)), m = mkBus(), n = mkCtx.currentTime;
     try { m.gain.cancelScheduledValues(n); m.gain.setTargetAtTime(10 ** (g / 20), n, 0.05); } catch { m.gain.value = 10 ** (g / 20); } mkPv.autoDb = Math.round(g * 10) / 10; } catch {}
 }
+// (11/09 15:25 사용자 '리버브를 앱에서 실시간으로') 서버가 준 울림 IR(reverb_ir.wav)이 있으면: 보정본(p·q) 소리 → 울림 보내기(크기 = 울림 %) → 합성곱(IR) → 출력
+//   폰에서 음을 고쳐도 울림이 고친 소리로 바로 따라옴(예전엔 서버 울림 파일을 간이 방식으로 옮겨 드르륵) · 울림 파일(w·x·wet)은 안 받음(데이터 절약)
+let mkRev = null;
+async function mkIrLoad(fileId) {
+  mkCtx ??= new AudioContext(); if (mkRev && mkRev.ctx === mkCtx) return mkRev.p;
+  const R = mkRev = { ctx: mkCtx, send: mkCtx.createGain(), conv: mkCtx.createConvolver(), buf: null };
+  R.send.gain.value = 0; R.conv.normalize = false; R.send.connect(R.conv); R.conv.connect(mkBus());
+  R.p = (async () => { R.buf = await mkCtx.decodeAudioData(await (await readBlob(fileId, true)).arrayBuffer()); R.conv.buffer = R.buf;
+    for (const [n, t] of Object.entries(mkTracks)) if (/^[pq][0-3]$/.test(n)) t.gain.connect(R.send); mkApply(); })();
+  return R.p;
+}
 async function mkLoad(name, fileId) {
   if (mkTracks[name]?.buf || mkTracks[name]?.loading) return mkTracks[name]?.loading;
   mkCtx ??= new AudioContext();
-  const g = mkCtx.createGain(); g.gain.value = 0; g.connect(mkBus());
+  const g = mkCtx.createGain(); g.gain.value = 0; g.connect(mkBus()); if (/^[pq][0-3]$/.test(name) && mkRev && mkRev.ctx === mkCtx) g.connect(mkRev.send);
   const t = mkTracks[name] = { gain: g, buf: null, src: null };
   t.loading = (async () => { t.buf = await mkCtx.decodeAudioData(await (await readBlob(fileId, true)).arrayBuffer());
     mkDurS = Math.max(mkDurS, t.buf.duration); mkAutoGain(); let re = false; try { re = pvApplyAll(); } catch {} if (mkPlaying && !re) mkStartTrack(t, mkNow()); mkApply(); })();   // 다시 만들었으면 pvApplyAll이 전부 다시 틀었음(두 번 겹쳐 나오지 않게)
@@ -5240,6 +5251,9 @@ function mkApply() {
     set("p" + k, on && !useQ ? V : 0); set("w" + k, on && perW && !useQ ? V * W : 0);
     set("q" + k, on && useQ ? V : 0); set("x" + k, on && useQ ? V * W : 0);
   }
+  if (mkRev && mkRev.ctx === mkCtx && mkRev.buf) { const g = mkRev.send.gain; mkLastGain.__rev = raw ? 0 : W; g.cancelScheduledValues(mkCtx.currentTime); g.setTargetAtTime(raw ? 0 : W, mkCtx.currentTime, 0.012);
+    for (const n of Object.keys(mkTracks)) if (/^(w|x)[0-3]$|^wet$/.test(n)) set(n, 0); }
+  else delete mkLastGain.__rev;
   set("dry", !raw && !hasP ? V : 0);
   set("wet", raw || perW ? 0 : V * W);
   set("mr", raw ? 0 : M);
@@ -5256,7 +5270,11 @@ async function mkExportPhone(j, r, setMsg) {
   const sr = mkTracks[tr[0][0]].buf.sampleRate, ch = (b) => Array.from({ length: Math.min(2, b.numberOfChannels) }, (_, c) => b.getChannelData(c));
   const target = typeof r.result?.settings?.target_lufs === "number" ? r.result.settings.target_lufs : -14, tick = () => new Promise((f) => setTimeout(f, 20));
   setMsg("합치고 크기 맞추는 중…"); await tick();
-  const m = ExportCore.master(tr.map(([n, g]) => ({ ch: ch(mkTracks[n].buf), gain: g })), sr, target); await tick();
+  const parts = tr.map(([n, g]) => ({ ch: ch(mkTracks[n].buf), gain: g }));
+  if (mkLastGain.__rev > 0 && mkRev?.buf) {   // 실시간 울림을 쓰는 중이면 파일에도: 지금 소리 나는 보정본(p·q)을 IR로 합성곱해 더함
+    for (const [n, g] of tr) { if (!/^[pq][0-3]$/.test(n)) continue; setMsg("울림 만드는 중…"); const b = mkTracks[n].buf, oc = new OfflineAudioContext(2, b.length, sr), s = oc.createBufferSource(), cv_ = oc.createConvolver();
+      cv_.normalize = false; cv_.buffer = mkRev.buf; s.buffer = b; s.connect(cv_); cv_.connect(oc.destination); s.start(); const w = await oc.startRendering(); parts.push({ ch: ch(w), gain: g * mkLastGain.__rev }); } }
+  const m = ExportCore.master(parts, sr, target); await tick();
   const t0 = Date.now(), mp = await ExportCore.mp3Async(m.ch, sr, 320, undefined, (q) => setMsg(`mp3 만드는 중… ${Math.round(q * 100)}%`));
   const blob = new Blob([mp], { type: "audio/mpeg" }); mkPhone = { blob, secs: (Date.now() - t0) / 1000, lufs: m.pre + 20 * Math.log10(m.gain), sr }; return mkPhone;
 }
@@ -5683,14 +5701,15 @@ async function openMkJob(j, backTo) {
   const ensure = async (names) => Promise.all(names.filter(([, f]) => by(f)).map(([n, f]) => mkLoad(n, by(f).id)));
   const lvNow = () => +($("mkPitch")?.value || 0);
   const perW = !!by("vocal_wet_p0.mp3");
-  const stage = (k) => [["p" + k, `vocal_dry_p${k}.mp3`], ...(perW ? [["w" + k, `vocal_wet_p${k}.mp3`]] : []),
-    ...(mkHasW && k > 0 ? [["q" + k, `vocal_dry_pw${k}.mp3`], ["x" + k, `vocal_wet_pw${k}.mp3`]] : [])];
-  const base = () => hasP ? [...stage(lvNow()), ...stage(0), ...(perW ? [] : [["wet", "vocal_wet.mp3"]]), ["mr", "mr.mp3"]] : [["dry", "vocal_dry.mp3"], ["wet", "vocal_wet.mp3"], ["mr", "mr.mp3"]];
+  const irF = hasP ? by("reverb_ir.wav") : null;   // (11/09) 있으면 울림을 앱에서 실시간으로(울림 파일은 안 받음)
+  const stage = (k) => [["p" + k, `vocal_dry_p${k}.mp3`], ...(perW && !irF ? [["w" + k, `vocal_wet_p${k}.mp3`]] : []),
+    ...(mkHasW && k > 0 ? [["q" + k, `vocal_dry_pw${k}.mp3`], ...(irF ? [] : [["x" + k, `vocal_wet_pw${k}.mp3`]])] : [])];
+  const base = () => hasP ? [...stage(lvNow()), ...stage(0), ...(perW || irF ? [] : [["wet", "vocal_wet.mp3"]]), ["mr", "mr.mp3"]] : [["dry", "vocal_dry.mp3"], ["wet", "vocal_wet.mp3"], ["mr", "mr.mp3"]];
   const beforeSet = () => by("before_vocal.mp3") ? [["bv", "before_vocal.mp3"], ["bm", "before_mr.mp3"]] : [["before", "before.mp3"]];
   $("mkPP").onclick = async () => {
     if (mkPlaying) { mkOffset = mkNow(); mkStop(); return paintTransport(); }
     try {
-      $("mkT").textContent = "불러오는 중…"; await ensure(base()); if (mkRaw) await ensure(beforeSet());
+      $("mkT").textContent = "불러오는 중…"; if (irF) { try { await mkIrLoad(irF.id); } catch (e) { console.warn("울림 IR", e); mkRev = null; } } await ensure(base()); if (mkRaw) await ensure(beforeSet());
       mkPlay(mkOffset); playLabel();
       clearInterval(mkTick); mkTick = setInterval(() => { if (!$("mkPos")) return clearInterval(mkTick); paintTransport(); }, 250);
       ensure(hasP ? [1, 2, 3].flatMap(stage) : []);  // 나머지 음정 단계는 뒤에서 미리
@@ -7675,7 +7694,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "2026-11-09-1523-wet";
+const BUILD = "2026-11-09-1531-rev";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
