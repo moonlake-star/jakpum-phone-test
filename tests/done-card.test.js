@@ -12,8 +12,8 @@ assert.ok(H.includes("q.baked_sig = mkEditsSig(q);"), "완성본 요청 때 지�
 assert.ok(H.includes('id="mkDone"') && H.includes('<button class="full" id="mkFinal">🔊 완성본 새로 만들기</button>') && H.includes("⚡ 지금 소리 그대로 mp3") && H.includes("📤 수강생에게 보내기"), "카드 하나");
 assert.ok(!H.includes("고친 내용 반영해 완성본 다시 만들기") && !H.includes("폰에서 바로 mp3 만들기"), "옛 이름 없음");
 assert.ok(H.includes("⚠ 보낼 파일을 골라 주세요") && H.includes("if (phoneFresh()) return shareNow(true);") && H.includes("if (!mkDirty()) return shareNow(false);"), "보내기 안전장치");
-assert.ok(T.includes("이번에 고친 곳 <b>${n}곳</b>") && T.includes("곡 전체 <b>${ds.total}곳</b>") && !T.includes("되돌리기 기록 <b>"), "닫을 때 카드");
+assert.ok(T.includes("이번에 <b>${n}곳</b>") && T.includes("(곡 전체 ${ds.total}곳)") && T.includes('el.className = "tuneExit slim"') && !T.includes("되돌리기 기록 <b>"), "닫을 때 = 한 줄 알림(11/11)");
 assert.ok(T.includes('data-m="o">🎤 보정 전') && T.includes('data-m="p">✨ 보정 후') && A.includes('data-ep="o">▶ 보정 전'), "보정 전/후로 통일");
-assert.ok(A.includes('<div class="advDng"><button type="button" data-g="reset">🗑 모든 고침 지우고 처음 상태로') && !A.includes("↺ 곡 전체 원본으로"), "처음 상태로 = 따로 떨어진 빨간 칸");
+assert.ok(T.includes('<div class="tfSMd"><button type="button" data-sm="rst">🗑 모든 고침 지우고 처음 상태로') && !A.includes('data-g="reset"') && !A.includes("↺ 곡 전체 원본으로"), "처음 상태로 = 곡 메뉴 맨 아래 빨간 칸(11/11)");
 console.log("done-card ok");
 assert.ok(H.includes('fb.classList.toggle("ghost", !d)') && !H.includes('for (const id of ["mkFinal", "mkdNote"])'), "새로 만들기 버튼은 늘 보임");

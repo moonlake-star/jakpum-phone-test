@@ -46,15 +46,15 @@ console.log("adv-mode ok", md.toFixed(4));
 
 /* (11/05 사용자) 이름 정리: 고급 보정 → 디테일 보정, 곡 전체(일괄) → 일괄 보정, 기본으로 → 심플로 */
 { const T1 = require("fs").readFileSync(__dirname + "/../tune.js", "utf8"), A3 = require("fs").readFileSync(__dirname + "/../adv.js", "utf8"), as = require("assert");
-  as.ok(T1.includes('mk("advGlB", "🎛 일괄 보정")') && T1.includes('<button type="button" data-md2="1" class="tfAdvOne" aria-label="고급 보정 켜기·끄기">🎛 고급</button>'), "버튼 이름: [🎛 고급] 한 개 + 일괄 보정");
-  as.ok(A3.includes("<b>🎛 일괄 보정</b>"), "일괄 보정 시트 제목"); }
+  as.ok(T1.includes('mk("advGlB", "🎛 전체 보정")') && T1.includes('<button type="button" data-md2="1" class="tfAdvOne" aria-label="고급 보정 켜기·끄기">🎛 고급</button>'), "버튼 이름: [🎛 고급] 한 개 + 전체 보정(11/11 일괄→전체)");
+  as.ok(A3.includes("<b>🎛 전체 보정</b>"), "전체 보정 시트 제목"); }
 
 /* (11/05 사용자) 음별 포먼트: 음 고치기 창 '음색' 탭 · 설명 줄은 일괄 보정 시트·음색 탭에 · 서버 note_edits formant */
 { const A4 = require("fs").readFileSync(__dirname + "/../adv.js", "utf8"), as = require("assert");
   as.ok(A4.includes('const tabs = [["f", "흐름"], ["v", "비브라토"]];') && !A4.includes('if (k === "m") rows.push(') && A4.includes('put("formant", v)'), "탭 2개 · 음별 포먼트 탭 뺌 · 곡 전체 포먼트는 일괄 보정에");
   as.ok(A4.includes("fade_out: 0, formant: 0 }"), "음별 포먼트 기본값(0은 저장 안 함)");
   as.ok((A4.match(/p\.className = "advD"/g) || []).length === 2, "설명 줄 표시: 음 창·일괄 시트 두 곳");
-  as.ok(A4.includes("🗑 모든 고침 지우고 처음 상태로") && !A4.includes('data-g="undo">') && !A4.includes("디테일 보정 전부 원래대로"), "초기화 버튼 이름(11/09: 곡 전체 처음으로 하나로)"); }
+  as.ok(require("fs").readFileSync(__dirname + "/../tune.js", "utf8").includes("🗑 모든 고침 지우고 처음 상태로") && !A4.includes('data-g="undo">') && !A4.includes("디테일 보정 전부 원래대로"), "초기화 버튼 이름(11/09: 곡 전체 처음으로 하나로)"); }
 
 /* (11/05 사용자) 합치기: 나눈 조각 옆에 붙은 조각이 있을 때만 ⇔ 버튼 · 둘 다 안 고친 조각이면 고침 기록을 지워 서버가 고른 한 음으로, 아니면 지금 음으로 한 덩어리 */
 { const T5 = require("fs").readFileSync(__dirname + "/../tune.js", "utf8"), as = require("assert");

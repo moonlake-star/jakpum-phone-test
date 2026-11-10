@@ -544,8 +544,8 @@
 <div id="v2Shade" class="v2only"></div>
 <div id="toast"></div>
 <script src="../lesson-replies.js"></script>
-<script src="../tune.js?v=20261110-1950"></script>
-<script src="../adv.js?v=20261110-1925"></script>
+<script src="../tune.js?v=20261111-0113"></script>
+<script src="../adv.js?v=20261111-0113"></script>
 <script src="../pitch-embed.js?v=20261105-1850"></script>
 
 <script>
@@ -5054,7 +5054,7 @@ function pvPraatLoad() {
     if (typeof document === "undefined") { PVP.state = "fail"; return; }
     if (typeof location !== "undefined" && /[?&]praat=0\b/.test(location.search)) { PVP.state = "off"; return; }
     PVP.state = "loading";
-    await pvLoadScript("../praat/praat_web.js?v=20261106-1130"); await pvLoadScript("../praat/praat-core.js?v=20261109-2125");
+    await pvLoadScript("../praat/praat_web.js?v=20261106-1130"); await pvLoadScript("../praat/praat-core.js?v=20261111-0113");
     const r = await fetch("../praat/praat_web.wasm.gz"); if (!r.ok) throw new Error("praat " + r.status);
     await PraatCore.init(await r.arrayBuffer(), PraatModule); PVP.state = "ready"; document.dispatchEvent(new Event("advpv"));
   })().catch((e) => { PVP.state = "fail"; console.warn("Praat 미리듣기를 못 불러옴(간이 소리로 계속)", e); if (typeof toast === "function") toast("서버와 같은 엔진을 못 불러와 대략의 소리로 들려요"); });
@@ -5733,12 +5733,12 @@ async function openMkJob(j, backTo) {
         <div class="mkdSt" id="mkFixN"></div><div class="mkdSub muted" id="mkdSub"></div>
         <button class="full" id="mkFinal">🔊 완성본 새로 만들기</button>
         <div class="mkdPh"><button class="full ghost" id="mkPhoneMix">⚡ 지금 소리 그대로 mp3</button><span class="muted" id="mkPhoneT"></span></div>
-        <p class="mkdNote" id="mkdNote">두 버튼 차이: <b>완성본 새로 만들기</b> = 서버가 고음질로 다시 처리(일괄 보정·포먼트까지 정확, 몇 분) · <b>지금 소리 그대로 mp3</b> = 폰에서 지금 듣는 소리를 바로 파일로(빠르지만 일괄 보정은 빠짐)</p>
+        <p class="mkdNote" id="mkdNote">두 버튼 차이: <b>완성본 새로 만들기</b> = 서버가 고음질로 다시 처리(전체 보정·포먼트까지 정확, 몇 분) · <b>지금 소리 그대로 mp3</b> = 폰에서 지금 듣는 소리를 바로 파일로(빠르지만 일괄 보정은 빠짐)</p>
         <div class="row mkdAct" style="flex-wrap:nowrap"><button class="ghost" id="mkMix" style="flex:1;margin:0">▶ 듣기</button><button id="mkShare" style="flex:1;margin:0">📤 수강생에게 보내기</button></div>
         <audio id="mkMixAu" controls class="hidden" style="width:100%;margin-top:6px"></audio>
         <div class="muted mkdWho" id="mkdWho"></div>
         <div class="muted" style="margin-top:2px">보낸 기록: <span class="chip ${r.sent_at ? "ok" : ""}" id="mkSentT">${r.sent_at ? "보냄 " + new Date(r.sent_at).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "아직 안 보냄"}</span></div>
-        <details class="mkdMore"><summary>⋯ 더보기</summary><a href="https://drive.google.com/drive/folders/${esc(j.folder.id)}" target="_blank" rel="noopener">드라이브에서 WAV 받기</a><p class="muted" style="margin:4px 0 0">MIDI 내보내기·소리 지연은 음정선 크게 보기 → 일괄 보정 맨 아래</p></details></div>
+        <details class="mkdMore"><summary>⋯ 더보기</summary><a href="https://drive.google.com/drive/folders/${esc(j.folder.id)}" target="_blank" rel="noopener">드라이브에서 WAV 받기</a><p class="muted" style="margin:4px 0 0">MIDI 내보내기·소리 지연은 음정선 크게 보기 → ⋯ 곡 메뉴 → 기타 설정</p></details></div>
       <div id="mkSong"></div>`;
   }
   $("vMkJob").innerHTML = body;
@@ -5795,7 +5795,7 @@ async function openMkJob(j, backTo) {
     const when = r.done_at ? new Date(r.done_at).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
     $("mkDone").classList.toggle("dirty", d);
     el.innerHTML = d ? `<span class="mkTag warn">✏️ 반영 전</span>고친 내용이 완성본에 아직 없어요` : `<span class="mkTag ok">✅ 최신</span>완성본${when ? " · " + when : ""}`;
-    $("mkdSub").textContent = d ? `${parts || "고친 내용"} · 지금 듣는 소리에는 이미 들어가 있어요${r.note_edits?.global && Object.keys(r.note_edits.global).length ? "(일괄 보정은 새로 만들어야 들려요)" : ""}`
+    $("mkdSub").textContent = d ? `${parts || "고친 내용"} · 지금 듣는 소리에는 이미 들어가 있어요${r.note_edits?.global && Object.keys(r.note_edits.global).length ? "(전체 보정은 새로 만들어야 들려요)" : ""}`
       : `${parts ? "고친 내용(" + parts + ") 모두 들어가 있어요" : "자동 보정 그대로"}${meas.mix_lufs_out != null ? " · " + meas.mix_lufs_out + " LUFS" : ""}`;
     $("mkdNote")?.classList.toggle("hidden", !d);   // (11/09 23:33 사용자 '완성본 새로 만들기가 어디 있냐') 최신일 때도 버튼은 늘 보이게(서버 개선 반영용) — 최신이면 작은 회색 버튼
     const fb = $("mkFinal"); if (fb) { fb.classList.toggle("ghost", !d); fb.textContent = d ? "🔊 완성본 새로 만들기" : "🔊 완성본 새로 만들기 (최신 기능으로 한 번 더)"; }
@@ -5813,7 +5813,7 @@ async function openMkJob(j, backTo) {
     const d = document.createElement("div"); d.id = "mkRstD"; d.setAttribute("role", "dialog");
     d.style.cssText = "position:fixed;inset:0;z-index:10005;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center";
     d.innerHTML = `<div style="width:min(520px,100%);box-sizing:border-box;background:#1a1e25;border:1.5px solid #3b4250;border-radius:18px 18px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));color:#e8e8ea">
-      <b style="font-size:16px">곡 전체를 처음으로 되돌릴까요?</b><p style="font-size:13.5px;color:#b6bdc7;line-height:1.55;margin:8px 0 12px">음높이·쪼개기·타이밍·디테일·펜·일괄 보정까지 모두 지우고, 서버가 처음 인식한 상태로 <b>완성본을 다시 만들어요</b>(몇 분). 보컬 분리·기본 보정은 그대로예요.</p>
+      <b style="font-size:16px">곡 전체를 처음으로 되돌릴까요?</b><p style="font-size:13.5px;color:#b6bdc7;line-height:1.55;margin:8px 0 12px">음높이·쪼개기·타이밍·디테일·펜·전체 보정까지 모두 지우고, 서버가 처음 인식한 상태로 <b>완성본을 다시 만들어요</b>(몇 분). 보컬 분리·기본 보정은 그대로예요.</p>
       <div style="display:flex;gap:8px;margin-top:4px"><button type="button" data-x="0" style="flex:1;margin:0">취소</button><button type="button" data-x="1" style="flex:1;margin:0;background:#ffd27a;color:#111;border:0">처음으로</button></div></div>`;
     const ly = typeof Brand !== "undefined" && Brand.layer ? Brand.layer(() => d.remove()) : { close: () => d.remove() }, shut = () => ly.close();   // 뒤로 가기 = 이 창만 닫힘
     d.onclick = (e) => { if (e.target === d) shut(); };
@@ -5939,7 +5939,7 @@ async function openMkJob(j, backTo) {
     const histSet = mkHistSet = async (js) => { const h = JSON.parse(js); if (h.ne) r.note_edits = h.ne; else delete r.note_edits; pvAdvSync(advGet()); await applyAll(h.fx || [], h.te || []); };
     Tune.wire($("mkTune"), cv, () => mkNow(), () => (mkRaw ? 0 : lvNow()), (t, still) => { const tt = Math.max(0, Math.min(t, mkDurS ? mkDurS - 0.05 : t)); if (still) { if (mkPlaying) mkStop(); mkOffset = tt; paintTransport(); return; } if (!mkPlaying) { mkOffset = tt; $("mkPP").click(); } else mkSeekTo(t); },
       { title: `${j.st?.name || ""} · ${r.title || "메이크업"}`, tapFull: true, teacher: true, lvDef: +(r.pitch_level ?? 2), play: () => $("mkPP")?.click(), paused: () => !mkPlaying, mode: () => (lvNow() > 0 ? "p" : "o"),
-        setMode: (m) => document.querySelector(`#mkAb [data-ab="${m === "p" ? 1 : 0}"]`)?.click(), histKey: "mk:" + (j.reqId || j.folder.id), histEmpty: JSON.stringify({ fx: [], te: [], ne: null }), saveState: () => ({ busy: mkBusy, fail: mkFail }), saveRetry: () => mkWrite().then(() => paintFixN()), remake: () => $("mkFinal")?.click(), doneState: () => ({ total: (r.target_fixes || []).filter(x => !x.cut).length + (r.time_edits || []).length + (r.note_edits?.notes || []).length }), onFix, onFixMany, histGet, histSet, onTime, ...(canAdv() ? { onAdv, advGet, engGet, engSet, engPlay } : {}), onResetRange: (t0, t1) => resetSome(true, true, [t0, t1]), countRange: (a, b) => (r.target_fixes || []).concat(r.time_edits || []).filter(x => toA(x.t0) < b && toA(x.t1) > a).length, voice: voiceTone, wave: () => mkTracks.mr?.buf || mkTracks.before?.buf || null, ...tnOpts });
+        setMode: (m) => document.querySelector(`#mkAb [data-ab="${m === "p" ? 1 : 0}"]`)?.click(), histKey: "mk:" + (j.reqId || j.folder.id), histEmpty: JSON.stringify({ fx: [], te: [], ne: null }), saveState: () => ({ busy: mkBusy, fail: mkFail }), saveRetry: () => mkWrite().then(() => paintFixN()), remake: () => $("mkFinal")?.click(), phoneMix: () => $("mkPhoneMix")?.click(), doneState: () => ({ dirty: (() => { try { return mkDirty(); } catch { return null; } })(), total: (r.target_fixes || []).filter(x => !x.cut).length + (r.time_edits || []).length + (r.note_edits?.notes || []).length }), onFix, onFixMany, histGet, histSet, onTime, ...(canAdv() ? { onAdv, advGet, engGet, engSet, engPlay } : {}), onResetRange: (t0, t1) => resetSome(true, true, [t0, t1]), countRange: (a, b) => (r.target_fixes || []).concat(r.time_edits || []).filter(x => toA(x.t0) < b && toA(x.t1) > a).length, voice: voiceTone, wave: () => mkTracks.mr?.buf || mkTracks.before?.buf || null, ...tnOpts });
   }).catch((e) => { tuneWired = true; console.warn("음정선", e); const c = $("mkTune"); if (c) c.replaceWith(Object.assign(document.createElement("p"), { className: "muted", textContent: "음정선을 불러오지 못했어요 (" + String(e?.message || e).slice(0, 60) + ")" })); });
   // 슬라이더가 기본값에 닿으면 짧고 약한 진동(안드로이드). 기본값: 보컬 0dB · 리버브 30% · MR 0dB · 음정 켬
   const DEF = { mkVol: 0, mkRev: 20, mkMr: 0, mkPitch: 3 };
@@ -7789,7 +7789,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261110-1950";
+const BUILD = "20261111-0113";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {

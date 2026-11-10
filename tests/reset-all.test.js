@@ -8,6 +8,6 @@ assert.ok(T.includes("<b>모든 고침을 지우고 처음 상태로 돌릴까�
 const r = {}; const histGet = () => JSON.stringify({ fx: r.target_fixes || [], te: r.time_edits || [], ne: r.note_edits || null });
 assert.ok(H.includes("const histGet = () => JSON.stringify({ fx: r.target_fixes || [], te: r.time_edits || [], ne: r.note_edits || null });"));
 assert.strictEqual(histGet(), JSON.stringify({ fx: [], te: [], ne: null })); assert.ok(H.includes("histEmpty: JSON.stringify({ fx: [], te: [], ne: null })"));
-assert.ok(A.includes('if (x.dataset.g === "reset") { if (!(typeof st.resetAll === "function" && st.resetAll()))'));
-assert.ok(T.includes('if (typeof o.remake === "function") { try { close(); } catch {} setTimeout(() => { try { o.remake(); }'), "처음으로 뒤 완성본 다시 만들기 자동 시작");
+assert.ok(T.includes('if (k === "rst") { shut(); setTimeout(() => { if (!(typeof st.resetAll === "function" && st.resetAll()) && T) { try { T.resetDetail(st, cv); }'), "곡 메뉴 → 처음 상태로(기록 없는 화면은 디테일만)");
+assert.ok(T.includes('data-cf="2">지우고 완성본도 새로 만들기') && T.includes('if (k === "2" && canMk) {') && T.includes("고침만 지우기"), "(11/11) 지우기만 / 지우고 완성본도 새로 — 고를 수 있게");
 console.log("reset-all ok");
