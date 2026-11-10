@@ -337,14 +337,32 @@
     paint(); return w;
   }
 
-  // ── 곡 전체(전체화면 위 '🎛 곡 전체') ──
+  // ── 기타 설정(11/11 01:07 사용자 고 · ⋯ 곡 메뉴로 옮김): MIDI · 소리 지연 · 손짓 안내 · 진동 시험 ──
+  function toolsBox(st, cv, closeFn) {
+    const w = document.createElement("div"); w.className = "advTools";
+    w.innerHTML = `<div class="advGBtns"><button type="button" data-g="midi">🎹 MIDI 내보내기</button><button type="button" data-g="lat">🎧 소리 지연</button>${typeof st.advGuide === "function" ? `<button type="button" data-g="guide">👆 손짓 안내 다시 보기</button>` : ""}<button type="button" data-g="vib">📳 진동 시험</button></div><p class="advVibR" aria-live="polite"></p>`;
+    const latLab = (x) => { try { const B = G.Brand || {}, m = B.outLatMode ? B.outLatMode() : "auto"; x.textContent = m === "auto" ? `🎧 소리 지연: 자동 ${(B.outLatAuto ? B.outLatAuto() : 0).toFixed(2)}초` : m === 0 ? "🎧 소리 지연: 끔" : `🎧 소리 지연: ${(m / 1000).toFixed(2)}초`; } catch {} };
+    w.querySelectorAll('[data-g="lat"]').forEach(latLab);
+    w.querySelectorAll("[data-g]").forEach(x => { x.addEventListener("pointerdown", (e) => e.stopPropagation()); x.onclick = (e) => { e.stopPropagation();
+      if (x.dataset.g === "lat") { const B = G.Brand || {}, seq = ["auto", 0, 100, 150, 200, 250, 300], cur = B.outLatMode ? B.outLatMode() : "auto", nx = seq[(seq.indexOf(cur) + 1) % seq.length] ?? "auto"; if (B.outLatSet) B.outLatSet(nx); latLab(x); }   // (11/09 12:59) 블루투스 이어폰 지연: 자동 → 끔 → 0.1 … 0.3초
+      if (x.dataset.g === "midi") midiDownload(cv, st.title || "보컬");
+      if (x.dataset.g === "vib") {   // (11/06 22:09 사용자 '진동이 안 느껴져') 이 기기·브라우저에서 진동이 되는지 바로 확인
+        const out = w.querySelector(".advVibR"), ua = navigator.userAgent || "", has = typeof navigator.vibrate === "function"; let ok = false; try { ok = has && navigator.vibrate([300, 150, 300]); } catch {}
+        const ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && "ontouchend" in document), act = navigator.userActivation ? navigator.userActivation.hasBeenActive : null;
+        if (out) out.textContent = !has ? (ios ? "아이폰·아이패드 브라우저는 진동을 지원하지 않아요(화면 표시로 대신해요)" : "이 브라우저는 진동을 지원하지 않아요") : ok ? "지금 '드르륵 · 드르륵' 두 번 울렸어야 해요 · 안 느껴지면 폰 설정 → 소리 및 진동 → 진동 세기(터치·시스템 진동)를 올려 주세요" : `브라우저가 진동을 막았어요(${act === false ? "화면을 한 번 톡 한 뒤" : "잠시 뒤"} 다시 눌러 주세요)`; }
+      if (x.dataset.g === "guide") { try { closeFn && closeFn(); } catch {} setTimeout(() => { try { st.advGuide && st.advGuide(); } catch {} }, 320); } }; });
+    return w;
+  }
+  // 작업 기록이 없는 화면용: 디테일(고급) 고침만 지움
+  function resetDetail(st, cv) { const A = state(st); change(A, st, cv, () => { A.ne = { notes: [], global: {} }; }); }
+
+  // ── 전체 보정(아래 줄 '🎛 전체 보정') — 곡 전체 소리 값만(11/11 사용자 고: 엔진·도구·초기화는 ⋯ 곡 메뉴로) ──
   function globalSheet(host, st, cv) {
     const A = state(st), g = () => A.ne.global;
     document.getElementById("advG")?.remove();
     const d = document.createElement("div"); d.id = "advG"; d.className = "advG";
-    d.innerHTML = `<div class="advGBox" role="dialog" aria-label="일괄 보정"><div class="advGHd"><b>🎛 일괄 보정</b><span class="advGN"></span><button type="button" class="advX" aria-label="닫기">✕</button></div><div class="advBody"></div>
-      <div class="advGBtns"><button type="button" data-g="midi">🎹 MIDI 내보내기</button><button type="button" data-g="lat">🎧 소리 지연</button><button type="button" data-g="guide">👆 손짓 안내 다시 보기</button><button type="button" data-g="vib">📳 진동 시험</button></div><p class="advVibR" aria-live="polite"></p>
-      <p class="advTip">일괄 보정은 폰에서 못 들려줘요 · 완성본 새로 만들기 뒤에 들려요.</p><p class="advTip">보컬·MR 두 파일로 올린 곡은 완성본을 새로 만들면 보정된 보컬만 담긴 WAV(24bit)도 드라이브 작업 폴더에 생겨요(vocal_tuned.wav).</p><div class="advDng"><button type="button" data-g="reset">🗑 모든 고침 지우고 처음 상태로 <small>(↶로 되살릴 수 있어요)</small></button><p class="advTip">음정·타이밍·디테일·펜·일괄 보정 전부 지움 → 서버가 처음 인식한 상태로 완성본 새로 만들기</p></div></div>`;
+    d.innerHTML = `<div class="advGBox" role="dialog" aria-label="전체 보정"><div class="advGHd"><b>🎛 전체 보정</b><span class="advGN"></span><button type="button" class="advX" aria-label="닫기">✕</button></div><div class="advBody"></div>
+      <p class="advTip">전체 보정은 폰에서 못 들려줘요 · 완성본 새로 만들기 뒤에 들려요.</p><p class="advTip">보컬·MR 두 파일로 올린 곡은 완성본을 새로 만들면 보정된 보컬만 담긴 WAV(24bit)도 드라이브 작업 폴더에 생겨요(vocal_tuned.wav).</p><p class="advTip">보정 엔진·A/B 비교·MIDI·소리 지연·초기화는 위 <b>⋯ 곡 메뉴</b>에 있어요.</p></div>`;
     const body = d.querySelector(".advBody"), G_ = (k, dft) => (g()[k] != null ? g()[k] : dft);
     const put = (k, v) => change(A, st, cv, () => { g()[k] = v; });
     const putLv = (k, v) => change(A, st, cv, () => { g().level = Object.assign({ quiet: 0, loud: 0 }, g().level || {}); g().level[k] = v; });
@@ -357,26 +375,12 @@
       stepper("치찰음(ㅅ·ㅊ)", () => G_("sib_db", 0), (v) => put("sib_db", v), { step: 1, min: -12, max: 6, def: 0, fmt: (v) => `${v > 0 ? "+" : ""}${Math.round(v)}dB` }),
       D(stepper("포먼트(목소리 결)", () => G_("formant", 0), (v) => put("formant", v), { step: 0.25, min: -3, max: 3, def: 0, fmt: (v) => `${v > 0 ? "+" : ""}${v.toFixed(2)}반음` }), "포먼트 = 목소리의 울림 통로. 음정은 그대로 두고 음색만 이동. + 는 얇고 밝은 느낌, − 는 굵고 어두운 느낌. 그림에는 안 보이고 완성본에서 들어 보세요.")];
     rows.forEach(r => { if (!r._desc) { body.appendChild(r); return; } const w = document.createElement("div"), p = document.createElement("p"); p.className = "advD"; p.textContent = r._desc; w.appendChild(r); w.appendChild(p); body.appendChild(w); });
-    if (typeof st.engGet === "function") body.appendChild(engineBox(st));   // (11/06 사용자 '고급 보정 ② 엔진 비교')
     const cnt = () => { d.querySelector(".advGN").textContent = `음 ${A.ne.notes.length}개 고침`; rows.forEach(r => r._paint && r._paint()); };
     cnt();
     const ly = G.Brand && G.Brand.layer ? G.Brand.layer(() => d.remove()) : { close: () => d.remove() };
     d.querySelector(".advX").onclick = () => ly.close();
     d.addEventListener("click", (e) => { if (e.target === d) ly.close(); });
     d.addEventListener("pointerdown", (e) => e.stopPropagation());
-    const latLab = (x) => { try { const B = G.Brand || {}, m = B.outLatMode ? B.outLatMode() : "auto"; x.textContent = m === "auto" ? `🎧 소리 지연: 자동 ${(B.outLatAuto ? B.outLatAuto() : 0).toFixed(2)}초` : m === 0 ? "🎧 소리 지연: 끔" : `🎧 소리 지연: ${(m / 1000).toFixed(2)}초`; } catch {} };
-    d.querySelectorAll('[data-g="lat"]').forEach(latLab);
-    d.querySelectorAll("[data-g]").forEach(x => x.onclick = (e) => { e.stopPropagation();
-      if (x.dataset.g === "undo") { if (!undo(A, st, cv)) x.textContent = "↶ 되돌릴 게 없어요"; else x.textContent = "↶ 한 단계 되돌리기"; cnt(); }
-      if (x.dataset.g === "lat") { const B = G.Brand || {}, seq = ["auto", 0, 100, 150, 200, 250, 300], cur = B.outLatMode ? B.outLatMode() : "auto", nx = seq[(seq.indexOf(cur) + 1) % seq.length] ?? "auto"; if (B.outLatSet) B.outLatSet(nx); latLab(x); }   // (11/09 12:59) 블루투스 이어폰 지연: 자동 → 끔 → 0.1 … 0.3초
-      if (x.dataset.g === "reset") { if (!(typeof st.resetAll === "function" && st.resetAll())) { change(A, st, cv, () => { A.ne = { notes: [], global: {} }; }); cnt(); } }   // (11/09 01:47) 곡 전체 처음으로(확인 창) — 기록 기능이 없는 화면만 예전처럼 디테일만
-      if (x.dataset.g === "midi") midiDownload(cv, st.title || "보컬");
-      if (x.dataset.g === "vib") {   // (11/06 22:09 사용자 '진동이 안 느껴져') 이 기기·브라우저에서 진동이 되는지 바로 확인
-        const out = d.querySelector(".advVibR"), ua = navigator.userAgent || "", has = typeof navigator.vibrate === "function"; let ok = false; try { ok = has && navigator.vibrate([300, 150, 300]); } catch {}
-        const ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && "ontouchend" in document), act = navigator.userActivation ? navigator.userActivation.hasBeenActive : null;
-        if (out) out.textContent = !has ? (ios ? "아이폰·아이패드 브라우저는 진동을 지원하지 않아요(화면 표시로 대신해요)" : "이 브라우저는 진동을 지원하지 않아요") : ok ? "지금 '드르륵 · 드르륵' 두 번 울렸어야 해요 · 안 느껴지면 폰 설정 → 소리 및 진동 → 진동 세기(터치·시스템 진동)를 올려 주세요" : `브라우저가 진동을 막았어요(${act === false ? "화면을 한 번 톡 한 뒤" : "잠시 뒤"} 다시 눌러 주세요)`;
-        return; }
-      if (x.dataset.g === "guide") { ly.close(); setTimeout(() => { try { st.advGuide && st.advGuide(); } catch {} }, 320); } });
     host.appendChild(d);
   }
 
@@ -438,5 +442,5 @@
   try { const s = document.createElement("style"); s.textContent = css; document.head.appendChild(s); } catch {}
 
   function resetNote(st, cv, b) { const A = state(st); change(A, st, cv, () => { A.ne.notes = (A.ne.notes || []).filter(x => !(near(x.t0, b.t0) && near(x.t1, b.t1))); }); }   // 이 음의 고급 고침만 지움
-  G.TuneAdv = { scrub, panel, resetNote, globalSheet, preview, state, uvList, relabel, uvSheet, UV_NAME, addDraw, drawAt, removeDraw, flatNote, cleanStroke, undoLast: (st, cv) => undo(state(st), st, cv), _t: { shapeNote, notesFromCurve, midiBytes, clean, N_DEF } };
+  G.TuneAdv = { scrub, panel, resetNote, globalSheet, engineBox, toolsBox, resetDetail, preview, state, uvList, relabel, uvSheet, UV_NAME, addDraw, drawAt, removeDraw, flatNote, cleanStroke, undoLast: (st, cv) => undo(state(st), st, cv), _t: { shapeNote, notesFromCurve, midiBytes, clean, N_DEF } };
 })(typeof window !== "undefined" ? window : globalThis);
