@@ -5545,7 +5545,7 @@ function stemEngine(d) {
   const load = () => loading ||= (async () => {
     const a = await d.fetchBuf("mr"), b = await d.fetchBuf("voc"); if (dead) throw stale();
     const est = Math.max(a.byteLength, b.byteLength) / (d.bytesPerSec || 20000);   // 160kbps MP3 ≈ 20000바이트/초
-    if (AC && est <= (d.maxDecodeSec || 480)) {   // 4분 스테레오 ≈ 한 트랙 약 90MB → 8분 넘을 듯하면 디코드하지 않고 폴백
+    if (AC && !d.html && est <= (d.maxDecodeSec || 480)) {   // 4분 스테레오 ≈ 한 트랙 약 90MB → 8분 넘을 듯하면 디코드하지 않고 폴백
       const ra = a.slice(0), rb = b.slice(0);   // decodeAudioData가 원본을 비우므로 폴백용 사본
       try { ctx ||= new AC(); const m = await decode(a), v = await decode(b); if (dead) throw stale();
         let tail = ctx.destination; try { const lim = ctx.createDynamicsCompressor(); lim.threshold.value = -1; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.003; lim.release.value = 0.12; lim.connect(ctx.destination); tail = lim; } catch {}   // 최종단 리미터(없는 기기는 그대로)
@@ -5561,12 +5561,15 @@ function stemEngine(d) {
     const U = d.URL || G.URL; urls = [a, b].map(x => U.createObjectURL(new G.Blob([x], { type: "audio/mpeg" })));
     au = { mr: MkAudio(), voc: MkAudio() }; au.mr.preload = au.voc.preload = "auto"; au.mr.src = urls[0]; au.voc.src = urls[1]; au.voc.volume = vol / 100; mode = "html";
     await new Promise(res => { if (au.mr.readyState >= 1) return res(); au.mr.onloadedmetadata = res; setTimeout(res, 4000); }); if (dead) throw stale();
-    au.mr.onended = () => { if (playing) end(); }; return E;
+    au.mr.onended = () => { if (playing) end(); };
+    // (11/10 사용자 B) 일반 오디오 태그로 재생하면 삼성 인터넷이 다른 앱 음악을 멈춰 줌 → 반대로 다른 앱이 소리를 시작해 이 태그가 멈추면 화면도 '멈춤'으로
+    au.mr.onpause = () => { if (!playing || au.mr.ended) return; playing = false; off = au.mr.currentTime; try { au.voc.pause(); } catch {} stopTimer(); sleepSoon(); try { d.onPause && d.onPause(); } catch {} };
+    return E;
   };
   const end = () => { off = 0; if (mode === "web") killSrcs(); else if (au) { au.mr.pause(); au.voc.pause(); try { au.mr.currentTime = au.voc.currentTime = 0; } catch {} } playing = false; stopTimer(); sleepSoon(); fh(false); try { d.onEnd && d.onEnd(); } catch {} };
   // (11/09 사용자 '블루투스 이어폰 볼륨 조절 안 됨 또 발생') 멈춘 뒤에도 소리 장치를 열어 두면 이어폰이 이 앱 소리 연결을 붙잡음 → 멈추고 1.5초 뒤 쉬게 함(재생 때 자동 깨움)
   let idleT = null;
-  const fh = (on) => { try { d.focus && d.focus(on, () => { if (playing) { E.pause(); try { d.onPause && d.onPause(); } catch {} } }); } catch {} };   // 다른 앱과 소리 겹침 방지(Brand.focusHold)
+  const fh = (on) => { try { if (mode === "html") return; d.focus && d.focus(on, () => { if (playing) { E.pause(); try { d.onPause && d.onPause(); } catch {} } }); } catch {} };   // 다른 앱과 소리 겹침 방지(Brand.focusHold)
   const sleepSoon = () => { tm.clear(idleT); idleT = tm.set(() => { try { if (!playing && !starting && ctx && ctx.state === "running") ctx.suspend(); } catch {} }, 1500); };
   const begin = () => {
     if (mode === "web") {
@@ -5584,7 +5587,7 @@ function stemEngine(d) {
   const E = {
     load, pos, dur, mode: () => mode, isPlaying: () => playing, isDead: () => dead, vol: () => vol, fallbackReason: () => d.fallback || "",
     unlock() {   // 사용자 터치 안에서 동기로 부르기: 소리 장치를 미리 만들고 깨움(모바일 자동재생 정책). 못 해도 조용히 넘어감
-      if (dead || ctx || mode || !AC) { try { if (ctx && ctx.state !== "running") ctx.resume(); } catch {} return; }
+      if (dead || ctx || mode || !AC || d.html) { try { if (ctx && ctx.state !== "running") ctx.resume(); } catch {} return; }
       try { ctx = new AC(); const p = ctx.resume(); if (p && p.catch) p.catch(() => {}); } catch { ctx = null; }
     },
     async play() {
@@ -5633,14 +5636,14 @@ function songPlayer(el, ids, o) {
     <p class="muted" style="margin:6px 0 0;font-size:.78rem">재생 중에도 슬라이더를 움직이면 바로 바뀌어요 · 슬라이더 더블탭 = 100%</p></div>`;
   const me = sgCur = { eng: null, el, folder: o.folder || null, vol: v0, blob: {}, svT: 0 }, mmss = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`, alive = () => sgCur === me && !me.eng.isDead();
   const blob = (k) => (me.blob[k] ||= readBlob(ids[k], false, true).catch((e) => { delete me.blob[k]; throw e; }));   // 같은 파일 요청은 하나로(받기·재생 겹쳐도 한 번) · 실패하면 다음에 다시
-  const eng = me.eng = stemEngine({ vol: v0, boost: boostPref(), focus: (on, lost) => Brand.focusHold?.("song", on, lost), onPause: () => { if (alive()) Q("sgPb").textContent = "▶"; }, fetchBuf: async (k) => (await blob(k)).arrayBuffer(),
+  const eng = me.eng = stemEngine({ vol: v0, boost: boostPref(), html: true, focus: (on, lost) => Brand.focusHold?.("song", on, lost), onPause: () => { if (alive()) Q("sgPb").textContent = "▶"; }, fetchBuf: async (k) => (await blob(k)).arrayBuffer(),
     onTick: (E) => { if (!alive()) return; if (!el.isConnected) return songDestroy(); const t = E.pos(), dd = E.dur() || 1; Q("sgT0").textContent = mmss(t); if (!Q("sgSeek").matches(":active")) Q("sgSeek").value = Math.round(t / dd * 1000); },
     onEnd: () => { if (!alive()) return; Q("sgPb").textContent = "▶"; Q("sgT0").textContent = "0:00"; Q("sgSeek").value = 0; } });
   const paintVol = () => { Q("sgVv").textContent = me.vol + "%"; Q("sgVol").value = me.vol; el.querySelectorAll("[data-sgv]").forEach(b => b.classList.toggle("on", +b.dataset.sgv === me.vol)); };
   const setVol = (v) => { me.vol = Math.max(0, Math.min(100, Math.round(v))); eng.setVol(me.vol); paintVol(); clearTimeout(me.svT); me.svT = setTimeout(() => { try { o.onVol && o.onVol(me.vol); } catch {} }, 1500); };   // 소리 크기만 즉시 · 저장은 마지막 값 한 번(배경)
   paintVol();
-  const paintBoost = () => { const on = eng.boost(); Q("sgBoost").classList.toggle("on", on); Q("sgBoostS").textContent = on ? "켜짐 +4dB" : "꺼짐"; };
-  paintBoost(); Q("sgBoost").onclick = () => { eng.setBoost(!eng.boost()); boostSave(eng.boost()); paintBoost(); };
+  const paintBoost = () => { Q("sgBoost").classList.remove("on"); Q("sgBoostS").textContent = "쓸 수 없어요(다른 앱 소리를 멈추는 방식)"; Q("sgBoost").disabled = true; };   // (11/10 B) 곡 서랍은 일반 오디오 태그로 재생 → 크게 듣기(웹오디오)는 못 씀. 곡 파일 자체는 서버에서 이미 크게 맞춤
+  paintBoost(); 
   let loadP = null;
   const load = () => loadP ||= (async () => { Q("sgPb").textContent = "…"; Q("sgT1").textContent = "준비 중…";   // 카드 안 작은 글자만
     try { await eng.load(); } catch (e) { loadP = null; if (alive()) { Q("sgPb").textContent = "▶"; Q("sgT1").textContent = "–:–"; } throw e; }
