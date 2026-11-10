@@ -5630,7 +5630,7 @@ function songPlayer(el, ids, o) {
   el.innerHTML = `<div class="card sgC">${o.head}
     <div class="sgPl"><button type="button" class="sgPb" id="sgPb">▶</button><div class="sgSk"><input type="range" id="sgSeek" min="0" max="1000" value="0"><div class="sgTm"><span id="sgT0">0:00</span><span id="sgT1">–:–</span></div></div></div>
     <div class="sgVo"><div class="sgVl">보컬 볼륨<span id="sgVv">${v0}%</span></div><input type="range" id="sgVol" min="0" max="100" value="${v0}">
-      <div class="sgPre">${[[0, "MR", "0%"], [30, "가이드", "30%"], [100, "원곡", "100%"]].map(([v, a, b]) => `<button type="button" data-sgv="${v}">${a}<small>${b}</small></button>`).join("")}</div><div class="sgPre"><button type="button" id="sgBoost" aria-label="크게 듣기">🔊 크게 듣기<small id="sgBoostS"></small></button></div></div>
+      <div class="sgPre">${[[0, "MR", "0%"], [30, "가이드", "30%"], [100, "원곡", "100%"]].map(([v, a, b]) => `<button type="button" data-sgv="${v}">${a}<small>${b}</small></button>`).join("")}</div></div>
     <div class="sgDl">${[["mr", "MR", "반주만"], ["voc", "보컬", "목소리만"], ["orig", "원곡", "그대로"]].map(([k, a, b]) => `<button type="button" data-sgd="${k}">⬇ ${a}<small>${b}</small></button>`).join("")}</div>
     ${o.extra || ""}
     <p class="muted" style="margin:6px 0 0;font-size:.78rem">재생 중에도 슬라이더를 움직이면 바로 바뀌어요 · 슬라이더 더블탭 = 100%</p></div>`;
@@ -5642,8 +5642,6 @@ function songPlayer(el, ids, o) {
   const paintVol = () => { Q("sgVv").textContent = me.vol + "%"; Q("sgVol").value = me.vol; el.querySelectorAll("[data-sgv]").forEach(b => b.classList.toggle("on", +b.dataset.sgv === me.vol)); };
   const setVol = (v) => { me.vol = Math.max(0, Math.min(100, Math.round(v))); eng.setVol(me.vol); paintVol(); clearTimeout(me.svT); me.svT = setTimeout(() => { try { o.onVol && o.onVol(me.vol); } catch {} }, 1500); };   // 소리 크기만 즉시 · 저장은 마지막 값 한 번(배경)
   paintVol();
-  const paintBoost = () => { Q("sgBoost").classList.remove("on"); Q("sgBoostS").textContent = "쓸 수 없어요(다른 앱 소리를 멈추는 방식)"; Q("sgBoost").disabled = true; };   // (11/10 B) 곡 서랍은 일반 오디오 태그로 재생 → 크게 듣기(웹오디오)는 못 씀. 곡 파일 자체는 서버에서 이미 크게 맞춤
-  paintBoost(); 
   let loadP = null;
   const load = () => loadP ||= (async () => { Q("sgPb").textContent = "…"; Q("sgT1").textContent = "준비 중…";   // 카드 안 작은 글자만
     try { await eng.load(); } catch (e) { loadP = null; if (alive()) { Q("sgPb").textContent = "▶"; Q("sgT1").textContent = "–:–"; } throw e; }
