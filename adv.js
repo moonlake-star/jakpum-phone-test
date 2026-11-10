@@ -303,27 +303,28 @@
     return d;
   }
   // ── 보정 엔진(11/06 사용자 '고급 보정 ② 엔진 비교'): 곡마다 PSOLA(기본)·WORLD 고르기 + 가장 많이 고친 20초 A/B(어느 쪽이 무엇인지 고르기 전엔 안 알려 줌) ──
-  const ENG = { psola: "기본(PSOLA)", world: "WORLD" };
+  // (11/10 사용자 '지금 상태를 v2로') 기본 = 새 방식 v3(PSOLA) · 이전 v2 · WORLD — A/B 비교본은 v3 vs v2
+  const ENG = { psola: "새 방식 v3", v2: "이전 v2", world: "WORLD" }, ENG_ALIAS = { v3: "psola" };
   function engineBox(st) {
     const w = document.createElement("div"); w.className = "advEng";
     const paint = () => { const e = st.engGet() || {}, mk = e.made, f = e.files || {}, pick = e.pick;
-      w.innerHTML = `<div class="advRow"><span class="advL">보정 엔진</span><span class="advChips">${Object.entries(ENG).map(([k, t]) => `<button type="button" data-en="${k}" class="${(e.engine || "psola") === k ? "on" : ""}">${t}</button>`).join("")}</span></div>
-        <p class="advD">PSOLA = 지금까지 쓰던 방식(자연스러운 숨·자음, 큰 이동엔 약간 금속성) · WORLD = 목소리를 분석해 다시 만듦(큰 이동에 강하지만 숨소리가 얇아질 수 있음). 바꾸면 완성본을 다시 만들 때 적용돼요.</p>
+      w.innerHTML = `<div class="advRow"><span class="advL">보정 엔진</span><span class="advChips">${Object.entries(ENG).map(([k, t]) => `<button type="button" data-en="${k}" class="${(ENG_ALIAS[e.engine] || e.engine || "psola") === k ? "on" : ""}">${t}</button>`).join("")}</span></div>
+        <p class="advD">새 방식 v3 = 음마다 중심만 옮기고 떨림·스쿱은 그대로, 조금 어긋난 음(중 18센트 안)은 안 건드림, 바뀔 때 부드럽게 · 이전 v2 = 11/10 전 방식 · WORLD = 목소리를 분석해 다시 만듦(큰 이동에 강하지만 숨소리가 얇아질 수 있음). 바꾸면 완성본을 다시 만들 때 적용돼요.</p>
         ${mk && f.A && f.B ? `<div class="advRow"><span class="advL">A/B 들어 보기 <small style="color:#8d96a3">${Math.floor(mk.t0 / 60)}:${String(Math.floor(mk.t0 % 60)).padStart(2, "0")}부터 20초 · 보컬만</small></span></div>
           <div class="advChips advAB">${f.o ? `<button type="button" data-ep="o">▶ 보정 전</button>` : ""}<button type="button" data-ep="A">▶ A</button><button type="button" data-ep="B">▶ B</button></div>
           <div class="advChips advAB" style="margin-top:6px"><button type="button" data-ew="A">A가 좋아요</button><button type="button" data-ew="B">B가 좋아요</button></div>
-          ${pick ? `<p class="advD" style="color:#ffcf99">고른 쪽: ${pick} = ${ENG[mk[pick]] || mk[pick]}${mk[pick] === e.engine ? " → 이 곡 보정 엔진" : " · 엔진은 그대로(" + (ENG[e.engine] || e.engine) + ")"}</p>` : ""}`
+          ${pick ? `<p class="advD" style="color:#ffcf99">고른 쪽: ${pick} = ${ENG[ENG_ALIAS[mk[pick]] || mk[pick]] || mk[pick]}${(ENG_ALIAS[mk[pick]] || mk[pick]) === (ENG_ALIAS[e.engine] || e.engine || "psola") ? " → 이 곡 보정 방식" : " · 방식은 그대로(" + (ENG[ENG_ALIAS[e.engine] || e.engine || "psola"] || e.engine) + ")"}</p>` : ""}`
         : `<div class="advRow"><span class="advL">A/B 비교본</span><span class="advChips"><button type="button" data-eab class="${e.ab ? "on" : ""}">${e.ab ? "✓ 다음 완성본 때 만들기" : "만들기"}</button></span></div>
-          <p class="advD">켜고 '완성본 다시 만들기'를 하면 가장 많이 고친 20초를 두 엔진으로 만들어 A·B로 섞어 둬요. 어느 쪽이 무엇인지는 고른 뒤에 알려 줘요.</p>`}`;
+          <p class="advD">켜고 '완성본 새로 만들기'를 하면 가장 많이 고친 20초를 새 방식 v3·이전 v2로 만들어 A·B로 섞어 둬요. 어느 쪽이 무엇인지는 고른 뒤에 알려 줘요.</p>`}`;
       w.querySelectorAll("[data-en]").forEach(b => b.onclick = (ev) => { ev.stopPropagation(); Promise.resolve(st.engSet({ engine: b.dataset.en })).then(paint); });
       const ab = w.querySelector("[data-eab]"); if (ab) ab.onclick = (ev) => { ev.stopPropagation(); Promise.resolve(st.engSet({ engine_ab: !e.ab })).then(paint); };
       w.querySelectorAll("[data-ep]").forEach(b => b.onclick = (ev) => { ev.stopPropagation(); try { st.engPlay && st.engPlay(b, b.dataset.ep); } catch {} });
       // (11/09 21:23 사용자 고) A/B에서 고르면 몰래 엔진이 바뀌던 것 → 확인 창 한 번(바꾸기 / 고른 쪽만 기록)
-      w.querySelectorAll("[data-ew]").forEach(b => b.onclick = (ev) => { ev.stopPropagation(); const k = b.dataset.ew, en = mk[k], nm = ENG[en] || en;
-        if (!en || en === e.engine) { Promise.resolve(st.engSet({ engine_pick: k })).then(paint); return; }
+      w.querySelectorAll("[data-ew]").forEach(b => b.onclick = (ev) => { ev.stopPropagation(); const k = b.dataset.ew, en = mk[k], nm = ENG[ENG_ALIAS[en] || en] || en;
+        if (!en || (ENG_ALIAS[en] || en) === (ENG_ALIAS[e.engine] || e.engine || "psola")) { Promise.resolve(st.engSet({ engine_pick: k })).then(paint); return; }
         const host = w.closest("#tuneFs") || document.body, old = host.querySelector(".tfCfm"); if (old) old.remove();
         const cf = document.createElement("div"); cf.className = "tfCfm"; cf.setAttribute("role", "dialog");
-        cf.innerHTML = `<div class="tfCfmBox"><b>이 곡 보정 엔진을 ${nm}(으)로 바꿀까요?</b><p>지금은 ${ENG[e.engine] || e.engine}예요. 바꾸면 다음 '완성본 새로 만들기'부터 ${nm}(으)로 만들어요. 폰 미리듣기는 계속 기본(PSOLA) 소리예요.</p><div class="tfCfmRow"><button type="button" data-cf="0">그대로 두기</button><button type="button" class="pri" data-cf="1">${nm}(으)로 바꾸기</button></div></div>`;
+        cf.innerHTML = `<div class="tfCfmBox"><b>이 곡 보정 엔진을 ${nm}(으)로 바꿀까요?</b><p>지금은 ${ENG[ENG_ALIAS[e.engine] || e.engine || "psola"] || e.engine}예요. 바꾸면 다음 '완성본 새로 만들기'부터 ${nm}(으)로 만들어요.</p><div class="tfCfmRow"><button type="button" data-cf="0">그대로 두기</button><button type="button" class="pri" data-cf="1">${nm}(으)로 바꾸기</button></div></div>`;
         cf.addEventListener("pointerdown", (x) => x.stopPropagation());
         const ly = G.Brand && G.Brand.layer ? G.Brand.layer(() => cf.remove()) : { close: () => cf.remove() };
         cf.addEventListener("click", (x) => { if (x.target === cf) ly.close(); });
