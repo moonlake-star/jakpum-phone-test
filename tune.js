@@ -1505,7 +1505,9 @@
       if (e.ctrlKey || e.metaKey) { st.xz = Math.max(1, Math.min(4, (st.xz || 1) * Math.exp(-e.deltaY * 0.004))); return; }   // 트랙패드 꼬집기도 여기로 옴
       if (e.altKey) { st.yz = Math.max(1, Math.min(12, (st.yz || 1) * Math.exp(-e.deltaY * 0.004))); if (st.yz > 1 && st.yc == null) { const f = fitAt(cv, +getT() || 0, 0); st.yc = f ? f[2] : null; } return; }
       const dd = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY, W = (st.win || 6) / (st.xz || 1), px = e.deltaMode === 1 ? dd * 16 : dd;
-      const nt = Math.max(0, Math.min(endT(), (+getT() || 0) + px / span() * W)); st.panAt = 0; try { seek(nt, isPaused()); } catch {} }, { passive: false });
+      // (11/10 12:44 사용자 '맥북 크롬에서 오늘의 베스트 전체화면이 왼쪽으로만 스크롤') 재생기가 옮긴 시각을 조금 앞쪽으로 맞추면(mp3 찾기) 다음 휠이 그 값에서 다시 더해 오른쪽은 제자리·왼쪽만 감 → 휠이 이어지는 동안엔 내가 가려던 시각을 기준으로 더함
+      const now_ = Date.now(), base = st.wheelT != null && now_ - (st.wheelAt || 0) < 400 ? st.wheelT : (+getT() || 0);
+      const nt = Math.max(0, Math.min(endT(), base + px / span() * W)); st.wheelT = nt; st.wheelAt = now_; st.panAt = 0; try { seek(nt, isPaused()); } catch {} }, { passive: false });
     const mouseHover = (e) => { if (!st.map || !st.kb) return; const l0 = loc(e.clientX, e.clientY, cvEl.getBoundingClientRect()), H_ = st.hdl, onH = H_ && [H_.l, H_.r].some(c => c && Math.hypot(l0.x - c.x, l0.y - c.y) <= c.r);
       const hb = l0.x >= st.kb.L ? (hitT(l0) || hitBar(l0)) : null, onSel = hb && st.sel && Math.abs(hb.t0 - st.sel.t0) < 0.02;
       cvEl.style.cursor = st.penTool ? "crosshair" : onH ? "ew-resize" : onSel ? "grab" : hb ? "pointer" : l0.x < st.kb.L ? "pointer" : st.advOn ? "text" : "default"; };
