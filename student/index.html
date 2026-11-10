@@ -345,7 +345,6 @@ try { if (typeof Brand !== "undefined" && Brand.tipBar) { const go = () => Brand
 // (11/07 17:24 사용자) 갤럭시 뒤로 밀기: 노트·나의 레슨 화면 → '← 전체 노트'와 같게 · 첫 화면은 2초 안에 두 번 밀어야 닫힘(한 번에 앱이 꺼지지 않게)
 let snBackSkip = false, snHomeAt = 0;
 function snSub() {}   // (11/09 01:38) 기록 칸은 brand.js(Brand.backArm)가 화면을 만질 때만 쌓음
-function snHome() {}
 function snToast(m) { let t = document.getElementById("snToast"); if (!t) { t = document.createElement("div"); t.id = "snToast"; t.style.cssText = "position:fixed;left:50%;bottom:90px;transform:translateX(-50%);z-index:200;background:rgba(30,34,42,.95);color:#fff;padding:10px 16px;border-radius:20px;font-size:14px;pointer-events:none"; document.body.appendChild(t); } t.textContent = m; t.style.display = "block"; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = "none", 2000); }
 addEventListener("popstate", (e) => {
   if (e && (e.tuneClosed || e.layerClosed || e.jkSkip)) return;   // 전체화면·작은 창만 닫힘(tune.js·Brand.layer) · 칸 비우기
@@ -928,7 +927,6 @@ function stemEngine(d) {
 }
 // </stem-engine>
 let sgP = null;
-function stemsStop() { if (!sgP) return; try { sgP.stop(); } catch {} }
 function stemsDestroy() { const p = sgP; sgP = null; if (p) { try { p.destroy(); } catch {} } }
 document.addEventListener("play", () => { try { sgP?.stop(); } catch {} }, true);   // 다른 녹음을 틀면 멈춤(한 번만 등록)
 function wireStems(mk) {
@@ -965,7 +963,6 @@ function wireStems(mk) {
 }
 function lessonHtml(l, prev, mode = "normal") {
   const MODES = [["simple", "심플"], ["normal", "보통"], ["detail", "자세히"]];
-  const modeBar = (m) => `<div class="seg" role="group" aria-label="보기 방식">${MODES.map(([k, n]) => `<button type="button" class="${k === m ? "on" : ""}" data-mode="${k}" aria-pressed="${k === m}">${n}</button>`).join("")}</div>`;
   const has = (x) => typeof x === "string" && x.trim() !== "";
   const m = MODES.some(x => x[0] === mode) ? mode : "normal", full = m !== "simple";
   const moment = has(l.highlight) ? l.highlight.trim() : "";
@@ -993,7 +990,6 @@ function lessonHtml(l, prev, mode = "normal") {
   const memo = (id) => { const c = clips.find(x => x.file_id === id); return c && has(c.note) ? `<div class="memo">🔎 ${esc(c.note)}</div>` : ""; };
   const ptsHtml = (arr) => `<ol class="pts">${arr.map((t, i) => `<li><div class="pt"><b>${i + 1}</b><span>${tchip(esc(t))}</span></div>${psnd.filter(x => x.p === i).slice(0, 2).map(x => x.kind === "pair" ? pill(x.file_id + "#p", "🔁 지도 전 → 후 듣기", x.peaks || peakOf(x.file_id)) + `<div class="cap">지도 전 → 지도 후 순서로 들려요</div>` : memo(x.file_id) + pill(x.file_id, "좋았던 순간 듣기", x.peaks || peakOf(x.file_id))).join("")}</li>`).join("")}</ol>`;
   // (10/29 11:05 사용자) '좋았던 부분' 줄(· 8:24 …)에 같은 시각의 좋았던 순간 소리가 있으면 ▶시각 대신 그 줄 아래 듣기 버튼 — '더 들어 보기'와 겹치지 않게
-  const spkOk = (pk) => Array.isArray(pk) && pk.length >= 20 && pk.length <= 400;   // (10/29 12:58) 레슨 녹음 구간 파형(공개 때 실음)
   const inl = new Set(), clipT = (c) => { if (Number.isFinite(+c.t)) return +c.t; const q = String(c.label || "").match(/(\d{1,2}):([0-5]\d)/); return q ? +q[1] * 60 + +q[2] : null; };
   const txt = (a) => { const out = []; let buf = [];
     const flush = () => { const t = buf.join("\n").replace(/^\s*\n+|\n\s*$/g, ""); if (t.trim()) out.push(`<div class="pre">${tchip(esc(t))}</div>`); buf = []; };

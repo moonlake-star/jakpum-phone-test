@@ -2556,11 +2556,6 @@ function pvHold(el) {
   if (wrap?.classList?.contains("pvEdWrap") && typeof document !== "undefined" && document.createElement) { const sh = document.createElement("div"); sh.className = "pvShield"; sh.setAttribute("aria-hidden", "true"); wrap.insertBefore(sh, el.nextSibling); tgt = sh; }
   const inside = (n) => el.contains(n) || tgt.contains(n);
   const card = () => el.closest?.(".pvCard"), closed = () => !card()?.classList.contains("open");
-  const openNoSel = () => {   // 펼치고 커서만(선택 없이) 끝에
-    el._pvNoSel = "down"; el.focus();
-    const n = String(el.value || "").length; try { el.setSelectionRange(n, n); } catch {}
-    setTimeout(() => { if (el._pvNoSel) { try { const k = el.selectionEnd; el.setSelectionRange(k, k); } catch {} } }, 50);
-  };
   const end = (e) => {
     if (!h) { if (el._pvNoSel === "down") el._pvNoSel = "up"; el.readOnly = false; return; }
     if (h.pan) { let v = h.v || 0; h = null; el.readOnly = false; const step = () => { if (Math.abs(v) < 0.02) return; window.scrollBy(0, v * 16); v *= 0.95; el._pvFling = requestAnimationFrame(step); }; if (typeof requestAnimationFrame === "function") el._pvFling = requestAnimationFrame(step); return; }   // 손 떼면 관성
@@ -2671,7 +2666,6 @@ function svTuneWire(l) {
 }
 function svLessonHtml(l, prev, mode = "normal") {
   const SV_MODES = [["simple", "심플"], ["normal", "보통"], ["detail", "자세히"]];
-  const svModeBar = (m) => `<div class="seg" role="group" aria-label="보기 방식">${SV_MODES.map(([k, n]) => `<button type="button" class="${k === m ? "on" : ""}" data-mode="${k}" aria-pressed="${k === m}">${n}</button>`).join("")}</div>`;
   const has = (x) => typeof x === "string" && x.trim() !== "";
   const m = SV_MODES.some(x => x[0] === mode) ? mode : "normal", full = m !== "simple";
   const moment = has(l.highlight) ? l.highlight.trim() : "";
@@ -7487,7 +7481,6 @@ function renderHighlights() {
 }
 // 노래 흔들림·삑사리(AI 참고, 2026-10-27): 오늘의베스트.json stability.events. 누르면 그 자리 앞뒤 1.5초 재생, 맞아요/아니에요는 검수.json에 저장
 const STAB_ICON = { crack: "⚡", break: "✂", wobble: "〰" };
-function stabEvents(a, b) { return (cur.best?.stability?.events || []).filter(e => e.end > a && e.start < b); }
 function wireStab(root) {
   root.querySelectorAll("[data-stabplay]").forEach(b => b.onclick = () => {
     const a = +b.dataset.stabplay, e = +b.dataset.stabend;
@@ -7788,7 +7781,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261110-0840";
+const BUILD = "20261110-0900";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
