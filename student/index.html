@@ -345,7 +345,6 @@ try { if (typeof Brand !== "undefined" && Brand.tipBar) { const go = () => Brand
 // (11/07 17:24 사용자) 갤럭시 뒤로 밀기: 노트·나의 레슨 화면 → '← 전체 노트'와 같게 · 첫 화면은 2초 안에 두 번 밀어야 닫힘(한 번에 앱이 꺼지지 않게)
 let snBackSkip = false, snHomeAt = 0;
 function snSub() {}   // (11/09 01:38) 기록 칸은 brand.js(Brand.backArm)가 화면을 만질 때만 쌓음
-function snHome() {}
 function snToast(m) { let t = document.getElementById("snToast"); if (!t) { t = document.createElement("div"); t.id = "snToast"; t.style.cssText = "position:fixed;left:50%;bottom:90px;transform:translateX(-50%);z-index:200;background:rgba(30,34,42,.95);color:#fff;padding:10px 16px;border-radius:20px;font-size:14px;pointer-events:none"; document.body.appendChild(t); } t.textContent = m; t.style.display = "block"; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = "none", 2000); }
 addEventListener("popstate", (e) => {
   if (e && (e.tuneClosed || e.layerClosed || e.jkSkip)) return;   // 전체화면·작은 창만 닫힘(tune.js·Brand.layer) · 칸 비우기
@@ -931,7 +930,6 @@ function stemEngine(d) {
 }
 // </stem-engine>
 let sgP = null;
-function stemsStop() { if (!sgP) return; try { sgP.stop(); } catch {} }
 function stemsDestroy() { const p = sgP; sgP = null; if (p) { try { p.destroy(); } catch {} } }
 document.addEventListener("play", () => { try { sgP?.stop(); } catch {} }, true);   // 다른 녹음을 틀면 멈춤(한 번만 등록)
 function wireStems(mk) {
