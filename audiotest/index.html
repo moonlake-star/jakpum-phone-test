@@ -14,6 +14,8 @@ button.on{background:#e48d16;color:#111}small{color:#a9b1bc}#info{font-size:13px
 <button id="d">④ 웹오디오 + 무음 태그(지금 앱 방식)</button>
 <button id="e">⑤ 웹오디오 + 초저음(20Hz) 태그</button>
 <button id="f">⑥ 웹오디오를 오디오 태그로 내보내기</button>
+<button id="g">⑦ 웹오디오 + 초저음 스트림 태그</button>
+<button id="h">⑧ 웹오디오 + 무음 스트림 태그</button>
 <button id="s">■ 모두 끄기</button>
 <div id="info"></div>
 <script>
@@ -23,9 +25,9 @@ function wav(sec,hz,amp){const sr=44100,n=sr*sec,b=new ArrayBuffer(44+n*2),v=new
  w(0,'RIFF');v.setUint32(4,36+n*2,true);w(8,'WAVEfmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,sr,true);v.setUint32(28,sr*2,true);v.setUint16(32,2,true);v.setUint16(34,16,true);w(36,'data');v.setUint32(40,n*2,true);
  for(let i=0;i<n;i++)v.setInt16(44+i*2,Math.sin(2*Math.PI*hz*i/sr)*amp*32767,true);
  return URL.createObjectURL(new Blob([b],{type:'audio/wav'}))}
-let au=null,ac=null,osc=null,au2=null;
-function stop(){try{if(au2){au2.pause();au2.srcObject=null;au2.src='';au2=null}}catch(e){}try{if(au){au.pause();au.src='';au=null}}catch(e){}try{if(osc){osc.stop();osc=null}if(ac){ac.close();ac=null}}catch(e){}
- ['a','b','c','d','e','f'].forEach(k=>$(k).classList.remove('on'));info('멈춤')}
+let au=null,ac=null,osc=null,au2=null,ac2=null;
+function stop(){try{if(ac2){ac2.close();ac2=null}}catch(e){}try{if(au2){au2.pause();au2.srcObject=null;au2.src='';au2=null}}catch(e){}try{if(au){au.pause();au.src='';au=null}}catch(e){}try{if(osc){osc.stop();osc=null}if(ac){ac.close();ac=null}}catch(e){}
+ ['a','b','c','d','e','f','g','h'].forEach(k=>$(k).classList.remove('on'));info('멈춤')}
 function info(t){const st=(matchMedia('(display-mode: standalone)').matches?'설치된 앱 화면':'브라우저 화면');
  $('info').textContent=t+'\n'+st+(ac?' · 웹오디오 '+ac.sampleRate+'Hz '+ac.state:'')+'\n'+navigator.userAgent.slice(0,120)}
 $('a').onclick=()=>{stop();au=new Audio(wav(1,440,.25));au.loop=true;au.play();$('a').classList.add('on');info('① 재생 중')};
@@ -37,5 +39,8 @@ function silentWav(){const n=8000,b=new Uint8Array(44+n),v=new DataView(b.buffer
 $('d').onclick=()=>{stop();const g=tone();g.connect(ac.destination);au2=new Audio(silentWav());au2.loop=true;au2.play();$('d').classList.add('on');info('④ 재생 중')};
 $('e').onclick=()=>{stop();const g=tone();g.connect(ac.destination);au2=new Audio(wav(2,20,.01));au2.loop=true;au2.play();$('e').classList.add('on');info('⑤ 재생 중')};
 $('f').onclick=()=>{stop();const g=tone();const md=ac.createMediaStreamDestination();g.connect(md);au2=new Audio();au2.srcObject=md.stream;au2.play();$('f').classList.add('on');info('⑥ 재생 중')};
+function hold(gain){ac2=new AudioContext();const o=ac2.createOscillator();o.frequency.value=20;const g=ac2.createGain();g.gain.value=gain;const md=ac2.createMediaStreamDestination();o.connect(g);g.connect(md);o.start();au2=new Audio();au2.srcObject=md.stream;au2.play()}
+$('g').onclick=()=>{stop();const g=tone();g.connect(ac.destination);hold(.01);$('g').classList.add('on');info('⑦ 재생 중')};
+$('h').onclick=()=>{stop();const g=tone();g.connect(ac.destination);hold(0);$('h').classList.add('on');info('⑧ 재생 중')};
 $('s').onclick=stop;info('대기');
 </script></body></html>
