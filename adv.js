@@ -313,6 +313,7 @@
         ${mk && f.A && f.B ? `<div class="advRow"><span class="advL">A/B 들어 보기 <small style="color:#8d96a3">${Math.floor(mk.t0 / 60)}:${String(Math.floor(mk.t0 % 60)).padStart(2, "0")}부터 20초 · 보컬만</small></span></div>
           <div class="advChips advAB">${f.o ? `<button type="button" data-ep="o">▶ 보정 전</button>` : ""}<button type="button" data-ep="A">▶ A</button><button type="button" data-ep="B">▶ B</button></div>
           <div class="advChips advAB" style="margin-top:6px"><button type="button" data-ew="A">A가 좋아요</button><button type="button" data-ew="B">B가 좋아요</button></div>
+          <p class="advD">${["psola", "world"].includes(mk.A) && ["psola", "world"].includes(mk.B) ? "지금 비교본은 예전 것(PSOLA·WORLD)이에요 · " : ""}<button type="button" data-eab class="${e.ab ? "on" : ""}" style="margin:4px 0 0">${e.ab ? "✓ 다음 완성본 때 새 비교본(v3·v2)" : "새 비교본 만들기(v3·v2)"}</button></p>
           ${pick ? `<p class="advD" style="color:#ffcf99">고른 쪽: ${pick} = ${ENG[ENG_ALIAS[mk[pick]] || mk[pick]] || mk[pick]}${(ENG_ALIAS[mk[pick]] || mk[pick]) === (ENG_ALIAS[e.engine] || e.engine || "psola") ? " → 이 곡 보정 방식" : " · 방식은 그대로(" + (ENG[ENG_ALIAS[e.engine] || e.engine || "psola"] || e.engine) + ")"}</p>` : ""}`
         : `<div class="advRow"><span class="advL">A/B 비교본</span><span class="advChips"><button type="button" data-eab class="${e.ab ? "on" : ""}">${e.ab ? "✓ 다음 완성본 때 만들기" : "만들기"}</button></span></div>
           <p class="advD">켜고 '완성본 새로 만들기'를 하면 가장 많이 고친 20초를 새 방식 v3·이전 v2로 만들어 A·B로 섞어 둬요. 어느 쪽이 무엇인지는 고른 뒤에 알려 줘요.</p>`}`;
