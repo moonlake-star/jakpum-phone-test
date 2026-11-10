@@ -260,9 +260,9 @@
       setTimeout(() => { ta.readOnly = false; }, 450); }
   }
   // (11/02) 정음 막대 색 = 기준: 선생님 노랑 · MIDI 보라 · 악보 초록 · 원곡 하늘 · 키·스케일만 회색(기준 정보가 없는 예전 것은 초록)
-  const SRC_C = { teacher: "rgba(255,210,122,.42)", midi: "rgba(199,164,255,.36)", sheet: "rgba(127,217,154,.52)", youtube: "rgba(127,217,255,.32)", scale: "rgba(127,217,154,.46)" };   // (11/06 22:05 사용자) 키·스케일만도 예전처럼 초록(회색은 흰색처럼 보여 덜 눈에 띔)
+  const SRC_C = { raw: "rgba(255,138,176,.34)", teacher: "rgba(255,210,122,.42)", midi: "rgba(199,164,255,.36)", sheet: "rgba(127,217,154,.52)", youtube: "rgba(127,217,255,.32)", scale: "rgba(127,217,154,.46)" };   // (11/06 22:05 사용자) 키·스케일만도 예전처럼 초록(회색은 흰색처럼 보여 덜 눈에 띔)
   function srcCol(cv, tt) {
-    if ((cv._fixes || []).some(x => tt >= x.t0 && tt <= x.t1)) return SRC_C.teacher;
+    const fx_ = (cv._fixes || []).find(x => tt >= x.t0 && tt <= x.t1); if (fx_) return fx_.off ? SRC_C.raw : SRC_C.teacher;   // (11/11 08:22 사용자 '원음으로 보냈는데 갈색') 🎤 원음 = 분홍(선생님이 음을 바꾼 노랑과 구분)
     if (!cv._src) return "rgba(127,217,154,.46)";   // (11/06 22:09 사용자) 초록 더 잘 보이게
     const s = cv._src.find(x => tt >= x[0] && tt <= x[1]); return s ? SRC_C[s[3]] || SRC_C.sheet : cv._midi ? SRC_C.midi : SRC_C.scale;
   }
@@ -412,12 +412,14 @@
       // → 선생님 화면에서만 회색 점선 막대(부른 높이에 가까운 음)로 보여 주고, 톡 하면 다른 막대처럼 고치기 창 — 고치기 전엔 자동 보정에 아무 영향 없음
       if (st && st.ghostOn) { let gr = null;
         const flush = () => { if (gr && gr.t1 - gr.t0 >= 0.1) { const sv = gr.v.slice().sort((a, b) => a - b), c = Math.round(sv[sv.length >> 1] / 100) * 100, gx0 = xs(gr.t0), gx1 = xs(gr.t1), yy = y(c);
-            g.save(); g.fillStyle = "rgba(160,168,180,.16)"; g.fillRect(gx0, yy - bh / 2, Math.max(3, gx1 - gx0), bh); g.setLineDash([3, 3]); g.strokeStyle = "rgba(205,210,218,.65)"; g.lineWidth = 1.2; g.strokeRect(gx0, yy - bh / 2, Math.max(3, gx1 - gx0), bh); g.restore();
+            const rw_ = (cv._fixes || []).some(x => x.off && x.t0 < gr.t1 && x.t1 > gr.t0);   // (11/11) 🎤 원음으로 둔 음 = 분홍(점선 회색 '정음 없는 곳'과 구분)
+            g.save(); g.fillStyle = rw_ ? SRC_C.raw : "rgba(160,168,180,.16)"; g.fillRect(gx0, yy - bh / 2, Math.max(3, gx1 - gx0), bh); if (!rw_) { g.setLineDash([3, 3]); g.strokeStyle = "rgba(205,210,218,.65)"; g.lineWidth = 1.2; g.strokeRect(gx0, yy - bh / 2, Math.max(3, gx1 - gx0), bh); } g.restore();
             bars.push({ x0: gx0, x1: gx1, t0: gr.t0, t1: gr.t1, c, y: yy, h: bh, ghost: true }); } gr = null; };
         for (const p of vis) { if ((p[kt] != null && !tiny.has(p)) || p[1] == null) { flush(); continue; } if (gr && p[0] - gr.tl > 0.13) flush(); if (!gr) gr = { t0: p[0], t1: p[0], tl: p[0], v: [] }; gr.v.push(p[1]); gr.tl = p[0]; gr.t1 = p[0] + 0.04; }
         flush(); }
       for (const b of bars) { const f = (cv._fixes || []).find(x => x.t0 < b.t1 && x.t1 > b.t0);   // 선생님이 고친 정음 = 노란 테두리(나누기만 한 조각은 경계 틈만)
-        if (f && !f.cut) { g.strokeStyle = "#ffd27a"; g.lineWidth = 2; g.strokeRect(b.x0, b.y - b.h / 2, Math.max(4, b.x1 - b.x0), b.h); }
+        if (f && !f.cut) { g.strokeStyle = f.off ? "#ff9ec0" : "#ffd27a"; g.lineWidth = 2; g.strokeRect(b.x0, b.y - b.h / 2, Math.max(4, b.x1 - b.x0), b.h);
+          if (f.off && b.x1 - b.x0 > 22) { g.font = "bold 10.5px system-ui, sans-serif"; g.textBaseline = "middle"; g.fillStyle = "#ffd3e2"; g.fillText("🎤 원음", Math.max(L + 2, b.x0) + 3, b.y - b.h / 2 - 8); } }
         if (f && f.cut) { g.fillStyle = "#0f1115"; g.fillRect(b.x0 - 1.5, b.y - b.h / 2 - 3, 3, b.h + 6); }
         if (st && st.sel && st.sel.t0 < b.t1 && st.sel.t1 > b.t0) { g.save(); g.shadowColor = "#9cc3ff"; g.shadowBlur = 10; g.strokeStyle = "#9cc3ff"; g.lineWidth = 3; g.strokeRect(b.x0 - 2, b.y - b.h / 2 - 2, Math.max(6, b.x1 - b.x0 + 4), b.h + 4); g.restore(); } }
       for (const b of bars) { if (!b.gd) continue;   // (11/09 A안) 볼륨 꼬리표: +4dB(주황) · −6dB·무음(하늘)
@@ -1027,7 +1029,7 @@
     { text: () => "✂ 나누기: 세로줄이 막대 안이면 그 자리, 밖이면 가운데에서 나뉘고 오른쪽 조각이 골라져요", need: "fixSheet(host, cv, { t0: ts, t1: T1, c: Math.round(m * 100) }, onFix, getT, st)", when: (o) => typeof o.onFix === "function" },
     { text: () => "↺ 톡 = 이 음 원래대로(확인 후) · 한 단계 되돌리기는 아래 ↶", need: "hold = setTimeout(() => { fired = true; stop(); askOrig(); }, 1000)", when: (o) => typeof o.onFix === "function" },
     { text: () => "고치기 창은 그래프 빈 곳 톡·뒤로 가기로 닫혀요 — 고친 건 자동 저장돼요", need: "if (!onBar) { sheetClose(); lastTap = 0; return; }", when: (o) => typeof o.onFix === "function" },
-    { text: () => "정음 막대 색 = 기준: 노랑 선생님 · 보라 MIDI · 하늘 원곡 · 초록 악보·키·스케일", need: "const SRC_C = {", when: (o) => typeof o.onFix === "function" },
+    { text: () => "막대 색: 노랑 고친 음 · 분홍 원음 · 보라 MIDI · 하늘 원곡 · 초록 악보·키", need: "const SRC_C = {", when: (o) => typeof o.onFix === "function" },
     // (11/03 10:42 사용자) 수강생 화면은 보이는 것·할 수 있는 것이 달라서 팁도 따로
     { text: () => "노란 선 = 내가 부른 음 · 하늘색 = 보정한 음 · 초록 막대 = 맞춰야 할 음이에요", need: '<i style="background:#ffe066"></i>부른 음', when: (o) => !o.teacher },
     { text: () => "기준선 위 말풍선이 지금 몇 반음 높게·낮게 불렀는지 알려줘요", need: "반음 높게 불렀어요", when: (o) => !o.teacher },
