@@ -313,12 +313,14 @@
         ${mk && f.A && f.B ? `<div class="advRow"><span class="advL">A/B 들어 보기 <small style="color:#8d96a3">${Math.floor(mk.t0 / 60)}:${String(Math.floor(mk.t0 % 60)).padStart(2, "0")}부터 20초 · 보컬만</small></span></div>
           <div class="advChips advAB">${f.o ? `<button type="button" data-ep="o">▶ 보정 전</button>` : ""}<button type="button" data-ep="A">▶ A</button><button type="button" data-ep="B">▶ B</button></div>
           <div class="advChips advAB" style="margin-top:6px"><button type="button" data-ew="A">A가 좋아요</button><button type="button" data-ew="B">B가 좋아요</button></div>
-          <p class="advD">${["psola", "world"].includes(mk.A) && ["psola", "world"].includes(mk.B) ? "지금 비교본은 예전 것(PSOLA·WORLD)이에요 · " : ""}<button type="button" data-eab class="${e.ab ? "on" : ""}" style="margin:4px 0 0">${e.ab ? "✓ 다음 완성본 때 새 비교본(v3·v2)" : "새 비교본 만들기(v3·v2)"}</button></p>
+          <div class="advChips advAB" style="margin-top:6px"><button type="button" data-eab2 class="${e.ab ? "on" : ""}">${e.ab ? "✓ 다음 완성본 때 새 비교본(v3·v2)" : "🔁 새 비교본 만들기(v3·v2)"}</button></div>
+          ${["psola", "world"].includes(mk.A) && ["psola", "world"].includes(mk.B) ? `<p class="advD">지금 비교본은 예전 것(PSOLA·WORLD)이에요</p>` : ""}
           ${pick ? `<p class="advD" style="color:#ffcf99">고른 쪽: ${pick} = ${ENG[ENG_ALIAS[mk[pick]] || mk[pick]] || mk[pick]}${(ENG_ALIAS[mk[pick]] || mk[pick]) === (ENG_ALIAS[e.engine] || e.engine || "psola") ? " → 이 곡 보정 방식" : " · 방식은 그대로(" + (ENG[ENG_ALIAS[e.engine] || e.engine || "psola"] || e.engine) + ")"}</p>` : ""}`
         : `<div class="advRow"><span class="advL">A/B 비교본</span><span class="advChips"><button type="button" data-eab class="${e.ab ? "on" : ""}">${e.ab ? "✓ 다음 완성본 때 만들기" : "만들기"}</button></span></div>
           <p class="advD">켜고 '완성본 새로 만들기'를 하면 가장 많이 고친 20초를 새 방식 v3·이전 v2로 만들어 A·B로 섞어 둬요. 어느 쪽이 무엇인지는 고른 뒤에 알려 줘요.</p>`}`;
       w.querySelectorAll("[data-en]").forEach(b => b.onclick = (ev) => { ev.stopPropagation(); Promise.resolve(st.engSet({ engine: b.dataset.en })).then(paint); });
       const ab = w.querySelector("[data-eab]"); if (ab) ab.onclick = (ev) => { ev.stopPropagation(); Promise.resolve(st.engSet({ engine_ab: !e.ab })).then(paint); };
+      w.querySelectorAll("[data-eab2]").forEach(b => { b.addEventListener("pointerdown", (ev) => ev.stopPropagation()); b.onclick = (ev) => { ev.stopPropagation(); Promise.resolve(st.engSet({ engine_ab: !e.ab })).then(paint); }; });   // (11/10 19:03 사용자 '안 눌림') 다른 A/B 버튼과 같은 줄·같은 방식으로
       w.querySelectorAll("[data-ep]").forEach(b => b.onclick = (ev) => { ev.stopPropagation(); try { st.engPlay && st.engPlay(b, b.dataset.ep); } catch {} });
       // (11/09 21:23 사용자 고) A/B에서 고르면 몰래 엔진이 바뀌던 것 → 확인 창 한 번(바꾸기 / 고른 쪽만 기록)
       w.querySelectorAll("[data-ew]").forEach(b => b.onclick = (ev) => { ev.stopPropagation(); const k = b.dataset.ew, en = mk[k], nm = ENG[ENG_ALIAS[en] || en] || en;
