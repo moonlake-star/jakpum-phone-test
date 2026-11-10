@@ -7488,7 +7488,6 @@ function renderHighlights() {
 }
 // 노래 흔들림·삑사리(AI 참고, 2026-10-27): 오늘의베스트.json stability.events. 누르면 그 자리 앞뒤 1.5초 재생, 맞아요/아니에요는 검수.json에 저장
 const STAB_ICON = { crack: "⚡", break: "✂", wobble: "〰" };
-function stabEvents(a, b) { return (cur.best?.stability?.events || []).filter(e => e.end > a && e.start < b); }
 function wireStab(root) {
   root.querySelectorAll("[data-stabplay]").forEach(b => b.onclick = () => {
     const a = +b.dataset.stabplay, e = +b.dataset.stabend;
@@ -7789,7 +7788,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261111-0113";
+const BUILD = "20261111-0300";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
