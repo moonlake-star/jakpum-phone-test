@@ -148,5 +148,25 @@ Save as WAV file: "out.wav"
       return out;
     },
   };
+  // (11/11 사용자 '실시간 구조 재검토') 무거운 Praat 실행(분석·재합성·길이·음색)을 Web Worker로 옮김 → 화면(메인) 스레드가 멈추지 않음(폰 실측: 화면 최대 멈춤 165ms → 15ms, 처리 시간은 같음)
+  //   같은 코드를 워커 안에서 그대로 돌리므로 소리는 바뀌지 않음. 못 만들면(useWorker가 false) 예전처럼 화면 스레드에서 직접 실행.
+  const local = { analyze: Core.analyze, resynth: Core.resynth, warp: Core.warp, formantShift: Core.formantShift };
+  let W = null, seq = 0, ok = false; const pend = new Map();
+  const fail = (msg) => { for (const [, p] of pend) p.no(new Error(msg)); pend.clear(); };
+  Core.useWorker = (url, gz) => new Promise((res) => {
+    if (typeof Worker === "undefined") return res(false);
+    let w; try { w = new Worker(url); } catch { return res(false); }
+    const give = setTimeout(() => { try { w.terminate(); } catch {} res(false); }, 20000);   // 20초 안에 준비 안 되면 포기(화면 스레드로)
+    w.onmessage = (e) => { const m = e.data || {};
+      if (m.type === "ready") { clearTimeout(give); W = w; ok = true; return res(true); }
+      if (m.type === "initfail") { clearTimeout(give); try { w.terminate(); } catch {} return res(false); }
+      const p = pend.get(m.id); if (!p) return; pend.delete(m.id); if (m.err) p.no(new Error(m.err)); else p.ok(m.y); };
+    w.onerror = (e) => { clearTimeout(give); if (!ok) { try { w.terminate(); } catch {} return res(false); } W = null; ok = false; fail("Praat 워커 오류"); };   // 중간에 죽으면 진행 중이던 일은 실패(앱이 간이 소리로 계속)
+    w.postMessage({ type: "init", gz });
+  });
+  const rpc = (op, args) => new Promise((ok2, no) => { const id = ++seq; pend.set(id, { ok: ok2, no }); W.postMessage({ id, op, args }); });
+  for (const k of Object.keys(local)) Core[k] = (...a) => (W ? rpc(k, a) : local[k](...a));
+  const readyLocal = Core.ready; Core.ready = () => ok || readyLocal();
+  Core.mode = () => (ok ? "worker" : readyLocal() ? "main" : "none");
   if (typeof module !== "undefined" && module.exports) module.exports = Core; else root.PraatCore = Core;
 })(typeof self !== "undefined" ? self : this);
