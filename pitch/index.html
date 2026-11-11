@@ -385,7 +385,8 @@ summary{cursor:pointer;color:var(--ink2)}
         <div id="setBack"></div>
         <div id="setPanel">
           <div class="setHead">설정 <button class="btn sm" id="setClose">닫기</button></div>
-          <div class="sl" style="margin-top:0">효과음</div><div class="seg" id="segSfx"></div><div class="note2" id="sfxDesc"></div>
+          <div class="sl" style="margin-top:0">듣는 기기</div><div class="seg" id="segOut"></div><div class="note2" id="outDesc"></div>
+          <div class="sgroup"><div class="sl">효과음</div><div class="seg" id="segSfx"></div><div class="note2" id="sfxDesc"></div></div>
           <div class="sgroup"><div class="sl">목소리 성별</div><div class="seg" id="segVoice"></div><div class="note2">코스의 음 높이와 발성 스케일이 맞춰져요.</div></div>
           <div class="sgroup"><div class="sl" style="display:flex;justify-content:space-between">마이크 감도 <span id="sensTxt"></span></div>
           <input type="range" id="sens" min="1" max="10" value="5">
@@ -795,7 +796,7 @@ function pressKey(m) {
   P.pressed = m; P.target = m; updateTargetChip();
 }
 function releaseKey() {
-  if (P.osc) { P.osc.stop(P.ctx.currentTime + .05); P.osc = null; P.g = null; P.toneUntil = performance.now() + 350; }
+  if (P.osc) { P.osc.stop(P.ctx.currentTime + .05); P.osc = null; P.g = null; if (!P.earphone) P.toneUntil = performance.now() + 350; }
   P.pressed = null; P.pid = null;
 }
 const yToMidi = y => clamp(Math.floor(P.lowF + (P.H - y) / rowH()), 12, 108);
@@ -844,13 +845,15 @@ const CFG = Object.assign({ diff: 'normal', sfx: 'auto', rc: 55 }, (() => { try 
 CFG.diff = 'normal';   // 난이도는 한 가지(예전 쉬움 설정은 무시)
 const saveCfg = () => { try { localStorage.setItem('vn_cfg', JSON.stringify(CFG)); } catch (e) {} };
 const D = () => DF.normal;
-P.earphone = false; P.earKnown = false; P.sfxUntil = 0; P.onCfg = () => {};
+P.earphone = false; P.earKnown = false; P.earDet = false; P.earSess = null; P.sfxUntil = 0; P.onCfg = () => {};
+/* (11/11 사용자) 듣는 기기: 자동 감지는 폰마다 잘 안 될 때가 많아서 직접 고를 수 있게. 이어폰이면 피아노가 나는 동안에도 마이크를 쉬지 않고 계속 재요 */
+function applyOut() { const o = P.earSess || CFG.out || 'auto'; P.earphone = o === 'ear' ? true : o === 'spk' ? false : P.earDet; }
 const EAR_RE = /head(phone|set)|ear(phone|bud|pod)|airpods|buds|bluetooth|bt[ -]|이어폰|헤드폰|헤드셋|블루투스|wired/i;
 async function detectEar() {
   try {
     if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
     const ds = await navigator.mediaDevices.enumerateDevices(), outs = ds.filter(d => d.kind === 'audiooutput' && d.label);
-    P.earKnown = outs.length > 0; P.earphone = outs.some(d => EAR_RE.test(d.label)); renderSettings();
+    P.earKnown = outs.length > 0; P.earDet = outs.some(d => EAR_RE.test(d.label)); applyOut(); renderSettings();
   } catch (e) {}
 }
 try { if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) navigator.mediaDevices.addEventListener('devicechange', detectEar); } catch (e) {}
@@ -872,10 +875,12 @@ function sfx(kind, force) {
 function flash(col) { const st = $('#stage'), d = document.createElement('div'); d.className = 'flash'; d.style.setProperty('--fc', col || '#ffd27a'); st.appendChild(d); setTimeout(() => d.remove(), 800); }
 function renderSettings() {
   const seg = (id, items, curV, fn) => { const h = $('#' + id); h.innerHTML = items.map(([v, l]) => `<button data-v="${v}" class="${v == curV ? 'on' : ''}">${l}</button>`).join(''); h.querySelectorAll('button').forEach(b => b.onclick = () => fn(b.dataset.v)); };
+  seg('segOut', [['auto', '자동'], ['ear', '이어폰'], ['spk', '스피커']], CFG.out || 'auto', v => { CFG.out = v; P.earSess = null; saveCfg(); applyOut(); renderSettings(); });
+  $('#outDesc').textContent = (CFG.out || 'auto') === 'auto' ? (P.earphone ? '지금 이어폰으로 듣는 중이에요. 피아노가 나는 동안에도 목소리를 계속 재요.' : '스피커로 듣는 중이에요. 피아노 소리가 끝나는 대로 바로 목소리를 다시 재요. 이어폰을 꼈는데 이렇게 보이면 "이어폰"을 눌러 주세요.') : CFG.out === 'ear' ? '이어폰: 피아노가 나는 동안에도 목소리를 계속 재요. 스피커로 들으면 피아노 소리가 목소리로 잡힐 수 있어요.' : '스피커: 피아노 소리가 마이크에 섞이지 않게, 피아노가 끝나는 대로 바로 목소리를 다시 재요.';
   seg('segSfx', [['auto', '자동'], ['on', '항상 켬'], ['off', '끔']], CFG.sfx, v => { CFG.sfx = v; saveCfg(); renderSettings(); if (v !== 'off') sfx('mile'); });
   $('#sfxDesc').textContent = CFG.sfx === 'auto' ? (P.earphone ? '이어폰이 연결된 것으로 감지돼 효과음을 켰어요.' : P.earKnown ? '이어폰이 감지되지 않아 효과음은 꺼져 있어요 (화면 연출만).' : '이 브라우저에선 이어폰 연결을 알 수 없어 효과음은 꺼져 있어요. 이어폰을 쓰면 "항상 켬"을 선택하세요.') : CFG.sfx === 'on' ? '항상 재생해요. 스피커로 들으면 마이크에 섞일 수 있어요.' : '효과음 없이 화면 연출만 보여 줘요.';
 }
-renderSettings();
+applyOut(); renderSettings();
 $('#recal').onclick = () => { if (!P.mon) { toast('마이크가 켜져 있어야 맞출 수 있어요'); return; } startCal(); };
 
 /* ============ course: seeded musical line generator ============ */
@@ -958,13 +963,13 @@ function askVoice() {
 }
 /* (11/11 사용자) 코스·발성·비브라토는 피아노가 먼저 나오고 그동안 마이크를 쉬어서, 스피커로 들으면 음정이 잘 안 잡혀요 → 들어올 때 이어폰 권장 안내(이어폰이 감지되면 안 띄움, 앱을 열 때마다 한 번, '다시 보지 않기' 가능) */
 async function earHint() {
-  if (P.earphone || P.earHinted || CFG.earHintOff || !['course', 'vib'].includes(C.mode) || $('#voicePop') || $('#freePop') || $('#earPop')) return;
+  if (P.earphone || P.earHinted || CFG.earHintOff || (CFG.out || 'auto') !== 'auto' || !['course', 'vib'].includes(C.mode) || $('#voicePop') || $('#freePop') || $('#earPop')) return;
   P.earHinted = true; await detectEar();   // 방금 꽂은 이어폰도 확인한 뒤에 판단
   if (P.earphone || !['course', 'vib'].includes(C.mode) || $('#voicePop') || $('#freePop') || $('#earPop')) { if (!P.earphone) P.earHinted = false; return; }
   const d = document.createElement('div'); d.id = 'earPop'; d.style.cssText = 'position:fixed;inset:0;z-index:80;background:rgba(10,12,14,.84);display:flex;align-items:center;justify-content:center;padding:20px';
-  d.innerHTML = '<div class="vpc"><b>🎧 이어폰을 연결해 주세요</b><div class="note2" style="margin-top:10px;line-height:1.6">이 연습은 피아노 소리가 먼저 나와요.<br>스피커로 들으면 피아노 소리 때문에<br>내 음정이 잘 잡히지 않을 수 있어요.</div><div class="seg"><button type="button" id="earOk" style="grid-column:1/-1">확인했어요</button></div><button type="button" id="earOff" class="btn sm" style="margin-top:12px;background:none;border:0;color:#ffd27a;text-decoration:underline">다시 보지 않기</button></div>';
+  d.innerHTML = '<div class="vpc"><b>🎧 이어폰을 연결해 주세요</b><div class="note2" style="margin-top:10px;line-height:1.6">이 연습은 피아노 소리가 먼저 나와요.<br>스피커로 들으면 피아노 소리 때문에<br>내 음정이 잘 잡히지 않을 수 있어요.</div><div class="seg"><button type="button" id="earOk">이어폰 끼고 할게요</button><button type="button" id="earSpk">스피커로 할게요</button></div><button type="button" id="earOff" class="btn sm" style="margin-top:12px;background:none;border:0;color:#ffd27a;text-decoration:underline">다시 보지 않기</button></div>';
   document.body.appendChild(d); const done = () => d.remove();
-  $('#earOk').onclick = done; $('#earOff').onclick = () => { CFG.earHintOff = 1; saveCfg(); done(); }; d.addEventListener('pointerdown', e => { if (e.target === d) done(); });
+  $('#earOk').onclick = () => { P.earSess = 'ear'; applyOut(); renderSettings(); done(); }; $('#earSpk').onclick = () => { P.earSess = 'spk'; applyOut(); renderSettings(); done(); }; $('#earOff').onclick = () => { CFG.earHintOff = 1; saveCfg(); done(); }; d.addEventListener('pointerdown', e => { if (e.target === d) done(); });
 }
 /* (11/05 사용자) 자유 연습 처음 들어가면 한 번: 편한 음정으로 시작하라는 안내 팝업 */
 function freeHint() {
@@ -1575,7 +1580,10 @@ function guideTone(m, dur, at, hold, keepMic, vol) {
   try {
     const ctx = actx(), t0 = ctx.currentTime + at;
     pianoVoice(ctx, mFreq(m), t0, { dur, vol: vol || (keepMic ? .4 : .6), hold });
-    if (!P.earphone && !at && !keepMic) P.toneUntil = Math.max(P.toneUntil, performance.now() + dur * 1000 + 120);   // speaker: the mic would hear the guide tone
+    if (!P.earphone && !at && !keepMic) {   // speaker: the mic would hear the guide tone
+      if (!P.chordM) P.chordM = { t: performance.now(), mic: 0, ref: 0 };   // (11/11 사용자) 코스 안내음으로도 '되돌아오는 비율(k)'을 배워요
+      if (P.k == null) P.toneUntil = Math.max(P.toneUntil, performance.now() + dur * 1000 + 120);   // k를 모를 때만 통째로 쉬고, 알면 분리 감지가 피아노보다 큰 소리(목소리)를 바로 재요
+    }
   } catch (e) {}
 }
 function guideChord(m, dur) {                                  // do-mi-sol: the tonic triad of the coming repetition
@@ -1597,13 +1605,13 @@ function guideNote(n, first, now) {
     const now0 = performance.now();
     /* (11/05 사용자) 발성: 피아노는 더 크게(0.9), 짧게 끊지 않고 레가토로 — 막대 길이만큼 이어서 다음 음과 살짝 겹쳐요. 스피커에서 마이크로 되돌아오는 소리는 '분리 감지'(코드로 배운 k)가 걸러요 */
     const pd = n.d + .08;
-    if (n.pre) { guideChord(n.m, Math.min(1.5, n.pre - .1));   /* (11/11 사용자) 코드를 충분히 들려주기: 최대 1.5초, 첫 음 0.1초 전까지만 울림 */ guideTone(n.m, pd, n.pre, true, true, .9); P.toneUntil = Math.max(P.toneUntil, now0 + (n.pre + PING_MUTE) * 1000); n.mute = PING_MUTE; return; }
+    if (n.pre) { guideChord(n.m, Math.min(1.5, n.pre - .1));   /* (11/11 사용자) 코드를 충분히 들려주기: 최대 1.5초, 첫 음 0.1초 전까지만 울림 */ guideTone(n.m, pd, n.pre, true, true, .9); if (!P.earphone) P.toneUntil = Math.max(P.toneUntil, now0 + (n.pre + PING_MUTE) * 1000); n.mute = P.earphone ? 0 : PING_MUTE; return; }
     guideTone(n.m, pd, 0, true, true, .9); n.mute = 0; return;
   }
   if (n.pre) { guideTone(n.m, .8); n.mute = 0; return; }
-  if (first) { const dur = firstPv(n); guideTone(n.m, dur); n.mute = dur + .12; return; }   // (11/11 사용자) 첫 음만 앞에 길게 나오던 안내음 → 다른 음과 같은 방식(짧은 첫 음도 시작음은 꼭 들려줌)
+  if (first) { const dur = firstPv(n); guideTone(n.m, dur); n.mute = P.earphone ? 0 : dur + .12; return; }   // (11/11 사용자) 첫 음만 앞에 길게 나오던 안내음 → 다른 음과 같은 방식(짧은 첫 음도 시작음은 꼭 들려줌)
   if (n.d < .75) return;                                         // short notes: no room for a guide tone
-  const dur = clamp(n.d * .4, .5, .7); guideTone(n.m, dur); n.mute = dur + .12;
+  const dur = clamp(n.d * .4, .5, .7); guideTone(n.m, dur); n.mute = P.earphone ? 0 : dur + .12;
 }
 const courseRef = () => { const L = C.line, n = L.notes[Math.min(C.i, L.notes.length - 1)]; return n.m; };
 async function startStage(loop) {

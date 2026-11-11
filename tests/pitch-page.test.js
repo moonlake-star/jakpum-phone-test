@@ -127,7 +127,7 @@ console.log("pitch-page ok");
   assert.ok(src.includes("function pianoVoice(") && src.includes("createPeriodicWave") && src.includes("createDynamicsCompressor"), "피아노 음색 + 컴프레서");
   assert.ok(!src.includes("o.type = 'sine'; o.frequency.value = mFreq(m)"), "사인파 안내음 제거");
   assert.ok(src.includes("function guideChord(") && src.includes("[0, 4, 7].forEach(d => pianoVoice("), "도미솔 코드");
-  assert.ok(src.includes("const PING = .14, PING_MUTE = .2;") && src.includes("guideTone(n.m, pd, n.pre, true, true, .9); P.toneUntil = Math.max(P.toneUntil, now0 + (n.pre + PING_MUTE) * 1000); n.mute = PING_MUTE; return; }") && src.includes("guideTone(n.m, pd, 0, true, true, .9); n.mute = 0; return;") && !src.includes("if (P.earphone) guideTone(n.m, n.d, 0, true);"), "스케일: 코드 1회 + 음마다 짧은 피아노(스피커). 이어폰이면 막대 길이만큼 이어짐(11/05 사용자 승인), 스피커 구간은 마이크·점수 제외");
+  assert.ok(src.includes("const PING = .14, PING_MUTE = .2;") && src.includes("guideTone(n.m, pd, n.pre, true, true, .9); if (!P.earphone) P.toneUntil = Math.max(P.toneUntil, now0 + (n.pre + PING_MUTE) * 1000); n.mute = P.earphone ? 0 : PING_MUTE; return; }") && src.includes("guideTone(n.m, pd, 0, true, true, .9); n.mute = 0; return;") && !src.includes("if (P.earphone) guideTone(n.m, n.d, 0, true);"), "스케일: 코드 1회 + 음마다 짧은 피아노(스피커). 이어폰이면 막대 길이만큼 이어짐(11/05 사용자 승인), 스피커 구간은 마이크·점수 제외");
   assert.ok(src.includes("const COUNT_IN = 1.5;") && src.includes("C.t = loop === true ? -.8 : -COUNT_IN;"), "시작 대기 1.5초");
   console.log("pitch-page: 피아노 음색·스케일 안내 ok");
 }
@@ -301,7 +301,16 @@ console.log("pitch-page ok");
 /* (11/11 사용자) 첫 음 안내음도 다른 음처럼 막대 안에서 / 코스·발성·비브라토 진입 시 이어폰 권장 팝업 */
 { const sF = fs.readFileSync(__dirname + "/../pitch/index.html", "utf8");
   assert.ok(!sF.includes("Math.min(1.1, Math.max(.4, n.t0 - .05))"), "첫 음 앞 빈 구간 안내음 없음");
-  assert.ok(sF.includes("if (i === 0) return [n.t0, n.t0 + firstPv(n) + .12];") && sF.includes("const dur = firstPv(n); guideTone(n.m, dur); n.mute = dur + .12;"), "첫 음 = 막대 안 안내음");
+  assert.ok(sF.includes("if (i === 0) return [n.t0, n.t0 + firstPv(n) + .12];") && sF.includes("const dur = firstPv(n); guideTone(n.m, dur); n.mute = P.earphone ? 0 : dur + .12;"), "첫 음 = 막대 안 안내음");
   assert.ok(sF.includes("if (n && !n.guided && c.t >= n.t0 - (n.pre || 0) - .02) guideNote("), "첫 음도 제 시간에 안내");
   assert.ok(sF.includes("async function earHint()") && sF.includes("if (v === 'course' || v === 'vib') setTimeout(earHint, 0);") && sF.includes("CFG.earHintOff = 1") && sF.includes("이어폰을 연결해 주세요"), "이어폰 권장 팝업");
   console.log("pitch-page: 첫 음 같은 길이·이어폰 권장 ok"); }
+
+/* (11/11 사용자) 이어폰이면 피아노 중에도 계속 측정·표시, 스피커는 k를 알면 고정 쉼 없이 분리 감지로 바로 측정 */
+{ const sE = fs.readFileSync(__dirname + "/../pitch/index.html", "utf8");
+  assert.ok(sE.includes("function applyOut()") && sE.includes("seg('segOut', [['auto', '자동'], ['ear', '이어폰'], ['spk', '스피커']]") && sE.includes('id="segOut"'), "듣는 기기 직접 선택");
+  assert.ok(sE.includes("$('#earOk').onclick = () => { P.earSess = 'ear';") && sE.includes("P.earSess = 'spk'"), "팝업에서 이어폰/스피커 선택");
+  assert.ok(sE.includes("if (!P.earphone) P.toneUntil = Math.max(P.toneUntil, now0 + (n.pre + PING_MUTE) * 1000);") && sE.includes("if (!P.earphone) P.toneUntil = performance.now() + 350;"), "이어폰이면 마이크 쉬지 않음");
+  assert.ok(sE.includes("if (P.k == null) P.toneUntil = Math.max(P.toneUntil, performance.now() + dur * 1000 + 120);") && sE.includes("if (!P.chordM) P.chordM = { t: performance.now(), mic: 0, ref: 0 };"), "스피커: k를 알면 분리 감지로 바로 측정");
+  assert.ok(sE.includes("n.mute = P.earphone ? 0 : dur + .12;"), "이어폰이면 안내음 구간도 점수에 포함");
+  console.log("pitch-page: 이어폰 계속 측정·스피커 빠른 복귀 ok"); }
