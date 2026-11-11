@@ -21,5 +21,5 @@ assert.ok(T.includes("    audioIdle();\n    return new Promise(r => setTimeout(r
 // 건반 소리·연습 천재
 assert.ok(U.includes("toneIdle") && U.includes('toneCtx.state === "running") toneCtx.suspend()') && U.includes("toneNow = null; toneIdle();"), "건반 소리 뒤 쉬게");
 assert.ok(P.includes("stopMonitor(); try { if (P.ctx && P.ctx.state === 'running') P.ctx.suspend(); } catch (e) {} }"), "연습 천재: 다른 앱으로 가면 마이크·소리 장치 놓기");
-assert.ok(P.includes("function actx() { if (!P.ctx) P.ctx = new (window.AudioContext || window.webkitAudioContext)(); if (P.ctx.state === 'suspended') P.ctx.resume();"), "쓸 때 깨움");
+assert.ok(P.includes("function actx() { if (!P.ctx) { P.ctx = new (window.AudioContext || window.webkitAudioContext)(); loadPianoSmp(P.ctx); } if (P.ctx.state === 'suspended') P.ctx.resume();"), "쓸 때 깨움");
 console.log("audio-release: ok");

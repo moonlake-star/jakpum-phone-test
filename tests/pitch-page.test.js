@@ -7,7 +7,8 @@ assert.ok(!/XMLHttpRequest|sendBeacon|WebSocket|createMediaStreamDestination/.te
 // 녹음은 '기록 도전'만, 폰 안에만 쌓고 사용자가 고른 것만 제출(자동 전송 없음)
 assert.ok(src.includes("MediaRecorder") && src.includes("function recSubmit(") && src.includes("pitch_rec_put") && src.includes("openModal(`<h3 style=\"margin-top:0\">선생님께 녹음을 제출할까요?"), "녹음 제출은 확인 팝업 뒤에만");
 // 네트워크 전송은 '수강생 앱에서 연 내 계정 모드'의 날짜별 요약 한 곳뿐
-assert.strictEqual((src.match(/\bfetch\(/g) || []).length, 2, "fetch는 요약 전송·녹음 제출 두 곳만");
+assert.strictEqual((src.match(/\bfetch\(/g) || []).length, 3, "fetch는 요약 전송·녹음 제출 두 곳 + 같은 사이트의 피아노 녹음 파일 받기(11/11)만");
+assert.ok(src.includes("fetch('piano/' + k + o + '.mp3')"), "피아노 파일은 같은 사이트에서만 받아요(보내는 것 없음)");
 assert.ok(src.includes("fetch(PORTAL_URL, { method: 'POST'") && src.includes("action: 'pitch_save'") && src.includes("if (!SN || P.syncing) return;"), "요약 전송은 내 계정 모드에서만");
 assert.ok(src.includes("const PORTAL_URL = 'https://script.google.com/macros/s/") && require("fs").readFileSync(__dirname + "/../student/index.html", "utf8").includes(src.match(/const PORTAL_URL = '([^']+)'/)[1]), "전송 주소는 수강생 앱과 같은 노트 서버");
 assert.ok(/name="robots" content="noindex"/.test(src), "검색 노출 금지");
@@ -319,3 +320,9 @@ console.log("pitch-page ok");
 { const gs = genScale({ k: 'tri', g: 'm' }, 'normal'), n0 = gs.notes[0], step = gs.notes[1].t0 - n0.t0;
   assert.ok(Math.abs(n0.pre - 2 * step) < 1e-9 && n0.cd > 0 && n0.cd <= step * .5 && n0.pre - n0.cd >= step * 1.5, "코드 반 박 이내(짧게), 첫 음까지 1.5박 이상 빈틈");
   console.log("pitch-page: 코드-첫 음 간격 ok"); }
+
+/* (11/11 사용자 'B로 바꿔') 연습 피아노 = 실제 피아노 녹음(없으면 합성으로) */
+{ const sP = fs.readFileSync(__dirname + "/../pitch/index.html", "utf8");
+  assert.ok(sP.includes("function loadPianoSmp(ctx)") && sP.includes("loadPianoSmp(P.ctx)") && sP.includes("const s = ctx.createBufferSource()") && sP.includes("CC-BY 3.0"), "녹음 피아노 + 출처");
+  for (let o = 2; o <= 5; o++) for (const k of ["C", "Ds", "Fs", "A"]) assert.ok(fs.existsSync(__dirname + "/../pitch/piano/" + k + o + ".mp3"), "샘플 " + k + o);
+  console.log("pitch-page: 녹음 피아노 ok"); }

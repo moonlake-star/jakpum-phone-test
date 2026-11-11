@@ -392,6 +392,7 @@ summary{cursor:pointer;color:var(--ink2)}
           <input type="range" id="sens" min="1" max="10" value="5">
           <div class="note2">연습 화면에 들어오면 주변 소리를 잠깐 듣고 자동으로 맞춰요. 그래도 안 맞으면 여기서 조절하세요. 이어폰을 쓰면 건반 소리가 마이크에 섞이지 않아요.</div>
           <button class="btn sm" id="recal" style="margin-top:8px">주변 소리 다시 맞추기</button></div>
+          <div class="note2" style="margin-top:14px;opacity:.7">피아노 소리: tonejs-instruments (N. Brosowsky), CC-BY 3.0</div>
         </div>
         <p class="hint" id="hint"></p>
       </div>
@@ -669,7 +670,16 @@ const P = { running: false, ctx: null, stream: null, an: null, buf: null, raf: 0
 const cv = $('#roll'), g2 = cv.getContext('2d');
 P.mon = false; P.monBusy = false; P.monDenied = false; P.monOff = false;
 
-function actx() { if (!P.ctx) P.ctx = new (window.AudioContext || window.webkitAudioContext)(); if (P.ctx.state === 'suspended') P.ctx.resume(); return P.ctx; }
+function actx() { if (!P.ctx) { P.ctx = new (window.AudioContext || window.webkitAudioContext)(); loadPianoSmp(P.ctx); } if (P.ctx.state === 'suspended') P.ctx.resume(); return P.ctx; }
+/* (11/11 사용자 'B로 바꿔') 실제 피아노 녹음: 단3도마다 1개(C·D#·F#·A, 2~5옥타브 16개, 약 0.6MB)를 불러와 가까운 녹음을 살짝 높이·낮춰 써요.
+   다 불러오기 전(또는 실패하면)은 예전 합성 피아노로 나와요. 녹음: tonejs-instruments(nbrosowsky) piano, CC-BY 3.0 */
+const PIANO_SMP = { C: 0, Ds: 3, Fs: 6, A: 9 }, PSMP = {};
+function loadPianoSmp(ctx) {
+  if (P.smpLoad) return; P.smpLoad = true;
+  for (let o = 2; o <= 5; o++) for (const k in PIANO_SMP) { const m = 12 * (o + 1) + PIANO_SMP[k];
+    fetch('piano/' + k + o + '.mp3').then(r => r.ok ? r.arrayBuffer() : Promise.reject()).then(b => new Promise((ok, no) => ctx.decodeAudioData(b, ok, no))).then(buf => { PSMP[m] = buf; }).catch(() => {}); }
+}
+function smpNear(m) { let b = null; for (const k in PSMP) { const km = +k; if (b == null || Math.abs(km - m) < Math.abs(b - m)) b = km; } return b != null && Math.abs(b - m) <= 2 ? b : null; }
 
 function resize() {
   const st = $('#stage'), r = st.getBoundingClientRect(); if (!r.width) return;
@@ -781,7 +791,15 @@ function pianoWave(ctx, f) {
   return ctx.createPeriodicWave(re, im);
 }
 function pianoVoice(ctx, f, t0, o) {
-  o = o || {}; const g = ctx.createGain(), w = pianoWave(ctx, f), vol = o.vol || .5, A = .006, hold = !!o.hold;
+  o = o || {};
+  { const m = 69 + 12 * Math.log2(f / 440), b = smpNear(Math.round(m));
+    if (b != null) {   // 녹음 피아노
+      const s = ctx.createBufferSource(), g = ctx.createGain(), vol = (o.vol || .5) * 2.4; s.buffer = PSMP[b]; s.playbackRate.value = Math.pow(2, (m - b) / 12);
+      g.gain.setValueAtTime(vol, t0); s.connect(g); g.connect(pianoOut(ctx)); s.start(t0);
+      const v = { f, stop(at) { at = Math.max(at, ctx.currentTime); try { g.gain.cancelScheduledValues(at); g.gain.setTargetAtTime(0, at, .05); s.stop(at + .4); } catch (e) {} setTimeout(() => { try { g.disconnect(); } catch (e) {} }, (at - ctx.currentTime) * 1000 + 600); } };
+      if (o.dur) v.stop(t0 + o.dur);
+      return v;
+    } } const g = ctx.createGain(), w = pianoWave(ctx, f), vol = o.vol || .5, A = .006, hold = !!o.hold;
   const oscs = [0, 4].map(c => { const s = ctx.createOscillator(); s.setPeriodicWave(w); s.frequency.value = f; s.detune.value = c; s.connect(g); s.start(t0); return s; });
   g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(vol, t0 + A); g.gain.setTargetAtTime(vol * (hold ? .5 : .14), t0 + A, hold ? .4 : .22);
   g.connect(pianoOut(ctx));
