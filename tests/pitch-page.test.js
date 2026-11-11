@@ -297,3 +297,11 @@ console.log("pitch-page ok");
   const srcH = fs.readFileSync(__dirname + "/../pitch/index.html", "utf8");
   assert.ok(srcH.includes("const HOLD_TRIM = 1;") && srcH.includes("* LM - HOLD_TRIM;"), "코스 1단계 1초 줄임");
   console.log("pitch-page: 발성 박자 미룸·코스1 길이 ok"); }
+
+/* (11/11 사용자) 첫 음 안내음도 다른 음처럼 막대 안에서 / 코스·발성·비브라토 진입 시 이어폰 권장 팝업 */
+{ const sF = fs.readFileSync(__dirname + "/../pitch/index.html", "utf8");
+  assert.ok(!sF.includes("Math.min(1.1, Math.max(.4, n.t0 - .05))"), "첫 음 앞 빈 구간 안내음 없음");
+  assert.ok(sF.includes("if (i === 0) return [n.t0, n.t0 + firstPv(n) + .12];") && sF.includes("const dur = firstPv(n); guideTone(n.m, dur); n.mute = dur + .12;"), "첫 음 = 막대 안 안내음");
+  assert.ok(sF.includes("if (n && !n.guided && c.t >= n.t0 - (n.pre || 0) - .02) guideNote("), "첫 음도 제 시간에 안내");
+  assert.ok(sF.includes("async function earHint()") && sF.includes("if (v === 'course' || v === 'vib') setTimeout(earHint, 0);") && sF.includes("CFG.earHintOff = 1") && sF.includes("이어폰을 연결해 주세요"), "이어폰 권장 팝업");
+  console.log("pitch-page: 첫 음 같은 길이·이어폰 권장 ok"); }
