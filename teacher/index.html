@@ -5004,7 +5004,7 @@ function pvClusterRatio(cv, cl, dry, lvCol, sr, i0, n) {   // 덩어리 안 칸�
   const fps = cv.fps || 25, raw = pvBins(cv, 1), ren = pvBins(cv, lvCol), m = new Map(), k0 = Math.floor(i0 / sr * fps) - 1, k1 = Math.ceil((i0 + n) / sr * fps) + 1;
   for (let k = k0; k <= k1; k++) { const tk = k / fps, f = cl.fx.find(x => tk >= x.t0 - 0.001 && tk <= x.t1 + 0.001), r0 = raw.get(k), rk = ren.get(k); let cor = 0;
     if (f && f.off) cor = dry ? 0 : (r0 != null && rk != null ? r0 - rk : 0);   // (11/09) 🎤 원음 = 부른 그대로
-    else if (f) { if (dry) { if (r0 == null) continue; let s_ = 0, c_ = 0; for (let d = -2; d <= 2; d++) { const x = raw.get(k + d); if (x != null) { s_ += x; c_++; } }
+    else if (f) { if (dry) { if (r0 == null) continue; let s_ = 0, c_ = 0; for (let d = -2; d <= 2; d++) { const td = (k + d) / fps; if (td < f.t0 - 0.001 || td > f.t1 + 0.001) continue; const x = raw.get(k + d); if (x != null) { s_ += x; c_++; } }   /* (11/11 사용자 '끝이 날카롭게 튐') 평균은 그 음 안의 칸만 — 옆 음 칸이 섞이면 음 끝에서 평균이 끌려가 보정량이 갑자기 커짐 */
         cor = f.midi * 100 - s_ / c_; if (Math.abs(cor) < 8 && Number.isInteger(f.midi)) cor = 0; /* 센트로 고친 곳은 작은 차이도 반영 */ cor = Math.max(-1200, Math.min(1200, cor)); /* (11/03) 2반음 넘게도 */ }
       else { const rm = mkPv.rendered(f); cor = rm != null ? (f.midi - rm) * 100 : r0 != null ? Math.max(-1200, Math.min(1200, f.midi * 100 - r0)) : 0; } }   // 정음이 없던 곳(서버가 안 건드림) = 부른 높이에서 바로
     else if (dry && r0 != null && rk != null) cor = rk - r0;   // 사이 빈 곳: 서버가 만든 높이 그대로
@@ -5069,7 +5069,7 @@ function pvTotalBins(cv, lvCol, cls, mp) {   // 칸마다 '보정 전 소리(p0)
   const adv = mp && mp.any ? mp.delta : null, K = (cv.levels || []).length ? 2 + cv.levels.length - 1 : 0;
   for (const [k, r0] of raw) { const tk = k / fps, f = fxs.find((x) => tk >= x.t0 - 0.001 && tk <= x.t1 + 0.001), rk = ren.get(k); let cor = null;
     if (f && f.off) cor = 0;   // (11/09) 🎤 원음 = 보정 안 함
-    else if (f) { let s_ = 0, c_ = 0; for (let d = -2; d <= 2; d++) { const x = raw.get(k + d); if (x != null) { s_ += x; c_++; } }
+    else if (f) { let s_ = 0, c_ = 0; for (let d = -2; d <= 2; d++) { const td = (k + d) / fps; if (td < f.t0 - 0.001 || td > f.t1 + 0.001) continue; const x = raw.get(k + d); if (x != null) { s_ += x; c_++; } }   /* (11/11 사용자 '끝이 날카롭게 튐') 평균은 그 음 안의 칸만 — 옆 음 칸이 섞이면 음 끝에서 평균이 끌려가 보정량이 갑자기 커짐 */
       cor = f.midi * 100 - s_ / c_; if (Math.abs(cor) < 8 && Number.isInteger(f.midi)) cor = 0; cor = Math.max(-1200, Math.min(1200, cor)); if (adv && lvCol === K && adv.get(k) != null) cor += adv.get(k); }
     else if (rk != null) cor = rk - r0;
     if (cor != null) m.set(k, cor); }
