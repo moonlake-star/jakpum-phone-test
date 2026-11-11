@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>피아노 소리 비교 · 보컬노트</title>
+<style>
+body{margin:0;background:#15191d;color:#e8ecf1;font:16px/1.6 system-ui,sans-serif}
+main{max-width:460px;margin:0 auto;padding:22px 18px 40px}
+h1{font-size:21px;margin:0 0 6px}
+p{color:#9aa5b1;margin:0 0 18px;font-size:14px}
+.card{background:#1f252b;border:1px solid #2f3740;border-radius:16px;padding:16px;margin-bottom:16px}
+.card b{font-size:18px}
+.card .sub{color:#9aa5b1;font-size:13px;margin:2px 0 12px}
+button{display:block;width:100%;height:58px;margin-top:10px;border:1px solid #3a444e;border-radius:14px;background:#2a3138;color:#fff;font-size:17px;font-weight:700}
+button:active{background:#3a444e}
+.new button{background:#e48d16;color:#2b1800;border-color:#e48d16}
+.st{color:#ffd27a;font-size:13px;margin-top:10px;min-height:20px}
+</style>
+</head>
+<body>
+<main>
+<h1>🎹 피아노 소리 비교</h1>
+<p>같은 연습(코드 '짠' → 3음 왕복)을 두 가지 소리로 들어 보세요. 이어폰으로 들으면 차이가 더 잘 들려요.</p>
+
+<div class="card">
+  <b>A. 지금 소리</b>
+  <div class="sub">앱 안에서 만든 합성 피아노(지금 연습 화면 소리)</div>
+  <button data-s="syn" data-p="low">남성 음역 (C3)</button>
+  <button data-s="syn" data-p="high">여성 음역 (A3)</button>
+</div>
+
+<div class="card new">
+  <b>B. 실제 피아노 녹음</b>
+  <div class="sub">실제 그랜드 피아노를 녹음한 소리</div>
+  <button data-s="smp" data-p="low">남성 음역 (C3)</button>
+  <button data-s="smp" data-p="high">여성 음역 (A3)</button>
+  <div class="st" id="st">소리 불러오는 중…</div>
+</div>
+</main>
+<script>
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const mFreq = m => 440 * Math.pow(2, (m - 69) / 12);
+let ctx = null, out = null;
+function actx() {
+  if (!ctx) {
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const pre = ctx.createGain(); pre.gain.value = 1.8;
+    const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -12; comp.knee.value = 8; comp.ratio.value = 12; comp.attack.value = .003; comp.release.value = .2;
+    pre.connect(comp); comp.connect(ctx.destination); out = pre;
+  }
+  if (ctx.state !== 'running') ctx.resume();
+  return ctx;
+}
+/* A: 지금 연습 화면과 같은 합성 피아노 (pitch/index.html 의 pianoWave·pianoVoice 와 같은 계산) */
+function pianoWave(f) {
+  const N = 12, re = new Float32Array(N + 1), im = new Float32Array(N + 1), low = clamp((260 - f) / 150, 0, 1);
+  for (let k = 1; k <= N; k++) { let a = Math.pow(k, -1.15); if (k === 1) a *= 1 - .75 * low; else if (k <= 6) a *= 1 + 1.6 * low; if (f * k > 7000) a = 0; im[k] = a; }
+  return ctx.createPeriodicWave(re, im);
+}
+function synVoice(m, t0, dur, vol, hold) {
+  const f = mFreq(m), g = ctx.createGain(), w = pianoWave(f), A = .006;
+  const oscs = [0, 4].map(c => { const s = ctx.createOscillator(); s.setPeriodicWave(w); s.frequency.value = f; s.detune.value = c; s.connect(g); s.start(t0); return s; });
+  g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(vol, t0 + A); g.gain.setTargetAtTime(vol * (hold ? .5 : .14), t0 + A, hold ? .4 : .22);
+  g.gain.setTargetAtTime(0, t0 + dur, .035); oscs.forEach(s => s.stop(t0 + dur + .3)); g.connect(out);
+}
+/* B: 실제 피아노 녹음 — 단3도마다 한 개씩 녹음(16개)을 불러와 가까운 녹음을 살짝 높이·낮춰 써요 */
+const SMP = { C: 0, Ds: 3, Fs: 6, A: 9 }, BUF = {};
+const names = []; for (let o = 2; o <= 5; o++) for (const k in SMP) names.push([k + o, 12 * (o + 1) + SMP[k]]);
+let loaded = 0;
+async function loadAll() {
+  actx();
+  await Promise.all(names.map(async ([n, m]) => { const r = await fetch('piano/' + n + '.mp3'); BUF[m] = await ctx.decodeAudioData(await r.arrayBuffer()); loaded++; }));
+  document.getElementById('st').textContent = '준비됐어요';
+}
+function smpVoice(m, t0, dur, vol) {
+  let best = null; for (const k in BUF) { const km = +k; if (best == null || Math.abs(km - m) < Math.abs(best - m)) best = km; }
+  if (best == null) return;
+  const s = ctx.createBufferSource(), g = ctx.createGain(); s.buffer = BUF[best]; s.playbackRate.value = Math.pow(2, (m - best) / 12);
+  g.gain.setValueAtTime(vol * 1.6, t0); g.gain.setTargetAtTime(0, t0 + dur, .08);
+  s.connect(g); g.connect(out); s.start(t0); s.stop(t0 + dur + .6);
+}
+/* 발성 화면과 같은 박자: 코드 0.4박 '짠' → 2박 뒤 첫 음 → 1박 간격 1-2-3-2-1, 1박 = 0.465초 ÷ 0.55(기본 속도) */
+function play(kind, base) {
+  actx(); if (kind === 'smp' && loaded < names.length) { document.getElementById('st').textContent = '아직 불러오는 중이에요. 잠시 뒤 다시 눌러 주세요'; return; }
+  const B = .465 / .55, t = ctx.currentTime + .1, iv = [0, 2, 4, 2, 0];
+  const v = kind === 'syn' ? synVoice : smpVoice;
+  [0, 4, 7].forEach(d => v(base + d, t, B * .4, .36, true));
+  iv.forEach((d, i) => v(base + d, t + 2 * B + i * B, i === iv.length - 1 ? .8 / .55 : B - .045 + .08, .9 * .5, true));
+}
+document.querySelectorAll('button').forEach(b => b.onclick = () => play(b.dataset.s, b.dataset.p === 'low' ? 48 : 57));
+document.addEventListener('pointerdown', () => { if (!loaded) loadAll().catch(() => { document.getElementById('st').textContent = '소리를 불러오지 못했어요. 새로고침해 주세요'; }); }, { once: true });
+document.getElementById('st').textContent = '버튼을 누르면 소리를 불러와요';
+</script>
+</body>
+</html>
