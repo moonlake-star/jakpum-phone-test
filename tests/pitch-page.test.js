@@ -141,7 +141,7 @@ console.log("pitch-page ok");
 
 // 영상 박자 스케일(코드 1회 → 0.465초 간격 1-3-5-8-8-8-8-5-3-1 → 약 5.6초마다 +1반음) + 스케일 전용 화면
 {
-  assert.ok(src.includes("const SC_PRE = .53, SC_STEP = .465, SC_LAST = .8, SC_NEXT = .885;"), "영상 박자 상수");
+  assert.ok(src.includes("const SC_STEP = .465, SC_LAST = .8, SC_PRE_BEATS = 2, SC_NEXT_BEATS = 2, SC_PRE = SC_STEP * SC_PRE_BEATS, SC_NEXT = SC_STEP * SC_NEXT_BEATS;"), "박자 상수: 코드 뒤 2박, 마지막 음 뒤 2박(11/11 사용자)");
   assert.ok(src.includes("iv: [0, 4, 7, 12, 12, 12, 12, 7, 4, 0]") && src.includes("? o.k : 'tri'"), "기본 스케일 = 3음(11/05 사용자)");
   assert.ok(src.includes("n.gr != null ? n.gr : D().grace") && src.includes("Math.max(n.gr != null ? .12 : .25"), "음별 여유 시간");
   assert.ok(src.includes("#v-practice.scaleView #segMode{order:-1}") && src.includes("id=\"scHead\"") && src.includes("classList.toggle('scaleView', sv)"), "스케일 전용 화면");
@@ -267,7 +267,7 @@ console.log("pitch-page ok");
 
 /* (11/05 사용자) 발성 스케일: 코드 소리 길이 2배(0.48→0.96초), 끝까지 울리게, 첫 음 시작을 넘지 않게 */
 { const srcC = fs.readFileSync(__dirname + "/../pitch/index.html", "utf8");
-  assert.ok(srcC.includes("guideChord(n.m, Math.min(.96, n.pre));"), "코드 길이 0.96초(첫 음 전까지)");
+  assert.ok(srcC.includes("guideChord(n.m, Math.min(1.5, n.pre - .1));"), "코드 최대 1.5초(첫 음 전까지, 11/11 사용자)");
   assert.ok(srcC.includes("{ dur, vol: .36, hold: true }"), "코드는 끝까지 울림"); }
 
 /* (11/05 사용자) 비브라토 화면 상하 다이어트: 점수 줄·아래 안내 줄 접기(파형 칸 안에 같은 안내 있음) */
@@ -287,3 +287,13 @@ console.log("pitch-page ok");
 { const sB = fs.readFileSync(__dirname + "/../pitch/index.html", "utf8");
   assert.ok(sB.includes("#segMode.seg.big button{height:50px;font-size:18px;font-weight:800") && sB.includes("#segMode.seg.big button.on{background:var(--accent);border-color:#ffd27a"), "메인 4개 버튼 크게·밝게·선택 강조");
   assert.ok(!sB.includes("#v-practice.vibView .seg.big button{height:38px}"), "예전 줄임 규칙 제거"); }
+
+/* (11/11 사용자) 발성: 코드 → 첫 음, 마지막 음 → 다음 코드가 박자(1박 = 음 간격)의 정확히 2배. 코스 1단계 음 길이 1초 줄임 */
+{ const gs = genScale({ k: 'tri', g: 'm' }, 'normal'), N = gs.notes, step = N[1].t0 - N[0].t0;
+  assert.ok(Math.abs(N[0].pre - 2 * step) < 1e-9, "코드~첫 음 = 2박");
+  const r1 = N.findIndex(n => n.rep === 1), lastR0 = N[r1 - 1];
+  assert.ok(Math.abs((N[r1].t0 - N[r1].pre) - lastR0.t0 - 2 * step) < 1e-9, "마지막 음~다음 키 코드 = 2박");
+  assert.ok(lastR0.t0 + lastR0.d < N[r1].t0 - N[r1].pre, "마지막 음은 다음 코드 전에 끝나요");
+  const srcH = fs.readFileSync(__dirname + "/../pitch/index.html", "utf8");
+  assert.ok(srcH.includes("const HOLD_TRIM = 1;") && srcH.includes("* LM - HOLD_TRIM;"), "코스 1단계 1초 줄임");
+  console.log("pitch-page: 발성 박자 미룸·코스1 길이 ok"); }
