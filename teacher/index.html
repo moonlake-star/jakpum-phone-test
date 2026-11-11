@@ -5041,7 +5041,7 @@ function pvAdvMaps(cv, lvCol) {   // 보정본 열: [처음 선(소리의 높이
 }
 // (11/06 사용자 '서버 프로세싱과 완전 동일하게') 고친 음정은 폰 안에서 서버와 같은 엔진(Praat, WebAssembly)으로 다시 만들어 끼움
 // 먼저 지금처럼 간이 합성(PSOLA)으로 바로 들려주고, Praat이 준비되면(처음 약 7MB 내려받기, 구간당 0.2~0.5초) 같은 구간을 서버 소리로 바꿔 끼움 · ?praat=0 으로 끔
-const PVP = { cache: new Map(), pend: new Map(), state: "idle", jobs: [], later: null,
+const PVP = { cache: new Map(), an: new Map(), pend: new Map(), state: "idle", jobs: [], later: null,
   busy() { return this.state === "loading" || this.pend.size > 0; },   // 서버와 같은 소리를 만드는 중
   flush() { const f = this.later; this.later = null; if (f) f(); } };   // 기다리던 ▶ 재생을 이어서
 if (typeof window !== "undefined") Object.defineProperty(window, "PvPraat", { get: () => PVP.state, configurable: true });   // idle·loading·ready·fail·off — 안내 팝업이 읽음
@@ -5054,9 +5054,12 @@ function pvPraatLoad() {
     if (typeof document === "undefined") { PVP.state = "fail"; return; }
     if (typeof location !== "undefined" && /[?&]praat=0\b/.test(location.search)) { PVP.state = "off"; return; }
     PVP.state = "loading";
-    await pvLoadScript("../praat/praat_web.js?v=20261106-1130"); await pvLoadScript("../praat/praat-core.js?v=20261111-0824");
-    const r = await fetch("../praat/praat_web.wasm.gz"); if (!r.ok) throw new Error("praat " + r.status);
-    await PraatCore.init(await r.arrayBuffer(), PraatModule); PVP.state = "ready"; document.dispatchEvent(new Event("advpv"));
+    await pvLoadScript("../praat/praat-core.js?v=20261111-1030");
+    const r = await fetch("../praat/praat_web.wasm.gz"); if (!r.ok) throw new Error("praat " + r.status); const gz = await r.arrayBuffer();
+    // (11/11) 워커에서 돌림(화면 안 멈춤). 워커를 못 만들면 예전처럼 화면 스레드에서
+    let wk = false; try { wk = await PraatCore.useWorker("../praat/praat-worker.js?v=20261111-1030", gz); } catch {}
+    if (!wk) { await pvLoadScript("../praat/praat_web.js?v=20261106-1130"); await PraatCore.init(gz, PraatModule); }
+    PVP.state = "ready"; document.dispatchEvent(new Event("advpv"));
   })().catch((e) => { PVP.state = "fail"; console.warn("Praat 미리듣기를 못 불러옴(간이 소리로 계속)", e); if (typeof toast === "function") toast("서버와 같은 엔진을 못 불러와 대략의 소리로 들려요"); });
   return PVP.p;
 }
@@ -5095,7 +5098,10 @@ function pvPraatJob(reg, bins, cv, sr) {   // 한 구간: 원래 소리(p0)를 �
   const src = mkTracks.p0?.buf; if (!src) return;
   const pr = (async () => {
     const c0 = Math.round(sr * PVP_CTX), ia = Math.max(0, reg.i0 - c0), ib = Math.min(src.length, reg.i1 + c0), x = pvSrc(src, 0, ia, ib), fps = cv.fps || 25;
-    const A = await PraatCore.analyze(x, sr), sh = Float64Array.from(A.t, (t) => pvShiftAt(bins, fps, ia / sr + t));
+    // (11/11) 분석은 보정 내용과 무관 → 같은 구간·같은 원음이면 다시 안 함(고칠 때는 합성만)
+    const ak = `${sr}|${ia}|${ib}`, ce = PVP.an.get(ak); let A = ce && ce.src === src ? ce.A : null;
+    if (!A) { A = await PraatCore.analyze(x, sr); PVP.an.set(ak, { src, A }); if (PVP.an.size > 40) PVP.an.delete(PVP.an.keys().next().value); }
+    const sh = Float64Array.from(A.t, (t) => pvShiftAt(bins, fps, ia / sr + t));
     let y = await PraatCore.apply(x, sr, A.t, A.f, sh);
     if (reg.ns && reg.ns.length) { y = await PraatCore.formantNotes(y, sr, reg.ns, ia); const gc = PraatCore.gain(y.length, sr, reg.ns, ia, src.length); if (gc) for (let i = 0; i < y.length; i++) y[i] *= gc[i]; }   // 서버 post_audio 차례: 음별 음색 → 볼륨
     PVP.cache.set(reg.key, y.slice(reg.i0 - ia, reg.i1 - ia)); if (PVP.cache.size > 60) PVP.cache.delete(PVP.cache.keys().next().value);
