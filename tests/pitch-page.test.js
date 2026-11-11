@@ -267,7 +267,7 @@ console.log("pitch-page ok");
 
 /* (11/05 사용자) 발성 스케일: 코드 소리 길이 2배(0.48→0.96초), 끝까지 울리게, 첫 음 시작을 넘지 않게 */
 { const srcC = fs.readFileSync(__dirname + "/../pitch/index.html", "utf8");
-  assert.ok(srcC.includes("guideChord(n.m, Math.min(1.5, n.pre - .1));"), "코드 최대 1.5초(첫 음 전까지, 11/11 사용자)");
+  assert.ok(srcC.includes("guideChord(n.m, n.cd || Math.min(1.5, n.pre - .1));"), "코드 최대 1.5초(첫 음 전까지, 11/11 사용자)");
   assert.ok(srcC.includes("{ dur, vol: .36, hold: true }"), "코드는 끝까지 울림"); }
 
 /* (11/05 사용자) 비브라토 화면 상하 다이어트: 점수 줄·아래 안내 줄 접기(파형 칸 안에 같은 안내 있음) */
@@ -314,3 +314,8 @@ console.log("pitch-page ok");
   assert.ok(sE.includes("if (P.k == null) P.toneUntil = Math.max(P.toneUntil, performance.now() + dur * 1000 + 120);") && sE.includes("if (!P.chordM) P.chordM = { t: performance.now(), mic: 0, ref: 0 };"), "스피커: k를 알면 분리 감지로 바로 측정");
   assert.ok(sE.includes("n.mute = P.earphone ? 0 : dur + .12;"), "이어폰이면 안내음 구간도 점수에 포함");
   console.log("pitch-page: 이어폰 계속 측정·스피커 빠른 복귀 ok"); }
+
+/* (11/11 사용자) 박자 그대로, 코드는 1박만 울려 첫 음과 떨어지게 */
+{ const gs = genScale({ k: 'tri', g: 'm' }, 'normal'), n0 = gs.notes[0], step = gs.notes[1].t0 - n0.t0;
+  assert.ok(Math.abs(n0.pre - 2 * step) < 1e-9 && n0.cd > 0 && n0.cd <= step && n0.pre - n0.cd >= step * .99, "코드 1박 이내, 첫 음까지 1박 빈틈");
+  console.log("pitch-page: 코드-첫 음 간격 ok"); }

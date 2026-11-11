@@ -1001,12 +1001,13 @@ const scaleSig = sc => { const c = scaleCfg(sc), sp = spdNow(); return [c.k, c.g
    (11/11 사용자) 코드 들은 뒤 바로 첫 음이 나와 성급했음 → 코드~첫 음, 마지막 음~다음 코드를 모두 박자(2박)에 맞춰 뒤로 미룸 */
 const PING = .14, PING_MUTE = .2;   // 스케일 음마다 나는 피아노 길이 / 그동안 마이크 쉬는 시간(초)
 const SC_STEP = .465, SC_LAST = .8, SC_PRE_BEATS = 2, SC_NEXT_BEATS = 2, SC_PRE = SC_STEP * SC_PRE_BEATS, SC_NEXT = SC_STEP * SC_NEXT_BEATS;
+const SC_CHORD_BEATS = .9;   // (11/11 사용자) 박자(코드→2박→첫 음)는 그대로, 코드는 1박 안에서만 울리고 끝나요 → 코드와 첫 음 사이에 1박 가까이 빈틈
 function genScaleLine(sc, diff) {
   const c = scaleCfg(sc), V = VOICE[c.g], S = SCALES.find(x => x.k === c.k), top = Math.max(...S.iv), base = V.start + c.off;
   const reps = clamp(c.ze + 2 - top - base + 1, 1, 24), n = S.iv.length, F = 1 / spdNow(), PRE = SC_PRE * F, STEP = SC_STEP * F, LAST = SC_LAST * F, NEXT = SC_NEXT * F;
   let t = .35 + PRE, end = 0; const notes = [];
   for (let r = 0; r < reps; r++) {
-    S.iv.forEach((d, i) => { const last = i === n - 1; notes.push({ m: base + r + d, t0: t + i * STEP, d: last ? LAST : STEP - .045, rep: r, pre: i === 0 ? PRE : 0, gr: 0 }); });
+    S.iv.forEach((d, i) => { const last = i === n - 1; notes.push({ m: base + r + d, t0: t + i * STEP, d: last ? LAST : STEP - .045, rep: r, pre: i === 0 ? PRE : 0, cd: i === 0 ? STEP * SC_CHORD_BEATS : 0, gr: 0 }); });
     end = t + (n - 1) * STEP + LAST + .1; t += (n - 1) * STEP + NEXT + PRE;
   }
   const ms = notes.map(x => x.m), mn = Math.min(...ms), mx = Math.max(...ms);
@@ -1605,7 +1606,7 @@ function guideNote(n, first, now) {
     const now0 = performance.now();
     /* (11/05 사용자) 발성: 피아노는 더 크게(0.9), 짧게 끊지 않고 레가토로 — 막대 길이만큼 이어서 다음 음과 살짝 겹쳐요. 스피커에서 마이크로 되돌아오는 소리는 '분리 감지'(코드로 배운 k)가 걸러요 */
     const pd = n.d + .08;
-    if (n.pre) { guideChord(n.m, Math.min(1.5, n.pre - .1));   /* (11/11 사용자) 코드를 충분히 들려주기: 최대 1.5초, 첫 음 0.1초 전까지만 울림 */ guideTone(n.m, pd, n.pre, true, true, .9); if (!P.earphone) P.toneUntil = Math.max(P.toneUntil, now0 + (n.pre + PING_MUTE) * 1000); n.mute = P.earphone ? 0 : PING_MUTE; return; }
+    if (n.pre) { guideChord(n.m, n.cd || Math.min(1.5, n.pre - .1));   /* (11/11 사용자) 코드는 1박 길이만 → 첫 음과 붙지 않게 */ guideTone(n.m, pd, n.pre, true, true, .9); if (!P.earphone) P.toneUntil = Math.max(P.toneUntil, now0 + (n.pre + PING_MUTE) * 1000); n.mute = P.earphone ? 0 : PING_MUTE; return; }
     guideTone(n.m, pd, 0, true, true, .9); n.mute = 0; return;
   }
   if (n.pre) { guideTone(n.m, .8); n.mute = 0; return; }
@@ -1691,7 +1692,7 @@ function rr(x, y, w, h, r) { g2.beginPath(); if (g2.roundRect) g2.roundRect(x, y
 /* 안내음(프리뷰)이 나오는 구간: 막대 앞부분(또는 막대 앞 빈 구간)에 보라색으로 표시. 이 시간엔 마이크를 쉬어요 */
 function pvOf(n, i, L) {
   if (CFG.guide === 'off') return null;
-  if (n.pre) return [n.t0 - n.pre, L.scale ? n.t0 + PING_MUTE : n.t0 - n.pre + .8];
+  if (n.pre) return [n.t0 - n.pre, L.scale ? (n.cd ? n.t0 - n.pre + n.cd : n.t0 + PING_MUTE) : n.t0 - n.pre + .8];   // 발성: 코드 칸은 코드가 울리는 1박만(첫 음 막대와 떨어져 보여요)
   if (L.scale) return [n.t0, n.t0 + PING_MUTE];
   if (i === 0) return [n.t0, n.t0 + firstPv(n) + .12];   // (11/11 사용자) 첫 음도 다른 음처럼 막대 안에서 안내음(막대 앞 빈 구간에 따로 나오지 않음)
   if (n.d < .75) return null;
