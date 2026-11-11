@@ -1,0 +1,36 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Praat 폰 측정 2</title>
+<style>body{font-family:sans-serif;background:#12161a;color:#eef1f5;margin:0;padding:16px;line-height:1.5}button{display:block;width:100%;margin:10px 0;padding:16px;font-size:17px;border-radius:12px;border:1px solid #4a5560;background:#222a31;color:#eef1f5}
+pre{background:#0b0e11;border:1px solid #2c343c;border-radius:10px;padding:10px;font-size:13px;white-space:pre-wrap}small{color:#a9b1bc}#jank{font-size:13px;color:#e48d16}</style></head><body>
+<h2 style="margin:0 0 6px">Praat 폰 측정 2 (임시)</h2>
+<small>구간 길이별로 "분석 + 재합성" 시간을 잽니다. 끝나면 아래 결과를 복사하거나 화면을 캡처해서 보내 주세요. 측정 중에는 다른 앱을 쓰지 마세요(1~2분).</small>
+<button id="w">① 워커에서 측정 (권장)</button><button id="m">② 화면(메인)에서 측정 — 화면 멈춤 비교용</button><button id="c" disabled>결과 복사</button>
+<div id="jank"></div><pre id="out">대기</pre>
+<script>
+const $ = (id) => document.getElementById(id); let text = "";
+const dev = () => { let sr = "?"; try { const c = new AudioContext(); sr = c.sampleRate; c.close(); } catch {}
+  return `기기: ${navigator.userAgent.slice(0, 110)}\n코어 ${navigator.hardwareConcurrency || "?"} · 메모리 ${navigator.deviceMemory || "?"}GB · 오디오 샘플레이트 ${sr}Hz\n`; };
+const f = (v) => (v < 10 ? v.toFixed(1) : Math.round(v)) + "ms";
+let stall = 0, hb = 0, last = 0;
+function jankStart() { stall = 0; last = performance.now(); hb = setInterval(() => { const n = performance.now(); stall = Math.max(stall, n - last - 20); last = n; }, 20); }
+function jankEnd() { clearInterval(hb); $("jank").textContent = "측정 중 화면이 가장 오래 멈춘 시간: " + Math.round(stall) + "ms"; return Math.round(stall); }
+function show(h, rows, extra) { text = dev() + h + "\n구간길이 | 분석 | 재합성 | 합계(중앙) | 최소~최대\n" + rows.map((r) => `${r.sec}초 | ${f(r.analyze)} | ${f(r.apply)} | ${f(r.total)} | ${f(r.min)}~${f(r.max)}`).join("\n") + (extra ? "\n" + extra : ""); $("out").textContent = text; }
+function run(worker) {
+  $("w").disabled = $("m").disabled = true; $("out").textContent = "측정 중…"; jankStart(); const rows = [];
+  const w = worker ? new Worker("worker.js") : null;
+  const onmsg = (m) => { if (m.type === "info") $("out").textContent = `내려받기 ${f(m.tDl)} (${m.mb}MB) · 엔진 준비 ${f(m.tInit)}\n측정 중…`;
+    else if (m.type === "row") { rows.push(m.row); show(worker ? "[워커]" : "[메인]", rows, "진행 중…"); }
+    else if (m.type === "done") { const j = jankEnd(); show(worker ? "[워커]" : "[메인]", m.rows, "화면 최대 멈춤 " + j + "ms"); $("c").disabled = false; $("w").disabled = $("m").disabled = false; if (w) w.terminate(); }
+    else if (m.type === "error") { jankEnd(); $("out").textContent = "오류: " + m.msg; $("w").disabled = $("m").disabled = false; } };
+  if (worker) { w.onmessage = (e) => onmsg(e.data); w.postMessage({ reps: 3 }); return; }
+  // 메인 스레드 측정: 같은 코드를 워커 없이 실행
+  const s1 = document.createElement("script"); s1.src = "../../praat/praat_web.js"; s1.onload = () => { const s2 = document.createElement("script"); s2.src = "../../praat/praat-core.js"; s2.onload = async () => {
+    try { const SR = 48000, gz = await (await fetch("../../praat/praat_web.wasm.gz")).arrayBuffer(); await PraatCore.init(gz, PraatModule);
+      const voice = (sec) => { const n = Math.round(sec * SR), x = new Float32Array(n); let ph = 0; for (let i = 0; i < n; i++) { const t = i / SR, fr = 220 * Math.pow(2, (Math.floor(t * 1.5) % 4) * 2 / 12) * (1 + 0.012 * Math.sin(2 * Math.PI * 5.5 * t)); ph += fr / SR; let s = 0; for (let h = 1; h <= 20; h++) s += Math.sin(2 * Math.PI * ph * h) / h; x[i] = 0.2 * s; } return x; };
+      const med = (a) => a.slice().sort((p, q) => p - q)[a.length >> 1]; await PraatCore.analyze(voice(0.1), SR); const out = [];
+      for (const sec of [0.2, 0.5, 1, 2, 4]) { const x = voice(sec), T = [], A = [], R = []; for (let k = 0; k < 3; k++) { let t0 = performance.now(); const an = await PraatCore.analyze(x, SR); const ta = performance.now() - t0; const sh = Float64Array.from(an.t, (t) => (t > sec / 2 ? 100 : 0)); t0 = performance.now(); await PraatCore.apply(x, SR, an.t, an.f, sh); const tr = performance.now() - t0; A.push(ta); R.push(tr); T.push(ta + tr); }
+        out.push({ sec, analyze: med(A), apply: med(R), total: med(T), min: Math.min(...T), max: Math.max(...T) }); }
+      onmsg({ type: "done", rows: out }); } catch (e) { onmsg({ type: "error", msg: String(e.message || e) }); } }; document.head.appendChild(s2); }; document.head.appendChild(s1);
+}
+$("w").onclick = () => run(true); $("m").onclick = () => run(false);
+$("c").onclick = async () => { try { await navigator.clipboard.writeText(text); $("c").textContent = "복사됨 ✓"; } catch { $("c").textContent = "복사 실패 — 화면을 캡처해 주세요"; } };
+</script></body></html>
