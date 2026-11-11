@@ -1,0 +1,469 @@
+{
+ "made": "synthetic",
+ "cases": [
+  {
+   "id": "p0q0",
+   "phrase": "계단 오르기",
+   "orig": "audio/p0_orig.mp3",
+   "a": "audio/p0_cur.mp3",
+   "b": "audio/p0_smooth.mp3",
+   "key": {
+    "a": "cur",
+    "b": "smooth"
+   },
+   "metrics": {
+    "orig": {
+     "err_med": 39.60968663161748,
+     "jump_max": 168.98096094933317
+    },
+    "cur": {
+     "err_med": 9.111724974475692,
+     "jump_max": 179.78896224026357
+    },
+    "smooth": {
+     "err_med": 19.0863713920171,
+     "jump_max": 134.0071077508892
+    },
+    "smooth70": {
+     "err_med": 22.41083485362651,
+     "jump_max": 142.48154931626595
+    }
+   }
+  },
+  {
+   "id": "p0q1",
+   "phrase": "계단 오르기",
+   "orig": "audio/p0_orig.mp3",
+   "a": "audio/p0_smooth.mp3",
+   "b": "audio/p0_smooth70.mp3",
+   "key": {
+    "a": "smooth",
+    "b": "smooth70"
+   },
+   "metrics": {
+    "orig": {
+     "err_med": 39.60968663161748,
+     "jump_max": 168.98096094933317
+    },
+    "cur": {
+     "err_med": 9.111724974475692,
+     "jump_max": 179.78896224026357
+    },
+    "smooth": {
+     "err_med": 19.0863713920171,
+     "jump_max": 134.0071077508892
+    },
+    "smooth70": {
+     "err_med": 22.41083485362651,
+     "jump_max": 142.48154931626595
+    }
+   }
+  },
+  {
+   "id": "p1q0",
+   "phrase": "긴 음 비브라토",
+   "orig": "audio/p1_orig.mp3",
+   "a": "audio/p1_smooth.mp3",
+   "b": "audio/p1_cur.mp3",
+   "key": {
+    "a": "smooth",
+    "b": "cur"
+   },
+   "metrics": {
+    "orig": {
+     "err_med": 35.35793934736239,
+     "jump_max": 138.843972836361
+    },
+    "cur": {
+     "err_med": 8.857709059494482,
+     "jump_max": 177.55190422960914
+    },
+    "smooth": {
+     "err_med": 15.868414154121183,
+     "jump_max": 133.5535977827376
+    },
+    "smooth70": {
+     "err_med": 17.887590035566063,
+     "jump_max": 142.92026059390446
+    }
+   }
+  },
+  {
+   "id": "p1q1",
+   "phrase": "긴 음 비브라토",
+   "orig": "audio/p1_orig.mp3",
+   "a": "audio/p1_smooth70.mp3",
+   "b": "audio/p1_smooth.mp3",
+   "key": {
+    "a": "smooth70",
+    "b": "smooth"
+   },
+   "metrics": {
+    "orig": {
+     "err_med": 35.35793934736239,
+     "jump_max": 138.843972836361
+    },
+    "cur": {
+     "err_med": 8.857709059494482,
+     "jump_max": 177.55190422960914
+    },
+    "smooth": {
+     "err_med": 15.868414154121183,
+     "jump_max": 133.5535977827376
+    },
+    "smooth70": {
+     "err_med": 17.887590035566063,
+     "jump_max": 142.92026059390446
+    }
+   }
+  },
+  {
+   "id": "p2q0",
+   "phrase": "도약과 내려오기",
+   "orig": "audio/p2_orig.mp3",
+   "a": "audio/p2_smooth.mp3",
+   "b": "audio/p2_cur.mp3",
+   "key": {
+    "a": "smooth",
+    "b": "cur"
+   },
+   "metrics": {
+    "orig": {
+     "err_med": 22.876599152203198,
+     "jump_max": 444.5204201732913
+    },
+    "cur": {
+     "err_med": 5.641091954599688,
+     "jump_max": 527.733686083453
+    },
+    "smooth": {
+     "err_med": 13.677290007389274,
+     "jump_max": 530.5699132358577
+    },
+    "smooth70": {
+     "err_med": 13.945835150466337,
+     "jump_max": 484.2328087653368
+    }
+   }
+  },
+  {
+   "id": "p2q1",
+   "phrase": "도약과 내려오기",
+   "orig": "audio/p2_orig.mp3",
+   "a": "audio/p2_smooth.mp3",
+   "b": "audio/p2_smooth70.mp3",
+   "key": {
+    "a": "smooth",
+    "b": "smooth70"
+   },
+   "metrics": {
+    "orig": {
+     "err_med": 22.876599152203198,
+     "jump_max": 444.5204201732913
+    },
+    "cur": {
+     "err_med": 5.641091954599688,
+     "jump_max": 527.733686083453
+    },
+    "smooth": {
+     "err_med": 13.677290007389274,
+     "jump_max": 530.5699132358577
+    },
+    "smooth70": {
+     "err_med": 13.945835150466337,
+     "jump_max": 484.2328087653368
+    }
+   }
+  },
+  {
+   "id": "p3q0",
+   "phrase": "빠른 음표",
+   "orig": "audio/p3_orig.mp3",
+   "a": "audio/p3_cur.mp3",
+   "b": "audio/p3_smooth.mp3",
+   "key": {
+    "a": "cur",
+    "b": "smooth"
+   },
+   "metrics": {
+    "orig": {
+     "err_med": 22.10876418933276,
+     "jump_max": 110.44749180354393
+    },
+    "cur": {
+     "err_med": 18.85193759015965,
+     "jump_max": 69.34848808011793
+    },
+    "smooth": {
+     "err_med": 18.09823929162394,
+     "jump_max": 80.64963724587233
+    },
+    "smooth70": {
+     "err_med": 18.457625435579757,
+     "jump_max": 95.62200708015826
+    }
+   }
+  },
+  {
+   "id": "p3q1",
+   "phrase": "빠른 음표",
+   "orig": "audio/p3_orig.mp3",
+   "a": "audio/p3_smooth70.mp3",
+   "b": "audio/p3_smooth.mp3",
+   "key": {
+    "a": "smooth70",
+    "b": "smooth"
+   },
+   "metrics": {
+    "orig": {
+     "err_med": 22.10876418933276,
+     "jump_max": 110.44749180354393
+    },
+    "cur": {
+     "err_med": 18.85193759015965,
+     "jump_max": 69.34848808011793
+    },
+    "smooth": {
+     "err_med": 18.09823929162394,
+     "jump_max": 80.64963724587233
+    },
+    "smooth70": {
+     "err_med": 18.457625435579757,
+     "jump_max": 95.62200708015826
+    }
+   }
+  },
+  {
+   "id": "p4q0",
+   "phrase": "짧게 찍고 내려오기",
+   "orig": "audio/p4_orig.mp3",
+   "a": "audio/p4_smooth.mp3",
+   "b": "audio/p4_cur.mp3",
+   "key": {
+    "a": "smooth",
+    "b": "cur"
+   },
+   "metrics": {
+    "orig": {
+     "err_med": 46.312805512718114,
+     "jump_max": 591.2315310119075
+    },
+    "cur": {
+     "err_med": 15.821448444069574,
+     "jump_max": 578.0947633588739
+    },
+    "smooth": {
+     "err_med": 26.800617779250388,
+     "jump_max": 588.5508924895039
+    },
+    "smooth70": {
+     "err_med": 26.571819455512923,
+     "jump_max": 596.5849115935243
+    }
+   }
+  },
+  {
+   "id": "p4q1",
+   "phrase": "짧게 찍고 내려오기",
+   "orig": "audio/p4_orig.mp3",
+   "a": "audio/p4_smooth.mp3",
+   "b": "audio/p4_smooth70.mp3",
+   "key": {
+    "a": "smooth",
+    "b": "smooth70"
+   },
+   "metrics": {
+    "orig": {
+     "err_med": 46.312805512718114,
+     "jump_max": 591.2315310119075
+    },
+    "cur": {
+     "err_med": 15.821448444069574,
+     "jump_max": 578.0947633588739
+    },
+    "smooth": {
+     "err_med": 26.800617779250388,
+     "jump_max": 588.5508924895039
+    },
+    "smooth70": {
+     "err_med": 26.571819455512923,
+     "jump_max": 596.5849115935243
+    }
+   }
+  },
+  {
+   "id": "p5q0",
+   "phrase": "살짝 낮은 노래",
+   "orig": "audio/p5_orig.mp3",
+   "a": "audio/p5_smooth.mp3",
+   "b": "audio/p5_cur.mp3",
+   "key": {
+    "a": "smooth",
+    "b": "cur"
+   },
+   "metrics": {
+    "orig": {
+     "err_med": 47.00134421645134,
+     "jump_max": 127.28778210584824
+    },
+    "cur": {
+     "err_med": 6.453440448901347,
+     "jump_max": 157.96623092954997
+    },
+    "smooth": {
+     "err_med": 11.827736364758493,
+     "jump_max": 120.97738020482393
+    },
+    "smooth70": {
+     "err_med": 17.218019316908794,
+     "jump_max": 127.08791135366846
+    }
+   }
+  },
+  {
+   "id": "p5q1",
+   "phrase": "살짝 낮은 노래",
+   "orig": "audio/p5_orig.mp3",
+   "a": "audio/p5_smooth.mp3",
+   "b": "audio/p5_smooth70.mp3",
+   "key": {
+    "a": "smooth",
+    "b": "smooth70"
+   },
+   "metrics": {
+    "orig": {
+     "err_med": 47.00134421645134,
+     "jump_max": 127.28778210584824
+    },
+    "cur": {
+     "err_med": 6.453440448901347,
+     "jump_max": 157.96623092954997
+    },
+    "smooth": {
+     "err_med": 11.827736364758493,
+     "jump_max": 120.97738020482393
+    },
+    "smooth70": {
+     "err_med": 17.218019316908794,
+     "jump_max": 127.08791135366846
+    }
+   }
+  },
+  {
+   "id": "p6q0",
+   "phrase": "살짝 높은 노래",
+   "orig": "audio/p6_orig.mp3",
+   "a": "audio/p6_cur.mp3",
+   "b": "audio/p6_smooth.mp3",
+   "key": {
+    "a": "cur",
+    "b": "smooth"
+   },
+   "metrics": {
+    "orig": {
+     "err_med": 40.962836182172396,
+     "jump_max": 132.9478156465084
+    },
+    "cur": {
+     "err_med": 8.795131528029742,
+     "jump_max": 198.5503337893615
+    },
+    "smooth": {
+     "err_med": 20.08528377660423,
+     "jump_max": 147.114580097852
+    },
+    "smooth70": {
+     "err_med": 22.25614108602531,
+     "jump_max": 131.4864774936177
+    }
+   }
+  },
+  {
+   "id": "p6q1",
+   "phrase": "살짝 높은 노래",
+   "orig": "audio/p6_orig.mp3",
+   "a": "audio/p6_smooth.mp3",
+   "b": "audio/p6_smooth70.mp3",
+   "key": {
+    "a": "smooth",
+    "b": "smooth70"
+   },
+   "metrics": {
+    "orig": {
+     "err_med": 40.962836182172396,
+     "jump_max": 132.9478156465084
+    },
+    "cur": {
+     "err_med": 8.795131528029742,
+     "jump_max": 198.5503337893615
+    },
+    "smooth": {
+     "err_med": 20.08528377660423,
+     "jump_max": 147.114580097852
+    },
+    "smooth70": {
+     "err_med": 22.25614108602531,
+     "jump_max": 131.4864774936177
+    }
+   }
+  },
+  {
+   "id": "p7q0",
+   "phrase": "끝이 처지는 음",
+   "orig": "audio/p7_orig.mp3",
+   "a": "audio/p7_smooth.mp3",
+   "b": "audio/p7_cur.mp3",
+   "key": {
+    "a": "smooth",
+    "b": "cur"
+   },
+   "metrics": {
+    "orig": {
+     "err_med": 29.39156842425473,
+     "jump_max": 158.89525534093445
+    },
+    "cur": {
+     "err_med": 7.365952204831501,
+     "jump_max": 158.8245233495345
+    },
+    "smooth": {
+     "err_med": 19.25338885689962,
+     "jump_max": 152.8814676330676
+    },
+    "smooth70": {
+     "err_med": 21.75589735298672,
+     "jump_max": 168.25011694732075
+    }
+   }
+  },
+  {
+   "id": "p7q1",
+   "phrase": "끝이 처지는 음",
+   "orig": "audio/p7_orig.mp3",
+   "a": "audio/p7_smooth70.mp3",
+   "b": "audio/p7_smooth.mp3",
+   "key": {
+    "a": "smooth70",
+    "b": "smooth"
+   },
+   "metrics": {
+    "orig": {
+     "err_med": 29.39156842425473,
+     "jump_max": 158.89525534093445
+    },
+    "cur": {
+     "err_med": 7.365952204831501,
+     "jump_max": 158.8245233495345
+    },
+    "smooth": {
+     "err_med": 19.25338885689962,
+     "jump_max": 152.8814676330676
+    },
+    "smooth70": {
+     "err_med": 21.75589735298672,
+     "jump_max": 168.25011694732075
+    }
+   }
+  }
+ ]
+}
