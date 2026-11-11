@@ -961,11 +961,11 @@ function askVoice() {
   d.innerHTML = `<div class="vpc"><b>목소리 성별을 골라 주세요</b><div class="note2" style="margin-top:8px">코스의 음 높이와 발성 스케일이 여기에 맞춰져요.<br>나중에 설정(⚙)에서 바꿀 수 있어요.</div><div class="seg">${Object.keys(VOICE).map(k => `<button data-v="${k}">${VOICE[k].name}</button>`).join('')}</div></div>`;
   document.body.appendChild(d); d.querySelectorAll('button').forEach(b => b.onclick = () => { setVoice(b.dataset.v); d.remove(); setMode('free'); voiceChanged(); sayHello(); });   // 고른 뒤엔 자유 화면에서 시작
 }
-/* (11/11 사용자) 코스·발성·비브라토는 피아노가 먼저 나오고 그동안 마이크를 쉬어서, 스피커로 들으면 음정이 잘 안 잡혀요 → 들어올 때 이어폰 권장 안내(이어폰이 감지되면 안 띄움, 앱을 열 때마다 한 번, '다시 보지 않기' 가능) */
+/* (11/11 사용자) 코스·발성은(비브라토는 안 띄움) 피아노가 먼저 나오고 그동안 마이크를 쉬어서, 스피커로 들으면 음정이 잘 안 잡혀요 → 들어올 때 이어폰 권장 안내(이어폰이 감지되면 안 띄움, 앱을 열 때마다 한 번, '다시 보지 않기' 가능) */
 async function earHint() {
-  if (P.earphone || P.earHinted || CFG.earHintOff || (CFG.out || 'auto') !== 'auto' || !['course', 'vib'].includes(C.mode) || $('#voicePop') || $('#freePop') || $('#earPop')) return;
+  if (P.earphone || P.earHinted || CFG.earHintOff || (CFG.out || 'auto') !== 'auto' || C.mode !== 'course' || $('#voicePop') || $('#freePop') || $('#earPop')) return;
   P.earHinted = true; await detectEar();   // 방금 꽂은 이어폰도 확인한 뒤에 판단
-  if (P.earphone || !['course', 'vib'].includes(C.mode) || $('#voicePop') || $('#freePop') || $('#earPop')) { if (!P.earphone) P.earHinted = false; return; }
+  if (P.earphone || C.mode !== 'course' || $('#voicePop') || $('#freePop') || $('#earPop')) { if (!P.earphone) P.earHinted = false; return; }
   const d = document.createElement('div'); d.id = 'earPop'; d.style.cssText = 'position:fixed;inset:0;z-index:80;background:rgba(10,12,14,.84);display:flex;align-items:center;justify-content:center;padding:20px';
   d.innerHTML = '<div class="vpc"><b>🎧 이어폰을 연결해 주세요</b><div class="note2" style="margin-top:10px;line-height:1.6">이 연습은 피아노 소리가 먼저 나와요.<br>스피커로 들으면 피아노 소리 때문에<br>내 음정이 잘 잡히지 않을 수 있어요.</div><div class="seg"><button type="button" id="earOk">이어폰 끼고 할게요</button><button type="button" id="earSpk">스피커로 할게요</button></div><button type="button" id="earOff" class="btn sm" style="margin-top:12px;background:none;border:0;color:#ffd27a;text-decoration:underline">다시 보지 않기</button></div>';
   document.body.appendChild(d); const done = () => d.remove();
@@ -1050,7 +1050,7 @@ function setMode(v) {
   if (v !== 'course' && C.stage === 3) C.stage = 0;   // 발성에서 자유·비브라토로 나가면 스케일 칸 해제
   C.mode = v; CFG.mode = v; if (v === 'vib') vibEnter();   // 들어올 때마다 랜덤 기준음을 들려줘요
   if (v === 'free') setTimeout(freeHint, 0);
-  if (v === 'course' || v === 'vib') setTimeout(earHint, 0);
+  if (v === 'course') setTimeout(earHint, 0);
   saveCfg(); if (P.ghostHold !== undefined) renderGhostMark();
   if (v === 'course') { if (scv) C.stage = 3; else if (C.stage === 3) C.stage = 0; loadStage(C.stage); } else { C.phase = 'idle'; renderCourseUI(); }
 }

@@ -303,7 +303,7 @@ console.log("pitch-page ok");
   assert.ok(!sF.includes("Math.min(1.1, Math.max(.4, n.t0 - .05))"), "첫 음 앞 빈 구간 안내음 없음");
   assert.ok(sF.includes("if (i === 0) return [n.t0, n.t0 + firstPv(n) + .12];") && sF.includes("const dur = firstPv(n); guideTone(n.m, dur); n.mute = P.earphone ? 0 : dur + .12;"), "첫 음 = 막대 안 안내음");
   assert.ok(sF.includes("if (n && !n.guided && c.t >= n.t0 - (n.pre || 0) - .02) guideNote("), "첫 음도 제 시간에 안내");
-  assert.ok(sF.includes("async function earHint()") && sF.includes("if (v === 'course' || v === 'vib') setTimeout(earHint, 0);") && sF.includes("CFG.earHintOff = 1") && sF.includes("이어폰을 연결해 주세요"), "이어폰 권장 팝업");
+  assert.ok(sF.includes("async function earHint()") && sF.includes("if (v === 'course') setTimeout(earHint, 0);") && !sF.includes("['course', 'vib'].includes(C.mode)") && sF.includes("CFG.earHintOff = 1") && sF.includes("이어폰을 연결해 주세요"), "이어폰 권장 팝업");
   console.log("pitch-page: 첫 음 같은 길이·이어폰 권장 ok"); }
 
 /* (11/11 사용자) 이어폰이면 피아노 중에도 계속 측정·표시, 스피커는 k를 알면 고정 쉼 없이 분리 감지로 바로 측정 */
