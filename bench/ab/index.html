@@ -4,12 +4,12 @@
 button{font-size:17px;border-radius:12px;border:1px solid #3a4550;background:#232b33;color:#eef1f5;padding:14px;margin:5px 0;width:100%}button.on{background:#2d5fa8;border-color:#7fb0ff}button.play{background:#1e3a2a;border-color:#4c9a6a}button.play.pl{background:#2c7a4a}
 .row{display:flex;gap:8px}.row button{flex:1}.pick button.sel{background:#7a4c0e;border-color:#ffb347}.bar{height:6px;background:#2a2f37;border-radius:3px;overflow:hidden;margin:8px 0}.bar i{display:block;height:100%;background:#4fd6ff}
 pre{background:#0b0e11;border:1px solid #2c343c;border-radius:10px;padding:10px;font-size:13px;white-space:pre-wrap}.nav{display:flex;gap:8px}.nav button{flex:1}</style></head><body>
-<h2>자동 보정 A/B 듣기</h2><small>합성 가수 소리(실제 수강생 아님) · 이어폰 권장 · 어느 쪽인지 모르게 섞여 있어요 · 고르면 자동 저장</small>
+<h2>자동 보정 A/B 듣기</h2><small>합성 가수 소리(실제 수강생 아님) · 현재 v3 / 이전 v2 / 개선안 시안 · 이어폰 권장 · 어느 쪽인지 모르게 섞여 있어요 · 고르면 자동 저장</small>
 <div class="bar"><i id="pg"></i></div><div id="app"></div>
 <script>
 let M = null, I = 0, A = null; const KEY = "ab_v1", res = (() => { try { return JSON.parse(localStorage.getItem(KEY) || "{}"); } catch { return {}; } })();
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(res)); } catch {} };
-const NAME = { cur: "현재 자동", smooth: "개선안(떨림 살리고 음 끝 부드럽게)", smooth70: "개선안 70%(덜 고침)" };
+const NAME = { cur: "현재 v3", v2: "이전 v2", smooth: "개선안(v4 시안: 떨림 살리고 음 끝 부드럽게)" };
 const $ = (s) => document.querySelector(s);
 function stop() { if (A) { try { A.pause(); } catch {} A = null; } document.querySelectorAll(".play").forEach((b) => b.classList.remove("pl")); }
 function play(btn, src) { const was = btn.classList.contains("pl"); stop(); if (was) return; A = new Audio(src); A.onended = () => btn.classList.remove("pl"); btn.classList.add("pl"); A.play().catch(() => btn.classList.remove("pl")); }
