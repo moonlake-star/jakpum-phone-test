@@ -317,5 +317,5 @@ console.log("pitch-page ok");
 
 /* (11/11 사용자) 박자 그대로, 코드는 1박만 울려 첫 음과 떨어지게 */
 { const gs = genScale({ k: 'tri', g: 'm' }, 'normal'), n0 = gs.notes[0], step = gs.notes[1].t0 - n0.t0;
-  assert.ok(Math.abs(n0.pre - 2 * step) < 1e-9 && n0.cd > 0 && n0.cd <= step && n0.pre - n0.cd >= step * .99, "코드 1박 이내, 첫 음까지 1박 빈틈");
+  assert.ok(Math.abs(n0.pre - 2 * step) < 1e-9 && n0.cd > 0 && n0.cd <= step * .5 && n0.pre - n0.cd >= step * 1.5, "코드 반 박 이내(짧게), 첫 음까지 1.5박 이상 빈틈");
   console.log("pitch-page: 코드-첫 음 간격 ok"); }
