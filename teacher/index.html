@@ -545,7 +545,7 @@
 <div id="toast"></div>
 <script src="../lesson-replies.js"></script>
 <script src="../tune.js?v=20261111-1710"></script>
-<script src="../adv.js?v=20261111-0824"></script>
+<script src="../adv.js?v=20261112-0900"></script>
 <script src="../pitch-embed.js?v=20261105-1850"></script>
 
 <script>
@@ -5898,9 +5898,9 @@ async function openMkJob(j, backTo) {
       return o; };   // (11/04) 치찰음·호흡 구간도 화면 시간 ↔ 원래 녹음 시간
     // (11/06 사용자 '고급 보정 ② 엔진 비교') 곡별 보정 엔진·A/B 비교본 — 메이크업요청.json engine / engine_ab / engine_pick
     const engFid = (n) => (j.files || []).find(f => f.name === n)?.id || null;
-    const engGet = () => ({ engine: r.engine || "psola", ab: !!r.engine_ab, made: r.result?.pitch?.engine_ab || null, pick: r.engine_pick || null,
+    const engGet = () => ({ engine: r.engine || "psola", ab: !!r.engine_ab, range: Array.isArray(r.engine_ab_range) ? r.engine_ab_range : null, made: r.result?.pitch?.engine_ab || null, pick: r.engine_pick || null,
       files: { o: engFid("엔진비교_원본.mp3"), A: engFid("엔진비교_A.mp3"), B: engFid("엔진비교_B.mp3") } });
-    const engSet = async (p) => { Object.assign(r, p); if (!r.engine || r.engine === "psola") delete r.engine; if (!r.engine_ab) delete r.engine_ab; if (!r.engine_pick) delete r.engine_pick;
+    const engSet = async (p) => { Object.assign(r, p); if (!r.engine || r.engine === "psola") delete r.engine; if (!r.engine_ab) delete r.engine_ab; if (!r.engine_pick) delete r.engine_pick; if (!Array.isArray(r.engine_ab_range)) delete r.engine_ab_range;
       try { await mkWrite(); toast(p.engine ? "보정 엔진을 바꿨어요 · 완성본 다시 만들기 뒤 적용" : "저장했어요"); } catch (e) { toast("저장 실패: " + errMsg(e)); } };
     let engAu = null, engBtn = null;
     const engPlay = async (btn, k) => { const id = engGet().files[k]; if (!id) return;
