@@ -385,9 +385,11 @@
     if (full && st && st.advOn && cv.beats && cv.beats.t) {   // (11/09 사용자) 박자 세로줄은 늘 켜짐(맞춤만 스위치)
        // (11/06) 🥁 반주 박자 격자: 박 = 옅은 세로줄, 마디 첫 박(추정) = 조금 진하게 + 마디 번호
       const B = cv.beats.t, dn = cv.beats.down || 0; g.font = "10px system-ui, sans-serif"; g.textBaseline = "top";
-      for (let i = 0; i < B.length; i++) { if (B[i] < t0 - 0.1) continue; if (B[i] > t0 + W8 + 0.1) break; const X = Math.round(xs0(B[i])) + 0.5, bar = (i - dn) % 4 === 0;   // (11/09 19:52 사용자 '음 길이를 늘리면 왜 눈금도 같이 이동') 박자 눈금은 곡의 박이라 고정(원래 좌표)
+      const PS = cv.beats.pos && cv.beats.pos.length === B.length ? cv.beats.pos : null;   // (11/12 14:14 사용자 '마디 첫 박이 3박에') 서버가 음악 분석으로 찾은 박마다 마디 안 위치(0=첫 박) — 템포가 흔들리거나 3박자여도 맞게
+      if (PS && !cv._barNo) { let n = 0; cv._barNo = PS.map(p => (p === 0 ? ++n : 0)); }
+      for (let i = 0; i < B.length; i++) { if (B[i] < t0 - 0.1) continue; if (B[i] > t0 + W8 + 0.1) break; const X = Math.round(xs0(B[i])) + 0.5, bar = PS ? PS[i] === 0 : (i - dn) % 4 === 0;   // (11/09 19:52 사용자 '음 길이를 늘리면 왜 눈금도 같이 이동') 박자 눈금은 곡의 박이라 고정(원래 좌표)
         g.fillStyle = bar ? "rgba(255,207,153,.32)" : "rgba(255,207,153,.12)"; g.fillRect(X, T, 1, HP);
-        if (bar && i >= dn) { g.fillStyle = "rgba(255,207,153,.6)"; g.fillText(String(Math.floor((i - dn) / 4) + 1), X + 3, T + 3); } } }
+        if (bar && (PS || i >= dn)) { g.fillStyle = "rgba(255,207,153,.6)"; g.fillText(String(PS ? cv._barNo[i] : Math.floor((i - dn) / 4) + 1), X + 3, T + 3); } } }
     if (full && kt) {   // 정음(목표음) = 초록 막대: 보정이 맞추려는 바로 그 음
       const bh = Math.max(6, (HP - 12) / ((hi - lo) / 100) * 0.55), bars = []; let run = null;
       const fxOf = (tt) => (cv._fixes || []).findIndex(x => tt >= x.t0 - 1e-6 && tt < x.t1 - 1e-6);   // 나눈·고친 구간 경계에서 막대도 끊음
