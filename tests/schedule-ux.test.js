@@ -74,7 +74,8 @@ const sigOf = (t) => t.m.contentSig(t.note);
   assert.ok(E.missionConsistent(fbOk)); assert.ok(!E.missionConsistent({ ...fbOk, practice: ["B"] }));
   assert.ok(E.missionConsistent({ feedback: "그냥 인사", practice: [], no_mission: true }));
   assert.ok(!E.missionConsistent({ feedback: "x\n이번 주 연습\n· A", practice: [], no_mission: true }));
-  assert.ok(!E.missionConsistent({ feedback: "이번 주 연습 있음", practice: [] }));
+  assert.ok(E.missionConsistent({ feedback: "이번 주 연습할 것까지 정리했어요", practice: [] }));   // (11/12) 인사말 속 말은 미션 제목이 아님
+  assert.ok(!E.missionConsistent({ feedback: "인사\n이번 주 연습\n· A", practice: [] }));
   const blk = (note, rv, ai) => E.approvalBlockers(note, rv, ai).filter(b => b.level === "block");
   assert.ok(blk({ feedback: "hi", practice: [] }, { practice: [] }).some(b => /미설정/.test(b.msg)));
   assert.strictEqual(blk({ feedback: "hi", practice: [], no_mission: true }, { no_mission: true, practice: [] }).length, 0);   // 없음 명시 → 통과

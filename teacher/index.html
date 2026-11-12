@@ -544,7 +544,7 @@
 <div id="v2Shade" class="v2only"></div>
 <div id="toast"></div>
 <script src="../lesson-replies.js"></script>
-<script src="../tune.js?v=20261112-2040"></script>
+<script src="../tune.js?v=20261112-2052"></script>
 <script src="../adv.js?v=20261112-1334"></script>
 <script src="../pitch-embed.js?v=20261105-1850"></script>
 
@@ -2145,8 +2145,16 @@ function contentSig(note) {
 }
 const missionState = (rv) => rv?.no_mission === true ? "none" : (rv?.practice || []).some(Boolean) ? "set" : "unset";
 // 피드백 문구 속 '이번 주 연습'과 미션 칸이 서로 같은지(학생에게 두 곳이 다르게 보이면 안 됨)
+// (11/12 20:47 사용자 '이것 때문에 전달이 안 됐어? 자동처리 해줘') 공개 전에 저절로 맞춤: 문구에 '이번 주 연습' 목록이 있으면 미션 칸 = 그 목록(문구가 기준),
+//   없으면 문구에 미션 칸 목록을 붙이거나(미션 없음이면 문구의 빈 제목 줄을 뺌). 맞췄으면 true
+function autoMission(me) { const rv = me?.review; if (!rv) return false; let n0; try { n0 = buildNote(); } catch { return false; } if (missionConsistent(n0)) return false;
+  const fb = String(rv.feedback || ""), pr = practiceFromText(fb);
+  if (pr && pr.length) { rv.practice = pr.slice(0, 2); rv.no_mission = false; if (pr.length > 2) updateFeedbackDraft(setBlock(fb, "이번 주 연습", pr.slice(0, 2))); }
+  else updateFeedbackDraft(setBlock(fb, "이번 주 연습", rv.no_mission ? [] : (rv.practice || []).filter(Boolean)));
+  try { if (typeof renderPoints === "function") renderPoints(); } catch {}
+  let ok = false; try { ok = missionConsistent(buildNote()); } catch {} return ok; }
 function missionConsistent(note) {
-  const fb = String(note?.feedback || ""), pr = (note?.practice || []).filter(Boolean), has = fb.includes("이번 주 연습");
+  const fb = String(note?.feedback || ""), pr = (note?.practice || []).filter(Boolean), has = /(^|\n)[ \t]*이번 ?주 연습[ \t]*[:：]?[ \t]*(\n|$)/.test(fb);   // (11/12) 제목 줄만 — 인사말 속 '이번 주 연습할 것까지…'는 미션 표시가 아님
   if (note?.no_mission) return !has;
   return pr.every(t => fb.includes(t)) && (pr.length > 0 || !has);
 }
@@ -8039,7 +8047,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261112-2040";
+const BUILD = "20261112-2052";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
@@ -8381,6 +8389,7 @@ function v2Paint() {
 }
 function v2PubPaint(me) {   // 전달하기 시트 맨 위 ① 공개 — 공개 규칙은 V1의 publishOnSave(승인 전 확인 목록·동의 철회 제외) 그대로
   const el = $("v2Pub"); if (!el) return;
+  try { if (autoMission(me)) toast("미션 칸과 ‘이번 주 연습’을 자동으로 맞췄어요"); } catch {}   // (11/12) 막히기 전에 저절로
   const st = v2State(me); let bl = [];
   try { bl = approvalBlockers(buildNote(), me.review, me.ai).filter(b => b.level === "block"); } catch {}
   const off = me.st?.consent_withdrawn || (typeof isTeacher === "function" && isTeacher(me.st || {}));
