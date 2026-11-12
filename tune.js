@@ -433,7 +433,7 @@
       // (11/03 13:08 사용자 시안) 타이밍·길이 고친 음 = 새 자리에 하늘색 막대 + 원래 자리 점선
       const tb = [];
       for (const te of cv._tedits || []) { if (te.nt1 < t0 - 0.5 || te.nt0 > t0 + W8 + 0.5) continue; const yy = y(te.c);
-        g.save(); g.setLineDash([4, 3]); g.strokeStyle = "rgba(230,233,238,.55)"; g.lineWidth = 1.5; g.strokeRect(xs0(te.t0), yy - bh / 2, Math.max(4, xs0(te.t1) - xs0(te.t0)), bh); g.restore();
+        if (Math.abs(te.nt0 - te.t0) >= 0.03 || Math.abs(te.nt1 - te.t1) >= 0.03) { g.save(); g.setLineDash([4, 3]); g.strokeStyle = "rgba(230,233,238,.55)"; g.lineWidth = 1.5; g.strokeRect(xs0(te.t0), yy - bh / 2, Math.max(4, xs0(te.t1) - xs0(te.t0)), bh); g.restore(); }   // 점선 = 옮기기 전 원래 자리(거의 안 옮겼으면 안 그림 — 겹쳐 애매해 보임)
         const x0 = xs0(te.nt0), x1 = xs0(te.nt1); g.fillStyle = "#5fd4ff"; g.fillRect(x0, yy - bh / 2, Math.max(3, x1 - x0), bh);
         if (st && st.sel && Math.abs(st.sel.t0 - te.t0) < 0.02) { g.fillStyle = "#e8f8ff"; g.fillRect(x0, yy - bh / 2, 3, bh); g.fillRect(x1 - 3, yy - bh / 2, 3, bh); }   // 고른 음: 양 끝 손잡이
         tb.push({ x0, x1, y: yy, h: bh, t0: te.t0, t1: te.t1, c: te.c, te }); }
@@ -842,6 +842,11 @@
       const ts = +(tAt != null ? tAt : atHead ? tNow : (b.t0 + b.t1) / 2).toFixed(2), a = { t0: T0, t1: ts, midi: rnd(m), cut: same() }, c = { t0: ts, t1: T1, midi: rnd(m), cut: same() };
       cv._fixes = prior.filter(x => !(x.t0 < b.t1 && x.t1 > b.t0)).concat([a, c]);
       try { fxSave(onFix, a); fxSave(onFix, c); } catch {} sndOff();
+      // (11/12 21:00 사용자 '두 군데 쪼갰는데 고르면 한 음으로 크게') 길이·타이밍을 고친 음을 쪼개면 그 고침도 같은 비율로 둘로 나눔 — 안 나누면 옛 한 덩어리 막대가 조각들을 덮어 통째로 골라졌음
+      { const te = (cv._tedits || []).find(x => x.t0 < ts - 0.01 && x.t1 > ts + 0.01);
+        if (te) { const r_ = (ts - te.t0) / Math.max(1e-6, te.t1 - te.t0), nts = Math.round((te.nt0 + (te.nt1 - te.nt0) * r_) * 100) / 100, A = { t0: te.t0, t1: ts, nt0: te.nt0, nt1: nts, c: te.c }, B_ = { t0: ts, t1: te.t1, nt0: nts, nt1: te.nt1, c: te.c };
+          cv._tedits = cv._tedits.filter(x => x !== te).concat([A, B_]);
+          if (st && typeof st.onTime === "function") try { fxSave(st.onTime, { t0: te.t0, t1: te.t1, nt0: te.t0, nt1: te.t1, reset: true }); fxSave(st.onTime, A); fxSave(st.onTime, B_); } catch {} } }
       fixSheet(host, cv, { t0: ts, t1: T1, c: Math.round(m * 100) }, onFix, getT, st); };
     if (cut) cut.onclick = () => doCut();
     if (st) st.cutAtNow = (tt) => { if (tt > b.t0 + 0.04 && tt < b.t1 - 0.04) { buzz(30); doCut(tt); } };   // (11/06 22:20 사용자) 세로줄 위 ✂ 톡 = 그 자리에서 나누기   // (11/03 08:14 사용자) 나누면 오른쪽 조각이 바로 골라진 채로(창은 그대로, 뒤로 가기 기록도 그대로)
@@ -1293,7 +1298,7 @@
     const endT = () => { const p = cv && cv.pts; return p && p.length ? +p[p.length - 1][0] || 0 : 1e9; };
     wrap.querySelectorAll("[data-j]").forEach(b => b.onclick = () => {   // 처음 / -5초 / +5초(10/30 14:49 사용자) — 재생 중이면 계속, 멈춰 있으면 멈춘 채
       const j = +b.dataset.j, now = +getT() || 0, t = j === 0 ? 0 : Math.max(0, Math.min(endT(), now + j));
-      st.panAt = 0; try { seek(t, isPaused()); } catch {} });
+      st.panAt = 0; st.stopAt = 0; st.pvJ = 0; try { seek(t, isPaused()); } catch {} });   // (11/12 21:00 사용자) 고친 곳 들어보기 뒤 -5초로 들어도 그 자리에서 멈추던 것 — 옮기면 멈춤 자리 지움
     wrap.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { try { const cur = o.mode ? o.mode() : "p", want = b.dataset.m === cur ? (cur === "o" ? "p" : "o") : b.dataset.m; o.setMode(want); } catch {} });   // (11/02 19:30) 켜진 쪽을 눌러도 바뀜(진짜 스위치)
     const nChip = wrap.querySelector(".tfNoteChip");
     if (st.onAdv) {   // 위 줄: [🎛 고급 보정] → 켜면 [🎛 곡 전체][기본으로]
@@ -1393,7 +1398,7 @@
         const ly = G.Brand && G.Brand.layer ? G.Brand.layer(() => { if (histEl) { histEl.remove(); histEl = null; } }) : { close: closeHist };
         histEl.addEventListener("click", (e) => { if (e.target === histEl || e.target.closest(".tfHistX")) { ly.close(); return; } const b = e.target.closest("[data-i]"); if (b) step(+b.dataset.i); });
         paintHist(); const cur = histEl.querySelector(".cur"); if (cur) cur.scrollIntoView({ block: "nearest" }); };
-      const step = async (i) => { try { if (sheetClose) sheetClose(); } catch {} if (i > hist.S.length - 1) i = hist.S.length - 1;   // 열린 고치기 창이 있으면 먼저 닫음(대기 중인 저장도 기록에 들어감)
+      const step = async (i) => { hist.t = 0; const p0 = hist.ptr; try { if (sheetClose) sheetClose(); } catch {} hist.t = 0; if (hist.ptr !== p0 && i < p0) i = hist.ptr - 1;   // (11/12 21:00 사용자 '되돌리기가 가끔 두 단계 전으로') 창을 닫으며 저장된 고침은 앞 칸에 합치지 않고 따로 한 칸 → ↶는 그것 하나만 되돌림 if (i > hist.S.length - 1) i = hist.S.length - 1;   // 열린 고치기 창이 있으면 먼저 닫음(대기 중인 저장도 기록에 들어감)
         const from = hist.ptr, snap0 = histSnap(); if (!(await hist.go(i))) return;
         if (st.onAdv && G.TuneAdv) { st._adv = null; try { G.TuneAdv.preview(cv, G.TuneAdv.state(st).ne); } catch {} }
         st.sel = null; tip(i < from ? `↶ ${hist.L[from]} 취소` : `↷ ${hist.L[i]} 다시`);
@@ -1460,6 +1465,7 @@
       mb.type = "button"; mb.className = "tfAdvG tfSongMB"; mb.textContent = "⋯ 곡 메뉴"; mb.setAttribute("aria-label", "곡 메뉴: 완성본·작업 기록·보정 엔진·설정"); mb.addEventListener("pointerdown", (e) => e.stopPropagation());
       if (xb && xb.parentNode) xb.parentNode.insertBefore(mb, xb);
       if (typeof o.onFix === "function") coachInit(mb);
+      { const tmE = wrap.querySelector(".tfTop .tfTime"), xv = wrap.querySelector(".tfTop .tfXp") || wrap.querySelector(".tfTop .tfX"); if (tmE && xv && xv.parentNode) { xv.parentNode.insertBefore(tmE, xv); tmE.classList.add("tfTimeR"); } }   // (11/12 20:58 사용자) 시간 = 닫기 버튼 바로 옆
       st.songMenu = () => { wrap.querySelectorAll(".tfSM").forEach(x => x.remove()); try { pauseNow(); } catch {}
         const d = document.createElement("div"); d.className = "tfSM"; d.setAttribute("role", "dialog"); d.setAttribute("aria-label", "곡 메뉴");
         const ds = (() => { try { return typeof o.doneState === "function" ? o.doneState() || {} : {}; } catch { return {}; } })();
@@ -1669,7 +1675,7 @@
         if (h) { st.popPin = st.popPin && st.popPin.k === h.k ? null : { k: h.k, until: performance.now() + 4000 }; lastTap = 0; return; } }
       if (!d.mode && e.type === "pointerup" && st.popPin) { st.popPin = null; lastTap = 0; return; }   // 떠 있는 말풍선은 빈 곳 톡으로 닫기
       if (!d.mode && e.type === "pointerup" && typeof o.onNote === "function") { const r = cvEl.getBoundingClientRect(), le = loc(e.clientX, e.clientY, r), hn = d.h0 || hitNote(st, le.x, le.y);   /* 누를 때 맞은 칸 우선(떼는 사이 칸이 바뀌어도) */ if (hn) { pauseNow(); if (hn.del) { o.onDelNote && o.onDelNote(hn.n); } else { lastView = view; o.onNote(hn.n); } return; } }
-      if (d.mode === "time") { const t = preview; preview = null; if (t != null) seek(t, true); return; }   // 이동만, 재생은 안 함
+      if (d.mode === "time") { const t = preview; preview = null; if (t != null) { st.stopAt = 0; seek(t, true); } return; }   // 이동만, 재생은 안 함
       if (!d.mode && e.type === "pointerup") { const now = Date.now();   // 톡 = 재생/멈춤 · 기준선 왼쪽 두 번 톡 = 2초 뒤로, 오른쪽 = 2초 앞으로(11/03 10:24)
         if (now - lastTap < 320) { toggle(); lastTap = 0;   // 첫 톡의 재생/멈춤은 되돌리고
           const r0 = cvEl.getBoundingClientRect(), le = loc(e.clientX, e.clientY, r0), L = (st.kb && st.kb.L) || 44, hx = L + HEAD * ((rot ? r0.height : r0.width) - L);
@@ -1791,7 +1797,7 @@
   async function load(url) { const r = await fetch(url); if (!r.ok) throw new Error("음정선을 못 불러왔어요"); const j = await r.json(); return j && Array.isArray(j.pts) ? j : null; }
   const legend = (withCorr) => `<div class="tuneLeg"><span><i style="background:#ffe066"></i>부른 음정</span>${withCorr ? `<span><i style="background:#7fd9ff"></i>보정 후</span><span><i style="background:#ffd27a;opacity:.6"></i>고친 곳</span>` : ""}<span><i style="background:#ff9f5a;width:3px;height:11px"></i>지금</span></div>`;
   const css = `#tuneFs{position:fixed;inset:0;z-index:9999;background:rgba(8,10,13,.96)}#tuneFs .tfBox{position:absolute;left:50%;top:50%;display:flex;flex-direction:column;background:#0e1116;color:#eceff3;box-sizing:border-box;padding:8px 12px calc(8px + env(safe-area-inset-bottom))}
-#tuneFs .tfTop,#tuneFs .tfBot{display:flex;align-items:center;gap:8px;flex:none}#tuneFs .tfTop{margin-bottom:6px}#tuneFs .tfTitle{font-size:15px}#tuneFs .tfTime{color:#a9b1bc;font-size:13px;font-variant-numeric:tabular-nums}
+#tuneFs .tfTop .tfTimeR{order:3!important;margin-left:auto!important}#tuneFs .tfTop .tfTimeR ~ .tfX{margin-left:0!important}#tuneFs .tfTop,#tuneFs .tfBot{display:flex;align-items:center;gap:8px;flex:none}#tuneFs .tfTop{margin-bottom:6px}#tuneFs .tfTitle{font-size:15px}#tuneFs .tfTime{color:#a9b1bc;font-size:13px;font-variant-numeric:tabular-nums}
 #tuneFs .tfAb{display:flex;margin-left:auto;border:1px solid #363c45;border-radius:10px;overflow:hidden}#tuneFs .tfAb button{border:0;border-radius:0;margin:0;background:#11141a;color:#a9b1bc;font-weight:800;min-height:34px;padding:0 14px}#tuneFs .tfAb button.on{background:#9cc3ff;color:#10141a}#tuneFs .tfAb button[data-m=p].on{background:#c9a6ff}
 #tuneFs .tfX{margin-left:8px;display:flex;align-items:center;gap:6px;height:46px;padding:0 16px;border-radius:24px;border:2px solid #eceff3;background:#2a2f38;color:#fff;font-weight:800;font-size:15px;flex:none}#tuneFs .tfX i{font-style:normal;font-size:20px;line-height:1;margin-right:2px}#tuneFs .tfCv{flex:1;min-height:0;width:100%;display:block;border-radius:10px;background:#11141a}
 #tuneFs .tfCvBox{position:relative;flex:1;min-height:0;display:flex}#tuneFs .tfAdvPv{position:absolute;left:50%;bottom:6px;transform:translateX(-50%);z-index:5;pointer-events:auto;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:6px;font:800 12px/1.1 system-ui,sans-serif;color:#f6f0ff;background:linear-gradient(90deg,#8e6cf0,#b48cff);border:0;border-radius:16px;padding:2px 11px 2px 3px;min-height:0!important;box-shadow:0 3px 10px rgba(150,110,255,.4);transition:opacity .35s}#tuneFs .tfAdvPv.gone{opacity:0;pointer-events:none}#tuneFs .tfAdvPv .ic{width:18px;height:18px;border-radius:50%;background:#fff;color:#6b4fd6;display:grid;place-items:center;font-size:10px}#tuneFs .tfAdvPv small{font-weight:600;opacity:.85;font-size:10.5px}#tuneFs .tfAdvPv.play{background:rgba(40,30,70,.92);box-shadow:inset 0 0 0 2px #b48cff}#tuneFs .tfAdvPv.play .ic{background:#b48cff;color:#1b1430}#tuneFs .tfAdvPv.pop{animation:tfPvPop .45s cubic-bezier(.3,1.6,.5,1)}@keyframes tfPvPop{0%{transform:translateX(-50%) scale(.7);opacity:.3}100%{transform:translateX(-50%) scale(1);opacity:1}}#tuneFs .tfSkip{position:absolute;left:50%;transform:translateX(-50%);bottom:16%;z-index:5;white-space:nowrap;opacity:1;transition:opacity .2s ease;border:0;border-radius:12px;background:#9cc3ff;color:#111;font-weight:800;font-size:14px;padding:10px 14px}#tuneFs .tfSkip.off{opacity:0;visibility:hidden;pointer-events:none;transition:opacity 1.8s ease,visibility 0s linear 1.8s}/* (11/03 16:19 사용자) 그래프 가운데 아래쪽으로 */#tuneFs .tfMid{position:absolute;left:50%;top:9%;width:48px;height:48px;margin:-24px 0 0 -24px;border-radius:50%;background:rgba(156,195,255,.12);color:rgba(255,255,255,.55);font-size:18px;display:grid;place-items:center;pointer-events:none;opacity:0;transform:scale(.6)}
