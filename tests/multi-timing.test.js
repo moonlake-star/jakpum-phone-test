@@ -23,3 +23,10 @@ const TW = 0.4, TMIN = 0.03, TMAX = 4; const f = eval("(" + s2.trim() + ")");
 const m = f([{ t0: 1, t1: 2, nt0: 1, nt1: 2.1 }, { t0: 2, t1: 3, nt0: 2.1, nt1: 3.2 }], 10);
 assert.ok(m.some(p => p[0] === 2 && p[1] === 2.1) && m.some(p => p[0] === 3 && p[1] === 3.2), "붙은 음 둘 다: " + JSON.stringify(m));
 console.log("multi-timing ok");
+// (11/12 15:55~57) 화살표 한 줄 · 끌기 1/4 · 고른 범위 = 음 양 끝 · 빈 곳 톡 해제 · 음 하나 창이 여러 음 창을 덮으면 범위도 끝
+assert.ok(T.includes('data-mf="0" data-v="-1"') && T.includes('data-mf="1" data-v="1"'), "앞 끝·뒤 끝 ◀▶ 한 줄");
+assert.ok(T.includes("const STR_K = 0.25;") && T.includes("mp.W8 * STR_K"), "끌기 1/4");
+assert.ok(T.includes("if (bs_.length) st.msel = [bs_[0].t0, bs_[bs_.length - 1].t1];"), "범위를 음 양 끝에");
+assert.ok(T.includes('if (st.msel && !wrap.querySelector(".tfMulti") && !d.mode && e.type === "pointerup") { st.msel = null;'), "빈 곳 톡 해제");
+assert.ok(T.includes("if (st && st.mMode) { st.mMode = false; st.msel = null; st.onMSel = null; st.mStr = null; }"), "남은 분홍 범위 정리");
+console.log("multi-timing+ ok");
