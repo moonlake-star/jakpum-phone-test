@@ -492,7 +492,24 @@
       if (st && st.advOn && st._adv) for (const d of st._adv.ne.global.draw || []) { if (d.t1 < t0 || d.t0 > t0 + W8) continue;   // 펜으로 그린 선(점선 주황) — 펜 도구로 톡 하면 지움
         g.save(); g.setLineDash([5, 4]); g.strokeStyle = "rgba(255,184,107,.9)"; g.lineWidth = 2; g.beginPath(); d.pts.forEach((q, i) => { const X = xs(q[0]), Y = y(q[1]); if (i) g.lineTo(X, Y); else g.moveTo(X, Y); }); g.stroke(); g.restore(); }
       if (st && st.penPts && st.penPts.length > 1) { g.save(); g.strokeStyle = "#ffb86b"; g.lineWidth = 3; g.lineCap = "round"; g.lineJoin = "round"; g.beginPath(); st.penPts.forEach((q, i) => { const X = xs(q[0]), Y = y(q[1]); if (i) g.lineTo(X, Y); else g.moveTo(X, Y); }); g.stroke(); g.restore(); }
-      if (st && st.msel) { const a = xs(st.msel[0]), b2 = xs(st.msel[1]), gr_ = !st.advOn, MC = gr_ ? "#7fd99a" : "#ff6ec7";   // (11/06 22:54 사용자 시안 ③) 기본 모드 = 초록(한마디용) · 동그라미 손잡이 · 고급 = 분홍(고치기용) · ‖ 손잡이
+      if (st) st.mHdl = null;
+      if (st && st.msel && st.advOn && st.mStr && !st.mSelecting) {   // (11/12 18:15~20:23 사용자 시안 고) 다 고른 뒤: 분홍 범위·세로선 없이 고른 음표 = 보라 · 손잡이 3개는 음표 아래(손가락이 음표를 안 가리게)
+        const its = bars.filter(b => b.t0 < st.msel[1] && b.t1 > st.msel[0]).map(b => tb.find(q => Math.abs(q.t0 - b.t0) < 0.02) || b);
+        for (const b of its) { g.fillStyle = "rgba(169,116,255,.88)"; g.fillRect(b.x0, b.y - b.h / 2, Math.max(3, b.x1 - b.x0), b.h); g.strokeStyle = "#e3d4ff"; g.lineWidth = 2; g.strokeRect(b.x0 - 1, b.y - b.h / 2 - 1, Math.max(4, b.x1 - b.x0 + 2), b.h + 2); }
+        if (its.length) { const f_ = its.reduce((a_, b_) => (b_.x0 < a_.x0 ? b_ : a_)), l_ = its.reduce((a_, b_) => (b_.x1 > a_.x1 ? b_ : a_)), R = HANDLE_R, hh = 24, P = "#e3d4ff", PA = "#ffb86b";
+          const below = (b) => { let y_ = b.y + b.h / 2 + hh / 2 + 10; if (y_ + hh / 2 > T + HP - 2) y_ = b.y - b.h / 2 - hh / 2 - 10; return y_; };
+          const yl = below(f_), yr = below(l_), lx = f_.x0 - R * 0.75, rx = l_.x1 + R * 0.75, act = st.mAct || "";
+          const arrowP = (x, yy, dir, on, bx, by) => { g.fillStyle = on ? PA : P; g.fillRect(bx - 1, Math.min(by, yy), 2, Math.abs(yy - by));
+            const x0 = dir < 0 ? x - R * 0.75 : x - R * 0.75, x1 = x0 + R * 1.5, tip = dir < 0 ? x0 : x1, bk = dir < 0 ? x1 : x0, nk = R * 0.6 * -dir;
+            g.beginPath(); g.moveTo(bk, yy - hh / 2); g.lineTo(tip - nk, yy - hh / 2); g.lineTo(tip, yy); g.lineTo(tip - nk, yy + hh / 2); g.lineTo(bk, yy + hh / 2); g.closePath(); g.fillStyle = on ? PA : P; g.fill(); g.lineWidth = 2; g.strokeStyle = "#0b0d11"; g.stroke();
+            g.fillStyle = "#2a1450"; g.font = "bold 15px system-ui, sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(dir < 0 ? "‹" : "›", (x0 + x1) / 2, yy + 1); g.textAlign = "left"; };
+          arrowP(lx, yl, -1, act === "l", f_.x0, f_.y); arrowP(rx, yr, 1, act === "r", l_.x1, l_.y);
+          const lo = its.reduce((a_, b_) => (b_.y > a_.y ? b_ : a_)), hi = its.reduce((a_, b_) => (b_.y < a_.y ? b_ : a_)), px_ = (f_.x0 + l_.x1) / 2;   // ↕ = 가장 낮은 음 아래(자리 없으면 가장 높은 음 위)
+          let py = Math.max(yl, yr, lo.y + lo.h / 2 + hh / 2 + 10) + 4; if (py + 16 > T + HP - 2) py = Math.min(hi.y - hi.h / 2 - 26, yl - hh, yr - hh);
+          g.fillStyle = act === "p" ? PA : P; g.beginPath(); const kw = 20, kh = 15; g.moveTo(px_ - kw + kh, py - kh); g.arcTo(px_ + kw, py - kh, px_ + kw, py + kh, kh); g.arcTo(px_ + kw, py + kh, px_ - kw, py + kh, kh); g.arcTo(px_ - kw, py + kh, px_ - kw, py - kh, kh); g.arcTo(px_ - kw, py - kh, px_ + kw, py - kh, kh); g.closePath(); g.fill(); g.lineWidth = 2; g.strokeStyle = "#0b0d11"; g.stroke();
+          g.fillStyle = "#2a1450"; g.font = "bold 16px system-ui, sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText("↕", px_, py + 1); g.textAlign = "left";
+          st.mHdl = { l: { x: lx, y: yl, r: R + 9 }, r: { x: rx, y: yr, r: R + 9 }, p: { x: px_, y: py, r: 26 }, le: { x: f_.x0, y: f_.y, r: 16 }, re: { x: l_.x1, y: l_.y, r: 16 } }; } }
+      else if (st && st.msel) { const a = xs(st.msel[0]), b2 = xs(st.msel[1]), gr_ = !st.advOn, MC = gr_ ? "#7fd99a" : "#ff6ec7";   // (11/06 22:54 사용자 시안 ③) 기본 모드 = 초록(한마디용) · 동그라미 손잡이 · 고급 = 분홍(고치기용) · ‖ 손잡이
         g.fillStyle = gr_ ? "rgba(127,217,154,.10)" : "rgba(255,110,199,.14)"; g.fillRect(a, T, Math.max(2, b2 - a), HP); g.fillStyle = MC; g.fillRect(a, T, 2, HP); g.fillRect(b2 - 2, T, 2, HP);
         if (gr_) { /* 손잡이·💬 표시는 맨 위에(노란 칠에 안 가리게) — 아래 '기본 모드 구간 손잡이' */ }
         else { const gy = T + HP / 2 - 15; g.fillRect(a - 5, gy, 12, 30); g.fillRect(b2 - 8, gy, 12, 30); g.fillStyle = "#1a0714"; for (const gx of [a + 1, b2 - 2]) { g.fillRect(gx - 2, gy + 7, 1.5, 16); g.fillRect(gx + 1, gy + 7, 1.5, 16); } }   // (손잡이: 잡고 끌면 범위 조절)
@@ -980,7 +997,7 @@
     d.innerHTML = `<div class="tfFixBox"><div class="tfMB"><span class="tfMI"><b data-mn>☑ 음을 골라 주세요</b><span class="tfFixTm">꾹 누른 채 끌어요</span></span>
       ${!st.advOn && st.onAddRange ? `<button type="button" class="tfMNote" data-mnote disabled>💬 한마디</button>` : ""}      ${uvOn ? `<button type="button" data-uv aria-label="치찰음·호흡 크기 조절" disabled>🌬</button>` : ""}
       <button type="button" class="tfRaw" data-mraw disabled aria-label="고른 음 모두 보정 안 함(부른 그대로)">🎤 원음</button><button type="button" class="tfMr" data-mr disabled>↺ 자동</button><button type="button" class="tfIc" data-mx aria-label="여러 음 고르기 끝내기">✕</button></div>
-      ${st.advOn && st.onTime ? `<div class="tfMRd" data-mrd>⏱ 끝을 끌거나 화살표로 비율대로 늘이고 줄여요</div><div class="tfMAr"><small>앞<br>끝</small><button type="button" data-mf="0" data-v="-1" aria-label="첫 음 시작 앞으로" disabled>◀</button><button type="button" data-mf="0" data-v="1" aria-label="첫 음 시작 뒤로" disabled>▶</button><i></i><button type="button" data-mf="1" data-v="-1" aria-label="끝 음 끝 앞으로" disabled>◀</button><button type="button" data-mf="1" data-v="1" aria-label="끝 음 끝 뒤로" disabled>▶</button><small>뒤<br>끝</small></div>` : ""}
+      ${st.advOn && st.onTime ? `<style>#tuneFs .tfMulti .tfFixN,#tuneFs .tfMulti [data-mn]{color:#c9a6ff}</style><div class="tfMRd" data-mrd>⏱ 끝을 끌거나 화살표로 비율대로 늘이고 줄여요</div><div class="tfMAr"><small>앞<br>끝</small><button type="button" data-mf="0" data-v="-1" aria-label="첫 음 시작 앞으로" disabled>◀</button><button type="button" data-mf="0" data-v="1" aria-label="첫 음 시작 뒤로" disabled>▶</button><i></i><button type="button" data-mf="1" data-v="-1" aria-label="끝 음 끝 앞으로" disabled>◀</button><button type="button" data-mf="1" data-v="1" aria-label="끝 음 끝 뒤로" disabled>▶</button><small>뒤<br>끝</small></div>` : ""}
       <div class="tfMH tfFixSt">꾹 누른 채 끌어 고르기 · ${st.advOn ? (st.onTime ? "양 끝(손잡이·음표 끝)을 끌면 반대쪽 끝은 그대로 · " : "분홍 선을 잡아 끌면 범위 조절 · ") : "초록 동그라미를 잡아 끌면 범위 조절 · 구간 안 톡 또는 💬 = 한마디 · "}빈 곳 톡 = 끝</div></div>`;
     const bot = host.querySelector(".tfBot");
     if (bot) { const h0 = had && bot._h0 ? bot._h0 : bot.offsetHeight; bot._h0 = h0; d.classList.add("inBot"); bot.appendChild(d);
@@ -1029,12 +1046,17 @@
           for (const [b_, n0, n1] of P) { const same = Math.abs(n0 - b_.t0) < 0.005 && Math.abs(n1 - b_.t1) < 0.005;
             try { fxSave(st.onTime, same ? { t0: b_.t0, t1: b_.t1, nt0: b_.t0, nt1: b_.t1, reset: true } : { t0: b_.t0, t1: b_.t1, nt0: n0, nt1: n1 }); } catch {} }
           stEl.textContent = `✓ ${P.length}음 타이밍 저장됨`; paintR(); },
-        active: () => !!S };
+        active: () => !!S,
+        // (11/12 고) ↕ 여러 음 음정: 각 음의 지금 음에 같은 양(센트)을 더함 · 손을 떼면 한 번에 저장
+        pitch(dc) { const m_ = st.msel; if (!m_ || !dc) return; const out = groupShift(cv, m_[0], m_[1], dc / 100); for (const f of out) pend.set(f.t0 + ":" + f.t1, f); pTot += dc; paintR(); },
+        pitchEnd() { flush(); pTot = 0; paintR(); } };
+      let pTot = 0;
       const sg = (x) => (x >= 0 ? "+" : "−") + Math.abs(x).toFixed(2);
       const paintR = () => { if (!rdEl) return; const m_ = st.msel, bs = m_ ? barsIn(cv, m_[0], m_[1]) : []; d.querySelectorAll("[data-mf]").forEach(x => { x.disabled = !bs.length; });
         if (!bs.length) { rdEl.textContent = "⏱ 끝을 끌거나 화살표로 비율대로 늘이고 줄여요"; return; }
         const a0 = cur(bs[0])[0], b1 = cur(bs[bs.length - 1])[1], src = bs[bs.length - 1].t1 - bs[0].t0, hit = S && S.hit ? " · " + S.hit : "";
-        rdEl.textContent = `⏱ 앞 ${sg(a0 - bs[0].t0)}초 · 뒤 ${sg(b1 - bs[bs.length - 1].t1)}초 · ${Math.round((b1 - a0) / Math.max(1e-6, src) * 100)}%${hit}`; };
+        const pc_ = pTot ? `♪ ${bs.length}음 모두 ${pTot > 0 ? "+" : "−"}${[Math.abs(pTot) >= 100 ? Math.floor(Math.abs(pTot) / 100) + "반음" : "", Math.abs(pTot) % 100 ? (Math.abs(pTot) % 100) + "센트" : ""].filter(Boolean).join(" ")} · ` : "";
+        rdEl.textContent = `${pc_}⏱ 앞 ${sg(a0 - bs[0].t0)}초 · 뒤 ${sg(b1 - bs[bs.length - 1].t1)}초 · ${Math.round((b1 - a0) / Math.max(1e-6, src) * 100)}%${hit}`; };
       // (11/12 15:55 사용자) 아래 화살표 한 줄: 앞 끝 ◀▶ = 첫 음 시작(맨 끝 음 끝 고정) · 뒤 끝 ◀▶ = 끝 음 끝(맨 앞 음 시작 고정) · 톡 0.02초 · 꾹 = 계속 · 0.45초 쉬면 저장
       let nS = -1, nAcc = 0, nTm = null, rep_ = null, rpT = null;
       const nudge = (side, dv) => { if (S && S.side !== side) { clearTimeout(nTm); st.mStr.end(); nS = -1; }
@@ -1402,7 +1424,7 @@
     const HELP_KEY = "tune_help_off";
     function coachRows() { const adv = st.advOn || st.buMode, R = [];
       if (st.mMode && st.msel) {
-        if (st.advOn && st.onTime) R.push(["⇔", "분홍 선·양 끝 음표 끝 끌기", "비율로 늘이기"], ["◀▶", "아래 화살표", "0.02초씩"]);
+        if (st.advOn && st.onTime) { R.push(["‹›", "아래 ‹ › 끌기", "비율로 늘이기 (꾹 0.5초 = 미세)"], ["↕", "아래 둥근 손잡이 위아래", "미세 음정 (꾹 0.5초 = 반음)"], ["✋", "빈 곳 톡", "고르기 끝"]); return R; }   // 띠가 음표를 덜 가리게 3줄
         else if (st.advOn) R.push(["⇔", "분홍 선 끌기", "범위 조절"]);
         else if (typeof o.onAdd === "function") R.push(["👆", "고른 구간 안 톡", "한마디 달기"]);
         R.push(["👆", "음표 톡", "그 음 고치기"], ["✋", "빈 곳 톡", "고르기 끝"]); return R; }
@@ -1510,7 +1532,7 @@
           else d0.lp = setTimeout(() => { if (drag !== d0 || d0.axis) return; d0.fine = true; buzz(40); st.pulse = { x: l0.x, y: l0.y, at: performance.now() }; }, LONG_MS); return; } }
       if (pts.size === 1 && e.pointerType === "mouse" && e.button === 0 && st.advOn && typeof o.onResetRange === "function" && st.map && st.kb) {   // (11/06 ③) 마우스: 빈 곳 끌기 = 여러 음 고르기(이동은 휠)
         const l0 = loc(e.clientX, e.clientY, cvEl.getBoundingClientRect());
-        const mp_ = st.map, pxE = (t) => mp_.L + ((cv._tedits && cv._tedits.length && cv._twM && cv._twM.length > 2 ? mapT(t, cv._twM) : t) - mp_.t0) / Math.max(1e-6, mp_.W8) * (mp_.w - mp_.L), onEdge = !!(st.mMode && st.msel && st.mStr && Math.min(Math.abs(l0.x - pxE(st.msel[0])), Math.abs(l0.x - pxE(st.msel[1]))) <= 22);   // (11/12) 마우스도 분홍 손잡이 = 비율 늘이기
+        const mp_ = st.map, pxE = (t) => mp_.L + ((cv._tedits && cv._tedits.length && cv._twM && cv._twM.length > 2 ? mapT(t, cv._twM) : t) - mp_.t0) / Math.max(1e-6, mp_.W8) * (mp_.w - mp_.L), onEdge = st.mHdl ? Object.values(st.mHdl).some(h => Math.hypot(l0.x - h.x, l0.y - h.y) <= h.r) : !!(st.mMode && st.msel && st.mStr && Math.min(Math.abs(l0.x - pxE(st.msel[0])), Math.abs(l0.x - pxE(st.msel[1]))) <= 22);   // (11/12) 마우스도 분홍 손잡이 = 비율 늘이기
         if (!onEdge && l0.x >= st.kb.L && !hitT(l0) && !hitBar(l0)) { const tt = timeAt(st, l0.x); drag = { a: along(e), b: across(e), t: +getT() || 0, id: e.pointerId, mode: null, cx: e.clientX, cy: e.clientY, armed: { x: l0.x, t: tt, mouse: true } }; return; } }
       if (pts.size === 1 && st.onBarDragX && st.fixMode === "t" && st.sel && st.kb && st.map) { const r0 = cvEl.getBoundingClientRect(), l0 = loc(e.clientX, e.clientY, r0);   // (11/03 13:08) 타이밍 모드: 고른 막대 가운데 끌기 = 옮기기, 양 끝 = 길이
         const tb = (st.tebars || []).find(x => Math.abs(x.t0 - st.sel.t0) < 0.02) || (st.tbars || []).find(x => Math.abs(x.t0 - st.sel.t0) < 0.02);
@@ -1523,7 +1545,14 @@
         if (l0.x < st.kb.L) { const m = Math.round(st.kb.inv(l0.y) / 100); st.kbDown = m; tone(m); drag = { kb: true, id: e.pointerId }; return; } }
       if (pts.size === 1) { drag = { a: along(e), b: across(e), t: +getT() || 0, id: e.pointerId, mode: null, yc: st.yc, cx: e.clientX, cy: e.clientY };
         // (11/05 사용자) 고른 구간의 분홍 세로선(양 끝)을 바로 잡아 좌우로 끌면 범위 조절(꾹 누를 필요 없음, 스크롤한 뒤에도) — 반대쪽 끝은 고정 · 가장자리에 닿으면 자동 스크롤
-        if (st.mMode && st.msel && st.map && typeof o.onResetRange === "function") { const d0 = drag, mp = st.map, l0 = loc(d0.cx, d0.cy, cvEl.getBoundingClientRect()), px = (t) => mp.L + ((cv._tedits && cv._tedits.length && cv._twM && cv._twM.length > 2 ? mapT(t, cv._twM) : t) - mp.t0) / Math.max(1e-6, mp.W8) * (mp.w - mp.L),   // 늘인 뒤에도 그려진 손잡이 자리
+        if (st.mMode && st.msel && st.mHdl && st.mStr && st.advOn) { const d0 = drag, l0 = loc(d0.cx, d0.cy, cvEl.getBoundingClientRect()), H = st.mHdl;   // (11/12 고) 보라 상태 손잡이
+          const hit = ["l", "r", "p", "le", "re"].find(k => Math.hypot(l0.x - H[k].x, l0.y - H[k].y) <= H[k].r);
+          if (hit === "p") { d0.edgeLp = true; pauseNow(); d0.gp = { y: l0.y, base: 0, ap: 0, semi: false, cpp: st.kb ? st.kb.inv(l0.y) - st.kb.inv(l0.y + 1) : 2 }; st.mAct = "p"; buzz(15);
+            d0.lp = setTimeout(() => { if (drag !== d0 || d0.moved) return; d0.gp.semi = true; d0.gp.base = d0.gp.ap; d0.gp.y = d0.gp.ly ?? d0.gp.y; buzz(40); st.pulse = { x: H.p.x, y: H.p.y, at: performance.now() }; }, LONG_MS); }
+          else if (hit) { const side = hit === "l" || hit === "le" ? 0 : 1; d0.edgeLp = true; pauseNow();
+            if (st.mStr.start(side)) { d0.stretch = { x: l0.x, base: 0, k: STR_K }; st.mAct = side ? "r" : "l"; buzz(15);
+              d0.lp = setTimeout(() => { if (drag !== d0 || d0.moved) return; const s_ = d0.stretch; s_.base = s_.last || 0; s_.x = s_.lx ?? s_.x; s_.k = STR_K / 3; buzz(40); st.pulse = { x: H[hit].x, y: H[hit].y, at: performance.now() }; }, LONG_MS); } } }
+        else if (st.mMode && st.msel && st.map && typeof o.onResetRange === "function") { const d0 = drag, mp = st.map, l0 = loc(d0.cx, d0.cy, cvEl.getBoundingClientRect()), px = (t) => mp.L + ((cv._tedits && cv._tedits.length && cv._twM && cv._twM.length > 2 ? mapT(t, cv._twM) : t) - mp.t0) / Math.max(1e-6, mp.W8) * (mp.w - mp.L),   // 늘인 뒤에도 그려진 손잡이 자리
             dl = Math.abs(l0.x - px(st.msel[0])), dr = Math.abs(l0.x - px(st.msel[1])), side = Math.min(dl, dr) <= 22 ? (dl <= dr ? 0 : 1) : -1;
           if (side >= 0 && st.advOn && st.mStr) { d0.edgeLp = true; pauseNow(); if (st.mStr.start(side)) { d0.stretch = { x: l0.x }; buzz(20); } }   // (11/12 14:40) 고급 모드 손잡이 = 비율 늘이기
           else if (side >= 0) { d0.edgeLp = true; pauseNow(); d0.armed = { x: l0.x, t: st.msel[1 - side], keep: true }; } }
@@ -1553,6 +1582,7 @@
         if (st.yz > 1 && st.yc == null) { const f = fitAt(cv, +getT() || 0, 0); st.yc = f ? f[2] : null; }
         return; }
       if (!drag || drag.id !== e.pointerId) return;
+      if (drag.armed && st.mMode) st.mSelecting = true;   // 고르는 동안은 분홍 범위
       if (drag.hArm) { const l0 = loc(e.clientX, e.clientY, cvEl.getBoundingClientRect()), mp = st.map;
         if (!drag.hArmed) { if (Math.hypot(l0.x - drag.x0, l0.y - drag.y0) > 8) { clearTimeout(drag.lp); drag.cancel = true; } return; }
         if (!mp || drag.cancel) return; drag.moved = true; st.onBarDragX(Math.round((l0.x - drag.x0) / Math.max(1, mp.w - mp.L) * mp.W8 * FINE * 100) / 100, drag.edge, false); return; }
@@ -1568,8 +1598,12 @@
         st.penPts.push([mp.t0 + (Math.max(mp.L, Math.min(mp.w, l0.x)) - mp.L) / Math.max(1, mp.w - mp.L) * mp.W8, st.kb.inv(l0.y)]); return; }
       if (drag.msel) { const l0 = loc(e.clientX, e.clientY, cvEl.getBoundingClientRect()), mp = st.map; if (!mp) return; if (Math.abs(l0.x - drag.x0) >= 4) drag.moved = true;
         if (drag.moved) { const tx = (x) => mp.t0 + (Math.max(mp.L, Math.min(mp.w, x)) - mp.L) / Math.max(1, mp.w - mp.L) * mp.W8, a = tx(drag.x0), b = tx(l0.x); st.msel = [Math.max(0, Math.min(a, b)), Math.max(a, b)]; if (st.onMSel) st.onMSel(); } return; }
-      if (drag.stretch) { const l0 = loc(e.clientX, e.clientY, cvEl.getBoundingClientRect()), mp = st.map; if (!mp || !st.mStr) return; if (Math.abs(l0.x - drag.stretch.x) >= 3) drag.moved = true;   // (11/12 14:40) 여러 음 비율 늘이기
-        if (drag.moved) st.mStr.move((l0.x - drag.stretch.x) / Math.max(1, mp.w - mp.L) * mp.W8 * STR_K); return; }   // (11/12 15:57 사용자) 손가락의 1/4만큼만 — 세밀하게
+      if (drag.stretch) { const l0 = loc(e.clientX, e.clientY, cvEl.getBoundingClientRect()), mp = st.map, s_ = drag.stretch; if (!mp || !st.mStr) return; s_.lx = l0.x; if (Math.abs(l0.x - s_.x) >= 3) drag.moved = true;   // (11/12 14:40) 여러 음 비율 늘이기 · 꾹 0.5초 뒤 = 더 미세(1/12)
+        if (drag.moved || s_.base) { s_.last = (s_.base || 0) + (l0.x - s_.x) / Math.max(1, mp.w - mp.L) * mp.W8 * (s_.k || STR_K); st.mStr.move(s_.last); } return; }
+      if (drag.gp) { const l0 = loc(e.clientX, e.clientY, cvEl.getBoundingClientRect()), G = drag.gp; G.ly = l0.y; if (Math.abs(l0.y - G.y) >= 3) drag.moved = true; if (!drag.moved && !G.semi) return;   // ↕ 바로 = 센트(손가락 1/4) · 꾹 0.5초 뒤 = 반음씩
+        let c = (G.y - l0.y) * G.cpp; c = G.semi ? G.base + Math.round(c / 100 / 1) * 100 * 1 : G.base + c * STR_K; c = Math.round(Math.max(-1200, Math.min(1200, c)));
+        if (!G.semi) c = Math.max(-100, Math.min(100, c));
+        if (c !== G.ap && st.mStr && st.mStr.pitch) { const was = G.ap; st.mStr.pitch(c - was); G.ap = c; if (G.semi && c !== was) buzz(12); } return; }   // (11/12 15:57 사용자) 손가락의 1/4만큼만 — 세밀하게
       if (drag.barX) { const l0 = loc(e.clientX, e.clientY, cvEl.getBoundingClientRect()), mp = st.map; if (Math.abs(l0.x - drag.x0) >= 3) drag.moved = true;
         if (drag.moved && mp && st.onBarDragX) st.onBarDragX(Math.round((l0.x - drag.x0) / Math.max(1, mp.w - mp.L) * mp.W8 * 100) / 100, drag.edge, false); return; }
       if (drag.bar) { const r0 = cvEl.getBoundingClientRect(), l0 = loc(e.clientX, e.clientY, r0); if (drag.cpp == null) drag.cpp = st.kb.inv(drag.y0) - st.kb.inv(drag.y0 + 1); const k = Math.round((drag.y0 - l0.y) * drag.cpp / 100);
@@ -1591,7 +1625,9 @@
       if (!pts.has(e.pointerId)) return; pts.delete(e.pointerId);
       if (pinch) { st.hold = null; if (pts.size === 0) { pinch = null; if (st.mMode && preview != null) { const t_ = preview; preview = null; try { seek(t_, true); } catch {} } } return; }
       if (!drag || drag.id !== e.pointerId) return; const d = drag; drag = null; clearTimeout(d.lp); st.hold = null;
+      st.mSelecting = false; if (d.lp) clearTimeout(d.lp); st.mAct = "";
       if (d.stretch) { if (st.mStr) st.mStr.end(); return; }
+      if (d.gp) { if (st.mStr && st.mStr.pitchEnd) st.mStr.pitchEnd(); return; }
       if (d.armed && d.armed.mouse && !d.moved) delete d.armed;   // 마우스로 빈 곳을 그냥 누름 = 평소처럼 재생/멈춤
       if (d.armed) { armTip(false); clearInterval(d.auto); d.auto = null; if (preview != null) { const t_ = preview; preview = null; try { seek(t_, true); } catch {} } if (d.moved) { if (st.advOn && st.mStr && st.msel) { const bs_ = barsIn(cv, st.msel[0], st.msel[1]); if (bs_.length) st.msel = [bs_[0].t0, bs_[bs_.length - 1].t1]; } if (st.onMSel) st.onMSel(); return; } if (d.armed.keep) return; st.msel = null; if (e.type === "pointerup") { if (st.notesHidden) st.noteShow = true; lastView = view; o.onAdd(d.armed.t); } return; }   // 숨긴 채 새 주석 = 주석 칸 보이기   // 끌지 않고 뗌 = 새 주석(예전과 같음)
       if (d.long) return;
