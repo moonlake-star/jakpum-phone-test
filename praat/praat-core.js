@@ -4,7 +4,7 @@
 // Praat은 한 번 실행하고 나면 다시 못 돌려서(내부 상태) 호출마다 새로 시작함(시작 약 60ms).
 (function (root) {
   "use strict";
-  const state = { bin: null, factory: null };
+  const state = { bin: null, factory: null, mod: null };
   const wavFloat = (x, sr) => {   // 32비트 실수 WAV (잘림·반올림 없이 Praat에 넘김)
     const b = new ArrayBuffer(44 + x.length * 4), v = new DataView(b), s = (o, t) => { for (let i = 0; i < t.length; i++) v.setUint8(o + i, t.charCodeAt(i)); };
     s(0, "RIFF"); v.setUint32(4, 36 + x.length * 4, true); s(8, "WAVEfmt "); v.setUint32(16, 16, true); v.setUint16(20, 3, true); v.setUint16(22, 1, true); v.setUint32(24, sr, true); v.setUint32(28, sr * 4, true); v.setUint16(32, 4, true); v.setUint16(34, 32, true); s(36, "data"); v.setUint32(40, x.length * 4, true);
@@ -21,7 +21,10 @@
     if (typeof DecompressionStream !== "undefined") return new Uint8Array(await new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream("gzip"))).arrayBuffer());
     return new Uint8Array(require("zlib").gunzipSync(Buffer.from(buf)));
   }
-  async function fresh() { const lines = []; const M = await state.factory({ wasmBinary: state.bin, print: (s) => lines.push(s), printErr: (s) => lines.push("ERR " + s) }); M._lines = lines; return M; }
+  // (11/12 10:46 사용자 '대기 없이') 부를 때마다 7MB 엔진을 새로 컴파일하던 것(호출당 약 0.2초) → 한 번 컴파일해 둔 걸로 새 인스턴스만(같은 엔진·같은 소리)
+  async function fresh() { const lines = []; const opt = { wasmBinary: state.bin, print: (s) => lines.push(s), printErr: (s) => lines.push("ERR " + s) };
+    if (state.mod) opt.instantiateWasm = (imports, ok) => { WebAssembly.instantiate(state.mod, imports).then((inst) => ok(inst, state.mod)); return {}; };
+    const M = await state.factory(opt); M._lines = lines; return M; }
   // (11/09 20:49 실제 목소리 5곡 시험) 큰 소리(봉우리 1.0 근처)는 Praat이 결과를 16비트 WAV로 쓸 때 한 샘플만 넘쳐도 '잘림 경고'를 냄
   //   → 예전엔 그 경고를 오류로 보고 미리듣기가 간이 엔진(지글지글·드르륵)으로 떨어졌음. 그래서 ① 넣는 소리를 봉우리 0.45로 낮춰 넣고 결과를 다시 키움 ② 경고·조언 줄은 오류로 안 봄
   const HEAD = 0.45;
@@ -37,7 +40,7 @@
   const num = (v) => Number(v).toPrecision(15);
   const Core = {
     // gz = praat_web.wasm.gz 바이트, factory = praat_web.js의 PraatModule
-    async init(gz, factory) { state.bin = await gunzip(gz); state.factory = factory; return true; },
+    async init(gz, factory) { state.bin = await gunzip(gz); state.factory = factory; try { if (typeof WebAssembly !== "undefined" && WebAssembly.compile) state.mod = await WebAssembly.compile(state.bin); } catch { state.mod = null; } return true; },
     ready: () => !!state.bin,
     // 음 높이 분석: 서버 analyze()의 기본 분석(t, f)과 같은 값 (채움 분석은 아직 아님)
     async analyze(x, sr) {

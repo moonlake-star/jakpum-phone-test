@@ -1,5 +1,5 @@
 // Praat 워커: 앱 화면(메인)과 따로 Praat(WebAssembly)을 돌림. praat-core.js의 같은 함수를 그대로 호출 → 소리는 화면에서 돌릴 때와 같음.
-importScripts("praat_web.js", "praat-core.js");
+importScripts("praat_web.js", "praat-core.js" + (self.location.search || ""));   // (11/12) 워커도 새 엔진 코드를 받게(주소의 ?v= 그대로)
 self.onmessage = async (e) => {
   const m = e.data || {};
   if (m.type === "init") {
