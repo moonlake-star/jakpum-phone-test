@@ -544,7 +544,7 @@
 <div id="v2Shade" class="v2only"></div>
 <div id="toast"></div>
 <script src="../lesson-replies.js"></script>
-<script src="../tune.js?v=20261112-2240"></script>
+<script src="../tune.js?v=20261112-2330"></script>
 <script src="../adv.js?v=20261112-1334"></script>
 <script src="../pitch-embed.js?v=20261105-1850"></script>
 
@@ -6324,6 +6324,13 @@ function popup(msg, ms = 2600) {   // 잠깐 뜨는 안내(확인 버튼 없음)
   if (!el) { el = document.createElement("div"); el.id = "pop"; el.setAttribute("role", "alert"); document.body.appendChild(el); }
   el.textContent = msg; el.classList.add("on"); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove("on"), ms);
 }
+// 검수.json 합치기: 최신(a)이 기준, 비어 있는 칸만 예전(b)으로 채움 · 화자·결정 같은 묶음은 예전 위에 최신을 덮어씀
+function revMerge(a, b) { const empty = (v) => v == null || v === "" || (Array.isArray(v) && !v.length) || (typeof v === "object" && !Array.isArray(v) && !Object.keys(v).length);
+  const out = { ...(a || {}) };
+  for (const [k, v] of Object.entries(b || {})) {
+    if (empty(out[k])) out[k] = v;
+    else if (v && typeof v === "object" && !Array.isArray(v) && out[k] && typeof out[k] === "object" && !Array.isArray(out[k])) out[k] = { ...v, ...out[k] }; }
+  return out; }
 async function openLesson(...a) { try { miniMarks([]); } catch {} busy(true, "레슨 불러오는 중…"); try { return await openLessonInner(...a); } finally { busy(false); } }
 async function openLessonInner(sid, i, backTo) {
   goBack = backTo || (() => openStudent(sid, "lesson"));
@@ -6335,8 +6342,19 @@ async function openLessonInner(sid, i, backTo) {
   const by = (n) => files.find(f => f.name === n);
   const d = await lessonData(l.id, files);
   const { summary, segs, cands, clips, samples, sampleFiles } = d;
-  const reviewF = by(REVIEW);
-  const review = reviewF ? await readJSON(reviewF.id) : { speakers: {}, decisions: {}, manual: [], feedback: "" };
+  // (11/12 23:15 사용자 '화자 확인 저장했는데 자꾸 떠') 목록을 불러올 때 받아 둔 파일 목록엔 나중에 생긴 검수.json이 없어서, 열 때마다 새 검수.json이 생기고
+  //   (한 레슨에 3개) 다음에 열면 다른 파일을 읽어 저장한 내용이 안 보였음 → 열 때마다 새로 확인 · 여러 개면 최신 것에 예전 것의 빈 칸을 채워 하나로 합치고 나머지는 휴지통(30일 복구 가능)
+  let revFs = []; try { revFs = (await list(l.id)).filter(f => f.name === REVIEW); } catch { revFs = files.filter(f => f.name === REVIEW); }
+  revFs.sort((a, b) => String(b.modifiedTime || "").localeCompare(String(a.modifiedTime || "")));
+  const reviewF = revFs[0];
+  let review = reviewF ? await readJSON(reviewF.id) : { speakers: {}, decisions: {}, manual: [], feedback: "" };
+  if (reviewF && !files.some(f => f.id === reviewF.id)) files.push(reviewF);
+  if (revFs.length > 1) {
+    for (const o of revFs.slice(1)) { try { review = revMerge(review, await readJSON(o.id)); } catch {} }
+    (async () => { try { await writeJSON(l.id, REVIEW, review, reviewF.id);
+      for (const o of revFs.slice(1)) await api(`${DRIVE}/files/${o.id}?fields=id`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trashed: true }) }).catch(() => {});
+      for (let k = files.length - 1; k >= 0; k--) if (files[k].name === REVIEW && files[k].id !== reviewF.id) files.splice(k, 1); } catch (e) { console.warn("검수 합치기", e); } })();
+  }
   const ai = d.ai;
   const spkSaved = Object.keys(review.speakers || {}).length > 0;            // 선생님이 저장한 화자 지정이 있었나(AI 채움 전)
   const teacherPts = (review.points || []).some(Boolean);                     // 선생님이 직접 고른 '오늘 포인트'가 있었나
@@ -8049,7 +8067,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261112-2240";
+const BUILD = "20261112-2330";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
