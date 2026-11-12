@@ -30,7 +30,7 @@ assert.strictEqual(cv.pts.find(p => p[0] === 1.5)[kt], 6000);
 const c2 = mk(); c2._fixes = [{ t0: 1, t1: 2.02, midi: 60, cut: true }]; groupShift(c2, 1, 2, 1); const o2 = groupShift(c2, 1, 2, -1);
 assert.deepStrictEqual(o2.map(f => [f.midi, !!f.cut]), [[60, true]], "나눔 표시 유지");
 // 도구줄·묶어 저장·자동 스크롤이 코드에 있음
-assert.ok(T.includes('data-gd="-1"') && T.includes('data-gd="1"'), "▼▲ 버튼");
+assert.ok(!T.includes('data-gd="1"'), "▼▲ 버튼 없음(11/12 14:40)");
 assert.ok(T.includes("typeof o.onFixMany === \"function\"") && T.includes("setTimeout(flush, 450)"), "묶어 저장");
 assert.ok(T.includes("const edgeAuto = (d)") && T.includes("drag.lx = l0.x; edgeAuto(drag);") && T.includes("clearInterval(d.auto)"), "가장자리 자동 스크롤");
 // 선생님 앱: 한 번에 받아 드라이브에는 한 번만 쓰고 wire에 넘김
