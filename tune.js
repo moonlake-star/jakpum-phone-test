@@ -457,23 +457,26 @@
       if (st) st.hdl = null;
       if (st && (st.advOn || st.buMode) && st.sel) {   // (11/06 16:20 사용자) 고른 음 양 끝 = 화살표 손잡이(꾹 누른 채 좌우로 = 길이 미세) · 음 가운데를 잡아 위아래 = 음정, 좌우 = 자리
         const sb = (st.tebars || []).find(x => Math.abs(x.t0 - st.sel.t0) < 0.02) || bars.find(x => Math.abs(x.t0 - st.sel.t0) < 0.02 || (st.sel.t0 < x.t1 && st.sel.t1 > x.t0));
-        if (sb && sb.x1 > L && sb.x0 < w && typeof st.onBarDragX === "function") { const R = HANDLE_R, hh = Math.max(26, sb.h + 12), lx = sb.x0, rx = sb.x1;
-          const arrow = (x, dir, on) => { const x0 = dir < 0 ? x - R * 1.5 : x, x1 = dir < 0 ? x : x + R * 1.5, tip = dir < 0 ? x0 : x1, bk = dir < 0 ? x1 : x0, y0 = sb.y - hh / 2, y1 = sb.y + hh / 2, nk = R * 0.6 * -dir;
-            g.beginPath(); g.moveTo(bk, y0); g.lineTo(tip - nk, y0); g.lineTo(tip, sb.y); g.lineTo(tip - nk, y1); g.lineTo(bk, y1); g.closePath(); g.fillStyle = on ? "#ffb86b" : "#e8f8ff"; g.fill(); g.lineWidth = 2; g.strokeStyle = "#0b0d11"; g.stroke();
-            g.fillStyle = "#0b0d11"; g.font = "bold 15px system-ui, sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(dir < 0 ? "‹" : "›", (x0 + x1) / 2, sb.y + 1); g.textAlign = "left"; };
-          const nbH = (dir) => bars.some(x => x !== sb && Math.abs(x.y - sb.y) < hh && (dir < 0 ? x.x1 > lx - R * 1.5 && x.x0 < lx - 1 : x.x0 < rx + R * 1.5 && x.x1 > rx + 1));   // (11/09 00:21 사용자 '쪼갰더니 앞부분이 사라짐') 바로 옆 음(나눈 앞 조각)을 손잡이가 가렸음 → 그땐 반투명
+        if (sb && sb.x1 > L && sb.x0 < w && typeof st.onBarDragX === "function") { const R = HANDLE_R, hh = 26, lx = sb.x0, rx = sb.x1;
+          // (11/12 17:55 사용자) 손잡이는 음표 조금 아래(손가락이 음표 끝을 가리지 않게) · 아래 자리가 없으면 위로 · 음표 끝에서 가는 선으로 이어 줌
+          let ay = sb.y + sb.h / 2 + hh / 2 + 10; if (ay + hh / 2 > T + HP - 2) ay = sb.y - sb.h / 2 - hh / 2 - 10;
+          const arrow = (x, dir, on) => { const x0 = dir < 0 ? x - R * 1.5 : x, x1 = dir < 0 ? x : x + R * 1.5, tip = dir < 0 ? x0 : x1, bk = dir < 0 ? x1 : x0, y0 = ay - hh / 2, y1 = ay + hh / 2, nk = R * 0.6 * -dir;
+            g.fillStyle = on ? "#ffb86b" : "rgba(232,248,255,.85)"; g.fillRect(x - 1, Math.min(sb.y, ay), 2, Math.abs(ay - sb.y));
+            g.beginPath(); g.moveTo(bk, y0); g.lineTo(tip - nk, y0); g.lineTo(tip, ay); g.lineTo(tip - nk, y1); g.lineTo(bk, y1); g.closePath(); g.fillStyle = on ? "#ffb86b" : "#e8f8ff"; g.fill(); g.lineWidth = 2; g.strokeStyle = "#0b0d11"; g.stroke();
+            g.fillStyle = "#0b0d11"; g.font = "bold 15px system-ui, sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(dir < 0 ? "‹" : "›", (x0 + x1) / 2, ay + 1); g.textAlign = "left"; };
+          const nbH = (dir) => bars.some(x => x !== sb && Math.abs(x.y - ay) < hh && (dir < 0 ? x.x1 > lx - R * 1.5 && x.x0 < lx - 1 : x.x0 < rx + R * 1.5 && x.x1 > rx + 1));   // (11/09 00:21 사용자 '쪼갰더니 앞부분이 사라짐') 바로 옆 음(나눈 앞 조각)을 손잡이가 가렸음 → 그땐 반투명
           const drawA = (x, dir, on) => { const ga = g.globalAlpha; if (!on && nbH(dir)) g.globalAlpha = 0.42; arrow(x, dir, on); g.globalAlpha = ga; };
           if (lx >= L - 4) drawA(lx, -1, st.hdlArmed === "l"); if (rx <= w + 4) drawA(rx, 1, st.hdlArmed === "r");
-          st.hdl = { l: { x: lx - R * 0.75, y: sb.y, r: R + 8 }, r: { x: rx + R * 0.75, y: sb.y, r: R + 8 } };
+          st.hdl = { l: { x: lx - R * 0.75, y: ay, r: R + 8 }, r: { x: rx + R * 0.75, y: ay, r: R + 8 } };
           const tips = [["v", "↕ 잡자마자 끌기 = ", "반음씩"], ["fine", "꾹 0.5초 → 위아래 = ", "미세"], ["dbl", "두 번 톡 = ", "가까운 음에 착"], ["arr", "‹ › 꾹 0.5초 → 끌기 = ", "앞·뒤 길이"]].filter(q => !learned(q[0]) && (q[0] !== "dbl" || st.advOn));
           if (tips.length && !st.dragging) { g.font = "11.5px system-ui, sans-serif"; g.textBaseline = "middle"; const cx = Math.max(L + 70, Math.min(w - 70, (Math.max(L, sb.x0) + Math.min(w, sb.x1)) / 2));
             const tag = (yy, a, b2) => { const wa = g.measureText(a).width; g.font = "bold 11.5px system-ui, sans-serif"; const wb = g.measureText(b2).width; g.font = "11.5px system-ui, sans-serif";
               const W_ = wa + wb + 14, X0 = Math.max(L + 2, Math.min(w - W_ - 2, cx - W_ / 2)); g.fillStyle = "rgba(24,29,37,.92)"; g.strokeStyle = "#3b4250"; g.lineWidth = 1;
               g.beginPath(); if (g.roundRect) g.roundRect(X0, yy - 10, W_, 20, 8); else g.rect(X0, yy - 10, W_, 20); g.fill(); g.stroke();
               g.fillStyle = "#cfd3da"; g.fillText(a, X0 + 7, yy); g.fillStyle = "#ffcf99"; g.font = "bold 11.5px system-ui, sans-serif"; g.fillText(b2, X0 + 7 + wa, yy); g.font = "11.5px system-ui, sans-serif"; };
-            const up = tips.filter(q => q[0] === "v"), dn = tips.filter(q => q[0] !== "v"), top0 = sb.y - hh / 2 - 16;
+            const up = tips.filter(q => q[0] === "v"), dn = tips.filter(q => q[0] !== "v"), top0 = Math.min(sb.y - sb.h / 2, ay - hh / 2) - 14, bot0 = Math.max(sb.y + sb.h / 2, ay + hh / 2) + 14;   // 손잡이(음표 아래)를 피해서
             up.forEach((q, i) => { if (top0 - i * 24 > T + 10) tag(top0 - i * 24, q[1], q[2]); });
-            dn.forEach((q, i) => { const yy = sb.y + hh / 2 + 16 + i * 24; if (yy < T + HP - 8) tag(yy, q[1], q[2]); }); } } }
+            dn.forEach((q, i) => { const yy = bot0 + i * 24; if (yy < T + HP - 8) tag(yy, q[1], q[2]); }); } } }
       if (st) st.cutHit = null;
       if (full && st && st.sel && st.cutAtNow && st.map && !st.dragging && (!st.isPaused || st.isPaused()) && t > st.sel.t0 + 0.04 && t < st.sel.t1 - 0.04) {   // (11/06 22:20 사용자) 고른 음 위에 세로줄이 오면 줄 위에 ✂ — 톡 = 그 자리에서 나누기
         const sb = (st.tbars || []).find(x => Math.abs(x.t0 - st.sel.t0) < 0.02), mp = st.map, X = mp.L + (t - mp.t0) / Math.max(1e-6, mp.W8) * (mp.w - mp.L);
