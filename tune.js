@@ -7,7 +7,7 @@
   const BAR_GAP = 0.5;   // 정음 막대 이어 붙이는 최대 틈(초) — 서버 pitch.BRIDGE_S와 같게
   const DT_JUMP = 2;   // (11/03 10:24 사용자) 그래프 두 번 톡 = 2초 이동
   const HANDLE_R = 15;
-  const LONG_MS = 600, FINE = 0.25;   // (11/06 16:36 사용자) 꾹 0.6초가 지나면 켜지고 진동   // (11/06 16:13 사용자) 꾹 누르는 시간 · 미세 조절은 손가락 움직임의 1/4만큼
+  const LONG_MS = 500, FINE = 0.25;   // (11/12 17:55 사용자) 길이 손잡이·빈 곳 여러 음 고르기 꾹 = 둘 다 0.5초(0.6 → 0.5)   // (11/06 16:36 사용자) 꾹 0.6초가 지나면 켜지고 진동   // (11/06 16:13 사용자) 꾹 누르는 시간 · 미세 조절은 손가락 움직임의 1/4만큼
   const BEAT_SNAP = 0.12;   // (11/06) 박자 맞춤: 음 시작이 박에서 이만큼(초) 안이면 박에 붙임
   // (11/06 16:36 사용자) 다른 강사도 알 수 있게: 고른 음 둘레에 손짓 안내 글 — 손짓을 두 번 써 보면 그 글은 사라짐(이 기기 기억)
   const LEARN_KEY = "tune_learn_v1", LEARN_N = 2;
@@ -465,7 +465,7 @@
           const drawA = (x, dir, on) => { const ga = g.globalAlpha; if (!on && nbH(dir)) g.globalAlpha = 0.42; arrow(x, dir, on); g.globalAlpha = ga; };
           if (lx >= L - 4) drawA(lx, -1, st.hdlArmed === "l"); if (rx <= w + 4) drawA(rx, 1, st.hdlArmed === "r");
           st.hdl = { l: { x: lx - R * 0.75, y: sb.y, r: R + 8 }, r: { x: rx + R * 0.75, y: sb.y, r: R + 8 } };
-          const tips = [["v", "↕ 잡자마자 끌기 = ", "반음씩"], ["fine", "꾹 0.6초 → 위아래 = ", "미세"], ["dbl", "두 번 톡 = ", "가까운 음에 착"], ["arr", "‹ › 꾹 0.6초 → 끌기 = ", "앞·뒤 길이"]].filter(q => !learned(q[0]) && (q[0] !== "dbl" || st.advOn));
+          const tips = [["v", "↕ 잡자마자 끌기 = ", "반음씩"], ["fine", "꾹 0.5초 → 위아래 = ", "미세"], ["dbl", "두 번 톡 = ", "가까운 음에 착"], ["arr", "‹ › 꾹 0.5초 → 끌기 = ", "앞·뒤 길이"]].filter(q => !learned(q[0]) && (q[0] !== "dbl" || st.advOn));
           if (tips.length && !st.dragging) { g.font = "11.5px system-ui, sans-serif"; g.textBaseline = "middle"; const cx = Math.max(L + 70, Math.min(w - 70, (Math.max(L, sb.x0) + Math.min(w, sb.x1)) / 2));
             const tag = (yy, a, b2) => { const wa = g.measureText(a).width; g.font = "bold 11.5px system-ui, sans-serif"; const wb = g.measureText(b2).width; g.font = "11.5px system-ui, sans-serif";
               const W_ = wa + wb + 14, X0 = Math.max(L + 2, Math.min(w - W_ - 2, cx - W_ / 2)); g.fillStyle = "rgba(24,29,37,.92)"; g.strokeStyle = "#3b4250"; g.lineWidth = 1;
@@ -1097,7 +1097,7 @@
     { text: () => "그래프 빈 곳을 길게 누르면 그 자리에 주석을 달 수 있어요", need: 'typeof o.onAdd === "function") d0.lp = setTimeout', when: (o) => typeof o.onAdd === "function" },
     { text: () => "주석 칸을 0.6초 꾹 누르면 내용을 고치거나 지울 수 있어요", need: "주석 칸 0.6초 꾹 = 고치기", when: (o) => typeof o.onNote === "function" },
     { text: () => "🌬 치찰음·호흡: 보정 모드에서 구간을 고르면 나오는 🌬 버튼 → 그 구간의 ㅅ·ㅊ(숨소리) 크기 조절", need: "G.TuneAdv.uvSheet(host.querySelector", when: (o) => typeof o.onAdv === "function" },
-    { text: () => "보정 모드: 고른 음을 잡고 위아래 = 반음 · 꾹 0.6초 누른 뒤 위아래 = 미세", need: "if (drag.fine) drag.axis = \"v\"", when: (o) => typeof o.onAdv === "function" },
+    { text: () => "보정 모드: 고른 음을 잡고 위아래 = 반음 · 꾹 0.5초 누른 뒤 위아래 = 미세", need: "if (drag.fine) drag.axis = \"v\"", when: (o) => typeof o.onAdv === "function" },
     { text: () => "보정 모드: 음 양 끝 ‹ › 화살표를 꾹 누른 채 좌우로 = 길이 미세 조절", need: "d0.hArmed = true", when: (o) => typeof o.onAdv === "function" },
     { text: () => "보정 모드: 음을 두 번 톡 = 가까운 음계 음에 맞추고 흐름 평평하게", need: "const snapNote = () =>", when: (o) => typeof o.onAdv === "function" },
     { text: () => "✏️ 펜: 음정선 위에 그리면 그 구간 음높이가 그린 대로 · 선 톡 = 지우기", need: "drag = { pen: true", when: (o) => typeof o.onAdv === "function" },
@@ -1293,7 +1293,7 @@
       const advGuide = (force) => {   // (11/06 16:36 사용자) 보정 모드 처음 들어오면 손짓 안내 한 번(⋯ 곡 메뉴에서 다시 보기)
         try { if (!force && localStorage.getItem("tune_adv_guide_v1") === "1") return; } catch {}
         wrap.querySelectorAll(".tfGuide").forEach(x => x.remove()); const gd = document.createElement("div"); gd.className = "tfRot tfGuide"; gd.setAttribute("role", "dialog"); gd.setAttribute("aria-label", "보정 모드 손짓");
-        gd.innerHTML = `<div class="rpBox gdBox"><b style="font-size:16px">🎛 보정 모드 손짓</b><ol class="gdL"><li><span>초록 음 톡</span><em>음 고르기</em></li><li><span>↕ 잡자마자 위아래</span><em>반음씩</em></li><li><span>꾹 0.6초(진동) → 위아래</span><em>미세 조절</em></li><li><span>두 번 톡</span><em>가까운 음에 착</em></li><li><span>양 끝 ‹ › 꾹 0.6초 → 좌우</span><em>앞·뒤 길이</em></li><li><span>두 손가락</span><em>확대 · 이동</em></li></ol><p class="gdS">고른 음 옆에도 안내가 떠요 · 두 번씩 써 보면 사라져요</p><button type="button" class="rpOk">알겠어요</button></div>`;
+        gd.innerHTML = `<div class="rpBox gdBox"><b style="font-size:16px">🎛 보정 모드 손짓</b><ol class="gdL"><li><span>초록 음 톡</span><em>음 고르기</em></li><li><span>↕ 잡자마자 위아래</span><em>반음씩</em></li><li><span>꾹 0.5초(진동) → 위아래</span><em>미세 조절</em></li><li><span>두 번 톡</span><em>가까운 음에 착</em></li><li><span>양 끝 ‹ › 꾹 0.5초 → 좌우</span><em>앞·뒤 길이</em></li><li><span>두 손가락</span><em>확대 · 이동</em></li></ol><p class="gdS">고른 음 옆에도 안내가 떠요 · 두 번씩 써 보면 사라져요</p><button type="button" class="rpOk">알겠어요</button></div>`;
         const gone = () => { try { localStorage.setItem("tune_adv_guide_v1", "1"); } catch {} gd.classList.add("out"); setTimeout(() => gd.remove(), 300); };
         const ly = G.Brand && G.Brand.layer ? G.Brand.layer(gone) : { close: gone };   // 뒤로 가기 = 이 안내만 닫기
         gd.addEventListener("pointerdown", (e) => e.stopPropagation()); gd.addEventListener("click", (e) => { if (e.target === gd || e.target.closest(".rpOk")) ly.close(); }); wrap.appendChild(gd); };

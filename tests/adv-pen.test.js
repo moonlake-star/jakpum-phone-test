@@ -40,7 +40,7 @@ console.log("adv-pen ok");
   A_.ok(t4.includes("if (st.beatOn && edge !== \"r\") { const bt = beatNear(cv, n0); if (bt != null && Math.abs(bt - n0) <= BEAT_SNAP)") && t4.includes('mk("advBeatB"') && t4.includes("st.advOn && cv.beats && cv.beats.t")); }
 // (11/06 16:13·16:20 사용자) 음 가운데: 바로 위아래 = 반음, 좌우 = 자리, 꾹 = 미세 · 양 끝 화살표는 꾹 눌러야 길이 · 건반 꾹 진동 없음
 { const t5 = require("fs").readFileSync(__dirname + "/../tune.js", "utf8"), A_ = require("assert");
-  A_.ok(t5.includes("const LONG_MS = 600, FINE = 0.25;") && t5.includes("drag.fine ? Math.round(c * FINE * 100) / 100 : Math.round(c)"), "반음/미세");
+  A_.ok(t5.includes("const LONG_MS = 500, FINE = 0.25;") && t5.includes("drag.fine ? Math.round(c * FINE * 100) / 100 : Math.round(c)"), "반음/미세");
   A_.ok(!t5.includes('st.onBarDragX(0, "c", true)') && t5.includes('drag.selBody = false; drag.mode = "time"') && t5.includes("if (!drag.hArmed) { if (Math.hypot(l0.x - drag.x0, l0.y - drag.y0) > 8)"), "(11/06 17:03) 음 좌우 옮기기 뺌 — 좌우는 화면 이동, 화살표는 꾹 눌러야");
   A_.ok(!t5.includes('"↕", "#9cc3ff"'), "↕ 동그라미 없앰");
   A_.ok(t5.includes('cvEl.addEventListener("touchstart", (e) => { if (e.cancelable) e.preventDefault(); }, { passive: false })'), "꾹 눌러도 폰 진동 없게"); }
