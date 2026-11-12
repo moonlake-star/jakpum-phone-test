@@ -544,8 +544,8 @@
 <div id="v2Shade" class="v2only"></div>
 <div id="toast"></div>
 <script src="../lesson-replies.js"></script>
-<script src="../tune.js?v=20261112-1034"></script>
-<script src="../adv.js?v=20261112-1034"></script>
+<script src="../tune.js?v=20261112-1042"></script>
+<script src="../adv.js?v=20261112-1042"></script>
 <script src="../pitch-embed.js?v=20261105-1850"></script>
 
 <script>
@@ -5007,7 +5007,7 @@ function pvClusterRatio(cv, cl, dry, lvCol, sr, i0, n) {   // 덩어리 안 칸�
   for (let k = k0; k <= k1; k++) { const tk = k / fps, f = cl.fx.find(x => tk >= x.t0 - 0.001 && tk <= x.t1 + 0.001), r0 = raw.get(k), rk = ren.get(k); let cor = 0;
     if (f && f.off) cor = dry ? 0 : (r0 != null && rk != null ? r0 - rk : 0);   // (11/09) 🎤 원음 = 부른 그대로
     else if (f) { if (dry) { if (r0 == null) continue; let s_ = 0, c_ = 0; for (let d = -2; d <= 2; d++) { const td = (k + d) / fps; if (td < f.t0 - 0.001 || td > f.t1 + 0.001) continue; const x = raw.get(k + d); if (x != null) { s_ += x; c_++; } }   /* (11/11 사용자 '끝이 날카롭게 튐') 평균은 그 음 안의 칸만 — 옆 음 칸이 섞이면 음 끝에서 평균이 끌려가 보정량이 갑자기 커짐 */
-        cor = f.midi * 100 - s_ / c_; if (Math.abs(cor) < 8 && Number.isInteger(f.midi)) cor = 0; /* 센트로 고친 곳은 작은 차이도 반영 */ cor = Math.max(-1200, Math.min(1200, cor)); /* (11/03) 2반음 넘게도 */ }
+        cor = f.midi * 100 - s_ / c_; /* (11/12) 8센트 자르기 삭제(0↔8 오락가락 = 튐) */ cor = Math.max(-1200, Math.min(1200, cor)); /* (11/03) 2반음 넘게도 */ }
       else { const rm = mkPv.rendered(f); cor = rm != null ? (f.midi - rm) * 100 : r0 != null ? Math.max(-1200, Math.min(1200, f.midi * 100 - r0)) : 0; } }   // 정음이 없던 곳(서버가 안 건드림) = 부른 높이에서 바로
     else if (dry && r0 != null && rk != null) cor = rk - r0;   // 사이 빈 곳: 서버가 만든 높이 그대로
     m.set(k, cor); }
@@ -5056,7 +5056,7 @@ function pvPraatLoad() {
     if (typeof document === "undefined") { PVP.state = "fail"; return; }
     if (typeof location !== "undefined" && /[?&]praat=0\b/.test(location.search)) { PVP.state = "off"; return; }
     PVP.state = "loading";
-    await pvLoadScript("../praat/praat-core.js?v=20261112-1034");
+    await pvLoadScript("../praat/praat-core.js?v=20261112-1042");
     const r = await fetch("../praat/praat_web.wasm.gz"); if (!r.ok) throw new Error("praat " + r.status); const gz = await r.arrayBuffer();
     // (11/11) 워커에서 돌림(화면 안 멈춤). 워커를 못 만들면 예전처럼 화면 스레드에서
     let wk = false; try { wk = await PraatCore.useWorker("../praat/praat-worker.js?v=20261111-1030", gz); } catch {}
@@ -5066,16 +5066,35 @@ function pvPraatLoad() {
   return PVP.p;
 }
 function pvTotalBins(cv, lvCol, cls, mp) {   // 칸마다 '보정 전 소리(p0) 높이 → 지금 들려줄 높이' 보정(센트): 고친 음 = 정음 − 부른 높이, 그 밖 = 서버가 만든 높이 − 부른 높이, 디테일 고침 포함
-  const fps = cv.fps || 25, raw = pvBins(cv, 1), ren = new Map(), m = new Map(), fxs = cls.flatMap((c) => c.fx);
+  const fps = cv.fps || 25, raw = pvBins(cv, 1), ren = new Map(), m = new Map(), fxs = cls.flatMap((c) => c.fx), teach = new Set();
   for (const p of cv.pts || []) if (p[lvCol] != null) ren.set(Math.round(p[0] * fps), p[lvCol]);
   const adv = mp && mp.any ? mp.delta : null, K = (cv.levels || []).length ? 2 + cv.levels.length - 1 : 0;
   for (const [k, r0] of raw) { const tk = k / fps, f = fxs.find((x) => tk >= x.t0 - 0.001 && tk <= x.t1 + 0.001), rk = ren.get(k); let cor = null;
     if (f && f.off) cor = 0;   // (11/09) 🎤 원음 = 보정 안 함
-    else if (f) { let s_ = 0, c_ = 0; for (let d = -2; d <= 2; d++) { const td = (k + d) / fps; if (td < f.t0 - 0.001 || td > f.t1 + 0.001) continue; const x = raw.get(k + d); if (x != null) { s_ += x; c_++; } }   /* (11/11 사용자 '끝이 날카롭게 튐') 평균은 그 음 안의 칸만 — 옆 음 칸이 섞이면 음 끝에서 평균이 끌려가 보정량이 갑자기 커짐 */
-      cor = f.midi * 100 - s_ / c_; if (Math.abs(cor) < 8 && Number.isInteger(f.midi)) cor = 0; cor = Math.max(-1200, Math.min(1200, cor)); if (adv && lvCol === K && adv.get(k) != null) cor += adv.get(k); }
+    else if (f) { let s_ = 0, c_ = 0; for (let d = -2; d <= 2; d++) { const td = (k + d) / fps; if (td < f.t0 - 0.001 || td > f.t1 + 0.001) continue; const x = raw.get(k + d); if (x != null) { const xp = raw.get(k + d - 1) ?? x, xn = raw.get(k + d + 1) ?? x, w = 1 / (1 + ((Math.abs(xn - xp) / 2 * fps) / 400) ** 2); s_ += x * w; c_ += w; } }   /* (11/11 사용자 '끝이 날카롭게 튐') 평균은 그 음 안의 칸만 · (11/12) 서버 중심처럼 빨리 움직이는 칸(지나가는 음)은 덜 */
+      cor = f.midi * 100 - s_ / c_; cor = Math.max(-1200, Math.min(1200, cor)); if (adv && lvCol === K && adv.get(k) != null) cor += adv.get(k); teach.add(k); }   // (11/12 10:39 사용자 '쪼개기만 했는데 튐') 8센트 안쪽을 0으로 자르던 규칙 삭제(칸마다 0↔8센트로 오락가락 = 튐 · 서버는 선생님 음에 무시 폭 없음)
     else if (rk != null) cor = rk - r0;
     if (cor != null) m.set(k, cor); }
+  if (teach.size) pvSmoothTeach(m, teach, fps, cv, lvCol);
   return m;
+}
+// (11/12 10:39 사용자 '쪼개기만 했는데 튐') 서버 v3처럼 선생님이 고친 음과 이웃 자동 보정 사이를 1차 지연(앞뒤 한 번씩)으로 잇고, 바뀌는 빠르기를 초당 900센트로 제한
+//   예전: 고친 음 경계에서 보정량이 한 칸(40ms) 만에 확 바뀜 → 음이 툭 튐. 서버 _correction_v3 · _deblip과 같은 규칙(이웃 자동 보정 칸은 경계 근처만 바뀜)
+function pvSmoothTeach(m, teach, fps, cv, lvCol) {
+  const lvIdx = lvCol - 2, lv = (cv.levels || [])[lvIdx] ?? 3, tau = lv <= 1 ? 0.08 : lv === 2 ? 0.045 : 0.025, dt = 1 / fps, al = 1 - Math.exp(-dt / tau), near = Math.ceil(0.2 * fps), slew = 900 * dt;
+  const ks = [...m.keys()].sort((p, q) => p - q);
+  for (let a = 0; a < ks.length;) { let b = a; while (b + 1 < ks.length && ks[b + 1] === ks[b] + 1) b++;
+    const seg = ks.slice(a, b + 1); a = b + 1; if (!seg.some((k) => teach.has(k))) continue;
+    const auto = seg.map((k) => m.get(k)), z = auto.slice();
+    for (let i = 1; i < z.length; i++) z[i] = z[i - 1] + al * (z[i] - z[i - 1]);
+    for (let i = z.length - 2; i >= 0; i--) z[i] = z[i + 1] + al * (z[i] - z[i + 1]);
+    for (let i = 0; i < z.length; i++) if (teach.has(seg[i]) && Math.abs(z[i] - auto[i]) < 2) z[i] = auto[i];   // 고친 음 안쪽은 그대로(서버와 같음)
+    for (let i = 1; i < z.length; i++) { const d = z[i] - z[i - 1]; if (Math.abs(d) > slew) z[i] = z[i - 1] + Math.sign(d) * slew; }   // 앞으로
+    for (let i = z.length - 2; i >= 0; i--) { const d = z[i] - z[i + 1]; if (Math.abs(d) > slew) z[i] = z[i + 1] + Math.sign(d) * slew; }   // 뒤로
+    let lastT = -1e9; const dist = new Array(z.length).fill(1e9);
+    for (let i = 0; i < z.length; i++) { if (teach.has(seg[i])) lastT = i; dist[i] = i - lastT; }
+    lastT = 1e9; for (let i = z.length - 1; i >= 0; i--) { if (teach.has(seg[i])) lastT = i; dist[i] = Math.min(dist[i], lastT - i); }
+    for (let i = 0; i < z.length; i++) if (teach.has(seg[i]) || dist[i] <= near) m.set(seg[i], z[i]); }   // 자동 보정 칸은 고친 음 0.2초 안만 바뀜(나머지는 서버 값 그대로)
 }
 function pvShiftAt(bins, fps, t) {   // 분석점 시각 t → 보정(센트): 칸 가운데 값끼리 선형 보간, 소리 없는 칸 쪽은 0
   const x = t * fps - 0.5, k0 = Math.floor(x), a = bins.get(k0), b = bins.get(k0 + 1), w = x - k0;
@@ -5084,7 +5103,7 @@ function pvShiftAt(bins, fps, t) {   // 분석점 시각 t → 보정(센트): �
 const PV_EXACT_G = ["formant", "sib_db", "uv_gain", "level"];   // 곡 전체 음색·치찰음·무성음·평준화는 아직 폰에서 못 만듦 → 이게 있으면 음별 음색·볼륨은 대략 소리로
 function pvExactAdv() { const g = mkPv.advG || {}; return !PV_EXACT_G.some((k) => g[k]); }
 function pvPraatPlan(cv, lvCol, sr, cls, ap, mp, len) {   // 다시 만들 구간들(정음 고침 덩어리 + 높이·음색·볼륨을 바꾼 디테일 고침) — 가까운 것은 합침
-  const exact = pvExactAdv(), raw = [...cls.map((c) => [c.t0, c.t1])]; if (ap && mp && mp.any) for (const c of ap.regs) if (c.notes.some((nt) => nt._draw || PV_ADV_P.some((k) => k in nt))) raw.push([c.t0, c.t1]);   // (11/06 22:13 사용자 '펜은 선만 바뀌고 소리는 그대로') 펜 구간도 다시 만듦
+  const exact = pvExactAdv(), raw = [...cls.map((c) => [c.t0 - 0.2, c.t1 + 0.2])];   // (11/12) 고친 음 앞뒤 0.2초도(경계를 서버처럼 부드럽게 잇는 곳) if (ap && mp && mp.any) for (const c of ap.regs) if (c.notes.some((nt) => nt._draw || PV_ADV_P.some((k) => k in nt))) raw.push([c.t0, c.t1]);   // (11/06 22:13 사용자 '펜은 선만 바뀌고 소리는 그대로') 펜 구간도 다시 만듦
   if (ap && exact) for (const c of ap.regs) if (c.notes.some((nt) => nt.formant || PV_ADV_G.some((k) => k in nt))) raw.push([c.t0, c.t1]);   // 서버처럼 p0에서 보정 → 음색 → 볼륨 차례로 한 번에
   raw.sort((a, b) => a[0] - b[0]); const mg = []; for (const r of raw) { const L = mg[mg.length - 1]; if (L && r[0] - L[1] < 0.3) L[1] = Math.max(L[1], r[1]); else mg.push([r[0], r[1]]); }
   const X = Math.round(sr * 0.05), bins = mg.length ? pvTotalBins(cv, lvCol, cls, mp) : null, fps = cv.fps || 25, regs = [];
@@ -5232,6 +5251,19 @@ function pvApply(name) {   // 한 트랙에 지금 고친 정음·타이밍 전�
   if (pp && pp.regs.length && (PVP.state === "loading" || PVP.state === "ready") && !ppReady && !pp.regs.some((r) => PVP.cache.get(r.key) === null)) return false;   // 서버와 같은 소리가 준비될 때까지 지금 소리 그대로(간이 소리로 먼저 들려주지 않음)
   const sig = JSON.stringify(cls.map(c => c.fx.map(f => [f.t0, f.t1, f.midi, dry ? 0 : mkPv.rendered(f)]))) + "|" + tp.sig + (ap ? "|" + ap.sig : "") + (ppReady ? "|P" + pp.regs.map((r) => r.key).join(",") : "");
   const st = mkPv.orig[name] || (mkPv.orig[name] = { sig: "[]|", regs: [] });
+  // (11/12 10:39 사용자 '미리듣기까지 서버와 같은 음질') 곡 전체 목소리 결·치찰음·숨·볼륨 고르게(전체 보정)를 바꿨으면 구간만으로는 같은 소리를 못 만듦
+  //   → 완성본과 같은 계산(pvFullVocal: p0에서 곡 전체)을 뒤에서 돌려, 끝나면 이 트랙을 통째로 그 소리로 바꿈(그동안은 지금 소리)
+  if (dry && src && pOn && !pvExactAdv() && PVP.state !== "fail" && PVP.state !== "off") {
+    const gs = JSON.stringify([mkPv.advG, mkPv.adv, mkPv.fixes, mkPv.tedits, (cv.bad || []).length]), F = mkPv.full || (mkPv.full = {}), cur = F[name];
+    if (cur && cur.sig === gs && cur.y) {
+      if (st.sig === "FULL" + gs) return false;
+      for (const r of st.regs.slice().reverse()) r.ch.forEach((org, c) => buf.getChannelData(c).set(org, r.i0));
+      st.regs = [{ i0: 0, ch: Array.from({ length: buf.numberOfChannels }, (_, c) => buf.getChannelData(c).slice()) }]; st.sig = "FULL" + gs;
+      for (let c = 0; c < buf.numberOfChannels; c++) buf.getChannelData(c).set(cur.y.subarray(0, buf.length));
+      return true; }
+    if (!cur || cur.sig !== gs) { const job = F[name] = { sig: gs, y: null };
+      clearTimeout(pvApply.fullTm); pvApply.fullTm = setTimeout(() => { if (F[name] !== job) return;
+        pvFullVocal(name).then((y) => { if (F[name] === job && y) { job.y = y; try { pvApplyAll(); } catch {} } }).catch((e) => console.warn("미리듣기 전체 다시 만들기", e)); }, 1500); } }
   if (st.sig === sig) return false;
   for (const r of st.regs.slice().reverse()) r.ch.forEach((org, c) => buf.getChannelData(c).set(org, r.i0));   // 먼저 원래대로
   st.regs = []; st.sig = sig;
@@ -7900,7 +7932,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261112-1034";
+const BUILD = "20261112-1042";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
