@@ -34,7 +34,7 @@ assert.ok(h.includes("한 테이크 그대로라는 뜻이 아니에요") && !h.
 h = setup({}, { ...COMP, seams: [], takes_used: 3 }).api.renderBest();
 assert.ok(h.includes("이어 붙인 자리 기록이 없어요") && !h.includes("사실상 단일 테이크"));
 // 3) 편집 실패/불가/대기: 단일 테이크로 대체·공유하지 않고 상태/재시도 안내, 포함 버튼도 없음
-for (const [c, msg] of [[{ status: "error", why: "x" }, "편집본 생성 실패"], [{ status: "none", fallback: "best_take" }, "편집본 생성 보류"], [null, "만들어지는 중"], [{ status: "none" }, "못 찾았어요"]]) {
+for (const [c, msg] of [[{ status: "error", why: "x", tries: 3 }, "편집본 생성 실패"], [{ status: "error", why: "x" }, "다시 만들고 있어요"], [{ status: "none", fallback: "best_take" }, "편집본 생성 보류"], [null, "만들어지는 중"], [{ status: "none" }, "못 찾았어요"]]) {
   t = setup({ bestInclude: true, bestIncludeId: "B1" }, c); h = t.api.renderBest();
   assert.ok(h.includes(msg) && h.includes("다음 자동 처리 때 다시 시도") && h.includes("자동으로 보내지 않아요"), msg);
   assert.ok(!h.includes('class="tp"') && !h.includes("incl"), "대체 재생바·포함 버튼 없음(자동 대체·자동 공유 금지)");
