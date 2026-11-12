@@ -6223,15 +6223,22 @@ async function openMkJob(j, backTo) {
       t.textContent = `✓ 폰에서 만듦 · ${(o.blob.size / 1048576).toFixed(1)}MB · ${o.secs.toFixed(1)}초 · 아래 ‘수강생에게 보내기’로 바로 보낼 수 있어요`; }
     catch (e) { t.textContent = "못 만들었어요: " + e.message; console.warn("폰 합치기", e); } finally { b.disabled = false; }
   };
+  // (11/12 18:33 사용자 화면 'Permission denied') 폰 공유 창은 '누른 직후'에만 열려요 — 예전엔 누른 뒤 완성본을 내려받느라 기다리는 사이 허락이 끝나 버렸음
+  //   → 이 화면이 열리면 완성본을 미리 받아 두고, 아직 못 받았으면 받은 뒤 '한 번 더 눌러 주세요'
+  let mixBlob = null, mixP = null; const mixId = () => (by("mix.mp3") || {}).id;
+  const mixPre = () => { const id = mixId(); if (!id) return null; if (!mixP || mixP._id !== id) { mixBlob = null; mixP = readBlob(id, true).then(b => { if (mixP && mixP._id === id) mixBlob = b; return b; }); mixP._id = id; mixP.catch(() => { mixP = null; }); } return mixP; };
+  try { mixPre(); } catch {}
   const shareNow = async (usePhone) => {
     try {
-      const files = [new File([usePhone && mkPhone ? mkPhone.blob : await readBlob(by("mix.mp3").id, true)], `${j.st.name}_${r.title}_메이크업.mp3`, { type: "audio/mpeg" })];
+      let blob = usePhone && mkPhone ? mkPhone.blob : (mixBlob && mixP && mixP._id === mixId() ? mixBlob : null);
+      if (!blob) { toast("완성본 받는 중…"); await mixPre(); return toast("준비됐어요 — ‘수강생에게 보내기’를 한 번 더 눌러 주세요"); }
+      const files = [new File([blob], `${j.st.name}_${r.title}_메이크업.mp3`, { type: "audio/mpeg" })];
       if (!navigator.canShare?.({ files })) return toast("이 브라우저는 파일 공유를 지원하지 않아요");
       await navigator.share({ files });
       r.sent_at = new Date().toISOString();
       await writeJSON(j.folder.id, MKREQ, r, j.reqId); toast("보낸 기록 저장됨");
       $("mkSentT").textContent = "보냄 " + new Date(r.sent_at).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
-    } catch (e) { if (e.name !== "AbortError") toast(e.message); }
+    } catch (e) { if (e.name === "AbortError") return; toast(e.name === "NotAllowedError" ? "보내기 창을 못 열었어요 — 한 번 더 눌러 주세요" : e.message); }
   };
   // (11/09 시안 고) 고친 게 완성본에 없는데 보내려 하면: 어느 파일을 보낼지 고르게(예전엔 몰래 지난 완성본이 나갈 수 있었음)
   $("mkShare").onclick = () => {
