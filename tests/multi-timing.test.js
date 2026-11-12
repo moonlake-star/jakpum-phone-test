@@ -30,3 +30,5 @@ assert.ok(T.includes("if (bs_.length) st.msel = [bs_[0].t0, bs_[bs_.length - 1].
 assert.ok(T.includes('if (st.msel && !wrap.querySelector(".tfMulti") && !d.mode && e.type === "pointerup") { st.msel = null;'), "빈 곳 톡 해제");
 assert.ok(T.includes("if (st && st.mMode) { st.mMode = false; st.msel = null; st.onMSel = null; st.mStr = null; }"), "남은 분홍 범위 정리");
 console.log("multi-timing+ ok");
+assert.ok(T.includes("sheetClose(); lastTap = 0; if (hb) { st.msel = null; st.mMode = false; pauseNow(); fixSheet(wrap, cv, hb, o.onFix, getT, st); } return; }"), "범위 중 음 톡 = 해제 + 그 음");
+console.log("tap-note ok");

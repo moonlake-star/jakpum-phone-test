@@ -1571,7 +1571,8 @@
       if (st.mMode && !d.mode && e.type === "pointerup" && sheetClose && !st.advOn && st.msel && typeof o.onAdd === "function" && st.map) {   // (11/06 22:49 사용자) 기본 모드: 고른 구간 안을 톡 = 그 구간에 한마디(주석) 창 — 구간이 자동으로 들어감
         const lt = loc(d.cx ?? e.clientX, d.cy ?? e.clientY, cvEl.getBoundingClientRect()), tq = timeAt(st, lt.x), [ra, rb] = st.msel;
         if (tq != null && rb - ra >= 0.05 && tq >= ra && tq <= rb) { sheetClose(); lastTap = 0; pauseNow(); lastView = view; try { o.onAdd(ra, rb); } catch {} return; } }
-      if (st.mMode && !d.mode && e.type === "pointerup" && sheetClose) { sheetClose(); lastTap = 0; return; }
+      if (st.mMode && !d.mode && e.type === "pointerup" && sheetClose) { const le = loc(d.cx ?? e.clientX, d.cy ?? e.clientY, cvEl.getBoundingClientRect()), hb = st.tbars && typeof o.onFix === "function" ? (hitT(le) || hitBar(le)) : null;
+        sheetClose(); lastTap = 0; if (hb) { st.msel = null; st.mMode = false; pauseNow(); fixSheet(wrap, cv, hb, o.onFix, getT, st); } return; }   // (11/12 16:06 사용자) 범위 고른 상태에서 음을 톡 = 범위 해제 + 그 음 바로 고르기
       if (st.msel && !wrap.querySelector(".tfMulti") && !d.mode && e.type === "pointerup") { st.msel = null; st.mMode = false; st.mStr = null; }   // (11/12 15:56 사용자) 범위 고른 뒤 빈 곳 톡 = 바로 해제(창이 없어도)   // (11/03 13:58 사용자) 여러 음 고르기 중 빈 곳 톡 = 끝내기 · (13:59) 끌기는 평소처럼 화면 이동, 다시 고르기는 꾹 누른 채 끌기
       if ((d.bar || d.barX) && !d.moved && e.type === "pointerup" && st.advOn && st.snapSel && !d.hdl && Date.now() - (st._bt || 0) < 350) { st._bt = 0; snapNote(); return; }   // (11/06) 보정 모드: 음 두 번 톡 = 가까운 음계 음에 맞춤 + 흐름 평평하게
       if ((d.bar || d.barX) && !d.moved && e.type === "pointerup") st._bt = Date.now();
