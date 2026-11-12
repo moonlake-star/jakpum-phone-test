@@ -15,5 +15,5 @@ const sr = 1000, mk = (v) => { const d = new Float32Array(3000).fill(v); return 
 const out = mk(0.5), p0 = mk(0.2); pvRawPaste(out, p0, [e], sr);
 const d = out.getChannelData(0);
 assert.ok(Math.abs(d[1200] - 0.2) < 1e-6, "원음 자리 = p0 그대로"); assert.strictEqual(d[800], 0.5, "밖은 그대로"); assert.ok(d[1005] > 0.2 && d[1005] < 0.5, "30ms 이음");
-assert.ok(H.includes("cls = pOn ? pvClusters(fxE)") && H.includes("pvRawPaste(buf, src, fxE.filter((f) => f.off), sr)"), "미리듣기에 연결");
+assert.ok(H.includes("cls = pOn ? pvClusters(fxE)") && H.includes("pvRawPaste(buf, src, fxE.filter((f) => f.off).concat(pvBadSpans(cv)), sr)"), "미리듣기에 연결");
 console.log("off-raw-exact ok");

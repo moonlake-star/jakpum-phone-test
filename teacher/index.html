@@ -544,8 +544,8 @@
 <div id="v2Shade" class="v2only"></div>
 <div id="toast"></div>
 <script src="../lesson-replies.js"></script>
-<script src="../tune.js?v=20261112-1010"></script>
-<script src="../adv.js?v=20261112-1010"></script>
+<script src="../tune.js?v=20261112-1034"></script>
+<script src="../adv.js?v=20261112-1034"></script>
 <script src="../pitch-embed.js?v=20261105-1850"></script>
 
 <script>
@@ -4998,6 +4998,8 @@ function pvRawPaste(buf, src, spans, sr) {   // 원음 자리: p0 그대로(30ms
   for (const f of spans) { const i0 = Math.max(0, Math.round(f.t0 * sr)), i1 = Math.min(buf.length, Math.round(f.t1 * sr)); if (i1 - i0 < 2 * R) continue;
     for (let c = 0; c < buf.numberOfChannels; c++) { const out = buf.getChannelData(c), x = pvSrc(src, c, i0, i1), n = i1 - i0;
       for (let k = 0; k < n; k++) { const a = k < R ? k / R : k > n - R ? (n - k) / R : 1; out[i0 + k] = out[i0 + k] * (1 - a) + x[k] * a; } } } }
+// (11/12 10:21 사용자 '사람이 낼 수 없는 옥타브 이동이 튐') 서버가 옥타브를 바로잡았거나 믿을 수 없는 높이로 본 자리(pitch_curve.bad) — 서버처럼 원음 그대로
+function pvBadSpans(cv) { return ((cv && cv.bad) || []).map((x) => ({ t0: +x[0], t1: +x[1] })).filter((x) => x.t1 - x.t0 > 0.04); }
 function pvClusters(fixes) { const out = []; for (const f of [...fixes].sort((a, b) => a.t0 - b.t0)) { const L = out[out.length - 1];
   if (L && f.t0 - L.t1 < 0.3) { L.t1 = Math.max(L.t1, f.t1); L.fx.push(f); } else out.push({ t0: f.t0, t1: f.t1, fx: [f] }); } return out; }
 function pvClusterRatio(cv, cl, dry, lvCol, sr, i0, n) {   // 덩어리 안 칸마다 보정량(센트) → 샘플마다 비율
@@ -5054,7 +5056,7 @@ function pvPraatLoad() {
     if (typeof document === "undefined") { PVP.state = "fail"; return; }
     if (typeof location !== "undefined" && /[?&]praat=0\b/.test(location.search)) { PVP.state = "off"; return; }
     PVP.state = "loading";
-    await pvLoadScript("../praat/praat-core.js?v=20261112-1010");
+    await pvLoadScript("../praat/praat-core.js?v=20261112-1034");
     const r = await fetch("../praat/praat_web.wasm.gz"); if (!r.ok) throw new Error("praat " + r.status); const gz = await r.arrayBuffer();
     // (11/11) 워커에서 돌림(화면 안 멈춤). 워커를 못 만들면 예전처럼 화면 스레드에서
     let wk = false; try { wk = await PraatCore.useWorker("../praat/praat-worker.js?v=20261111-1030", gz); } catch {}
@@ -5129,22 +5131,21 @@ async function pvFullVocal(name, onProg) {
   if (!tr?.buf || !nm || !cv || !src) return null;
   await pvPraatLoad(); if (PVP.state !== "ready") return null;
   const sr = src.sampleRate, len = src.length, X = Math.round(sr * 0.05), C = Math.round(sr * PVP_CTX), lvCol = typeof Tune !== "undefined" ? Tune.col(cv, +nm[1]) : 1 + +nm[1], fps = cv.fps || 25;
-  const fxE = pvOffExt(cv, mkPv.fixes), cls = pvClusters(fxE), ap = pvAdvPlan(), mp = ap ? pvAdvMaps(cv, lvCol) : null, bins = pvTotalBins(cv, lvCol, cls, mp), exact = pvExactAdv();
-  const out = new Float32Array(len), step = Math.round(sr * PV_FULL_CH), N = Math.ceil(len / step);
+  const fxE = pvOffExt(cv, mkPv.fixes), cls = pvClusters(fxE), ap = pvAdvPlan(), mp = ap ? pvAdvMaps(cv, lvCol) : null, bins = pvTotalBins(cv, lvCol, cls, mp);
+  const out = new Float32Array(len), step = Math.round(sr * PV_FULL_CH), N = Math.ceil(len / step), vt = [];
   for (let q = 0; q < N; q++) {
     onProg && onProg(`보정 다시 만드는 중 ${q + 1}/${N}`);
     const c0 = q * step, c1 = Math.min(len, c0 + step), e0 = Math.max(0, c0 - X), e1 = Math.min(len, c1 + X), ia = Math.max(0, e0 - C), ib = Math.min(len, e1 + C);
     const x = pvSrc(src, 0, ia, ib), A = await PraatCore.analyze(x, sr), sh = Float64Array.from(A.t, (t) => pvShiftAt(bins, fps, ia / sr + t));
-    let y = await PraatCore.apply(x, sr, A.t, A.f, sh);
-    const ns = exact ? (mkPv.adv || []).filter((nt) => nt.t1 > ia / sr && nt.t0 < ib / sr && (nt.formant || PV_ADV_G.some((k) => k in nt))).map((nt) => ({ t0: nt.t0, t1: nt.t1, formant: nt.formant, gain_db: nt.gain_db, mute: nt.mute, fade_in: nt.fade_in, fade_out: nt.fade_out })) : [];
-    if (ns.length) { y = await PraatCore.formantNotes(y, sr, ns, ia); const gc = PraatCore.gain(y.length, sr, ns, ia, len); if (gc) for (let i = 0; i < y.length; i++) y[i] *= gc[i]; }
+    const y = await PraatCore.apply(x, sr, A.t, A.f, sh);
+    for (let i = 0; i < A.t.length; i++) { const tt = ia / sr + A.t[i]; if (A.f[i] > 0 && tt >= c0 / sr && tt < c1 / sr) vt.push(tt); }   // 치찰음 찾기용 '소리 높이 있는 시각'(서버 분석점과 같은 0.01초)
     for (let i = e0; i < e1; i++) {   // 조각끼리 100ms(앞뒤 50ms) 겹쳐 더함: 앞 조각 꼬리 무게 + 이 조각 머리 무게 = 1
       let w = 1; if (q > 0 && i < c0 + X) w = (i - (c0 - X)) / (2 * X); if (c1 < len && i >= c1 - X) w = Math.min(w, 1 - (i - (c1 - X)) / (2 * X));
       out[i] += (y[i - ia] ?? 0) * Math.max(0, Math.min(1, w)); }
     await new Promise((f) => setTimeout(f, 0));
   }
   const vb = { numberOfChannels: 1, length: len, sampleRate: sr, getChannelData: () => out };
-  pvRawPaste(vb, src, fxE.filter((f) => f.off), sr);   // 🎤 원음 = 부른 그대로
+  pvRawPaste(vb, src, fxE.filter((f) => f.off).concat(pvBadSpans(cv)), sr);   // 🎤 원음 + 서버가 옥타브를 바로잡았거나 믿을 수 없다고 본 자리 = 부른 그대로
   const tp = pvTimePlan();
   for (let r = 0; r < tp.regs.length; r++) {   // 타이밍·길이: 창마다 p0에서 높이+길이를 한 번에(미리듣기 pvWarpJob과 같은 규칙)
     onProg && onProg(`타이밍 다시 만드는 중 ${r + 1}/${tp.regs.length}`);
@@ -5156,6 +5157,65 @@ async function pvFullVocal(name, onProg) {
     const w = await PraatCore.warp(x, sr, anc, pitch);
     for (let k = 0; k < n; k++) { const a = k < X ? k / X : k > n - X ? (n - k) / X : 1; out[i0 + k] = out[i0 + k] * (1 - a) + (w[k] ?? 0) * a; }
   }
+  await pvPostAudio(out, sr, cv, vt, onProg);   // (11/12 10:21 사용자 '포먼트·치찰음도 서버와 같게') 서버 note_edits.post_audio 차례: 목소리 결 → 음별 결 → 치찰음 → 구간 치찰음·숨 → 볼륨
+  return out;
+}
+// 서버 note_edits.post_audio와 같은 차례·같은 계산(포먼트 = 같은 Praat 'Change gender', 치찰음 = 같은 10ms 판정)
+async function pvPostAudio(y, sr, cv, vt, onProg) {
+  const g = mkPv.advG || {}, notes = mkPv.adv || [], len = y.length;
+  if (g.formant) {   // 곡 전체 목소리 결: 20초씩(앞뒤 0.3초 문맥) Praat Change gender → 겹쳐 이음
+    const step = Math.round(sr * PV_FULL_CH), X = Math.round(sr * 0.05), C = Math.round(sr * PVP_CTX), N = Math.ceil(len / step), z = new Float32Array(len);
+    for (let q = 0; q < N; q++) { onProg && onProg(`목소리 결 바꾸는 중 ${q + 1}/${N}`);
+      const c0 = q * step, c1 = Math.min(len, c0 + step), e0 = Math.max(0, c0 - X), e1 = Math.min(len, c1 + X), ia = Math.max(0, e0 - C), ib = Math.min(len, e1 + C);
+      const w_ = await PraatCore.formantShift(y.slice(ia, ib), sr, g.formant);
+      for (let i = e0; i < e1; i++) { let w = 1; if (q > 0 && i < c0 + X) w = (i - (c0 - X)) / (2 * X); if (c1 < len && i >= c1 - X) w = Math.min(w, 1 - (i - (c1 - X)) / (2 * X)); z[i] += (w_[i - ia] ?? 0) * Math.max(0, Math.min(1, w)); } }
+    y.set(z); }
+  const fn = notes.filter((nt) => nt.formant).map((nt) => ({ t0: nt.t0, t1: nt.t1, formant: nt.formant }));
+  if (fn.length) { onProg && onProg("음별 목소리 결 바꾸는 중…"); const z = await PraatCore.formantNotes(y, sr, fn, 0); y.set(z.subarray(0, len)); }
+  if (g.sib_db) { const gs = pvSibGain(y, sr, vt, g.sib_db); for (let i = 0; i < len; i++) y[i] *= gs[i]; }
+  if (Array.isArray(g.uv_gain) && g.uv_gain.length && (cv.uv_orig || cv.uv)) { const rg = pvRangeGain(len, sr, cv.uv_orig || cv.uv, g.uv_gain); if (rg) for (let i = 0; i < len; i++) y[i] *= rg[i]; }
+  const gc = pvGainCurve(y, sr, cv, notes, g); if (gc) for (let i = 0; i < len; i++) y[i] *= gc[i];
+}
+function pvSibGain(y, sr, vt, sibDb) {   // 서버 sibilant_gain: 10ms마다 4kHz 위 에너지가 절반 넘고(소리 있는 곳 중) 높이 없는 칸 = 치찰음 → sib_db
+  const h = Math.floor(0.01 * sr), nf = Math.floor(y.length / h), out = new Float32Array(y.length).fill(1); if (nf < 3 || !sibDb) return out;
+  const win = Float64Array.from({ length: h }, (_, i) => h > 1 ? 0.5 - 0.5 * Math.cos(2 * Math.PI * i / (h - 1)) : 1), kb = Math.ceil(4000 * h / sr), K = Math.floor(h / 2);
+  const cs = [], sn = []; for (let k = 0; k < kb; k++) { const c = new Float64Array(h), s_ = new Float64Array(h); for (let i = 0; i < h; i++) { c[i] = Math.cos(2 * Math.PI * k * i / h); s_[i] = Math.sin(2 * Math.PI * k * i / h); } cs.push(c); sn.push(s_); }
+  const e = new Float64Array(nf), r = new Float64Array(nf), fr = new Float64Array(h);
+  for (let f = 0; f < nf; f++) { let en = 0, xn = 0; for (let i = 0; i < h; i++) { fr[i] = y[f * h + i] * win[i]; en += fr[i] * fr[i]; xn += (i % 2 ? -1 : 1) * fr[i]; }
+    let lf = 0, x0 = 0; for (let k = 0; k < kb; k++) { let re = 0, im = 0; const c = cs[k], s_ = sn[k]; for (let i = 0; i < h; i++) { re += fr[i] * c[i]; im -= fr[i] * s_[i]; } const pw = re * re + im * im; lf += pw; if (k === 0) x0 = pw; }
+    const tot1 = (h * en + x0 + (h % 2 ? 0 : xn * xn)) / 2;   // 한쪽(0..h/2) 스펙트럼 합 = (h·Σx² + |X0|² + |X_h/2|²)/2 (Parseval)
+    const tot = tot1 + 1e-12; r[f] = Math.max(0, tot1 - lf) / tot; e[f] = 10 * Math.log10(tot); }
+  const srt = Float64Array.from(e).sort(), p90 = srt[Math.min(nf - 1, Math.round(0.9 * (nf - 1)))] - 35, vts = Float64Array.from(vt).sort();
+  const near = (t) => { let lo = 0, hi = vts.length; while (lo < hi) { const m = (lo + hi) >> 1; if (vts[m] < t) lo = m + 1; else hi = m; } let d = Infinity; if (lo < vts.length) d = Math.min(d, Math.abs(vts[lo] - t)); if (lo > 0) d = Math.min(d, Math.abs(vts[lo - 1] - t)); return d; };
+  const sib = new Float64Array(nf); for (let f = 0; f < nf; f++) sib[f] = r[f] > 0.5 && e[f] > p90 && !(near((f + 0.5) * 0.01) < 0.015) ? 1 : 0;
+  for (let f = 0; f < nf; f++) { const a = sib[Math.max(0, f - 1)], b = sib[f], c = sib[Math.min(nf - 1, f + 1)], gdb = (a + b + c) / 3 * sibDb, v = 10 ** (gdb / 20); for (let i = f * h; i < (f + 1) * h; i++) out[i] = v; }
+  const lastV = out[nf * h - 1]; for (let i = nf * h; i < y.length; i++) out[i] = lastV;
+  return out;
+}
+function pvRangeGain(n, sr, segs, rules) {   // 서버 consonants.range_gain: 고른 구간 안의 치찰음(s)·숨(b)만 dB
+  const gdb = new Float32Array(n); let any = false;
+  for (const r of rules) for (const sg of segs) { const db = (sg[2] === "s" ? r.s_db : r.b_db) || 0, lo = Math.max(sg[0], r.t0), hi = Math.min(sg[1], r.t1); if (!db || hi <= lo) continue;
+    for (let i = Math.trunc(lo * sr); i < Math.min(n, Math.trunc(hi * sr)); i++) gdb[i] += db; any = true; }
+  if (!any) return null; const W = Math.max(1, Math.trunc(0.005 * sr) * 2), out = new Float32Array(n); let acc = 0;
+  for (let i = 0; i < n + W; i++) { if (i < n) acc += gdb[i]; if (i - W >= 0) acc -= gdb[i - W]; const c = i - (W >> 1); if (c >= 0 && c < n) out[c] = 10 ** ((acc / W) / 20); }
+  return out;
+}
+function pvGainCurve(y, sr, cv, notes, g) {   // 서버 gain_curve: 음별 볼륨·끄기·페이드 + 볼륨 고르게(정음 덩어리별 평균 크기를 가운데로)
+  if (!notes.some((x) => x.gain_db || x.mute || x.fade_in || x.fade_out) && !g.level) return null;
+  const n = y.length, db = new Float64Array(n);
+  if (g.level && cv && cv.pts) { const kt = typeof Tune !== "undefined" && Tune.tgCol ? Tune.tgCol(cv) : 0, P = cv.pts.filter((p) => p[1] != null), runs = [];
+    let i = 0; while (i < P.length) { const tg = kt ? P[i][kt] : null; if (tg == null) { i++; continue; } let j = i; while (j + 1 < P.length && P[j + 1][kt] === tg && P[j + 1][0] - P[j][0] < 0.06) j++; if (P[j][0] - P[i][0] >= 0.12) runs.push([P[i][0], P[j][0]]); i = j + 1; }
+    const lv = []; for (const [a, b] of runs) { const s0 = Math.trunc(a * sr), s1 = Math.min(n, Math.trunc(b * sr)); if (s1 - s0 > sr / 20) { let e = 0; for (let k = s0; k < s1; k++) e += y[k] * y[k]; lv.push([s0, s1, 10 * Math.log10(e / (s1 - s0) + 1e-12)]); } }
+    if (lv.length >= 3) { const sv = lv.map((x) => x[2]).sort((p, q) => p - q), avg = sv.length % 2 ? sv[(sv.length - 1) / 2] : (sv[sv.length / 2 - 1] + sv[sv.length / 2]) / 2;
+      for (const [s0, s1, L] of lv) { if (L < avg - 30) continue; const d = Math.max(-9, Math.min(9, (avg - L) * (L < avg ? (g.level.quiet || 0) : (g.level.loud || 0)))); for (let k = s0; k < s1; k++) db[k] += d; } } }
+  const lin = Float64Array.from(db, (v) => 10 ** (v / 20));
+  for (const x of notes) { const s0 = Math.max(0, Math.trunc(x.t0 * sr)), s1 = Math.min(n, Math.trunc(x.t1 * sr)); if (s1 <= s0) continue; const k = s1 - s0, seg = new Float64Array(k).fill(1);
+    if (x.mute) seg.fill(0); else if (x.gain_db) seg.fill(10 ** (x.gain_db / 20));
+    if (x.fade_in) { const f = Math.min(k, Math.trunc(x.fade_in * sr)); for (let i = 0; i < f; i++) seg[i] *= (f > 1 ? i / (f - 1) : 0) ** 2; }
+    if (x.fade_out) { const f = Math.min(k, Math.trunc(x.fade_out * sr)); for (let i = 0; i < f; i++) seg[k - f + i] *= (f > 1 ? 1 - i / (f - 1) : 0) ** 2; }
+    for (let i = 0; i < k; i++) lin[s0 + i] *= seg[i]; }
+  const e = Math.max(1, Math.trunc(0.015 * sr)), L = Math.floor(e / 2), cs = new Float64Array(n + 1); for (let i = 0; i < n; i++) cs[i + 1] = cs[i] + lin[i];
+  const out = new Float32Array(n); for (let i = 0; i < n; i++) { const a = Math.max(0, i - L), b = Math.min(n, i - L + e); out[i] = (cs[b] - cs[a] + (i - L < 0 ? -(i - L) * lin[0] : 0) + (i - L + e > n ? (i - L + e - n) * lin[n - 1] : 0)) / e; }
   return out;
 }
 function pvApply(name) {   // 한 트랙에 지금 고친 정음·타이밍 전부 반영(원래 조각을 기억해 두고, 바뀌면 되돌린 뒤 다시 만듦) — 음정 먼저, 타이밍은 그 위에
@@ -5187,7 +5247,7 @@ function pvApply(name) {   // 한 트랙에 지금 고친 정음·타이밍 전�
       // (11/09 15:19 사용자 '반음만 옮겨도 미리듣기에서 드르륵') 울림(리버브만 담긴) 트랙은 목소리 주기가 안 보여 간이 PSOLA가 거칠게 깨짐 → 고친 음 동안 울림은 잠시 빼고(완성본에선 제대로)
       const from = dry ? pvSrc(src, c, i0, i1) : org, sh = dry ? pvPsola(from, sr, f0, rat) : new Float32Array(n);
       for (let k = 0; k < n; k++) { const a = k < X ? k / X : k > n - X ? (n - k) / X : 1; out[i0 + k] = org[k] * (1 - a) + sh[k] * a; } } }
-  if (dry && src) pvRawPaste(buf, src, fxE.filter((f) => f.off), sr);   // 🎤 원음 = 다시 합성한 소리 대신 부른 그대로
+  if (dry && src) pvRawPaste(buf, src, fxE.filter((f) => f.off).concat(pvBadSpans(cv)), sr);   // 🎤 원음 = 다시 합성한 소리 대신 부른 그대로
   // (11/09 21:10 사용자 '멀어져간사람아 여전히 지글') 실제 곡(타이밍 13곳) 확인: ① 울림 트랙을 PSOLA로 늘이면 거칠어짐 → 타이밍 창 동안 울림은 잠시 뺌(실시간 리버브 곡은 울림 트랙 자체를 안 씀)
   //   ② 보정본 위에 한 번 더 PSOLA(이중) → 보정 전(p0) 소리에서 높이·길이를 한 번에(서버 보정량 그대로 + 고친 음)
   const wetT = /^(w[0-3]|x[0-3]|wet)$/.test(name), jz = dry && src && tp.regs.length ? { bins: (pp && pp.bins) || pvTotalBins(cv, lvCol, cls, ap ? pvAdvMaps(cv, lvCol) : null), fps: cv.fps || 25 } : null;
@@ -7840,7 +7900,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261112-1010";
+const BUILD = "20261112-1034";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
