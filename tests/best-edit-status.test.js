@@ -15,7 +15,7 @@ let h = render({method:'v5-mrabs', rhythm_verified:true});
 assert(h.includes('자동 검사 통과') && h.includes('실제 청감 확인 필요'));
 h = render({status:'none', fallback:'best_take', why:'<unsafe>'}, false);
 assert(h.includes('편집본 생성 보류') && h.includes('&lt;unsafe>') && !h.includes('<unsafe>'));
-assert(render({status:'error', why:'오류'}, false).includes('편집본 생성 실패'));
+assert(render({status:'error', why:'오류', tries: 3}, false).includes('편집본 생성 실패')); assert(render({status:'error', why:'오류'}, false).includes('다시 만들고 있어요'));
 assert(!render(undefined, false).includes('새 MR 정렬 방식'));
 // v6 계열: 다른 테이크를 하나도 못 가져왔으면 '11개 이어 붙임'처럼 보이지 않게(2026-10-27 사용자 지적)
 h = render({method:'v6.1-reftime', mr_aligned:true, takes_used:1, seams:[], kept_ref_no_mr:2, lines:new Array(11)});

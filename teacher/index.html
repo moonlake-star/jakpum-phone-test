@@ -544,7 +544,7 @@
 <div id="v2Shade" class="v2only"></div>
 <div id="toast"></div>
 <script src="../lesson-replies.js"></script>
-<script src="../tune.js?v=20261112-2115"></script>
+<script src="../tune.js?v=20261112-2240"></script>
 <script src="../adv.js?v=20261112-1334"></script>
 <script src="../pitch-embed.js?v=20261105-1850"></script>
 
@@ -6562,12 +6562,14 @@ function renderBest() {
         `<button class="small ghost" data-seamt="${z.a}" style="padding:2px 8px">${fmt(z.a)}~${fmt(z.b)}</button>`).join("")}</div>`;
   }
   const opts = bestOptions();
+  // (11/12 22:31 사용자 '처리해 줘야지 저렇게 놔두면 어떡하냐') 편집본 만들기가 실패한 레슨을 열면 서버를 바로 깨워 다시 만들게(버튼 없음 · 같은 레슨은 15분에 한 번)
+  function bestAutoRetry(me) { try { const k = "bestRetry_" + (me.lesson?.id || me.folder?.id || ""), last = +(localStorage.getItem(k) || 0); if (Date.now() - last < 15 * 60000) return; localStorage.setItem(k, String(Date.now())); if (typeof kick === "function") kick(); } catch {} }
   if (!cur.best) return `<div class="muted">🎵 오늘의 베스트 편집본: 아직 준비 중이에요(다음 자동 처리 때 만들어져요)</div>`;
   if (!opts.length) {
     const comp = cur.best.composite;
     if (cur.best.status !== "ok") return `<div class="muted">🎵 오늘의 베스트 편집본: 이번 레슨에선 쓸 만한 노래 구간이 없었어요 — ${esc(cur.best.why || "")}. 아래 추천 클립에서 골라 보내 주세요.</div>`;
     const why = comp?.fallback === "best_take" ? "편집본 생성 보류 — 박자를 확신할 수 없어 편집본을 만들지 않았어요" + (comp.why ? ` (${esc(comp.why)})` : "")
-      : comp?.status === "error" ? "편집본 생성 실패" + (comp.why ? ` (${esc(comp.why)})` : "")
+      : comp?.status === "error" ? ((comp.tries || 1) < 3 ? (bestAutoRetry(cur), "편집본을 다시 만들고 있어요 — 지난번엔 " + (/urllib|HTTPS|URLError|Connection|연결/.test(comp.why || "") ? "인터넷 연결이 끊겨서" : "오류로") + " 못 만들었어요 · 보통 10~20분, 다 되면 여기 바뀌어요") : "편집본 생성 실패(3번 시도) — 아래에서 가장 좋았던 한 번을 골라 주세요")
       : comp?.status === "none" ? "이번 레슨에선 이어 붙일 만한 구간을 못 찾았어요" + (comp.why ? ` (${esc(comp.why)})` : "")
       : "편집본이 아직 만들어지는 중이에요(대기)";
     const singles = typeof bestSingles === "function" ? bestSingles() : [];
@@ -8047,7 +8049,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261112-2115";
+const BUILD = "20261112-2240";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
@@ -8378,7 +8380,8 @@ function v2DockPaint(me, done, total) {
 }
 function v2Paint() {
   const me = cur; v2Apply(); if (!me || !v2On() || !$("v2Bar")) return;
-  const lv = v2Lv(), share = v2AiShare(me), emph = (me.best?.emphasis?.terms || []).filter(e => e && e.term);
+  const EMPH_SKIP = new Set("되게 그런 이런 저런 어떤 정도 있는 없는 있어 근데 같아 같은 같이 뭔가 하는 했는 하면 해서 하고 되는 되면 거야 건데 그건 이건 많은 그래 진짜로 아마 제일 가장 오늘 처음 마지막 이제 그냥 조금 약간 너무 정말 진짜".split(" "));
+  const lv = v2Lv(), share = v2AiShare(me), emph = (me.best?.emphasis?.terms || []).filter(e => e && e.term && !EMPH_SKIP.has(e.term) && !/^[가-힣](는|은|던|고|어|요|죠|면|서|데|까)$/.test(e.term));   // (11/12 22:22) 말버릇은 강조 주제가 아님 — 이미 만든 레슨에도 바로
   $("v2Bar").innerHTML = `<div class="v2t"><b>강사 검토 화면</b><button type="button" class="small" id="v2Pv">👀 수강생 화면 미리보기</button></div>
     <div class="v2stat"><b>${share == null ? "🤖 AI 초안 없음" : `🤖 AI 작성 ${share}%`}</b><span class="muted" id="v2Seen"></span><div class="v2meter"><i id="v2Meter"></i></div></div>
     ${emph.length ? `<div class="v2emph">선생님이 반복 강조: ${emph.slice(0, 6).map(e => `<span class="${e.prev ? "prev" : ""}">${esc(e.term)} ×${+e.count || 0}${e.prev ? " · 지난 레슨부터" : ""}</span>`).join("")}</div>` : ""}
