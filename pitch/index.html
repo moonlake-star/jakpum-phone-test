@@ -1019,7 +1019,7 @@ const scaleSig = sc => { const c = scaleCfg(sc), sp = spdNow(); return [c.k, c.g
    (11/11 사용자) 코드 들은 뒤 바로 첫 음이 나와 성급했음 → 코드~첫 음, 마지막 음~다음 코드를 모두 박자(2박)에 맞춰 뒤로 미룸 */
 const PING = .14, PING_MUTE = .2;   // 스케일 음마다 나는 피아노 길이 / 그동안 마이크 쉬는 시간(초)
 const SC_STEP = .465, SC_LAST = .8, SC_PRE_BEATS = 2, SC_NEXT_BEATS = 2, SC_PRE = SC_STEP * SC_PRE_BEATS, SC_NEXT = SC_STEP * SC_NEXT_BEATS;
-const SC_CHORD_BEATS = .4;   // (11/11 사용자) 박자(코드→2박→첫 음)는 그대로, 코드는 짧게 '짠'(0.4박)만 울리고 끝나요 → 첫 음까지 1.6박 빈틈 (11:57 '더 짧게': .9 → .4)
+const SC_CHORD_BEATS = .8;   // (11/11 사용자) 박자(코드→2박→첫 음)는 그대로, 코드 길이만 · (11:57 '더 짧게': .9 → .4) · (11/12 17:45 '길이만 2배': .4 → .8, 첫 음까지 1.2박 빈틈)
 function genScaleLine(sc, diff) {
   const c = scaleCfg(sc), V = VOICE[c.g], S = SCALES.find(x => x.k === c.k), top = Math.max(...S.iv), base = V.start + c.off;
   const reps = clamp(c.ze + 2 - top - base + 1, 1, 24), n = S.iv.length, F = 1 / spdNow(), PRE = SC_PRE * F, STEP = SC_STEP * F, LAST = SC_LAST * F, NEXT = SC_NEXT * F;
