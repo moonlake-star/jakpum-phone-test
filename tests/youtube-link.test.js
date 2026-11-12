@@ -4,7 +4,7 @@ const html = fs.readFileSync(__dirname + "/../teacher/index.html", "utf8"), a = 
 assert.ok(a > 0 && b > a, "함수를 찾음");
 const run = (env) => { new Function("env", `with (env) { ${html.slice(a, b)}\n env.ytParse = ytParse; env.ytPickAudio = ytPickAudio; env.ytPromote = ytPromote; }`)(env); return env; };
 
-const e = run({ MKREQ: "메이크업요청.json" });
+const e = run({ MK_NEWQ: { _demo: true, _new_code: 7 }, MKREQ: "메이크업요청.json" });
 // ① 주소 정리
 const ok = (u, id) => assert.equal(e.ytParse(u)?.id, id, u);
 ok("https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PLx&t=30", "dQw4w9WgXcQ");
@@ -26,7 +26,7 @@ assert.equal(e.ytPickAudio([], now), null); assert.equal(e.ytPickAudio(null, now
 (async () => {
   const writes = []; let kicked = 0;
   const listing = { F: [{ id: "O", name: "원본", mimeType: "application/vnd.google-apps.folder" }], O: [{ id: "s", name: "song.m4a", modifiedTime: new Date(Date.now() - 60000).toISOString() }] };
-  const env = run({ MKREQ: "메이크업요청.json", list: async (id) => listing[id] || [], writeJSON: async (...x) => { writes.push(x); }, kick: () => kicked++ });
+  const env = run({ MK_NEWQ: { _demo: true, _new_code: 7 }, MKREQ: "메이크업요청.json", list: async (id) => listing[id] || [], writeJSON: async (...x) => { writes.push(x); }, kick: () => kicked++ });
   const job = { folder: { id: "F" }, reqId: "R", req: { status: "waiting_download", youtube_url: "u", title: "t", student_id: "x" } };
   assert.equal(await env.ytPromote(job), true);
   assert.equal(job.req.status, "queued"); assert.equal(job.req.source_id, "s"); assert.equal(job.req.mode, "single"); assert.equal(job.req.youtube_url, "u", "링크 기록 유지");
