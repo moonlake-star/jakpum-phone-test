@@ -544,8 +544,8 @@
 <div id="v2Shade" class="v2only"></div>
 <div id="toast"></div>
 <script src="../lesson-replies.js"></script>
-<script src="../tune.js?v=20261111-1710"></script>
-<script src="../adv.js?v=20261112-0900"></script>
+<script src="../tune.js?v=20261112-1010"></script>
+<script src="../adv.js?v=20261112-1010"></script>
 <script src="../pitch-embed.js?v=20261105-1850"></script>
 
 <script>
@@ -5054,7 +5054,7 @@ function pvPraatLoad() {
     if (typeof document === "undefined") { PVP.state = "fail"; return; }
     if (typeof location !== "undefined" && /[?&]praat=0\b/.test(location.search)) { PVP.state = "off"; return; }
     PVP.state = "loading";
-    await pvLoadScript("../praat/praat-core.js?v=20261111-1030");
+    await pvLoadScript("../praat/praat-core.js?v=20261112-1010");
     const r = await fetch("../praat/praat_web.wasm.gz"); if (!r.ok) throw new Error("praat " + r.status); const gz = await r.arrayBuffer();
     // (11/11) 워커에서 돌림(화면 안 멈춤). 워커를 못 만들면 예전처럼 화면 스레드에서
     let wk = false; try { wk = await PraatCore.useWorker("../praat/praat-worker.js?v=20261111-1030", gz); } catch {}
@@ -5119,6 +5119,44 @@ function pvWarpJob(key, x, sr, i0, tp, pz) {   // 타이밍 미리듣기 한 구
     const y = await PraatCore.warp(x, sr, anc, pitch); PVP.cache.set(key, y.slice(0, x.length)); if (PVP.cache.size > 60) PVP.cache.delete(PVP.cache.keys().next().value);
   })().catch((e) => { PVP.cache.set(key, null); console.warn("Praat 타이밍 구간 실패(간이 소리로 계속)", e); }).finally(() => { PVP.pend.delete(key); if (!PVP.pend.size) setTimeout(() => { for (const o of Object.values(mkPv.orig)) o.sig = "?"; try { pvApplyAll(); } catch {} PVP.flush(); }, 0); });
   PVP.pend.set(key, pr); PVP.jobs.push(pr);
+}
+// (11/12 09:53 사용자 결정 · ChatGPT 검토) 완성본 = 폰에서 곡 전체를 보정 전 보컬(p0)에서 한 번에: 서버는 분리·숫자만, 소리는 폰
+//   지금까지 폰 mp3는 서버가 만든 보정본(p1~3) 위에 '고친 구간만' 끼웠음 → 이제 곡 전체를 서버 숫자(보정선) + 강사 고침으로 p0에서 다시 합성
+//   20초씩(앞뒤 0.3초 문맥으로 분석·합성, 50ms 겹쳐 이음) → 🎤 원음 자리는 p0 그대로 → 타이밍 고친 창은 p0에서 높이+길이를 한 번에
+const PV_FULL_CH = 20;
+async function pvFullVocal(name, onProg) {
+  const tr = mkTracks[name], nm = /^p([123])$/.exec(name), cv = mkPv.cv, src = mkTracks.p0?.buf;
+  if (!tr?.buf || !nm || !cv || !src) return null;
+  await pvPraatLoad(); if (PVP.state !== "ready") return null;
+  const sr = src.sampleRate, len = src.length, X = Math.round(sr * 0.05), C = Math.round(sr * PVP_CTX), lvCol = typeof Tune !== "undefined" ? Tune.col(cv, +nm[1]) : 1 + +nm[1], fps = cv.fps || 25;
+  const fxE = pvOffExt(cv, mkPv.fixes), cls = pvClusters(fxE), ap = pvAdvPlan(), mp = ap ? pvAdvMaps(cv, lvCol) : null, bins = pvTotalBins(cv, lvCol, cls, mp), exact = pvExactAdv();
+  const out = new Float32Array(len), step = Math.round(sr * PV_FULL_CH), N = Math.ceil(len / step);
+  for (let q = 0; q < N; q++) {
+    onProg && onProg(`보정 다시 만드는 중 ${q + 1}/${N}`);
+    const c0 = q * step, c1 = Math.min(len, c0 + step), e0 = Math.max(0, c0 - X), e1 = Math.min(len, c1 + X), ia = Math.max(0, e0 - C), ib = Math.min(len, e1 + C);
+    const x = pvSrc(src, 0, ia, ib), A = await PraatCore.analyze(x, sr), sh = Float64Array.from(A.t, (t) => pvShiftAt(bins, fps, ia / sr + t));
+    let y = await PraatCore.apply(x, sr, A.t, A.f, sh);
+    const ns = exact ? (mkPv.adv || []).filter((nt) => nt.t1 > ia / sr && nt.t0 < ib / sr && (nt.formant || PV_ADV_G.some((k) => k in nt))).map((nt) => ({ t0: nt.t0, t1: nt.t1, formant: nt.formant, gain_db: nt.gain_db, mute: nt.mute, fade_in: nt.fade_in, fade_out: nt.fade_out })) : [];
+    if (ns.length) { y = await PraatCore.formantNotes(y, sr, ns, ia); const gc = PraatCore.gain(y.length, sr, ns, ia, len); if (gc) for (let i = 0; i < y.length; i++) y[i] *= gc[i]; }
+    for (let i = e0; i < e1; i++) {   // 조각끼리 100ms(앞뒤 50ms) 겹쳐 더함: 앞 조각 꼬리 무게 + 이 조각 머리 무게 = 1
+      let w = 1; if (q > 0 && i < c0 + X) w = (i - (c0 - X)) / (2 * X); if (c1 < len && i >= c1 - X) w = Math.min(w, 1 - (i - (c1 - X)) / (2 * X));
+      out[i] += (y[i - ia] ?? 0) * Math.max(0, Math.min(1, w)); }
+    await new Promise((f) => setTimeout(f, 0));
+  }
+  const vb = { numberOfChannels: 1, length: len, sampleRate: sr, getChannelData: () => out };
+  pvRawPaste(vb, src, fxE.filter((f) => f.off), sr);   // 🎤 원음 = 부른 그대로
+  const tp = pvTimePlan();
+  for (let r = 0; r < tp.regs.length; r++) {   // 타이밍·길이: 창마다 p0에서 높이+길이를 한 번에(미리듣기 pvWarpJob과 같은 규칙)
+    onProg && onProg(`타이밍 다시 만드는 중 ${r + 1}/${tp.regs.length}`);
+    const [u0, u1] = tp.regs[r], i0 = Math.max(0, Math.round(u0 * sr)), i1 = Math.min(len, Math.round(u1 * sr)), n = i1 - i0; if (n < 3 * X) continue;
+    const x = pvSrc(src, 0, i0, i1), t0 = i0 / sr, L = n / sr, anc = []; let last = -1;
+    for (let u = 0; u <= L + 1e-9; u += 0.01) { const o = Math.max(0, Math.min(L, tp.D(t0 + Math.min(u, L)) - t0)); if (o > last + 1e-4) { anc.push([o, Math.min(u, L)]); last = o; } }
+    if (!anc.length || anc[0][0] > 1e-3) anc.unshift([0, 0]); const e = anc[anc.length - 1]; if (Math.abs(e[0] - L) > 1e-3) anc.push([L, L]);
+    const A = await PraatCore.analyze(x, sr), pitch = { t: A.t, f: Float64Array.from(A.f, (v, i) => v * 2 ** (pvShiftAt(bins, fps, t0 + A.t[i]) / 1200)) };
+    const w = await PraatCore.warp(x, sr, anc, pitch);
+    for (let k = 0; k < n; k++) { const a = k < X ? k / X : k > n - X ? (n - k) / X : 1; out[i0 + k] = out[i0 + k] * (1 - a) + (w[k] ?? 0) * a; }
+  }
+  return out;
 }
 function pvApply(name) {   // 한 트랙에 지금 고친 정음·타이밍 전부 반영(원래 조각을 기억해 두고, 바뀌면 되돌린 뒤 다시 만듦) — 음정 먼저, 타이밍은 그 위에
   const tr = mkTracks[name], buf = tr?.buf, nm = /^([pw])([123])$/.exec(name), cv = mkPv.cv, voc = /^([pwqx][0-3]|wet|dry)$/.test(name); if (!buf || !cv || (!nm && !voc)) return false;
@@ -5310,14 +5348,22 @@ async function mkExportPhone(j, r, setMsg) {
   if (!tr.length) throw new Error("합칠 소리가 아직 없어요(트랙을 받는 중)");
   const sr = mkTracks[tr[0][0]].buf.sampleRate, ch = (b) => Array.from({ length: Math.min(2, b.numberOfChannels) }, (_, c) => b.getChannelData(c));
   const target = typeof r.result?.settings?.target_lufs === "number" ? r.result.settings.target_lufs : -14, tick = () => new Promise((f) => setTimeout(f, 20));
+  // (11/12 사용자 결정) 보정본 트랙(p1~3)은 서버 파일 대신 폰에서 곡 전체를 p0에서 다시 만든 소리로 — 실패하면 예전처럼(서버 보정본 + 고친 구간)
+  let wl = null; try { wl = await navigator.wakeLock?.request("screen"); } catch {}   // 만드는 동안 화면 꺼짐 방지(지원하는 폰만)
+  const full = {}; let fullOk = false;
+  try { for (const [n] of tr) if (/^p[123]$/.test(n)) { const y = await pvFullVocal(n, setMsg); if (y) { full[n] = y; fullOk = true; } } }
+  catch (e) { console.warn("폰 전체 다시 만들기 실패(예전 방식으로)", e); for (const k in full) delete full[k]; fullOk = false; }
+  finally { try { wl && wl.release(); } catch {} }
   setMsg("합치고 크기 맞추는 중…"); await tick();
-  const parts = tr.map(([n, g]) => ({ ch: ch(mkTracks[n].buf), gain: g }));
-  if (mkLastGain.__rev > 0 && mkRev?.buf) {   // 실시간 울림을 쓰는 중이면 파일에도: 지금 소리 나는 보정본(p·q)을 IR로 합성곱해 더함
-    for (const [n, g] of tr) { if (!/^[pq][0-3]$/.test(n)) continue; setMsg("울림 만드는 중…"); const b = mkTracks[n].buf, oc = new OfflineAudioContext(2, b.length, sr), s = oc.createBufferSource(), cv_ = oc.createConvolver();
-      cv_.normalize = false; cv_.buffer = mkRev.buf; s.buffer = b; s.connect(cv_); cv_.connect(oc.destination); s.start(); const w = await oc.startRendering(); parts.push({ ch: ch(w), gain: g * mkLastGain.__rev }); } }
+  const parts = tr.map(([n, g]) => ({ ch: full[n] ? [full[n]] : ch(mkTracks[n].buf), gain: g }));
+  const wetG = mkLastGain.__rev > 0 ? mkLastGain.__rev : 0;   // 실시간 울림 곡: 폰 소리에 IR 울림(울림 파일을 안 쓰는 곡은 서버 울림 트랙 그대로)
+  if (wetG > 0 && mkRev?.buf) {   // 울림: 지금 소리 나는 보정본(p·q)을 IR로 합성곱해 더함
+    for (const [n, g] of tr) { if (!/^[pq][0-3]$/.test(n)) continue; setMsg("울림 만드는 중…"); const b0 = mkTracks[n].buf, L_ = b0.length, oc = new OfflineAudioContext(2, L_, sr), s = oc.createBufferSource(), cv_ = oc.createConvolver();
+      let b = b0; if (full[n]) { b = oc.createBuffer(1, L_, sr); b.getChannelData(0).set(full[n].subarray(0, L_)); }
+      cv_.normalize = false; cv_.buffer = mkRev.buf; s.buffer = b; s.connect(cv_); cv_.connect(oc.destination); s.start(); const w = await oc.startRendering(); parts.push({ ch: ch(w), gain: g * wetG }); } }
   const m = ExportCore.master(parts, sr, target); await tick();
   const t0 = Date.now(), mp = await ExportCore.mp3Async(m.ch, sr, 320, undefined, (q) => setMsg(`mp3 만드는 중… ${Math.round(q * 100)}%`));
-  const blob = new Blob([mp], { type: "audio/mpeg" }); mkPhone = { blob, secs: (Date.now() - t0) / 1000, lufs: m.pre + 20 * Math.log10(m.gain), sr }; return mkPhone;
+  const blob = new Blob([mp], { type: "audio/mpeg" }); mkPhone = { blob, secs: (Date.now() - t0) / 1000, lufs: m.pre + 20 * Math.log10(m.gain), sr, full: fullOk }; return mkPhone;
 }
 let mkU = null;   // 음정 판단 확인에서 마지막으로 누른 ▶ 버튼
 function paintMkU() { document.querySelectorAll("#vMkJob .mkU").forEach(x => { const on = mkPlaying && x === mkU, lab = (on ? "❚❚ " : "▶ ") + fmt(+x.dataset.t); if (x.textContent !== lab) x.textContent = lab; x.classList.toggle("on", on); }); }
@@ -7794,7 +7840,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261111-0824";
+const BUILD = "20261112-1010";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
