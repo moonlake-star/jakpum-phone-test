@@ -15,7 +15,7 @@ console.log("fix-smooth ok");
 // (11/12 10:46 사용자 '대기 시간 없이 — 절대 원칙') 전체 보정 미리듣기 = 듣는 자리부터 2초씩 바로 끼움(다 기다리지 않음) · Praat 엔진은 한 번만 컴파일
 const C = require("fs").readFileSync(__dirname + "/../praat/praat-core.js", "utf8"), W = require("fs").readFileSync(__dirname + "/../praat/praat-worker.js", "utf8");
 assert.ok(H.includes("pvProgStart(name, gs); return false; }") && H.includes("async function pvProgRun(name, job)") && H.includes("const PV_PROG_CH = 2;"), "대기 없는 미리듣기");
-assert.ok(H.includes("// 듣는 자리 → 그 앞 → 지나간 쪽") && H.includes("if (mkPlaying && k1 > pos && k0 < pos + 12 * sr) { try { mkPlay(mkNow()); } catch {} }"), "듣는 자리부터 · 바뀌면 같은 자리에서 이어 듣기");
+assert.ok(H.includes("// 듣는 자리 → 그 앞 → 지나간 쪽") && H.includes("if (mkPlaying && k1 > pos && k0 < pos + 12 * sr) { try { mkSwapTracks(tr); } catch {} }"), "듣는 자리부터 · 바뀌면 같은 자리에서 이어 듣기");
 assert.ok(C.includes("state.mod = await WebAssembly.compile(state.bin)") && C.includes("opt.instantiateWasm ="), "엔진 한 번만 컴파일");
 assert.ok(W.includes('"praat-core.js" + (self.location.search || "")'), "워커도 새 엔진 코드");
 console.log("progressive ok");
