@@ -247,6 +247,9 @@
   .pvAudio { display:flex; align-items:center; gap:10px; background:#11141a; border-radius:14px; padding:8px 10px; }
   .pvAudio button { flex:none; width:44px; height:44px; min-height:44px; padding:0; border-radius:50%; background:var(--pv, var(--accent)); color:#fff; font-size:1.1rem; }
   .pvAudio svg { flex:1; height:34px; min-width:0; }
+  .pvCard.fold { gap:2px; padding:10px 12px; } .pvCard.fold > :not(h4):not(.pvSum) { display:none !important; } .pvCard > .pvSum { display:none; } .pvCard.fold > .pvSum { display:block; color:var(--muted); font-size:.9rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } .pvCard.fold h4 .pvFold { display:none; }
+  .pvCard > h4 { cursor:pointer; } .pvChev::before { content:"▾"; color:var(--muted); font-size:.85rem; } .pvCard.fold .pvChev::before { content:"▸"; }   /* (11/13 17:16 사용자) 처음엔 한 줄 요약 */
+  .sentRest > summary { cursor:pointer; margin:4px 0; }
   .pvCard { position:relative; will-change:transform; } .pvCard.pvLift { z-index:40; box-shadow:0 12px 40px rgba(0,0,0,.55); }   /* (10/29 11:16) 길게 누르는 중 터치가 끊기지 않게 미리 층을 만들어 둠 */
   .pvEdWrap { position:relative; }
   .pvShield { position:absolute; inset:0; z-index:1; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; touch-action:pan-y; cursor:text; } .pvCard.open .pvShield { display:none; } .pvEdWrap .pvEdit { z-index:2; } .pvEdWrap .pvEdit { position:absolute; right:6px; bottom:6px; width:38px; height:38px; min-height:38px; padding:0; border-radius:50%; background:#2a303a; color:var(--fg); border:1px solid var(--line); box-shadow:0 2px 8px rgba(0,0,0,.35); font-size:1rem; }
@@ -2071,7 +2074,7 @@ function sentCardsHTML(me) {
   const rv = me?.review || {}, list = sentList(rv.feedback, me?.ai?.feedback_text, rv.sent_ok, sentEvTimes(me)), evs = sentEvList(me);
   if (!list.length && !evs.length) return "";
   const st = sentStat(list), evBatch = list.some(x => x.kind === "ev" && !x.ok);
-  const rows = list.map(x => {
+  const rowOf = (x) => {
     const warn = x.kind === "warn" && !x.ok, seg = x.t != null ? sentSeg(x.t) : "";
     const who = x.fromAi ? "🤖 AI 초안" : "✍ 선생님 글";
     const play = x.t != null ? `<button type="button" class="small ghost evd sentPlay" data-t="${x.t}" aria-label="근거 듣기 ${fmt(x.t)}">▶ ${fmt(x.t)}</button>` : "";
@@ -2079,9 +2082,12 @@ function sentCardsHTML(me) {
     return `<div class="sentRow${warn ? " warn" : ""}${x.ok ? " ok" : ""}" data-sk="${esc(x.key)}"><div class="sentTxt">${warn ? "⚠ " : ""}${esc(x.text)} <span class="muted">· ${who}</span></div>
       <div class="sentEv">${play}${seg ? `<span class="muted">“${esc(seg)}”</span>` : x.t != null ? `<span class="muted">전사 근거 없음${none ? " · " : ""}</span>${none}` : none}</div>
       <div class="sentAct"><button type="button" class="small${x.ok ? " save" : ""}" data-sa="ok" aria-pressed="${x.ok}">${x.ok ? "✓ 맞아요" : "맞아요"}</button><button type="button" class="small ghost" data-sa="fix">✎ 고치기</button><button type="button" class="small ghost" data-sa="drop">빼기</button></div></div>`;
-  }).join("");
+  };
+  // (11/13 17:16 사용자 '피드백 확인 페이지가 너무 장황') 확인이 필요한 문장만 펼쳐 두고, 나머지는 접음
+  const need = list.filter(x => x.kind === "warn" && !x.ok), rest = list.filter(x => !(x.kind === "warn" && !x.ok));
+  const rows = need.map(rowOf).join("") + (rest.length ? `<details class="sentRest"${need.length ? "" : ""}><summary class="muted">${need.length ? "나머지" : "전체"} ${rest.length}문장 보기 <span style="font-size:.85rem">(근거 있음·확인 안 해도 됨)</span></summary>${rest.map(rowOf).join("")}</details>` : "");
   return `<div id="pvSents" class="sentBox"><div class="sentHead"><b>문장별 근거 확인</b> <span class="muted" id="sentStat">${esc(st.text)}</span>${evBatch ? ` <button type="button" class="small ghost" data-sa="all">근거 있는 문장 모두 맞아요</button>` : ""}</div>${rows}${evs.length ? `<details class="sentEvAll"><summary class="muted">AI 초안 근거 ${evs.length}개 전체 보기</summary><div class="row" style="gap:4px;flex-wrap:wrap;margin-top:4px">${evs.map(e => `<button type="button" class="small ghost evd sentPlay" data-t="${e.t}" title="${esc(e.text)}">▶ ${fmt(e.t)} ${esc(e.text.slice(0, 14))}</button>`).join("")}</div></details>` : ""}
-    <p class="muted" style="margin:4px 0 0;font-size:.82rem">시각은 레슨 원본 녹음 기준이에요 · 전사는 말한 내용 확인용이며 음정·비브라토 같은 소리 품질의 증거는 아니에요 · 글을 고치면 그 문장은 다시 확인해요</p></div>`;
+    <details class="sentRest"><summary class="muted" style="font-size:.82rem">ⓘ 근거 확인 안내</summary><p class="muted" style="margin:4px 0 0;font-size:.82rem">시각은 레슨 원본 녹음 기준이에요 · 전사는 말한 내용 확인용이며 음정·비브라토 같은 소리 품질의 증거는 아니에요 · 글을 고치면 그 문장은 다시 확인해요</p></details></div>`;
 }
 function sentRepaint() {
   const el = $("pvSents"); if (!el || !cur) return;
@@ -2313,22 +2319,30 @@ function feedbackPreviewHTML(note, rv, disabled, open = false) {
       return `<rect x="${(i * w + w * .2).toFixed(2)}" y="${((40 - h) / 2).toFixed(2)}" width="${(w * .6).toFixed(2)}" height="${h.toFixed(2)}" rx=".4" fill="${color}"/>`; }).join("")}</svg>`; };
   const audio = (kind, o, color) => `<div class="pvAudio"><button type="button" data-pvplay="${kind}" aria-label="듣기">▶</button>${wave(o.file_id, color)}</div>`;
   let pvN = 0; const num = () => `<span class="pvNum">${++pvN}</span>`;   // 보이는 카드만 1부터 차례로
+  // (11/13 17:16 사용자 '처음 열면 확인할 게 너무 많아 부담') 카드는 한 줄 요약으로 접어 두고 누르면 펼침 · 확인할 게 남은 카드만 펼친 채로
+  const pvOpenSet = (typeof cur !== "undefined" && cur) ? (cur.pvOpen ??= new Set()) : new Set();
+  const first = (v, n = 44) => { const l = String(v || "").split("\n").map(x => x.replace(/^[ \t]*[·•\-]\s*/, "").trim()).find(Boolean) || ""; return l.length > n ? l.slice(0, n) + "…" : l; };
+  let warnN = 0; try { if (typeof sentList === "function") warnN = sentList(note.feedback, cur?.ai?.feedback_text, rv.sent_ok, sentEvTimes(cur)).filter(x => x.kind === "warn" && !x.ok).length; } catch {}
+  const fold = (key, need) => (need || pvOpenSet.has(key)) ? "" : " fold";
+  const sum = (txt, chip) => `<div class="pvSum">${chip || ""}${esc(txt || "비어 있음")}</div>`;
+  const chev = `<span class="pvChev" aria-hidden="true"></span>`;
   const ms = missionState(rv), song = rv.song || {}, mmss = (x) => `${Math.floor((+x || 0) / 60)}:${String(Math.round((+x || 0) % 60)).padStart(2, "0")}`;
   const CHEER = [["격려", 0], ["성장", 1], ["지속 응원", 2]];   // 문구는 CHEER_SETS(종류마다 8개, 누를 때마다 무작위)
-  return `<div style="margin-top:6px"><div class="pvHead"><span class="muted">✎나 글을 누르면 12줄로 펼쳐 고쳐요</span>
+  return `<div style="margin-top:6px"><div class="pvHead"><span class="muted">카드를 누르면 펼쳐져요 · ✎나 글을 누르면 고쳐요</span>
       <button type="button" class="small ghost pvFullBtn" id="btnPreviewFull">⛶ 수강생 화면으로 보기</button></div>
     <div class="pvStrip" id="pvStrip">
-      <section class="pvCard${open ? " open" : ""}" data-v2="fb" style="--pv:#4c8dff" aria-label="1 오늘의 베스트"><h4>${num()}선생님 한마디${note.best ? `<span class="muted" style="font-size:.85rem;font-weight:600">🎵 ${mmss(note.best.len)}</span>` : ""}<button type="button" class="small ghost pvFold" id="btnPreviewToggle" aria-controls="previewFeedback" aria-expanded="${open}">${open ? "접기 (5줄)" : "펼치기 (12줄)"}</button></h4>
+      <section class="pvCard${open ? " open" : ""}${fold("fb", warnN > 0)}" data-v2="fb" style="--pv:#4c8dff" aria-label="1 오늘의 베스트"><h4>${chev}${num()}선생님 한마디${note.best ? `<span class="muted" style="font-size:.85rem;font-weight:600">🎵 ${mmss(note.best.len)}</span>` : ""}<button type="button" class="small ghost pvFold" id="btnPreviewToggle" aria-controls="previewFeedback" aria-expanded="${open}">${open ? "접기 (5줄)" : "펼치기 (12줄)"}</button></h4>
+        ${sum(first(note.feedback), warnN ? `<span class="chip todo">확인 ${warnN}</span> ` : "")}
         ${note.best ? "" : `<p class="muted" style="margin:0">베스트는 아직 포함 안 함 · 위 ‘오늘의 베스트’에서 포함을 켜면 같이 보여요</p>`}
         <div class="pvEdWrap"><textarea id="previewFeedback" aria-label="수강생 피드백 미리보기 수정" rows="${open ? PV_ROWS.open : PV_ROWS.closed}" style="height:${pvH(open ? PV_ROWS.open : PV_ROWS.closed)}px;margin:0"${disabled}>${esc(note.feedback)}</textarea>
           <button type="button" class="pvEdit" data-pvopen="previewFeedback" aria-label="선생님 한마디 고치기"${disabled}>✎</button></div><div class="pvMore" data-pvmore="previewFeedback" hidden></div>
         ${typeof sentCardsHTML === "function" && typeof cur !== "undefined" && cur ? sentCardsHTML(cur) : ""}
         <div class="pvAct"><span class="cnt" data-pvcnt="previewFeedback"></span><button type="button" class="small ghost" id="btnPreviewCancel"${disabled} title="저장하지 않은 고침을 버리고 마지막 저장 글로">취소</button><button type="button" class="small save" id="btnPreviewSave"${disabled}>수정 내용 저장</button></div></section>
-      ${note.makeup ? `<section class="pvCard" data-v2="makeup" style="--pv:#9b5cff" aria-label="2 메이크업본 설명"><h4>${num()}메이크업본 설명<button type="button" class="small ghost pvFold" data-pvfold="pvMakeup">접기</button></h4>
+      ${note.makeup ? `<section class="pvCard${fold("makeup", false)}" data-v2="makeup" style="--pv:#9b5cff" aria-label="2 메이크업본 설명"><h4>${chev}${num()}메이크업본 설명<button type="button" class="small ghost pvFold" data-pvfold="pvMakeup">접기</button></h4>${sum(first(rv.makeup_msg))}
         ${pvEdHTML("pvMakeup", "메이크업본 설명", rv.makeup_msg || "", disabled, "예: 음정과 호흡을 자연스럽게 정리한 버전이에요. 원본과 비교해서 들어보세요.")}</section>` : ""}
-      <section class="pvCard" data-v2="points" style="--pv:#2fbf71" aria-label="3 오늘의 핵심 포인트"><h4>${num()}오늘의 핵심 포인트<button type="button" class="small ghost pvFold" data-pvfold="pvPoints">접기</button></h4>
+      <section class="pvCard${fold("points", false)}" data-v2="points" style="--pv:#2fbf71" aria-label="3 오늘의 핵심 포인트"><h4>${chev}${num()}오늘의 핵심 포인트<button type="button" class="small ghost pvFold" data-pvfold="pvPoints">접기</button></h4>${sum(((rv.points || []).filter(Boolean).length ? (rv.points || []).filter(Boolean).length + "개 · " : "") + first((rv.points || []).filter(Boolean).join("\n"), 36))}
         ${pvEdHTML("pvPoints", "오늘의 핵심 포인트", (rv.points || []).filter(Boolean).join("\n"), disabled, "한 줄에 하나 · 최대 3개\n예: 호흡이 한층 안정적이에요")}${typeof pointSndHTML === "function" && typeof cur !== "undefined" ? pointSndHTML(rv, disabled) : ""}</section>
-      <section class="pvCard" data-v2="mission" style="--pv:#ff8a3d" aria-label="4 다음 미션"><h4>${num()}다음 미션${ms === "unset" ? ` <span class="chip todo">미설정</span>` : ""}${ms === "none" ? "" : `<button type="button" class="small ghost pvFold" data-pvfold="pvMission">접기</button>`}</h4>
+      <section class="pvCard${fold("mission", ms === "unset")}" data-v2="mission" style="--pv:#ff8a3d" aria-label="4 다음 미션"><h4>${chev}${num()}다음 미션${ms === "unset" ? ` <span class="chip todo">미설정</span>` : ""}${ms === "none" ? "" : `<button type="button" class="small ghost pvFold" data-pvfold="pvMission">접기</button>`}</h4>${sum(ms === "none" ? "미션 없음" : first((rv.practice || []).filter(Boolean).join("\n"), 30) + (song.title ? ` · 🎵 ${song.title}` : ""))}
         ${ms === "none" ? `<p style="margin:0"><span class="chip">미션 없음(선생님이 선택)</span></p>` : pvEdHTML("pvMission", "다음 미션", (rv.practice || []).filter(Boolean).join("\n"), disabled, "한 줄에 하나 · 최대 2개\n예: 후렴 두 마디만 천천히 매끄럽게")}
         <div class="pvSong"><div class="pvSongRow"><span class="art" aria-hidden="true">🎵</span><div style="min-width:0"><div class="muted">추천 곡</div><b>${esc(song.title || "아직 없음")}</b>${song.artist ? ` <span class="muted">(${esc(song.artist)})</span>` : ""}</div></div>
           <details style="margin-top:6px"><summary class="muted">추천 곡 고치기</summary>
@@ -2337,7 +2351,7 @@ function feedbackPreviewHTML(note, rv, disabled, open = false) {
             <input id="pvSongW" aria-label="추천 이유" placeholder="한 줄 이유(예: 지금 톤과 잘 어울려요)" value="${esc(song.why || "")}" style="width:100%;margin:3px 0"${disabled}>
             <input id="pvSongU" aria-label="유튜브 주소" type="url" inputmode="url" placeholder="유튜브 주소(선택) · 예: https://youtu.be/…" value="${esc(song.url || "")}" style="width:100%;margin:3px 0"${disabled}>
             <button type="button" class="small" data-pvsave="pvSong"${disabled}>추천 곡 저장</button></details></div></section>
-      <section class="pvCard" data-v2="cheer" style="--pv:#ff5c8a" aria-label="5 응원 메시지"><h4>${num()}응원 메시지<button type="button" class="small ghost pvFold" data-pvfold="pvCheer">접기</button></h4>
+      <section class="pvCard${fold("cheer", false)}" data-v2="cheer" style="--pv:#ff5c8a" aria-label="5 응원 메시지"><h4>${chev}${num()}응원 메시지<button type="button" class="small ghost pvFold" data-pvfold="pvCheer">접기</button></h4>${sum(first(rv.cheer))}
         ${pvEdHTML("pvCheer", "응원 메시지", rv.cheer || "", disabled, "예: 오늘 정말 잘하셨어요! 꾸준히 하시면 더 멋진 목소리가 될 거예요 😊")}
         <div class="pvChips">${typeof cur !== "undefined" && typeof cur?.ai?.cheer === "string" && cur.ai.cheer.trim() ? `<button type="button" data-pvcheer="ai"${disabled}>✨ AI 초안</button>` : ""}${CHEER.map(([k, v]) => `<button type="button" data-pvcheer="${v}"${disabled}>🎲 ${k}</button>`).join("")}</div>
         <p class="muted" style="margin:4px 0 0;font-size:.82rem">🎲는 오늘 레슨 내용(좋았던 구절·나아진 부분·포인트·미션)으로 만들어요 · 누를 때마다 다른 문장</p></section>
@@ -2743,7 +2757,7 @@ function svLessonHtml(l, prev, mode = "normal") {
 }
 function studentViewHTML(note, mode = "normal") {
   return `<div role="dialog" aria-modal="true" aria-label="수강생 화면 미리보기(읽기 전용)">
-    <div class="row" style="justify-content:space-between;gap:6px"><b>👀 수강생에게 이렇게 보여요</b><span class="row" style="gap:6px;flex-wrap:nowrap"><button type="button" class="small save" id="pvFullSend">✈ 수강생에게 전달하기</button><button type="button" class="small" id="pvFullClose">닫기</button></span></div>
+    <div class="row" style="justify-content:space-between;gap:6px"><b>👀 수강생에게 이렇게 보여요</b><span class="row" style="gap:6px;flex-wrap:nowrap"><button type="button" class="small" id="pvFullClose">닫기</button><button type="button" class="small save pvSendB" id="pvFullSend">✈ 수강생에게 전달하기</button></span></div>
     <p class="muted">글은 읽기 전용(고치기는 선생님 화면에서) · ▶·시각·말풍선은 눌러서 들어 볼 수 있어요. 수강생에게는 공개한 뒤에만 보여요. 지난번 비교 카드는 여기 없어요.</p>
     <div id="pvFullBody">${svLessonHtml(note, null, "normal")}</div></div>`;
 }
@@ -2753,7 +2767,11 @@ function openStudentView(mode = "normal") {
   document.body.appendChild(d);
   const close = d.querySelector("#pvFullClose"); close.onclick = closeStudentView; close.focus();
   const sendB = d.querySelector("#pvFullSend");   // (11/13 17:08 사용자) 미리보기에서 바로 전달하기 — 미리보기를 닫고 전달하기 시트를 엶
-  if (sendB) { if (typeof v2SheetOpen !== "function" || !(typeof v2On === "function" && v2On())) sendB.hidden = true; else sendB.onclick = () => { closeStudentView(); v2SheetOpen(); }; }
+  if (sendB) {   // (11/13 17:25 사용자) 위는 닫기와 자리 바꿈(전달하기가 오른쪽) · 맨 아래에도 같은 버튼
+    const can = typeof v2SheetOpen === "function" && typeof v2On === "function" && v2On();
+    if (can && typeof d.querySelectorAll === "function") { const bot = document.createElement("button"); bot.type = "button"; bot.className = "save pvSendB"; bot.style.cssText = "display:block;width:100%;margin:14px 0 8px;font-size:1.05rem;padding:12px"; bot.textContent = "✈ 수강생에게 전달하기"; (d.querySelector('[role="dialog"]') || d).appendChild(bot); }
+    (typeof d.querySelectorAll === "function" ? d.querySelectorAll(".pvSendB") : [sendB]).forEach(b => { if (!can) b.hidden = true; else b.onclick = () => { closeStudentView(); v2SheetOpen(); }; });
+  }
   if (document.body?.classList) document.body.classList.add("pvOpen");   // 레슨 녹음 재생바(#mini)가 미리보기 위로 올라오게
   d.onclick = (e) => {
     const sg = e.target?.closest?.(".lp[data-svseg]");   // (10/29 12:42) 레슨 녹음 구간 버튼: 미리보기에선 레슨 녹음 재생기로 그 구간(재생바 노란 칸)
@@ -4285,13 +4303,15 @@ function renderCeleb() {
   c.full ??= { on: false, title: f.song, ...(f.fr ? { t0: f.fr.t0, len: f.fr.len } : {}) };
   const again = c.full.title && f.done.has(normTitle(c.full.title));
   card.classList.remove("hidden");
-  card.innerHTML = `<b>🎉 기념</b> <span class="muted" style="font-size:.85rem">켠 것만 수강생 노트에 · 수강생에겐 축하 카드로 보여요</span>
+  const celOn = [c.anniv?.on, c.first4?.on, c.full?.on].filter(Boolean).length;   // (11/13 17:16) 처음엔 접힘 — 켠 개수만
+  card.innerHTML = `<details id="celWrap"${cur.celOpen ? " open" : ""}><summary style="cursor:pointer"><b>🎉 기념</b> <span class="muted" style="font-size:.85rem">${celOn ? `${celOn}개 켬` : "켠 것 없음"}</span></summary><span class="muted" style="font-size:.85rem">켠 것만 수강생 노트에 · 수강생에겐 축하 카드로 보여요</span>
     ${c.anniv ? `<label style="display:block;margin:6px 0"><input type="checkbox" id="celAnn" ${c.anniv.on ? "checked" : ""}> 🎂 이 레슨으로 <b>함께 노래한 지 ${esc(annLabel(c.anniv.m))}</b> (첫 레슨 ${esc(String(c.anniv.first || "").slice(2).replaceAll("-", "."))}) — 첫 레슨 베스트와 오늘 베스트를 나란히</label>` : ""}
     ${c.first4 ? `<label style="display:block;margin:6px 0"><input type="checkbox" id="celF4" ${c.first4.on ? "checked" : ""}> 🌱 <b>첫 4회 완주</b> — 첫 레슨 베스트와 오늘 베스트를 나란히(첫 달이 그만두는 사람이 가장 많은 때라 ‘달라진 것’을 들려줘요)</label>` : ""}
     <div style="margin:6px 0"><label><input type="checkbox" id="celFull" ${c.full.on ? "checked" : ""}> 🎤 오늘 한 곡을 <b>처음부터 끝까지</b> 불렀어요(완곡 기념)</label>
       <input id="celTitle" placeholder="곡 제목" maxlength="40" value="${esc(c.full.title || "")}" style="width:100%;margin-top:4px">
-      <p class="muted" style="margin:2px 0 0;font-size:.85rem">${f.fr ? `가장 길게 이어 부른 곳 약 ${Math.round(f.fr.len)}초 <button type="button" class="small ghost" id="celPlay">▶ ${fmt(f.fr.t0)}</button> · 1절만이면 끄세요 · 수강생은 그 부분을 들을 수 있어요` : "이어 부른 긴 구간을 못 찾았어요 — 끝까지 부른 게 맞으면 직접 켜 주세요"}${again ? " · ⚠ 전에 완곡 기념한 곡이에요" : ""}</p></div>`;
+      <p class="muted" style="margin:2px 0 0;font-size:.85rem">${f.fr ? `가장 길게 이어 부른 곳 약 ${Math.round(f.fr.len)}초 <button type="button" class="small ghost" id="celPlay">▶ ${fmt(f.fr.t0)}</button> · 1절만이면 끄세요 · 수강생은 그 부분을 들을 수 있어요` : "이어 부른 긴 구간을 못 찾았어요 — 끝까지 부른 게 맞으면 직접 켜 주세요"}${again ? " · ⚠ 전에 완곡 기념한 곡이에요" : ""}</p></div></details>`;
   const upd = () => { markDirty(); if (typeof paintDeliver === "function") paintDeliver(); };
+  const cw = card.querySelector("#celWrap"); if (cw) cw.ontoggle = () => { cur.celOpen = cw.open; };
   if ($("celF4")) $("celF4").onchange = (e) => { c.first4.on = e.target.checked; c.first4.manual = true; upd(); };
   if ($("celAnn")) $("celAnn").onchange = (e) => { c.anniv.on = e.target.checked; c.anniv.manual = true; upd(); };
   $("celFull").onchange = (e) => { c.full.on = e.target.checked; if (c.full.on && !String(c.full.title || "").trim()) toast("곡 제목을 써 주세요"); upd(); };
@@ -7261,7 +7281,7 @@ function renderGrowth() {
   if (!ps.length) { card.innerHTML = `<b>📈 같은 구절, 그때와 지금</b> <span class="muted">· ${esc(g.why || "비교할 구절을 찾지 못함")}</span>`; return; }
   const rv = cur.review, gc = (rv.gc ??= { id: g.pick || ps[0].id, send: false, say: "" }), p = gcPicked();
   const row = (k, a, b) => `<tr><td class="muted">${k}</td><td>${a}</td><td><b>${b}</b></td></tr>`;
-  card.innerHTML = `<details open data-fold="gc"><summary><b>📈 같은 구절, 그때와 지금</b> <span class="muted">${p.days}일 사이 · 원음 그대로(보정 없음)</span></summary>
+  card.innerHTML = `<details data-fold="gc"><summary><b>📈 같은 구절, 그때와 지금</b> <span class="muted">${p.days}일 사이 · 원음 그대로(보정 없음)</span></summary>
     ${ps.length > 1 ? `<div class="row" style="margin:6px 0">${ps.map(x => `<button type="button" class="small ${x.id === p.id ? "" : "ghost"} gcPick" data-id="${esc(x.id)}">‘${esc(String(x.lyric || "").slice(0, 14))}’</button>`).join("")}</div>` : ""}
     <p style="margin:6px 0">‘${esc(p.lyric || "")}’</p>
     <div class="row"><button type="button" class="small gcPlay" data-f="${esc(p.then.file_id)}" data-label="▶ 그때 ${esc(String(p.then.date).slice(5, 10))}">▶ 그때 ${esc(String(p.then.date).slice(5, 10))}</button>
@@ -8069,7 +8089,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261113-1715";
+const BUILD = "20261113-1725";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
@@ -8242,11 +8262,12 @@ function renderNextPlan() {
       ${x.t != null ? `<button type="button" class="small ghost npPl" data-t="${x.t}">▶ ${fmt(x.t)}${x.quote ? ` “${esc(String(x.quote).slice(0, 26))}”` : ""}</button>` : x.src === "mission" ? `<div class="muted" style="font-size:.85rem;margin-top:3px">📋 이번 주 미션</div>` : ""}</div>
       <button type="button" class="small ghost npDel" data-i="${i}" aria-label="이 줄 지우기" style="min-width:36px">✕</button></div>`;
   const cal = rv.next_plan_cal;
-  el.innerHTML = `<div class="row" style="flex-wrap:nowrap"><h3 style="margin:0">📌 다음 레슨에 할 것</h3><span class="chip ${ok ? "ok" : "todo"}" style="margin-left:auto;white-space:nowrap">${ok ? "✓ 확인됨" : "확인 전"}</span></div>
+  el.innerHTML = `<details id="npWrap"${me.npOpen ? " open" : ""}><summary class="row" style="flex-wrap:nowrap;cursor:pointer"><h3 style="margin:0">📌 다음 레슨에 할 것 <span class="muted" style="font-size:.85rem;font-weight:600">${list.filter(x => x.text).length}줄</span></h3><span class="chip ${ok ? "ok" : "todo"}" style="margin-left:auto;white-space:nowrap">${ok ? "✓ 확인됨" : "확인 전"}</span></summary>
     <p class="muted" style="margin:4px 0 6px">레슨 중 ‘다음에 ~’ 한 말·못 끝낸 것·미션 점검. <b>✓확인</b>한 것만 다음 레슨 시작 때 폰 알림(구글 캘린더)과 앱 팝업으로 알려 드려요</p>
     <div id="npList">${list.length ? list.map(row).join("") : `<p class="muted">AI가 찾은 ‘다음에 할 것’이 없어요. 직접 적어 주세요.</p>`}</div>
     <div class="row" style="gap:6px;margin-top:8px;flex-wrap:nowrap"><button type="button" class="ghost" id="npAdd" style="flex:1">＋ 한 줄 더</button><button type="button" id="npOk" style="flex:1">✓ 확인</button></div>
-    <div class="muted" id="npCal" style="margin-top:6px;font-size:.85rem">${cal?.event_id ? `${IC_CAL} ${esc(cal.when || "")} 레슨 일정에 넣었어요 · 시작할 때 알림` : ok ? `${IC_CAL} 다음 레슨 일정이 생기면 그때 넣어요` : ""}</div>`;
+    <div class="muted" id="npCal" style="margin-top:6px;font-size:.85rem">${cal?.event_id ? `${IC_CAL} ${esc(cal.when || "")} 레슨 일정에 넣었어요 · 시작할 때 알림` : ok ? `${IC_CAL} 다음 레슨 일정이 생기면 그때 넣어요` : ""}</div></details>`;
+  const npw = el.querySelector("#npWrap"); if (npw) npw.ontoggle = () => { me.npOpen = npw.open; };   // (11/13 17:16) 처음엔 접힘 — 제목에 줄 수·확인 상태
   const read = () => [...el.querySelectorAll(".npTx")].map((inp, i) => ({ ...(list[i] || {}), text: inp.value.trim() }));
   const changed = () => { if (cur !== me) return; list = read(); rv.next_plan = list; rv.next_plan_ok_at = null; const c = el.querySelector(".chip"); if (c) { c.className = "chip todo"; c.textContent = "확인 전"; } markDirty(); };
   el.querySelectorAll(".npTx").forEach(inp => inp.oninput = changed);
@@ -8497,10 +8518,16 @@ $("btnUi").onclick = () => { LS.set(V2_KEY, v2On() ? "v1" : "v2"); v2Apply();
   toast(v2On() ? "새 화면(V2)으로 바꿨어요" : "예전 화면(V1)으로 바꿨어요 · 위 버튼으로 다시 바꿀 수 있어요"); };
 $("v2Save").onclick = async () => { const b = $("v2Save"); b.disabled = true; const ok = await saveReview(true); b.disabled = false;
   if (ok) { toast("임시저장했어요 · 수강생 화면은 공개 전까지 그대로예요"); paintDeliver(); } };
+document.addEventListener("click", (e) => {   // (11/13 17:16) 요약 카드 펼치기/접기 — 카드 제목줄(버튼 말고)을 누르면
+  const h = e.target?.closest?.("#pvStrip .pvCard > h4, #pvStrip .pvCard.fold > .pvSum"); if (!h || e.target.closest("button,a,input,textarea,label")) return;
+  const c = h.closest(".pvCard"), k = c?.dataset.v2; if (!c) return;
+  const willOpen = c.classList.contains("fold"); c.classList.toggle("fold", !willOpen);
+  if (cur && k) { cur.pvOpen ??= new Set(); willOpen ? cur.pvOpen.add(k) : cur.pvOpen.delete(k); }
+});
 $("v2Send").onclick = () => {
   const me = cur; if (!me) return;
   const tg = v2Targets(), next = tg.find(el => !me.v2seen?.has(v2Key(el)));
-  if (next) { me.v2seen.add(v2Key(next)); next.scrollIntoView({ behavior: "smooth", block: "start" }); v2Count(me); return; }
+  if (next) { if (next.classList?.contains("fold")) { next.classList.remove("fold"); if (next.dataset?.v2) (me.pvOpen ??= new Set()).add(next.dataset.v2); } me.v2seen.add(v2Key(next)); next.scrollIntoView({ behavior: "smooth", block: "start" }); v2Count(me); return; }
   v2SheetOpen();
 };
 $("v2PvDock").onclick = () => { if (cur) openStudentView(v2Lv()); };   // (10/29 사용자) 전달하기 옆에서 바로 수강생 화면 미리보기
