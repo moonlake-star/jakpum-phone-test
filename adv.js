@@ -321,7 +321,7 @@
           ${["psola", "world"].includes(mk.A) && ["psola", "world"].includes(mk.B) ? `<p class="advD">지금 비교본은 예전 것(PSOLA·WORLD)이에요</p>` : ""}
           ${pick ? `<p class="advD" style="color:#ffcf99">고른 쪽: ${pick} = ${ENG[ENG_ALIAS[mk[pick]] || mk[pick]] || mk[pick]}${(ENG_ALIAS[mk[pick]] || mk[pick]) === (ENG_ALIAS[e.engine] || e.engine || "psola") ? " → 이 곡 보정 방식" : " · 방식은 그대로(" + (ENG[ENG_ALIAS[e.engine] || e.engine || "psola"] || e.engine) + ")"}</p>` : ""}`
         : `<div class="advRow"><span class="advL">A/B 비교본</span><span class="advChips"><button type="button" data-eab class="${e.ab ? "on" : ""}">${e.ab ? "✓ 다음 완성본 때 만들기" : "만들기"}</button></span></div>
-          <p class="advD">켜고 '완성본 새로 만들기'를 하면 가장 많이 고친 20초를 새 방식 v3·이전 v2로 만들어 A·B로 섞어 둬요. 어느 쪽이 무엇인지는 고른 뒤에 알려 줘요.</p>`}`;
+          <p class="advD">켜고 '완성본 다시 만들기'를 하면 가장 많이 고친 20초를 새 방식 v3·이전 v2로 만들어 A·B로 섞어 둬요. 어느 쪽이 무엇인지는 고른 뒤에 알려 줘요.</p>`}`;
       // (11/12 사용자 '멀어져 간 사람아 28~35초') 비교본 구간을 직접 정함 — 다음 완성본 때 그 구간(1~40초)으로 만듦, 비우면 자동(가장 많이 고친 20초)
       { const rg = e.range, row = document.createElement("div"); row.className = "advRow advRg"; row.innerHTML = `<span class="advL">비교 구간(초)</span><span class="advChips"><input type="number" inputmode="decimal" min="0" step="0.5" data-rg="0" value="${rg ? rg[0] : ""}" placeholder="시작" style="width:70px;height:36px;border-radius:10px;border:1.5px solid #3b4250;background:#11141a;color:#eee;text-align:center"> ~ <input type="number" inputmode="decimal" min="0" step="0.5" data-rg="1" value="${rg ? rg[1] : ""}" placeholder="끝" style="width:70px;height:36px;border-radius:10px;border:1.5px solid #3b4250;background:#11141a;color:#eee;text-align:center"><button type="button" data-rgs>적용</button><button type="button" data-rgc>자동</button></span>`;
         const hint = document.createElement("p"); hint.className = "advD"; hint.textContent = rg ? `다음 완성본 때 ${rg[0]}~${rg[1]}초로 만들어요` : "비워 두면 가장 많이 고친 20초를 자동으로 골라요";
@@ -338,7 +338,7 @@
         if (!en || (ENG_ALIAS[en] || en) === (ENG_ALIAS[e.engine] || e.engine || "psola")) { Promise.resolve(st.engSet({ engine_pick: k })).then(paint); return; }
         const host = w.closest("#tuneFs") || document.body, old = host.querySelector(".tfCfm"); if (old) old.remove();
         const cf = document.createElement("div"); cf.className = "tfCfm"; cf.setAttribute("role", "dialog");
-        cf.innerHTML = `<div class="tfCfmBox"><b>이 곡 보정 엔진을 ${nm}(으)로 바꿀까요?</b><p>지금은 ${ENG[ENG_ALIAS[e.engine] || e.engine || "psola"] || e.engine}예요. 바꾸면 다음 '완성본 새로 만들기'부터 ${nm}(으)로 만들어요.</p><div class="tfCfmRow"><button type="button" data-cf="0">그대로 두기</button><button type="button" class="pri" data-cf="1">${nm}(으)로 바꾸기</button></div></div>`;
+        cf.innerHTML = `<div class="tfCfmBox"><b>이 곡 보정 엔진을 ${nm}(으)로 바꿀까요?</b><p>지금은 ${ENG[ENG_ALIAS[e.engine] || e.engine || "psola"] || e.engine}예요. 바꾸면 다음 '완성본 다시 만들기'부터 ${nm}(으)로 만들어요.</p><div class="tfCfmRow"><button type="button" data-cf="0">그대로 두기</button><button type="button" class="pri" data-cf="1">${nm}(으)로 바꾸기</button></div></div>`;
         cf.addEventListener("pointerdown", (x) => x.stopPropagation());
         const ly = G.Brand && G.Brand.layer ? G.Brand.layer(() => cf.remove()) : { close: () => cf.remove() };
         cf.addEventListener("click", (x) => { if (x.target === cf) ly.close(); });

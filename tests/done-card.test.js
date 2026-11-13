@@ -9,7 +9,7 @@ assert.notStrictEqual(sig({ ...r, target_fixes: [{ t0: 1, t1: 2, midi: 61 }] }),
 assert.strictEqual(sig({ ...r, target_fixes: [...r.target_fixes, { t0: 3, t1: 4, cut: 1 }] }), s0, "쪼개기 표시는 소리 아님");
 assert.notStrictEqual(sig({ ...r, engine: "world" }), s0, "엔진 바꿈도 반영 전");
 assert.ok(H.includes("q.baked_sig = mkEditsSig(q);"), "완성본 요청 때 지문 저장");
-assert.ok(H.includes('id="mkDone"') && H.includes('<button class="full" id="mkFinal">🔊 완성본 새로 만들기</button>') && H.includes("⚡ 지금 소리 그대로 mp3") && H.includes("📤 수강생에게 보내기"), "카드 하나");
+assert.ok(H.includes('id="mkDone"') && H.includes('<button class="full" id="mkFinal">🔊 완성본 다시 만들기</button>') && H.includes("⚡ 지금 소리 그대로 mp3") && H.includes("📤 수강생에게 보내기"), "카드 하나");
 assert.ok(!H.includes("고친 내용 반영해 완성본 다시 만들기") && !H.includes("폰에서 바로 mp3 만들기"), "옛 이름 없음");
 assert.ok(H.includes("⚠ 보낼 파일을 골라 주세요") && H.includes("if (phoneFresh()) return shareNow(true);") && H.includes("if (!mkDirty()) return shareNow(false);"), "보내기 안전장치");
 assert.ok(T.includes("이번에 <b>${n}곳</b>") && T.includes("(곡 전체 ${ds.total}곳)") && T.includes('el.className = "tuneExit slim"') && !T.includes("되돌리기 기록 <b>"), "닫을 때 = 한 줄 알림(11/11)");
