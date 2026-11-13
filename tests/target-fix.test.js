@@ -46,7 +46,7 @@ console.log("intro ok");
   assert.ok(t.includes("#tuneFs .port .tfXp{height:28px!important;min-height:0!important") && t.includes("#tuneFs .port .tfCtl .tfAb{height:60px") && t.includes("#tuneFs .port .tfNav button{min-height:0!important;height:40px!important}")); }
 // (11/03 02:20 사용자) ✂ 늘 보이게(세로줄이 막대 밖이면 가운데에서 나눔) · 음 이름 길게 눌러도 진동 없게
 { const t = require("fs").readFileSync(__dirname + "/../tune.js", "utf8");
-  assert.ok(t.includes("canCut = atHead || b.t1 - b.t0 >= 0.3") && t.includes("const ts = +(tAt != null ? tAt : atHead ? tNow : (b.t0 + b.t1) / 2).toFixed(2)"));
+  assert.ok(t.includes("canCut = atHead || b.t1 - b.t0 >= 0.3") && t.includes("const ts = +(tAt != null ? tAt : here ? tc : atHead ? tNow : (b.t0 + b.t1) / 2).toFixed(2)"));
   assert.ok(t.includes('nb.addEventListener("touchstart", (e) => { if (e.cancelable) e.preventDefault(); }, { passive: false });')); }
 // (11/03 02:54 사용자) 창을 빠져나올 때 '저장 중…' → '✓ 저장됨'
 { const t = require("fs").readFileSync(__dirname + "/../tune.js", "utf8");
