@@ -326,3 +326,7 @@ console.log("pitch-page ok");
   assert.ok(sP.includes("function loadPianoSmp(ctx)") && sP.includes("loadPianoSmp(P.ctx)") && sP.includes("const s = ctx.createBufferSource()") && sP.includes("CC-BY 3.0"), "녹음 피아노 + 출처");
   for (let o = 2; o <= 5; o++) for (const k of ["C", "Ds", "Fs", "A"]) assert.ok(fs.existsSync(__dirname + "/../pitch/piano/" + k + o + ".mp3"), "샘플 " + k + o);
   console.log("pitch-page: 녹음 피아노 ok"); }
+// (11/13 09:36 사용자) 기록 도전 없이도 접속·자유 연습 체크
+assert.ok(js.includes("function markVisit(") && js.includes("markVisit();") && js.includes("freeStep(now, dt, sm);"), "접속·자유 연습 기록");
+assert.ok(/if \(P\.running \|\| voMode\(\)/.test(js), "기록 도전·발성 스케일 시간은 자유 연습에 두 번 세지 않음");
+assert.ok(js.includes("if (!d && !fr && !vis) return null;"), "접속만 한 날도 요약을 보냄");

@@ -1011,6 +1011,24 @@ function voFlush() {
   saveDB(); try { pitchSync(); } catch (e) {} refreshToday(); cache.gw = null;
 }
 function voEnd() { voFlush(); P.vo = null; }
+/* (11/13 09:36 사용자) 기록 도전을 안 해도 '들어왔는지'·'소리 내며 연습했는지'를 선생님이 볼 수 있게.
+   접속 = 이 화면을 연 날(DB.visit) · 자유 연습 = 기록 도전·발성 스케일 밖에서 목소리가 3초 안에 잡히는 동안만(DB.free, 밀리초). 서버로는 그날 요약(sec·visit)에 합쳐서 보냄 */
+const syncDay = (day) => { if (SN || TM) { DB.sync = DB.sync || []; if (!DB.sync.includes(day)) DB.sync.push(day); } };
+function markVisit() {
+  const u = me(); if (!u || u.role !== 'student' || !SN) return;
+  const day = dayKey(); DB.visit = DB.visit || {}; if (DB.visit[day]) return;
+  DB.visit[day] = 1; syncDay(day); saveDB();
+}
+function freeStep(now, dt, sm) {
+  if (P.running || voMode() || document.visibilityState !== 'visible') return;
+  const f = P.fr || (P.fr = { ms: 0, lastV: -1e9, saveAt: now }); if (sm != null) f.lastV = now;
+  if (now - f.lastV < 3000) { f.ms += dt; if (now - f.saveAt > 10000) { f.saveAt = now; freeFlush(); } }
+}
+function freeFlush() {
+  const f = P.fr, u = me(); if (!f || f.ms < 1000 || !u || u.role !== 'student') return;
+  const day = dayKey(); DB.free = DB.free || {}; DB.free[day] = (DB.free[day] || 0) + f.ms; f.ms = 0;
+  syncDay(day); saveDB(); if (Date.now() - (P.frSyncAt || 0) > 60000) { P.frSyncAt = Date.now(); try { pitchSync(); } catch (e) {} }   // 서버로는 1분에 한 번만(화면을 나갈 때는 바로)
+}
 /* (11/05 사용자) 스케일 속도: 기본 55%(70%의 80% — 더 느리게), +/- 로 5%씩 40~120%. 음 길이·간격만 늘이고 짧은 피아노 '핑'은 그대로 */
 const SPD_MIN = .4, SPD_MAX = 1.2;
 const spdNow = () => { const v = Number(CFG.spd); return clamp(Math.round((isFinite(v) && v > 0 ? v : .55) * 20) / 20, SPD_MIN, SPD_MAX); };
@@ -1806,6 +1824,7 @@ function loop(ts) {
     if (!cp && !vb && SCR.id == null && now > SCR.hold && (sm < P.low + 3 || sm > P.low + P.rows - 4)) { if (!P.shiftT) P.shiftT = now; else if (now - P.shiftT > 120) { P.low = clamp(Math.round(sm - P.rows / 2), 12, 108 - P.rows); P.shiftT = 0; } } else P.shiftT = 0;
   } else if (now - P.lastMT > 400) P.shiftT = 0;
   if (cp) courseTick(now, dt, sm); else if (vb) { if (sm != null) P.lastVoiceT = now; } else gameTick(now, dt, sm, dev);
+  freeStep(now, dt, sm);
   if (P.running && now - P.lastVoiced < 4000 && document.visibilityState === 'visible') P.activeMs += dt;
   if (C.mode === 'vib' || voMode()) P.hist.length = 0; else P.hist.push({ t: now, m: sm, ok, pf: dev != null && Math.abs(dev) * 100 <= 8 }); while (P.hist.length && now - P.hist[0].t > (HIST_S + 1) * 1000) P.hist.shift();
   P.lowF += (P.low - P.lowF) * .15; if (Math.abs(P.low - P.lowF) < .01) P.lowF = P.low;
@@ -2028,9 +2047,11 @@ async function recPaint() {
   });
 }
 function pitchSum(day) {
-  const d = daysOf(me().id)[day]; if (!d) return null;
+  const d = daysOf(me().id)[day], fr = ((DB.free || {})[day] || 0) / 1000, vis = !!(DB.visit || {})[day];
+  if (!d && !fr && !vis) return null;
+  if (!d) return { sec: Math.round(fr), vms: 0, sfs: 0, n: 0, hold: 0, combo: 0, score: null, co: [] };   // 기록 도전 없이 접속·자유 연습만 한 날
   const co = []; DB.sessions.forEach(x => { if (x.day === day && x.st && x.st.co) x.st.co.forEach(c => co.push({ st: c.stage, s: c.stars, c: c.cov })); });
-  return { sec: Math.round(d.sec), vms: Math.round(d.vms), sfs: Math.round(d.sfs), n: d.n, hold: Math.round(d.bestHold * 10) / 10, combo: d.maxCombo, score: d.score, co: co.slice(-30) };
+  return { sec: Math.round(d.sec + fr), vms: Math.round(d.vms), sfs: Math.round(d.sfs), n: d.n, hold: Math.round(d.bestHold * 10) / 10, combo: d.maxCombo, score: d.score, co: co.slice(-30) };
 }
 async function pitchSync() {
   if (TM) {   // 선생님 앱 안: 점수 요약만 앱(부모 창)에 맡겨 서버로 보냄 — 받았다는 답(sum_ok)이 오면 큐에서 뺌. 녹음은 없음
@@ -2471,11 +2492,12 @@ if (SN) {   // 내 계정 모드: 샘플 없이 본인 한 명
 if (!DB.runs) DB.runs = {};
 buildTabs(); go(me().role === 'student' ? 'practice' : 'roster');
 renderVoiceSeg();
-window.addEventListener('pagehide', () => { try { if (P.running) stopSession(); } catch (e) {} });   // 앱 안 창이 닫히거나 화면을 나가면 진행 중이던 기록을 저장
-if (SN || TM) { pitchSync(); document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') pitchSync(); }); }
+window.addEventListener('pagehide', () => { try { freeFlush(); if (P.running) stopSession(); } catch (e) {} });
+markVisit();   // 앱 안 창이 닫히거나 화면을 나가면 진행 중이던 기록을 저장
+if (SN || TM) { pitchSync(); document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') { try { freeFlush(); } catch (e) {} pitchSync(); } }); }
 if (C.mode === 'vib' && !vibUnlocked()) C.mode = 'free';
 resize(); if (C.mode === 'course') loadStage(0); else renderCourseUI(); P.raf = requestAnimationFrame(loop); setTimeout(checkReminder, 1500);
-window.__vn = { recAll, recSubmit, recPaint, RC, vibCue, vibRoot, vibPickRoot, vibRange, pianoVoice, pianoOut, mFreq, guideNote, setVW, VLV, follow: courseFollow, genScaleLine, scaleCfg, P, C, CFG, V, VR, genLine, loadStage, startStage, setMode, DB: () => DB, go, switchUser, badgeList, daysOf, streakInfo, stopSession, startSession, pitchSync };
+window.__vn = { freeStep, freeFlush, markVisit, pitchSum, recAll, recSubmit, recPaint, RC, vibCue, vibRoot, vibPickRoot, vibRange, pianoVoice, pianoOut, mFreq, guideNote, setVW, VLV, follow: courseFollow, genScaleLine, scaleCfg, P, C, CFG, V, VR, genLine, loadStage, startStage, setMode, DB: () => DB, go, switchUser, badgeList, daysOf, streakInfo, stopSession, startSession, pitchSync };
 })();
 </script>
 </body>
