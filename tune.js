@@ -1652,7 +1652,8 @@
         const tx = (x) => mp.t0 + (Math.max(mp.L, Math.min(mp.w, x)) - mp.L) / Math.max(1, mp.w - mp.L) * mp.W8, a = drag.armed.t, b = tx(l0.x); st.msel = [Math.max(0, Math.min(a, b)), Math.max(a, b)];
         drag.lx = l0.x; edgeAuto(drag);   // (11/05 사용자) 손가락이 화면 가장자리에 닿으면 그래프가 저절로 밀려서 더 멀리까지 고를 수 있게
         if (!wrap.querySelector(".tfMulti")) multiSheet(wrap, cv, st, false, true); else if (st.onMSel) st.onMSel(); return; }
-      if (!drag.mode) { if (Math.max(Math.abs(dA), Math.abs(dB)) < 8) return; clearTimeout(drag.lp); st.hold = null; drag.mode = Math.abs(dA) >= Math.abs(dB) ? "time" : "pitch"; if (drag.mode === "time") pauseNow(); }
+      // (11/13 19:28 사용자 '태블릿에서 가로로 쓸었는데 비스듬하면 세로로도 움직여 불편') 가로 이동을 우선: 세로가 가로의 2배 넘게 분명할 때만 위아래 이동 · 정하기 전 12px까지 지켜봄
+      if (!drag.mode) { if (Math.max(Math.abs(dA), Math.abs(dB)) < 12) return; clearTimeout(drag.lp); st.hold = null; drag.mode = Math.abs(dB) > 2 * Math.abs(dA) ? "pitch" : "time"; if (drag.mode === "time") pauseNow(); }
       if (drag.mode === "time") preview = Math.max(0, drag.t - dA / span() * ((st.win || 6) / st.xz));
       else if (st.yz > 1) { const [lo, hi] = range(cv), per = (hi - lo) / st.yz / tall(); st.yc = (drag.yc ?? (lo + hi) / 2) + dB * per * (rot ? -1 : 1); st.panAt = Date.now(); }
       else { const [lo, hi] = range(cv), per = (hi - lo) / tall(); if (drag.yo == null) drag.yo = st.yo || 0; st.yo = Math.max(-(hi - lo) * 0.6, Math.min((hi - lo) * 0.6, drag.yo + dB * per * (rot ? -1 : 1))); }   // 확대 안 했을 때도 위아래로(곡 음역의 60%까지)
