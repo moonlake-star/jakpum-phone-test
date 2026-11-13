@@ -5374,7 +5374,12 @@ function pvApply(name) {   // 한 트랙에 지금 고친 정음·타이밍 전�
     try { const mp0 = ap ? pvAdvMaps(cv, lvCol) : null; pp = pvPraatPlan(cv, lvCol, sr, cls, ap, mp0, buf.length);
       if (pp.regs.length) { if (PVP.state === "ready") { ppReady = pp.regs.every((r) => PVP.cache.get(r.key)); for (const r of pp.regs) if (!PVP.cache.has(r.key)) pvPraatJob(r, pp.bins, cv, sr); } else pvPraatLoad().then(() => { setTimeout(() => { try { pvApplyAll(); } catch {} if (!PVP.pend.size) PVP.flush(); }, 0); }); } }
     catch (e) { pp = null; console.warn("Praat 계획", e); } }
-  if (pp && pp.regs.length && (PVP.state === "loading" || PVP.state === "ready") && !ppReady && !pp.regs.some((r) => PVP.cache.get(r.key) === null)) return false;   // 서버와 같은 소리가 준비될 때까지 지금 소리 그대로(간이 소리로 먼저 들려주지 않음)
+  // 서버와 같은 소리가 준비될 때까지 지금 소리 그대로(간이 소리로 먼저 들려주지 않음)
+  //  (11/13 19:04 사용자 '음을 많이 앞으로 끌었는데 소리는 제자리') 단, 타이밍 고침까지 같이 묶여 기다리면 그동안 옮긴 음이 안 들림 →
+  //  2.5초 넘게 기다리면(아이패드에서 곡 전체 음정 준비가 오래 걸림) 간이 소리로 타이밍·음정을 먼저 반영하고, 준비되면 다시 서버와 같은 소리로 바꿈
+  if (pp && pp.regs.length && (PVP.state === "loading" || PVP.state === "ready") && !ppReady && !pp.regs.some((r) => PVP.cache.get(r.key) === null)) {
+    const wk = name + "|" + tp.sig, w = mkPv.ppWait || (mkPv.ppWait = {}); if (!w[wk]) { w[wk] = performance.now(); setTimeout(() => { try { pvApplyAll(); } catch {} }, 2600); }
+    if (performance.now() - w[wk] < 2500) return false; }
   const sig = JSON.stringify(cls.map(c => c.fx.map(f => [f.t0, f.t1, f.midi, dry ? 0 : mkPv.rendered(f)]))) + "|" + tp.sig + (ap ? "|" + ap.sig : "") + (ppReady ? "|P" + pp.regs.map((r) => r.key).join(",") : "");
   const st = mkPv.orig[name] || (mkPv.orig[name] = { sig: "[]|", regs: [] });
   // (11/12 10:46 사용자 '대기 시간 없이 최종 결과물과 같은 소리로 — 절대 원칙') 전체 보정(목소리 결·치찰음·숨·볼륨 고르게)을 바꾼 곡:
@@ -8091,7 +8096,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261113-1905";
+const BUILD = "20261113-1915";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
