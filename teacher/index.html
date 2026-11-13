@@ -4481,8 +4481,8 @@ function pitchAllHtml(rows) {
   const R = rows.map(r => { const t = (r.days || []).find(d => d.day === today); return { ...r, t, n: (r.days || []).length }; })
     .sort((a, b) => (!!a.err - !!b.err) || (!!b.t - !!a.t) || (b.n - a.n) || String(cfg.students[a.sid]?.name).localeCompare(String(cfg.students[b.sid]?.name), "ko"));
   const nToday = R.filter(r => r.t).length, bad = R.filter(r => r.err).length;
-  return { sum: `오늘 ${nToday}명 / 전체 ${R.length}명`, html: R.map(r => `<div class="paRow" data-s="${esc(r.sid)}"><b>${esc(cfg.students[r.sid]?.name || r.sid)}</b>
-    <span class="muted">${r.err ? "불러오지 못함" : r.t ? `오늘 ${mm(r.t.sec || 0)}${r.t.score != null ? ` · ${Math.round(r.t.score)}점` : ""}` : "오늘 연습 없음"}${!r.err ? ` · 최근 7일 ${r.n}일` : ""}</span></div>`).join("") + (bad ? `<p class="muted" style="margin:6px 0 0;font-size:.85rem">${bad}명은 불러오지 못했어요(서버가 새 버전이 아니거나 담당이 아닌 수강생)</p>` : "") };
+  return { sum: `오늘 접속 ${nToday}명 / 전체 ${R.length}명`, html: R.map(r => `<div class="paRow" data-s="${esc(r.sid)}"><b>${esc(cfg.students[r.sid]?.name || r.sid)}</b>
+    <span class="muted">${r.err ? "불러오지 못함" : r.t ? (r.t.sec >= 1 ? `오늘 연습 ${mm(r.t.sec)}${r.t.score != null ? ` · ${Math.round(r.t.score)}점` : ""}` : "오늘 접속만") : "오늘 안 들어옴"}${!r.err ? ` · 최근 7일 ${r.n}일 접속` : ""}</span></div>`).join("") + (bad ? `<p class="muted" style="margin:6px 0 0;font-size:.85rem">${bad}명은 불러오지 못했어요(서버가 새 버전이 아니거나 담당이 아닌 수강생)</p>` : "") };
 }
 function paintPitchAll(data) {
   const box = $("pitchAll"); if (!box || !portalUrl()) return;
@@ -4497,12 +4497,12 @@ function paintPitchAll(data) {
 }
 function pitchCard(days) {
   days = Array.isArray(days) ? days : [];
-  if (!days.length) return `<div class="card pitchCard"><b>🎤 발성 연습</b><p class="muted" style="margin:4px 0 0">아직 기록이 없어요 · 수강생이 앱의 ‘발성 연습’에서 ‘기록 도전’으로 연습하면 날짜별로 쌓여요</p><div class="pitchRec" data-pr="1"></div></div>`;
+  if (!days.length) return `<div class="card pitchCard"><b>🎤 발성 연습</b><p class="muted" style="margin:4px 0 0">아직 기록이 없어요 · 수강생이 앱의 ‘발성 연습’에 들어오거나 연습하면 날짜별로 쌓여요(11/13부터)</p><div class="pitchRec" data-pr="1"></div></div>`;
   const mm = (s) => s >= 60 ? `${Math.round(s / 60)}분` : `${Math.round(s)}초`, md = (d) => `${+String(d).slice(5, 7)}/${+String(d).slice(8, 10)}`;
   const tot = days.reduce((a, d) => a + (d.sec || 0), 0), sc = days.filter(d => d.score != null);
-  return `<div class="card pitchCard"><b>🎤 발성 연습</b> <span class="muted" style="font-size:.85rem">최근 ${days.length}일 기록 · 합계 ${mm(tot)}${sc.length ? ` · 평균 점수 ${Math.round(sc.reduce((a, d) => a + d.score, 0) / sc.length)}점` : ""}</span>
-    ${days.slice(0, 14).map(d => `<p style="margin:6px 0 0"><b>${md(d.day)}</b> · ${mm(d.sec || 0)}${d.score != null ? ` · ${Math.round(d.score)}점` : ""}${d.hold ? ` · 최고 유지 ${d.hold}초` : ""}${(d.co || []).length ? ` · 코스 ${"★".repeat(Math.max(...d.co.map(x => x.s || 0)))}` : ""}</p>`).join("")}
-    <p class="muted" style="margin:8px 0 0;font-size:.85rem">점수는 목표음에 맞은 시간 비율이에요. 아래 녹음은 수강생이 ‘미션 제출’한 것만 보여요.</p><div class="pitchRec" data-pr="1"></div></div>`;
+  return `<div class="card pitchCard"><b>🎤 발성 연습</b> <span class="muted" style="font-size:.85rem">최근 ${days.length}일 접속 · 연습 합계 ${mm(tot)}${sc.length ? ` · 평균 점수 ${Math.round(sc.reduce((a, d) => a + d.score, 0) / sc.length)}점` : ""}</span>
+    ${days.slice(0, 14).map(d => `<p style="margin:6px 0 0"><b>${md(d.day)}</b> · ${!(d.sec >= 1) ? "접속만 (소리 낸 연습 없음)" : `연습 ${mm(d.sec)}${d.score != null ? ` · 기록 도전 ${Math.round(d.score)}점` : " (기록 도전 안 함)"}`}${d.hold ? ` · 최고 유지 ${d.hold}초` : ""}${(d.co || []).length ? ` · 코스 ${"★".repeat(Math.max(...d.co.map(x => x.s || 0)))}` : ""}</p>`).join("")}
+    <p class="muted" style="margin:8px 0 0;font-size:.85rem">연습 시간은 목소리가 잡힌 시간만(기록 도전 안 해도) · 점수는 기록 도전에서 목표음에 맞은 시간 비율이에요. 아래 녹음은 수강생이 ‘미션 제출’한 것만 보여요.</p><div class="pitchRec" data-pr="1"></div></div>`;
 }
 // (11/05 사용자) 수강생이 '미션 제출'한 연습 녹음 — 원장·담당 강사가 듣기(서버가 담당 아니면 거절), 지우기는 원장만. 수강생이 그만둬도 자동 삭제 없음
 const recMd = (d) => `${+String(d).slice(5, 7)}/${+String(d).slice(8, 10)}`, recMb = (b) => b >= 1e6 ? `${(b / 1e6).toFixed(1)}MB` : `${Math.max(1, Math.round(b / 1e3))}KB`;
@@ -8067,7 +8067,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261112-2330";
+const BUILD = "20261113-0950";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {

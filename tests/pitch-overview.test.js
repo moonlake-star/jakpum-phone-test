@@ -14,10 +14,13 @@ const app = mk(cfg, portal, limiter, (s) => String(s ?? ""), () => null, () => "
   const rows = await app.pitchAllLoad(["a", "b", "c", "d"]);
   assert.deepStrictEqual(calls.map(c => c[0] + c[1] + c[2]), ["t_pitcha7", "t_pitchb7", "t_pitchc7", "t_pitchd7"], "수강생별로 최근 7일만 요청");
   const h = app.pitchAllHtml(rows);
-  assert.strictEqual(h.sum, "오늘 1명 / 전체 4명");
+  assert.strictEqual(h.sum, "오늘 접속 1명 / 전체 4명");
   const order = [...h.html.matchAll(/<b>([^<]+)<\/b>/g)].map(m => m[1]);
   assert.deepStrictEqual(order, ["가나", "다라", "마바", "사아"], "오늘 연습한 사람 → 최근 7일 많은 순 → 안 불러와진 사람은 뒤");
-  assert.ok(h.html.includes("오늘 2분 · 71점") && h.html.includes("오늘 연습 없음 · 최근 7일 2일") && h.html.includes("불러오지 못함") && h.html.includes("1명은 불러오지 못했어요"), "표시 문구");
+  assert.ok(h.html.includes("오늘 연습 2분 · 71점") && h.html.includes("오늘 안 들어옴 · 최근 7일 2일 접속") && h.html.includes("불러오지 못함") && h.html.includes("1명은 불러오지 못했어요"), "표시 문구");
   await app.pitchAllLoad(["a", "b", "c", "d"]); assert.strictEqual(calls.length, 4, "5분 안에는 다시 안 불러옴");
+  // (11/13) 기록 도전 없이 들어오기만 한 날 = sec 0 → '접속만'
+  const h2 = app.pitchAllHtml([{ sid: "a", days: [{ day: today, sec: 0, score: null }] }]);
+  assert.ok(h2.html.includes("오늘 접속만 · 최근 7일 1일 접속"), "접속만 표시");
   console.log("pitch-overview: ok");
 })();
