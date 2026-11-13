@@ -147,7 +147,7 @@
   let olAuto = (() => { try { return +localStorage.getItem("jk_outLatAuto") || 0; } catch { return 0; } })(), olSaveAt = 0;
   function outLatMode() { try { const v = localStorage.getItem("jk_outLat"); return v == null || v === "auto" ? "auto" : Math.max(0, Math.min(600, +v || 0)); } catch { return "auto"; } }
   function outLatSet(v) { try { localStorage.setItem("jk_outLat", v === "auto" ? "auto" : String(Math.round(+v || 0))); } catch {} }
-  function outLatAuto() { for (const c of ACX) { try { if (c.state !== "running") continue; const v = (+c.outputLatency || 0) + (+c.baseLatency || 0); if (v > 0 && v < 1) { olAuto = v; if (Date.now() - olSaveAt > 5000) { olSaveAt = Date.now(); try { localStorage.setItem("jk_outLatAuto", v.toFixed(3)); } catch {} } return v; } } catch {} } return olAuto; }
+  function outLatAuto() { for (const c of ACX) { try { if (c.state !== "running") continue; const v = (+c.outputLatency || 0) + (+c.baseLatency || 0); if (v > 0 && v < 1) { olAuto = v; if (Date.now() - olSaveAt > 5000) { olSaveAt = Date.now(); try { localStorage.setItem("jk_outLatAuto", v.toFixed(3)); } catch {} } return v; } } catch {} } return 0; }   // (11/13) 지금 도는 오디오가 없으면 0 — 예전(블루투스 때) 잰 값을 스피커에서 또 쓰면 화면이 늦었음
   function outLat() { const m = outLatMode(); return m === "auto" ? outLatAuto() : m / 1000; }
   G.addEventListener("pagehide", audioRelease);
   document.addEventListener("visibilitychange", () => { if (document.hidden) audioRelease(); });

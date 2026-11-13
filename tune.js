@@ -617,11 +617,13 @@
   // 붙이기: getT()=지금 초, getLv()=보여 줄 보정 단계(0이면 원음만), seek(초). 화면에서 빠지면 저절로 멈춤.
   // 확대/전체 버튼: el 바로 앞에 붙임(Tune.controls). 기본 = 확대.
   // (11/09 12:59 사용자) 블루투스 이어폰 지연 보정: 재생 중(시각이 앞으로 가는 중)이면 그래프 시각 = 소리 시각 − 소리가 귀에 닿는 지연(Brand.outLat)
-  function latWrap(getT) { let lastRaw = null, lastMove = 0;
+  // (11/13 13:40 사용자 '소리가 훨씬 먼저 나와') <audio>(레슨·오늘의 베스트·수강생 화면)는 브라우저가 이미 출력 지연을 빼고 시각을 알려 줌 → 또 빼면 화면이 늦음.
+  //  웹오디오(메이크업 고치기 화면, opts.webAudio)만 지연을 뺀다
+  function latWrap(getT, on) { if (!on) return getT; let lastRaw = null, lastMove = 0;
     return () => { const r = +getT() || 0, now = Date.now(); if (lastRaw != null && r > lastRaw + 1e-4 && r - lastRaw < 1) lastMove = now; lastRaw = r;
       let L = 0; try { L = now - lastMove < 400 && G.Brand && G.Brand.outLat ? G.Brand.outLat() : 0; } catch {} return L > 0 ? Math.max(0, r - L) : r; }; }
   function wire(el, cv, getT, getLv, seek, opts) {
-    if (!el || !cv) return; getT = latWrap(getT);
+    if (!el || !cv) return; getT = latWrap(getT, !!(opts && opts.webAudio));
     const st = { zoom: true, lo: null, hi: null, notes: opts && opts.notes, teacher: !!(opts && opts.teacher), lvDef: opts && opts.lvDef, noX: !!(opts && opts.tapFull) };
     const bar = document.createElement("div"); bar.className = "tuneZoom";
     // (10/30 14:20 사용자) 작은 화면은 확대(지금 음 근처)로 고정 — 버튼은 '전체화면' 하나만, 잘 보이게
@@ -634,7 +636,10 @@
     const o0 = opts || {};
     if (!o0.tapFull) box && box.parentNode && box.parentNode.insertBefore(bar, box);   // (10/30 17:43 사용자) tapFull: 전체화면 버튼 없이 그래프를 누르면 전체화면
     const o = opts || {}, ctl = typeof o.play === "function" && typeof o.paused === "function";
-    bar.querySelector("[data-fs]").onclick = () => openFull(el, cv, getT, getLv, seek, o);
+    // (11/13 13:39 사용자 '음표 고치기 버튼의 존재 의미 재고') 고치기 화면으로 가는 곳(오늘의 베스트)은 보기 전용 전체화면을 거치지 않고 바로 고치기 전체화면 —
+    //  두 화면이 거의 똑같아 '음표 고치기' 버튼 하나 더 누르는 단계만 있었음(고치기 화면에도 듣기·보정 전/후·주석이 다 있음)
+    const goFull = () => (o && typeof o.onEdit === "function" && typeof o.onFix !== "function" ? o.onEdit(+getT() || 0) : openFull(el, cv, getT, getLv, seek, o));
+    bar.querySelector("[data-fs]").onclick = goFull;
     el._openFull = () => openFull(el, cv, getT, getLv, seek, o);   // (11/05) 다른 화면에서 바로 전체화면으로(오늘의 베스트 → ✏️ 음표 고치기)
     let drag = null, preview = null, shown = null;
     const view = mkView(st, () => preview, (v) => { preview = v; }, getT, seek);
@@ -651,7 +656,7 @@
     if (o.tapFull) {   // 작은 화면은 보기만 — 톡 하면 세로 전체화면(재생·이동·주석 고치기는 거기서)
       el.style.cursor = "pointer"; let d0 = null;
       el.addEventListener("pointerdown", (e) => { d0 = { x: e.clientX, y: e.clientY, id: e.pointerId }; });
-      el.addEventListener("pointerup", (e) => { const d = d0; d0 = null; if (!d || d.id !== e.pointerId) return; if (Math.hypot(e.clientX - d.x, e.clientY - d.y) > 10) return; openFull(el, cv, getT, getLv, seek, o); });
+      el.addEventListener("pointerup", (e) => { const d = d0; d0 = null; if (!d || d.id !== e.pointerId) return; if (Math.hypot(e.clientX - d.x, e.clientY - d.y) > 10) return; goFull(); });
       el.addEventListener("pointercancel", () => { d0 = null; });
       mid.style.display = "none";
       return;
