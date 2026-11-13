@@ -1500,7 +1500,7 @@
         const ds = (() => { try { return typeof o.doneState === "function" ? o.doneState() || {} : {}; } catch { return {}; } })();
         const T = typeof G.TuneAdv === "object" && G.TuneAdv ? G.TuneAdv : null, engOk = !!(st.onAdv && T && T.engineBox && typeof st.engGet === "function");
         const done = typeof o.remake === "function" ? `<h4>완성본</h4><p class="tfSMst">${ds.dirty === true ? "✏️ 반영 전 · 고친 내용이 완성본에 아직 없어요" : ds.dirty === false ? "✅ 최신 · 고친 내용이 모두 들어가 있어요" : "고친 내용을 완성본에 넣으려면 새로 만들어요"}</p>
-          <button type="button" class="tfSMb pri" data-sm="mk">🔊 완성본 새로 만들기 <small>서버 · 약 4분</small></button>${typeof o.phoneMix === "function" ? `<button type="button" class="tfSMb" data-sm="ph">⚡ 지금 소리 그대로 mp3 <small>폰에서 곡 전체 · 1분 안팎</small></button>` : ""}<p class="tfSMn">📤 수강생에게 보내기는 곡 화면 '완성본' 카드에 있어요</p>` : "";
+          <button type="button" class="tfSMb pri" data-sm="mk">🔊 완성본 다시 만들기 <small>서버 · 약 4분 · 곡 화면 '완성본' 카드 버튼과 같아요</small></button>${typeof o.phoneMix === "function" ? `<button type="button" class="tfSMb" data-sm="ph">⚡ 지금 소리 그대로 mp3 <small>폰에서 곡 전체 · 1분 안팎</small></button>` : ""}<p class="tfSMn">📤 수강생에게 보내기는 곡 화면 '완성본' 카드에 있어요</p>` : "";
         d.innerHTML = `<div class="tfSMBox"><div class="tfSMHd"><b>⋯ 곡 메뉴</b><button type="button" class="tfSMx" aria-label="닫기">✕</button></div>${done}
           ${hist ? `<h4>작업 기록</h4><button type="button" class="tfSMb" data-sm="hist">🕘 작업 기록 보기 <small>누른 시점으로 돌아가요</small></button>` : ""}
           ${engOk ? `<details class="tfSMe"><summary>보정 엔진 · A/B 비교 <small>(v3 기본)</small></summary><div class="tfSMeB"></div></details>` : ""}
