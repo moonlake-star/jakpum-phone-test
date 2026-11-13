@@ -3,7 +3,7 @@ const assert = require("assert"), fs = require("fs"), path = require("path");
 const H = fs.readFileSync(path.join(__dirname, "..", "teacher", "index.html"), "utf8");
 const seed = H.match(/\{ const kt = Tune\.tgCol\(cv\); if \(cv\.base && kt && !cv\._rend\) \{[\s\S]*?(?=\n    \/\/ 완성본에 들어간 고침)/)[0];
 const bk = H.match(/const bakedFx = \(\) => \{[\s\S]*?virt: true \}\)\); \};/)[0];
-assert.ok(H.includes("const pvF = () => dF().concat(bakedFx());") && !H.includes("mkPv.fixes = dF();"), "미리듣기 = 고침 + 지운 옛 고침");
+assert.ok(H.includes("const pvF = () => dF().filter(f => !f.cut).concat(bakedFx());") && !H.includes("mkPv.fixes = dF();"), "미리듣기 = 고침 + 지운 옛 고침");
 assert.ok(H.includes("const v = cv._rend && i in cv._rend ? cv._rend[i] :"), "미리듣기 기준 = 완성본 당시 정음");
 // 열: [시각, 원음, 보정(1단계), 정음, 서버 정음]  — 0.0~0.08초는 선생님이 D4(6200)→E4(6400)로 고쳐 완성본에 들어감
 const mk = () => ({ base: true, levels: [3], target: true, pts: [[0, 6390, 6400, 6400, 6200], [0.04, 6395, 6400, 6400, 6200], [0.08, 6380, 6400, 6400, 6200], [0.12, 6600, 6600, 6600, 6600]] });
