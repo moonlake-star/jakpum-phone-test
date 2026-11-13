@@ -449,5 +449,13 @@
   try { const s = document.createElement("style"); s.textContent = css; document.head.appendChild(s); } catch {}
 
   function resetNote(st, cv, b) { const A = state(st); change(A, st, cv, () => { A.ne.notes = (A.ne.notes || []).filter(x => !(near(x.t0, b.t0) && near(x.t1, b.t1))); }); }   // 이 음의 고급 고침만 지움
-  G.TuneAdv = { scrub, panel, resetNote, globalSheet, engineBox, toolsBox, resetDetail, preview, state, uvList, relabel, uvSheet, UV_NAME, addDraw, drawAt, removeDraw, flatNote, cleanStroke, undoLast: (st, cv) => undo(state(st), st, cv), _t: { shapeNote, notesFromCurve, midiBytes, clean, N_DEF } };
+  // (11/13 18:45 사용자 '여러 음 선택 후에도 볼륨 조절') 고른 음들 볼륨 한꺼번에 — 음 하나 볼륨 칸과 같은 규칙(−24dB 밑 = 무음)
+  function groupVol(st, cv, getBars) {
+    const A = state(st), MUTE_DB = -25, bs = () => (getBars() || []);
+    const val = () => { const ns = bs().map(b => noteOf(A, b, false) || {}); if (!ns.length) return 0; const v0 = ns[0].mute ? MUTE_DB : (ns[0].gain_db || 0); return v0; };
+    const el = stepper("볼륨", val, (v) => change(A, st, cv, () => { for (const b of bs()) { const n = noteOf(A, b, true); if (v <= MUTE_DB) { n.mute = true; delete n.gain_db; } else { n.mute = false; n.gain_db = v; } } }),
+      { step: 1, min: MUTE_DB, max: 12, def: 0, fmt: (v) => (v <= MUTE_DB ? "무음" : `${v > 0 ? "+" : ""}${Math.round(v)}dB`) });
+    el.classList.add("advGVol"); return el;
+  }
+  G.TuneAdv = { groupVol, scrub, panel, resetNote, globalSheet, engineBox, toolsBox, resetDetail, preview, state, uvList, relabel, uvSheet, UV_NAME, addDraw, drawAt, removeDraw, flatNote, cleanStroke, undoLast: (st, cv) => undo(state(st), st, cv), _t: { shapeNote, notesFromCurve, midiBytes, clean, N_DEF } };
 })(typeof window !== "undefined" ? window : globalThis);
