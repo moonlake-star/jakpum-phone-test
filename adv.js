@@ -297,7 +297,11 @@
     ["pointerup", "pointercancel"].forEach(ev => pad.addEventListener(ev, () => { dr = null; }));
     const ly = G.Brand && G.Brand.layer ? G.Brand.layer(() => { d.remove(); st.uvSel = null; }) : { close: () => { d.remove(); st.uvSel = null; } };
     d.querySelector(".advX").onclick = () => ly.close();
-    d.addEventListener("click", (e) => { if (e.target === d) ly.close(); });
+    d.querySelector(".advGCancel").onclick = () => ly.close();
+    d.querySelector(".advGApply").onclick = () => { if (!dirty()) return; change(A, st, cv, () => { A.ne.global = clone(draft); }); try { if (typeof st.onGlobalApply === "function") st.onGlobalApply(); } catch {} ly.close();
+      // (11/13 19:11 사용자) 적용하면 팝업 '곡 전체에 적용합니다'
+      try { const pp = document.createElement("div"); pp.className = "advGPop"; pp.setAttribute("role", "status"); pp.textContent = "✓ 곡 전체에 적용합니다"; host.appendChild(pp); setTimeout(() => { pp.classList.add("out"); setTimeout(() => pp.remove(), 400); }, 1600); } catch {} };
+    d.addEventListener("click", (e) => { if (e.target === d && !dirty()) ly.close(); });   // 바꾼 값이 있으면 바깥 톡으로 닫히지 않음(실수로 잃지 않게)
     d.addEventListener("pointerdown", (e) => e.stopPropagation());
     host.appendChild(d); paint();
     return d;
@@ -369,16 +373,21 @@
     document.getElementById("advG")?.remove();
     const d = document.createElement("div"); d.id = "advG"; d.className = "advG";
     d.innerHTML = `<div class="advGBox" role="dialog" aria-label="보정 설정"><div class="advGHd"><b>🎛 보정 설정</b><span class="advGN"></span><button type="button" class="advX" aria-label="닫기">✕</button></div><div class="advBody"></div>
-      <p class="advTip">보정 설정은 폰에서 못 들려줘요 · 완성본 새로 만들기 뒤에 들려요.</p><p class="advTip">보컬·MR 두 파일로 올린 곡은 완성본을 새로 만들면 보정된 보컬만 담긴 WAV(24bit)도 드라이브 작업 폴더에 생겨요(vocal_tuned.wav).</p><p class="advTip">보정 엔진·A/B 비교·MIDI·소리 지연·초기화는 위 <b>⋯ 곡 메뉴</b>에 있어요.</p></div>`;
-    const body = d.querySelector(".advBody"), G_ = (k, dft) => (g()[k] != null ? g()[k] : dft);
-    const put = (k, v) => change(A, st, cv, () => { g()[k] = v; });
-    const putLv = (k, v) => change(A, st, cv, () => { g().level = Object.assign({ quiet: 0, loud: 0 }, g().level || {}); g().level[k] = v; });
+      <div class="advGAct"><button type="button" class="advGCancel">취소</button><button type="button" class="advGApply" disabled>✓ 적용</button></div>
+      <p class="advTip">값을 바꾼 뒤 <b>✓ 적용</b>을 누르면 곡 전체에 반영돼요 · 취소·✕ = 바꾸기 전 값 그대로.</p><p class="advTip">보컬·MR 두 파일로 올린 곡은 완성본을 새로 만들면 보정된 보컬만 담긴 WAV(24bit)도 드라이브 작업 폴더에 생겨요(vocal_tuned.wav).</p><p class="advTip">보정 엔진·A/B 비교·MIDI·소리 지연·초기화는 위 <b>⋯ 곡 메뉴</b>에 있어요.</p></div>`;
+    // (11/13 19:10 사용자) 값을 바꾸면 바로 들어가지 않고 [✓ 적용]을 눌러야 곡 전체에 반영 — 그 전엔 이 창 안의 '초안'만 바뀜
+    const draft = clone(g() || {}), dg = () => draft, base = JSON.stringify(draft);
+    const body = d.querySelector(".advBody"), G_ = (k, dft) => (dg()[k] != null ? dg()[k] : dft);
+    const dirty = () => JSON.stringify(draft) !== base;
+    const mark = () => { const ap = d.querySelector(".advGApply"); if (ap) ap.disabled = !dirty(); };
+    const put = (k, v) => { dg()[k] = v; mark(); };
+    const putLv = (k, v) => { dg().level = Object.assign({ quiet: 0, loud: 0 }, dg().level || {}); dg().level[k] = v; mark(); };
     const rows = [
       stepper("자동 보정 강도", () => G_("strength", 1), (v) => put("strength", v), { step: 0.1, min: 0, max: 1.5, def: 1, fmt: pct }),
       D(stepper("가까운 음은 그대로", () => G_("near", 8), (v) => put("near", v), { step: 2, min: 0, max: 50, def: 8, fmt: (v) => `${Math.round(v)}센트 안` }), "자동 보정할 때, 목표 음에서 이 값(센트·100센트=반음 1개) 안쪽으로 이미 가까운 곳은 건드리지 않아요. 크게 하면 자연스럽지만 덜 맞고, 0이면 전부 딱 맞춰요."),
       D(stepper("느린 흐름(전체)", () => G_("flat", 1), (v) => put("flat", v), { step: 0.25, min: 0, max: 2, def: 1, fmt: pct }), "음 하나 안에서 천천히 오르내리는 음정의 흔들림(비브라토보다 느린 변화)을 얼마나 남길지. 100% 그대로 · 0% 평평하게(깔끔·기계적) · 200% 두 배."),
-      stepper("작은 음 키우기", () => (g().level || {}).quiet || 0, (v) => putLv("quiet", v), { step: 0.1, min: 0, max: 1, def: 0, fmt: (v) => (v > 0 ? "+" : "") + pct(v) }),
-      stepper("큰 음 줄이기", () => (g().level || {}).loud || 0, (v) => putLv("loud", v), { step: 0.1, min: 0, max: 1, def: 0, inv: true, fmt: (v) => (v > 0 ? "−" : "") + pct(v) }),
+      stepper("작은 음 키우기", () => (dg().level || {}).quiet || 0, (v) => putLv("quiet", v), { step: 0.1, min: 0, max: 1, def: 0, fmt: (v) => (v > 0 ? "+" : "") + pct(v) }),
+      stepper("큰 음 줄이기", () => (dg().level || {}).loud || 0, (v) => putLv("loud", v), { step: 0.1, min: 0, max: 1, def: 0, inv: true, fmt: (v) => (v > 0 ? "−" : "") + pct(v) }),
       stepper("치찰음(ㅅ·ㅊ)", () => G_("sib_db", 0), (v) => put("sib_db", v), { step: 1, min: -12, max: 6, def: 0, fmt: (v) => `${v > 0 ? "+" : ""}${Math.round(v)}dB` }),
       D(stepper("포먼트(목소리 결)", () => G_("formant", 0), (v) => put("formant", v), { step: 0.25, min: -3, max: 3, def: 0, fmt: (v) => `${v > 0 ? "+" : ""}${v.toFixed(2)}반음` }), "포먼트 = 목소리의 울림 통로. 음정은 그대로 두고 음색만 이동. + 는 얇고 밝은 느낌, − 는 굵고 어두운 느낌. 그림에는 안 보이고 완성본에서 들어 보세요.")];
     rows.forEach(r => { if (!r._desc) { body.appendChild(r); return; } const w = document.createElement("div"), p = document.createElement("p"); p.className = "advD"; p.textContent = r._desc; w.appendChild(r); w.appendChild(p); body.appendChild(w); });
@@ -437,7 +446,7 @@
 .advV{min-width:82px;text-align:center;font-weight:800;font-size:14px;color:#e8e8ea;font-variant-numeric:tabular-nums}
 .advChips{display:flex;gap:6px}.advChips button{min-height:0!important;height:36px!important;padding:0 12px!important;margin:0!important;border-radius:12px!important;border:1.5px solid #3b4250!important;background:#11141a!important;color:#cfd3da!important;font-size:13px!important;font-weight:800}.advChips button.on{background:#ffb86b!important;color:#2a1500!important;border-color:#ffb86b!important}
 .advTip{grid-column:1/-1;margin:2px 0 0;font-size:11.5px;color:#7d8590;line-height:1.4}
-.advG{position:absolute;inset:0;z-index:30;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center}.advGBox{width:min(760px,100%);max-height:86%;overflow:auto;box-sizing:border-box;background:#1a1e25;border:1.5px solid #3b4250;border-radius:18px 18px 0 0;padding:12px 14px calc(14px + env(safe-area-inset-bottom));color:#e8e8ea}
+.advGPop{position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);z-index:40;background:rgba(24,29,37,.96);color:#ffcf99;font-weight:800;font-size:17px;padding:16px 22px;border-radius:16px;border:1.5px solid #ffb86b;box-shadow:0 10px 30px rgba(0,0,0,.5);transition:opacity .4s;pointer-events:none}.advGPop.out{opacity:0}.advGAct{display:flex;gap:8px;justify-content:flex-end;margin:10px 0 4px}.advGAct button{min-height:40px;padding:0 16px;border-radius:12px;font-weight:800}.advGApply{background:#ffb86b;color:#1a1206;border:0}.advGApply:disabled{opacity:.4}.advGCancel{background:transparent;color:#cfd6e2;border:1px solid #3b4250}.advG{position:absolute;inset:0;z-index:30;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center}.advGBox{width:min(760px,100%);max-height:86%;overflow:auto;box-sizing:border-box;background:#1a1e25;border:1.5px solid #3b4250;border-radius:18px 18px 0 0;padding:12px 14px calc(14px + env(safe-area-inset-bottom));color:#e8e8ea}
 .advGHd{display:flex;align-items:center;gap:10px}.advGN{color:#9aa3ad;font-size:12.5px}.advX{margin-left:auto!important;min-height:0!important;height:34px!important;width:40px;padding:0!important;border-radius:12px!important;background:#11141a!important;border:1.5px solid #3b4250!important;color:#e8e8ea!important}
 .advDng{margin-top:16px;padding-top:12px;border-top:1px solid #3b425066}.advDng button{width:100%;height:44px;margin:0!important;border-radius:12px!important;border:1.5px dashed #ff8a8a77!important;background:transparent!important;color:#ff9a9a!important;font-weight:700;font-size:14px!important}.advDng small{font-weight:500;opacity:.8}.advGBtns{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.advGBtns button{flex:1;min-width:150px;min-height:0!important;height:44px!important;margin:0!important;border-radius:12px!important;border:1.5px solid #3b4250!important;background:#11141a!important;color:#e8e8ea!important;font-weight:800;font-size:14px!important}
 .advPad{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;height:120px;border-radius:16px;border:1.5px dashed #ffb86b;background:#21170b;color:#ffcf99;touch-action:none;user-select:none;-webkit-user-select:none;cursor:ns-resize}.advPad b{font-size:22px}.advPad small{color:#b9a58a;font-size:12px}
