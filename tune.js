@@ -844,7 +844,9 @@
     const cut = d.querySelector("[data-cut]");
     const doCut = (tAt) => {   // 세로줄 자리에서 나누기 → 두 조각(같은 음, 노란 테두리 없음) · 조각을 눌러 따로 고침
       clearTimeout(tm); tm = null;
-      const ts = +(tAt != null ? tAt : atHead ? tNow : (b.t0 + b.t1) / 2).toFixed(2), a = { t0: T0, t1: ts, midi: rnd(m), cut: same() }, c = { t0: ts, t1: T1, midi: rnd(m), cut: same() };
+      // (11/13 14:17 사용자 '쪼개기 했는데 세로줄보다 오른쪽에서 나뉨') 창을 연 순간의 세로줄 자리(tNow)가 아니라 ✂를 누른 지금 자리로
+      const tc = typeof getT === "function" ? +getT() || 0 : -1, here = tc > b.t0 + 0.04 && tc < b.t1 - 0.04;
+      const ts = +(tAt != null ? tAt : here ? tc : atHead ? tNow : (b.t0 + b.t1) / 2).toFixed(2), a = { t0: T0, t1: ts, midi: rnd(m), cut: same() }, c = { t0: ts, t1: T1, midi: rnd(m), cut: same() };
       cv._fixes = prior.filter(x => !(x.t0 < b.t1 && x.t1 > b.t0)).concat([a, c]);
       try { fxSave(onFix, a); fxSave(onFix, c); } catch {} sndOff();
       // (11/12 21:00 사용자 '두 군데 쪼갰는데 고르면 한 음으로 크게') 길이·타이밍을 고친 음을 쪼개면 그 고침도 같은 비율로 둘로 나눔 — 안 나누면 옛 한 덩어리 막대가 조각들을 덮어 통째로 골라졌음
