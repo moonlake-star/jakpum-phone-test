@@ -363,13 +363,13 @@
   // 작업 기록이 없는 화면용: 디테일(고급) 고침만 지움
   function resetDetail(st, cv) { const A = state(st); change(A, st, cv, () => { A.ne = { notes: [], global: {} }; }); }
 
-  // ── 전체 보정(아래 줄 '🎛 전체 보정') — 곡 전체 소리 값만(11/11 사용자 고: 엔진·도구·초기화는 ⋯ 곡 메뉴로) ──
+  // ── 전체 보정(아래 줄 '🎛 보정 설정') — 곡 전체 소리 값만(11/11 사용자 고: 엔진·도구·초기화는 ⋯ 곡 메뉴로) ──
   function globalSheet(host, st, cv) {
     const A = state(st), g = () => A.ne.global;
     document.getElementById("advG")?.remove();
     const d = document.createElement("div"); d.id = "advG"; d.className = "advG";
-    d.innerHTML = `<div class="advGBox" role="dialog" aria-label="전체 보정"><div class="advGHd"><b>🎛 전체 보정</b><span class="advGN"></span><button type="button" class="advX" aria-label="닫기">✕</button></div><div class="advBody"></div>
-      <p class="advTip">전체 보정은 폰에서 못 들려줘요 · 완성본 새로 만들기 뒤에 들려요.</p><p class="advTip">보컬·MR 두 파일로 올린 곡은 완성본을 새로 만들면 보정된 보컬만 담긴 WAV(24bit)도 드라이브 작업 폴더에 생겨요(vocal_tuned.wav).</p><p class="advTip">보정 엔진·A/B 비교·MIDI·소리 지연·초기화는 위 <b>⋯ 곡 메뉴</b>에 있어요.</p></div>`;
+    d.innerHTML = `<div class="advGBox" role="dialog" aria-label="보정 설정"><div class="advGHd"><b>🎛 보정 설정</b><span class="advGN"></span><button type="button" class="advX" aria-label="닫기">✕</button></div><div class="advBody"></div>
+      <p class="advTip">보정 설정은 폰에서 못 들려줘요 · 완성본 새로 만들기 뒤에 들려요.</p><p class="advTip">보컬·MR 두 파일로 올린 곡은 완성본을 새로 만들면 보정된 보컬만 담긴 WAV(24bit)도 드라이브 작업 폴더에 생겨요(vocal_tuned.wav).</p><p class="advTip">보정 엔진·A/B 비교·MIDI·소리 지연·초기화는 위 <b>⋯ 곡 메뉴</b>에 있어요.</p></div>`;
     const body = d.querySelector(".advBody"), G_ = (k, dft) => (g()[k] != null ? g()[k] : dft);
     const put = (k, v) => change(A, st, cv, () => { g()[k] = v; });
     const putLv = (k, v) => change(A, st, cv, () => { g().level = Object.assign({ quiet: 0, loud: 0 }, g().level || {}); g().level[k] = v; });
