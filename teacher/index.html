@@ -403,6 +403,22 @@
 .dk .dkTr .sgPb{flex:1.5;width:auto;height:60px;margin-top:-3px;border:0;border-radius:16px;background:#ffb86b;color:#1b1408;font-size:1.5rem}
 .dk .dkR2{display:flex;gap:8px;margin-top:8px}.dk .dkR2 button,.dk .dkRv button{flex:1;height:46px;border-radius:12px;border:1px solid var(--line);background:transparent;color:var(--fg);font-size:.92rem;padding:0}.dk .dkR2 button.on{border-color:#ffb86b;color:#ffb86b;box-shadow:0 0 10px rgba(255,184,107,.4)}
 .dk .dkRv{display:flex;gap:8px;overflow:hidden;max-height:0;opacity:0;transition:opacity .25s,max-height .25s,margin-top .25s}.dk .dkRv.open{max-height:56px;opacity:1;margin-top:8px}.dk .dkRv #dkA,.dk .dkRv #dkB{border-color:#ffd27a;color:#ffd27a}
+.dk .dkR2 #dkTv{flex:.7}
+#dkPr{position:fixed;inset:0;z-index:10010;background:#000;color:#fff;display:flex;flex-direction:column;gap:1.2vh;padding:1.6vh 2.4vw;box-sizing:border-box;--u:min(1vw,1.6vh);font-family:inherit}
+#dkPr .prTop{display:flex;align-items:center;gap:calc(var(--u)*1.6);min-height:calc(var(--u)*5)}#dkPr button{font-family:inherit}
+#dkPr .prPlay{width:calc(var(--u)*4.6);height:calc(var(--u)*4.6);border-radius:50%;border:2px solid #FFE066;background:#000;color:#FFE066;font-size:calc(var(--u)*1.9);padding:0;margin:0}
+#dkPr .prT{display:flex;flex-direction:column;line-height:1.15;min-width:0;flex:1}#dkPr .prT b{font-size:calc(var(--u)*2.3);font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#dkPr .prT span{font-size:calc(var(--u)*1.4);color:#b8b8b8}
+#dkPr .prNow{display:flex;align-items:center;gap:calc(var(--u)*1)}#dkPr .prNow small{font-size:calc(var(--u)*1.4);color:#b8b8b8}#dkPr .prNow b{font-size:calc(var(--u)*3.8);font-weight:900;color:#FFE066;min-width:calc(var(--u)*7);text-align:center}#dkPr .prNow b#prNext{font-size:calc(var(--u)*3);font-weight:700;opacity:.65}#dkPr .prNow i{font-style:normal;font-size:calc(var(--u)*2.2);color:#777}
+#dkPr .prX{width:calc(var(--u)*4.6);height:calc(var(--u)*4.6);border-radius:50%;border:1px solid #666;background:#000;color:#ddd;font-size:calc(var(--u)*1.8);padding:0;margin:0}
+#dkPr .prBar{display:flex;align-items:center;gap:calc(var(--u)*1.2);font-size:calc(var(--u)*1.5);color:#b8b8b8}#dkPr .prBar #prPos{color:#fff;font-weight:700}#dkPr #prDots{display:flex;gap:calc(var(--u)*.6)}#dkPr #prDots i{width:calc(var(--u)*1.3);height:calc(var(--u)*1.3);border-radius:50%;border:2px solid #FFE066;box-sizing:border-box}#dkPr #prDots i.on{background:#FFE066}#dkPr .prLg{margin-left:auto;font-size:calc(var(--u)*1.3)}
+#dkPr .prGrid{flex:1;min-height:0;overflow:hidden}#dkPr .prRows{display:flex;flex-direction:column;height:calc(100% / 3 * var(--rows,1));transition:transform .35s ease}
+#dkPr .prRow{display:flex;flex:1;min-height:0;margin-bottom:1.2vh}#dkPr .prM{position:relative;flex:1;box-sizing:border-box;border-top:1px solid #3a3a3a;border-bottom:1px solid #3a3a3a;border-left:5px solid #fff;border-right:1px solid #3a3a3a;cursor:pointer;overflow:hidden}#dkPr .prM:nth-child(4){border-right:5px solid #fff}#dkPr .prM.prE{border-color:transparent;cursor:default}
+#dkPr .prM.on{background:#1f1a00;border-top:3px solid #FFE066;border-bottom:3px solid #FFE066}
+#dkPr .prNo{position:absolute;left:.5em;bottom:.2em;font-size:calc(var(--u)*1.2);color:#777}#dkPr .prBt{position:absolute;top:.2em;font-size:calc(var(--u)*1.3);font-weight:700;color:#8c8c8c;padding-left:.5em}#dkPr .prBt.p1{color:#e8e8e8}
+#dkPr .prLn{position:absolute;top:calc(var(--u)*2.4);bottom:.6em;width:0;border-left:2px dashed #555}
+#dkPr .prCh{position:absolute;top:calc(var(--u)*2.2);font-size:calc(var(--u)*4.6);font-weight:900;line-height:1.05;color:#FFE066;white-space:nowrap}#dkPr .prUl{position:absolute;top:calc(var(--u)*7.6);height:calc(var(--u)*.55);border-radius:4px;background:#FFE066;opacity:.85}
+#dkPr .prLy{position:absolute;top:calc(var(--u)*9);font-size:calc(var(--u)*2.5);line-height:1.2;color:#fff;white-space:nowrap}
+#dkPr .prHd{position:absolute;top:0;bottom:0;width:4px;margin-left:-2px;background:#fff;box-shadow:0 0 10px #fff;display:none}#dkPr .prM.on .prHd{display:block}
 .dk .dkSp{margin-top:10px}.dk .dkSp.two{display:grid;grid-template-columns:1fr 1fr;gap:8px}.dk .dkCd{padding:10px;border-radius:12px;background:rgba(0,0,0,.18);border:1px solid var(--line);text-align:center}.dk .dkK{font-size:.8rem;color:var(--muted)}.dk .dkBig{font-size:1.7rem;font-weight:800;color:#ffb86b;line-height:1.2}.dk .dkN{font-size:.78rem;color:var(--muted)}
 .dk .dkPm{display:flex;gap:8px;margin-top:6px}.dk .dkPm button{flex:1;height:46px;border-radius:12px;border:1px solid var(--line);background:var(--chip);color:var(--fg);font-size:1rem;padding:0}.dk .dkPm button:disabled{opacity:.4}
 .dk .dkRst{display:none;width:100%;margin-top:6px;height:40px;background:transparent;border:0;color:var(--link);font-size:.88rem;text-decoration:underline}.dk .dkRst.show{display:block}
@@ -5836,7 +5852,7 @@ function songPaintList() {
     const pl = row.querySelector(".slPl"); if (pl) { const ids = stemIds(x.d); if (!ids) { pl.innerHTML = `<p class="muted">파일 정보가 없어요</p>`; return; }
       if (keep && keep.folder === x.folder) { pl.appendChild(keep.el); return; }
       const auto = songLib.auto === x.folder; if (auto) songLib.auto = null;   // 한 번만(20초 갱신·다시 그리기로는 재시작 안 함)
-      songDeck(pl, ids, { folder: x.folder, autoplay: auto, dur: +x.d.dur || 0, bpm: +x.d.bpm || 0, wave: x.d.wave, analysis: x.d.analysis, keys: x.d.keys, keyReq: x.d.key_req, fileId: x.fileId,
+      songDeck(pl, ids, { folder: x.folder, autoplay: auto, dur: +x.d.dur || 0, bpm: +x.d.bpm || 0, wave: x.d.wave, lyrics: x.d.lyrics, analysis: x.d.analysis, keys: x.d.keys, keyReq: x.d.key_req, fileId: x.fileId,
         fetchD: () => readJSON(x.fileId), onKeyReq: (l) => { const cx = songLib.list.find(y => y.folder === x.folder) || x; cx.d.key_req = l; quietSave(() => writeJSON(cx.folder, "song.json", cx.d, cx.fileId)); }, mrVol: Number.isFinite(+x.d.mr_vol) ? +x.d.mr_vol : 100, head: `<div class="muted" style="font-size:.85rem">보컬 볼륨을 움직여 MR·가이드·원곡으로 들어 보세요</div>`, vol: Number.isFinite(+x.d.voc_vol) ? +x.d.voc_vol : 30, name: x.d.title,
         onVol: (vv) => { const cx = songLib.list.find(y => y.folder === x.folder) || x; cx.d.voc_vol = vv; quietSave(() => writeJSON(cx.folder, "song.json", cx.d, cx.fileId)); },
         onMrVol: (vv) => { const cx = songLib.list.find(y => y.folder === x.folder) || x; cx.d.mr_vol = vv; quietSave(() => writeJSON(cx.folder, "song.json", cx.d, cx.fileId)); },
@@ -6098,6 +6114,31 @@ const DK_STEP = 0.1, DK_PPS = 14, DK_RATES = [0.8, 0.85, 0.9, 0.95, 1, 1.05, 1.1
 // 코드 이름을 반음만큼 올림·내림(서버가 읽은 장·단 3화음 이름: C, C#m, F …) · 오르면 샤프 이름
 const SG_NOTES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 function songChordName(nm, n) { const m = /^([A-G][#b]?)(.*)$/.exec(String(nm || "")); if (!m) return String(nm || ""); const FLAT = { Db: "C#", Eb: "D#", Gb: "F#", Ab: "G#", Bb: "A#" }, r = SG_NOTES.indexOf(FLAT[m[1]] || m[1]); return r < 0 ? String(nm) : SG_NOTES[((r + (+n || 0)) % 12 + 12) % 12] + m[2]; }
+// (11/14 사용자 시안 D) TV 프롬프터용: 서버가 읽은 박·코드를 마디로 나눔(4/4 가정) · 가사(d.lyrics=[[초,글]])는 있으면 박 자리에 얹음
+function songMeasures(an, n, lyrics) {
+  const B = (an && an.beats) || [], dn = (an && an.down) || 0, ch = ((an && an.chords) || []).slice().sort((a, b) => a[0] - b[0]), ly = (lyrics || []).slice().sort((a, b) => a[0] - b[0]);
+  if (B.length < dn + 4) return [];
+  const out = []; let ci = -1, li = 0;
+  for (let s = dn, k = 0; s < B.length; s += 4, k++) {
+    const last = B[B.length - 1] + (B[B.length - 1] - B[B.length - 2]), t0 = B[s], t1 = s + 4 < B.length ? B[s + 4] : last, m = { no: k + 1, t0, t1, chords: [], lyrics: [], beats: Math.min(4, B.length - s) };
+    let prev = null;
+    for (let b = 0; b < m.beats; b++) {
+      while (ci + 1 < ch.length && ch[ci + 1][0] <= B[s + b] + 0.01) ci++;
+      const nm = ci >= 0 ? songChordName(ch[ci][1], n) : null;
+      if (nm && (b === 0 || nm !== prev)) m.chords.push({ b, name: nm, len: 0 }); prev = nm || prev;
+    }
+    m.chords.forEach((c, i) => { c.len = (i + 1 < m.chords.length ? m.chords[i + 1].b : m.beats) - c.b; });
+    while (li < ly.length && ly[li][0] < t1) { const pos = Math.max(0, Math.min(3.9, (ly[li][0] - t0) / (t1 - t0) * 4)); m.lyrics.push({ b: pos, text: String(ly[li][1]) }); li++; }
+    out.push(m);
+  }
+  return out;
+}
+function songBeatPos(an, t) {   // 재생 시각 → {m: 마디 번호(0부터), b: 마디 안 박(0~4 소수)}
+  const B = (an && an.beats) || [], dn = (an && an.down) || 0; if (B.length < 2) return { m: 0, b: 0 };
+  let lo = 0, hi = B.length - 1; while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (B[mid] <= t) lo = mid; else hi = mid - 1; }
+  const nx = B[Math.min(lo + 1, B.length - 1)], fr = nx > B[lo] ? Math.max(0, Math.min(1, (t - B[lo]) / (nx - B[lo]))) : 0, idx = lo + fr - dn;
+  return idx < 0 ? { m: 0, b: 0 } : { m: Math.floor(idx / 4), b: idx % 4 };
+}
 async function songPeaks(ab) {   // MP3 → 0.1초마다 가장 큰 소리(0~63) 글자열 · 소리 장치 없이 디코드(OfflineAudioContext)
   const OC = window.OfflineAudioContext || window.webkitOfflineAudioContext; if (!OC) throw new Error("파형 미지원");
   const c = new OC(1, 1, 8000), a = await new Promise((ok, no) => { try { const p = c.decodeAudioData(ab, ok, no); if (p && p.then) p.then(ok, no); } catch (e) { no(e); } });
@@ -6113,7 +6154,7 @@ function songDeck(el, ids, o) {
     <div class="dkWv" id="dkWv"><canvas id="dkCv"></canvas><div class="dkHead"></div><div class="dkEmpty" id="dkWE">파형 만드는 중…</div></div>
     <div class="dkTm"><span id="sgT0">0:00</span><span id="dkAB" class="dkLab"></span><span id="sgT1">–:–</span></div>
     <div class="dkTr"><button type="button" id="dkHome" aria-label="처음으로">⏮<small>처음</small></button><button type="button" id="dkBk" aria-label="5초 뒤로">⏪<small>5초</small></button><button type="button" class="sgPb" id="sgPb" aria-label="재생">▶</button><button type="button" id="dkFw" aria-label="5초 앞으로">⏩<small>5초</small></button><button type="button" id="dkEnd" aria-label="맨 끝으로">⏭<small>끝</small></button></div>
-    <div class="dkR2"><button type="button" id="dkRep" aria-pressed="false">🔁 반복</button><button type="button" id="dkLoop" aria-pressed="false">구간 반복</button></div>
+    <div class="dkR2"><button type="button" id="dkRep" aria-pressed="false">🔁 반복</button><button type="button" id="dkLoop" aria-pressed="false">구간 반복</button>${o.analysis && o.analysis.key && Array.isArray(o.analysis.chords) && o.analysis.chords.length && (o.analysis.beats || []).length > 8 ? `<button type="button" id="dkTv">📺 TV</button>` : ""}</div>
     <div class="dkRv" id="dkRv"><button type="button" id="dkA">A 지점</button><button type="button" id="dkB">B 지점</button><button type="button" id="dkClr">지우기</button></div>
     <div class="sgVo"><div class="sgVl">보컬 볼륨<span id="sgVv">${v0}%</span></div><input type="range" id="sgVol" min="0" max="100" value="${v0}">
       <div class="sgPre">${[[0, "MR", "0%"], [30, "가이드", "30%"], [100, "원곡", "100%"]].map(([v, a, b]) => `<button type="button" data-sgv="${v}">${a}<small>${b}</small></button>`).join("")}</div>
@@ -6154,7 +6195,7 @@ function songDeck(el, ids, o) {
     if (!drag && !glide) { const p = eng.pos(), n = performance.now(); if (p !== lastP) { lastP = p; lastT = n; } vp = eng.isPlaying() ? lastP + Math.min(0.3, (n - lastT) / 1000 * rate) : p; }
     draw(); if (eng.isPlaying() || drag || glide) raf = requestAnimationFrame(frame); };
   function kick_() { if (!raf && alive()) raf = requestAnimationFrame(frame); }
-  me.dispose = () => { cancelAnimationFrame(raf); raf = 0; glide = null; clearTimeout(me.keyT); };
+  me.dispose = () => { cancelAnimationFrame(raf); raf = 0; glide = null; clearTimeout(me.keyT); try { me.pr && me.pr.remove(); } catch {} };
   const paintVol = () => { Q("sgVv").textContent = me.vol + "%"; Q("sgVol").value = me.vol; el.querySelectorAll("[data-sgv]").forEach(b => b.classList.toggle("on", +b.dataset.sgv === me.vol)); };
   const setVol = (v) => { me.vol = Math.max(0, Math.min(100, Math.round(v))); eng.setVol(me.vol); paintVol(); clearTimeout(me.svT); me.svT = setTimeout(() => { try { o.onVol && o.onVol(me.vol); } catch {} }, 1500); };
   paintVol(); Q("sgT1").textContent = dur() ? mmss(dur()) : "–:–";
@@ -6199,6 +6240,42 @@ function songDeck(el, ids, o) {
   const cur = () => (eng.mode() ? eng.pos() : vp);
   Q("dkHome").onclick = () => seekTo(0); Q("dkBk").onclick = () => seekTo(cur() - 5); Q("dkFw").onclick = () => seekTo(cur() + 5);
   Q("dkEnd").onclick = async () => { await load(); if (!alive()) return; eng.pause(); Q("sgPb").textContent = "▶"; await seekTo(eng.dur() - 0.5); };
+  // ── TV 프롬프터(시안 D): 검정 바탕·노란 코드·흰 가사 · 마디 칸+박 번호+코드 유지 밑줄 · 마디를 톡 하면 그 마디로 이동
+  const openPrompter = () => {
+    if (!CHORDS || document.getElementById("dkPr")) return;
+    const d = document.createElement("div"); d.id = "dkPr"; d.setAttribute("role", "dialog"); d.setAttribute("aria-label", "TV 프롬프터");
+    const meas = () => songMeasures(AN, keyN, o.lyrics); let M = meas(), mKey = keyN;
+    d.innerHTML = `<div class="prTop"><button type="button" class="prPlay" id="prPlay" aria-label="재생 또는 일시정지">▶</button><div class="prT"><b id="prTitle"></b><span id="prSub"></span></div><div class="prNow"><small>지금</small><b id="prNow">–</b><i>→</i><small>다음</small><b id="prNext">–</b></div><button type="button" class="prX" id="prX" aria-label="닫기">✕</button></div>
+      <div class="prBar"><span id="prPos"></span><span id="prDots"></span><span class="prLg">노란 글자 = 코드 · 흰 글자 = 가사 · 밑줄 길이 = 코드를 잡는 박 · 마디를 톡 하면 거기서 재생</span></div><div class="prGrid"><div class="prRows" id="prRows"></div></div>`;
+    d.querySelector("#prTitle").textContent = o.name || "곡"; let rr = 0, on = -1, raf2 = 0, wl = null, rowsN = 0, firstRow = -1;
+    const build = () => { M = meas(); mKey = keyN; const R = d.querySelector("#prRows"); R.textContent = ""; rowsN = Math.ceil(M.length / 4); R.style.setProperty("--rows", Math.max(rowsN, 3));
+      for (let r = 0; r < rowsN; r++) { const row = document.createElement("div"); row.className = "prRow";
+        for (let k = 0; k < 4; k++) { const m = M[r * 4 + k]; const c = document.createElement("div"); c.className = "prM"; if (!m) { c.classList.add("prE"); row.appendChild(c); continue; } c.dataset.i = r * 4 + k;
+          const no = document.createElement("span"); no.className = "prNo"; no.textContent = m.no; c.appendChild(no);
+          for (let b = 0; b < 4; b++) { const t = document.createElement("span"); t.className = "prBt" + (b === 0 ? " p1" : ""); t.style.left = b * 25 + "%"; t.textContent = b + 1; c.appendChild(t); if (b === 2) { const l = document.createElement("span"); l.className = "prLn"; l.style.left = "50%"; c.appendChild(l); } }
+          for (const ch of m.chords) { const e = document.createElement("span"); e.className = "prCh"; e.style.left = `calc(${ch.b * 25}% + .4em)`; e.textContent = ch.name; c.appendChild(e);
+            const u = document.createElement("span"); u.className = "prUl"; u.style.left = `calc(${ch.b * 25}% + .4em)`; u.style.width = `calc(${ch.len * 25}% - .9em)`; c.appendChild(u); }
+          for (const y of m.lyrics) { const e = document.createElement("span"); e.className = "prLy"; e.style.left = `calc(${y.b * 25}% + .4em)`; e.textContent = y.text; c.appendChild(e); }
+          const hd = document.createElement("span"); hd.className = "prHd"; c.appendChild(hd); c.onclick = () => { seekTo(m.t0); }; row.appendChild(c); }
+        R.appendChild(row); } on = -1; firstRow = -1; };
+    build();
+    const sub = () => { d.querySelector("#prSub").textContent = `${keyName(keyWant)}${AN.mode === "minor" ? "" : ""} · ${+o.bpm > 0 ? Math.round(+o.bpm * rate) + " BPM · " : ""}4/4박(추정)`; }; sub();
+    const names = (mi, b) => { const m = M[mi]; if (!m) return ["–", "–"]; let now = "–"; for (const c of m.chords) if (c.b <= b) now = c.name; let nx = "–"; const after = m.chords.find((c) => c.b > b); if (after) nx = after.name; else if (M[mi + 1] && M[mi + 1].chords[0]) nx = M[mi + 1].chords[0].name; return [now, nx]; };
+    const tickP = () => { raf2 = 0; if (!d.isConnected || !alive()) return; if (mKey !== keyN) { build(); sub(); }
+      const p = eng.pos(), n0 = performance.now(); if (p !== lastP) { lastP = p; lastT = n0; } const tt = eng.isPlaying() ? lastP + Math.min(0.3, (n0 - lastT) / 1000 * rate) : p, q = songBeatPos(AN, tt), mi = Math.min(M.length - 1, q.m);
+      d.querySelector("#prPlay").textContent = eng.isPlaying() ? "❚❚" : "▶";
+      if (mi !== on) { d.querySelectorAll(".prM.on").forEach((e) => e.classList.remove("on")); const cur = d.querySelector(`.prM[data-i="${mi}"]`); if (cur) cur.classList.add("on"); on = mi;
+        const row = Math.floor(mi / 4), fr = Math.max(0, Math.min(Math.max(0, rowsN - 3), row - 1)); if (fr !== firstRow) { firstRow = fr; d.querySelector("#prRows").style.transform = `translateY(calc(${-fr} * (100% / ${Math.max(rowsN, 1)})))`; } }
+      const cur = d.querySelector(".prM.on .prHd"); if (cur) cur.style.left = (q.b / 4 * 100) + "%";
+      const bi = Math.floor(q.b), nn = names(mi, bi); d.querySelector("#prNow").textContent = nn[0]; d.querySelector("#prNext").textContent = nn[1]; d.querySelector("#prPos").textContent = `${(M[mi] || { no: 1 }).no}마디 · ${bi + 1}박`;
+      d.querySelector("#prDots").innerHTML = [0, 1, 2, 3].map((b) => `<i class="${b === bi ? "on" : ""}"></i>`).join(""); raf2 = requestAnimationFrame(tickP); };
+    const ly = typeof Brand !== "undefined" && Brand.layer ? Brand.layer(() => { cancelAnimationFrame(raf2); try { wl && wl.release(); } catch {} try { if (document.fullscreenElement) document.exitFullscreen(); } catch {} try { screen.orientation && screen.orientation.unlock && screen.orientation.unlock(); } catch {} d.remove(); }) : { close: () => d.remove() };   // 뒤로 가기 = 프롬프터만 닫힘
+    d.querySelector("#prX").onclick = () => ly.close(); d.querySelector("#prPlay").onclick = () => Q("sgPb").onclick();
+    document.body.appendChild(d); me.pr = d;
+    (async () => { try { wl = await navigator.wakeLock?.request("screen"); } catch {} try { await d.requestFullscreen?.({ navigationUI: "hide" }); } catch {} try { await screen.orientation?.lock?.("landscape"); } catch {} })();   // 되는 폰만(안 되면 그대로 보임)
+    raf2 = requestAnimationFrame(tickP);
+  };
+  if (Q("dkTv")) Q("dkTv").onclick = openPrompter;
   Q("dkRep").onclick = () => { rep = !rep; Q("dkRep").classList.toggle("on", rep); Q("dkRep").setAttribute("aria-pressed", rep); };
   Q("dkLoop").onclick = () => { const rv = Q("dkRv"), open = !rv.classList.contains("open"); rv.classList.toggle("open", open); };
   Q("dkA").onclick = () => { const t = cur(); if (B != null && t >= B - 0.5) { B = null; toast("A가 B보다 뒤라서 B를 지웠어요 · B를 다시 정해 주세요"); } A = t; paintAB(); };
