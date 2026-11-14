@@ -68,7 +68,7 @@ console.log("adv-mode ok", md.toFixed(4));
 /* (11/05 사용자 '추천모드로 진행') [확인|보정] 토글: 보정 모드 = 고친 양 줄·주석 접음, 도구(일괄·치찰음)는 보정 모드에서만, 원음/보정본은 그대로 */
 { const T2 = require("fs").readFileSync(__dirname + "/../tune.js", "utf8"), as = require("assert");
   as.ok(T2.includes("lane = k && h > 110 && !(st && st.advOn) ?"), "보정 모드: 고친 양 줄 없음");
-  as.ok(T2.includes("st.notesHidden = (pm && !st.noteShow) || (!!st.advOn && ns.length > 0)") && T2.includes("const chipOn = pm && !st.advOn"), "보정 모드: 주석·💬 칩 숨김(삭제 아님)");
+  as.ok(T2.includes("st.notesHidden = (pm && !st.noteShow) || (!!st.advOn && ns.length > 0)") && T2.includes("const chipOn0 = pm && !st.advOn"), "보정 모드: 주석·💬 칩 숨김(삭제 아님)");
   as.ok(T2.includes("gl.hidden = !st.advOn") && T2.includes("const uvOn = !!(st.advOn && st.onAdv"), "일괄 보정·치찰음(🌬)은 보정 모드에서만");
   as.ok(!T2.includes('mk("advOnB"') && !T2.includes('mk("advOffB"'), "예전 디테일 보정/심플로 버튼 없음");
   as.ok(T2.includes("#tuneFs.advOn .tfHint,#tuneFs.advOn .tfNote{display:none}"), "보정 모드: 안내 글 접음");
