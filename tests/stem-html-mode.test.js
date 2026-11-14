@@ -2,7 +2,7 @@
 const fs = require("fs"), assert = require("assert");
 const t = fs.readFileSync(__dirname + "/../teacher/index.html", "utf8");
 assert.ok(t.includes("stemEngine({ vol: v0, boost: boostPref(), html: true"), "곡 서랍이 오디오 태그 방식이어야 함");
-assert.ok(t.includes("au.mr.onpause = () => { if (!playing || au.mr.ended) return;"), "다른 앱이 멈추게 한 경우 처리 없음");
+assert.ok(t.includes("au.mr.onpause = () => { if (!playing || au.mr.ended || swapping) return;"), "다른 앱이 멈추게 한 경우 처리 없음");
 assert.ok(t.includes("!d.html && est <= "), "html 옵션이 웹오디오 디코드를 건너뛰어야 함");
 const src = t.slice(t.indexOf("function stemEngine(d)"), t.indexOf("// </stem-engine>"));
 const G = {}; const made = [];
