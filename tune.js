@@ -335,7 +335,11 @@
     const nullMed = {}; { const ids = [...idx].map(Number).filter(i => cv.pts[i] && !(o_ && i in o_ && o_[i] != null) && cv.pts[i][kt] != null).sort((a, b) => a - b); let run = [];
       const flush = () => { if (!run.length) return; const v = run.map(i => cv.pts[i][1]).filter(x => x != null).sort((a, b) => a - b); const m = v.length ? v[v.length >> 1] : null; for (const i of run) nullMed[i] = m; run = []; };
       for (const i of ids) { if (run.length && (i !== run[run.length - 1] + 1 || cv.pts[i][kt] !== cv.pts[run[0]][kt])) flush(); run.push(i); } flush(); }
+    const rd_ = cv._rend, rk_ = cv._rendK || (cv._rendK = {});
     for (const si of idx) { const i = +si, p = cv.pts[i]; if (!p) continue; const o0 = o_ && si in o_ ? o_[si] : null;
+      // (11/14 18:43 사용자 '자르고 음정 보정하면 그래프와 소리가 안 맞음') 서버가 처음엔 정음을 안 줬지만(o0 없음) 완성본에 이미 선생님 음(_rend)이 들어간 곳:
+      //   서버 보정선은 이미 그 음으로 옮겨져 있음 → '이미 옮긴 양'으로 한 번만 기록(예전엔 한 번 더 옮겨 그래프가 실제 소리보다 그만큼 높게·낮게 그려졌음, ▲138 = 두 번)
+      if (o0 == null && rd_ && rd_[i] != null && !rk_[si] && nullMed[i] != null) { rk_[si] = 1; if (!(si in ks)) ks[si] = rd_[i] - nullMed[i]; }
       const want = o0 != null && p[kt] != null ? p[kt] - o0 : p[kt] != null && nullMed[i] != null ? p[kt] - nullMed[i] : 0, d = want - (ks[si] || 0); if (!d) continue;
       for (let c = 2; c < 2 + L; c++) if (p[c] != null) p[c] += d;
       if (base && base[i] != null) base[i] += d;   // 고급 보정 미리보기(adv.js)가 되돌릴 때 쓰는 기준도 같이
