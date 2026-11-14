@@ -6864,11 +6864,12 @@ async function openLessonInner(sid, i, backTo) {
   show("vLesson"); $("lsHead").innerHTML = `<p class="muted">불러오는 중…</p>`;
   full.pause(); hlQueueStop(); hlList = []; hlCur = -1; $("mini").classList.add("hidden"); document.body.classList.remove("miniOn"); nowIdx = -1; playSeq++; dropNext(); listenFile = null;
   const by = (n) => files.find(f => f.name === n);
+  const revListP = list(l.id).catch(() => null);   // (11/14 사용자 '빠릿하게') 검수 파일 목록은 레슨 자료 읽기와 동시에 요청(예전: 자료를 다 읽은 뒤에야 요청)
   const d = await lessonData(l.id, files);
   const { summary, segs, cands, clips, samples, sampleFiles } = d;
   // (11/12 23:15 사용자 '화자 확인 저장했는데 자꾸 떠') 목록을 불러올 때 받아 둔 파일 목록엔 나중에 생긴 검수.json이 없어서, 열 때마다 새 검수.json이 생기고
   //   (한 레슨에 3개) 다음에 열면 다른 파일을 읽어 저장한 내용이 안 보였음 → 열 때마다 새로 확인 · 여러 개면 최신 것에 예전 것의 빈 칸을 채워 하나로 합치고 나머지는 휴지통(30일 복구 가능)
-  let revFs = []; try { revFs = (await list(l.id)).filter(f => f.name === REVIEW); } catch { revFs = files.filter(f => f.name === REVIEW); }
+  let revFs = []; { const lst = await revListP; revFs = lst ? lst.filter(f => f.name === REVIEW) : files.filter(f => f.name === REVIEW); }
   revFs.sort((a, b) => String(b.modifiedTime || "").localeCompare(String(a.modifiedTime || "")));
   const reviewF = revFs[0];
   let review = reviewF ? await readJSON(reviewF.id) : { speakers: {}, decisions: {}, manual: [], feedback: "" };
