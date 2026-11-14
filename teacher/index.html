@@ -424,6 +424,7 @@
   <section id="vList" class="hidden"></section>
   <section id="vCal" class="hidden"></section>
   <section id="vSongs" class="hidden"></section>
+  <section id="vJam" class="hidden"></section>
 
   <section id="vShared" class="hidden">
     <div class="card">
@@ -568,7 +569,7 @@ const parseT = (t) => { const p = String(t).trim().split(":").map(Number); if (p
 function toast(msg) { const t = $("toast"); t.textContent = msg; t.style.display = "block"; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = "none", 2500); }
 // 갤럭시 뒤로 가기(스와이프): 목록 밖 화면이면 기록을 한 칸 두어, 뒤로 가기가 앱 종료 대신 '← 뒤로'와 같게(2026-10-28 사용자)
 let backSkip = false;
-const VIEWS = ["vLogin","vList","vLesson","vShared","vSubs","vStu","vMkJob","vCal","vSongs"];   // (11/07 17:24) 화면 목록 한 곳에서 — 새 화면을 빠뜨려 뒤로 가기에 앱이 닫히던 것(곡 서랍) 방지
+const VIEWS = ["vLogin","vList","vLesson","vShared","vSubs","vStu","vMkJob","vCal","vSongs","vJam"];   // (11/07 17:24) 화면 목록 한 곳에서 — 새 화면을 빠뜨려 뒤로 가기에 앱이 닫히던 것(곡 서랍) 방지
 let homeBackAt = 0;
 function syncBackHistory(view) {}   // (11/09 01:38) 기록 칸은 brand.js(Brand.backArm)가 화면을 만질 때만 쌓음 — 여기서 만들면 '건너뛸 칸'이 되어 앱이 닫혔음
 window.addEventListener("popstate", (e) => {
@@ -582,7 +583,7 @@ window.addEventListener("popstate", (e) => {
     homeBackAt = Date.now(); toast("한 번 더 뒤로 밀면 앱이 닫혀요"); try { Brand.backToBase(); } catch {}
   }
 });
-function show(view) { syncBackHistory(view); try { Brand.bar(); } catch {} for (const v of VIEWS) $(v).classList.toggle("hidden", v !== view); try { $("v2Dock")?.classList.add("hidden"); document.body.classList.remove("v2send"); document.getElementById("v2Ai")?.remove(); } catch {} $("btnBack").classList.toggle("hidden", ["vLogin","vList"].includes(view)); if (view !== "vMkJob") { mkStop?.(); stopProg?.(); } if (view !== "vSongs" && view !== "vMkJob") { try { songDestroy(); } catch {} } window.scrollTo(0,0); }
+function show(view) { syncBackHistory(view); try { Brand.bar(); } catch {} for (const v of VIEWS) $(v).classList.toggle("hidden", v !== view); try { $("v2Dock")?.classList.add("hidden"); document.body.classList.remove("v2send"); document.getElementById("v2Ai")?.remove(); } catch {} $("btnBack").classList.toggle("hidden", ["vLogin","vList"].includes(view)); if (view !== "vMkJob") { mkStop?.(); stopProg?.(); } if (view !== "vSongs" && view !== "vMkJob") { try { songDestroy(); } catch {} } if (view !== "vJam") { try { jamStop(); clearTimeout(jam.poll); } catch {} } window.scrollTo(0,0); }
 
 // ── 구글 로그인 · 드라이브 ───────────────────────────────
 // 로그인 유지: 구글이 주는 출입증(1시간짜리)을 이 폰에만 보관해, 새로고침·앱 다시 열기에도 다시 묻지 않는다.
@@ -1209,10 +1210,10 @@ function paintList(data, stale) {
       `<div class="muted">${sub}</div></div><div class="stuBody"><div class="sum">${chips || `<span class="muted">아직 기록 없음</span>`}</div></div></div>`;
   });
   // 가입 신청·계정 연결 카드는 맨 아래(2026-10-27 사용자: 맨 위에 늦게 생겨 아래가 밀리며 엉뚱한 게 눌림)
-  $("vList").innerHTML = `<div class="row" style="gap:6px;margin:0 0 8px;flex-wrap:nowrap"><button class="ghost topBtn" id="calBtn">${IC_CAL} 레슨 캘린더</button>${isStaffApp() ? "" : `<button class="ghost topBtn" id="songBtn">🎵 곡 서랍</button>`}</div>` + pitchLinkHtml() + `<div id="pitchAll"></div><div id="pitchRec"></div>` + segHtml + todoHtml + `<div id="careBox"></div>` + blocks.join("") + (isStaffApp() ? "" : `<button class="ghost" id="nsBtn" style="width:100%;margin:4px 0 8px">＋ 신규 수강생 등록</button>`) + `<div id="joinReq">${lastJoinHtml}</div>` +
+  $("vList").innerHTML = `<div class="row" style="gap:6px;margin:0 0 8px;flex-wrap:nowrap"><button class="ghost topBtn" id="calBtn">${IC_CAL} 레슨 캘린더</button>${isStaffApp() ? "" : `<button class="ghost topBtn" id="songBtn">🎵 곡 서랍</button><button class="ghost topBtn" id="jamBtn">🎸 합주 베스트</button>`}</div>` + pitchLinkHtml() + `<div id="pitchAll"></div><div id="pitchRec"></div>` + segHtml + todoHtml + `<div id="careBox"></div>` + blocks.join("") + (isStaffApp() ? "" : `<button class="ghost" id="nsBtn" style="width:100%;margin:4px 0 8px">＋ 신규 수강생 등록</button>`) + `<div id="joinReq">${lastJoinHtml}</div>` +
     `<p class="muted">${stale ? "최신 내용 확인 중…" : "최신 상태"} · <a href="#" id="reload">새로고침</a> · 앱 버전 ${typeof BUILD === "string" ? BUILD : ""}</p>`;
   $("reload").onclick = (e) => { e.preventDefault(); renderList(); };
-  $("calBtn").onclick = () => openCal(); if ($("songBtn")) $("songBtn").onclick = () => openSongs();
+  $("calBtn").onclick = () => openCal(); if ($("songBtn")) $("songBtn").onclick = () => openSongs(); if ($("jamBtn")) $("jamBtn").onclick = () => openJam();
   if ($("nsBtn")) $("nsBtn").onclick = () => newStudentSheet();
   if (!isStaffApp()) staffPortalSync().catch(() => {});
   if (isStaffApp()) asgStaffCheck().catch(() => {});
@@ -5698,6 +5699,72 @@ async function songHomePaint() {
     el.innerHTML = m <= 15 ? `<span style="color:#7fd99a">🏠 집 노트북 켜져 있음 · ${ago} 확인</span>` : `<span style="color:#ffb86b">⚠ 집 노트북 응답 없음 · 마지막 신호 ${ago} — 잠들었거나 꺼졌는지 확인해 주세요(원곡을 못 받아요)</span>`;
   } catch { el.textContent = ""; }
 }
+// ── (11/14 18:03 사용자 '2안') 🎸 합주 베스트: 녹음함의 '합주'·'연습' 녹음 → 서버(jam_run.py)가 곡별로 가장 잘 부른 구절을 짜깁기 + 보컬·반주 분리
+//   _시스템/db_backup/합주베스트/index.json(진행·결과) · 곡 폴더(mix·vocal·mr mp3, best.json, take_*.mp3)
+const jam = { idx: null, open: null, poll: null, ctx: null, play: null };
+const JAM_COL = ["#ffb86b", "#7fd9ff", "#a8e6a1", "#ff9ec0", "#c9a7ff", "#ffe066", "#8fb3ff", "#ffa98f"];
+async function jamIndex() {
+  const db = cfg?.system?.db_backup; if (!db) throw new Error("저장 위치(_시스템/db_backup)를 찾지 못했어요");
+  const root = (await list(db)).find(x => x.name === "합주베스트" && x.mimeType === "application/vnd.google-apps.folder"); if (!root) return { sessions: [] };
+  const f = (await list(root.id)).find(x => x.name === "index.json"); if (!f) return { sessions: [] };
+  return (await api(`${DRIVE}/files/${f.id}?alt=media&_=${Date.now()}`, { cache: "no-store" })).json();
+}
+async function openJam() {
+  goBack = () => { jamStop(); renderList(); }; show("vJam"); const v = $("vJam");
+  v.innerHTML = `<h2 style="margin:4px 0 2px">🎸 합주 베스트</h2><p class="muted" style="margin:0 0 10px;font-size:.88rem">녹음함(Easy Voice Recorder)에 이름에 <b>합주</b>·<b>연습</b>이 들어간 녹음이 올라오면, 서버가 곡별로 나눠 <b>가장 잘 부른 구절만 이어 붙인 편집본</b>을 만들어요 · 반주는 가장 온전한 테이크 그대로, 보컬만 구절마다 골라요</p><div id="jamList"><p class="muted">불러오는 중…</p></div>`;
+  try { jam.idx = await jamIndex(); } catch (e) { $("jamList").innerHTML = `<p class="muted">못 불러왔어요: ${esc(errMsg(e))}</p>`; return; }
+  jamPaint(); jamPollArm();
+}
+function jamPollArm() { clearTimeout(jam.poll); if (!(jam.idx?.sessions || []).some(s => s.status !== "done" && s.status !== "failed")) return;
+  jam.poll = setTimeout(async () => { if ($("vJam").classList.contains("hidden")) return; try { const nx = await jamIndex(); if (JSON.stringify(nx) !== JSON.stringify(jam.idx)) { jam.idx = nx; if (!jam.play) jamPaint(); } } catch {} jamPollArm(); }, 30000); }
+function jamWhen(s) { const m = String(s.name || "").match(/(\d{4})-(\d{2})-(\d{2})/); return m ? `${+m[2]}/${+m[3]}` : ""; }
+function jamPaint() {
+  const S = jam.idx?.sessions || [], el = $("jamList"); if (!el) return;
+  if (!S.length) { el.innerHTML = `<div class="card"><p class="muted" style="margin:0">아직 합주 녹음이 없어요 · 녹음 이름에 '합주' 또는 '연습'을 넣어 녹음함에 올리면 다음 처리 때(집 노트북이 켜져 있을 때) 시작해요</p></div>`; return; }
+  el.innerHTML = S.map((s, si) => { const done = s.status === "done", fail = s.status === "failed", songs = (s.songs || []);
+    const st = done ? `✅ 완료 · 곡 ${songs.filter(x => x.files).length}개` : fail ? `⚠️ ${esc(s.stage || "실패")}` : `⏳ ${esc(s.stage || "대기")}`;
+    const body = songs.map((g, gi) => g.files ? `<div class="jamSong" data-si="${si}" data-gi="${gi}" style="border-top:1px solid #2c3340;padding:10px 0 4px">
+        <div class="row" style="justify-content:space-between;gap:6px"><b>${esc(g.title)}</b><span class="muted" style="font-size:.8rem">테이크 ${g.takes.length}개 · ${g.phrases ? `${g.switched}/${g.phrases} 구절 교체` : "한 테이크"} · ${fmt(g.dur || 0)}</span></div>
+        <div class="jamBody" id="jam_${si}_${gi}"><button type="button" class="small" data-jamopen="${si}_${gi}" style="margin-top:6px">▶ 들어 보기</button></div></div>`
+      : `<div style="border-top:1px solid #2c3340;padding:8px 0" class="muted">${esc(g.title)} · 테이크 ${g.takes.length}개 · ${esc(g.status || "대기")}</div>`).join("");
+    return `<div class="card" style="padding:12px 14px"><div class="row" style="justify-content:space-between;gap:6px"><b>${esc(s.name)}</b><span class="muted" style="font-size:.8rem">${jamWhen(s)}</span></div>
+      <p class="muted" style="margin:4px 0 6px;font-size:.85rem">${st}</p>${body}</div>`; }).join("")
+    + `<p class="muted" style="font-size:.78rem;margin:6px 2px 20px">라이브 합주는 반주 트랙에 원래 보컬이 조금 남아서, 바꾼 구절에서 옛 보컬이 아주 작게 겹쳐 들릴 수 있어요 · 템포는 반주(뼈대 테이크)에 맞춰 보컬을 늘이고 줄였어요</p>`;
+  el.querySelectorAll("[data-jamopen]").forEach(b => b.onclick = () => { const [si, gi] = b.dataset.jamopen.split("_").map(Number); jamOpenSong(si, gi); });
+}
+function jamStop() { const p = jam.play; if (!p) return; try { p.srcs.forEach(s => s.stop()); } catch {} cancelAnimationFrame(p.raf); jam.play = null; }
+async function jamOpenSong(si, gi) {
+  jamStop(); const s = jam.idx.sessions[si], g = s.songs[gi], box = $(`jam_${si}_${gi}`); if (!box) return;
+  box.innerHTML = `<p class="muted" style="margin:6px 0">소리 받는 중…</p>`;
+  try {
+    jam.ctx = jam.ctx || new (window.AudioContext || window.webkitAudioContext)(); if (jam.ctx.state === "suspended") await jam.ctx.resume();
+    const [vb, mb, js] = await Promise.all([readBlob(g.files.vocal, false, true), readBlob(g.files.mr, false, true), (async () => (await api(`${DRIVE}/files/${g.files.json}?alt=media`)).json())()]);
+    const [V, M] = await Promise.all([vb, mb].map(async b => jam.ctx.decodeAudioData(await b.arrayBuffer())));
+    const dur = Math.min(V.duration, M.duration), tids = (js.takes || []).map(t => t.id), col = (t) => JAM_COL[Math.max(0, tids.indexOf(t)) % JAM_COL.length];
+    const strip = (js.phrases || []).map(p => `<span title="${esc(p.pick)}" data-t="${p.t0}" style="position:absolute;left:${(p.t0 / dur * 100).toFixed(2)}%;width:${Math.max(0.4, (p.t1 - p.t0) / dur * 100).toFixed(2)}%;top:0;bottom:0;background:${col(p.pick)};opacity:${p.pick === js.ref ? 0.45 : 1};border-radius:2px"></span>`).join("");
+    const legend = tids.map(t => `<span style="display:inline-flex;align-items:center;gap:4px;margin-right:10px"><i style="width:10px;height:10px;border-radius:2px;background:${col(t)};display:inline-block;opacity:${t === js.ref ? 0.45 : 1}"></i>${t.replace("t", "테이크 ")}${t === js.ref ? "(뼈대)" : ""}</span>`).join("");
+    box.innerHTML = `<div class="row" style="gap:6px;margin:8px 0 6px;flex-wrap:nowrap"><button type="button" id="jamPP" style="min-width:64px">▶</button>
+        <div class="seg" id="jamMode" style="display:flex;gap:4px;flex:1">${[["all", "같이"], ["v", "보컬만"], ["m", "반주만"]].map(([k, l], i) => `<button type="button" class="ghost small" data-m="${k}" style="flex:1;${i ? "" : "background:#9cc3ff;color:#0b0d11"}">${l}</button>`).join("")}</div></div>
+      <div id="jamBar" style="position:relative;height:22px;background:#151a22;border-radius:6px;overflow:hidden;cursor:pointer">${strip}<i id="jamHead" style="position:absolute;top:0;bottom:0;width:2px;background:#fff;left:0"></i></div>
+      <div class="row muted" style="justify-content:space-between;font-size:.78rem;margin:3px 0 6px"><span id="jamT">0:00</span><span>${fmt(dur)}</span></div>
+      <div class="muted" style="font-size:.78rem;line-height:1.7">${legend}<br>진한 칸 = 다른 테이크에서 가져온 구절 · 칸을 누르면 그 자리로</div>
+      <details style="margin-top:6px"><summary class="muted" style="font-size:.85rem">테이크 원본 듣기</summary><div style="margin-top:6px">${(js.takes || []).map(t => `<div class="row" style="gap:8px;margin:4px 0;flex-wrap:nowrap"><span style="min-width:62px">${t.id.replace("t", "테이크 ")}</span><span class="muted" style="font-size:.78rem;min-width:70px">${fmt(t.start)}부터 · ${fmt(t.dur)}</span><button type="button" class="ghost small" data-take="${t.id}">▶ 원본</button></div>`).join("")}<audio id="jamTake" controls style="width:100%;margin-top:4px;display:none"></audio></div></details>
+      <div class="row" style="gap:6px;margin-top:8px"><a class="ghost small" id="jamDl" style="text-decoration:none;padding:6px 10px;border-radius:8px">⬇ 편집본 mp3</a></div>`;
+    const p = jam.play = { V, M, dur, at: 0, t0: 0, on: false, mode: "all", srcs: [], raf: 0 }, gV = jam.ctx.createGain(), gM = jam.ctx.createGain(); gV.connect(jam.ctx.destination); gM.connect(jam.ctx.destination);
+    const gains = () => { gV.gain.value = p.mode === "m" ? 0 : 1; gM.gain.value = p.mode === "v" ? 0 : 1; };
+    const now = () => p.on ? Math.min(dur, p.at + jam.ctx.currentTime - p.t0) : p.at;
+    const stop = () => { p.srcs.forEach(s_ => { try { s_.stop(); } catch {} }); p.srcs = []; };
+    const start = (t) => { stop(); p.at = Math.max(0, Math.min(dur - 0.05, t)); if (!p.on) return; p.t0 = jam.ctx.currentTime + 0.03;
+      p.srcs = [[V, gV], [M, gM]].map(([b, gn]) => { const s_ = jam.ctx.createBufferSource(); s_.buffer = b; s_.connect(gn); s_.start(p.t0, p.at); return s_; }); };
+    const tick = () => { if (jam.play !== p) return; const t = now(); $("jamHead").style.left = (t / dur * 100) + "%"; $("jamT").textContent = fmt(t); if (p.on && t >= dur - 0.02) { p.on = false; p.at = 0; stop(); $("jamPP").textContent = "▶"; } p.raf = requestAnimationFrame(tick); };
+    gains(); tick();
+    $("jamPP").onclick = async () => { if (jam.ctx.state === "suspended") await jam.ctx.resume(); if (p.on) { p.at = now(); p.on = false; stop(); $("jamPP").textContent = "▶"; } else { p.on = true; start(p.at); $("jamPP").textContent = "❚❚"; } };
+    box.querySelectorAll("#jamMode [data-m]").forEach(b => b.onclick = () => { p.mode = b.dataset.m; gains(); box.querySelectorAll("#jamMode [data-m]").forEach(x => { x.style.background = x === b ? "#9cc3ff" : ""; x.style.color = x === b ? "#0b0d11" : ""; }); });
+    $("jamBar").onclick = (e) => { const r = $("jamBar").getBoundingClientRect(), t = e.target.dataset?.t != null ? +e.target.dataset.t : (e.clientX - r.left) / r.width * dur; if (p.on) start(t); else p.at = t; };
+    box.querySelectorAll("[data-take]").forEach(b => b.onclick = async () => { const a = $("jamTake"); b.textContent = "받는 중…"; try { const bl = await readBlob(js.take_files[b.dataset.take], false, true); if (p.on) $("jamPP").click(); a.src = URL.createObjectURL(bl); a.style.display = "block"; a.play().catch(() => {}); } catch (e) { toast("못 받았어요: " + errMsg(e)); } b.textContent = "▶ 원본"; });
+    $("jamDl").onclick = async (e) => { e.preventDefault(); try { const bl = await readBlob(g.files.mix, false, true), u = URL.createObjectURL(bl), a = document.createElement("a"); a.href = u; a.download = `${s.name} ${g.title} 베스트.mp3`; document.body.appendChild(a); a.click(); a.remove(); } catch (er) { toast("못 받았어요: " + errMsg(er)); } };
+  } catch (e) { box.innerHTML = `<p class="muted">못 열었어요: ${esc(errMsg(e))}</p>`; }
+}
 async function openSongs(focus) {
   goBack = () => renderList(); show("vSongs"); songLib.open = focus || songLib.open;
   const v = $("vSongs");
@@ -8124,7 +8191,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261114-1730";
+const BUILD = "20261114-1830";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
