@@ -440,9 +440,11 @@
         const EV = st && typeof st.vbuf === "function" ? envOf(st.vbuf()) : null;   // (11/14 시안 C) 소리 크기 모양 덩어리 — 굵은 곳 = 큰 소리
         const mvOf = (p) => (cv._tedits || []).some(x => p[0] >= x.t0 - 1e-6 && p[0] < x.t1 - 1e-6);
         if (EV && !r.seg.some(([p]) => mvOf(p))) {   // 한 음 = 한 덩어리(이음 자국 없게) · 색은 그 음 가운데 점 기준
-          const top = [], bot = [], N = r.seg.length, hOf = (tt, edge) => Math.max(1.5, rh * (0.3 + 1.2 * envAt(EV, tt)) * edge / 2);
-          r.seg.forEach(([p, x0, x1], si) => { const yy = y(p[kt]), e0 = si === 0 ? 0.55 : 1, h0 = hOf(p[0], e0); top.push([x0, yy - h0]); bot.push([x0, yy + h0]);
-            if (si === N - 1) { const xe = Math.max(x0 + 1, x1 + 0.5), h1 = hOf(p[0] + 0.04, 0.55); top.push([xe, yy - h1]); bot.push([xe, yy + h1]); } });
+          // (11/14 19:03 사용자 '덜 둥글둥글하게') 끝을 뾰족하게 줄이지 않고, 굵기 변화도 줄이고(크기 반영 35%) 5칸으로 고르게 → 막대에 가까운 납작한 덩어리
+          const N = r.seg.length, raw = r.seg.map(([p]) => rh * (0.8 + 0.35 * envAt(EV, p[0])) / 2), hs = raw.map((_, i) => { let s_ = 0, c_ = 0; for (let j = Math.max(0, i - 2); j <= Math.min(N - 1, i + 2); j++) { s_ += raw[j]; c_++; } return Math.max(2, s_ / c_); });
+          const top = [], bot = [];
+          r.seg.forEach(([p, x0, x1], si) => { const yy = y(p[kt]), h0 = hs[si]; top.push([x0, yy - h0]); bot.push([x0, yy + h0]);
+            if (si === N - 1) { const xe = Math.max(x0 + 1, x1 + 0.5); top.push([xe, yy - h0]); bot.push([xe, yy + h0]); } });
           const cc_ = srcCol(cv, r.seg[N >> 1][0][0]); g.fillStyle = solidOf(cc_); if (r.gd === "m") g.globalAlpha = 0.28;
           g.beginPath(); g.moveTo(top[0][0], top[0][1]); for (const q of top) g.lineTo(q[0], q[1]); for (let q = bot.length - 1; q >= 0; q--) g.lineTo(bot[q][0], bot[q][1]); g.closePath(); g.fill();
           g.strokeStyle = edgeOf(cc_); g.lineWidth = 1.2; g.stroke(); g.globalAlpha = 1;   // (시안 B) 불투명한 색 + 밝은 테두리
