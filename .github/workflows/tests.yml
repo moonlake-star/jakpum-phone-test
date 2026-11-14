@@ -13,8 +13,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: 코드 점검 도구 설치(정의 안 된 변수 같은 실제 버그 검사용 · tests/lint-undef.test.js)
-        run: npm i --no-save --no-package-lock eslint@9 globals
+      - name: 코드 점검 도구 설치 (eslint는 lint-undef 시험용, jsdom은 smoke-boot 시험용)
+        run: npm i --no-save --no-package-lock eslint@9 globals jsdom@26
       # 운영 키·시크릿 불필요: 모든 시험은 가짜 Drive/가짜 caches만 사용
       - name: tests/*.test.js 각각 독립 실행
         run: |
