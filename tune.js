@@ -445,7 +445,7 @@
           // (11/14 20:49 사용자 'C+B') 굵기 = 그 음이 곡 전체에서 얼마나 컸나(18dB 폭) × 음 안에서 커지고 작아지는 모양(12dB 폭) · 고급에서 바꾼 음 볼륨(dB)은 크기에 그대로 더함
           const dBo = (v) => 20 * Math.log10(Math.max(1e-4, v)) / 0.6, gdb = r.gd && r.gd !== "m" ? +r.gd : 0;
           const N = r.seg.length, dv = r.seg.map(([p]) => dBo(envAt(EV, p[0]))), pk = Math.max(...dv), g_ = Math.max(0, Math.min(1, (pk + gdb + 18) / 18));
-          const raw = dv.map(v => bh * (0.35 + 1.25 * Math.pow(g_, 1.6) * Math.pow(Math.max(0, Math.min(1, (v - pk + 12) / 12)), 1.6)) / 2), hs = raw.map((_, i) => { let s_ = 0, c_ = 0; for (let j = Math.max(0, i - 3); j <= Math.min(N - 1, i + 3); j++) { s_ += raw[j]; c_++; } return Math.max(1.5, s_ / c_); });   // (11/14 21:27 사용자 시안 ①) 굵기 0.35~1.6배 · 0.12초로 매끄럽게
+          const raw = dv.map(v => 1.35 * bh * (0.35 + 1.25 * Math.pow(g_, 1.6) * Math.pow(Math.max(0, Math.min(1, (v - pk + 12) / 12)), 1.6)) / 2), hs = raw.map((_, i) => { let s_ = 0, c_ = 0; for (let j = Math.max(0, i - 3); j <= Math.min(N - 1, i + 3); j++) { s_ += raw[j]; c_++; } return Math.max(1.5, s_ / c_); });   // (11/14 21:27 사용자 시안 ①) 굵기 0.35~1.6배 · 0.12초로 매끄럽게
           const top = [], bot = [];
           r.seg.forEach(([p, x0, x1], si) => { const yy = y(p[kt]), h0 = hs[si]; top.push([x0, yy - h0]); bot.push([x0, yy + h0]);
             if (si === N - 1) { const xe = Math.max(x0 + 1, x1 + 0.5); top.push([xe, yy - h0]); bot.push([xe, yy + h0]); } });
