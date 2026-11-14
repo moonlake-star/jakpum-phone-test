@@ -579,7 +579,10 @@
     if (k) {   // (11/14 18:37 사용자 시안 B) 보정 후 = 굵게 + 검은 테두리 · 부른 음 = 가늘고 흐리게
       line(1, "rgba(255,224,102,.6)", full ? 1.6 : 1.3);
       line(k, "#071016", full ? 5.5 : 3.6); line(k, "#7fe3ff", full ? 3 : 2);
-    } else line(1, "#ffe066", full ? 2.8 : 2);   // 보정 전으로 들을 때 = 부른 음만 굵게
+    } else {   // (11/14 18:41 사용자) 보정 전으로 들을 때 = 거꾸로: 부른 음 굵게 + 보정 후는 얇은 하늘선
+      const kB = col(cv, (st && st.lvDef) || 2) || col(cv, (cv.levels || [])[0]);
+      if (kB) line(kB, "rgba(127,227,255,.65)", full ? 1.6 : 1.3);
+      line(1, "#071016", full ? 5.5 : 3.6); line(1, "#ffe066", full ? 3 : 2); }
     if (k && full && st && st.tbars) {   // (시안 B) 많이 고친 음(평균 25센트 이상)에만 ▲올림·▼내림 표시
       g.font = "bold 11px system-ui, sans-serif"; g.textBaseline = "middle";
       for (const b of st.tbars) { if (b.ghost || b.x1 < L || b.x0 > w) continue; let sm_ = 0, n_ = 0; for (const p of vis) if (p[0] >= b.t0 && p[0] <= b.t1 && p[k] != null && p[1] != null) { sm_ += p[k] - p[1]; n_++; }
