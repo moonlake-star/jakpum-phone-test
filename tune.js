@@ -291,6 +291,7 @@
   // (11/14 18:37 사용자 시안 B) 덩어리 색: 반투명 막대 색 → 어두운 바탕 위에서 같은 색이 나는 불투명 색 + 밝은 테두리
   function solidOf(c) { const m = /rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?/.exec(c || ""); if (!m) return c; const a = Math.min(1, (m[4] == null ? 1 : +m[4]) * 1.55), bg = [17, 21, 28]; return `rgb(${[1, 2, 3].map((i, j) => Math.round(bg[j] + (+m[i] - bg[j]) * a * 0.82)).join(",")})`; }
   function edgeOf(c) { const m = /rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)/.exec(c || ""); return m ? `rgba(${m[1]},${m[2]},${m[3]},.85)` : c; }
+  function envCv(cv) { const e = cv && cv.env; if (!e || !e.fps || !e.v || !e.v.length) return null; if (e._ev) return e._ev; const f = new Float32Array(e.v.length); for (let i = 0; i < f.length; i++) f[i] = (e.v[i] || 0) / 99; return (e._ev = { e: f, hop: 1 / e.fps }); }
   function envAt(ev, t) { if (!ev) return 1; const i = Math.round(t / ev.hop); return i >= 0 && i < ev.e.length ? ev.e[i] : 0; }
   // (시안 C) 음정선 = 점 사이를 부드러운 곡선(카트멀-롬 → 베지어)으로. 실제 점은 그대로 지나감
   function smoothPath(g, P) {
@@ -437,7 +438,7 @@
         // (11/09 01:21 사용자 A안) 음별 볼륨이 보이게: 키운 음 = 막대 두껍게 · 줄인 음 = 얇게 · 끈 음 = 흐리게+빗금 (꼬리표는 아래에서)
         const vn = ((st && st._adv && st._adv.ne && st._adv.ne.notes) || []).find(x => x.t0 <= (r.t0 + r.t1) / 2 && x.t1 >= (r.t0 + r.t1) / 2 && (x.mute || x.gain_db));
         r.gd = vn ? (vn.mute ? "m" : vn.gain_db) : 0; const rh = r.gd && r.gd !== "m" ? bh * Math.max(0.4, Math.min(1.8, Math.pow(10, r.gd / 40))) : bh; r.h = Math.max(rh, bh);
-        const EV = st && typeof st.vbuf === "function" ? envOf(st.vbuf()) : null;   // (11/14 시안 C) 소리 크기 모양 덩어리 — 굵은 곳 = 큰 소리
+        const EV = (st && typeof st.vbuf === "function" ? envOf(st.vbuf()) : null) || envCv(cv);   // (11/14 19:15) 서버가 준 보컬 크기(cv.env)도 — 레슨·미리보기 등 소리를 따로 안 받는 화면에서도 덩어리   // (11/14 시안 C) 소리 크기 모양 덩어리 — 굵은 곳 = 큰 소리
         const mvOf = (p) => (cv._tedits || []).some(x => p[0] >= x.t0 - 1e-6 && p[0] < x.t1 - 1e-6);
         if (EV && !r.seg.some(([p]) => mvOf(p))) {   // 한 음 = 한 덩어리(이음 자국 없게) · 색은 그 음 가운데 점 기준
           // (11/14 19:03 사용자 '덜 둥글둥글하게') 끝을 뾰족하게 줄이지 않고, 굵기 변화도 줄이고(크기 반영 35%) 5칸으로 고르게 → 막대에 가까운 납작한 덩어리
