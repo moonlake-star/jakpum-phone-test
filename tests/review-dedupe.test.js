@@ -7,5 +7,5 @@ const older = { speakers: { A: "student", B: "student" }, feedback: "선생님 �
 const m = revMerge(newer, older);
 assert.deepStrictEqual(m.speakers, { A: "teacher", B: "student" }, "최신이 이김, 빈 것은 채움");
 assert.strictEqual(m.feedback, "선생님 글"); assert.strictEqual(m.speakers_confirmed_at, "t2"); assert.deepStrictEqual(m.decisions, { x: 1 }); assert.deepStrictEqual(m.practice, ["립트릴"]);
-assert.ok(H.includes("revFs = (await list(l.id)).filter(f => f.name === REVIEW)"), "열 때 새로 확인");
+assert.ok(H.includes("const revListP = list(l.id)") && H.includes("lst.filter(f => f.name === REVIEW)"), "열 때 새로 확인(11/14: 레슨 자료 읽기와 동시에 요청)");
 console.log("review-dedupe ok");
