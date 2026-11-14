@@ -841,7 +841,7 @@ function stemEngine(d) {
   const energy = (m, v) => { const a = m.getChannelData(0), b = v.getChannelData(0), a2 = m.numberOfChannels > 1 ? m.getChannelData(1) : a, b2 = v.numberOfChannels > 1 ? v.getChannelData(1) : b, n = Math.min(a.length, b.length);
     let mm = 0, vv = 0, mv = 0; for (let i = 0; i < n; i += 37) { const x = (a[i] + a2[i]) / 2, y = (b[i] + b2[i]) / 2; mm += x * x; vv += y * y; mv += x * y; } return { mm, vv, mv, n: Math.ceil(n / 37) }; };
   const setMaster = (tc) => { if (!master) return; const g = master.gain, n = ctx.currentTime, v = boostGain(boostOn); try { g.cancelScheduledValues(n); g.setTargetAtTime(v, n, tc); } catch { g.value = v; } };   // (11/09 사용자 '다른 앱보다 작음') 최종단 +4 dB → 리미터. 켜짐이 기본
-  let vol = clamp(d.vol ?? 30), boostOn = d.boost !== false, master = null, dead = false, loading = null, ctx = null, gain = null, buf = null, au = null, urls = [], srcs = [], t0 = 0, off = 0, playing = false, starting = false, timer = 0, mode = "", gen = 0, driftAt = 0;
+  let vol = clamp(d.vol ?? 30), boostOn = d.boost !== false, master = null, dead = false, loading = null, ctx = null, gain = null, buf = null, au = null, urls = [], srcs = [], t0 = 0, off = 0, playing = false, starting = false, timer = 0, mode = "", gen = 0, driftAt = 0, rate = 1, loop = null, loopT = 0, mrVol = 100, swapping = false;
   const dur = () => (mode === "web" ? buf.mr.duration : mode === "html" ? (au.mr.duration || 0) : 0);
   const pos = () => { if (mode === "web") return playing ? Math.min(Math.max(off, ctx.currentTime - t0), dur()) : off; if (mode === "html") return playing ? au.mr.currentTime : off; return off; };
   const stopTimer = () => { if (timer) tm.clear(timer); timer = 0; };
@@ -865,11 +865,11 @@ function stemEngine(d) {
   })().catch((e) => { loading = null; throw e; });
   const html = async (a, b) => {
     const U = d.URL || G.URL; urls = [a, b].map(x => U.createObjectURL(new G.Blob([x], { type: "audio/mpeg" })));
-    au = { mr: MkAudio(), voc: MkAudio() }; au.mr.preload = au.voc.preload = "auto"; au.mr.src = urls[0]; au.voc.src = urls[1]; au.voc.volume = vol / 100; mode = "html";
+    au = { mr: MkAudio(), voc: MkAudio() }; au.mr.preload = au.voc.preload = "auto"; au.mr.src = urls[0]; au.voc.src = urls[1]; au.voc.volume = vol / 100; mode = "html"; applyRate();
     await new Promise(res => { if (au.mr.readyState >= 1) return res(); au.mr.onloadedmetadata = res; setTimeout(res, 4000); }); if (dead) throw stale();
     au.mr.onended = () => { if (playing) end(); };
     // (11/10 사용자 B) 일반 오디오 태그로 재생하면 삼성 인터넷이 다른 앱 음악을 멈춰 줌 → 반대로 다른 앱이 소리를 시작해 이 태그가 멈추면 화면도 '멈춤'으로
-    au.mr.onpause = () => { if (!playing || au.mr.ended) return; playing = false; off = au.mr.currentTime; try { au.voc.pause(); } catch {} stopTimer(); sleepSoon(); try { d.onPause && d.onPause(); } catch {} };
+    au.mr.onpause = () => { if (!playing || au.mr.ended || swapping) return; playing = false; off = au.mr.currentTime; try { au.voc.pause(); } catch {} stopTimer(); sleepSoon(); try { d.onPause && d.onPause(); } catch {} };
     return E;
   };
   const end = () => { off = 0; if (mode === "web") killSrcs(); else if (au) { au.mr.pause(); au.voc.pause(); try { au.mr.currentTime = au.voc.currentTime = 0; } catch {} } playing = false; stopTimer(); sleepSoon(); fh(false); try { d.onEnd && d.onEnd(); } catch {} };
@@ -886,10 +886,17 @@ function stemEngine(d) {
   };
   const tick = () => {
     if (mode === "html" && playing) { const { mr, voc } = au, n = Date.now(), ok = !mr.seeking && !voc.seeking && mr.readyState >= 3 && voc.readyState >= 3;
-      if (ok && n - driftAt > 2000 && Math.abs(voc.currentTime - mr.currentTime) > 0.25) { driftAt = n; voc.currentTime = mr.currentTime; } }
+      // (11/14) 보컬이 박자를 늦게 따라오던 것: 작은 어긋남(0.04~0.5초)은 보컬 속도를 ±4%로 살짝 틀어 '끊김 없이' 따라잡고, 0.5초 넘게 벌어졌을 때만 위치를 맞춤
+      if (ok) { const df = voc.currentTime - mr.currentTime, ad = Math.abs(df);
+        if (ad > 0.5 && n - driftAt > 1000) { driftAt = n; voc.currentTime = mr.currentTime; voc.playbackRate = rate; }
+        else if (ad > 0.04 && ad <= 0.5) voc.playbackRate = rate * (df > 0 ? 0.96 : 1.04);
+        else if (voc.playbackRate !== rate) voc.playbackRate = rate; } }
     if (mode === "web" && playing && pos() >= dur() - 0.02) return end();
     try { d.onTick && d.onTick(E); } catch {}
   };
+  const applyRate = () => { if (!au) return; for (const a of [au.mr, au.voc]) { try { a.preservesPitch = true; a.mozPreservesPitch = true; a.webkitPreservesPitch = true; a.playbackRate = rate; } catch {} } };
+  const stopLoopT = () => { if (loopT) tm.clear(loopT); loopT = 0; };
+  const loopTick = () => { if (!loop || mode !== "html" || !au || !playing) return; const t = au.mr.currentTime; if (t >= loop.b - 0.02 && t < loop.b + 1.5) { try { au.mr.currentTime = au.voc.currentTime = loop.a; } catch {} } };
   const E = {
     load, pos, dur, mode: () => mode, isPlaying: () => playing, isDead: () => dead, vol: () => vol, fallbackReason: () => d.fallback || "",
     unlock() {   // 사용자 터치 안에서 동기로 부르기: 소리 장치를 미리 만들고 깨움(모바일 자동재생 정책). 못 해도 조용히 넘어감
@@ -914,14 +921,33 @@ function stemEngine(d) {
       vol = clamp(v);
       if (gain) { const g = gain.gain, n = ctx.currentTime; try { g.cancelScheduledValues(n); g.setTargetAtTime(vol / 100, n, 0.015); } catch { g.value = vol / 100; } }
       setMaster(0.05);   // 보컬을 줄이면 전체를 그만큼 올려 원곡과 같은 크기(최대 +9 dB · 리미터가 봉우리를 잡음)
-      if (au) au.voc.volume = vol / 100;
+      if (au) { const was0 = au.voc.volume === 0; au.voc.volume = vol / 100;
+        if (was0 && vol > 0 && playing && mode === "html") { try { au.voc.currentTime = au.mr.currentTime; } catch {} } }   // (11/14) 0%였다가 올리면 보컬 위치를 바로 반주에 맞춤
     },
     setBoost(on) {   // 크게 듣기(작은 곡만 −14 dBFS까지·리미터) 켜고 끄기: 재생 끊김 없음. 오디오 태그 폴백(아주 긴 곡)은 해당 없음
       boostOn = !!on; setMaster(0.03);
     },
     boost: () => boostOn,
+    setRate(r) { rate = Math.max(0.5, Math.min(2, +r || 1)); applyRate(); },   // 속도만(음 높이 유지): 오디오 태그 방식에서만
+    rate: () => rate,
+    setMrVol(v) { mrVol = clamp(v); if (au) au.mr.volume = mrVol / 100; if (gain && mode === "web") { /* 웹오디오 방식은 반주 따로 볼륨 없음 */ } },
+    mrVol: () => mrVol,
+    setLoop(a, b) {   // 구간 반복: a~b초(없으면 해제). 오디오 태그 방식에서 40ms마다 확인
+      stopLoopT(); loop = (Number.isFinite(a) && Number.isFinite(b) && b - a >= 0.5) ? { a: +a, b: +b } : null;
+      if (loop && mode === "html") loopT = tm.set(loopTick, 40);
+    },
+    loop: () => loop,
+    async swap(bufMr, bufVoc) {   // 키를 바꿔 미리 만들어 둔 다른 음원으로 같은 자리에서 이어서 재생(오디오 태그 방식)
+      await load(); if (dead || mode !== "html") throw stale(); const t = pos(), was = playing, U = d.URL || G.URL;
+      const nu = [bufMr, bufVoc].map(x => U.createObjectURL(new G.Blob([x], { type: "audio/mpeg" })));
+      const { mr, voc } = au; swapping = true; mr.pause(); voc.pause(); const old = urls; urls = nu; mr.src = nu[0]; voc.src = nu[1];
+      await new Promise(res => { if (mr.readyState >= 1) return res(); mr.onloadedmetadata = res; setTimeout(res, 4000); }); if (dead) throw stale();
+      voc.volume = vol / 100; mr.volume = mrVol / 100; applyRate(); off = t; try { mr.currentTime = voc.currentTime = t; } catch {}
+      for (const u of old) { try { U.revokeObjectURL(u); } catch {} }
+      try { if (was) { await Promise.all([mr.play(), voc.play()]); } } finally { swapping = false; }
+    },
     destroy() {   // 화면을 떠나거나 곡을 바꿀 때: 타이머·소리·URL·AudioContext 모두 정리
-      if (dead) return; dead = true; fh(false); stopTimer(); playing = false; killSrcs();
+      if (dead) return; dead = true; fh(false); stopTimer(); stopLoopT(); playing = false; killSrcs();
       if (au) { for (const a of [au.mr, au.voc]) { try { a.pause(); a.onended = a.onloadedmetadata = null; a.removeAttribute && a.removeAttribute("src"); a.load && a.load(); } catch {} } au = null; }
       const U = d.URL || G.URL; for (const u of urls) { try { U.revokeObjectURL(u); } catch {} } urls = []; buf = null; closeCtx();
     },
