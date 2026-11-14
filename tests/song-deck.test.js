@@ -95,6 +95,32 @@ const mk = new Function(code + "; return stemEngine;")();
   assert.ok(dk.includes("for (let r = 0; r < 5; r++)"), "한 쪽 5줄");
   { const pp = T.slice(T.indexOf("function songPdfPage("), T.indexOf("async function songPeaks(")); assert.ok(!/prVol|prSeek|슬라이더|타임라인/.test(pp) && pp.includes("(H - gy - 40 - 4 * gap) / 5"), "PDF는 5줄 악보만(조작 부품 없음)"); }
   assert.ok(dk.includes("me.onVol") && /me\.onVol && me\.onVol\(\)/.test(T), "곡 서랍 보컬 볼륨과 프롬프터 슬라이더가 같이 움직임");
+  // (11/14 22:12 사용자) 코드 줄 길게 눌러 고치기·빈 자리 추가·비슷한 구간 자동 수정(보라)
+  { const src = T.slice(T.indexOf("const SG_NOTES"), T.indexOf("async function songPeaks(")), f = new Function(src + "; return { songMeasures, songApplyEdits, songBeatNames, songEditRange, songSimilarRanges, songRenameBeats, songChordsOfRow, songLaneEvents };")();
+    const beats = Array.from({ length: 32 }, (_, i) => i * 0.5), an = { beats, down: 0, key: "G", mode: "minor" };
+    // 마디 0: 빈 자리 · 1~7: Gm A# Gm A# Gm A# Cm (마디 4의 A#은 앞뒤가 Gm이라 마디 2와 같은 문맥, 마디 6은 뒤가 Cm이라 다름)
+    const names = ["Gm", "A#", "Gm", "A#", "Gm", "A#", "Cm"]; an.chords = names.map((n, i) => [(i + 1) * 2, n]);   // 마디 1(2초)부터 마디마다 한 코드
+    const M0 = f.songMeasures(an, 0, null), ON = f.songBeatNames(M0);
+    assert.strictEqual(ON.length, 32); assert.strictEqual(ON[0], null, "첫 마디는 코드 없음"); assert.strictEqual(ON[4], "Gm"); assert.strictEqual(ON[8], "A#");
+    assert.deepStrictEqual(f.songEditRange(ON, 1), [1, 4], "빈 자리: 누른 박부터 마디 끝까지"); assert.deepStrictEqual(f.songEditRange(ON, 5), [4, 8], "코드 덩어리 한 마디"); assert.strictEqual(f.songEditRange(ON, 99), null);
+    // 마디 2의 A#을 Gm으로: 같은 문맥(앞 Gm·뒤 Gm)인 마디 4의 A#도 같이
+    const [a0, z0] = f.songEditRange(ON, 9), sim = f.songSimilarRanges(ON, a0, z0, null);
+    assert.deepStrictEqual([a0, z0], [8, 12]); assert.deepStrictEqual(sim.map((r) => r[0]), [16], "마디 4의 A#만 비슷한 구간(마디 6은 문맥이 다름): " + JSON.stringify(sim)); assert.ok(sim.every((r) => r[0] % 4 === a0 % 4 && r[0] !== a0), "같은 박 위치만");
+    let CN = f.songRenameBeats(ON, a0, z0, "Gm"); sim.forEach((r) => (CN = f.songRenameBeats(CN, r[0], r[1], "Gm")));
+    assert.deepStrictEqual(f.songChordsOfRow(CN, 2, 4), [[1, "Gm"]]); assert.strictEqual(CN[24], "A#", "다른 문맥은 안 바뀜"); assert.strictEqual(ON[8], "A#", "원본은 안 바뀜");
+    const ED = { 2: { ch: [[1, "Dm"]], g: "x" }, 4: { ch: [[1, "Dm"]], g: "x", auto: 1 } }, LE = f.songLaneEvents(an, an.chords, ED, M0);
+    const fl = (t) => LE.find((e) => e.t === t); assert.strictEqual(fl(4).f, 1, "직접 고친 건 1(초록)"); assert.strictEqual(fl(8).f, 2, "자동은 2(보라)"); assert.strictEqual(fl(2).f, 0, "안 고친 건 0");
+    assert.strictEqual(f.songLaneEvents(an, an.chords, {}, M0).length, an.chords.length, "고침 없으면 분석 그대로");
+    // 직접 고친 마디는 자동 수정이 건드리지 않음(skip)
+    assert.deepStrictEqual(f.songSimilarRanges(ON, a0, z0, (s1) => s1 === 16), [], "skip이면 제외");
+    // 빈 자리 추가: 마디 0의 3박부터 Em
+    const rg = f.songEditRange(ON, 2); assert.deepStrictEqual(rg, [2, 4]); const C2 = f.songRenameBeats(ON, rg[0], rg[1], "Em"); assert.deepStrictEqual(f.songChordsOfRow(C2, 0, 4), [[3, "Em"]]);
+    assert.deepStrictEqual(f.songApplyEdits(M0, { 0: { ch: [[3, "Em"]] } }, 0)[0].chords.map((c) => [c.b, c.name]), [[2, "Em"]], "프롬프터도 같은 기록으로 그림"); }
+  assert.ok(dk.includes("const meas = () => songApplyEdits(songMeasures(AN, keyN, o.lyrics), ED, keyN)"), "프롬프터(·PDF·코드 악보)도 같은 고침 기록을 그림");
+  { const pr = dk.slice(dk.indexOf("const openPrompter"), dk.indexOf("if (Q(\"dkTv\"))")); assert.ok(!/\.auto|f === 2|d9b8ff|8dffb0/.test(pr), "프롬프터에는 고침 색 구분 없음(사용자 11/14 22:16)"); }
+  assert.ok(dk.includes("openChordEdit") && dk.includes('e.clientY - rc.top < 30') && dk.includes("navigator.vibrate(15)"), "코드 줄 길게 누르기");
+  assert.ok(dk.includes("let tx = x + 3; if (tx < 2)") && dk.includes("put.pop()"), "코드 글자 겹침 방지");
+  assert.ok(/delete e\.auto; delete e\.g;/.test(dk) && !/let ED = JSON\.parse[^]*let ED = JSON\.parse/.test(dk), "프롬프터 수정은 직접 고침으로 표시 · ED는 한 곳");
   // (11/14 21:49 사용자) 미끄러지는 중 다시 터치하면 옛 소리 위치로 튀던 버그: 지금 보이는 위치(vp)에서 이어잡고, 톡이면 그 자리에서 멈춤
   assert.ok(/const live = !!glide \|\| pend/.test(dk) && dk.includes("if (!live) vp = Math.max(0, Math.min(dur(), cur()))"), "미끄러지는 중 터치는 vp를 소리 위치로 되돌리지 않음");
   assert.ok(dk.includes("d.live ? commit(d.was) : commitTap(d)") && dk.includes("if (drag || glide) return;"), "미끄러지는 중 톡·옮기는 사이 재터치 처리");
