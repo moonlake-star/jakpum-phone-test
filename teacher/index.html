@@ -409,6 +409,7 @@
 #dkPr .prPlay{width:calc(var(--u)*4.6);height:calc(var(--u)*4.6);border-radius:50%;border:2px solid #FFE066;background:#000;color:#FFE066;font-size:calc(var(--u)*1.9);padding:0;margin:0}
 #dkPr .prT{display:flex;flex-direction:column;line-height:1.15;min-width:0;flex:1}#dkPr .prT b{font-size:calc(var(--u)*2.3);font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#dkPr .prT span{font-size:calc(var(--u)*1.4);color:#b8b8b8}
 #dkPr .prNow{display:flex;align-items:center;gap:calc(var(--u)*1)}#dkPr .prNow small{font-size:calc(var(--u)*1.4);color:#b8b8b8}#dkPr .prNow b{font-size:calc(var(--u)*3.8);font-weight:900;color:#FFE066;min-width:calc(var(--u)*7);text-align:center}#dkPr .prNow b#prNext{font-size:calc(var(--u)*3);font-weight:700;opacity:.65}#dkPr .prNow i{font-style:normal;font-size:calc(var(--u)*2.2);color:#777}
+#dkPr .prPdf{height:calc(var(--u)*4.6);padding:0 calc(var(--u)*1.6);border-radius:calc(var(--u)*2.3);border:2px solid #FFE066;background:#000;color:#FFE066;font-size:calc(var(--u)*1.7);font-weight:700;margin:0}#dkPr .prPdf:disabled{opacity:.5}
 #dkPr .prX{width:calc(var(--u)*4.6);height:calc(var(--u)*4.6);border-radius:50%;border:1px solid #666;background:#000;color:#ddd;font-size:calc(var(--u)*1.8);padding:0;margin:0}
 #dkPr .prBar{display:flex;align-items:center;gap:calc(var(--u)*1.2);font-size:calc(var(--u)*1.5);color:#b8b8b8}#dkPr .prBar #prPos{color:#fff;font-weight:700}#dkPr #prDots{display:flex;gap:calc(var(--u)*.6)}#dkPr #prDots i{width:calc(var(--u)*1.3);height:calc(var(--u)*1.3);border-radius:50%;border:2px solid #FFE066;box-sizing:border-box}#dkPr #prDots i.on{background:#FFE066}#dkPr .prLg{margin-left:auto;font-size:calc(var(--u)*1.3)}
 #dkPr .prGrid{flex:1;min-height:0;overflow:hidden}#dkPr .prRows{display:flex;flex-direction:column;height:calc(100% / 3 * var(--rows,1));transition:transform .35s ease}
@@ -5852,7 +5853,7 @@ function songPaintList() {
     const pl = row.querySelector(".slPl"); if (pl) { const ids = stemIds(x.d); if (!ids) { pl.innerHTML = `<p class="muted">파일 정보가 없어요</p>`; return; }
       if (keep && keep.folder === x.folder) { pl.appendChild(keep.el); return; }
       const auto = songLib.auto === x.folder; if (auto) songLib.auto = null;   // 한 번만(20초 갱신·다시 그리기로는 재시작 안 함)
-      songDeck(pl, ids, { folder: x.folder, autoplay: auto, dur: +x.d.dur || 0, bpm: +x.d.bpm || 0, wave: x.d.wave, lyrics: x.d.lyrics, analysis: x.d.analysis, keys: x.d.keys, keyReq: x.d.key_req, fileId: x.fileId,
+      songDeck(pl, ids, { folder: x.folder, autoplay: auto, dur: +x.d.dur || 0, bpm: +x.d.bpm || 0, wave: x.d.wave, lyrics: x.d.lyrics, artist: x.d.artist, analysis: x.d.analysis, keys: x.d.keys, keyReq: x.d.key_req, fileId: x.fileId,
         fetchD: () => readJSON(x.fileId), onKeyReq: (l) => { const cx = songLib.list.find(y => y.folder === x.folder) || x; cx.d.key_req = l; quietSave(() => writeJSON(cx.folder, "song.json", cx.d, cx.fileId)); }, mrVol: Number.isFinite(+x.d.mr_vol) ? +x.d.mr_vol : 100, head: `<div class="muted" style="font-size:.85rem">보컬 볼륨을 움직여 MR·가이드·원곡으로 들어 보세요</div>`, vol: Number.isFinite(+x.d.voc_vol) ? +x.d.voc_vol : 30, name: x.d.title,
         onVol: (vv) => { const cx = songLib.list.find(y => y.folder === x.folder) || x; cx.d.voc_vol = vv; quietSave(() => writeJSON(cx.folder, "song.json", cx.d, cx.fileId)); },
         onMrVol: (vv) => { const cx = songLib.list.find(y => y.folder === x.folder) || x; cx.d.mr_vol = vv; quietSave(() => writeJSON(cx.folder, "song.json", cx.d, cx.fileId)); },
@@ -6139,6 +6140,42 @@ function songBeatPos(an, t) {   // 재생 시각 → {m: 마디 번호(0부터),
   const nx = B[Math.min(lo + 1, B.length - 1)], fr = nx > B[lo] ? Math.max(0, Math.min(1, (t - B[lo]) / (nx - B[lo]))) : 0, idx = lo + fr - dn;
   return idx < 0 ? { m: 0, b: 0 } : { m: Math.floor(idx / 4), b: idx % 4 };
 }
+// (11/14 사용자) 프롬프터를 PDF로: 마디 그림(JPEG)을 페이지마다 넣은 PDF를 직접 조립(라이브러리 없음) · 파일명 '제목_가수_Key.pdf'
+function songPdf(pages, pw, ph) {
+  const enc = new TextEncoder(), parts = [], off = []; let len = 0;
+  const put = (x) => { const b = typeof x === "string" ? enc.encode(x) : x; parts.push(b); len += b.length; };
+  const obj = (n, body, stream) => { off[n] = len; put(`${n} 0 obj\n${body}\n`); if (stream) { put("stream\n"); put(stream); put("\nendstream\n"); } put("endobj\n"); };
+  put("%PDF-1.4\n%âãÏÓ\n");
+  obj(1, "<< /Type /Catalog /Pages 2 0 R >>");
+  obj(2, `<< /Type /Pages /Kids [${pages.map((_, i) => `${3 + 3 * i} 0 R`).join(" ")}] /Count ${pages.length} >>`);
+  pages.forEach((p, i) => { const n = 3 + 3 * i, c = `q ${pw} 0 0 ${ph} 0 0 cm /Im0 Do Q`;
+    obj(n, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pw} ${ph}] /Resources << /XObject << /Im0 ${n + 2} 0 R >> >> /Contents ${n + 1} 0 R >>`);
+    obj(n + 1, `<< /Length ${c.length} >>`, c);
+    obj(n + 2, `<< /Type /XObject /Subtype /Image /Width ${p.w} /Height ${p.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${p.jpg.length} >>`, p.jpg); });
+  const N = 3 + 3 * pages.length, xr = len;
+  put(`xref\n0 ${N}\n0000000000 65535 f \n` + off.slice(1, N).map((o) => String(o).padStart(10, "0") + " 00000 n \n").join(""));
+  put(`trailer\n<< /Size ${N} /Root 1 0 R >>\nstartxref\n${xr}\n%%EOF\n`);
+  return new Blob(parts, { type: "application/pdf" });
+}
+function songPdfName(title, artist, key) { return [title, artist, key].map((x) => String(x || "").replace(/[\\/:*?"<>|]/g, "_").trim()).filter(Boolean).join("_").slice(0, 120) + ".pdf"; }
+// 프롬프터 한 쪽(마디 12칸)을 2560×1600 그림으로 · 검정 바탕·노란 코드·흰 가사(화면과 같은 모양)
+function songPdfPage(M, from, meta) {
+  const W = 2560, H = 1600, cv = document.createElement("canvas"); cv.width = W; cv.height = H; const g = cv.getContext("2d"), F = '"Noto Sans KR","Malgun Gothic","Apple SD Gothic Neo",sans-serif';
+  g.fillStyle = "#000"; g.fillRect(0, 0, W, H); g.textBaseline = "alphabetic";
+  g.fillStyle = "#fff"; g.font = `900 64px ${F}`; g.fillText(meta.title || "곡", 60, 96); g.fillStyle = "#b8b8b8"; g.font = `500 36px ${F}`; g.fillText(meta.sub || "", 60, 150);
+  g.textAlign = "right"; g.fillText(`${meta.page} / ${meta.pages}쪽`, W - 60, 96); g.textAlign = "left";
+  const gx = 60, gy = 200, cw = (W - 120) / 4, rh = (H - gy - 50 - 2 * 24) / 3;
+  for (let i = 0; i < 12; i++) { const m = M[from + i]; if (!m) continue; const x = gx + (i % 4) * cw, y = gy + Math.floor(i / 4) * (rh + 24), bw = cw / 4;
+    g.fillStyle = "#3a3a3a"; g.fillRect(x, y, cw, 3); g.fillRect(x, y + rh - 3, cw, 3); g.fillRect(x + cw - 2, y, 2, rh);
+    g.fillStyle = "#fff"; g.fillRect(x, y, 9, rh); if (i % 4 === 3) g.fillRect(x + cw - 9, y, 9, rh);
+    g.setLineDash([14, 12]); g.strokeStyle = "#555"; g.lineWidth = 3; g.beginPath(); g.moveTo(x + cw / 2, y + 70); g.lineTo(x + cw / 2, y + rh - 30); g.stroke(); g.setLineDash([]);
+    for (let b = 0; b < 4; b++) { g.fillStyle = b === 0 ? "#e8e8e8" : "#8c8c8c"; g.font = `700 32px ${F}`; g.fillText(String(b + 1), x + b * bw + 22, y + 48); }
+    g.fillStyle = "#777"; g.font = `500 30px ${F}`; g.fillText(String(m.no), x + 22, y + rh - 18);
+    for (const c of m.chords) { const cx = x + c.b * bw + 18, mw = c.len * bw - 30; let fs = 132; g.font = `900 ${fs}px ${F}`; while (fs > 64 && g.measureText(c.name).width > mw) { fs -= 6; g.font = `900 ${fs}px ${F}`; }
+      g.fillStyle = "#FFE066"; g.fillText(c.name, cx, y + 205); g.globalAlpha = 0.85; g.fillRect(cx, y + 232, Math.max(20, c.len * bw - 36), 12); g.globalAlpha = 1; }
+    g.fillStyle = "#fff"; g.font = `500 62px ${F}`; for (const l of m.lyrics) g.fillText(l.text, x + l.b * bw + 18, y + 350); }
+  return cv;
+}
 async function songPeaks(ab) {   // MP3 → 0.1초마다 가장 큰 소리(0~63) 글자열 · 소리 장치 없이 디코드(OfflineAudioContext)
   const OC = window.OfflineAudioContext || window.webkitOfflineAudioContext; if (!OC) throw new Error("파형 미지원");
   const c = new OC(1, 1, 8000), a = await new Promise((ok, no) => { try { const p = c.decodeAudioData(ab, ok, no); if (p && p.then) p.then(ok, no); } catch (e) { no(e); } });
@@ -6245,7 +6282,7 @@ function songDeck(el, ids, o) {
     if (!CHORDS || document.getElementById("dkPr")) return;
     const d = document.createElement("div"); d.id = "dkPr"; d.setAttribute("role", "dialog"); d.setAttribute("aria-label", "TV 프롬프터");
     const meas = () => songMeasures(AN, keyN, o.lyrics); let M = meas(), mKey = keyN;
-    d.innerHTML = `<div class="prTop"><button type="button" class="prPlay" id="prPlay" aria-label="재생 또는 일시정지">▶</button><div class="prT"><b id="prTitle"></b><span id="prSub"></span></div><div class="prNow"><small>지금</small><b id="prNow">–</b><i>→</i><small>다음</small><b id="prNext">–</b></div><button type="button" class="prX" id="prX" aria-label="닫기">✕</button></div>
+    d.innerHTML = `<div class="prTop"><button type="button" class="prPlay" id="prPlay" aria-label="재생 또는 일시정지">▶</button><div class="prT"><b id="prTitle"></b><span id="prSub"></span></div><div class="prNow"><small>지금</small><b id="prNow">–</b><i>→</i><small>다음</small><b id="prNext">–</b></div><button type="button" class="prPdf" id="prPdf" aria-label="PDF로 저장">PDF</button><button type="button" class="prX" id="prX" aria-label="닫기">✕</button></div>
       <div class="prBar"><span id="prPos"></span><span id="prDots"></span><span class="prLg">노란 글자 = 코드 · 흰 글자 = 가사 · 밑줄 길이 = 코드를 잡는 박 · 마디를 톡 하면 거기서 재생</span></div><div class="prGrid"><div class="prRows" id="prRows"></div></div>`;
     d.querySelector("#prTitle").textContent = o.name || "곡"; let rr = 0, on = -1, raf2 = 0, wl = null, rowsN = 0, firstRow = -1;
     const build = () => { M = meas(); mKey = keyN; const R = d.querySelector("#prRows"); R.textContent = ""; rowsN = Math.ceil(M.length / 4); R.style.setProperty("--rows", Math.max(rowsN, 3));
@@ -6270,6 +6307,12 @@ function songDeck(el, ids, o) {
       const bi = Math.floor(q.b), nn = names(mi, bi); d.querySelector("#prNow").textContent = nn[0]; d.querySelector("#prNext").textContent = nn[1]; d.querySelector("#prPos").textContent = `${(M[mi] || { no: 1 }).no}마디 · ${bi + 1}박`;
       d.querySelector("#prDots").innerHTML = [0, 1, 2, 3].map((b) => `<i class="${b === bi ? "on" : ""}"></i>`).join(""); raf2 = requestAnimationFrame(tickP); };
     const ly = typeof Brand !== "undefined" && Brand.layer ? Brand.layer(() => { cancelAnimationFrame(raf2); try { wl && wl.release(); } catch {} try { if (document.fullscreenElement) document.exitFullscreen(); } catch {} try { screen.orientation && screen.orientation.unlock && screen.orientation.unlock(); } catch {} d.remove(); }) : { close: () => d.remove() };   // 뒤로 가기 = 프롬프터만 닫힘
+    const pdfBtn = d.querySelector("#prPdf");   // 사용자 11/14: 프롬프터 PDF 저장(파일명 제목_가수_Key)
+    pdfBtn.onclick = async () => { pdfBtn.disabled = true; const t0 = pdfBtn.textContent; pdfBtn.textContent = "만드는 중…";
+      try { const MM = songMeasures(AN, keyN, o.lyrics), pgs = Math.max(1, Math.ceil(MM.length / 12)), sub = `${o.artist ? o.artist + " · " : ""}Key ${keyName(keyN)} · ${+o.bpm > 0 ? Math.round(+o.bpm) + " BPM · " : ""}4/4박(추정)`, out = [];
+        for (let p = 0; p < pgs; p++) { const cv = songPdfPage(MM, p * 12, { title: o.name, sub, page: p + 1, pages: pgs }), jb = await new Promise((ok) => cv.toBlob(ok, "image/jpeg", 0.92)); out.push({ jpg: new Uint8Array(await jb.arrayBuffer()), w: cv.width, h: cv.height }); }
+        songSave(songPdf(out, 960, 600), songPdfName(o.name, o.artist, keyName(keyN))); toast("PDF를 받았어요(다운로드 폴더)"); }
+      catch (e) { toast("PDF 만들기 실패: " + errMsg(e)); } finally { pdfBtn.disabled = false; pdfBtn.textContent = t0; } };
     d.querySelector("#prX").onclick = () => ly.close(); d.querySelector("#prPlay").onclick = () => Q("sgPb").onclick();
     document.body.appendChild(d); me.pr = d;
     (async () => { try { wl = await navigator.wakeLock?.request("screen"); } catch {} try { await d.requestFullscreen?.({ navigationUI: "hide" }); } catch {} try { await screen.orientation?.lock?.("landscape"); } catch {} })();   // 되는 폰만(안 되면 그대로 보임)
@@ -8513,7 +8556,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261114-1950";
+const BUILD = "20261114-2030";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
