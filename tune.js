@@ -1611,7 +1611,7 @@
     const loc = (cx, cy, r) => (rot ? { x: cy - r.top, y: r.right - cx } : { x: cx - r.left, y: cy - r.top });   // 돌린 화면에서도 캔버스 안 좌표
     const along = (e) => (rot ? e.clientY : e.clientX), across = (e) => (rot ? e.clientX : e.clientY);
     const span = () => (cvEl.clientWidth - 44) || 1, tall = () => cvEl.clientHeight || 1;
-    const pts = new Map(); let drag = null, pinch = null, preview = null;
+    const pts = new Map(); let drag = null, pinch = null, preview = null, tGlide = null;
     const view = mkView(st, () => preview, (v) => { preview = v; }, getT, seek);
     cvEl.style.touchAction = "none"; cvEl.addEventListener("contextmenu", (e) => e.preventDefault());
     cvEl.style.webkitTouchCallout = "none"; cvEl.style.userSelect = "none"; cvEl.style.webkitUserSelect = "none";
@@ -1626,6 +1626,7 @@
         const x2 = Math.max(m2.L, Math.min(m2.w, d.lx)), b2 = m2.t0 + (x2 - m2.L) / Math.max(1, m2.w - m2.L) * m2.W8, a2 = d.armed.t;
         st.msel = [Math.max(0, Math.min(a2, b2)), Math.max(a2, b2)]; if (st.onMSel) st.onMSel(); }, 50); };
     cvEl.addEventListener("pointerdown", (e) => {
+      if (tGlide) { tGlide = null; if (preview != null) { const t = preview; preview = null; st.stopAt = 0; try { seek(t, true); } catch {} } }   // 미끄러지는 중 다시 잡으면 그 자리에서 멈추고 이어서
       if (pts.size === 0 && st.cutHit && (st.cutAtNow || st.cutHit.bar)) { const lc = loc(e.clientX, e.clientY, cvEl.getBoundingClientRect()); if (Math.hypot(lc.x - st.cutHit.x, lc.y - st.cutHit.y) <= st.cutHit.r) { e.preventDefault();
         try { if (!st.cutAtNow || st.cutHit.bar) { const hb_ = st.cutHit.bar; st.cutHit = null; fixSheet(wrap, cv, hb_, o.onFix, getT, st); } if (st.cutAtNow) st.cutAtNow(+getT() || 0); } catch {} return; } }   // ✂ 톡 (안 고른 음이면 먼저 고르고 나눔)
       pts.set(e.pointerId, { a: along(e), b: across(e) }); try { cvEl.setPointerCapture(e.pointerId); } catch {}
@@ -1744,7 +1745,8 @@
         if (!wrap.querySelector(".tfMulti")) multiSheet(wrap, cv, st, false, true); else if (st.onMSel) st.onMSel(); return; }
       // (11/13 19:28 사용자 '태블릿에서 가로로 쓸었는데 비스듬하면 세로로도 움직여 불편') 가로 이동을 우선: 세로가 가로의 2배 넘게 분명할 때만 위아래 이동 · 정하기 전 12px까지 지켜봄
       if (!drag.mode) { if (Math.max(Math.abs(dA), Math.abs(dB)) < 12) return; clearTimeout(drag.lp); st.hold = null; drag.mode = Math.abs(dB) > 1.35 * Math.abs(dA) ? "pitch" : "time"; if (drag.mode === "time") pauseNow(); }   // (11/14 19:38 사용자 '좌우 우선이 너무 강함 — 조금만 풀자') 2배 → 1.35배
-      if (drag.mode === "time") preview = Math.max(0, drag.t - dA / span() * ((st.win || 6) / st.xz));
+      if (drag.mode === "time") { const nv = Math.max(0, drag.t - dA / span() * ((st.win || 6) / st.xz)), nw = performance.now();   // (11/14 22:14 사용자) 놓은 뒤 살짝 미끄러지게 — 빠르기(초/ms) 기록
+        if (preview != null && drag.tm) { const dt_ = Math.max(1, nw - drag.tm); drag.tv = 0.7 * (drag.tv || 0) + 0.3 * ((nv - preview) / dt_); } drag.tm = nw; preview = nv; }
       else if (st.yz > 1) { const [lo, hi] = range(cv), per = (hi - lo) / st.yz / tall(); st.yc = (drag.yc ?? (lo + hi) / 2) + dB * per * (rot ? -1 : 1); st.panAt = Date.now(); }
       else { const [lo, hi] = range(cv), per = (hi - lo) / tall(); if (drag.yo == null) drag.yo = st.yo || 0; st.yo = Math.max(-(hi - lo) * 0.6, Math.min((hi - lo) * 0.6, drag.yo + dB * per * (rot ? -1 : 1))); }   // 확대 안 했을 때도 위아래로(곡 음역의 60%까지)
     });
@@ -1797,7 +1799,12 @@
         if (h) { st.popPin = st.popPin && st.popPin.k === h.k ? null : { k: h.k, until: performance.now() + 4000 }; lastTap = 0; return; } }
       if (!d.mode && e.type === "pointerup" && st.popPin) { st.popPin = null; lastTap = 0; return; }   // 떠 있는 말풍선은 빈 곳 톡으로 닫기
       if (!d.mode && e.type === "pointerup" && typeof o.onNote === "function") { const r = cvEl.getBoundingClientRect(), le = loc(e.clientX, e.clientY, r), hn = d.h0 || hitNote(st, le.x, le.y);   /* 누를 때 맞은 칸 우선(떼는 사이 칸이 바뀌어도) */ if (hn) { pauseNow(); if (hn.del) { o.onDelNote && o.onDelNote(hn.n); } else { lastView = view; o.onNote(hn.n); } return; } }
-      if (d.mode === "time") { const t = preview; preview = null; if (t != null) { st.stopAt = 0; seek(t, true); } return; }   // 이동만, 재생은 안 함
+      if (d.mode === "time") {   // 이동만, 재생은 안 함 · (11/14 22:14 사용자 '곡 서랍 정도의 관성') 놓을 때 빠르기의 절반으로 미끄러지다 멈춘 자리로
+        const spp = ((st.win || 6) / st.xz) / Math.max(1, span()), fresh = d.tm && performance.now() - d.tm < 80;
+        if (fresh && Math.abs(d.tv || 0) > 0.06 * spp && preview != null) { const gl = tGlide = { v: d.tv * 0.5, last: performance.now() };
+          const step = () => { if (tGlide !== gl) return; const n = performance.now(), dt = Math.min(50, n - gl.last); gl.last = n; preview = Math.max(0, preview + gl.v * dt); gl.v *= Math.pow(0.94, dt / 16);
+            if (Math.abs(gl.v) < 0.015 * spp || preview <= 0) { tGlide = null; const t = preview; preview = null; st.stopAt = 0; seek(t, true); return; } requestAnimationFrame(step); }; requestAnimationFrame(step); return; }
+        const t = preview; preview = null; if (t != null) { st.stopAt = 0; seek(t, true); } return; }
       if (!d.mode && e.type === "pointerup") { const now = Date.now();   // 톡 = 재생/멈춤 · 기준선 왼쪽 두 번 톡 = 2초 뒤로, 오른쪽 = 2초 앞으로(11/03 10:24)
         if (now - lastTap < 320) { toggle(); lastTap = 0;   // 첫 톡의 재생/멈춤은 되돌리고
           const r0 = cvEl.getBoundingClientRect(), le = loc(e.clientX, e.clientY, r0), L = (st.kb && st.kb.L) || 44, hx = L + HEAD * ((rot ? r0.height : r0.width) - L);
