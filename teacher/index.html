@@ -265,6 +265,9 @@
   .pvAct { display:none; gap:6px; align-items:center; } .pvCard.open .pvAct { display:flex; } .pvAct .cnt { margin-right:auto; color:var(--muted); font-size:.85rem; }
   .pvAct button { min-height:42px; } .pvAct .save { background:var(--pv, var(--accent)); color:#fff; }
   .pvChips { display:flex; gap:6px; flex-wrap:wrap; } .pvChips button { min-height:36px; padding:0 12px; border-radius:18px; background:transparent; color:var(--fg); border:1px solid var(--line); font-weight:600; font-size:.9rem; }
+  .rpRow { display:grid; grid-template-columns:88px minmax(0,1fr); gap:8px; padding:5px 0; border-top:1px solid var(--line); font-size:.95rem; } .rpRow:first-of-type { border-top:0; }
+  .rpB { font-size:.72rem; padding:1px 6px; border-radius:8px; background:#2a2f37; color:#b8c0cc; white-space:nowrap; } .rpB.g { background:#3a3020; color:#ffd479; }
+  .rpWarn { margin:8px 0 0; padding:6px 10px; border-radius:10px; background:#3a3020; color:#ffd479; font-size:.85rem; }
   .pvSongRow { display:flex; align-items:center; gap:10px; } .pvSongRow .art { flex:none; width:40px; height:40px; border-radius:10px; background:linear-gradient(135deg,#ff8a3d,#ff5c8a); display:flex; align-items:center; justify-content:center; }
   @media (prefers-reduced-motion: reduce) { .pvEd { transition:none; } .pvStrip { scroll-behavior:auto; } }
   .pvDots { display:flex; justify-content:center; gap:6px; margin:2px 0 6px; } .pvDots i { width:8px; height:8px; border-radius:4px; background:#3a414b; transition:width .2s, background .2s; } .pvDots i.on { width:22px; background:var(--accent); }
@@ -1334,6 +1337,10 @@ async function paintBriefing(sid) {
       if (!$("stuSaid")) $("stuBrief").insertAdjacentHTML("beforebegin", `<div id="stuSaid"></div>`);
       paintSaid($("stuSaid"), sid, null, rec);
     }
+    if (stuCur?.sid === sid && $("stuBrief")) {   // (11/14 사용자) 수강생 리포트 — '수강생이 한 말' 확인 칸 위
+      if (!$("stuReport")) ($("stuSaid") || $("stuBrief")).insertAdjacentHTML("beforebegin", `<div id="stuReport"></div>`);
+      try { paintReport($("stuReport"), sid, rec, st); } catch {}
+    }
     if (stuCur?.sid === sid) paintGrowth4(rec, st);
     if (!rec?.briefing || !$("stuBrief") || stuCur?.sid !== sid) return;
     const songs = Object.entries(rec.songs || {}).slice(-5);
@@ -2345,7 +2352,9 @@ function feedbackPreviewHTML(note, rv, disabled, open = false) {
         ${pvEdHTML("pvPoints", "오늘의 핵심 포인트", (rv.points || []).filter(Boolean).join("\n"), disabled, "한 줄에 하나 · 최대 3개\n예: 호흡이 한층 안정적이에요")}${typeof pointSndHTML === "function" && typeof cur !== "undefined" ? pointSndHTML(rv, disabled) : ""}</section>
       <section class="pvCard${fold("mission", ms === "unset")}" data-v2="mission" style="--pv:#ff8a3d" aria-label="4 다음 미션"><h4>${chev}${num()}다음 미션${ms === "unset" ? ` <span class="chip todo">미설정</span>` : ""}${ms === "none" ? "" : `<button type="button" class="small ghost pvFold" data-pvfold="pvMission">접기</button>`}</h4>${sum(ms === "none" ? "미션 없음" : first((rv.practice || []).filter(Boolean).join("\n"), 30) + (song.title ? ` · 🎵 ${song.title}` : ""))}
         ${ms === "none" ? `<p style="margin:0"><span class="chip">미션 없음(선생님이 선택)</span></p>` : pvEdHTML("pvMission", "다음 미션", (rv.practice || []).filter(Boolean).join("\n"), disabled, "한 줄에 하나 · 최대 2개\n예: 후렴 두 마디만 천천히 매끄럽게")}
-        <div class="pvSong"><div class="pvSongRow"><span class="art" aria-hidden="true">🎵</span><div style="min-width:0"><div class="muted">추천 곡</div><b>${esc(song.title || "아직 없음")}</b>${song.artist ? ` <span class="muted">(${esc(song.artist)})</span>` : ""}</div></div>
+        <div class="pvSong"><div class="pvSongRow"><span class="art" aria-hidden="true">🎵</span><div style="min-width:0"><div class="muted">추천 곡${song.ai_draft ? ` <span class="chip" style="font-size:.72rem">AI 초안</span>` : ""}</div><b>${esc(song.title || "아직 없음")}</b>${song.artist ? ` <span class="muted">(${esc(song.artist)})</span>` : ""}${song.why ? `<div class="muted" style="font-size:.85rem">${esc(song.why)}</div>` : ""}</div></div>
+          ${(() => { const sp = typeof songPick === "function" && typeof cur !== "undefined" ? songPick(cur?.ana) : null, alts = (sp ? [sp.pick, ...sp.alts] : []).filter(x => x.title !== song.title);
+            return `<div class="pvChips" style="margin-top:6px">${alts.map((x, i) => `<button type="button" data-pvalt="${i}"${disabled}>🔁 ${esc(x.title)}</button>`).join("")}${song.title && typeof ytSearchUrl === "function" ? `<a class="small ghost" style="display:inline-block;padding:4px 10px" href="${ytSearchUrl(song.title, song.artist)}" target="_blank" rel="noopener">▶ 유튜브에서 찾기</a>` : ""}</div>`; })()}
           <details style="margin-top:6px"><summary class="muted">추천 곡 고치기</summary>
             <input id="pvSongT" aria-label="추천 곡 제목" placeholder="곡 제목" value="${esc(song.title || "")}" style="width:100%;margin:3px 0"${disabled}>
             <input id="pvSongA" aria-label="가수" placeholder="가수" value="${esc(song.artist || "")}" style="width:100%;margin:3px 0"${disabled}>
@@ -2456,6 +2465,10 @@ function pvWireCards(me) {
       return save(me.review.song ? "추천 곡을 저장했어요. ‘검수 저장’ 때 수강생 노트에 반영돼요." : "추천 곡을 비웠어요."); }
     const el = $(id); if (!el || !PV_EDS[id]) return; PV_EDS[id].set(me, el.value);
     await save("저장했어요. ‘검수 저장’을 누르면 수강생 노트에 반영돼요."); });
+  q("[data-pvalt]").forEach(b => b.onclick = () => { const sp = songPick(me.ana), alts = (sp ? [sp.pick, ...sp.alts] : []).filter(x => x.title !== me.review.song?.title), x = alts[+b.dataset.pvalt]; if (!x) return;
+    const dt = b.closest(".pvSong")?.querySelector("details"); if (dt) dt.open = true;
+    for (const [id, v] of [["pvSongT", x.title], ["pvSongA", x.artist], ["pvSongW", x.why], ["pvSongU", ""]]) { const el = $(id); if (el) el.value = v; }
+    me._pvSongAuto = null; me._pvYtFor = null; const h = $("pvSongH"); if (h) h.textContent = "후보를 채웠어요 · 유튜브 주소를 넣고 ‘추천 곡 저장’을 눌러 주세요"; });
   { const uEl = $("pvSongU"); if (uEl && !uEl.readOnly && !uEl.disabled) uEl.oninput = () => { clearTimeout(me._pvYtT); me._pvYtT = setTimeout(() => pvSongFromYt(me), 600); }; }   // (11/14 사용자) 유튜브 주소 → 제목·가수·이유 초안
   q("[data-pvcancel]").forEach(b => b.onclick = () => { const id = b.dataset.pvcancel, el = $(id); if (!el || !PV_EDS[id]) return; el.value = PV_EDS[id].get(me.review); pvSetH(el, false); });
   q("[data-pvopen]").forEach(b => b.onclick = () => { const el = $(b.dataset.pvopen); if (!el) return; el.focus(); if (el.id !== "previewFeedback") pvSetH(el, true); });
@@ -6499,6 +6512,7 @@ async function openLessonInner(sid, i, backTo) {
     if (!(review.practice || []).some(Boolean)) review.practice = (ai.practice || []).slice(0, 2);
     if (!review.reviewed_at && !review.feedback && ai.feedback_text) review.feedback = ai.feedback_text;
   }
+  if (!("song" in review) && !review.reviewed_at) { const sp = songPick(d.ana); if (sp) review.song = { ...sp.pick, ai_draft: true }; }   // (11/14 사용자) 추천 곡 AI 초안 — 저장 전까지 'AI 초안' 표시
   cur = { sid, st, folder: l, files, summary, segs, cands, clips, samples, sampleFiles, review, reviewId: reviewF?.id, clipUrls: {}, ai, rowIndex: i, back: goBack, spkSaved, teacherPts, ana: d.ana, voice, best: d.best, note: d.note, trial: d.trial, growth: d.growth };
   if (cur.review && cur.review.cheer == null && typeof lessonCheer === "function") { try { const f = cheerFacts(cur), c0 = lessonCheer(2, "", f) || lessonCheer(0, "", f); if (c0) cur.review.cheer = c0; } catch {} }   // (10/29 11:06 사용자) 응원이 비면 그날 레슨으로 기본 문장(선생님이 고침·지움)
   if (cur.note) cur.kakao = kakaoText(st, cur.note, LS.get("vn_tpl_" + sid) ?? 0);
@@ -7198,6 +7212,61 @@ async function setSaidMany(sid, pairs) {   // pairs = [[k, value], ...] — 여�
   throw new Error("기록이 지금 자동 정리 중이라 저장하지 못했어요. 잠시 뒤 다시 눌러 주세요");
 }
 async function setSaid(sid, k, value) { return (await setSaidMany(sid, [[k, value]])).after; }
+// ── (11/14 10:17 사용자) 수강생 리포트: 레슨마다 AI가 항목별 한 줄(rec.report)을 갱신, 선생님이 고친 칸(rec.report_teacher)이 항상 우선 ──
+// 서버 lesson_ai.report_view와 같은 규칙: 선생님이 빈칸으로 고치면 그 항목은 숨김. 나이는 수강생이 직접 말한 것만(서버 프롬프트 규칙).
+const REPORT_KEYS = [["age_life", "나이·생활"], ["likes", "좋아하는 음악"], ["wants", "하고 싶은 것"], ["voice", "목소리"], ["worries", "주된 고민"], ["caution", "주의"]];
+const REPORT_BASIS = { said: "본인 말", teacher: "선생님", measure: "측정", guess: "추정" };
+function reportView(rec) {
+  const out = {}, ai = rec?.report || {}, tc = rec?.report_teacher || {};
+  for (const [k] of REPORT_KEYS) {
+    if (typeof tc[k] === "string") { if (tc[k].trim()) out[k] = { text: tc[k].trim(), basis: "teacher", by: "teacher" }; continue; }
+    const v = ai[k]; if (v && typeof v === "object" && String(v.text || "").trim()) out[k] = { text: String(v.text).trim(), basis: REPORT_BASIS[v.basis] ? v.basis : "guess", since: v.since || "" };
+  }
+  return out;
+}
+function reportHTML(rec, name) {
+  const v = reportView(rec), keys = REPORT_KEYS.filter(([k]) => v[k]), n = (rec?.lessons || []).length, guessN = keys.filter(([k]) => v[k].basis === "guess").length;
+  const md = (d) => d ? `${+d.slice(5, 7)}/${+d.slice(8, 10)}` : "";
+  const rows = keys.length ? keys.map(([k, lab]) => { const x = v[k];
+    return `<div class="rpRow"><span class="muted">${lab}</span><span>${esc(x.text)} <span class="rpB${x.basis === "guess" ? " g" : ""}">${REPORT_BASIS[x.basis]}${x.since ? " · " + md(x.since) : ""}</span>${x.basis === "guess" ? ` <button type="button" class="small ghost" data-rpok="${k}">맞아요</button>` : ""}</span></div>`; }).join("")
+    : `<p class="muted" style="margin:4px 0">아직 정리된 항목이 없어요 · 다음 레슨 분석부터 채워져요(아래 ‘고치기’로 직접 넣어도 돼요)</p>`;
+  return `<div class="card"><h3 style="margin-top:0">🧾 수강생 리포트 · ${esc(name || "")} <span class="muted" style="font-size:.85rem;font-weight:400">${n ? `레슨 ${n}회 기준` : ""}</span></h3>
+    ${rows}${guessN ? `<p class="rpWarn">추정 ${guessN}개 · ‘맞아요’를 누르면 선생님 확인으로 바뀌어요</p>` : ""}
+    <details style="margin-top:6px"><summary class="muted">항목 고치기</summary>
+      ${REPORT_KEYS.map(([k, lab]) => `<label class="muted" style="display:block;margin-top:6px;font-size:.85rem">${lab}</label><input data-rped="${k}" value="${esc(v[k]?.text || "")}" placeholder="${k === "age_life" ? "본인이 말한 것만 · 예: 50대 직장인" : "비우면 숨김"}" style="width:100%">`).join("")}
+      <button type="button" class="small" id="rpSave" style="margin-top:8px">리포트 저장</button> <span class="muted" style="font-size:.8rem">고친 칸은 AI가 다시 바꾸지 않아요</span></details></div>`;
+}
+function paintReport(box, sid, rec, st) {
+  if (!box) return; box.innerHTML = reportHTML(rec, st?.name);
+  const save = async (edits, msg) => { try { const after = await setReportTeacher(sid, edits); if (stuCur?.sid === sid) paintReport(box, sid, after, st); toast(msg); } catch (e) { toast(errMsg(e)); } };
+  box.querySelectorAll("[data-rpok]").forEach(b => b.onclick = () => { const k = b.dataset.rpok, t = reportView(rec)[k]?.text; if (t) { b.disabled = true; save({ [k]: t }, "선생님 확인으로 바꿨어요"); } });
+  const sb = box.querySelector("#rpSave"); if (sb) sb.onclick = () => { const v = reportView(rec), edits = {};
+    box.querySelectorAll("[data-rped]").forEach(i => { const k = i.dataset.rped, t = i.value.trim(); if (t !== (v[k]?.text || "")) edits[k] = t; });
+    if (!Object.keys(edits).length) return toast("바뀐 칸이 없어요"); sb.disabled = true; save(edits, "리포트를 저장했어요"); };
+}
+async function setReportTeacher(sid, edits) {   // setSaidMany와 같은 방식: 최신본을 다시 읽어 report_teacher 칸만 고쳐 씀(수집기가 그사이 쓴 내용 보존)
+  const st = cfg.students[sid];
+  const f = st?.folder && (await list(st.folder)).find(x => x.name === SAID_REC);
+  if (!f) throw new Error("수강생기록 파일이 아직 없어요 · 첫 레슨 분석 뒤에 저장할 수 있어요");
+  const ver = async () => (await (await api(`${DRIVE}/files/${f.id}?fields=version`)).json()).version;
+  const fresh = async () => (await api(`${DRIVE}/files/${f.id}?alt=media&_=${Date.now()}`, { cache: "no-store" })).json();
+  for (let n = 0; n < 3; n++) {
+    const v1 = await ver(), rec = await fresh();
+    if (await ver() !== v1) continue;
+    rec.report_teacher = { ...(rec.report_teacher || {}), ...edits };
+    if (await ver() !== v1) continue;
+    await writeJSON(null, SAID_REC, rec, f.id);
+    const after = await fresh();
+    if (Object.entries(edits).every(([k, t]) => after.report_teacher?.[k] === t)) { if (st._root) delete st._root[SAID_REC]; return after; }
+  }
+  throw new Error("기록이 지금 자동 정리 중이라 저장하지 못했어요. 잠시 뒤 다시 눌러 주세요");
+}
+// ── (11/14 사용자) 레슨 미리보기 추천 곡 AI 초안: 레슨 분석 song_ideas 첫 곡(리포트·오늘 지도 기준 1순위) ──
+function songPick(ana) {
+  const xs = (ana?.song_ideas || []).filter(x => x && String(x.title || "").trim()).map(x => ({ title: String(x.title).trim(), artist: String(x.artist || "").trim(), why: String(x.why || "").trim() }));
+  return xs.length ? { pick: xs[0], alts: xs.slice(1, 3) } : null;
+}
+const ytSearchUrl = (t, a) => "https://www.youtube.com/results?search_query=" + encodeURIComponent([t, a].filter(Boolean).join(" "));
 // (11/05 사용자 '하나 체크할 때마다 불러오는 중이 떠서 다음 걸 못 누른다') 누르면 화면은 바로 넘어가고, 저장은 뒤에서 줄 서서 한꺼번에.
 // 저장 중에는 전체 화면 '불러오는 중'을 띄우지 않고(__quiet), 실패한 것만 되돌리고 알려 준다. 저장이 끝나기 전에 화면을 닫으면 경고.
 const saidQ = { list: [], fly: [], on: false };
