@@ -466,5 +466,9 @@
       { step: 1, min: MUTE_DB, max: 12, def: 0, fmt: (v) => (v <= MUTE_DB ? "무음" : `${v > 0 ? "+" : ""}${Math.round(v)}dB`) });
     el.classList.add("advGVol"); return el;
   }
-  G.TuneAdv = { groupVol, scrub, panel, resetNote, globalSheet, engineBox, toolsBox, resetDetail, preview, state, uvList, relabel, uvSheet, UV_NAME, addDraw, drawAt, removeDraw, flatNote, cleanStroke, undoLast: (st, cv) => undo(state(st), st, cv), _t: { shapeNote, notesFromCurve, midiBytes, clean, N_DEF } };
+  // (11/14 19:38 사용자) 편집 화면 위쪽 ↕ 손잡이: 음 앞·뒤 부분 구부리기(tilt_in·tilt_out, 서버 note_edits와 같은 규칙) — 끄는 동안 되돌리기 1칸
+  function bendGet(st, b, key) { const n = noteOf(state(st), b, false); return n && n[key] ? n[key] : 0; }
+  function bendSet(st, cv, b, key, v, first) { const A = state(st); if (first) { A.hist.push(JSON.stringify(A.ne)); if (A.hist.length > 100) A.hist.shift(); }
+    const n = noteOf(A, b, true); n[key] = v; clean(A); preview(cv, A.ne); clearTimeout(A.tm); A.tm = setTimeout(() => save(A, st), 400); }
+  G.TuneAdv = { bendGet, bendSet, groupVol, scrub, panel, resetNote, globalSheet, engineBox, toolsBox, resetDetail, preview, state, uvList, relabel, uvSheet, UV_NAME, addDraw, drawAt, removeDraw, flatNote, cleanStroke, undoLast: (st, cv) => undo(state(st), st, cv), _t: { shapeNote, notesFromCurve, midiBytes, clean, N_DEF } };
 })(typeof window !== "undefined" ? window : globalThis);
