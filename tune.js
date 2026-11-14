@@ -488,11 +488,18 @@
         const ub = [], near_ = (a, b) => { let best = null, bd = 9; for (const x of bars) { const dd = Math.max(0, x.t0 - b, a - x.t1); if (dd < bd && dd <= 0.6) { bd = dd; best = x; } } return best; };
         for (const u of G.TuneAdv.uvList(cv, st)) { if (u[1] < t0 - 0.2 || u[0] > t0 + W8 + 0.2) continue;
           const x0 = xs(u[0]), x1 = Math.max(x0 + 4, xs(u[1])), nb = near_(u[0], u[1]), yy = nb ? nb.y : T + HP - 14, hh = Math.max(12, bh * 1.2);
-          g.save(); g.beginPath(); g.rect(x0, yy - hh / 2, x1 - x0, hh); g.clip();
-          const c = u[2] === "s" ? "rgba(255,210,90,.85)" : u[2] === "b" ? "rgba(180,188,200,.7)" : "rgba(120,128,140,.35)";
-          g.fillStyle = u[2] === "s" ? "rgba(255,210,90,.12)" : "rgba(180,188,200,.08)"; g.fillRect(x0, yy - hh / 2, x1 - x0, hh);
-          g.strokeStyle = c; g.lineWidth = 1.2; for (let q = x0 - hh; q < x1 + hh; q += 5) { g.beginPath(); g.moveTo(q, yy + hh / 2); g.lineTo(q + hh, yy - hh / 2); g.stroke(); }
-          g.restore(); if (u[3]) { g.strokeStyle = c; g.lineWidth = 1.5; g.strokeRect(x0, yy - hh / 2, x1 - x0, hh); }
+          { // (11/14 21:09 사용자 '멜로다인식 고고') 치찰음·숨 = 붙은 음 높이의 '잡음 덩어리' — 붙은 음 높이에, 모양 = 그 구간 소리 크기, 거친 점무늬
+            const EVu = (st && typeof st.vbuf === "function" ? envOf(st.vbuf()) : null) || envCv(cv), isS = u[2] === "s";
+            const N = Math.max(6, Math.round((x1 - x0) / 2)), top = [], bot = [];
+            for (let q = 0; q <= N; q++) { const tt = u[0] + (u[1] - u[0]) * q / N, e = Math.min(1, q / 2, (N - q) / 2), v = EVu ? envAt(EVu, tt) : 0.6, h = Math.max(2, bh * (isS ? 1.5 : 1.0) * (0.35 + 0.9 * v) * Math.max(0.35, e) / 2); top.push([x0 + (x1 - x0) * q / N, yy - h]); bot.push([x0 + (x1 - x0) * q / N, yy + h]); }
+            g.save(); g.beginPath(); g.moveTo(top[0][0], top[0][1]); top.forEach(pq => g.lineTo(pq[0], pq[1])); for (let q = bot.length - 1; q >= 0; q--) g.lineTo(bot[q][0], bot[q][1]); g.closePath();
+            g.fillStyle = isS ? "rgba(214,206,190,.55)" : "rgba(140,170,210,.28)"; g.fill(); g.clip();
+            let sd = Math.floor(u[0] * 1000) | 1; const rnd = () => { sd = (sd * 16807) % 2147483647; return sd / 2147483647; };
+            const dots = Math.round((x1 - x0) * hh * (isS ? 0.35 : 0.12)); g.fillStyle = isS ? "rgba(255,248,230,.9)" : "rgba(200,220,245,.6)";
+            for (let q = 0; q < dots; q++) { const dx = x0 + rnd() * (x1 - x0), dy = yy - hh + rnd() * hh * 2; g.fillRect(dx, dy, 1.6, 1.6); }
+            g.restore(); g.strokeStyle = isS ? "rgba(240,232,215,.75)" : "rgba(160,190,230,.45)"; g.lineWidth = 1; g.beginPath(); g.moveTo(top[0][0], top[0][1]); top.forEach(pq => g.lineTo(pq[0], pq[1])); for (let q = bot.length - 1; q >= 0; q--) g.lineTo(bot[q][0], bot[q][1]); g.closePath(); g.stroke();
+            if (u[3]) { g.strokeStyle = isS ? "#ffd27a" : "#9cc3ff"; g.lineWidth = 1.6; g.strokeRect(x0 - 1, yy - hh - 1, x1 - x0 + 2, hh * 2 + 2); }   // 고른·고친 것
+            if (isS && x1 - x0 > 10) { g.font = "bold 10px system-ui, sans-serif"; g.fillStyle = "#f3ead8"; g.textBaseline = "middle"; g.fillText("S", x0 + 2, yy - hh * 0.9 - 6); } }
           ub.push({ x0, x1, y: yy, h: hh, t0: u[0], t1: u[1], k: u[2], u }); }
         st.uvbars = ub;
         if (st.uvSel) { const a = xs(Math.min(st.uvSel[0], st.uvSel[1])), b2 = xs(Math.max(st.uvSel[0], st.uvSel[1])); g.fillStyle = "rgba(255,184,107,.16)"; g.fillRect(a, T, Math.max(2, b2 - a), HP); g.fillStyle = "#ffb86b"; g.fillRect(a, T, 2, HP); g.fillRect(b2 - 2, T, 2, HP); }

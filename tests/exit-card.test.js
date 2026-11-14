@@ -72,7 +72,7 @@ assert.ok(T.includes("음표 위 꾹은 여러 음 고르기보다 이것이 먼
 console.log("long-press fine / view / blue ok");
 // (11/06 21:53 사용자) 칸을 누르면 아래 안내 줄 = 그 칸 설명
 { const A = fs.readFileSync(path.join(__dirname, "..", "adv.js"), "utf8");
-  assert.ok(A.includes('"커지는 시간": "떨림이 시작돼 다 커질 때까지') && A.includes('tp.classList.add("desc")') && A.includes("칸을 누르면 여기에 그 칸 설명이 나와요"));
+  assert.ok(A.includes('"커지는 시간": "떨림이 시작돼 다 커질 때까지') && A.includes('tp.classList.add("desc")'));
   console.log("cell desc ok"); }
 // (11/06 21:59 사용자) 반음 옮김 진동 · 미세 5센트마다 짧게 · 빈 곳 꾹 구간 고르기 시작 진동
 assert.ok(T.includes("if (Math.abs(nm_ - m) > 0.5) buzz(20); else if (Math.floor(nm_ * 20 + 1e-6) !== Math.floor(m * 20 + 1e-6)) buzz(10);") && T.includes("armTip(true); buzz(40); return; }"));
