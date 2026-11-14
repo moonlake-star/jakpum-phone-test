@@ -8673,7 +8673,13 @@ document.querySelectorAll("[data-mini]").forEach(b => b.onclick = () => {
 $("miniX").onclick = () => { miniMarks([]); hlQueueStop(); hlPlay = null; full.pause(); $("mini").classList.add("hidden"); document.body.classList.remove("miniOn"); };
 $("miniSeek").onchange = (e) => { hlPlay = null; hlQueueStop(); playAt(e.target.value / 1000 * lessonEnd()).catch(x => toast(x.message)); };
 // 저장된 출입증이 있으면 로그인 화면 없이 바로 목록
-if (savedToken()) { token = savedToken(); start(); }
+if (savedToken()) {
+  token = savedToken();
+  // (11/14 사용자 '빠릿하게') 설정 파일을 서버에서 다시 받기 전에, 지난번 목록을 먼저 그려 둔다(토큰이 끝난 경로와 같은 방식). 체험 보기·?shared 열기는 제외 — 곧바로 서버 확인(start)이 이어서 덮어 그림
+  const c0 = LS.get("vn_cfg"), l0 = LS.get("vn_list");
+  if (LS.get("vn_hint") && c0 && c0.demo_readonly !== true && Array.isArray(l0) && l0.length && !new URLSearchParams(location.search).has("shared")) { cfg = c0; show("vList"); try { paintList(l0, true); } catch {} }
+  start();
+}
 else if (LS.get("vn_hint") && LS.get("vn_list") && LS.get("vn_cfg")) { cfg = LS.get("vn_cfg"); show("vList"); try { paintList(LS.get("vn_list"), true); } catch {} resumeOnTap(); }
 let goBack = () => renderList();
 $("btnBack").onclick = () => goBack();
