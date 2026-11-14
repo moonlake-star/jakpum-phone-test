@@ -611,7 +611,7 @@
       const kB = col(cv, (st && st.lvDef) || 2) || col(cv, (cv.levels || [])[0]);
       if (kB) line(kB, "rgba(127,227,255,.65)", full ? 1.6 : 1.3);
       line(1, "#071016", full ? 5.5 : 3.6); line(1, "#ffe066", full ? 3 : 2); }
-    if (k && full && st && st.tbars) {   // (시안 B) 많이 고친 음(평균 25센트 이상)에만 ▲올림·▼내림 표시
+    if (false && k && full && st && st.tbars) {   // (11/14 22:18 사용자 '노란 원본선이 있으니 사족') ▲▼ 숫자 표시 끔 · (시안 B) 많이 고친 음(평균 25센트 이상)에만 ▲올림·▼내림 표시
       g.font = "bold 11px system-ui, sans-serif"; g.textBaseline = "middle";
       for (const b of st.tbars) { if (b.ghost || b.x1 < L || b.x0 > w) continue; let sm_ = 0, n_ = 0; for (const p of vis) if (p[0] >= b.t0 && p[0] <= b.t1 && p[k] != null && p[1] != null) { sm_ += p[k] - p[1]; n_++; }
         if (!n_) continue; const dd = sm_ / n_; if (Math.abs(dd) < 25) continue;
