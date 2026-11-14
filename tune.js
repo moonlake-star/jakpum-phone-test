@@ -539,7 +539,8 @@
             if (ix >= L + 8) vh(ix, vI, st.vAct === "i"); if (ox <= w + 4) vh(ox, vO, st.vAct === "o");
             st.vhdl = { i: { x: ix, y: vy, r: R + 8 }, o: { x: ox, y: vy, r: R + 8 }, b: bb }; }
           const tips = [["v", "↕ 잡자마자 끌기 = ", "반음씩"], ["fine", "꾹 0.5초 → 위아래 = ", "미세"], ["dbl", "두 번 톡 = ", "가까운 음에 착"], ["arr", "‹ › 꾹 0.5초 → 끌기 = ", "앞·뒤 길이"]].filter(q => !learned(q[0]) && (q[0] !== "dbl" || st.advOn));
-          if (tips.length && !st.dragging && !st.coachOwn) {   // (11/12 18:06 사용자 고) 선생님 편집 화면은 위쪽 안내 띠로 옮김 g.font = "11.5px system-ui, sans-serif"; g.textBaseline = "middle"; const cx = Math.max(L + 70, Math.min(w - 70, (Math.max(L, sb.x0) + Math.min(w, sb.x1)) / 2));
+          if (tips.length && !st.dragging && !st.coachOwn) {   // (11/12 18:06 사용자 고) 선생님 편집 화면은 위쪽 안내 띠로 옮김
+            g.font = "11.5px system-ui, sans-serif"; g.textBaseline = "middle"; const cx = Math.max(L + 70, Math.min(w - 70, (Math.max(L, sb.x0) + Math.min(w, sb.x1)) / 2));
             const tag = (yy, a, b2) => { const wa = g.measureText(a).width; g.font = "bold 11.5px system-ui, sans-serif"; const wb = g.measureText(b2).width; g.font = "11.5px system-ui, sans-serif";
               const W_ = wa + wb + 14, X0 = Math.max(L + 2, Math.min(w - W_ - 2, cx - W_ / 2)); g.fillStyle = "rgba(24,29,37,.92)"; g.strokeStyle = "#3b4250"; g.lineWidth = 1;
               g.beginPath(); if (g.roundRect) g.roundRect(X0, yy - 10, W_, 20, 8); else g.rect(X0, yy - 10, W_, 20); g.fill(); g.stroke();
