@@ -288,6 +288,9 @@
     for (let i = 0; i < n; i++) { let s = 0, c = 0; for (let k = -2; k <= 2; k++) { const v = e[i + k]; if (v != null) { s += v; c++; } } sm[i] = Math.pow(Math.min(1, s / c / ref), 0.6); }
     return (buf._je = { e: sm, hop: 0.02 });
   }
+  // (11/14 18:37 사용자 시안 B) 덩어리 색: 반투명 막대 색 → 어두운 바탕 위에서 같은 색이 나는 불투명 색 + 밝은 테두리
+  function solidOf(c) { const m = /rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?/.exec(c || ""); if (!m) return c; const a = Math.min(1, (m[4] == null ? 1 : +m[4]) * 1.55), bg = [17, 21, 28]; return `rgb(${[1, 2, 3].map((i, j) => Math.round(bg[j] + (+m[i] - bg[j]) * a * 0.82)).join(",")})`; }
+  function edgeOf(c) { const m = /rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)/.exec(c || ""); return m ? `rgba(${m[1]},${m[2]},${m[3]},.85)` : c; }
   function envAt(ev, t) { if (!ev) return 1; const i = Math.round(t / ev.hop); return i >= 0 && i < ev.e.length ? ev.e[i] : 0; }
   // (시안 C) 음정선 = 점 사이를 부드러운 곡선(카트멀-롬 → 베지어)으로. 실제 점은 그대로 지나감
   function smoothPath(g, P) {
@@ -342,7 +345,7 @@
     const w = el.clientWidth, h = el.clientHeight; if (!w || !h) return;
     const r = G.devicePixelRatio || 1; if (el.width !== Math.round(w * r) || el.height !== Math.round(h * r)) { el.width = Math.round(w * r); el.height = Math.round(h * r); }   // 높이만 바뀌어도 다시 맞춤(옛 그림이 늘어나 터치 위치가 위로 어긋나던 버그)
     const g = el.getContext("2d"); g.setTransform(r, 0, 0, r, 0, 0); g.clearRect(0, 0, w, h);
-    const full = !!(st && st.full), W8 = full ? (st.win || 6) / (st.xz || 1) : WIN, k = col(cv, lv), lane = k && h > 110 && !(st && st.advOn) ? (full ? 64 : LANE) : 0, H = h - lane, T = lane, kt = tgCol(cv);   // (10/30 15:39 사용자) 고친 양 = 그래프 위
+    const full = !!(st && st.full), W8 = full ? (st.win || 6) / (st.xz || 1) : WIN, k = col(cv, lv), lane = k && h > 110 && !(st && st.advOn) ? (full ? 40 : LANE) : 0, H = h - lane, T = lane, kt = tgCol(cv);   // (10/30 15:39 사용자) 고친 양 = 그래프 위
     if (cv._orig || cv._kShift) { try { syncCorr(cv); } catch {} }
     let [lo, hi] = range(cv);
     if (full && (st.yz || 1) > 1) {   // 전체화면 핀치 확대: 배율은 손가락으로만 바뀜. 가운데는 지금 음을 부드럽게 따라가고, 손으로 위아래로 밀면 그 자리에 머묾
@@ -371,7 +374,7 @@
     const RB0 = hasN ? noteBand(st, full) : 0; let RB = RB0;
     if (full && st) { if (st.rbS == null || Math.abs(st.rbS - RB0) < 0.6) st.rbS = RB0; else st.rbS += (RB0 - st.rbS) * 0.22; RB = Math.round(st.rbS); }   // (11/07 09:31 사용자 영상) 🎛 고급을 켜면 주석 칸이 없어지며 음정선이 툭 내려갔음 → 0.3초 동안 부드럽게 옮겨 가 보던 음을 눈으로 따라갈 수 있게
     const HP = H - RB;
-    const L = full ? 44 : 30, y = (c) => T + HP - 6 - (c - lo) / (hi - lo) * (HP - 12);
+    const L = full ? 36 : 30, y = (c) => T + HP - 6 - (c - lo) / (hi - lo) * (HP - 12);
     const t0 = t - W8 * HEAD, xs0 = (tt) => L + (tt - t0) / W8 * (w - L), sc = cv.scale;
     // (11/09 11:18 사용자 '보컬은 한 음씩이라 뒤 음을 당기면 앞 음도 밀려야') 타이밍 고침(아직 완성본 전)이 있으면 그래프 전체를 서버와 같은 시간표로 미리 옮겨 그림
     //   → 당긴 음 앞의 음은 그만큼 짧아져(눌려) 보이고, 늘린 음 뒤의 음은 밀려 보임. 원래 자리 점선·새 자리 하늘색 막대는 원래 좌표(xs0)
@@ -391,12 +394,12 @@
       if (ins && yy - lastY >= 12) { g.fillStyle = sc && pc === sc[0] ? "#9cc3ff" : "#6b7480"; g.fillText(NAMES[pc] + (Math.floor(m / 12) - 1), 2, yy); lastY = yy; }   // 가까운 이름은 건너뜀
     }
     if (full) {   // (11/02 15:48 사용자) 왼쪽 음 이름 = 건반(누르는 동안 소리)
-      const semi = (HP - 12) / ((hi - lo) / 100), KW = L - 3, fs = Math.max(8, Math.min(12, semi * 0.72));
+      const semi = (HP - 12) / ((hi - lo) / 100), KW = L - 3, fs = Math.max(8, Math.min(11, semi * 0.7));
       g.save(); g.beginPath(); g.rect(0, T, L, HP); g.clip(); g.font = fs + "px system-ui, sans-serif"; g.textBaseline = "middle";
       for (let m = Math.ceil(hi / 100) + 1; m >= Math.floor(lo / 100) - 1; m--) {
         const pc = ((m % 12) + 12) % 12, blk = [1, 3, 6, 8, 10].includes(pc), y0 = y(m * 100 + 50), y1 = y(m * 100 - 50), down = st && st.kbDown === m;
         g.fillStyle = down ? "#ff9f5a" : blk ? "#22262d" : "#e6e9ee"; g.fillRect(0, y0, blk ? KW * 0.62 : KW, Math.max(1, y1 - y0 - 0.6));
-        if (semi >= 9 || pc === 0) { g.fillStyle = down ? "#111" : blk ? "#cfd5de" : (sc && pc === sc[0] ? "#2a5bd7" : "#2b2f36"); g.fillText(NAMES[pc] + (Math.floor(m / 12) - 1), 3, (y0 + y1) / 2); }
+        if ((semi >= 9 && (!blk || semi >= 16)) || pc === 0) { g.fillStyle = down ? "#111" : blk ? "#cfd5de" : (sc && pc === sc[0] ? "#2a5bd7" : "#2b2f36"); g.fillText(NAMES[pc] + (Math.floor(m / 12) - 1), 3, (y0 + y1) / 2); }
       }
       g.restore();
       if (st) { st.kb = { L, inv: (Y) => lo + (T + HP - 6 - Y) / (HP - 12) * (hi - lo) }; }
@@ -436,9 +439,11 @@
           const top = [], bot = [], N = r.seg.length, hOf = (tt, edge) => Math.max(1.5, rh * (0.3 + 1.2 * envAt(EV, tt)) * edge / 2);
           r.seg.forEach(([p, x0, x1], si) => { const yy = y(p[kt]), e0 = si === 0 ? 0.55 : 1, h0 = hOf(p[0], e0); top.push([x0, yy - h0]); bot.push([x0, yy + h0]);
             if (si === N - 1) { const xe = Math.max(x0 + 1, x1 + 0.5), h1 = hOf(p[0] + 0.04, 0.55); top.push([xe, yy - h1]); bot.push([xe, yy + h1]); } });
-          g.fillStyle = srcCol(cv, r.seg[N >> 1][0][0]); if (r.gd === "m") g.globalAlpha = 0.28;
-          g.beginPath(); g.moveTo(top[0][0], top[0][1]); for (const q of top) g.lineTo(q[0], q[1]); for (let q = bot.length - 1; q >= 0; q--) g.lineTo(bot[q][0], bot[q][1]); g.closePath(); g.fill(); g.globalAlpha = 1; }
-        else for (const [p, x0, x1] of r.seg) { g.fillStyle = srcCol(cv, p[0]); const mv = mvOf(p); if (mv) g.globalAlpha = 0.22; if (r.gd === "m") g.globalAlpha = 0.28; g.fillRect(x0, y(p[kt]) - rh / 2, Math.max(1, x1 - x0 + 0.5), rh); g.globalAlpha = 1; }
+          const cc_ = srcCol(cv, r.seg[N >> 1][0][0]); g.fillStyle = solidOf(cc_); if (r.gd === "m") g.globalAlpha = 0.28;
+          g.beginPath(); g.moveTo(top[0][0], top[0][1]); for (const q of top) g.lineTo(q[0], q[1]); for (let q = bot.length - 1; q >= 0; q--) g.lineTo(bot[q][0], bot[q][1]); g.closePath(); g.fill();
+          g.strokeStyle = edgeOf(cc_); g.lineWidth = 1.2; g.stroke(); g.globalAlpha = 1;   // (시안 B) 불투명한 색 + 밝은 테두리
+          if (full && r.x1 - r.x0 > 34) { const nm_ = NAMES[((Math.round(r.c / 100) % 12) + 12) % 12] + (Math.floor(Math.round(r.c / 100) / 12) - 1); g.font = "bold 10px system-ui, sans-serif"; g.textBaseline = "middle"; g.fillStyle = "rgba(240,255,245,.92)"; g.fillText(nm_, Math.max(L + 2, r.x0) + 4, r.y - Math.max(rh * 0.95, 9)); } }
+        else for (const [p, x0, x1] of r.seg) { g.fillStyle = solidOf(srcCol(cv, p[0])); const mv = mvOf(p); if (mv) g.globalAlpha = 0.22; if (r.gd === "m") g.globalAlpha = 0.28; g.fillRect(x0, y(p[kt]) - rh / 2, Math.max(1, x1 - x0 + 0.5), rh); g.globalAlpha = 1; }
         if (r.gd === "m") { g.save(); g.beginPath(); g.rect(r.x0, r.y - bh / 2, Math.max(2, r.x1 - r.x0), bh); g.clip(); g.strokeStyle = "rgba(220,224,232,.55)"; g.lineWidth = 1.5; for (let X = r.x0 - bh; X < r.x1 + bh; X += 6) { g.beginPath(); g.moveTo(X, r.y + bh / 2); g.lineTo(X + bh, r.y - bh / 2); g.stroke(); } g.restore(); }   // 옮기는 중인 음은 원래 자리를 흐리게
         delete r.seg; bars.push(r); }
       // (11/03 15:35 사용자) 부른 음 선은 있는데 정음 막대가 없는 곳(ㅅ·ㅊ·ㅎ 뒤 모음, 꺾기·짧은 음 등 자동 보정이 일부러 안 건드린 곳)도 고칠 수 있게
@@ -553,14 +558,7 @@
         if (!gr_ && st.mStr) { const its = bars.filter(b => b.t0 < st.msel[1] && b.t1 > st.msel[0]).map(b => tb.find(q => Math.abs(q.t0 - b.t0) < 0.02) || b);   // (11/12 15:55 사용자) 첫 음 앞 끝·끝 음 뒤 끝 = 잡는 자리(밝은 막대)
           if (its.length) { const f_ = its.reduce((a_, b_) => (b_.x0 < a_.x0 ? b_ : a_)), l_ = its.reduce((a_, b_) => (b_.x1 > a_.x1 ? b_ : a_)); g.fillStyle = "#ffe3f1"; g.fillRect(f_.x0 - 2, f_.y - f_.h / 2 - 4, 6, f_.h + 8); g.fillRect(l_.x1 - 4, l_.y - l_.h / 2 - 4, 6, l_.h + 8); } } }
     }
-    if (k) {   // 두 선 사이 노랑(많이 고칠수록 진하게)
-      for (let i = 1; i < vis.length; i++) {
-        const a = vis[i - 1], b = vis[i]; if (b[0] - a[0] >= 0.13) continue;
-        const d = Math.abs(b[k] - b[1]); if (d < 4) continue;
-        g.fillStyle = `rgba(255,210,122,${Math.min(0.75, 0.15 + d / 60).toFixed(2)})`;
-        g.beginPath(); g.moveTo(xs(a[0]), y(a[1])); g.lineTo(xs(b[0]), y(b[1])); g.lineTo(xs(b[0]), y(b[k])); g.lineTo(xs(a[0]), y(a[k])); g.closePath(); g.fill();
-      }
-    }
+    // (11/14 18:37 사용자 시안 B) 두 선 사이 노랑 칠은 없앰 — 많이 고친 음에만 ▲▼ 표시(아래)
     const HI = full ? hiOf(cv) : null;
     const line = (kk, color, wd) => {
       g.strokeStyle = color; g.lineWidth = wd; g.lineJoin = "round"; g.lineCap = "round"; g.beginPath();
@@ -578,14 +576,22 @@
         smoothPath(g, P || r.map(p => [xs(p[0]), y(p[kk])])); }
       g.stroke();
     };
-    line(1, "#ffe066", full ? 2.6 : 2);   // (10/31 15:34 사용자) 부른 음 = 밝은 노랑
-    if (k) line(k, "#7fd9ff", full ? 2.6 : 2);
+    if (k) {   // (11/14 18:37 사용자 시안 B) 보정 후 = 굵게 + 검은 테두리 · 부른 음 = 가늘고 흐리게
+      line(1, "rgba(255,224,102,.6)", full ? 1.6 : 1.3);
+      line(k, "#071016", full ? 5.5 : 3.6); line(k, "#7fe3ff", full ? 3 : 2);
+    } else line(1, "#ffe066", full ? 2.8 : 2);   // 보정 전으로 들을 때 = 부른 음만 굵게
+    if (k && full && st && st.tbars) {   // (시안 B) 많이 고친 음(평균 25센트 이상)에만 ▲올림·▼내림 표시
+      g.font = "bold 11px system-ui, sans-serif"; g.textBaseline = "middle";
+      for (const b of st.tbars) { if (b.ghost || b.x1 < L || b.x0 > w) continue; let sm_ = 0, n_ = 0; for (const p of vis) if (p[0] >= b.t0 && p[0] <= b.t1 && p[k] != null && p[1] != null) { sm_ += p[k] - p[1]; n_++; }
+        if (!n_) continue; const dd = sm_ / n_; if (Math.abs(dd) < 25) continue;
+        const tx = (dd > 0 ? "▲" : "▼") + Math.round(Math.abs(dd)), tw_ = g.measureText(tx).width, xx = Math.min(w - tw_ - 3, b.x1 + 4);
+        g.fillStyle = "rgba(13,16,22,.8)"; g.fillRect(xx - 2, b.y - 8, tw_ + 4, 16); g.fillStyle = dd > 0 ? "#ffd27a" : "#9cc3ff"; g.fillText(tx, xx, b.y + 0.5); } }
     g.restore();
     if (lane) {   // 고친 양 줄
       const top = 2, mid = top + (lane - 4) / 2, half = (lane - 6) / 2;
       g.fillStyle = "#151920"; g.fillRect(L, top, w - L, lane - 4); g.fillStyle = "#2c3440"; g.fillRect(L, Math.round(mid), w - L, 1);
       g.fillStyle = "#6b7480"; g.font = (full ? "11px" : "9px") + " system-ui, sans-serif"; g.fillText("고친 양", 0, mid);
-      if (full) { g.fillText("높게", 4, top + 8); g.fillText("낮게", 4, top + lane - 12); }
+      if (full && lane >= 56) { g.fillText("높게", 4, top + 8); g.fillText("낮게", 4, top + lane - 12); }
       const bw = Math.max(1.5, (w - L) / (W8 * (cv.fps || 25)) * 0.8);
       for (const p of vis) { const X = xs(p[0]); if (X < L || X > w) continue; const d = p[k] - p[1]; if (Math.abs(d) < 2) continue;
         const hh = Math.max(-half, Math.min(half, -d / 50 * half)); g.fillStyle = Math.abs(d) <= 15 ? "#5b6573" : hh > 0 ? "#ffd27a" : "#9cc3ff"; g.fillRect(X, hh > 0 ? mid - hh : mid, bw, Math.abs(hh)); }   // 높게 부른 곳 = 위·노랑, 낮게 = 아래·파랑
@@ -604,7 +610,7 @@
       g.font = (full ? "bold 15px" : "bold 11px") + " system-ui, sans-serif";
       const g2 = (full ? "12px" : "9.5px") + " system-ui, sans-serif", tw1 = g.measureText(s.txt).width; g.font = g2; const tw2 = sub ? g.measureText(sub).width : 0;
       const tw = Math.max(tw1, tw2), x0 = Math.min(w - tw - 8, Math.round(xs0(t)) + 6), bh1 = full ? 22 : 16, bh2 = sub ? (full ? 16 : 12) : 0;
-      g.fillStyle = "rgba(17,20,26,.85)"; g.fillRect(x0 - 3, T + 4, tw + 6, bh1 + bh2);
+      g.fillStyle = "rgba(13,16,22,.9)"; g.beginPath(); if (g.roundRect) g.roundRect(x0 - 6, T + 2, tw + 12, bh1 + bh2 + 4, 8); else g.rect(x0 - 6, T + 2, tw + 12, bh1 + bh2 + 4); g.fill();
       g.font = (full ? "bold 15px" : "bold 11px") + " system-ui, sans-serif"; g.fillStyle = s.c; g.fillText(s.txt, x0, T + 4 + bh1 / 2);
       if (sub) { g.font = g2; g.fillStyle = "#a9b1bc"; g.fillText(sub, x0, T + 4 + bh1 + bh2 / 2 - 2); }
       g.restore(); }
