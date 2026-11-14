@@ -302,11 +302,7 @@
     ["pointerup", "pointercancel"].forEach(ev => pad.addEventListener(ev, () => { dr = null; }));
     const ly = G.Brand && G.Brand.layer ? G.Brand.layer(() => { d.remove(); st.uvSel = null; }) : { close: () => { d.remove(); st.uvSel = null; } };
     d.querySelector(".advX").onclick = () => ly.close();
-    d.querySelector(".advGCancel").onclick = () => ly.close();
-    d.querySelector(".advGApply").onclick = () => { if (!dirty()) return; change(A, st, cv, () => { A.ne.global = clone(draft); }); try { if (typeof st.onGlobalApply === "function") st.onGlobalApply(); } catch {} ly.close();
-      // (11/13 19:11 사용자) 적용하면 팝업 '곡 전체에 적용합니다'
-      try { const pp = document.createElement("div"); pp.className = "advGPop"; pp.setAttribute("role", "status"); pp.textContent = "✓ 곡 전체에 적용합니다"; host.appendChild(pp); setTimeout(() => { pp.classList.add("out"); setTimeout(() => pp.remove(), 400); }, 1600); } catch {} };
-    d.addEventListener("click", (e) => { if (e.target === d && !dirty()) ly.close(); });   // 바꾼 값이 있으면 바깥 톡으로 닫히지 않음(실수로 잃지 않게)
+    d.addEventListener("click", (e) => { if (e.target === d) ly.close(); });
     d.addEventListener("pointerdown", (e) => e.stopPropagation());
     host.appendChild(d); paint();
     return d;
@@ -400,7 +396,11 @@
     cnt();
     const ly = G.Brand && G.Brand.layer ? G.Brand.layer(() => d.remove()) : { close: () => d.remove() };
     d.querySelector(".advX").onclick = () => ly.close();
-    d.addEventListener("click", (e) => { if (e.target === d) ly.close(); });
+    d.querySelector(".advGCancel").onclick = () => ly.close();
+    d.querySelector(".advGApply").onclick = () => { if (!dirty()) return; change(A, st, cv, () => { A.ne.global = clone(draft); }); try { if (typeof st.onGlobalApply === "function") st.onGlobalApply(); } catch {} ly.close();
+      // (11/13 19:11 사용자) 적용하면 팝업 '곡 전체에 적용합니다'
+      try { const pp = document.createElement("div"); pp.className = "advGPop"; pp.setAttribute("role", "status"); pp.textContent = "✓ 곡 전체에 적용합니다"; host.appendChild(pp); setTimeout(() => { pp.classList.add("out"); setTimeout(() => pp.remove(), 400); }, 1600); } catch {} };
+    d.addEventListener("click", (e) => { if (e.target === d && !dirty()) ly.close(); });   // 바꾼 값이 있으면 바깥 톡으로 닫히지 않음(실수로 잃지 않게)
     d.addEventListener("pointerdown", (e) => e.stopPropagation());
     host.appendChild(d);
   }
