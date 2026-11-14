@@ -6322,7 +6322,7 @@ function songDeck(el, ids, o) {
     if (!drag && !glide) { const p = eng.pos(), n = performance.now(); if (p !== lastP) { lastP = p; lastT = n; } vp = eng.isPlaying() ? lastP + Math.min(0.3, (n - lastT) / 1000 * rate) : p; }
     draw(); if (eng.isPlaying() || drag || glide) raf = requestAnimationFrame(frame); };
   function kick_() { if (!raf && alive()) raf = requestAnimationFrame(frame); }
-  me.dispose = () => { cancelAnimationFrame(raf); raf = 0; glide = null; clearTimeout(me.keyT); if (me.edT) { clearTimeout(me.edT); me.edT = 0; try { o.onEdits && o.onEdits(ED); } catch {} } try { me.pr && me.pr.remove(); } catch {} };
+  me.dispose = () => { cancelAnimationFrame(raf); raf = 0; glide = null; clearTimeout(me.keyT); try { lpStop(); } catch {} if (me.edT) { clearTimeout(me.edT); me.edT = 0; try { o.onEdits && o.onEdits(ED); } catch {} } try { me.pr && me.pr.remove(); } catch {} };
   const paintVol = () => { Q("sgVv").textContent = me.vol + "%"; Q("sgVol").value = me.vol; el.querySelectorAll("[data-sgv]").forEach(b => b.classList.toggle("on", +b.dataset.sgv === me.vol)); try { me.onVol && me.onVol(); } catch {} };
   const setVol = (v) => { me.vol = Math.max(0, Math.min(100, Math.round(v))); eng.setVol(me.vol); paintVol(); clearTimeout(me.svT); me.svT = setTimeout(() => { try { o.onVol && o.onVol(me.vol); } catch {} }, 1500); };
   paintVol(); Q("sgT1").textContent = dur() ? mmss(dur()) : "–:–";
