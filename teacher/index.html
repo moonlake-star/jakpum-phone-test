@@ -2349,7 +2349,7 @@ function feedbackPreviewHTML(note, rv, disabled, open = false) {
             <input id="pvSongT" aria-label="추천 곡 제목" placeholder="곡 제목" value="${esc(song.title || "")}" style="width:100%;margin:3px 0"${disabled}>
             <input id="pvSongA" aria-label="가수" placeholder="가수" value="${esc(song.artist || "")}" style="width:100%;margin:3px 0"${disabled}>
             <input id="pvSongW" aria-label="추천 이유" placeholder="한 줄 이유(예: 지금 톤과 잘 어울려요)" value="${esc(song.why || "")}" style="width:100%;margin:3px 0"${disabled}>
-            <input id="pvSongU" aria-label="유튜브 주소" type="url" inputmode="url" placeholder="유튜브 주소(선택) · 예: https://youtu.be/…" value="${esc(song.url || "")}" style="width:100%;margin:3px 0"${disabled}>
+            <input id="pvSongU" aria-label="유튜브 주소" type="url" inputmode="url" placeholder="유튜브 주소(선택) · 넣으면 제목·가수·이유 초안이 저절로" value="${esc(song.url || "")}" style="width:100%;margin:3px 0"${disabled}><div id="pvSongH" class="muted" style="font-size:.78rem;min-height:1em;margin:0 0 4px"></div>
             <button type="button" class="small" data-pvsave="pvSong"${disabled}>추천 곡 저장</button></details></div></section>
       <section class="pvCard${fold("cheer", false)}" data-v2="cheer" style="--pv:#ff5c8a" aria-label="5 응원 메시지"><h4>${chev}${num()}응원 메시지<button type="button" class="small ghost pvFold" data-pvfold="pvCheer">접기</button></h4>${sum(first(rv.cheer))}
         ${pvEdHTML("pvCheer", "응원 메시지", rv.cheer || "", disabled, "예: 오늘 정말 잘하셨어요! 꾸준히 하시면 더 멋진 목소리가 될 거예요 😊")}
@@ -2455,6 +2455,7 @@ function pvWireCards(me) {
       return save(me.review.song ? "추천 곡을 저장했어요. ‘검수 저장’ 때 수강생 노트에 반영돼요." : "추천 곡을 비웠어요."); }
     const el = $(id); if (!el || !PV_EDS[id]) return; PV_EDS[id].set(me, el.value);
     await save("저장했어요. ‘검수 저장’을 누르면 수강생 노트에 반영돼요."); });
+  { const uEl = $("pvSongU"); if (uEl && !uEl.readOnly && !uEl.disabled) uEl.oninput = () => { clearTimeout(me._pvYtT); me._pvYtT = setTimeout(() => pvSongFromYt(me), 600); }; }   // (11/14 사용자) 유튜브 주소 → 제목·가수·이유 초안
   q("[data-pvcancel]").forEach(b => b.onclick = () => { const id = b.dataset.pvcancel, el = $(id); if (!el || !PV_EDS[id]) return; el.value = PV_EDS[id].get(me.review); pvSetH(el, false); });
   q("[data-pvopen]").forEach(b => b.onclick = () => { const el = $(b.dataset.pvopen); if (!el) return; el.focus(); if (el.id !== "previewFeedback") pvSetH(el, true); });
   q("[data-pvcheer]").forEach(b => b.onclick = () => { const el = $("pvCheer"); if (!el) return; el.value = b.dataset.pvcheer === "ai" ? String(me.ai?.cheer || "").trim() : (typeof lessonCheer === "function" ? lessonCheer(+b.dataset.pvcheer, el.value, cheerFacts(me)) : "") || pickCheer(+b.dataset.pvcheer, el.value, me.st?.name); pvSetH(el, true); el.focus(); });
@@ -5757,6 +5758,33 @@ function ytTitle(t, ch) {
     .replace(/\s+(?:M\/?V|MV|Official\s+(?:Music\s+)?Video|Lyrics?)\s*$/i, "").replace(/\s+/g, " ").replace(/^[\s\-–—]+|[\s\-–—]+$/g, "");
   const m = t.split(/\s+[-–—]\s+/); if (m.length >= 2 && m[0] && m[1]) return { title: m.slice(1).join(" - ").trim(), artist: m[0].trim() };
   return { title: t, artist: String(ch || "").replace(/\s*-\s*Topic$|VEVO$|\s*Official$|\s*공식$/i, "").trim() };
+}
+// (11/14 10:14 사용자) 추천 곡 칸: 유튜브 주소를 넣으면 제목·가수를 채우고, 이유가 비었으면 초안을 넣음.
+// 선생님이 직접 쓴 칸은 안 건드림(비었거나 앞서 저절로 채운 그대로일 때만 바꿈). 이유 초안: 레슨 분석의 곡 아이디어에 같은 곡이 있으면 그 이유 → 없으면 오늘 포인트·미션으로 한 줄
+const pvNorm = (x) => String(x || "").toLowerCase().replace(/[\s()\[\]'"‘’“”·.,!?~-]/g, "");
+function pvSongWhy(info, me) {
+  const t = pvNorm(info?.title); if (!t) return "";
+  const ideas = [...(me?.ana?.song_ideas || []), ...(me?.ai?.song_ideas || [])];
+  const hit = ideas.find(x => x && x.why && pvNorm(x.title) && (pvNorm(x.title) === t || t.includes(pvNorm(x.title)) || pvNorm(x.title).includes(t)));
+  if (hit) return String(hit.why).trim();
+  const clip = (x) => { x = String(x || "").replace(/^[-•·\d.)\s]+/, "").trim(); return x.length > 24 ? x.slice(0, 24).trim() + "…" : x; };
+  const pt = clip((me?.review?.points || []).filter(Boolean)[0]), pr = clip((me?.review?.practice || []).filter(Boolean)[0]);
+  if (pt) return `오늘 잡은 ‘${pt}’ 감을 이 곡으로 편하게 이어 가 보세요`;
+  if (pr) return `‘${pr}’ 연습에 잘 맞는 곡이에요. 따라 부르며 감을 익혀 보세요`;
+  return "지금 목소리에 잘 어울리는 곡이에요. 편하게 따라 불러 보세요";
+}
+async function pvSongFromYt(me) {
+  if (typeof cur !== "undefined" && cur !== me) return;
+  const uEl = $("pvSongU"), h = $("pvSongH"), u = svYt(uEl?.value || ""); if (!u) { if (h) h.textContent = uEl?.value.trim() ? "유튜브 영상 주소가 아니에요" : ""; return; }
+  if (me._pvYtFor === u) return; me._pvYtFor = u; if (h) h.textContent = "제목 불러오는 중…";
+  try {
+    const i = await ytInfo(u); if (svYt($("pvSongU")?.value || "") !== u) return;
+    const a0 = me._pvSongAuto || {}, put = (id, k, v) => { const el = $(id); if (!el || !v) return false; const now = el.value.trim(); if (now && now !== a0[k]) return false; el.value = v; return true; };
+    const auto = { t: i.title, a: i.artist, w: pvSongWhy(i, me) };
+    const n = [put("pvSongT", "t", auto.t), put("pvSongA", "a", auto.a), put("pvSongW", "w", auto.w)].filter(Boolean).length;
+    me._pvSongAuto = auto;
+    if (h) h.textContent = n ? "✓ 채웠어요 · 이유는 초안이니 고쳐서 ‘추천 곡 저장’을 눌러 주세요" : "✓ 확인했어요(직접 쓴 칸은 그대로 뒀어요)";
+  } catch { me._pvYtFor = null; if (h) h.textContent = "제목을 못 불러왔어요 · 직접 넣어 주세요"; }
 }
 async function ytInfo(url) {
   const r = await fetch("https://www.youtube.com/oembed?format=json&url=" + encodeURIComponent(url)); if (!r.ok) throw new Error("oembed " + r.status);
