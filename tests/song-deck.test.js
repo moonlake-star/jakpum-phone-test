@@ -95,6 +95,10 @@ const mk = new Function(code + "; return stemEngine;")();
   assert.ok(dk.includes("for (let r = 0; r < 5; r++)"), "한 쪽 5줄");
   { const pp = T.slice(T.indexOf("function songPdfPage("), T.indexOf("async function songPeaks(")); assert.ok(!/prVol|prSeek|슬라이더|타임라인/.test(pp) && pp.includes("(H - gy - 40 - 4 * gap) / 5"), "PDF는 5줄 악보만(조작 부품 없음)"); }
   assert.ok(dk.includes("me.onVol") && /me\.onVol && me\.onVol\(\)/.test(T), "곡 서랍 보컬 볼륨과 프롬프터 슬라이더가 같이 움직임");
+  // (11/14 21:49 사용자) 미끄러지는 중 다시 터치하면 옛 소리 위치로 튀던 버그: 지금 보이는 위치(vp)에서 이어잡고, 톡이면 그 자리에서 멈춤
+  assert.ok(/const live = !!glide \|\| pend/.test(dk) && dk.includes("if (!live) vp = Math.max(0, Math.min(dur(), cur()))"), "미끄러지는 중 터치는 vp를 소리 위치로 되돌리지 않음");
+  assert.ok(dk.includes("d.live ? commit(d.was) : commitTap(d)") && dk.includes("if (drag || glide) return;"), "미끄러지는 중 톡·옮기는 사이 재터치 처리");
+  assert.ok(!/await seekTo\(vp\)/.test(dk.slice(dk.indexOf("const commit = async"), dk.indexOf("cv.onpointerdown"))), "commit이 vp를 덮어쓰는 seekTo를 쓰지 않음");
   assert.ok(!dk.includes("new Audio") && !/\.voc\.volume/.test(dk), "플레이어는 엔진만 씀");
   assert.ok(/songDeck\(pl, ids, \{ folder: x\.folder, autoplay: auto/.test(T), "곡 서랍 카드가 새 플레이어");
   assert.ok(T.includes("function songDestroy() {") && /dispose\?\.\(\)/.test(T), "닫을 때 애니메이션 정리");
