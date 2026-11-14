@@ -5090,7 +5090,7 @@ function pvClusterRatio(cv, cl, dry, lvCol, sr, i0, n) {   // 덩어리 안 칸�
   const fps = cv.fps || 25, raw = pvBins(cv, 1), ren = pvBins(cv, lvCol), m = new Map(), k0 = Math.floor(i0 / sr * fps) - 1, k1 = Math.ceil((i0 + n) / sr * fps) + 1;
   for (let k = k0; k <= k1; k++) { const tk = k / fps, f = cl.fx.find(x => tk >= x.t0 - 0.001 && tk <= x.t1 + 0.001), r0 = raw.get(k), rk = ren.get(k); let cor = 0;
     if (f && f.off) cor = dry ? 0 : (r0 != null && rk != null ? r0 - rk : 0);   // (11/09) 🎤 원음 = 부른 그대로
-    else if (f) { if (dry) { if (r0 == null) continue; let s_ = 0, c_ = 0; for (let d = -2; d <= 2; d++) { const td = (k + d) / fps; if (td < f.t0 - 0.001 || td > f.t1 + 0.001) continue; const x = raw.get(k + d); if (x != null) { s_ += x; c_++; } }   /* (11/11 사용자 '끝이 날카롭게 튐') 평균은 그 음 안의 칸만 — 옆 음 칸이 섞이면 음 끝에서 평균이 끌려가 보정량이 갑자기 커짐 */
+    else if (f) { if (dry) { if (r0 == null) continue; const s_ = pvFixCenter(f, raw, fps).get(k) ?? r0, c_ = 1;   /* (11/14 20:54) 머문 칸 기준(pvFixCenter) */
         cor = f.midi * 100 - s_ / c_; /* (11/12) 8센트 자르기 삭제(0↔8 오락가락 = 튐) */ cor = Math.max(-1200, Math.min(1200, cor)); /* (11/03) 2반음 넘게도 */ }
       else { const rm = mkPv.rendered(f); cor = rm != null ? (f.midi - rm) * 100 : r0 != null ? Math.max(-1200, Math.min(1200, f.midi * 100 - r0)) : 0; } }   // 정음이 없던 곳(서버가 안 건드림) = 부른 높이에서 바로
     else if (dry && r0 != null && rk != null) cor = rk - r0;   // 사이 빈 곳: 서버가 만든 높이 그대로
@@ -5149,13 +5149,22 @@ function pvPraatLoad() {
   })().catch((e) => { PVP.state = "fail"; console.warn("Praat 미리듣기를 못 불러옴(간이 소리로 계속)", e); if (typeof toast === "function") toast("서버와 같은 엔진을 못 불러와 대략의 소리로 들려요"); });
   return PVP.p;
 }
+function pvFixCenter(f, raw, fps) {   // 고친 음 f 안의 칸마다 기준 높이: 머문 칸(빠르기 400센트/초 미만 가중 0.5 초과)만 ±2칸 가중 평균 · 없으면 가장 가까운 머문 칸 값
+  if (f._cen && f._cenRaw === raw) return f._cen;
+  const k0 = Math.ceil((f.t0 - 0.001) * fps), k1 = Math.floor((f.t1 + 0.001) * fps), W = new Map(), out = new Map();
+  for (let k = k0; k <= k1; k++) { const x = raw.get(k); if (x == null) continue; const xp = raw.get(k - 1) ?? x, xn = raw.get(k + 1) ?? x, w = 1 / (1 + ((Math.abs(xn - xp) / 2 * fps) / 400) ** 2); if (w > 0.5) W.set(k, w); }
+  const got = [];
+  for (let k = k0; k <= k1; k++) { if (raw.get(k) == null) continue; let s_ = 0, c_ = 0; for (let d = -2; d <= 2; d++) { const w = W.get(k + d); if (w) { s_ += raw.get(k + d) * w; c_ += w; } } if (c_ > 0) { out.set(k, s_ / c_); got.push(k); } }
+  if (got.length) for (let k = k0; k <= k1; k++) { if (raw.get(k) == null || out.has(k)) continue; let b = got[0]; for (const g of got) if (Math.abs(g - k) < Math.abs(b - k)) b = g; out.set(k, out.get(b)); }
+  f._cen = out; f._cenRaw = raw; return out;
+}
 function pvTotalBins(cv, lvCol, cls, mp) {   // 칸마다 '보정 전 소리(p0) 높이 → 지금 들려줄 높이' 보정(센트): 고친 음 = 정음 − 부른 높이, 그 밖 = 서버가 만든 높이 − 부른 높이, 디테일 고침 포함
   const fps = cv.fps || 25, raw = pvBins(cv, 1), ren = new Map(), m = new Map(), fxs = cls.flatMap((c) => c.fx), teach = new Set();
   for (const p of cv.pts || []) if (p[lvCol] != null) ren.set(Math.round(p[0] * fps), p[lvCol]);
   const adv = mp && mp.any ? mp.delta : null, K = (cv.levels || []).length ? 2 + cv.levels.length - 1 : 0;
   for (const [k, r0] of raw) { const tk = k / fps, f = fxs.find((x) => tk >= x.t0 - 0.001 && tk <= x.t1 + 0.001), rk = ren.get(k); let cor = null;
     if (f && f.off) cor = 0;   // (11/09) 🎤 원음 = 보정 안 함
-    else if (f) { let s_ = 0, c_ = 0; for (let d = -2; d <= 2; d++) { const td = (k + d) / fps; if (td < f.t0 - 0.001 || td > f.t1 + 0.001) continue; const x = raw.get(k + d); if (x != null) { const xp = raw.get(k + d - 1) ?? x, xn = raw.get(k + d + 1) ?? x, w = 1 / (1 + ((Math.abs(xn - xp) / 2 * fps) / 400) ** 2); s_ += x * w; c_ += w; } }   /* (11/11 사용자 '끝이 날카롭게 튐') 평균은 그 음 안의 칸만 · (11/12) 서버 중심처럼 빨리 움직이는 칸(지나가는 음)은 덜 */
+    else if (f) { const cen = pvFixCenter(f, raw, fps), s_ = cen.get(k) ?? r0, c_ = 1;   /* (11/14 20:54 사용자 '살짝 내렸더니 다음 음 넘어가는 곳이 출렁') 서버와 같게: 그 음 안 '머문' 칸만 평균, 미끄러지는 끝 칸은 가까운 머문 칸 기준 */
       cor = f.midi * 100 - s_ / c_; cor = Math.max(-1200, Math.min(1200, cor)); if (adv && lvCol === K && adv.get(k) != null) cor += adv.get(k); teach.add(k); }   // (11/12 10:39 사용자 '쪼개기만 했는데 튐') 8센트 안쪽을 0으로 자르던 규칙 삭제(칸마다 0↔8센트로 오락가락 = 튐 · 서버는 선생님 음에 무시 폭 없음)
     else if (rk != null) cor = rk - r0;
     if (cor != null) m.set(k, cor); }
@@ -8638,7 +8647,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261114-2055";
+const BUILD = "20261114-2105";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
