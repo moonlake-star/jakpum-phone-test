@@ -520,7 +520,7 @@
             g.fillStyle = "#0b0d11"; g.font = "bold 15px system-ui, sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(dir < 0 ? "‹" : "›", x, ay + 1); g.textAlign = "left"; };
           const nbH = (dir) => bars.some(x => x !== sb && Math.abs(x.y - ay) < hh && (dir < 0 ? x.x1 > lx - CR && x.x0 < lx - 1 : x.x0 < rx + CR && x.x1 > rx + 1));   // (11/09 00:21 사용자 '쪼갰더니 앞부분이 사라짐') 바로 옆 음(나눈 앞 조각)을 손잡이가 가렸음 → 그땐 반투명
           const drawA = (x, dir, on) => { const ga = g.globalAlpha; if (!on && nbH(dir)) g.globalAlpha = 0.42; arrow(x, dir, on); g.globalAlpha = ga; };
-          if (lx >= L - 4) drawA(lx, -1, st.hdlArmed === "l"); if (rx <= w + 4) drawA(rx, 1, st.hdlArmed === "r");
+          if (lx >= L + 8) drawA(lx, -1, st.hdlArmed === "l"); if (rx <= w + 4) drawA(rx, 1, st.hdlArmed === "r");
           st.hdl = { l: { x: lx, y: ay, r: R + 8 }, r: { x: rx, y: ay, r: R + 8 } };
           st.vhdl = null;
           if (st.advOn && G.TuneAdv && G.TuneAdv.bendGet && rx - lx > 30) {   // (11/14 19:38 사용자) 위쪽 손잡이: 앞·뒤 부분 음정을 위아래로 구부림(위아래로만)
@@ -531,7 +531,7 @@
               g.fillStyle = "#0b0d11"; g.font = "bold 14px system-ui, sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText("↕", x, vy + 1);
               if (val) { g.font = "bold 10.5px system-ui, sans-serif"; g.fillStyle = "#a8f0cf"; g.fillText((val > 0 ? "+" : "−") + Math.abs(Math.round(val)), x, vy - CR - 8); } g.textAlign = "left"; };
             const ix = lx + Math.min(18, (rx - lx) * 0.2), ox = rx - Math.min(18, (rx - lx) * 0.2);
-            if (ix >= L - 4) vh(ix, vI, st.vAct === "i"); if (ox <= w + 4) vh(ox, vO, st.vAct === "o");
+            if (ix >= L + 8) vh(ix, vI, st.vAct === "i"); if (ox <= w + 4) vh(ox, vO, st.vAct === "o");
             st.vhdl = { i: { x: ix, y: vy, r: R + 8 }, o: { x: ox, y: vy, r: R + 8 }, b: bb }; }
           const tips = [["v", "↕ 잡자마자 끌기 = ", "반음씩"], ["fine", "꾹 0.5초 → 위아래 = ", "미세"], ["dbl", "두 번 톡 = ", "가까운 음에 착"], ["arr", "‹ › 꾹 0.5초 → 끌기 = ", "앞·뒤 길이"]].filter(q => !learned(q[0]) && (q[0] !== "dbl" || st.advOn));
           if (tips.length && !st.dragging && !st.coachOwn) {   // (11/12 18:06 사용자 고) 선생님 편집 화면은 위쪽 안내 띠로 옮김 g.font = "11.5px system-ui, sans-serif"; g.textBaseline = "middle"; const cx = Math.max(L + 70, Math.min(w - 70, (Math.max(L, sb.x0) + Math.min(w, sb.x1)) / 2));
@@ -1635,6 +1635,8 @@
         pinch = { d: Math.hypot(p1.a - p2.a, p1.b - p2.b), et: 0.5 + 0.5 * h_, ep: 1 - 0.5 * h_, xz: st.xz, yz: st.yz, mid: (p1.a + p2.a) / 2, t: +getT() || 0 }; return; }
       if (e.pointerType === "pen") st.penSeen = true;
       wrap.classList.add("tfTouch");
+      if (pts.size === 1 && st.kb) { const lk = loc(e.clientX, e.clientY, cvEl.getBoundingClientRect());   // (11/14 21:57 사용자 '건반을 눌렀는데 아래 가려진 손잡이·음표가 눌림') 건반 자리는 늘 건반이 먼저
+        if (lk.x < st.kb.L) { const m = Math.round(st.kb.inv(lk.y) / 100); st.kbDown = m; tone(m); drag = { kb: true, id: e.pointerId }; return; } }
       if (pts.size === 1 && st.penTool && st.advOn && st.map && st.kb && (e.pointerType === "pen" || e.pointerType === "mouse" || !st.penSeen)) {   // (11/06) ✏️ 펜으로 그리기 — 애플펜슬을 한 번 쓰면 그 뒤로 손가락은 이동·확대만
         const l0 = loc(e.clientX, e.clientY, cvEl.getBoundingClientRect()); if (l0.x >= st.kb.L) { pauseNow(); const mp = st.map, tq = mp.t0 + (l0.x - mp.L) / Math.max(1, mp.w - mp.L) * mp.W8;
           st.penPts = [[tq, st.kb.inv(l0.y)]]; drag = { pen: true, id: e.pointerId, cx: e.clientX, cy: e.clientY, x0: l0.x, moved: false }; return; } }
