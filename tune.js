@@ -438,11 +438,14 @@
         // (11/09 01:21 사용자 A안) 음별 볼륨이 보이게: 키운 음 = 막대 두껍게 · 줄인 음 = 얇게 · 끈 음 = 흐리게+빗금 (꼬리표는 아래에서)
         const vn = ((st && st._adv && st._adv.ne && st._adv.ne.notes) || []).find(x => x.t0 <= (r.t0 + r.t1) / 2 && x.t1 >= (r.t0 + r.t1) / 2 && (x.mute || x.gain_db));
         r.gd = vn ? (vn.mute ? "m" : vn.gain_db) : 0; const rh = r.gd && r.gd !== "m" ? bh * Math.max(0.4, Math.min(1.8, Math.pow(10, r.gd / 40))) : bh; r.h = Math.max(rh, bh);
-        const EV = (st && typeof st.vbuf === "function" ? envOf(st.vbuf()) : null) || envCv(cv);   // (11/14 19:15) 서버가 준 보컬 크기(cv.env)도 — 레슨·미리보기 등 소리를 따로 안 받는 화면에서도 덩어리   // (11/14 시안 C) 소리 크기 모양 덩어리 — 굵은 곳 = 큰 소리
+        const EV = (cv && cv.env && cv.env.src === "raw" ? envCv(cv) : null) || (st && typeof st.vbuf === "function" ? envOf(st.vbuf()) : null) || envCv(cv);   // (11/14 20:49) 원래 부른 보컬 크기(서버) 먼저 → 없으면 폰에서 받은 보컬   // (11/14 19:15) 서버가 준 보컬 크기(cv.env)도 — 레슨·미리보기 등 소리를 따로 안 받는 화면에서도 덩어리   // (11/14 시안 C) 소리 크기 모양 덩어리 — 굵은 곳 = 큰 소리
         const mvOf = (p) => (cv._tedits || []).some(x => p[0] >= x.t0 - 1e-6 && p[0] < x.t1 - 1e-6);
         if (EV && !r.seg.some(([p]) => mvOf(p))) {   // 한 음 = 한 덩어리(이음 자국 없게) · 색은 그 음 가운데 점 기준
           // (11/14 19:03 사용자 '덜 둥글둥글하게') 끝을 뾰족하게 줄이지 않음 · (19:41 '아직도 녹색 바') 굵기 변화는 다시 분명하게
-          const N = r.seg.length, ev_ = r.seg.map(([p]) => envAt(EV, p[0])), emx = Math.max(0.05, ...ev_), raw = ev_.map(v => rh * (0.3 + 1.0 * Math.pow(Math.min(1, v / emx), 1.6)) / 2),   /* 음 안에서 가장 큰 곳 기준으로 → 커지고 작아지는 모양이 보이게 */ hs = raw.map((_, i) => { let s_ = 0, c_ = 0; for (let j = Math.max(0, i - 1); j <= Math.min(N - 1, i + 1); j++) { s_ += raw[j]; c_++; } return Math.max(2, s_ / c_); });   // (11/14 19:41 사용자 '아직도 녹색 바') 굵기는 소리 크기대로 분명하게(끝만 뾰족하지 않게)
+          // (11/14 20:49 사용자 'C+B') 굵기 = 그 음이 곡 전체에서 얼마나 컸나(18dB 폭) × 음 안에서 커지고 작아지는 모양(12dB 폭) · 고급에서 바꾼 음 볼륨(dB)은 크기에 그대로 더함
+          const dBo = (v) => 20 * Math.log10(Math.max(1e-4, v)) / 0.6, gdb = r.gd && r.gd !== "m" ? +r.gd : 0;
+          const N = r.seg.length, dv = r.seg.map(([p]) => dBo(envAt(EV, p[0]))), pk = Math.max(...dv), g_ = Math.max(0, Math.min(1, (pk + gdb + 18) / 18));
+          const raw = dv.map(v => bh * (0.1 + 2.4 * Math.pow(g_, 1.6) * Math.pow(Math.max(0, Math.min(1, (v - pk + 12) / 12)), 1.6)) / 2), hs = raw.map((_, i) => { let s_ = 0, c_ = 0; for (let j = Math.max(0, i - 1); j <= Math.min(N - 1, i + 1); j++) { s_ += raw[j]; c_++; } return Math.max(1.5, s_ / c_); });
           const top = [], bot = [];
           r.seg.forEach(([p, x0, x1], si) => { const yy = y(p[kt]), h0 = hs[si]; top.push([x0, yy - h0]); bot.push([x0, yy + h0]);
             if (si === N - 1) { const xe = Math.max(x0 + 1, x1 + 0.5); top.push([xe, yy - h0]); bot.push([xe, yy + h0]); } });
