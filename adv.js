@@ -172,15 +172,13 @@
     let d = null, lastTap = 0, bub = null;
     const bubble = (on) => { if (on && !bub) { bub = document.createElement("span"); bub.className = "advScB"; c.appendChild(bub); } if (bub) { if (on) bub.textContent = o.fmt(get()); else { bub.remove(); bub = null; } } };
     c.addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); try { c.setPointerCapture(e.pointerId); } catch {} const ds = o.desc || DESC[label], tp = ds && c.closest(".advBody") && c.closest(".advBody").querySelector(".advTip"); if (tp) { tp.innerHTML = ""; const bb = document.createElement("b"); bb.textContent = label + " · "; tp.append(bb, ds); tp.classList.add("desc"); } d = { id: e.pointerId, x: e.clientX, y: e.clientY, v0: get(), n: 0, drag: false, home: Math.abs(get() - o.def) < 1e-9 }; });
-    c.addEventListener("pointermove", (e) => { if (!d || e.pointerId !== d.id) return; const dx_ = e.clientX - d.x, dy_ = d.y - e.clientY; if (!d.ax && Math.max(Math.abs(dx_), Math.abs(dy_)) >= 7) d.ax = Math.abs(dy_) > Math.abs(dx_) ? "v" : "h"; if (o.vert && d.ax === "h") { d.sw = dx_; return; }   // (11/14 18:56 사용자) 세로 칸을 좌우로 밀면 = 값 대신 탭 넘기기(흐름↔비브라토)
-      const dd = d.ax === "v" ? dy_ : d.ax === "h" ? dx_ : 0;   // 오른쪽·위 = 올림 · 처음 움직인 방향 하나만 씀(대각선으로 움직여도 서로 지워지지 않게)
+    c.addEventListener("pointermove", (e) => { if (!d || e.pointerId !== d.id) return; const dx_ = e.clientX - d.x, dy_ = d.y - e.clientY; if (!d.ax && Math.max(Math.abs(dx_), Math.abs(dy_)) >= 7) d.ax = Math.abs(dy_) > Math.abs(dx_) ? "v" : "h"; const dd = d.ax === "v" ? dy_ : d.ax === "h" ? dx_ : 0;   // 오른쪽·위 = 올림 · 처음 움직인 방향 하나만 씀(대각선으로 움직여도 서로 지워지지 않게)
       if (!d.drag) { if (Math.abs(dd) < 7) return; d.drag = true; c.classList.add("act"); bubble(true); }
       const a = Math.max(0, Math.abs(dd) - 7) / 16, k = Math.sign(dd) * (a + a * a / 30);   // 빨리(멀리) 끌수록 성큼
       let n = Math.trunc(k); const nDef = (o.def - d.v0) / o.step * sgn;
       if (Math.abs(k - nDef) < 0.7 && Math.abs(nDef - Math.round(nDef)) < 1e-6) n = Math.round(nDef);   // 원래 값 근처면 거기 붙음
       if (n === d.n) return; d.n = n; if (put(d.v0 + n * o.step * sgn)) { const home = Math.abs(get() - o.def) < 1e-9; vib(home ? 40 : 15); d.home = home; bubble(true); } });
     const end = (e) => { if (!d || (e && e.pointerId !== d.id)) return; const was = d; d = null; c.classList.remove("act"); bubble(false);
-      if (was.sw != null) { if (Math.abs(was.sw) >= 40) c.dispatchEvent(new CustomEvent("advswipe", { bubbles: true, detail: was.sw < 0 ? 1 : -1 })); return; }
       if (was.drag || !e || e.type !== "pointerup") return;
       const now = Date.now(); if (now - lastTap < 320) { lastTap = 0; put(o.def); vib(40); return; }   // 두 번 톡 = 원래 값
       lastTap = now; const r = c.getBoundingClientRect(); if (put(get() + ((o.vert ? e.clientY > r.top + r.height / 2 : e.clientX < r.left + r.width / 2) ? -1 : 1) * o.step * sgn)) vib(15); };   // 세로 칸: 위 절반 톡 = 올림 · 아래 절반 = 내림
@@ -245,21 +243,12 @@
         cells(lab(stepper("시작", () => getVs("delay", 0.3), (v) => putVs("delay", v), { step: 0.05, min: 0, max: 3, def: VD.delay, fmt: sec }), "시작"), lab(stepper("커지는 시간", () => getVs("fade", 0.4), (v) => putVs("fade", v), { step: 0.05, min: 0, max: 3, def: VD.fade, fmt: sec }), "커지는 시간"), lab(stepper("사람처럼", () => getVs("human", 0), (v) => putVs("human", v), { step: 0.25, min: 0, max: 1, def: 0, fmt: pct }), "사람처럼")));
       rows.forEach(r => { if (!r._desc) { body.appendChild(r); return; } const w = document.createElement("div"), p = document.createElement("p"); p.className = "advD"; p.textContent = r._desc; w.appendChild(r); w.appendChild(p); body.appendChild(w); });
       const tip = document.createElement("p"); tip.className = "advTip";
-      tip.textContent = k === "m" ? "포먼트는 ▶로 서버와 같은 소리가 들려요(선엔 안 보여요) · 고친 뒤 잠깐 준비해요" : "칸을 누르면 여기에 그 칸 설명이 나와요 · 밀어서 조절 · 두 번 톡 = 원래 값 · 좌우로 밀면 흐름↔비브라토";   // (11/06 21:53 사용자) 긴 안내 대신 누른 칸 설명
+      tip.textContent = k === "m" ? "포먼트는 ▶로 서버와 같은 소리가 들려요(선엔 안 보여요) · 고친 뒤 잠깐 준비해요" : "칸을 누르면 여기에 그 칸 설명이 나와요 · 밀어서 조절 · 두 번 톡 = 원래 값";   // (11/06 21:53 사용자) 긴 안내 대신 누른 칸 설명
       body.appendChild(tip);
     };
     el.querySelectorAll("[data-at]").forEach(x => x.onclick = (e) => { e.stopPropagation(); show(x.dataset.at); });
     el.querySelector(".advRst").onclick = (e) => { e.stopPropagation(); change(A, st, cv, () => { A.ne.notes = A.ne.notes.filter(x => !(near(x.t0, b.t0) && near(x.t1, b.t1))); }); show((tabs.some(x => x[0] === st._advTab) ? st._advTab : "f")); };
     el.addEventListener("pointerdown", (e) => e.stopPropagation());
-    // (11/14 18:56 사용자) 좌우로 밀면 흐름 ↔ 비브라토: 탭 줄·설명·빈 곳은 그냥 밀기, 세로 칸(▴▾)도 좌우로 밀면 탭 넘김(가로 칸 ‹ ›은 값 조절 그대로)
-    const flip = (dir) => { const i = tabs.findIndex(x => x[0] === st._advTab), j = Math.max(0, Math.min(tabs.length - 1, (i < 0 ? 0 : i) + dir)); if (j !== i) { show(tabs[j][0]); try { navigator.vibrate && navigator.vibrate(12); } catch {} } };
-    el.addEventListener("advswipe", (e) => { e.stopPropagation(); flip(e.detail); });
-    let sw0 = null;
-    el.addEventListener("pointerdown", (e) => { if (e.target.closest && e.target.closest(".advSc")) return; sw0 = { x: e.clientX, y: e.clientY, id: e.pointerId }; });
-    el.addEventListener("pointerup", (e) => { const s0 = sw0; sw0 = null; if (!s0 || e.pointerId !== s0.id) return; const dx = e.clientX - s0.x, dy = e.clientY - s0.y;
-      if (Math.abs(dx) >= 50 && Math.abs(dx) > 1.6 * Math.abs(dy)) { e.preventDefault(); flip(dx < 0 ? 1 : -1); el._swAt = Date.now(); } });
-    el.addEventListener("click", (e) => { if (el._swAt && Date.now() - el._swAt < 350) { e.stopPropagation(); e.preventDefault(); } }, true);   // 밀고 손을 뗀 자리의 탭 버튼이 눌리지 않게
-    el.style.touchAction = "pan-y";
     box.appendChild(el); show((tabs.some(x => x[0] === st._advTab) ? st._advTab : "f"));
     return el;
   }
