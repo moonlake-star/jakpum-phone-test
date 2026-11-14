@@ -56,8 +56,24 @@ const mk = new Function(code + "; return stemEngine;")();
     assert.deepStrictEqual(f.songMeasures({ beats: [1, 2], down: 0 }, 0), [], "박이 모자라면 빈 목록");
     assert.deepStrictEqual(f.songBeatPos(an, 1.0), { m: 0, b: 0 }); const q = f.songBeatPos(an, 2.25); assert.strictEqual(q.m, 0); assert.ok(Math.abs(q.b - 1.5) < 1e-9, q.b);
     assert.deepStrictEqual(f.songBeatPos(an, 0.2), { m: 0, b: 0 }, "첫 강박 전(앞박)은 첫 마디 앞"); assert.strictEqual(f.songBeatPos(an, 3.6).m, 1); assert.strictEqual(f.songBeatPos(an, 3.0).m, 0); }
+  // 프롬프터 직접 수정: 코드 글자 해석·원곡 키 기준 저장·구간 목록
+  { const src = T.slice(T.indexOf("const SG_NOTES"), T.indexOf("async function songPeaks(")), f = new Function(src + "; return { songParseChords, songFmtChords, songApplyEdits, songSecList, songSecAt, songChordName, SG_PER };")();
+    assert.strictEqual(f.SG_PER, 20, "한 쪽 5줄 × 4마디");
+    assert.deepStrictEqual(f.songParseChords("D").ch, [[1, "D"]]); assert.deepStrictEqual(f.songParseChords("Bm Em").ch, [[1, "Bm"], [3, "Em"]], "코드 2개 = 1·3박");
+    assert.deepStrictEqual(f.songParseChords("G A@2").ch, [[1, "G"], [2, "A"]], "박 지정"); assert.deepStrictEqual(f.songParseChords("a b c").ch.map(c => c[0]), [1, 2, 3]);
+    { const r = f.songParseChords("bm7 x! F#m7/C#"); assert.deepStrictEqual(r.ch, [[1, "Bm7"], [3, "F#m7/C#"]], "소문자는 대문자로 · 분수 코드"); assert.deepStrictEqual(r.bad, ["x!"], "못 읽는 입력 알림"); }
+    assert.deepStrictEqual(f.songParseChords("").ch, []);
+    assert.strictEqual(f.songFmtChords([{ b: 0, name: "G" }, { b: 1, name: "A" }]), "G A@2", "기본 박이 아니면 @박 표시"); assert.strictEqual(f.songFmtChords([{ b: 0, name: "Bm" }, { b: 2, name: "Em" }]), "Bm Em");
+    assert.strictEqual(f.songChordName("C/E", 2), "D/F#", "분수 코드의 베이스도 함께 올림"); assert.strictEqual(f.songChordName("Bb", 0), "Bb", "그대로면 쓴 대로");
+    const M = [{ no: 1, chords: [{ b: 0, name: "C", len: 4 }], lyrics: [{ b: 0, text: "가" }] }, { no: 2, chords: [{ b: 0, name: "F", len: 4 }], lyrics: [] }];
+    const R = f.songApplyEdits(M, { 0: { ch: [[1, "A"], [3, "D"]], ly: "새 가사" } }, 2);
+    assert.deepStrictEqual(R[0].chords, [{ b: 0, name: "B", len: 2 }, { b: 2, name: "E", len: 2 }], "수정은 원곡 키로 저장 → 키 +2에서 같이 올라감"); assert.deepStrictEqual(R[0].lyrics, [{ b: 0, text: "새 가사" }]); assert.strictEqual(R[0].edited, true);
+    assert.strictEqual(R[1], M[1], "안 고친 마디는 그대로"); assert.strictEqual(f.songApplyEdits(M, { 1: { ly: " " } }, 0)[1].lyrics.length, 0, "가사를 비우면 빈 칸"); assert.strictEqual(M[0].chords[0].name, "C", "원본은 안 바뀜");
+    const L = f.songSecList(48, []); assert.strictEqual(L.length, 6, "이름이 없으면 8마디씩"); assert.strictEqual(L[0].name, "구간 1"); assert.strictEqual(L.reduce((a, x) => a + x.len, 0), 48);
+    const L2 = f.songSecList(48, [[4, "1절"], [16, "후렴"], [24, "간주"], [28, "2절"], [40, "후렴"]]); assert.deepStrictEqual(L2.map(x => [x.name, x.start, x.len]), [["인트로", 0, 4], ["1절", 4, 12], ["후렴", 16, 8], ["간주", 24, 4], ["2절", 28, 12], ["후렴", 40, 8]], "첫 구간 앞은 인트로");
+    assert.strictEqual(f.songSecAt(L2, 0), 0); assert.strictEqual(f.songSecAt(L2, 16), 2); assert.strictEqual(f.songSecAt(L2, 47), 5); assert.strictEqual(f.songSecList(10, [[3, "  "]]).length, 2, "이름이 빈 칸이면 무시 → 자동"); }
   // 프롬프터 PDF: 조립한 PDF의 구조(페이지 수·xref 위치)와 파일명
-  { const src = T.slice(T.indexOf("function songPdf("), T.indexOf("// 프롬프터 한 쪽(마디 12칸)")), f = new Function("Blob", "TextEncoder", src + "; return { songPdf, songPdfName };")(class { constructor(p, o) { this.parts = p; this.type = o.type; } }, TextEncoder);
+  { const src = T.slice(T.indexOf("function songPdf("), T.indexOf("// 프롬프터 한 쪽(마디 20칸")), f = new Function("Blob", "TextEncoder", src + "; return { songPdf, songPdfName };")(class { constructor(p, o) { this.parts = p; this.type = o.type; } }, TextEncoder);
     assert.strictEqual(f.songPdfName("그리움만 쌓이네", "여행스케치", "D"), "그리움만 쌓이네_여행스케치_D.pdf"); assert.strictEqual(f.songPdfName("A/B:C", "", "Am"), "A_B_C_Am.pdf", "가수가 없으면 건너뜀·금지 글자 치환");
     const jpg = new Uint8Array([0xff, 0xd8, 1, 2, 3, 0xff, 0xd9]), blob = f.songPdf([{ jpg, w: 10, h: 6 }, { jpg, w: 10, h: 6 }], 960, 600), buf = Buffer.concat(blob.parts.map((x) => Buffer.from(x))), txt = buf.toString("latin1");
     assert.strictEqual(blob.type, "application/pdf"); assert.ok(txt.startsWith("%PDF-1.4") && txt.trimEnd().endsWith("%%EOF")); assert.ok(txt.includes("/Count 2") && txt.includes("/Kids [3 0 R 6 0 R]") && txt.includes("/MediaBox [0 0 960 600]"));
@@ -72,6 +88,13 @@ const mk = new Function(code + "; return stemEngine;")();
   assert.ok(/songDeck\(pl, ids, \{[^]*analysis: x\.d\.analysis, keys: x\.d\.keys, keyReq: x\.d\.key_req/.test(T), "곡 서랍이 분석·키 파일을 넘김");
   assert.ok(dk.includes("openPrompter") && dk.includes("Brand.layer") && dk.includes('id="dkTv"') && dk.includes("o.analysis.chords.length"), "프롬프터는 코드가 있는 곡에만 · 뒤로 가기 한 칸");
   assert.ok(dk.includes('id="prPdf"') && dk.includes("songPdfName(o.name, o.artist, keyName(keyN))"), "프롬프터 PDF 버튼·파일명 규칙");
+  for (const k of ["prVol", "prSeek", "prSgs", "prEd", "prPv", "prNx", "prCi", "prLi", "prSi"]) assert.ok(dk.includes('id="' + k + '"'), "프롬프터 " + k);
+  assert.ok(!dk.includes('id="prNow"') && !dk.includes('id="prNext"'), "‘지금·다음 코드’는 뺌(사용자 11/14)");
+  assert.ok(dk.includes("navigator.vibrate(20)") && dk.includes("buzz(si)"), "구간 경계를 지나면 짧은 진동");
+  assert.ok(dk.includes("songSecList(M.length, SEC)") && dk.includes("o.onEdits") && dk.includes("o.onSections") && /onEdits: \(e\)[^]*onSections: \(v\)/.test(T), "수정·구간 이름이 song.json에 저장됨");
+  assert.ok(dk.includes("for (let r = 0; r < 5; r++)"), "한 쪽 5줄");
+  { const pp = T.slice(T.indexOf("function songPdfPage("), T.indexOf("async function songPeaks(")); assert.ok(!/prVol|prSeek|슬라이더|타임라인/.test(pp) && pp.includes("(H - gy - 40 - 4 * gap) / 5"), "PDF는 5줄 악보만(조작 부품 없음)"); }
+  assert.ok(dk.includes("me.onVol") && /me\.onVol && me\.onVol\(\)/.test(T), "곡 서랍 보컬 볼륨과 프롬프터 슬라이더가 같이 움직임");
   assert.ok(!dk.includes("new Audio") && !/\.voc\.volume/.test(dk), "플레이어는 엔진만 씀");
   assert.ok(/songDeck\(pl, ids, \{ folder: x\.folder, autoplay: auto/.test(T), "곡 서랍 카드가 새 플레이어");
   assert.ok(T.includes("function songDestroy() {") && /dispose\?\.\(\)/.test(T), "닫을 때 애니메이션 정리");

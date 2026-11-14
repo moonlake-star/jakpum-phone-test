@@ -405,21 +405,30 @@
 .dk .dkRv{display:flex;gap:8px;overflow:hidden;max-height:0;opacity:0;transition:opacity .25s,max-height .25s,margin-top .25s}.dk .dkRv.open{max-height:56px;opacity:1;margin-top:8px}.dk .dkRv #dkA,.dk .dkRv #dkB{border-color:#ffd27a;color:#ffd27a}
 .dk .dkR2 #dkTv{flex:.7}
 #dkPr{position:fixed;inset:0;z-index:10010;background:#000;color:#fff;display:flex;flex-direction:column;gap:1.2vh;padding:1.6vh 2.4vw;box-sizing:border-box;--u:min(1vw,1.6vh);font-family:inherit}
-#dkPr .prTop{display:flex;align-items:center;gap:calc(var(--u)*1.6);min-height:calc(var(--u)*5)}#dkPr button{font-family:inherit}
-#dkPr .prPlay{width:calc(var(--u)*4.6);height:calc(var(--u)*4.6);border-radius:50%;border:2px solid #FFE066;background:#000;color:#FFE066;font-size:calc(var(--u)*1.9);padding:0;margin:0}
-#dkPr .prT{display:flex;flex-direction:column;line-height:1.15;min-width:0;flex:1}#dkPr .prT b{font-size:calc(var(--u)*2.3);font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#dkPr .prT span{font-size:calc(var(--u)*1.4);color:#b8b8b8}
-#dkPr .prNow{display:flex;align-items:center;gap:calc(var(--u)*1)}#dkPr .prNow small{font-size:calc(var(--u)*1.4);color:#b8b8b8}#dkPr .prNow b{font-size:calc(var(--u)*3.8);font-weight:900;color:#FFE066;min-width:calc(var(--u)*7);text-align:center}#dkPr .prNow b#prNext{font-size:calc(var(--u)*3);font-weight:700;opacity:.65}#dkPr .prNow i{font-style:normal;font-size:calc(var(--u)*2.2);color:#777}
-#dkPr .prPdf{height:calc(var(--u)*4.6);padding:0 calc(var(--u)*1.6);border-radius:calc(var(--u)*2.3);border:2px solid #FFE066;background:#000;color:#FFE066;font-size:calc(var(--u)*1.7);font-weight:700;margin:0}#dkPr .prPdf:disabled{opacity:.5}
-#dkPr .prX{width:calc(var(--u)*4.6);height:calc(var(--u)*4.6);border-radius:50%;border:1px solid #666;background:#000;color:#ddd;font-size:calc(var(--u)*1.8);padding:0;margin:0}
-#dkPr .prBar{display:flex;align-items:center;gap:calc(var(--u)*1.2);font-size:calc(var(--u)*1.5);color:#b8b8b8}#dkPr .prBar #prPos{color:#fff;font-weight:700}#dkPr #prDots{display:flex;gap:calc(var(--u)*.6)}#dkPr #prDots i{width:calc(var(--u)*1.3);height:calc(var(--u)*1.3);border-radius:50%;border:2px solid #FFE066;box-sizing:border-box}#dkPr #prDots i.on{background:#FFE066}#dkPr .prLg{margin-left:auto;font-size:calc(var(--u)*1.3)}
-#dkPr .prGrid{flex:1;min-height:0;overflow:hidden}#dkPr .prRows{display:flex;flex-direction:column;height:calc(100% / 3 * var(--rows,1));transition:transform .35s ease}
-#dkPr .prRow{display:flex;flex:1;min-height:0;margin-bottom:1.2vh}#dkPr .prM{position:relative;flex:1;box-sizing:border-box;border-top:1px solid #3a3a3a;border-bottom:1px solid #3a3a3a;border-left:5px solid #fff;border-right:1px solid #3a3a3a;cursor:pointer;overflow:hidden}#dkPr .prM:nth-child(4){border-right:5px solid #fff}#dkPr .prM.prE{border-color:transparent;cursor:default}
-#dkPr .prM.on{background:#1f1a00;border-top:3px solid #FFE066;border-bottom:3px solid #FFE066}
-#dkPr .prNo{position:absolute;left:.5em;bottom:.2em;font-size:calc(var(--u)*1.2);color:#777}#dkPr .prBt{position:absolute;top:.2em;font-size:calc(var(--u)*1.3);font-weight:700;color:#8c8c8c;padding-left:.5em}#dkPr .prBt.p1{color:#e8e8e8}
-#dkPr .prLn{position:absolute;top:calc(var(--u)*2.4);bottom:.6em;width:0;border-left:2px dashed #555}
-#dkPr .prCh{position:absolute;top:calc(var(--u)*2.2);font-size:calc(var(--u)*4.6);font-weight:900;line-height:1.05;color:#FFE066;white-space:nowrap}#dkPr .prUl{position:absolute;top:calc(var(--u)*7.6);height:calc(var(--u)*.55);border-radius:4px;background:#FFE066;opacity:.85}
-#dkPr .prLy{position:absolute;top:calc(var(--u)*9);font-size:calc(var(--u)*2.5);line-height:1.2;color:#fff;white-space:nowrap}
-#dkPr .prHd{position:absolute;top:0;bottom:0;width:4px;margin-left:-2px;background:#fff;box-shadow:0 0 10px #fff;display:none}#dkPr .prM.on .prHd{display:block}
+#dkPr button,#dkPr input{font-family:inherit}
+#dkPr .prTop{display:flex;align-items:center;gap:calc(var(--u)*1.4);min-height:calc(var(--u)*4.6)}
+#dkPr .prPlay{flex:none;width:calc(var(--u)*4.6);height:calc(var(--u)*4.6);border-radius:50%;border:2px solid #FFE066;background:#000;color:#FFE066;font-size:calc(var(--u)*1.9);padding:0;margin:0}
+#dkPr .prT{display:flex;flex-direction:column;line-height:1.15;min-width:0;flex:none;width:calc(var(--u)*19)}#dkPr .prT b{font-size:calc(var(--u)*2.1);font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#dkPr .prT span{font-size:calc(var(--u)*1.2);color:#b8b8b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#dkPr .prVo{display:flex;align-items:center;gap:calc(var(--u)*1);flex:1;min-width:0;max-width:calc(var(--u)*46);margin-left:calc(var(--u)*1.6)}#dkPr .prVo small{font-size:calc(var(--u)*1.2);color:#b8b8b8;white-space:nowrap}#dkPr .prVo input{flex:1;min-width:0;margin:0;height:calc(var(--u)*2.4);accent-color:#FFE066}#dkPr .prVo b{font-size:calc(var(--u)*1.4);font-weight:900;color:#FFE066;min-width:calc(var(--u)*6.8);white-space:nowrap}
+#dkPr .prBtn{flex:none;height:calc(var(--u)*4.4);padding:0 calc(var(--u)*1.4);border-radius:calc(var(--u)*1.1);border:2px solid #b8b8b8;background:#000;color:#fff;font-size:calc(var(--u)*1.6);font-weight:700;margin:0}#dkPr .prBtn:disabled{opacity:.5}#dkPr .prBtn.on{background:#4DD0E1;border-color:#4DD0E1;color:#000}
+#dkPr .prEd{margin-left:auto}
+#dkPr .prX{flex:none;width:calc(var(--u)*4.4);height:calc(var(--u)*4.4);border-radius:50%;border:1px solid #666;background:#000;color:#ddd;font-size:calc(var(--u)*1.8);padding:0;margin:0}
+#dkPr .prTl{display:flex;align-items:center;gap:calc(var(--u)*1.1);min-height:calc(var(--u)*3.2)}#dkPr .prTl>span{font-size:calc(var(--u)*1.4);font-weight:700;min-width:calc(var(--u)*3.6)}#dkPr #prT0{color:#FFE066;text-align:right}#dkPr #prT1{color:#b8b8b8}
+#dkPr .prSg{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}#dkPr .prSgs{display:flex;gap:2px;height:calc(var(--u)*1.8)}#dkPr .prSgs button{min-width:0;padding:0;border-radius:5px;border:1px solid #555;background:#161616;color:#e0e0e0;font-size:calc(var(--u)*1.1);font-weight:700;white-space:nowrap;overflow:hidden;margin:0}#dkPr .prSgs button.on{background:#FFE066;border-color:#FFE066;color:#000}#dkPr .prSgs button.fl{border:2px solid #4DD0E1}
+#dkPr .prSg input{width:100%;margin:0;height:calc(var(--u)*1.2);accent-color:#FFE066}
+#dkPr .prPg{display:flex;align-items:center;gap:6px;margin-left:calc(var(--u)*.4)}#dkPr .prPg button{width:calc(var(--u)*2.7);height:calc(var(--u)*2.4);border-radius:8px;border:1px solid #666;background:#000;color:#fff;font-size:calc(var(--u)*1.1);padding:0;margin:0}#dkPr .prPg span{font-size:calc(var(--u)*1.3);font-weight:700;min-width:calc(var(--u)*4.6);text-align:center}
+#dkPr .prGrid{flex:1;min-height:0;display:flex;flex-direction:column}
+#dkPr .prRow{display:flex;flex:1;min-height:0;margin-bottom:.8vh}#dkPr .prM{position:relative;flex:1;box-sizing:border-box;border-top:1px solid #3a3a3a;border-bottom:1px solid #3a3a3a;border-left:5px solid #fff;border-right:1px solid #3a3a3a;cursor:pointer;overflow:hidden}#dkPr .prM:nth-child(4){border-right:5px solid #fff}#dkPr .prM.prE{border-color:transparent;cursor:default}
+#dkPr .prM.on{background:#1f1a00;border-top:3px solid #FFE066;border-bottom:3px solid #FFE066}#dkPr .prM.sel{border-top:3px solid #4DD0E1;border-bottom:3px solid #4DD0E1}
+#dkPr .prNo{position:absolute;left:.5em;top:.1em;font-size:calc(var(--u)*1.1);color:#8c8c8c;white-space:nowrap}#dkPr .prNo b{color:#fff;margin-left:.3em}#dkPr .prBt{position:absolute;top:calc(var(--u)*1.4);font-size:calc(var(--u)*1);font-weight:700;color:#8c8c8c;padding-left:.5em}#dkPr .prBt.p1{color:#e8e8e8}
+#dkPr .prLn{position:absolute;top:calc(var(--u)*2.8);bottom:.4em;width:0;border-left:2px dashed #444}
+#dkPr .prCh{position:absolute;top:calc(var(--u)*2.5);font-size:calc(var(--u)*3.3);font-weight:900;line-height:1.1;color:#FFE066;white-space:nowrap;z-index:1}#dkPr .prUl{position:absolute;top:calc(var(--u)*6.3);height:calc(var(--u)*.4);border-radius:4px;background:#FFE066;opacity:.85}
+#dkPr .prLy{position:absolute;top:calc(var(--u)*7);font-size:calc(var(--u)*2);line-height:1.2;color:#fff;white-space:nowrap}
+#dkPr .prEg{position:absolute;right:.5em;top:.1em;font-size:calc(var(--u)*1);font-weight:700;color:#FF9F43}
+#dkPr .prHd{position:absolute;top:0;bottom:0;width:4px;margin-left:-2px;background:#fff;box-shadow:0 0 10px #fff;display:none;z-index:2}#dkPr .prM.on .prHd{display:block}
+#dkPr .prEp{position:absolute;left:2.4vw;right:2.4vw;box-sizing:border-box;background:#0b0b0b;border:3px solid #4DD0E1;border-radius:14px;padding:calc(var(--u)*.9) calc(var(--u)*1.2);display:flex;flex-direction:column;gap:calc(var(--u)*.8);z-index:5;box-shadow:0 6px 30px rgba(0,0,0,.8)}
+#dkPr .prEp .eh{display:flex;align-items:center;gap:calc(var(--u)*1);flex-wrap:wrap}#dkPr .prEp .eh b{font-size:calc(var(--u)*1.9);font-weight:900;color:#4DD0E1}#dkPr .prEp .eh span{font-size:calc(var(--u)*1.2);color:#b8b8b8}#dkPr .prEp .eh .sp{margin-left:auto;display:flex;gap:8px}
+#dkPr .prEp .er{display:flex;align-items:center;gap:calc(var(--u)*1)}#dkPr .prEp .er label{font-size:calc(var(--u)*1.2);color:#b8b8b8;white-space:nowrap;min-width:calc(var(--u)*5)}#dkPr .prEp input[type=text]{flex:1;min-width:0;height:calc(var(--u)*4);box-sizing:border-box;border-radius:10px;border:2px solid #555;background:#111;color:#fff;font-size:calc(var(--u)*1.9);padding:0 calc(var(--u)*1)}#dkPr .prEp #prCi{height:calc(var(--u)*4.6);border-color:#FFE066;color:#FFE066;font-size:calc(var(--u)*2.8);font-weight:900}#dkPr .prEp #prSi{flex:.7}#dkPr .prEp .hint{font-size:calc(var(--u)*1.2);min-width:calc(var(--u)*16);color:#b8b8b8}
 .dk .dkSp{margin-top:10px}.dk .dkSp.two{display:grid;grid-template-columns:1fr 1fr;gap:8px}.dk .dkCd{padding:10px;border-radius:12px;background:rgba(0,0,0,.18);border:1px solid var(--line);text-align:center}.dk .dkK{font-size:.8rem;color:var(--muted)}.dk .dkBig{font-size:1.7rem;font-weight:800;color:#ffb86b;line-height:1.2}.dk .dkN{font-size:.78rem;color:var(--muted)}
 .dk .dkPm{display:flex;gap:8px;margin-top:6px}.dk .dkPm button{flex:1;height:46px;border-radius:12px;border:1px solid var(--line);background:var(--chip);color:var(--fg);font-size:1rem;padding:0}.dk .dkPm button:disabled{opacity:.4}
 .dk .dkRst{display:none;width:100%;margin-top:6px;height:40px;background:transparent;border:0;color:var(--link);font-size:.88rem;text-decoration:underline}.dk .dkRst.show{display:block}
@@ -5853,11 +5862,13 @@ function songPaintList() {
     const pl = row.querySelector(".slPl"); if (pl) { const ids = stemIds(x.d); if (!ids) { pl.innerHTML = `<p class="muted">파일 정보가 없어요</p>`; return; }
       if (keep && keep.folder === x.folder) { pl.appendChild(keep.el); return; }
       const auto = songLib.auto === x.folder; if (auto) songLib.auto = null;   // 한 번만(20초 갱신·다시 그리기로는 재시작 안 함)
-      songDeck(pl, ids, { folder: x.folder, autoplay: auto, dur: +x.d.dur || 0, bpm: +x.d.bpm || 0, wave: x.d.wave, lyrics: x.d.lyrics, artist: x.d.artist, analysis: x.d.analysis, keys: x.d.keys, keyReq: x.d.key_req, fileId: x.fileId,
+      songDeck(pl, ids, { folder: x.folder, autoplay: auto, dur: +x.d.dur || 0, bpm: +x.d.bpm || 0, wave: x.d.wave, lyrics: x.d.lyrics, artist: x.d.artist, analysis: x.d.analysis, keys: x.d.keys, keyReq: x.d.key_req, fileId: x.fileId, edits: x.d.edits, sections: x.d.sections,
         fetchD: () => readJSON(x.fileId), onKeyReq: (l) => { const cx = songLib.list.find(y => y.folder === x.folder) || x; cx.d.key_req = l; quietSave(() => writeJSON(cx.folder, "song.json", cx.d, cx.fileId)); }, mrVol: Number.isFinite(+x.d.mr_vol) ? +x.d.mr_vol : 100, head: `<div class="muted" style="font-size:.85rem">보컬 볼륨을 움직여 MR·가이드·원곡으로 들어 보세요</div>`, vol: Number.isFinite(+x.d.voc_vol) ? +x.d.voc_vol : 30, name: x.d.title,
         onVol: (vv) => { const cx = songLib.list.find(y => y.folder === x.folder) || x; cx.d.voc_vol = vv; quietSave(() => writeJSON(cx.folder, "song.json", cx.d, cx.fileId)); },
         onMrVol: (vv) => { const cx = songLib.list.find(y => y.folder === x.folder) || x; cx.d.mr_vol = vv; quietSave(() => writeJSON(cx.folder, "song.json", cx.d, cx.fileId)); },
-        onWave: (w) => { const cx = songLib.list.find(y => y.folder === x.folder) || x; cx.d.wave = w; quietSave(() => writeJSON(cx.folder, "song.json", cx.d, cx.fileId)); } });
+        onWave: (w) => { const cx = songLib.list.find(y => y.folder === x.folder) || x; cx.d.wave = w; quietSave(() => writeJSON(cx.folder, "song.json", cx.d, cx.fileId)); },
+        onEdits: (e) => { const cx = songLib.list.find(y => y.folder === x.folder) || x; cx.d.edits = e; quietSave(() => writeJSON(cx.folder, "song.json", cx.d, cx.fileId)); },
+        onSections: (v) => { const cx = songLib.list.find(y => y.folder === x.folder) || x; cx.d.sections = v; quietSave(() => writeJSON(cx.folder, "song.json", cx.d, cx.fileId)); } });
       pl.querySelector(".sgC")?.classList.remove("card"); }
   });
   if (keep && !box.contains(keep.el)) songDestroy();   // 듣던 곡 카드가 목록에서 빠졌으면(검색·삭제) 소리도 끝냄
@@ -6082,7 +6093,7 @@ function songPlayer(el, ids, o) {
   const eng = me.eng = stemEngine({ vol: v0, boost: boostPref(), html: true, focus: (on, lost) => Brand.focusHold?.("song", on, lost), onPause: () => { if (alive()) Q("sgPb").textContent = "▶"; }, fetchBuf: async (k) => (await blob(k)).arrayBuffer(),
     onTick: (E) => { if (!alive()) return; if (!el.isConnected) return songDestroy(); const t = E.pos(), dd = E.dur() || 1; Q("sgT0").textContent = mmss(t); if (!Q("sgSeek").matches(":active")) Q("sgSeek").value = Math.round(t / dd * 1000); },
     onEnd: () => { if (!alive()) return; Q("sgPb").textContent = "▶"; Q("sgT0").textContent = "0:00"; Q("sgSeek").value = 0; } });
-  const paintVol = () => { Q("sgVv").textContent = me.vol + "%"; Q("sgVol").value = me.vol; el.querySelectorAll("[data-sgv]").forEach(b => b.classList.toggle("on", +b.dataset.sgv === me.vol)); };
+  const paintVol = () => { Q("sgVv").textContent = me.vol + "%"; Q("sgVol").value = me.vol; el.querySelectorAll("[data-sgv]").forEach(b => b.classList.toggle("on", +b.dataset.sgv === me.vol)); try { me.onVol && me.onVol(); } catch {} };
   const setVol = (v) => { me.vol = Math.max(0, Math.min(100, Math.round(v))); eng.setVol(me.vol); paintVol(); clearTimeout(me.svT); me.svT = setTimeout(() => { try { o.onVol && o.onVol(me.vol); } catch {} }, 1500); };   // 소리 크기만 즉시 · 저장은 마지막 값 한 번(배경)
   paintVol();
   let loadP = null;
@@ -6114,7 +6125,7 @@ function songPlayer(el, ids, o) {
 const DK_STEP = 0.1, DK_PPS = 14, DK_RATES = [0.8, 0.85, 0.9, 0.95, 1, 1.05, 1.1, 1.15, 1.2];
 // 코드 이름을 반음만큼 올림·내림(서버가 읽은 장·단 3화음 이름: C, C#m, F …) · 오르면 샤프 이름
 const SG_NOTES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-function songChordName(nm, n) { const m = /^([A-G][#b]?)(.*)$/.exec(String(nm || "")); if (!m) return String(nm || ""); const FLAT = { Db: "C#", Eb: "D#", Gb: "F#", Ab: "G#", Bb: "A#" }, r = SG_NOTES.indexOf(FLAT[m[1]] || m[1]); return r < 0 ? String(nm) : SG_NOTES[((r + (+n || 0)) % 12 + 12) % 12] + m[2]; }
+function songChordName(nm, n) { if (!(+n)) return String(nm || ""); const T1 = (x) => { const m = /^([A-G][#b]?)(.*)$/.exec(x); if (!m) return x; const FLAT = { Db: "C#", Eb: "D#", Gb: "F#", Ab: "G#", Bb: "A#" }, r = SG_NOTES.indexOf(FLAT[m[1]] || m[1]); return r < 0 ? x : SG_NOTES[((r + (+n || 0)) % 12 + 12) % 12] + m[2]; }, sl = String(nm || "").split("/"); return sl.map(T1).join("/"); }
 // (11/14 사용자 시안 D) TV 프롬프터용: 서버가 읽은 박·코드를 마디로 나눔(4/4 가정) · 가사(d.lyrics=[[초,글]])는 있으면 박 자리에 얹음
 function songMeasures(an, n, lyrics) {
   const B = (an && an.beats) || [], dn = (an && an.down) || 0, ch = ((an && an.chords) || []).slice().sort((a, b) => a[0] - b[0]), ly = (lyrics || []).slice().sort((a, b) => a[0] - b[0]);
@@ -6140,6 +6151,33 @@ function songBeatPos(an, t) {   // 재생 시각 → {m: 마디 번호(0부터),
   const nx = B[Math.min(lo + 1, B.length - 1)], fr = nx > B[lo] ? Math.max(0, Math.min(1, (t - B[lo]) / (nx - B[lo]))) : 0, idx = lo + fr - dn;
   return idx < 0 ? { m: 0, b: 0 } : { m: Math.floor(idx / 4), b: idx % 4 };
 }
+// (11/14 사용자 시안 D) 프롬프터 직접 수정: 코드는 글자로 입력('D' · 'Bm Em' = 1·3박 · 'G A@2' = 박 지정) · 수정은 원곡 키 기준으로 저장해서 키를 바꿔도 따라감
+const SG_PER = 20;   // 한 쪽 5줄 × 4마디
+function songParseChords(txt) {
+  const toks = String(txt || "").trim().split(/\s+/).filter(Boolean), out = [], bad = [];
+  toks.forEach((t) => { const mm = /^([A-Ga-g][#b]?[A-Za-z0-9#()+\-\/]*)(?:@([1-4]))?$/.exec(t); if (!mm) { bad.push(t); return; } out.push([mm[2] ? +mm[2] : 0, mm[1][0].toUpperCase() + mm[1].slice(1)]); });
+  const k = out.slice(0, 4), n = k.length, dflt = n === 1 ? [1] : n === 2 ? [1, 3] : n === 3 ? [1, 2, 3] : [1, 2, 3, 4];
+  k.forEach((c, i) => { if (!c[0]) c[0] = dflt[i]; });
+  const ch = k.sort((x, y) => x[0] - y[0]); if (ch.length) ch[0][0] = 1;
+  return { ch, bad };
+}
+function songFmtChords(chords) {   // 마디의 코드 목록 → 입력 글자
+  const n = chords.length, dflt = n === 1 ? [1] : n === 2 ? [1, 3] : n === 3 ? [1, 2, 3] : [1, 2, 3, 4];
+  return chords.map((c, i) => c.name + (c.b + 1 === dflt[i] ? "" : "@" + (c.b + 1))).join(" ");
+}
+function songApplyEdits(M, ED, n) {   // ED = { 마디번호(0부터): { ch: [[박(1~4), 원곡 키 코드]], ly: 글자 } }
+  return M.map((m, i) => { const e = ED && ED[i]; if (!e) return m; const r = Object.assign({}, m, { edited: true });
+    if (Array.isArray(e.ch) && e.ch.length) r.chords = e.ch.map((c, k, a) => ({ b: c[0] - 1, name: songChordName(c[1], n), len: (k + 1 < a.length ? a[k + 1][0] : 5) - c[0] }));
+    if (typeof e.ly === "string") r.lyrics = e.ly.trim() ? [{ b: 0, text: e.ly }] : [];
+    return r; });
+}
+function songSecList(total, secs) {   // 구간 이름 목록 → [{name,start,len}] · 이름이 없으면 8마디씩 '구간 N'
+  let s = (secs || []).map((x) => [Math.max(0, Math.min(Math.max(0, total - 1), Math.floor(+x[0]) || 0)), String(x[1] || "").trim()]).filter((x) => x[1]).sort((a, b) => a[0] - b[0]);
+  s = s.filter((x, i) => i === 0 || x[0] !== s[i - 1][0]);
+  if (!s.length) { for (let i = 0, k = 1; i < total; i += 8, k++) s.push([i, "구간 " + k]); } else if (s[0][0] > 0) s.unshift([0, "인트로"]);
+  return s.map((x, i) => ({ name: x[1], start: x[0], len: (i + 1 < s.length ? s[i + 1][0] : total) - x[0] }));
+}
+function songSecAt(L, i) { let r = 0; for (let k = 0; k < L.length; k++) if (i >= L[k].start) r = k; return r; }
 // (11/14 사용자) 프롬프터를 PDF로: 마디 그림(JPEG)을 페이지마다 넣은 PDF를 직접 조립(라이브러리 없음) · 파일명 '제목_가수_Key.pdf'
 function songPdf(pages, pw, ph) {
   const enc = new TextEncoder(), parts = [], off = []; let len = 0;
@@ -6158,22 +6196,24 @@ function songPdf(pages, pw, ph) {
   return new Blob(parts, { type: "application/pdf" });
 }
 function songPdfName(title, artist, key) { return [title, artist, key].map((x) => String(x || "").replace(/[\\/:*?"<>|]/g, "_").trim()).filter(Boolean).join("_").slice(0, 120) + ".pdf"; }
-// 프롬프터 한 쪽(마디 12칸)을 2560×1600 그림으로 · 검정 바탕·노란 코드·흰 가사(화면과 같은 모양)
+// 프롬프터 한 쪽(마디 20칸 = 5줄)을 2560×1600 그림으로 · 검정 바탕·노란 코드·흰 가사 · 재생·타임라인·볼륨 같은 조작 부품은 넣지 않음(악보만)
 function songPdfPage(M, from, meta) {
   const W = 2560, H = 1600, cv = document.createElement("canvas"); cv.width = W; cv.height = H; const g = cv.getContext("2d"), F = '"Noto Sans KR","Malgun Gothic","Apple SD Gothic Neo",sans-serif';
   g.fillStyle = "#000"; g.fillRect(0, 0, W, H); g.textBaseline = "alphabetic";
   g.fillStyle = "#fff"; g.font = `900 64px ${F}`; g.fillText(meta.title || "곡", 60, 96); g.fillStyle = "#b8b8b8"; g.font = `500 36px ${F}`; g.fillText(meta.sub || "", 60, 150);
   g.textAlign = "right"; g.fillText(`${meta.page} / ${meta.pages}쪽`, W - 60, 96); g.textAlign = "left";
-  const gx = 60, gy = 200, cw = (W - 120) / 4, rh = (H - gy - 50 - 2 * 24) / 3;
-  for (let i = 0; i < 12; i++) { const m = M[from + i]; if (!m) continue; const x = gx + (i % 4) * cw, y = gy + Math.floor(i / 4) * (rh + 24), bw = cw / 4;
+  const gx = 60, gy = 190, gap = 16, cw = (W - 120) / 4, rh = (H - gy - 40 - 4 * gap) / 5;
+  for (let i = 0; i < SG_PER; i++) { const m = M[from + i]; if (!m) continue; const x = gx + (i % 4) * cw, y = gy + Math.floor(i / 4) * (rh + gap), bw = cw / 4;
     g.fillStyle = "#3a3a3a"; g.fillRect(x, y, cw, 3); g.fillRect(x, y + rh - 3, cw, 3); g.fillRect(x + cw - 2, y, 2, rh);
     g.fillStyle = "#fff"; g.fillRect(x, y, 9, rh); if (i % 4 === 3) g.fillRect(x + cw - 9, y, 9, rh);
-    g.setLineDash([14, 12]); g.strokeStyle = "#555"; g.lineWidth = 3; g.beginPath(); g.moveTo(x + cw / 2, y + 70); g.lineTo(x + cw / 2, y + rh - 30); g.stroke(); g.setLineDash([]);
-    for (let b = 0; b < 4; b++) { g.fillStyle = b === 0 ? "#e8e8e8" : "#8c8c8c"; g.font = `700 32px ${F}`; g.fillText(String(b + 1), x + b * bw + 22, y + 48); }
-    g.fillStyle = "#777"; g.font = `500 30px ${F}`; g.fillText(String(m.no), x + 22, y + rh - 18);
-    for (const c of m.chords) { const cx = x + c.b * bw + 18, mw = c.len * bw - 30; let fs = 132; g.font = `900 ${fs}px ${F}`; while (fs > 64 && g.measureText(c.name).width > mw) { fs -= 6; g.font = `900 ${fs}px ${F}`; }
-      g.fillStyle = "#FFE066"; g.fillText(c.name, cx, y + 205); g.globalAlpha = 0.85; g.fillRect(cx, y + 232, Math.max(20, c.len * bw - 36), 12); g.globalAlpha = 1; }
-    g.fillStyle = "#fff"; g.font = `500 62px ${F}`; for (const l of m.lyrics) g.fillText(l.text, x + l.b * bw + 18, y + 350); }
+    g.setLineDash([12, 10]); g.strokeStyle = "#444"; g.lineWidth = 3; g.beginPath(); g.moveTo(x + cw / 2, y + 62); g.lineTo(x + cw / 2, y + rh - 14); g.stroke(); g.setLineDash([]);
+    for (let b = 0; b < 4; b++) { g.fillStyle = b === 0 ? "#e8e8e8" : "#8c8c8c"; g.font = `700 28px ${F}`; g.fillText(String(b + 1), x + b * bw + 22, y + 66); }
+    g.fillStyle = "#8c8c8c"; g.font = `500 28px ${F}`; g.fillText(String(m.no), x + 22, y + 34); const sec = meta.sec && meta.sec[from + i]; if (sec) { g.fillStyle = "#fff"; g.font = `700 28px ${F}`; g.fillText(sec, x + 22 + g.measureText(String(m.no)).width + 12, y + 34); }
+    for (const c of m.chords) { const cx = x + c.b * bw + 18, mw = c.len * bw - 30; let fs = 112; g.font = `900 ${fs}px ${F}`; while (fs > 56 && g.measureText(c.name).width > mw) { fs -= 6; g.font = `900 ${fs}px ${F}`; }
+      g.fillStyle = "#FFE066"; g.fillText(c.name, cx, y + 160); g.globalAlpha = 0.85; g.fillRect(cx, y + 180, Math.max(20, c.len * bw - 36), 10); g.globalAlpha = 1; }
+    { g.fillStyle = "#fff"; let fs = 54, ex = 0, lay = [], avail = cw - 36;   // 가사끼리 겹치면 뒤로 밀고, 칸을 넘으면 글자를 줄임
+      const run = () => { g.font = `500 ${fs}px ${F}`; ex = 0; lay = m.lyrics.map((l) => { const lx = Math.max(l.b * bw + 18, ex), w = g.measureText(l.text).width; ex = lx + w + 20; return [l.text, lx]; }); };
+      run(); while (fs > 30 && m.lyrics.length && ex - 20 > avail + 18) { fs -= 4; run(); } for (const l of lay) g.fillText(l[0], x + l[1], y + 245); } }
   return cv;
 }
 async function songPeaks(ab) {   // MP3 → 0.1초마다 가장 큰 소리(0~63) 글자열 · 소리 장치 없이 디코드(OfflineAudioContext)
@@ -6233,7 +6273,7 @@ function songDeck(el, ids, o) {
     draw(); if (eng.isPlaying() || drag || glide) raf = requestAnimationFrame(frame); };
   function kick_() { if (!raf && alive()) raf = requestAnimationFrame(frame); }
   me.dispose = () => { cancelAnimationFrame(raf); raf = 0; glide = null; clearTimeout(me.keyT); try { me.pr && me.pr.remove(); } catch {} };
-  const paintVol = () => { Q("sgVv").textContent = me.vol + "%"; Q("sgVol").value = me.vol; el.querySelectorAll("[data-sgv]").forEach(b => b.classList.toggle("on", +b.dataset.sgv === me.vol)); };
+  const paintVol = () => { Q("sgVv").textContent = me.vol + "%"; Q("sgVol").value = me.vol; el.querySelectorAll("[data-sgv]").forEach(b => b.classList.toggle("on", +b.dataset.sgv === me.vol)); try { me.onVol && me.onVol(); } catch {} };
   const setVol = (v) => { me.vol = Math.max(0, Math.min(100, Math.round(v))); eng.setVol(me.vol); paintVol(); clearTimeout(me.svT); me.svT = setTimeout(() => { try { o.onVol && o.onVol(me.vol); } catch {} }, 1500); };
   paintVol(); Q("sgT1").textContent = dur() ? mmss(dur()) : "–:–";
   const paintRate = () => { const bpm = +o.bpm; Q("dkSpV").textContent = bpm > 0 ? Math.round(bpm * rate) + " BPM" : pct(rate) + "%"; Q("dkSpN").textContent = bpm > 0 ? `원곡 ${Math.round(bpm)} · ${pct(rate)}%` : "원곡 속도"; Q("dkSpM").disabled = rate <= 0.8 + 1e-6; Q("dkSpP").disabled = rate >= 1.2 - 1e-6; Q("dkRst").classList.toggle("show", Math.abs(rate - 1) > 1e-6 || keyWant !== 0); };
@@ -6281,39 +6321,80 @@ function songDeck(el, ids, o) {
   const openPrompter = () => {
     if (!CHORDS || document.getElementById("dkPr")) return;
     const d = document.createElement("div"); d.id = "dkPr"; d.setAttribute("role", "dialog"); d.setAttribute("aria-label", "TV 프롬프터");
-    const meas = () => songMeasures(AN, keyN, o.lyrics); let M = meas(), mKey = keyN;
-    d.innerHTML = `<div class="prTop"><button type="button" class="prPlay" id="prPlay" aria-label="재생 또는 일시정지">▶</button><div class="prT"><b id="prTitle"></b><span id="prSub"></span></div><div class="prNow"><small>지금</small><b id="prNow">–</b><i>→</i><small>다음</small><b id="prNext">–</b></div><button type="button" class="prPdf" id="prPdf" aria-label="PDF로 저장">PDF</button><button type="button" class="prX" id="prX" aria-label="닫기">✕</button></div>
-      <div class="prBar"><span id="prPos"></span><span id="prDots"></span><span class="prLg">노란 글자 = 코드 · 흰 글자 = 가사 · 밑줄 길이 = 코드를 잡는 박 · 마디를 톡 하면 거기서 재생</span></div><div class="prGrid"><div class="prRows" id="prRows"></div></div>`;
-    d.querySelector("#prTitle").textContent = o.name || "곡"; let rr = 0, on = -1, raf2 = 0, wl = null, rowsN = 0, firstRow = -1;
-    const build = () => { M = meas(); mKey = keyN; const R = d.querySelector("#prRows"); R.textContent = ""; rowsN = Math.ceil(M.length / 4); R.style.setProperty("--rows", Math.max(rowsN, 3));
-      for (let r = 0; r < rowsN; r++) { const row = document.createElement("div"); row.className = "prRow";
-        for (let k = 0; k < 4; k++) { const m = M[r * 4 + k]; const c = document.createElement("div"); c.className = "prM"; if (!m) { c.classList.add("prE"); row.appendChild(c); continue; } c.dataset.i = r * 4 + k;
-          const no = document.createElement("span"); no.className = "prNo"; no.textContent = m.no; c.appendChild(no);
+    let ED = JSON.parse(JSON.stringify(o.edits && typeof o.edits === "object" ? o.edits : {})), SEC = Array.isArray(o.sections) ? o.sections.map((x) => [+x[0], String(x[1])]) : [];
+    const meas = () => songApplyEdits(songMeasures(AN, keyN, o.lyrics), ED, keyN); let M = meas(), mKey = keyN, SL = songSecList(M.length, SEC);
+    d.innerHTML = `<div class="prTop"><button type="button" class="prPlay" id="prPlay" aria-label="재생 또는 일시정지">▶</button><div class="prT"><b id="prTitle"></b><span id="prSub"></span></div>
+      <div class="prVo"><small>보컬</small><input type="range" id="prVol" min="0" max="100" aria-label="보컬 소리"><b id="prVv"></b></div>
+      <button type="button" class="prBtn prEd" id="prEd">✎ 수정</button><button type="button" class="prBtn" id="prPdf" aria-label="PDF로 저장">PDF</button><button type="button" class="prX" id="prX" aria-label="닫기">✕</button></div>
+      <div class="prTl"><span id="prT0">0:00</span><div class="prSg"><div class="prSgs" id="prSgs"></div><input type="range" id="prSeek" min="0" max="1000" step="1" value="0" aria-label="곡 전체 위치"></div><span id="prT1">–:–</span><div class="prPg"><button type="button" id="prPv" aria-label="이전 쪽">◀</button><span id="prPn"></span><button type="button" id="prNx" aria-label="다음 쪽">▶</button></div></div>
+      <div class="prGrid" id="prGrid"></div>`;
+    d.querySelector("#prTitle").textContent = o.name || "곡";
+    let needFit = false, pg = 0, lastPg = -1, on = -1, raf2 = 0, wl = null, edit = false, sel = -1, sd = false, lastSi = -1, flT = 0, sv = 0, fl = -1;
+    const pages = () => Math.max(1, Math.ceil(M.length / SG_PER)), $ = (s) => d.querySelector(s);
+    const save = () => { clearTimeout(sv); sv = setTimeout(() => { try { o.onEdits && o.onEdits(ED); } catch {} try { o.onSections && o.onSections(SEC); } catch {} }, 700); };
+    const flush = () => { if (sv) { clearTimeout(sv); sv = 0; try { o.onEdits && o.onEdits(ED); } catch {} try { o.onSections && o.onSections(SEC); } catch {} } };
+    const paintEd = () => { const n = Object.keys(ED).length; $("#prEd").textContent = "✎ 수정" + (n ? " " + n : ""); $("#prEd").classList.toggle("on", edit); };
+    const buzz = (si) => { try { if (navigator.vibrate) navigator.vibrate(20); } catch {} fl = si; paintSegs(); clearTimeout(flT); flT = setTimeout(() => { fl = -1; paintSegs(); }, 350); };
+    const paintSegs = () => { const cur = songSecAt(SL, Math.max(0, on)), R = $("#prSgs"); if (R.children.length !== SL.length) { R.textContent = ""; SL.forEach((s, k) => { const b = document.createElement("button"); b.type = "button"; b.style.flex = Math.max(1, s.len) + " 1 0"; b.onclick = () => { const m = M[s.start]; if (m) { seekTo(m.t0); buzz(k); } }; R.appendChild(b); }); }
+      SL.forEach((s, k) => { const b = R.children[k]; b.textContent = (fl === k ? "📳 " : "") + s.name; b.className = (k === cur ? "on " : "") + (fl === k ? "fl" : ""); }); };
+    const build = () => { M = meas(); mKey = keyN; SL = songSecList(M.length, SEC); pg = Math.max(0, Math.min(pg, pages() - 1)); const G = $("#prGrid"); G.textContent = ""; $("#prSgs").textContent = ""; $("#prPn").textContent = `${pg + 1}/${pages()}쪽`;
+      const secName = {}; SL.forEach((s) => { secName[s.start] = s.name; });
+      for (let r = 0; r < 5; r++) { const row = document.createElement("div"); row.className = "prRow";
+        for (let k = 0; k < 4; k++) { const i = pg * SG_PER + r * 4 + k, m = M[i], c = document.createElement("div"); c.className = "prM"; if (!m) { c.classList.add("prE"); row.appendChild(c); continue; } c.dataset.i = i; if (edit && i === sel) c.classList.add("sel");
+          const no = document.createElement("span"); no.className = "prNo"; no.textContent = m.no; if (secName[i]) { const sb = document.createElement("b"); sb.textContent = "[" + secName[i] + "]"; no.appendChild(sb); } c.appendChild(no);
           for (let b = 0; b < 4; b++) { const t = document.createElement("span"); t.className = "prBt" + (b === 0 ? " p1" : ""); t.style.left = b * 25 + "%"; t.textContent = b + 1; c.appendChild(t); if (b === 2) { const l = document.createElement("span"); l.className = "prLn"; l.style.left = "50%"; c.appendChild(l); } }
           for (const ch of m.chords) { const e = document.createElement("span"); e.className = "prCh"; e.style.left = `calc(${ch.b * 25}% + .4em)`; e.textContent = ch.name; c.appendChild(e);
             const u = document.createElement("span"); u.className = "prUl"; u.style.left = `calc(${ch.b * 25}% + .4em)`; u.style.width = `calc(${ch.len * 25}% - .9em)`; c.appendChild(u); }
-          for (const y of m.lyrics) { const e = document.createElement("span"); e.className = "prLy"; e.style.left = `calc(${y.b * 25}% + .4em)`; e.textContent = y.text; c.appendChild(e); }
-          const hd = document.createElement("span"); hd.className = "prHd"; c.appendChild(hd); c.onclick = () => { seekTo(m.t0); }; row.appendChild(c); }
-        R.appendChild(row); } on = -1; firstRow = -1; };
-    build();
-    const sub = () => { d.querySelector("#prSub").textContent = `${keyName(keyWant)}${AN.mode === "minor" ? "" : ""} · ${+o.bpm > 0 ? Math.round(+o.bpm * rate) + " BPM · " : ""}4/4박(추정)`; }; sub();
-    const names = (mi, b) => { const m = M[mi]; if (!m) return ["–", "–"]; let now = "–"; for (const c of m.chords) if (c.b <= b) now = c.name; let nx = "–"; const after = m.chords.find((c) => c.b > b); if (after) nx = after.name; else if (M[mi + 1] && M[mi + 1].chords[0]) nx = M[mi + 1].chords[0].name; return [now, nx]; };
-    const tickP = () => { raf2 = 0; if (!d.isConnected || !alive()) return; if (mKey !== keyN) { build(); sub(); }
+          for (const y of m.lyrics) { const e = document.createElement("span"); e.className = "prLy"; e.dataset.b = y.b; e.style.left = `calc(${y.b * 25}% + .4em)`; e.textContent = y.text; c.appendChild(e); }
+          if (m.edited && edit) { const e = document.createElement("span"); e.className = "prEg"; e.textContent = "수정됨"; c.appendChild(e); }
+          const hd = document.createElement("span"); hd.className = "prHd"; c.appendChild(hd); c.onclick = () => { if (edit) openEdit(i); else seekTo(m.t0); }; row.appendChild(c); }
+        G.appendChild(row); }
+      on = -1; needFit = true; paintSegs(); };
+    const fit = () => { needFit = false; d.querySelectorAll(".prM").forEach((c) => { const L = [...c.querySelectorAll(".prLy")]; if (!L.length) return; const W = c.clientWidth, gap = 10, pad = 8; L.forEach((e) => { e.style.fontSize = ""; });
+      const lay = () => { let x = 0; L.forEach((e) => { const l = Math.max(+e.dataset.b / 4 * W + pad, x); e.style.left = l + "px"; x = l + e.offsetWidth + gap; }); return x - gap; }; let end = lay(); if (end > W - 4) { const base = parseFloat(getComputedStyle(L[0]).fontSize), r = Math.max(0.55, (W - 4 - pad) / Math.max(1, end - pad)); L.forEach((e) => { e.style.fontSize = base * r + "px"; }); lay(); } }); };
+    const sub = () => { $("#prSub").textContent = `${o.artist ? o.artist + " · " : ""}${keyName(keyWant)} · ${+o.bpm > 0 ? Math.round(+o.bpm * rate) + " BPM" : "4/4박(추정)"}`; };
+    // 직접 수정: 마디를 누르면 코드·가사·구간 이름 입력창이 위/아래에 뜸
+    let ep = null;
+    const closeEdit = () => { sel = -1; if (ep) { ep.remove(); ep = null; } d.querySelectorAll(".prM.sel").forEach((e) => e.classList.remove("sel")); };
+    const openEdit = (i) => { const m = M[i]; if (!m) return; closeEdit(); sel = i; d.querySelectorAll(".prM.sel").forEach((e) => e.classList.remove("sel")); const cell = d.querySelector(`.prM[data-i="${i}"]`); if (cell) cell.classList.add("sel");
+      ep = document.createElement("div"); ep.className = "prEp"; const row = Math.floor((i % SG_PER) / 4), grid = $("#prGrid");
+      if (row >= 3) ep.style.top = grid.offsetTop + "px"; else ep.style.bottom = "1.6vh";
+      ep.innerHTML = `<div class="eh"><b>${m.no}마디 수정</b><span>코드는 띄어쓰기로 입력 · <u>D</u> = 한 마디 1코드 · <u>Bm Em</u> = 1·3박 · <u>G A@2</u> = 박 지정</span><div class="sp"><button type="button" class="prBtn" id="prRs">되돌리기</button><button type="button" class="prBtn on" id="prOk">완료</button></div></div>
+        <div class="er"><label for="prCi">코드</label><input type="text" id="prCi" autocomplete="off" autocapitalize="off" spellcheck="false"><div class="hint" id="prCh"></div></div>
+        <div class="er"><label for="prLi">가사</label><input type="text" id="prLi" autocomplete="off"><label for="prSi" style="min-width:0">구간 이름</label><input type="text" id="prSi" placeholder="예: 1절 · 비우면 해제" autocomplete="off"></div>`;
+      d.appendChild(ep); const ci = ep.querySelector("#prCi"), li = ep.querySelector("#prLi"), si = ep.querySelector("#prSi"), hint = ep.querySelector("#prCh");
+      ci.value = songFmtChords(m.chords); li.value = m.lyrics.map((y) => y.text).join(" "); const cs = SEC.find((x) => x[0] === i); si.value = cs ? cs[1] : "";
+      const hintUp = () => { const p = songParseChords(ci.value); hint.style.color = p.bad.length ? "#ff8a80" : "#b8b8b8"; hint.textContent = p.bad.length ? "알 수 없는 입력: " + p.bad.join(" ") : p.ch.length ? p.ch.map((c) => c[0] + "박 " + c[1]).join(" · ") : "코드를 입력하세요"; }; hintUp();
+      const apply = () => { const e = Object.assign({}, ED[i] || {}), p = songParseChords(ci.value); if (p.ch.length) e.ch = p.ch.map((c) => [c[0], songChordName(c[1], -keyN)]); e.ly = li.value; ED[i] = e; save(); refresh(); };
+      ci.oninput = () => { hintUp(); apply(); }; li.oninput = apply;
+      si.oninput = () => { SEC = SEC.filter((x) => x[0] !== i); if (si.value.trim()) SEC.push([i, si.value.trim()]); save(); refreshSec(); };
+      const k = (e) => { if (e.key === "Enter") closeEdit(); }; ci.onkeydown = li.onkeydown = si.onkeydown = k;
+      ep.querySelector("#prOk").onclick = closeEdit; ep.querySelector("#prRs").onclick = () => { delete ED[i]; SEC = SEC.filter((x) => x[0] !== i); save(); build(); closeEdit(); openEdit(i); }; ci.focus(); };
+    const refresh = () => { const keep = sel; M = meas(); build(); if (keep >= 0) { const c2 = d.querySelector(`.prM[data-i="${keep}"]`); if (c2) c2.classList.add("sel"); } paintEd(); };
+    const refreshSec = () => { SL = songSecList(M.length, SEC); build(); if (sel >= 0) { const c2 = d.querySelector(`.prM[data-i="${sel}"]`); if (c2) c2.classList.add("sel"); } };
+    $("#prEd").onclick = () => { edit = !edit; closeEdit(); build(); paintEd(); };
+    $("#prPv").onclick = () => { pg = Math.max(0, pg - 1); closeEdit(); build(); }; $("#prNx").onclick = () => { pg = Math.min(pages() - 1, pg + 1); closeEdit(); build(); };
+    // 보컬 소리 슬라이더 · 곡 전체 위치 슬라이더(구간 경계를 지나면 진동)
+    const vv = () => { const v = me.vol; $("#prVol").value = v; $("#prVv").textContent = v === 0 ? "끄기" : v <= 40 ? `가이드 ${v}%` : v + "%"; }; me.onVol = vv; vv(); $("#prVol").oninput = () => setVol(+$("#prVol").value);
+    const sk = $("#prSeek"); sk.onpointerdown = sk.ontouchstart = () => { sd = true; }; sk.onchange = () => { sd = false; }; sk.onpointerup = sk.ontouchend = sk.onpointercancel = () => { sd = false; };
+    sk.oninput = () => { const t = (+sk.value / 1000) * dur(), q = songBeatPos(AN, t), si = songSecAt(SL, Math.min(M.length - 1, q.m)); if (lastSi >= 0 && si !== lastSi) buzz(si); lastSi = si; seekTo(t); };
+    build(); sub(); paintEd();
+    const tickP = () => { raf2 = 0; if (!d.isConnected || !alive()) return; if (mKey !== keyN) { build(); sub(); } if (needFit) fit();
       const p = eng.pos(), n0 = performance.now(); if (p !== lastP) { lastP = p; lastT = n0; } const tt = eng.isPlaying() ? lastP + Math.min(0.3, (n0 - lastT) / 1000 * rate) : p, q = songBeatPos(AN, tt), mi = Math.min(M.length - 1, q.m);
-      d.querySelector("#prPlay").textContent = eng.isPlaying() ? "❚❚" : "▶";
-      if (mi !== on) { d.querySelectorAll(".prM.on").forEach((e) => e.classList.remove("on")); const cur = d.querySelector(`.prM[data-i="${mi}"]`); if (cur) cur.classList.add("on"); on = mi;
-        const row = Math.floor(mi / 4), fr = Math.max(0, Math.min(Math.max(0, rowsN - 3), row - 1)); if (fr !== firstRow) { firstRow = fr; d.querySelector("#prRows").style.transform = `translateY(calc(${-fr} * (100% / ${Math.max(rowsN, 1)})))`; } }
-      const cur = d.querySelector(".prM.on .prHd"); if (cur) cur.style.left = (q.b / 4 * 100) + "%";
-      const bi = Math.floor(q.b), nn = names(mi, bi); d.querySelector("#prNow").textContent = nn[0]; d.querySelector("#prNext").textContent = nn[1]; d.querySelector("#prPos").textContent = `${(M[mi] || { no: 1 }).no}마디 · ${bi + 1}박`;
-      d.querySelector("#prDots").innerHTML = [0, 1, 2, 3].map((b) => `<i class="${b === bi ? "on" : ""}"></i>`).join(""); raf2 = requestAnimationFrame(tickP); };
-    const ly = typeof Brand !== "undefined" && Brand.layer ? Brand.layer(() => { cancelAnimationFrame(raf2); try { wl && wl.release(); } catch {} try { if (document.fullscreenElement) document.exitFullscreen(); } catch {} try { screen.orientation && screen.orientation.unlock && screen.orientation.unlock(); } catch {} d.remove(); }) : { close: () => d.remove() };   // 뒤로 가기 = 프롬프터만 닫힘
-    const pdfBtn = d.querySelector("#prPdf");   // 사용자 11/14: 프롬프터 PDF 저장(파일명 제목_가수_Key)
+      $("#prPlay").textContent = eng.isPlaying() ? "❚❚" : "▶";
+      if (!sd) { sk.value = dur() ? Math.round(Math.max(0, Math.min(1, tt / dur())) * 1000) : 0; lastSi = songSecAt(SL, mi); }
+      $("#prT0").textContent = mmss(tt); $("#prT1").textContent = dur() ? mmss(dur()) : "–:–";
+      const mp = Math.floor(mi / SG_PER); if (mp !== lastPg) { lastPg = mp; if (mp !== pg) { pg = mp; closeEdit(); build(); } }
+      if (mi !== on) { d.querySelectorAll(".prM.on").forEach((e) => e.classList.remove("on")); const cur = d.querySelector(`.prM[data-i="${mi}"]`); if (cur) cur.classList.add("on"); on = mi; paintSegs(); }
+      const cur = d.querySelector(".prM.on .prHd"); if (cur) cur.style.left = (q.b / 4 * 100) + "%"; raf2 = requestAnimationFrame(tickP); };
+    const ly = typeof Brand !== "undefined" && Brand.layer ? Brand.layer(() => { cancelAnimationFrame(raf2); flush(); me.onVol = null; clearTimeout(flT); try { wl && wl.release(); } catch {} try { if (document.fullscreenElement) document.exitFullscreen(); } catch {} try { screen.orientation && screen.orientation.unlock && screen.orientation.unlock(); } catch {} d.remove(); }) : { close: () => { flush(); me.onVol = null; d.remove(); } };   // 뒤로 가기 = 프롬프터만 닫힘
+    const pdfBtn = $("#prPdf");   // 사용자 11/14: 프롬프터 PDF 저장(파일명 제목_가수_Key) · 한 쪽 5줄 · 조작 부품 없이 악보만
     pdfBtn.onclick = async () => { pdfBtn.disabled = true; const t0 = pdfBtn.textContent; pdfBtn.textContent = "만드는 중…";
-      try { const MM = songMeasures(AN, keyN, o.lyrics), pgs = Math.max(1, Math.ceil(MM.length / 12)), sub = `${o.artist ? o.artist + " · " : ""}Key ${keyName(keyN)} · ${+o.bpm > 0 ? Math.round(+o.bpm) + " BPM · " : ""}4/4박(추정)`, out = [];
-        for (let p = 0; p < pgs; p++) { const cv = songPdfPage(MM, p * 12, { title: o.name, sub, page: p + 1, pages: pgs }), jb = await new Promise((ok) => cv.toBlob(ok, "image/jpeg", 0.92)); out.push({ jpg: new Uint8Array(await jb.arrayBuffer()), w: cv.width, h: cv.height }); }
+      try { const MM = meas(), L2 = songSecList(MM.length, SEC), sec = {}; L2.forEach((s) => { sec[s.start] = "[" + s.name + "]"; }); const pgs = Math.max(1, Math.ceil(MM.length / SG_PER)), sb = `${o.artist ? o.artist + " · " : ""}Key ${keyName(keyN)} · ${+o.bpm > 0 ? Math.round(+o.bpm) + " BPM · " : ""}4/4박(추정)`, out = [];
+        for (let p = 0; p < pgs; p++) { const cv = songPdfPage(MM, p * SG_PER, { title: o.name, sub: sb, page: p + 1, pages: pgs, sec }), jb = await new Promise((ok) => cv.toBlob(ok, "image/jpeg", 0.92)); out.push({ jpg: new Uint8Array(await jb.arrayBuffer()), w: cv.width, h: cv.height }); }
         songSave(songPdf(out, 960, 600), songPdfName(o.name, o.artist, keyName(keyN))); toast("PDF를 받았어요(다운로드 폴더)"); }
       catch (e) { toast("PDF 만들기 실패: " + errMsg(e)); } finally { pdfBtn.disabled = false; pdfBtn.textContent = t0; } };
-    d.querySelector("#prX").onclick = () => ly.close(); d.querySelector("#prPlay").onclick = () => Q("sgPb").onclick();
+    $("#prX").onclick = () => ly.close(); $("#prPlay").onclick = () => Q("sgPb").onclick();
     document.body.appendChild(d); me.pr = d;
     (async () => { try { wl = await navigator.wakeLock?.request("screen"); } catch {} try { await d.requestFullscreen?.({ navigationUI: "hide" }); } catch {} try { await screen.orientation?.lock?.("landscape"); } catch {} })();   // 되는 폰만(안 되면 그대로 보임)
     raf2 = requestAnimationFrame(tickP);
@@ -8556,7 +8637,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261114-2030";
+const BUILD = "20261114-2100";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
