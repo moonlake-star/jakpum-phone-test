@@ -1363,7 +1363,7 @@
         rp.addEventListener("pointerdown", (e) => { e.stopPropagation(); shut(); });
         bye && bye.remove();   // 안내가 겹치지 않게 '닫을 때는…'은 이번엔 생략
         setTimeout(() => { if (!wrap.isConnected) return; wrap.appendChild(rp); setTimeout(shut, 3500); }, 400); } }
-    const done = () => { if (hist) { hist.keep(true); try { document.removeEventListener("visibilitychange", hidKeep); } catch {} } exitCard(o, hist); try { document.removeEventListener("keydown", st.onKey); } catch {} G.removeEventListener("resize", layout); G.removeEventListener("orientationchange", layout); wrap.remove(); if (fsClose === done) fsClose = null; };
+    const done = () => { if (hist) { hist.keep(true); try { document.removeEventListener("visibilitychange", hidKeep); } catch {} } exitCard(o, hist); try { document.removeEventListener("keydown", st.onKey); } catch {} G.removeEventListener("resize", layout); G.removeEventListener("orientationchange", layout); try { st.glideStop && st.glideStop(); } catch {} wrap.remove(); if (fsClose === done) fsClose = null; };
     fsClose = done;
     const hidKeep = () => { if (document.visibilityState === "hidden" && hist) hist.keep(true); };   // 앱을 내리거나 꺼도 기록 보관
     if (hist) document.addEventListener("visibilitychange", hidKeep);
@@ -1617,6 +1617,7 @@
     const along = (e) => (rot ? e.clientY : e.clientX), across = (e) => (rot ? e.clientX : e.clientY);
     const span = () => (cvEl.clientWidth - 44) || 1, tall = () => cvEl.clientHeight || 1;
     const pts = new Map(); let drag = null, pinch = null, preview = null, tGlide = null, vGlide = null;
+    st.glideStop = () => { tGlide = null; vGlide = null; };   // 화면을 닫을 때 미끄러지는 중이면 멈춤(닫힌 화면에서 늦게 seek가 불리지 않게)
     const vTrack = (d, k, pv, nv, per) => { const nw = performance.now(); if (d.vtm) { const dt_ = Math.max(1, nw - d.vtm); d.vv = 0.7 * (d.vv || 0) + 0.3 * ((nv - pv) / dt_); } d.vtm = nw; d.vk = k; d.vper = per; };   // 위아래 밀기 빠르기(센트/ms)
     const view = mkView(st, () => preview, (v) => { preview = v; }, getT, seek);
     cvEl.style.touchAction = "none"; cvEl.addEventListener("contextmenu", (e) => e.preventDefault());
