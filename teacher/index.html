@@ -6432,7 +6432,9 @@ function songDeck(el, ids, o) {
   cv.onpointermove = (e) => { if (!drag) return; const n = performance.now(), dx = e.clientX - drag.x, dt = Math.max(1, n - drag.t); if (Math.abs(dx) > 1) drag.moved = true;
     vp = Math.max(0, Math.min(dur(), vp - dx / pps())); drag.v = 0.7 * drag.v + 0.3 * (dx / dt); drag.x = e.clientX; drag.t = n; Q("sgT0").textContent = mmss(vp); };
   const up = () => { if (!drag) return; const d = drag; if (!d.moved) { drag = null; return d.live ? commit(d.was) : commitTap(d); }   // 미끄러지는 중 톡 = 그 자리에서 멈추고 이어서 재생
-    drag = null; commit(d.was); };   // (11/14 22:02 사용자 '터치 스크롤 미끄럼 어색 — 없애') 손을 뗀 그 자리에서 바로 멈춤(관성 미끄러짐 없음)
+    glide = { v: d.v * 0.5, was: d.was, last: performance.now() }; drag = null;   // (11/14 22:08 사용자 '관성 다시, 아까의 절반') 처음 빠르기 절반 = 미끄러지는 거리 절반
+    const step = () => { if (!glide) return; const n = performance.now(), dt = Math.min(50, n - glide.last); glide.last = n; vp = Math.max(0, Math.min(dur(), vp - glide.v * dt / pps())); glide.v *= Math.pow(0.94, dt / 16); Q("sgT0").textContent = mmss(vp);
+      if (Math.abs(glide.v) < 0.015 || vp <= 0 || vp >= dur()) return commit(); requestAnimationFrame(step); }; requestAnimationFrame(step); };
   const commitTap = async (d) => { if (d.was && alive()) { try { await eng.play(); if (alive()) { Q("sgPb").textContent = "❚❚"; kick_(); } } catch {} } };
   cv.onpointerup = up; cv.onpointercancel = up;
   el.querySelectorAll("[data-sgd]").forEach(b => b.onclick = async () => {
@@ -8652,7 +8654,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261114-2205";
+const BUILD = "20261114-2210";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
