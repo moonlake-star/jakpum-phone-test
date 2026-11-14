@@ -56,6 +56,13 @@ const mk = new Function(code + "; return stemEngine;")();
     assert.deepStrictEqual(f.songMeasures({ beats: [1, 2], down: 0 }, 0), [], "박이 모자라면 빈 목록");
     assert.deepStrictEqual(f.songBeatPos(an, 1.0), { m: 0, b: 0 }); const q = f.songBeatPos(an, 2.25); assert.strictEqual(q.m, 0); assert.ok(Math.abs(q.b - 1.5) < 1e-9, q.b);
     assert.deepStrictEqual(f.songBeatPos(an, 0.2), { m: 0, b: 0 }, "첫 강박 전(앞박)은 첫 마디 앞"); assert.strictEqual(f.songBeatPos(an, 3.6).m, 1); assert.strictEqual(f.songBeatPos(an, 3.0).m, 0); }
+  // 프롬프터 PDF: 조립한 PDF의 구조(페이지 수·xref 위치)와 파일명
+  { const src = T.slice(T.indexOf("function songPdf("), T.indexOf("// 프롬프터 한 쪽(마디 12칸)")), f = new Function("Blob", "TextEncoder", src + "; return { songPdf, songPdfName };")(class { constructor(p, o) { this.parts = p; this.type = o.type; } }, TextEncoder);
+    assert.strictEqual(f.songPdfName("그리움만 쌓이네", "여행스케치", "D"), "그리움만 쌓이네_여행스케치_D.pdf"); assert.strictEqual(f.songPdfName("A/B:C", "", "Am"), "A_B_C_Am.pdf", "가수가 없으면 건너뜀·금지 글자 치환");
+    const jpg = new Uint8Array([0xff, 0xd8, 1, 2, 3, 0xff, 0xd9]), blob = f.songPdf([{ jpg, w: 10, h: 6 }, { jpg, w: 10, h: 6 }], 960, 600), buf = Buffer.concat(blob.parts.map((x) => Buffer.from(x))), txt = buf.toString("latin1");
+    assert.strictEqual(blob.type, "application/pdf"); assert.ok(txt.startsWith("%PDF-1.4") && txt.trimEnd().endsWith("%%EOF")); assert.ok(txt.includes("/Count 2") && txt.includes("/Kids [3 0 R 6 0 R]") && txt.includes("/MediaBox [0 0 960 600]"));
+    const sx = +/startxref\n(\d+)/.exec(txt)[1]; assert.strictEqual(txt.slice(sx, sx + 4), "xref", "startxref가 xref를 가리킴");
+    const ent = txt.slice(sx).split("\n").filter((l) => /^\d{10} 00000 n/.test(l)); assert.strictEqual(ent.length, 8); ent.forEach((l, i) => assert.ok(new RegExp("^" + (i + 1) + " 0 obj").test(txt.slice(+l.slice(0, 10), +l.slice(0, 10) + 12)), "객체 " + (i + 1) + " 위치")); }
   // 화면 연결(정적)
   const dk = T.slice(T.indexOf("function songDeck("), T.indexOf("// (11/05 00:14 사용자)"));
   for (const k of ["dkWv", "dkHome", "dkBk", "dkFw", "dkEnd", "dkRep", "dkLoop", "dkRv", "dkA", "dkB", "dkClr", "dkMr", "dkSpM", "dkSpP", "dkRst"]) assert.ok(dk.includes('id="' + k + '"'), k);
@@ -64,6 +71,7 @@ const mk = new Function(code + "; return stemEngine;")();
   assert.ok(dk.includes("o.analysis && o.analysis.key") && dk.includes("eng.swap(") && dk.includes("o.onKeyReq"), "키 카드는 서버가 분석한 곡에만 · 파일 없으면 요청");
   assert.ok(/songDeck\(pl, ids, \{[^]*analysis: x\.d\.analysis, keys: x\.d\.keys, keyReq: x\.d\.key_req/.test(T), "곡 서랍이 분석·키 파일을 넘김");
   assert.ok(dk.includes("openPrompter") && dk.includes("Brand.layer") && dk.includes('id="dkTv"') && dk.includes("o.analysis.chords.length"), "프롬프터는 코드가 있는 곡에만 · 뒤로 가기 한 칸");
+  assert.ok(dk.includes('id="prPdf"') && dk.includes("songPdfName(o.name, o.artist, keyName(keyN))"), "프롬프터 PDF 버튼·파일명 규칙");
   assert.ok(!dk.includes("new Audio") && !/\.voc\.volume/.test(dk), "플레이어는 엔진만 씀");
   assert.ok(/songDeck\(pl, ids, \{ folder: x\.folder, autoplay: auto/.test(T), "곡 서랍 카드가 새 플레이어");
   assert.ok(T.includes("function songDestroy() {") && /dispose\?\.\(\)/.test(T), "닫을 때 애니메이션 정리");
