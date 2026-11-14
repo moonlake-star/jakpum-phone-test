@@ -117,7 +117,7 @@ const mk = new Function(code + "; return stemEngine;")();
     const rg = f.songEditRange(ON, 2); assert.deepStrictEqual(rg, [2, 4]); const C2 = f.songRenameBeats(ON, rg[0], rg[1], "Em"); assert.deepStrictEqual(f.songChordsOfRow(C2, 0, 4), [[3, "Em"]]);
     assert.deepStrictEqual(f.songApplyEdits(M0, { 0: { ch: [[3, "Em"]] } }, 0)[0].chords.map((c) => [c.b, c.name]), [[2, "Em"]], "프롬프터도 같은 기록으로 그림"); }
   assert.ok(dk.includes("const meas = () => songApplyEdits(songMeasures(AN, keyN, o.lyrics), ED, keyN)"), "프롬프터(·PDF·코드 악보)도 같은 고침 기록을 그림");
-  { const pr = dk.slice(dk.indexOf("const openPrompter"), dk.indexOf("if (Q(\"dkTv\"))")); assert.ok(!/\.auto|f === 2|d9b8ff|8dffb0/.test(pr), "프롬프터에는 고침 색 구분 없음(사용자 11/14 22:16)"); }
+  { const pr = dk.slice(dk.indexOf("const openPrompter"), dk.indexOf("if (Q(\"dkTv\"))")); assert.ok(!/f === 2|d9b8ff|8dffb0|a287d0/.test(pr), "프롬프터에는 고침 색 구분 없음(사용자 11/14 22:16)"); }
   assert.ok(dk.includes("openChordEdit") && dk.includes('e.clientY - rc.top < 30') && dk.includes("navigator.vibrate(15)"), "코드 줄 길게 누르기");
   assert.ok(dk.includes("let tx = x + 3; if (tx < 2)") && dk.includes("put.pop()"), "코드 글자 겹침 방지");
   assert.ok(/delete e\.auto; delete e\.g;/.test(dk) && !/let ED = JSON\.parse[^]*let ED = JSON\.parse/.test(dk), "프롬프터 수정은 직접 고침으로 표시 · ED는 한 곳");
