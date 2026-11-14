@@ -25,6 +25,11 @@
     const lo = a[Math.floor(a.length * 0.03)], hi = a[Math.min(a.length - 1, Math.floor(a.length * 0.97))];
     return (cv._rng = [Math.floor(lo / 100) * 100 - 250, Math.ceil(hi / 100) * 100 + 250]);
   }
+  // (11/14 22:28 사용자 '위아래 쓸데없는 공간') 위아래로 갈 수 있는 끝 = 이 곡 음역 + 2반음(보컬 음역 E2~C6 밖으로는 더 안 늘림)
+  const vBand = (cv) => { const [lo, hi] = range(cv); return [Math.min(lo, Math.max(4000, lo - 200)), Math.max(hi, Math.min(8400, hi + 200))]; };
+  function vClamp(st, cv) { const [lo, hi] = range(cv), [bl, bh] = vBand(cv);
+    if ((st.yz || 1) > 1) { if (st.yc == null) return; const half = (hi - lo) / 2 / st.yz, a = bl + half, b = bh - half; st.yc = a > b ? (bl + bh) / 2 : Math.max(a, Math.min(b, st.yc)); }
+    else st.yo = Math.max(bl - lo, Math.min(bh - hi, st.yo || 0)); }
   function col(cv, lv) { const L = cv.levels || [], i = L.indexOf(+lv); return lv > 0 ? (i >= 0 ? 2 + i : L.length ? 2 + L.length - 1 : 0) : 0; }   // (11/02 17:30) 새 음정선은 강[3]만 — 없는 단계를 찾으면 가장 센 단계   // pts 안 위치(0 = 없음)
   function fitAt(cv, t, k) {   // [가장 낮은 음, 가장 높은 음, 가운데] — 짧은 도약음도 포함, 앞뒤와 동떨어진 한 점(숨소리·자음)만 제외
     const P = cv.pts || [], idx = []; for (let i = 0; i < P.length; i++) { const p = P[i]; if (p[0] < t - WIN * HEAD) continue; if (p[0] > t + WIN * (1 - HEAD)) break; idx.push(i); }
@@ -359,8 +364,8 @@
         const v = []; for (const p of cv.pts || []) { if (p[0] < t - 0.6) continue; if (p[0] > t + 1.2) break; v.push(p[1]); }
         let c = null; if (v.length) { v.sort((a, b) => a - b); c = v[Math.floor(v.length / 2)]; } else { const f = fitAt(cv, t, 0); if (f) c = f[2]; }
         if (c != null) st.yc = st.yc == null ? c : st.yc + (c - st.yc) * 0.15; }
-      const c = st.yc ?? (lo + hi) / 2; lo = c - half; hi = c + half;
-    } else if (full && st.yo) { lo += st.yo; hi += st.yo; }   // (11/02 19:48 사용자) 확대 안 해도 위아래로 밀어 보기
+      vClamp(st, cv); const c = st.yc ?? (lo + hi) / 2; lo = c - half; hi = c + half;
+    } else if (full && st.yo) { vClamp(st, cv); lo += st.yo; hi += st.yo; }   // (11/02 19:48 사용자) 확대 안 해도 위아래로 밀어 보기
     if (full && st.focusC != null) {   // 고치기 창이 뜨며 그래프가 줄어들 때 고른 막대가 화면 안(위아래 20% 안쪽)에 오게 한 번 옮김
       const fc = st.focusC, m = (hi - lo) * 0.2; st.focusC = null;
       const mn = st.focusMin; st.focusMin = false;
@@ -1749,8 +1754,8 @@
       if (!drag.mode) { if (Math.max(Math.abs(dA), Math.abs(dB)) < 12) return; clearTimeout(drag.lp); st.hold = null; drag.mode = Math.abs(dB) > 1.35 * Math.abs(dA) ? "pitch" : "time"; if (drag.mode === "time") pauseNow(); }   // (11/14 19:38 사용자 '좌우 우선이 너무 강함 — 조금만 풀자') 2배 → 1.35배
       if (drag.mode === "time") { const nv = Math.max(0, drag.t - dA / span() * ((st.win || 6) / st.xz)), nw = performance.now();   // (11/14 22:14 사용자) 놓은 뒤 살짝 미끄러지게 — 빠르기(초/ms) 기록
         if (preview != null && drag.tm) { const dt_ = Math.max(1, nw - drag.tm); drag.tv = 0.7 * (drag.tv || 0) + 0.3 * ((nv - preview) / dt_); } drag.tm = nw; preview = nv; }
-      else if (st.yz > 1) { const [lo, hi] = range(cv), per = (hi - lo) / st.yz / tall(), pv = st.yc; st.yc = (drag.yc ?? (lo + hi) / 2) + dB * per * (rot ? -1 : 1); st.panAt = Date.now(); vTrack(drag, "yc", pv, st.yc, per); }
-      else { const [lo, hi] = range(cv), per = (hi - lo) / tall(), pv = st.yo || 0; if (drag.yo == null) drag.yo = st.yo || 0; st.yo = Math.max(-(hi - lo) * 0.6, Math.min((hi - lo) * 0.6, drag.yo + dB * per * (rot ? -1 : 1))); vTrack(drag, "yo", pv, st.yo, per); }   // 확대 안 했을 때도 위아래로(곡 음역의 60%까지)
+      else if (st.yz > 1) { const [lo, hi] = range(cv), per = (hi - lo) / st.yz / tall(), pv = st.yc; st.yc = (drag.yc ?? (lo + hi) / 2) + dB * per * (rot ? -1 : 1); { const c0 = st.yc; vClamp(st, cv); if (st.yc !== c0) drag.yc = (drag.yc ?? (lo + hi) / 2) + (st.yc - c0); } st.panAt = Date.now(); vTrack(drag, "yc", pv, st.yc, per); }
+      else { const [lo, hi] = range(cv), per = (hi - lo) / tall(), pv = st.yo || 0; if (drag.yo == null) drag.yo = st.yo || 0; st.yo = drag.yo + dB * per * (rot ? -1 : 1); { const o0 = st.yo; vClamp(st, cv); drag.yo += st.yo - o0; } vTrack(drag, "yo", pv, st.yo, per); }   // 확대 안 했을 때도 위아래로(곡 음역의 60%까지)
     });
     const end = (e) => { if (pts.size <= 1) wrap.classList.remove("tfTouch");
       if (!pts.has(e.pointerId)) return; pts.delete(e.pointerId);
@@ -1804,8 +1809,8 @@
       if (d.mode === "pitch" && d.vk && d.vtm && performance.now() - d.vtm < 80 && Math.abs(d.vv || 0) > 0.06 * d.vper) {   // (11/14 22:19 사용자) 위아래 밀기도 곡 서랍 정도의 관성(놓을 때 빠르기의 절반)
         const gl = vGlide = { k: d.vk, v: d.vv * 0.5, per: d.vper, last: performance.now() };
         const step = () => { if (vGlide !== gl) return; const n = performance.now(), dt = Math.min(50, n - gl.last); gl.last = n; let nv = (st[gl.k] || 0) + gl.v * dt;
-          if (gl.k === "yo") { const [lo, hi] = range(cv), lim = (hi - lo) * 0.6; if (Math.abs(nv) >= lim) { nv = Math.sign(nv) * lim; gl.v = 0; } } else st.panAt = Date.now();
-          st[gl.k] = nv; gl.v *= Math.pow(0.94, dt / 16); if (Math.abs(gl.v) < 0.015 * gl.per) { vGlide = null; return; } requestAnimationFrame(step); }; requestAnimationFrame(step); return; }
+          if (gl.k === "yc") st.panAt = Date.now();
+          st[gl.k] = nv; vClamp(st, cv); if (st[gl.k] !== nv) gl.v = 0; gl.v *= Math.pow(0.94, dt / 16); if (Math.abs(gl.v) < 0.015 * gl.per) { vGlide = null; return; } requestAnimationFrame(step); }; requestAnimationFrame(step); return; }
       if (d.mode === "time") {   // 이동만, 재생은 안 함 · (11/14 22:14 사용자 '곡 서랍 정도의 관성') 놓을 때 빠르기의 절반으로 미끄러지다 멈춘 자리로
         const spp = ((st.win || 6) / st.xz) / Math.max(1, span()), fresh = d.tm && performance.now() - d.tm < 80;
         if (fresh && Math.abs(d.tv || 0) > 0.06 * spp && preview != null) { const gl = tGlide = { v: d.tv * 0.5, last: performance.now() };
