@@ -39,11 +39,16 @@ const mk = new Function(code + "; return stemEngine;")();
   class OC { decodeAudioData(ab, ok) { ok({ numberOfChannels: 1, getChannelData: () => data }); } }
   const peaks = await new Function("window", src + "; return songPeaks;")({ OfflineAudioContext: OC })(new ArrayBuffer(8));
   assert.strictEqual(peaks.length, 20, "2초 = 20칸"); assert.ok(peaks.charCodeAt(0) < peaks.charCodeAt(19) && peaks.charCodeAt(19) - 48 === 63, "큰 소리는 63");
+  // 코드 이름 올림·내림(서버가 읽은 장·단 3화음)
+  { const nm = new Function(T.slice(T.indexOf("const SG_NOTES"), T.indexOf("async function songPeaks(")) + "; return songChordName;")();
+    assert.strictEqual(nm("C", 2), "D"); assert.strictEqual(nm("Am", 3), "Cm"); assert.strictEqual(nm("F#m", -2), "Em"); assert.strictEqual(nm("A", -9), "C"); assert.strictEqual(nm("Bb", 1), "B"); assert.strictEqual(nm("G", 12), "G"); assert.strictEqual(nm("N", 3), "N"); }
   // 화면 연결(정적)
   const dk = T.slice(T.indexOf("function songDeck("), T.indexOf("// (11/05 00:14 사용자)"));
   for (const k of ["dkWv", "dkHome", "dkBk", "dkFw", "dkEnd", "dkRep", "dkLoop", "dkRv", "dkA", "dkB", "dkClr", "dkMr", "dkSpM", "dkSpP", "dkRst"]) assert.ok(dk.includes('id="' + k + '"'), k);
   assert.ok(dk.includes("eng.setLoop(") && dk.includes("eng.setRate(") && dk.includes("cv.onpointerdown"), "구간 반복·속도·밀기 연결");
   assert.ok(T.includes("touch-action:pan-y"), "세로 스크롤은 허용");
+  assert.ok(dk.includes("o.analysis && o.analysis.key") && dk.includes("eng.swap(") && dk.includes("o.onKeyReq"), "키 카드는 서버가 분석한 곡에만 · 파일 없으면 요청");
+  assert.ok(/songDeck\(pl, ids, \{[^]*analysis: x\.d\.analysis, keys: x\.d\.keys, keyReq: x\.d\.key_req/.test(T), "곡 서랍이 분석·키 파일을 넘김");
   assert.ok(!dk.includes("new Audio") && !/\.voc\.volume/.test(dk), "플레이어는 엔진만 씀");
   assert.ok(/songDeck\(pl, ids, \{ folder: x\.folder, autoplay: auto/.test(T), "곡 서랍 카드가 새 플레이어");
   assert.ok(T.includes("function songDestroy() {") && /dispose\?\.\(\)/.test(T), "닫을 때 애니메이션 정리");
