@@ -279,6 +279,29 @@
     let ph = 0, pb = -1; if (bl) for (let p = 0; p < bl; p++) { let s = 0; for (let i = p; i < n; i += bl) s += on[i]; if (s > pb) { pb = s; ph = p; } }
     return (buf._jw = { pk, hop: 0.05, per: bl * 0.05, ph: ph * 0.05 });
   }
+  // (11/14 17:11 사용자 시안 C) 멜로다인식 소리 덩어리: 보정 보컬의 0.02초 크기(곡 시간 = 화면 시간). 한 번만 계산
+  function envOf(buf) {
+    if (!buf || !buf.getChannelData) return null; if (buf._je) return buf._je;
+    const sr = buf.sampleRate, hop = Math.round(sr * 0.02), n = Math.floor(buf.length / hop), d = buf.getChannelData(0), e = new Float32Array(n);
+    for (let i = 0; i < n; i++) { let s = 0, c = 0; for (let j = i * hop, z = j + hop; j < z; j += 6) { s += d[j] * d[j]; c++; } e[i] = Math.sqrt(s / Math.max(1, c)); }
+    const so = Array.from(e).sort((a, b) => a - b), ref = so[Math.floor(so.length * 0.97)] || 1, sm = new Float32Array(n);
+    for (let i = 0; i < n; i++) { let s = 0, c = 0; for (let k = -2; k <= 2; k++) { const v = e[i + k]; if (v != null) { s += v; c++; } } sm[i] = Math.pow(Math.min(1, s / c / ref), 0.6); }
+    return (buf._je = { e: sm, hop: 0.02 });
+  }
+  function envAt(ev, t) { if (!ev) return 1; const i = Math.round(t / ev.hop); return i >= 0 && i < ev.e.length ? ev.e[i] : 0; }
+  // (시안 C) 음정선 = 점 사이를 부드러운 곡선(카트멀-롬 → 베지어)으로. 실제 점은 그대로 지나감
+  function smoothPath(g, P) {
+    if (!P.length) return; g.moveTo(P[0][0], P[0][1]); if (P.length === 2) { g.lineTo(P[1][0], P[1][1]); return; }
+    for (let i = 0; i < P.length - 1; i++) { const p0 = P[i - 1] || P[i], p1 = P[i], p2 = P[i + 1], p3 = P[i + 2] || p2, k = 1 / 6;
+      g.bezierCurveTo(p1[0] + (p2[0] - p0[0]) * k, p1[1] + (p2[1] - p0[1]) * k, p2[0] - (p3[0] - p1[0]) * k, p2[1] - (p3[1] - p1[1]) * k, p2[0], p2[1]); }
+  }
+  // 서버가 촘촘한(0.02초) 원음 높이(cv.hi)를 주면 그걸로 · 보정 후 선 = 촘촘한 원음 + (화면 점의 보정 − 원음)
+  function hiOf(cv) {
+    const h = cv && cv.hi; if (!h || !h.d || !h.fps) return null; if (h._a) return h._a;
+    const out = new Array(h.d.length); let cur = null;
+    for (let i = 0; i < h.d.length; i++) { const v = h.d[i]; if (v === null) { cur = null; out[i] = null; continue; } cur = cur == null ? v : cur + v; out[i] = cur; }
+    return (h._a = out);
+  }
   function introDraw(g, cv, st, t, nx, m) {
     const { L, w, T, HP, t0, W8, y, kt } = m, left = Math.max(0, nx[0] - t), sec = Math.ceil(left);
     const wv = typeof st.wave === "function" ? waveOf(st.wave()) : null, now = performance.now();
@@ -407,7 +430,15 @@
         // (11/09 01:21 사용자 A안) 음별 볼륨이 보이게: 키운 음 = 막대 두껍게 · 줄인 음 = 얇게 · 끈 음 = 흐리게+빗금 (꼬리표는 아래에서)
         const vn = ((st && st._adv && st._adv.ne && st._adv.ne.notes) || []).find(x => x.t0 <= (r.t0 + r.t1) / 2 && x.t1 >= (r.t0 + r.t1) / 2 && (x.mute || x.gain_db));
         r.gd = vn ? (vn.mute ? "m" : vn.gain_db) : 0; const rh = r.gd && r.gd !== "m" ? bh * Math.max(0.4, Math.min(1.8, Math.pow(10, r.gd / 40))) : bh; r.h = Math.max(rh, bh);
-        for (const [p, x0, x1] of r.seg) { g.fillStyle = srcCol(cv, p[0]); const mv = (cv._tedits || []).some(x => p[0] >= x.t0 - 1e-6 && p[0] < x.t1 - 1e-6); if (mv) g.globalAlpha = 0.22; if (r.gd === "m") g.globalAlpha = 0.28; g.fillRect(x0, y(p[kt]) - rh / 2, Math.max(1, x1 - x0 + 0.5), rh); g.globalAlpha = 1; }
+        const EV = st && typeof st.vbuf === "function" ? envOf(st.vbuf()) : null;   // (11/14 시안 C) 소리 크기 모양 덩어리 — 굵은 곳 = 큰 소리
+        const mvOf = (p) => (cv._tedits || []).some(x => p[0] >= x.t0 - 1e-6 && p[0] < x.t1 - 1e-6);
+        if (EV && !r.seg.some(([p]) => mvOf(p))) {   // 한 음 = 한 덩어리(이음 자국 없게) · 색은 그 음 가운데 점 기준
+          const top = [], bot = [], N = r.seg.length, hOf = (tt, edge) => Math.max(1.5, rh * (0.3 + 1.2 * envAt(EV, tt)) * edge / 2);
+          r.seg.forEach(([p, x0, x1], si) => { const yy = y(p[kt]), e0 = si === 0 ? 0.55 : 1, h0 = hOf(p[0], e0); top.push([x0, yy - h0]); bot.push([x0, yy + h0]);
+            if (si === N - 1) { const xe = Math.max(x0 + 1, x1 + 0.5), h1 = hOf(p[0] + 0.04, 0.55); top.push([xe, yy - h1]); bot.push([xe, yy + h1]); } });
+          g.fillStyle = srcCol(cv, r.seg[N >> 1][0][0]); if (r.gd === "m") g.globalAlpha = 0.28;
+          g.beginPath(); g.moveTo(top[0][0], top[0][1]); for (const q of top) g.lineTo(q[0], q[1]); for (let q = bot.length - 1; q >= 0; q--) g.lineTo(bot[q][0], bot[q][1]); g.closePath(); g.fill(); g.globalAlpha = 1; }
+        else for (const [p, x0, x1] of r.seg) { g.fillStyle = srcCol(cv, p[0]); const mv = mvOf(p); if (mv) g.globalAlpha = 0.22; if (r.gd === "m") g.globalAlpha = 0.28; g.fillRect(x0, y(p[kt]) - rh / 2, Math.max(1, x1 - x0 + 0.5), rh); g.globalAlpha = 1; }
         if (r.gd === "m") { g.save(); g.beginPath(); g.rect(r.x0, r.y - bh / 2, Math.max(2, r.x1 - r.x0), bh); g.clip(); g.strokeStyle = "rgba(220,224,232,.55)"; g.lineWidth = 1.5; for (let X = r.x0 - bh; X < r.x1 + bh; X += 6) { g.beginPath(); g.moveTo(X, r.y + bh / 2); g.lineTo(X + bh, r.y - bh / 2); g.stroke(); } g.restore(); }   // 옮기는 중인 음은 원래 자리를 흐리게
         delete r.seg; bars.push(r); }
       // (11/03 15:35 사용자) 부른 음 선은 있는데 정음 막대가 없는 곳(ㅅ·ㅊ·ㅎ 뒤 모음, 꺾기·짧은 음 등 자동 보정이 일부러 안 건드린 곳)도 고칠 수 있게
@@ -530,9 +561,21 @@
         g.beginPath(); g.moveTo(xs(a[0]), y(a[1])); g.lineTo(xs(b[0]), y(b[1])); g.lineTo(xs(b[0]), y(b[k])); g.lineTo(xs(a[0]), y(a[k])); g.closePath(); g.fill();
       }
     }
+    const HI = full ? hiOf(cv) : null;
     const line = (kk, color, wd) => {
-      g.strokeStyle = color; g.lineWidth = wd; g.lineJoin = "round"; g.lineCap = "round"; g.beginPath(); let prev = null;
-      for (const p of vis) { const X = xs(p[0]), Y = y(p[kk]); if (prev != null && p[0] - prev < 0.13) g.lineTo(X, Y); else g.moveTo(X, Y); prev = p[0]; }
+      g.strokeStyle = color; g.lineWidth = wd; g.lineJoin = "round"; g.lineCap = "round"; g.beginPath();
+      const runs = []; let cur = null, prev = null;
+      for (const p of vis) { if (p[kk] == null || p[1] == null) { cur = null; prev = null; continue; } if (!cur || prev == null || p[0] - prev >= 0.13) { cur = []; runs.push(cur); } cur.push(p); prev = p[0]; }
+      for (const r of runs) {
+        let P = null;
+        if (HI && r.length > 1) {   // 촘촘한 원음 높이로 같은 구간을 다시 그림(보정 후 = 그 자리 보정량을 더함)
+          const fps = cv.hi.fps, a = Math.ceil(r[0][0] * fps), b = Math.floor(r[r.length - 1][0] * fps); P = []; let j = 0;
+          for (let i = a; i <= b; i++) { const tt = i / fps, hv = HI[i]; if (hv == null) continue; while (j < r.length - 2 && r[j + 1][0] < tt) j++;
+            const p = r[j], q = r[j + 1], f = q[0] > p[0] ? Math.min(1, Math.max(0, (tt - p[0]) / (q[0] - p[0]))) : 0, sh = kk === 1 ? 0 : (p[kk] - p[1]) * (1 - f) + (q[kk] - q[1]) * f;
+            const base = (p[1] * (1 - f) + q[1] * f), v = Math.abs(hv - base) > 150 ? base : hv;   // 촘촘한 값이 크게 다르면(옥타브 오인식 등) 화면 점을 따름
+            P.push([xs(tt), y(v + sh)]); }
+          if (P.length < 2) P = null; }
+        smoothPath(g, P || r.map(p => [xs(p[0]), y(p[kk])])); }
       g.stroke();
     };
     line(1, "#ffe066", full ? 2.6 : 2);   // (10/31 15:34 사용자) 부른 음 = 밝은 노랑
@@ -1246,7 +1289,7 @@
     document.body.appendChild(wrap);
     wrap.style.opacity = "0"; requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(() => { wrap.style.transition = "opacity .18s ease"; wrap.style.opacity = "1"; }, 120)));   // (11/07 09:31 사용자 영상) 처음 0.2초 그래프·버튼이 자리 잡으며 움찔하던 걸 안 보이게: 자리 잡은 뒤 나타남
     wrap.addEventListener("dblclick", (e) => e.preventDefault());   // (11/03 10:50 아이패드) 버튼을 연타해도 화면이 확대되지 않게(확대는 두 손가락으로만)
-    const box = wrap.querySelector(".tfBox"), cvEl = wrap.querySelector(".tfCv"), st = { full: true, xz: 1, yz: 1, yc: null, panAt: 0, notes: o.notes, teacher: !!o.teacher, lvDef: o.lvDef, wave: o.wave }; wrap._st = st; wrap._cv = cv;   /* 시험·점검용(화면 상태 읽기) */ wrap._multi = () => multiSheet(wrap, cv, st, false, true);
+    const box = wrap.querySelector(".tfBox"), cvEl = wrap.querySelector(".tfCv"), st = { full: true, xz: 1, yz: 1, yc: null, panAt: 0, notes: o.notes, teacher: !!o.teacher, lvDef: o.lvDef, wave: o.wave, vbuf: o.vbuf }; wrap._st = st; wrap._cv = cv;   /* 시험·점검용(화면 상태 읽기) */ wrap._multi = () => multiSheet(wrap, cv, st, false, true);
     const rot = false;   // (10/30 17:51 사용자) 가로도 남김 — 세로로 들면 세로, 폰을 돌리면 가로
     const layout = () => { const W = G.innerWidth, H = G.innerHeight, port = H > W;
       box.style.width = W + "px"; box.style.height = H + "px"; box.style.transform = "translate(-50%,-50%)";
