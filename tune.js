@@ -26,7 +26,9 @@
     return (cv._rng = [Math.floor(lo / 100) * 100 - 250, Math.ceil(hi / 100) * 100 + 250]);
   }
   // (11/14 22:28 사용자 '위아래 쓸데없는 공간') 위아래로 갈 수 있는 끝 = 부른 음 끝 ± 반 옥타브(C2~E6 밖으로는 더 안 늘림)
-  const vBand = (cv) => { const [lo, hi] = range(cv); return [Math.min(lo, Math.max(3600, lo - 350)), Math.max(hi, Math.min(8800, hi + 350))]; };   // (11/14 22:34 사용자 '너무 타이트, 1/2옥타브') 부른 음 끝에서 위아래 6반음(곡 음역 여유 2.5반음 + 3.5반음)
+  const vBand = (cv) => { if (cv._vb) return cv._vb; const [lo, hi] = range(cv), a = (cv.pts || []).map(p => p[1]).filter(Number.isFinite).sort((x, y) => x - y);
+    const mn = a.length ? a[Math.floor(a.length * 0.005)] : lo, mx = a.length ? a[Math.min(a.length - 1, Math.floor(a.length * 0.995))] : hi;   // (11/15 11:53 사용자 '위쪽도 6반음 맞아?') 예전엔 위 3%를 뺀 높이 기준이라 제일 높은 음 위 여유가 6반음보다 적었음 → 실제 제일 높은/낮은 음(튀는 0.5%만 뺌) 기준
+    const r_ = [Math.min(lo, Math.max(3600, mn - 600)), Math.max(hi, Math.min(8800, mx + 600))]; if (a.length) cv._vb = r_; return r_; };   // (11/14 22:34 사용자 '너무 타이트, 1/2옥타브') 부른 음 끝에서 위아래 6반음(곡 음역 여유 2.5반음 + 3.5반음)
   function vClamp(st, cv) { const [lo, hi] = range(cv), [bl, bh] = vBand(cv);
     if ((st.yz || 1) > 1) { if (st.yc == null) return; const half = (hi - lo) / 2 / st.yz, a = bl + half, b = bh - half; st.yc = a > b ? (bl + bh) / 2 : Math.max(a, Math.min(b, st.yc)); }
     else st.yo = Math.max(bl - lo, Math.min(bh - hi, st.yo || 0)); }
