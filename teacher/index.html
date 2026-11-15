@@ -5841,7 +5841,7 @@ async function jamIndex() {
 }
 async function openJam() {
   goBack = () => { jamStop(); renderList(); }; show("vJam"); const v = $("vJam");
-  v.innerHTML = `<h2 style="margin:4px 0 2px">🎸 합주 베스트</h2><p class="muted" style="margin:0 0 10px;font-size:.88rem">녹음함(Easy Voice Recorder)에 이름에 <b>합주</b>·<b>연습</b>이 들어간 녹음이 올라오면, 서버가 곡별로 나눠 <b>가장 잘 부른 구절만 이어 붙인 편집본</b>을 만들어요 · 반주는 가장 온전한 테이크 그대로, 보컬만 구절마다 골라요</p><div id="jamList"><p class="muted">불러오는 중…</p></div>`;
+  v.innerHTML = `<h2 style="margin:4px 0 2px">🎸 합주 베스트</h2><p class="muted" style="margin:0 0 10px;font-size:.88rem">녹음함(Easy Voice Recorder)에 이름에 <b>합주</b>·<b>연습</b>이 들어간 녹음이 올라오면, 서버가 곡별로 나눠 <b>가장 잘 부른 구절만 이어 붙인 편집본</b>을 만들어요 · 구간마다 <b>보컬을 잘 부른 테이크</b>와 <b>악기가 안 틀린 테이크</b>를 순위로 골라 한 곡씩 완성해요</p><div id="jamList"><p class="muted">불러오는 중…</p></div>`;
   try { jam.idx = await jamIndex(); } catch (e) { $("jamList").innerHTML = `<p class="muted">못 불러왔어요: ${esc(errMsg(e))}</p>`; return; }
   jamPaint(); jamPollArm();
 }
@@ -5859,7 +5859,7 @@ function jamPaint() {
       : `<div style="border-top:1px solid #2c3340;padding:8px 0" class="muted">${esc(g.title)} · 테이크 ${g.takes.length}개 · ${esc(g.status || "대기")}</div>`).join("");
     return `<div class="card" style="padding:12px 14px"><div class="row" style="justify-content:space-between;gap:6px"><b>${esc(s.name)}</b><span class="muted" style="font-size:.8rem">${jamWhen(s)}</span></div>
       <p class="muted" style="margin:4px 0 6px;font-size:.85rem">${st}</p>${body}</div>`; }).join("")
-    + `<p class="muted" style="font-size:.78rem;margin:6px 2px 20px">라이브 합주는 반주 트랙에 원래 보컬이 조금 남아서, 바꾼 구절에서 옛 보컬이 아주 작게 겹쳐 들릴 수 있어요 · 템포는 반주(뼈대 테이크)에 맞춰 보컬을 늘이고 줄였어요</p>`;
+    + `<p class="muted" style="font-size:.78rem;margin:6px 2px 20px">라이브 합주는 반주 트랙에 원래 보컬이 조금 남아서 작게 겹쳐 들릴 수 있어요 · 테이크를 바꾸는 이음매에서 악기가 살짝 끊겨 들릴 수 있어요 · 템포는 뼈대 테이크에 맞춰 늘이고 줄였어요</p>`;
   el.querySelectorAll("[data-jamopen]").forEach(b => b.onclick = () => { const [si, gi] = b.dataset.jamopen.split("_").map(Number); jamOpenSong(si, gi); });
 }
 function jamStop() { const p = jam.play; if (!p) return; try { p.srcs.forEach(s => s.stop()); } catch {} cancelAnimationFrame(p.raf); jam.play = null; }
