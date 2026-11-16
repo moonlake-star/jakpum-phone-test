@@ -394,7 +394,14 @@
   .attSheet { position:fixed; inset:0; z-index:80; background:rgba(0,0,0,.55); display:flex; align-items:flex-end; justify-content:center; }
   .attSheet .attBox { width:100%; max-width:560px; background:var(--card, #22262c); border-radius:18px 18px 0 0; padding:16px 16px 22px; box-sizing:border-box; }
   /* 레슨 캘린더(#182, 2026-10-29): 색만으로 구분하지 않고 아이콘+글자 */
-  .cal { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; margin-top:8px; }
+  .cal { display:grid; grid-template-columns:repeat(7,1fr); gap:3px; margin-top:4px; }
+  #vCal > .card { padding-left:8px; padding-right:8px; }   /* (11/16 사용자: 날짜 칸 가로폭 다이어트) 달력 카드 좌우 여백·칸 사이 간격을 줄여 칸 안 글자가 들어갈 자리 확보 */
+  .calPull { display:block; width:100%; margin:6px 0 0; min-height:30px; padding:2px 0; background:none; border:0; border-radius:8px; color:var(--muted); font-size:.8rem; font-weight:400; }
+  .cal .dt { display:block; overflow:hidden; text-align:left; max-height:0; opacity:0; transition:max-height .32s cubic-bezier(.2,.8,.2,1), opacity .22s ease; }
+  .cal.det .dt { max-height:120px; opacity:1; } .cal.pulling .dt { transition:none; max-height:calc(var(--p, 0) * 120px); opacity:var(--p, 0); }
+  .cal .de { display:block; font-style:normal; font-size:.62rem; line-height:1.15; margin-top:3px; padding-left:3px; border-left:2px solid var(--accent); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--fg); }
+  .cal .de b { display:block; font-weight:700; font-size:.6rem; color:var(--muted); } .cal .de.off { opacity:.5; text-decoration:line-through; } .cal .de.dn { opacity:.75; } .cal .de.more { border-left-color:transparent; color:var(--muted); }
+  .cal .dy { padding:3px 1px; }
   .cal .hd { text-align:center; font-size:.8rem; color:var(--muted); padding:2px 0; }
   .cal .dy { min-height:54px; border-radius:10px; background:#1b1f26; border:1px solid var(--line); padding:3px 2px; text-align:center; font-size:.85rem; line-height:1.2; color:var(--fg); }
   .cal .dy.today { border-color:var(--accent); } .cal .dy.empty { background:transparent; border-color:transparent; }
@@ -990,6 +997,7 @@ const IC_CAL = '<svg class="icCal" viewBox="0 0 24 24" width="1.05em" height="1.
 const CAL_S = { done: ["✅", "완료"], makeup_done: ["🔁", "보강 완료"], scheduled: [IC_CAL, "예정"], cancelled: ["✖️", "휴강"], forfeit: ["✖️", "휴강"], review: ["⏳", "확인 중"], moved: ["↪️", "이동"], past: ["☑️", "지난 레슨"] };   // (11/02 사용자) 옮긴 레슨은 휴강이 아니라 이동
 const calYm = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 const calShift = (ym, n) => { const [y, m] = ym.split("-").map(Number), d = new Date(y, m - 1 + n, 1); return calYm(d); };
+let calDet = false;   // 달력 칸 안에 수강생 이름·시간을 펼쳐 보는 중인지(달을 넘겨도 유지)
 function calGrid(ym, byDate, sel, tap) {   // byDate[YYYY-MM-DD] = [{s}] → 칸마다 대표 아이콘(여럿이면 개수)
   const [y, m] = ym.split("-").map(Number), first = new Date(y, m - 1, 1), n = new Date(y, m, 0).getDate(), today = new Date();
   const td = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
@@ -997,10 +1005,12 @@ function calGrid(ym, byDate, sel, tap) {   // byDate[YYYY-MM-DD] = [{s}] → 칸
   for (let d = 1; d <= n; d++) {
     const k = `${ym}-${String(d).padStart(2, "0")}`, xs = byDate[k] || [], ic = !xs.length ? "" : xs[0].s === "scheduled" ? calNums(xs.filter(x => x.s === "scheduled")) : `<span class="icw">${CAL_S[xs[0].s]?.[0] || "•"}<b class="icn">${xs.length}</b></span>`;   // (11/02 01:44 사용자) 예정은 달력 아이콘 없이 레슨 개수 숫자만   // (11/02 01:36 사용자) 그날 레슨 개수를 아이콘 위 숫자로
     const cls = `dy${k === td ? " today" : ""}${k === sel ? " sel" : ""}`, lab = xs.length ? ` aria-label="${m}월 ${d}일 ${xs.map(x => CAL_S[x.s]?.[1] || "").join(", ")}"` : "";
-    h += tap && xs.length ? `<button type="button" class="${cls}" data-cd="${k}" data-day="${k}"${lab}>${d}<span class="ic">${ic}</span></button>` : `<div class="${cls}" data-day="${k}"${lab}>${d}<span class="ic">${ic}</span></div>`;
+    // (11/16 사용자: 아래로 당기면 날짜마다 수강생 이름·시간) 접혀 있다가 당기면 칸이 펼쳐지며 보임. 한 칸에 3명까지, 더 있으면 +N
+    const dt = tap && xs.length ? `<span class="dt" aria-hidden="true">${xs.slice(0, 3).map(x => `<i class="de ${x.s === "cancelled" || x.s === "forfeit" ? "off" : x.s === "done" || x.s === "makeup_done" ? "dn" : ""}"${x.color ? ` style="border-left-color:${esc(x.color)}"` : ""}><b>${esc(String(x.time || "").slice(0, 5))}</b>${esc(x.name || x.tname || "")}</i>`).join("")}${xs.length > 3 ? `<i class="de more">+${xs.length - 3}</i>` : ""}</span>` : "";
+    h += tap && xs.length ? `<button type="button" class="${cls}" data-cd="${k}" data-day="${k}"${lab}>${d}<span class="ic">${ic}</span>${dt}</button>` : `<div class="${cls}" data-day="${k}"${lab}>${d}<span class="ic">${ic}</span></div>`;
   }
   const all = Object.values(byDate).flat(), cols = [...new Map(all.filter(x => x.color).map(x => [x.color, x.tname])).entries()];
-  return `<div class="cal">${h}</div><div class="calLeg">${["done", "makeup_done", "scheduled", "cancelled", "moved", "review", ...(all.some(x => x.s === "past") ? ["past"] : [])].map(s => `<span>${s === "scheduled" ? `<b class="icnum sm">1</b>` : CAL_S[s][0]} ${CAL_S[s][1]}${s === "scheduled" ? "(개수)" : ""}</span>`).join("")}</div>${cols.length ? `<div class="calLeg">${!isStaffApp() ? `<span><b class="icnum sm">&nbsp;</b> 작품(원장)</span>` : ""}${cols.map(([c, n]) => `<span><b class="icnum sm" style="background:${c}">&nbsp;</b> ${esc(n)}</span>`).join("")}</div>` : ""}`;
+  return `${tap ? `<button type="button" class="calPull" id="calPull" aria-expanded="${calDet ? "true" : "false"}">${calDet ? "▴ 이름·시간 접기" : "▾ 아래로 당기면 이름·시간"}</button>` : ""}<div class="cal${tap && calDet ? " det" : ""}">${h}</div><div class="calLeg">${["done", "makeup_done", "scheduled", "cancelled", "moved", "review", ...(all.some(x => x.s === "past") ? ["past"] : [])].map(s => `<span>${s === "scheduled" ? `<b class="icnum sm">1</b>` : CAL_S[s][0]} ${CAL_S[s][1]}${s === "scheduled" ? "(개수)" : ""}</span>`).join("")}</div>${cols.length ? `<div class="calLeg">${!isStaffApp() ? `<span><b class="icnum sm">&nbsp;</b> 작품(원장)</span>` : ""}${cols.map(([c, n]) => `<span><b class="icnum sm" style="background:${c}">&nbsp;</b> ${esc(n)}</span>`).join("")}</div>` : ""}`;
 }
 function calNums(xs) {   // 예정 개수 — 강사 레슨은 강사 색으로 따로(원장 화면)
   const g = new Map(); xs.forEach(x => g.set(x.color || "", (g.get(x.color || "") || 0) + 1));
@@ -1091,7 +1101,12 @@ function calDragWire(root, day, drop) {   // 레슨 줄 길게 누름(0.45초) �
   });
 }
 // (11/02 01:21 사용자) 달력에서 바로: 좌우로 밀면 지난달·다음 달 · 레슨 있는 날짜 칸을 길게 눌러(0.45초) 끌어 다른 날짜에 놓으면 옮기기 창(시간은 그대로, 바꿀 수도)
+// 당기는 동안: 손가락 거리(0~1)만큼 칸 안 이름·시간이 자라남(전환 없이 따라감). 놓으면 끝까지 펼치거나 되돌아감(부드럽게)
+function calPullSet(grid, p) { grid.classList.add("pulling"); grid.style.setProperty("--p", p.toFixed(3)); }
+function calPullEnd(grid, open) { grid.classList.remove("pulling"); grid.style.removeProperty("--p"); calSetDet(grid, open); }
+function calSetDet(grid, open) { calDet = !!open; grid.classList.toggle("det", calDet); const b = document.getElementById("calPull"); if (b) { b.textContent = calDet ? "▴ 이름·시간 접기" : "▾ 아래로 당기면 이름·시간"; b.setAttribute("aria-expanded", String(calDet)); } }
 function calCellWire(root, by, ym, drop, nav) {
+  { const g0 = root.querySelector(".cal"), pb = root.querySelector("#calPull"); if (g0 && pb) pb.onclick = () => calSetDet(g0, !calDet); }   // 당기기 어려우면 이 줄을 눌러도 됨
   const grid = root.querySelector(".cal"); if (!grid) return;
   const mov = (k) => (by[k] || []).filter(x => x.event_id && ["scheduled", "review"].includes(x.s));
   let st = null, eatClick = false;
@@ -1113,7 +1128,9 @@ function calCellWire(root, by, ym, drop, nav) {
     if (!st) return; const p = e.touches[0];
     if (!st.on) { const dx = p.clientX - st.x, dy = p.clientY - st.y;
       if (Math.hypot(dx, dy) > 8) clearTimeout(st.tm);
-      if (st.sw == null && Math.hypot(dx, dy) > 10) st.sw = Math.abs(dx) > Math.abs(dy) * 1.2;   // 처음 움직인 방향으로 가로 밀기인지 정함
+      if (st.sw == null && Math.hypot(dx, dy) > 10) { st.sw = Math.abs(dx) > Math.abs(dy) * 1.2;   // 처음 움직인 방향으로 가로 밀기인지 정함
+        if (!st.sw && dy > 0 && !calDet && (window.scrollY || 0) <= 2) st.pull = true; }   // 맨 위에서 아래로 당기기 → 이름·시간 펼치기
+      if (st.pull) { e.preventDefault(); const pr = Math.max(0, Math.min(1, dy / 120)); st.p = pr; calPullSet(grid, pr); return; }
       if (st.sw) { e.preventDefault(); slide(dx, 0); }
       return; }
     e.preventDefault(); st.ghost.style.left = p.clientX + "px"; st.ghost.style.top = p.clientY + "px";
@@ -1125,11 +1142,12 @@ function calCellWire(root, by, ym, drop, nav) {
     if (s.on) { e.preventDefault(); eatClick = true; const it = s.item, to = s.to; clear(); if (to && to !== it.date) drop(it, to); return; }
     if (s.multi) { eatClick = true; clear(); return; }
     clear();
+    if (s.pull) { eatClick = true; calPullEnd(grid, s.p > 0.35); return; }
     if (s.sw) { eatClick = true; const fast = Math.abs(dx) > 40 && Date.now() - s.t < 300;
       if (Math.abs(dx) > W() * 0.25 || fast) { const dir = dx < 0 ? 1 : -1; slide(-dir * W(), 160); setTimeout(() => { window._calIn = dir; nav(dir); }, 160); }   // 왼쪽으로 밀면 다음 달
       else slide(0, 180); }
   });
-  grid.addEventListener("touchcancel", () => { clear(); slide(0, 180); });
+  grid.addEventListener("touchcancel", () => { if (st?.pull) calPullEnd(grid, false); clear(); slide(0, 180); });
   grid.addEventListener("click", (e) => { if (eatClick) { eatClick = false; e.stopPropagation(); e.preventDefault(); } }, true);
   grid.addEventListener("contextmenu", (e) => { if (st?.on || st?.tm) e.preventDefault(); });
 }
