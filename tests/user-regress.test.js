@@ -24,4 +24,12 @@ assert.ok(/histSnap = \(\) => \(\{ fx: \(cv\._fixes \|\| \[\]\)\.map\(x => JSON\
 const H = fs.readFileSync(path.join(__dirname, "..", "teacher", "index.html"), "utf8");
 assert.ok(!/f\._cen\s*=/.test(H), "f._cen 붙이지 않음");
 assert.ok(/const pvF = \(\) => dF\(\)\.filter\(f => !f\.cut\)/.test(H), "미리듣기도 cut 조각 무시");
+// ⑥ 11/16 16:32 '앞 조각만 내렸는데 뒤 음이 튐' — 쪼갠 뒤 한쪽 음을 바꿔도 나누기만 한 다른 조각의 보정선은 그대로
+{ const syncCorr = new Function("tgCol", src + "; return syncCorr;")((cv) => 2 + cv.levels.length);
+  const P = []; for (let i = 0; i < 40; i++) { const t = i * 0.04, raw = i < 20 ? 6300 + (i % 4) * 10 : 6300 - (i - 19) * 40; P.push([t, raw, raw, null]); }   // 서버 정음 없음(회색 덩어리를 나눈 경우)
+  const o = {}; P.forEach((p, i) => { o[i] = null; p[3] = 6300; });
+  const cv = { levels: [3], pts: P, _orig: o, _fixes: [{ t0: 0, t1: 0.78, midi: 63, cut: true }, { t0: 0.8, t1: 1.56, midi: 63, cut: true }] };
+  syncCorr(cv); const before = P.slice(20).map(p => p[2]);
+  cv._fixes[0] = { t0: 0, t1: 0.78, midi: 62 }; P.slice(0, 20).forEach(p => { p[3] = 6200; }); syncCorr(cv);
+  const after = P.slice(20).map(p => p[2]); after.forEach((v, k) => assert.ok(Math.abs(v - before[k]) < 1, `뒤 조각 선 그대로: ${before[k]} → ${v}`)); }
 console.log("user-regress ok");
