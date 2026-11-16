@@ -6966,15 +6966,15 @@ async function openMkJob(j, backTo) {
       t.textContent = `✓ 폰에서 만듦 · ${(o.blob.size / 1048576).toFixed(1)}MB · ${o.secs.toFixed(1)}초 · 아래 ‘수강생에게 보내기’로 바로 보낼 수 있어요`; }
     catch (e) { t.textContent = "못 만들었어요: " + e.message; console.warn("폰 합치기", e); } finally { b.disabled = false; }
   };
-  // (11/16 사용자 '최종 출력을 wav로도') 지금 소리(고친 것 반영)를 폰에서 만든 마스터 그대로 무손실 WAV(24비트)로 받기 — 이미 만들었으면 바로, 아니면 만든 뒤
+  // (11/16 사용자 '최종 출력을 wav로도') 지금 소리(고친 것 반영)를 폰에서 만든 마스터 그대로 무손실 WAV(16비트, CD와 같은 형식 — 11/16 12:50 사용자 '16bit로')로 받기 — 이미 만들었으면 바로, 아니면 만든 뒤
   $("mkPhoneWav").onclick = async () => {
     const b = $("mkPhoneWav"), t = $("mkPhoneT"); b.disabled = true;
     try { let o = phoneFresh() && mkPhone?.ch ? mkPhone : null;
       if (!o) { mkStop(); paintTransport(); t.textContent = "트랙 받는 중…"; await ensure(base()); o = await mkExportPhone(j, r, (s) => { t.textContent = s; }); o.sig = mkEditsSig(r); paintFixN(); }
       t.textContent = "WAV 만드는 중…"; await new Promise((f) => setTimeout(f, 20));
-      const w = new Blob([ExportCore.wav(o.ch, o.sr, 24)], { type: "audio/wav" });
+      const w = new Blob([ExportCore.wav(o.ch, o.sr, 16)], { type: "audio/wav" });
       songSave(w, `${j.st.name}_${r.title}_메이크업.wav`.replace(/[\\/:*?"<>|]/g, "_"));
-      t.textContent = `✓ WAV 받음(다운로드 폴더) · ${(w.size / 1048576).toFixed(1)}MB · 24비트 ${Math.round(o.sr / 100) / 10}kHz`; }
+      t.textContent = `✓ WAV 받음(다운로드 폴더) · ${(w.size / 1048576).toFixed(1)}MB · 16비트 ${Math.round(o.sr / 100) / 10}kHz`; }
     catch (e) { t.textContent = "WAV를 못 만들었어요: " + e.message; console.warn("WAV", e); } finally { b.disabled = false; }
   };
   // (11/12 18:33 사용자 화면 'Permission denied') 폰 공유 창은 '누른 직후'에만 열려요 — 예전엔 누른 뒤 완성본을 내려받느라 기다리는 사이 허락이 끝나 버렸음
@@ -8871,7 +8871,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261116-1240";
+const BUILD = "20261116-1252";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
