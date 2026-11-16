@@ -1651,6 +1651,21 @@ async function calCreate(ev) {   // 원장 구글 캘린더에 일정(강사 초
   const j = await r.json(); if (!r.ok || !j.id) throw new Error("구글 캘린더에 일정을 만들지 못했어요(" + r.status + ")"); return j;
 }
 const PROFILE_CHIPS = ["나이대", "경험", "목표 곡", "고민", "좋아하는 가수"];
+// (11/16 사용자: 다른 학원 등록 양식·설문 참고) 입학 설문 — 전부 선택 입력. 규정 문구는 학원마다 달라 앱에 넣지 않음(동의 확인 칸만)
+// k: 저장 키 · m: 여러 개 고르기 · o: 보기 · other: 직접 입력 칸 · 개인정보(연락처·생년월일·성별)는 일부러 묻지 않음
+const INTAKE = [
+  { k: "path", t: "방문 경로", o: ["네이버 검색", "블로그", "유튜브", "인스타", "당근마켓", "지인 소개", "오프라인", "기타"] },
+  { k: "genre", t: "선호 장르", m: 1, o: ["락", "재즈", "아이돌", "R&B", "발라드", "CCM", "트로트", "포크·통기타", "기타"] },
+  { k: "hours", t: "일주일에 큰 소리로 노래 부르는 시간", o: ["30분 미만", "1시간", "2시간", "3시간 이상"] },
+  { k: "fear", t: "노래방에서 부르는 게 겁날 때가 있다", o: ["매우 그렇다", "그렇다", "그저 그렇다", "아니다", "오히려 좋다"] },
+  { k: "yt", t: "유튜브로 발성·노래 영상 보고 따라 해 봄", o: ["매우 그렇다", "그렇다", "그저 그렇다", "아니다", "본 적도 없다"] },
+  { k: "since", t: "보컬 레슨을 생각한 지", o: ["최근", "3개월 이상", "1년 이상"] },
+  { k: "style", t: "기대하는 수업 스타일", o: ["체계적인 발성 훈련", "편한 취미 수업", "녹음 중심", "공연 목표형", "타이트한 감정 전달"] },
+  { k: "want", t: "잘 부르게 되면 해 보고 싶은 활동", m: 1, o: ["녹음", "커버 영상 제작", "버스킹", "듀엣", "정기 공연"] },
+  { k: "worry", t: "노래할 때 가장 고민되는 부분", m: 1, o: ["고음이 힘들다", "음정이 불안하다", "호흡이 어렵다", "목소리가 답답하다", "자신감 부족", "감정 표현이 어렵다", "리듬·박자를 못 지킨다", "목소리가 작다", "목이 너무 아프다"] },
+  { k: "why", t: "왜 ‘노래’라는 취미를 선택하셨나요?", text: 1 },
+];
+const intakeLine = (a) => INTAKE.map(q => { const v = a?.[q.k]; const t = Array.isArray(v) ? v.join(", ") : (v || ""); return t ? `${q.t}: ${t}` : ""; }).filter(Boolean).join("\n");
 function newStudentSheet() {
   const d = document.createElement("div"); d.className = "attSheet";
   const tom = new Date(Date.now() + 864e5 + 9 * 36e5).toISOString().slice(0, 10);
@@ -1661,6 +1676,11 @@ function newStudentSheet() {
     <div class="row" style="gap:6px;flex-wrap:nowrap"><label style="flex:1.4" class="muted">첫 레슨 날짜<input id="nsD" type="date" value="${tom}" style="width:100%"></label><label style="flex:1" class="muted">시간<input id="nsT" type="time" value="19:00" step="300" style="width:100%"></label><label style="flex:.8" class="muted">길이(분)<input id="nsL" type="number" value="50" min="10" max="180" step="5" style="width:100%"></label></div>
     <label class="muted" style="display:block;margin-top:8px">강사에게 알려 줄 간단 프로필</label><textarea id="nsP" rows="4" maxlength="600" style="width:100%;min-height:0;margin:3px 0 4px" placeholder="예: 50대 · 레슨 처음 · 목표 곡 ‘사랑으로’ · 고음에서 목이 조임"></textarea>
     <div class="row" style="gap:6px;flex-wrap:wrap">${PROFILE_CHIPS.map(c => `<button type="button" class="small ghost" data-pc="${esc(c)}">＋ ${esc(c)}</button>`).join("")}</div>
+    <details id="nsIn" style="margin-top:8px"><summary><b>입학 설문</b> <span class="muted">(선택 · 첫 레슨 때 같이 물어보고 눌러 주세요)</span></summary>
+      ${INTAKE.map(q => `<div style="margin:8px 0 2px" class="muted">${esc(q.t)}${q.m ? " (여러 개)" : ""}</div>` + (q.text ? `<input data-in="${q.k}" maxlength="120" style="width:100%" placeholder="한 줄로">` : `<div class="row" style="gap:5px;flex-wrap:wrap">${q.o.map(o => `<button type="button" class="small ghost" data-q="${q.k}" data-v="${esc(o)}">${esc(o)}</button>`).join("")}</div>`)).join("")}
+      <label style="display:flex;gap:6px;align-items:center;margin-top:10px"><input type="checkbox" id="nsRules"> 수업 규정(레슨 방식·보강·환불)을 안내하고 확인받았어요</label>
+      <label style="display:flex;gap:6px;align-items:center;margin-top:4px"><input type="checkbox" id="nsPhoto"> 후기·홍보용 사진 촬영 동의(거부 가능 — 거부면 체크하지 마세요)</label>
+    </details>
     <p class="muted" id="nsMsg" style="margin:8px 0 0"></p>
     <div class="row" style="gap:6px;margin-top:10px;flex-wrap:nowrap"><button type="button" class="ghost" id="nsNo" style="flex:1">취소</button><button type="button" id="nsOk" style="flex:2">등록하고 배치</button></div>
     <p class="muted" style="font-size:.8rem;margin:8px 0 0">담당 강사 폴더에 수강생 폴더를 만들고, 원장님 구글 캘린더에 첫 레슨 일정을 만들어 강사를 초대해요(강사 폰에 초대 알림). 강사 앱을 열면 배치 알림과 프로필이 떠요.</p></div>`;
@@ -1668,10 +1688,13 @@ function newStudentSheet() {
   const tch = d.querySelector("#nsTch"), ok = d.querySelector("#nsOk"), msg = d.querySelector("#nsMsg");
   const lab = () => { const s = staffOf()[tch.value]; ok.textContent = s ? `${s.name}에게 배치` : "등록하기"; }; tch.onchange = lab; lab();
   d.querySelectorAll("[data-pc]").forEach(b => b.onclick = () => { const ta = d.querySelector("#nsP"); ta.value = (ta.value.trim() ? ta.value.replace(/\s*$/, "\n") : "") + b.dataset.pc + ": "; ta.focus(); });
+  d.querySelectorAll("[data-q]").forEach(b => b.onclick = () => { const q = INTAKE.find(x => x.k === b.dataset.q); if (!q.m) d.querySelectorAll(`[data-q="${q.k}"]`).forEach(o => { if (o !== b) o.classList.add("ghost"); }); b.classList.toggle("ghost"); });
+  const readIntake = () => { const a = {}; for (const q of INTAKE) { if (q.text) { const v = d.querySelector(`[data-in="${q.k}"]`).value.trim(); if (v) a[q.k] = v; continue; } const on = [...d.querySelectorAll(`[data-q="${q.k}"]`)].filter(b => !b.classList.contains("ghost")).map(b => b.dataset.v); if (on.length) a[q.k] = q.m ? on : on[0]; } return a; };
   const close = () => d.remove(); d.querySelector("#nsNo").onclick = close; d.onclick = (e) => { if (e.target === d) close(); };
   ok.onclick = async () => {
     let name; try { name = joinStudentName(d.querySelector("#nsName").value); } catch (e) { msg.textContent = e.message; return; }
-    const mail = d.querySelector("#nsMail").value.trim().toLowerCase(), tid = tch.value, s = staffOf()[tid] || null, profile = d.querySelector("#nsP").value.trim();
+    const mail = d.querySelector("#nsMail").value.trim().toLowerCase(), tid = tch.value, s = staffOf()[tid] || null, intake = readIntake(), rulesAck = d.querySelector("#nsRules").checked, photoOk = d.querySelector("#nsPhoto").checked;
+    const profile = [d.querySelector("#nsP").value.trim(), intakeLine(intake) ? "── 입학 설문 ──\n" + intakeLine(intake) : ""].filter(Boolean).join("\n\n");
     if (mail && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(mail)) { msg.textContent = "구글 계정 주소를 확인해 주세요"; return; }
     const dt = d.querySelector("#nsD").value, tm = d.querySelector("#nsT").value, len = Math.max(10, Math.min(180, +d.querySelector("#nsL").value || 50));
     if (!dt || !tm) { msg.textContent = "첫 레슨 날짜와 시간을 정해 주세요"; return; }
@@ -1679,7 +1702,8 @@ function newStudentSheet() {
     ok.disabled = true; const step = (t_) => { msg.textContent = t_; };
     try {
       step("수강생 폴더 만드는 중…"); const created = await joinCreateStudent(name, false, s ? tid : "");
-      await cfgUpdate(l => { const x = l.students?.[created.sid]; if (x) { if (profile) x.profile = profile; x.first_lesson = { start: iso(start), len }; if (mail) x.email = mail; } });
+      await cfgUpdate(l => { const x = l.students?.[created.sid]; if (x) { if (profile) x.profile = profile; x.first_lesson = { start: iso(start), len }; if (mail) x.email = mail;
+        if (Object.keys(intake).length || rulesAck || photoOk) x.intake = { a: intake, rules_ack: rulesAck || undefined, photo_ok: photoOk || undefined, at: new Date().toISOString() }; } });
       if (s) await staffSync(tid).catch(() => {});
       let acct = false; if (mail) { step("수강생 노트 계정 연결 중…"); try { await portal("t_account", { email: mail, sid: created.sid, state: "approved", name: created.name }); acct = true; } catch {} }
       step("구글 캘린더에 첫 레슨 넣는 중…");
@@ -3104,9 +3128,14 @@ function paintDeliver() {
 }
 function paintGrowthLine(sid) { const st = cfg.students[sid], el = $("grLine"); if (!el) return; const go = () => { const h = growthLine(st); el.innerHTML = h; const b = $("grGo"); if (b) b.onclick = () => openStudent(sid, "growth"); };
   if (st._habit) go(); else rootFile(st, "음정성향.json").then(h => { if (h) { st._habit = h; if (stuCur?.sid === sid) go(); } }).catch(() => {}); }
+function intakeCard(st) {
+  const it = st?.intake; if (!it) return "";
+  const lines = intakeLine(it.a); if (!lines && !it.rules_ack && !it.photo_ok) return "";
+  return `<details class="card" style="margin:8px 0"><summary><b>📝 입학 설문</b> <span class="muted">${esc((it.at || "").slice(0, 10))}</span></summary><div style="white-space:pre-wrap;line-height:1.55;margin-top:6px">${esc(lines)}</div><p class="muted" style="margin:6px 0 0">${it.rules_ack ? "수업 규정 안내 확인 ✓" : "수업 규정 안내: 기록 없음"} · ${it.photo_ok ? "사진 촬영 동의 ✓" : "사진 촬영: 동의 기록 없음"}</p></details>`;
+}
 function paintLessonsTab(sid) {
   const st = cfg.students[sid], rows = st._rows || [];
-  $("stuTab").innerHTML = `<div id="grLine"></div><div id="stuBrief"></div><div id="stuKakao"></div><div id="stuKakaoCand"></div><div class="card">` + (rows.length ? rows.map((r, i) => r.err ? `<div class="lesson retry" data-i="${i}" title="${esc(r.err)}"><span>${esc(r.l.name)}</span><span class="chip todo">불러오기 실패(다시 시도)</span></div>`
+  $("stuTab").innerHTML = `<div id="grLine"></div>${intakeCard(cfg.students[sid])}<div id="stuBrief"></div><div id="stuKakao"></div><div id="stuKakaoCand"></div><div class="card">` + (rows.length ? rows.map((r, i) => r.err ? `<div class="lesson retry" data-i="${i}" title="${esc(r.err)}"><span>${esc(r.l.name)}</span><span class="chip todo">불러오기 실패(다시 시도)</span></div>`
     : `<div class="lesson" data-i="${i}"><span>${esc(r.l.name)}</span><span class="row" style="gap:4px"><span class="chip ${r.fb ? "ok" : "todo"}">${r.fb ? "피드백 ✓" : "피드백 전"}</span>${cfg.practice_check ? `<span class="chip ${r.ck ? "ok" : ""}">${r.ck ? "점검 ✓" : "점검 –"}</span>` : ""}</span></div>`).join("")
     : `<p class="muted">아직 레슨 녹음이 없어요. 녹음이 정리되면 여기에 날짜별로 생기고, 누르면 검수 화면이 열립니다.</p>`) + `</div>`;
   $("stuTab").querySelectorAll(".lesson").forEach(el => el.onclick = () => rows[+el.dataset.i]?.err
