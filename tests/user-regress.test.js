@@ -32,4 +32,6 @@ assert.ok(/const pvF = \(\) => dF\(\)\.filter\(f => !f\.cut\)/.test(H), "미리�
   syncCorr(cv); const before = P.slice(20).map(p => p[2]);
   cv._fixes[0] = { t0: 0, t1: 0.78, midi: 62 }; P.slice(0, 20).forEach(p => { p[3] = 6200; }); syncCorr(cv);
   const after = P.slice(20).map(p => p[2]); after.forEach((v, k) => assert.ok(Math.abs(v - before[k]) < 1, `뒤 조각 선 그대로: ${before[k]} → ${v}`)); }
+// ⑦ 11/16 16:00·17:09 '음 상하 조정 꾹 눌렀을 때 음이 아래에서 시작' — 아직 안 고친 음은 지금 들리는 높이(파란 선)에서 끌기 시작
+assert.ok(T.includes("const heard = !b.ghost && kc_ >= 2 && p[kc_] != null ? p[kc_] : p[1]") && T.includes("const gb = ghostBase(); st._dragBase = gb != null ? gb : m;"));
 console.log("user-regress ok");
