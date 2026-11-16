@@ -3,7 +3,9 @@ const fs = require("fs"), assert = require("assert");
 const stu = fs.readFileSync(__dirname + "/../student/index.html", "utf8"), tea = fs.readFileSync(__dirname + "/../teacher/index.html", "utf8"), pri = fs.readFileSync(__dirname + "/../student/privacy.html", "utf8");
 // 수강생 앱: 같은 사이트의 ../pitch/ 를 내 계정 모드(?from=student)로 연다. 첫 화면에 보인다
 assert.ok(stu.includes('href="../pitch/?from=student"') && stu.includes("const pitchLinkHtml = ()"), "발성 연습 버튼");
-assert.ok(stu.indexOf("${pitchLinkHtml()}") > stu.indexOf("${growthHtml(data.growth)}") && stu.indexOf("${pitchLinkHtml()}") < stu.indexOf("님의 레슨 노트</h2>"), "레슨 노트 위, 첫 화면");
+// (11/16 S2) 연습 기록 있으면 목표곡·성장 위, 없으면 기존처럼 성장 아래 — 어느 쪽이든 '레슨 노트' 위(첫 화면)
+const pi1 = stu.indexOf('${hasPractice ? pitchLinkHtml() : ""}'), pi2 = stu.indexOf('${hasPractice ? "" : pitchLinkHtml()}'), gi = stu.indexOf("${growthHtml(data.growth)}"), hd = stu.indexOf("님의 레슨 노트</h2>");
+assert.ok(pi1 > 0 && pi2 > gi && pi2 < hd && pi1 < stu.indexOf("${typeof goalHtml"), "연습 카드: 기록 있으면 위, 없으면 성장 아래, 항상 레슨 노트 위");
 const emb = fs.readFileSync(__dirname + "/../pitch-embed.js", "utf8");
 assert.ok(emb.includes(".pitchGo{display:block") && emb.includes("padding:14px 16px") && emb.includes("cardInner") && emb.includes("연속 ") && emb.includes("curveSvg") && emb.includes("최근 14일 정확도") && emb.includes("goalSec"), "카드(시안 C): 마이크·파형·오늘 기록·연속 일수, 카드 모양은 pitch-embed.js 한 곳");
 // 선생님 앱: 성장 탭에 발성 연습 카드. 서버에서 담당 수강생 것만 받아 온다
