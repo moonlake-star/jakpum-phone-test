@@ -9,7 +9,20 @@ self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
   if (e.request.method === 'POST' && url.pathname.endsWith('/teacher/share')) e.respondWith(handleShare(e.request));
+  else if (e.request.method === 'GET' && isVersionedAsset(url)) e.respondWith(assetFirst(e.request));
 });
+// (11/16 속도) 주소에 ?v=가 붙은 같은 사이트 스크립트(.js)만 '있으면 바로' 사용 — 버전이 바뀌면 주소가 달라 새로 받음. 화면(HTML)은 절대 캐시하지 않음
+const ASSETS = 'vn-assets-v1';
+const isVersionedAsset = (u) => u.origin === self.location.origin && /\.js$/.test(u.pathname) && u.searchParams.has('v');
+async function assetFirst(req) {
+  try {
+    const c = await caches.open(ASSETS), hit = await c.match(req);
+    if (hit) return hit;
+    const r = await fetch(req);
+    if (r && r.ok && r.type === 'basic') { c.put(req, r.clone()).catch(() => {}); const ks = await c.keys(); for (let i = 0; i < ks.length - 30; i++) c.delete(ks[i]); }
+    return r;
+  } catch (err) { return fetch(req); }
+}
 async function handleShare(request) {
   const batch = `b${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const meta = { batch, receivedAt: new Date().toISOString(), files: [], text: '' };
