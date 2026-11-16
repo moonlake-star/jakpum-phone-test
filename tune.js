@@ -363,7 +363,9 @@
   function syncCorr(cv) {
     const o_ = cv._orig, ks = cv._kShift || (cv._kShift = {}), kt = tgCol(cv); if (!kt || !cv.pts) return; const L = (cv.levels || []).length; if (!L) return;
     const fxA = fixAbs(cv);   // (11/16 사용자 '두 음을 C에 가깝게 고쳤는데 두번째는 B로 남') 고친 음 안은 소리(폰 미리듣기·서버)와 같은 식으로 그림: 정음 + (부른 높이 − 그 음 안 머문 칸 평균)
-    const idx = new Set([...Object.keys(o_ || {}), ...Object.keys(ks), ...fxA.keys()].map(String)); if (!idx.size) return; const base = cv._advBase, kc = 2 + L - 1;
+    // (11/16 18:19 사용자 '🎤 원음으로 했는데 실제 음이 다르잖아') 원음(보정 안 함)으로 둔 음은 소리가 부른 그대로인데 파란 선은 서버 보정선 그대로였음 → 그 음 안은 파란 선 = 부른 높이
+    const offA = new Map(); { const OF = (cv._fixes || []).filter(f => f && f.off); if (OF.length) (cv.pts || []).forEach((p, i) => { if (p[1] != null && OF.some(f => p[0] >= f.t0 - 0.001 && p[0] <= f.t1 + 0.001)) offA.set(i, p[1]); }); }
+    const idx = new Set([...Object.keys(o_ || {}), ...Object.keys(ks), ...fxA.keys(), ...offA.keys()].map(String)); if (!idx.size) return; const base = cv._advBase, kc = 2 + L - 1;
     // (11/09 14:45 사용자 '음표 높이를 바꾸면 파란선도') 서버가 정음을 안 줬던 곳(o0 없음)에 선생님이 음을 정하면: 그 음 덩어리의 부른 높이(중앙값)를 새 음으로 옮긴 만큼
     const nullMed = {}; { const ids = [...idx].map(Number).filter(i => cv.pts[i] && !(o_ && i in o_ && o_[i] != null) && cv.pts[i][kt] != null).sort((a, b) => a - b); let run = [];
       const flush = () => { if (!run.length) return; const v = run.map(i => cv.pts[i][1]).filter(x => x != null).sort((a, b) => a - b); const m = v.length ? v[v.length >> 1] : null; for (const i of run) nullMed[i] = m; run = []; };
@@ -373,14 +375,14 @@
     for (const si of idx) { const i = +si, p = cv.pts[i]; if (!p) continue; const o0 = o_ && si in o_ ? o_[si] : null;
       // (11/14 18:43 사용자 '자르고 음정 보정하면 그래프와 소리가 안 맞음') 서버가 처음엔 정음을 안 줬지만(o0 없음) 완성본에 이미 선생님 음(_rend)이 들어간 곳:
       //   서버 보정선은 이미 그 음으로 옮겨져 있음 → '이미 옮긴 양'으로 한 번만 기록(예전엔 한 번 더 옮겨 그래프가 실제 소리보다 그만큼 높게·낮게 그려졌음, ▲138 = 두 번)
-      const fa = fxA.get(i);
+      const fa = offA.has(i) ? offA.get(i) : fxA.get(i);
       if (fa == null && o0 == null && rd_ && rd_[i] != null && !rk_[si] && nullMed[i] != null) { rk_[si] = 1; if (!(si in ks)) ks[si] = rd_[i] - nullMed[i]; }
       let want;
       if (fa != null) { const ref = base && base[i] != null ? base[i] : p[kc]; if (ref == null) continue; want = fa - (ref - (ks[si] || 0)); }   // 서버가 그린 선과 상관없이 '들리는 높이'로
       // (11/16 16:32 사용자 '앞 조각만 내렸는데 뒤 음이 튐') 나누기만 한 조각(cut)은 서버·미리듣기처럼 아무것도 옮기지 않음 — 예전엔 옆 조각 음을 바꾸면 '같은 음 덩어리'가 갈라져
       //   이 조각만의 부른 높이 중앙값(급히 떨어지는 곳이라 낮음)으로 다시 계산돼 선이 2.5반음 위로 튀었음
       else if (inCut(p[0])) want = 0;
-      else want = o0 != null && p[kt] != null ? p[kt] - o0 : p[kt] != null && nullMed[i] != null ? p[kt] - nullMed[i] : 0;
+      else want = o0 != null && p[kt] != null ? p[kt] - o0 : p[kt] != null && nullMed[i] != null && o_ && si in o_ ? p[kt] - nullMed[i] : 0;   // (11/16 18:19) '서버가 정음을 안 준 곳'(o_에 null로 기록된 점)만 — 손댄 적 없는 점은 0
       const d = want - (ks[si] || 0); if (!d) continue;
       for (let c = 2; c < 2 + L; c++) if (p[c] != null) p[c] += d;
       if (base && base[i] != null) base[i] += d;   // 고급 보정 미리보기(adv.js)가 되돌릴 때 쓰는 기준도 같이
