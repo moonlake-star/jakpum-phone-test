@@ -11,7 +11,11 @@ const cv = { levels: [3], pts, _orig: o, _fixes: [{ t0: 0, t1: 0.58, midi: 59.5 
 syncCorr(cv);
 const stay = cv.pts.slice(6, 28).map(p => p[2]), mean = stay.reduce((a, b) => a + b, 0) / stay.length;
 assert.ok(Math.abs(mean - 5950) < 3, "머문 곳 = 고친 음(59.5) 그대로: " + mean);   // 예전엔 6000(C4)에 그대로 → 소리(B쪽)와 반음 가까이 차이
-assert.ok(cv.pts[0][2] < 5700, "미끄러져 올라오는 앞부분 모양은 그대로(정음 기준으로 같은 만큼 옮김)");
+assert.ok(cv.pts[0][2] < 5950 - 100 && cv.pts[0][2] >= 5950 - 150, "미끄러져 올라오는 앞부분은 모양만 남기고 정음에서 최대 150센트까지(11/16 14:50 '자른 뒤 뒤 음이 튀어 올라감')");
+// 꺾이는 꼭짓점 한 점만 느린 미끄러짐 조각(머문 점 없음): 정음(54=5400)에서 ±150센트 안
+{ const P2 = []; for (let i = 0; i < 20; i++) { const t = i * 0.04, r = i < 5 ? 4800 + (4 - i) * 0 + (i === 4 ? 0 : (4 - i) * -120) : 4800 + (i - 4) * 70; P2.push([t, r, 5400, 5400]); }
+  const cv2 = { levels: [3], pts: P2, _orig: {}, _fixes: [{ t0: 0, t1: 0.76, midi: 54 }] }; syncCorr(cv2);
+  assert.ok(cv2.pts.every(p => Math.abs(p[2] - 5400) <= 150), "튀어 오르지 않음: " + cv2.pts.map(p => p[2]).join(",")); }
 // 다시 그려도 두 번 옮기지 않음
 syncCorr(cv); assert.ok(Math.abs(cv.pts.slice(6, 28).map(p => p[2]).reduce((a, b) => a + b, 0) / 22 - 5950) < 3);
 // 고침을 지우면 서버 선으로

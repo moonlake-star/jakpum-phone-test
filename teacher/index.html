@@ -605,7 +605,7 @@
 <div id="v2Shade" class="v2only"></div>
 <div id="toast"></div>
 <script src="../lesson-replies.js"></script>
-<script src="../tune.js?v=20261116-1205"></script>
+<script src="../tune.js?v=20261116-1500"></script>
 <script src="../adv.js?v=20261114-2310"></script>
 <script src="../pitch-embed.js?v=20261116-1300"></script>
 
@@ -5300,10 +5300,15 @@ function pvPraatLoad() {
 function pvFixCenter(f, raw, fps) {   // 고친 음 f 안의 칸마다 기준 높이: 머문 칸(빠르기 400센트/초 미만 가중 0.5 초과)만 ±2칸 가중 평균 · 없으면 가장 가까운 머문 칸 값
   if (f._cen && f._cenRaw === raw) return f._cen;
   const k0 = Math.ceil((f.t0 - 0.001) * fps), k1 = Math.floor((f.t1 + 0.001) * fps), W = new Map(), out = new Map();
-  for (let k = k0; k <= k1; k++) { const x = raw.get(k); if (x == null) continue; const xp = raw.get(k - 1) ?? x, xn = raw.get(k + 1) ?? x, w = 1 / (1 + ((Math.abs(xn - xp) / 2 * fps) / 400) ** 2); if (w > 0.5) W.set(k, w); }
+  const WA = new Map(); for (let k = k0; k <= k1; k++) { const x = raw.get(k); if (x == null) continue; const xp = raw.get(k - 1) ?? x, xn = raw.get(k + 1) ?? x, w = 1 / (1 + ((Math.abs(xn - xp) / 2 * fps) / 400) ** 2); WA.set(k, w); if (w > 0.5) W.set(k, w); }
+  // (11/16 14:50 사용자 '자른 뒤 뒤 음이 튀어 올라감') 미끄러짐의 꺾이는 꼭짓점 한 점은 머문 칸이 아님 → 앞뒤 칸도 느려야(그래프 Tune.fixAbs·서버와 같음)
+  const inF = (k) => k >= k0 && k <= k1 && raw.get(k) != null;
+  { const W0 = new Set(W.keys()); for (const k of W0) if (!((W0.has(k - 1) || !inF(k - 1)) && (W0.has(k + 1) || !inF(k + 1)))) W.delete(k); }
   const got = [];
   for (let k = k0; k <= k1; k++) { if (raw.get(k) == null) continue; let s_ = 0, c_ = 0; for (let d = -2; d <= 2; d++) { const w = W.get(k + d); if (w) { s_ += raw.get(k + d) * w; c_ += w; } } if (c_ > 0) { out.set(k, s_ / c_); got.push(k); } }
   if (got.length) for (let k = k0; k <= k1; k++) { if (raw.get(k) == null || out.has(k)) continue; let b = got[0]; for (const g of got) if (Math.abs(g - k) < Math.abs(b - k)) b = g; out.set(k, out.get(b)); }
+  else { const o = [...WA].map(([k, w]) => [raw.get(k), w]).sort((p, q) => p[0] - q[0]), T = o.reduce((s_, q) => s_ + q[1], 0); let acc = 0, md = o.length ? o[o.length >> 1][0] : 0; for (const q of o) { acc += q[1]; if (acc >= T / 2) { md = q[0]; break; } }
+    for (const k of WA.keys()) out.set(k, md); }   // 머문 칸이 없는 음 = 그 음 전체의 가운데(빠르기 가중 중앙값) 기준
   f._cen = out; f._cenRaw = raw; return out;
 }
 function pvTotalBins(cv, lvCol, cls, mp) {   // 칸마다 '보정 전 소리(p0) 높이 → 지금 들려줄 높이' 보정(센트): 고친 음 = 정음 − 부른 높이, 그 밖 = 서버가 만든 높이 − 부른 높이, 디테일 고침 포함
@@ -5313,7 +5318,7 @@ function pvTotalBins(cv, lvCol, cls, mp) {   // 칸마다 '보정 전 소리(p0)
   for (const [k, r0] of raw) { const tk = k / fps, f = fxs.find((x) => tk >= x.t0 - 0.001 && tk <= x.t1 + 0.001), rk = ren.get(k); let cor = null;
     if (f && f.off) cor = 0;   // (11/09) 🎤 원음 = 보정 안 함
     else if (f) { const cen = pvFixCenter(f, raw, fps), s_ = cen.get(k) ?? r0, c_ = 1;   /* (11/14 20:54 사용자 '살짝 내렸더니 다음 음 넘어가는 곳이 출렁') 서버와 같게: 그 음 안 '머문' 칸만 평균, 미끄러지는 끝 칸은 가까운 머문 칸 기준 */
-      cor = f.midi * 100 - s_ / c_; cor = Math.max(-1200, Math.min(1200, cor)); if (adv && lvCol === K && adv.get(k) != null) cor += adv.get(k); teach.add(k); }   // (11/12 10:39 사용자 '쪼개기만 했는데 튐') 8센트 안쪽을 0으로 자르던 규칙 삭제(칸마다 0↔8센트로 오락가락 = 튐 · 서버는 선생님 음에 무시 폭 없음)
+      { const d = r0 - s_ / c_, ad = Math.abs(d), sd = ad <= 80 ? d : Math.sign(d) * Math.min(150, 80 + (ad - 80) * 0.25); cor = f.midi * 100 + sd - r0; /* (11/16 14:50) 정음에서 크게 벗어난 미끄러짐은 줄임(최대 ±150센트, Tune.softDev·서버와 같음) */ } if (adv && lvCol === K && adv.get(k) != null) cor += adv.get(k); teach.add(k); }   // (11/12 10:39 사용자 '쪼개기만 했는데 튐') 8센트 안쪽을 0으로 자르던 규칙 삭제(칸마다 0↔8센트로 오락가락 = 튐 · 서버는 선생님 음에 무시 폭 없음)
     else if (rk != null) cor = rk - r0;
     if (cor != null) m.set(k, cor); }
   if (teach.size) pvSmoothTeach(m, teach, fps, cv, lvCol);
@@ -8912,7 +8917,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261116-1335";
+const BUILD = "20261116-1500";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
