@@ -36,4 +36,8 @@ assert.ok(/const pvF = \(\) => dF\(\)\.filter\(f => !f\.cut\)/.test(H), "미리�
 assert.ok(T.includes("const heard = !b.ghost && kc_ >= 2 && p[kc_] != null ? p[kc_] : p[1]") && T.includes("const gb = ghostBase(); st._dragBase = gb != null ? gb : m;"));
 // ⑧ 11/16 17:20 '수정 직후 재생하면 음이 튐(다시 재생하면 괜찮음)' — 듣는 자리 조각이 다 될 때까지 기다렸다 재생 · 지금 나는 소리 한가운데선 갈아 끼우지 않음
 assert.ok(H.includes("if (!pvReadyAt(at, 3))") && H.includes("k0 > pos + 0.15 * sr") && H.includes("job.fin = true;"));
+// ⑨ 11/16 17:48 '회색 음 1/3 자르고 2/3 또 자르면 1/3이 붙음' · 17:46 '2를 골랐는데 1과 같이 골라짐'
+assert.ok(T.includes("...(gh ? { ghost: true } : {}) }, onFix, getT, st)") && T.includes("filter(f => f && (f.gcut || f.cut)).flatMap(f => [f.t0, f.t1])"));
+{ const selHit = new Function(T.match(/  function selHit\(sel, b\) \{[^\n]*\}/)[0] + "; return selHit;")();
+  assert.ok(!selHit({ t0: 1.24, t1: 2.0 }, { t0: 0.8, t1: 1.28 }), "끝이 0.04초 겹친 이웃은 안 골라짐"); assert.ok(selHit({ t0: 1.24, t1: 2.0 }, { t0: 1.24, t1: 2.0 })); }
 console.log("user-regress ok");

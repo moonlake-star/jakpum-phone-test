@@ -334,6 +334,9 @@
     // (11/02 16:52 사용자) 안내 글·미리보기 점선은 뺌 — 첫 음 건반 깜빡임만
     g.restore();
   }
+  // (11/16 17:46 사용자 '2를 골랐는데 1과 함께 골라짐') 이웃 막대는 끝이 0.04초쯤 겹쳐 그려짐(마지막 점 + 한 칸) → 그만큼 겹친 이웃까지 고른 것으로 칠하던 것.
+  //   고른 음 = 시작이 같거나, 짧은 쪽 길이의 절반 넘게 겹친 막대만
+  function selHit(sel, b) { if (Math.abs(b.t0 - sel.t0) < 0.02) return true; const ov = Math.min(sel.t1, b.t1) - Math.max(sel.t0, b.t0); return ov > 0.5 * Math.min(sel.t1 - sel.t0, b.t1 - b.t0); }
   function tgCol(cv) { return cv.target ? 2 + (cv.levels || []).length : 0; }   // 정음(목표음) 열(서버 v2부터)
   // (11/06 21:50 사용자) 음표를 위아래로 옮기면(반음·미세) 하늘색 '보정 후' 선도 바로 같이 움직이게: 그 구간 보정 후 음높이 = 서버 값 + (새 정음 − 서버가 고른 정음) (근사 · 정확한 건 완성본 다시 만들기 뒤)
   // 고친 음(cv._fixes, 🎤원음 제외)마다 점 번호 → 들리는 높이(센트). 폰 미리듣기(pvFixCenter)·서버(pitch.plan_targets)와 같은 규칙:
@@ -496,18 +499,19 @@
       // (11/03 15:35 사용자) 부른 음 선은 있는데 정음 막대가 없는 곳(ㅅ·ㅊ·ㅎ 뒤 모음, 꺾기·짧은 음 등 자동 보정이 일부러 안 건드린 곳)도 고칠 수 있게
       // → 선생님 화면에서만 회색 점선 막대(부른 높이에 가까운 음)로 보여 주고, 톡 하면 다른 막대처럼 고치기 창 — 고치기 전엔 자동 보정에 아무 영향 없음
       if (st && st.ghostOn) { let gr = null;
-        const flush = () => { if (gr && gr.t1 - gr.t0 >= 0.1) { const sv = gr.v.slice().sort((a, b) => a - b), c = Math.round(sv[sv.length >> 1] / 100) * 100, gx0 = xs(gr.t0), gx1 = xs(gr.t1), yy = y(c);
+        const flush = () => { if (gr) for (const r of runs) { if (!r.fx && r.t1 - r.t0 < 0.1) continue; if (r.t0 <= gr.t0 && r.t1 > gr.t0) gr.t0 = r.t1; if (r.t0 > gr.t0 && r.t0 < gr.t1) gr.t1 = r.t0; }   // (11/16 17:46) 옆 막대와 겹치지 않게(겹치면 같이 골라지고, 저장할 때 옆 음 고침까지 지워질 수 있음)
+          if (gr && gr.t1 - gr.t0 >= 0.1) { const sv = gr.v.slice().sort((a, b) => a - b), c = Math.round(sv[sv.length >> 1] / 100) * 100, gx0 = xs(gr.t0), gx1 = xs(gr.t1), yy = y(c);
             const rw_ = (cv._fixes || []).some(x => x.off && x.t0 < gr.t1 && x.t1 > gr.t0);   // (11/11) 🎤 원음으로 둔 음 = 분홍(점선 회색 '정음 없는 곳'과 구분)
             g.save(); g.fillStyle = rw_ ? SRC_C.raw : "rgba(160,168,180,.16)"; g.fillRect(gx0, yy - bh / 2, Math.max(3, gx1 - gx0), bh); if (!rw_) { g.setLineDash([3, 3]); g.strokeStyle = "rgba(205,210,218,.65)"; g.lineWidth = 1.2; g.strokeRect(gx0, yy - bh / 2, Math.max(3, gx1 - gx0), bh); } g.restore();
             bars.push({ x0: gx0, x1: gx1, t0: gr.t0, t1: gr.t1, c, y: yy, h: bh, ghost: true }); } gr = null; };
-        const gcB = (cv._fixes || []).filter(f => f && f.gcut).map(f => f.t0);   // 회색 막대를 나눈 자리
+        const gcB = (cv._fixes || []).filter(f => f && (f.gcut || f.cut)).flatMap(f => [f.t0, f.t1]);   // 회색 막대를 나눈 자리(나눈 조각의 양 끝 모두)
         for (const p of vis) { if ((p[kt] != null && !tiny.has(p)) || p[1] == null) { flush(); continue; } if (gr && (p[0] - gr.tl > 0.13 || gcB.some(x => x > gr.tl + 1e-6 && x <= p[0] + 1e-6))) flush(); if (!gr) gr = { t0: p[0], t1: p[0], tl: p[0], v: [] }; gr.v.push(p[1]); gr.tl = p[0]; gr.t1 = p[0] + 0.04; }
         flush(); }
       for (const b of bars) { const f = (cv._fixes || []).find(x => x.t0 < b.t1 && x.t1 > b.t0);   // 선생님이 고친 정음 = 노란 테두리(나누기만 한 조각은 경계 틈만)
         if (f && !f.cut) { g.strokeStyle = f.off ? "#ff9ec0" : "#ffd27a"; g.lineWidth = 2; g.strokeRect(b.x0, b.y - b.h / 2, Math.max(4, b.x1 - b.x0), b.h);
           if (f.off && b.x1 - b.x0 > 22) { g.font = "bold 10.5px system-ui, sans-serif"; g.textBaseline = "middle"; g.fillStyle = "#ffd3e2"; g.fillText("🎤 원음", Math.max(L + 2, b.x0) + 3, b.y - b.h / 2 - 8); } }
         if (f && f.cut) { g.fillStyle = "#0f1115"; g.fillRect(b.x0 - 1.5, b.y - b.h / 2 - 3, 3, b.h + 6); }
-        if (st && st.sel && st.sel.t0 < b.t1 && st.sel.t1 > b.t0) { g.save(); g.shadowColor = "#9cc3ff"; g.shadowBlur = 10; g.strokeStyle = "#9cc3ff"; g.lineWidth = 3; g.strokeRect(b.x0 - 2, b.y - b.h / 2 - 2, Math.max(6, b.x1 - b.x0 + 4), b.h + 4); g.restore(); } }
+        if (st && st.sel && selHit(st.sel, b)) { g.save(); g.shadowColor = "#9cc3ff"; g.shadowBlur = 10; g.strokeStyle = "#9cc3ff"; g.lineWidth = 3; g.strokeRect(b.x0 - 2, b.y - b.h / 2 - 2, Math.max(6, b.x1 - b.x0 + 4), b.h + 4); g.restore(); } }
       for (const b of bars) { if (!b.gd) continue;   // (11/09 A안) 볼륨 꼬리표: +4dB(주황) · −6dB·무음(하늘)
         const s = b.gd === "m" ? "무음" : `${b.gd > 0 ? "+" : "−"}${Math.abs(Math.round(b.gd))}dB`; g.font = "bold 10.5px system-ui, sans-serif"; g.textBaseline = "middle";
         const tw = g.measureText(s).width + 10, tx = b.x0 + 2, ty = b.y - b.h / 2 - 10, up = b.gd !== "m" && b.gd > 0;
@@ -547,7 +551,7 @@
       } else if (st) st.uvbars = null;
       if (st) st.hdl = null;
       if (st && (st.advOn || st.buMode) && st.sel) {   // (11/06 16:20 사용자) 고른 음 양 끝 = 화살표 손잡이(꾹 누른 채 좌우로 = 길이 미세) · 음 가운데를 잡아 위아래 = 음정, 좌우 = 자리
-        const sb = (st.tebars || []).find(x => Math.abs(x.t0 - st.sel.t0) < 0.02) || bars.find(x => Math.abs(x.t0 - st.sel.t0) < 0.02 || (st.sel.t0 < x.t1 && st.sel.t1 > x.t0));
+        const sb = (st.tebars || []).find(x => Math.abs(x.t0 - st.sel.t0) < 0.02) || bars.find(x => Math.abs(x.t0 - st.sel.t0) < 0.02) || bars.find(x => selHit(st.sel, x));
         if (sb && sb.x1 > L && sb.x0 < w && typeof st.onBarDragX === "function") { const R = HANDLE_R, hh = 26, lx = sb.x0, rx = sb.x1;
           // (11/12 17:55 사용자) 손잡이는 음표 조금 아래(손가락이 음표 끝을 가리지 않게) · 아래 자리가 없으면 위로 · 음표 끝에서 가는 선으로 이어 줌
           // (11/13 18:34 사용자 C안) 음표 끝에서 가는 줄로 이어진 동그라미 손잡이 · 조금 더 아래 · 가운데 레일·시간 표시는 없음
@@ -872,7 +876,7 @@
     saveEl.textContent = "💾 저장 중…"; clearTimeout(saveTm); setTimeout(saveTick, saving.size ? 0 : 450); }
   function fixSheet(host, cv, b, onFix, getT, st) {
     const kt = tgCol(cv), m0 = Math.round(b.c) / 100, tNow = typeof getT === "function" ? +getT() || 0 : -1; let m = m0;
-    const fixed = (cv._fixes || []).find(x => x.t0 < b.t1 && x.t1 > b.t0), isCut = !!(fixed && fixed.cut), atHead = tNow > b.t0 + 0.08 && tNow < b.t1 - 0.08, canCut = atHead || b.t1 - b.t0 >= 0.3;   // (11/03 02:20 사용자) ✂는 늘 보이게: 세로줄이 막대 안이면 그 자리, 아니면 막대 가운데에서 나눔
+    const fixed = (cv._fixes || []).find(x => selHit(x, b)), isCut = !!(fixed && fixed.cut), atHead = tNow > b.t0 + 0.08 && tNow < b.t1 - 0.08, canCut = atHead || b.t1 - b.t0 >= 0.3;   // (11/03 02:20 사용자) ✂는 늘 보이게: 세로줄이 막대 안이면 그 자리, 아니면 막대 가운데에서 나눔
     const T0 = +b.t0.toFixed(2), T1 = +b.t1.toFixed(2);
     // (11/05 사용자) 합치기: 나눈 조각이 붙어 있으면(앞뒤 0.06초 안) 하나로 다시 붙임 — 오른쪽 조각 먼저, 없으면 왼쪽
     const fxs = cv._fixes || [], mgNb = fixed ? (fxs.find(x => x !== fixed && Math.abs(x.t0 - T1) < 0.06) || fxs.find(x => x !== fixed && Math.abs(x.t1 - T0) < 0.06) || null) : null;
@@ -991,7 +995,7 @@
         if (te) { const r_ = (ts - te.t0) / Math.max(1e-6, te.t1 - te.t0), nts = Math.round((te.nt0 + (te.nt1 - te.nt0) * r_) * 100) / 100, A = { t0: te.t0, t1: ts, nt0: te.nt0, nt1: nts, c: te.c }, B_ = { t0: ts, t1: te.t1, nt0: nts, nt1: te.nt1, c: te.c };
           cv._tedits = cv._tedits.filter(x => x !== te).concat([A, B_]);
           if (st && typeof st.onTime === "function") try { fxSave(st.onTime, { t0: te.t0, t1: te.t1, nt0: te.t0, nt1: te.t1, reset: true }); fxSave(st.onTime, A); fxSave(st.onTime, B_); } catch {} } }
-      fixSheet(host, cv, { t0: ts, t1: T1, c: Math.round(m * 100) }, onFix, getT, st); };
+      fixSheet(host, cv, { t0: ts, t1: T1, c: Math.round(m * 100), ...(gh ? { ghost: true } : {}) }, onFix, getT, st); };   // (11/16 17:48 사용자 '회색 음 1/3 자르고 2/3 또 자르면 1/3이 붙어버림') 오른쪽 조각도 회색 그대로(예전엔 회색 표시가 빠져 두 번째 자르기가 첫 경계를 지웠음)
     if (cut) cut.onclick = () => doCut();
     if (st) st.cutAtNow = (tt) => { if (tt > b.t0 + 0.04 && tt < b.t1 - 0.04) { buzz(30); doCut(tt); } };   // (11/06 22:20 사용자) 세로줄 위 ✂ 톡 = 그 자리에서 나누기   // (11/03 08:14 사용자) 나누면 오른쪽 조각이 바로 골라진 채로(창은 그대로, 뒤로 가기 기록도 그대로)
     const mrg = d.querySelector("[data-merge]");
@@ -1271,7 +1275,7 @@
     { text: () => "⏱ 타이밍: ◀▶ 일찍·늦게, −/+ 길이 · 막대 가운데를 끌면 옮기기, 끝을 끌면 길이", need: "st.onBarDragX = (dt, edge, start)", when: (o) => typeof o.onTime === "function" },
     { text: () => "타이밍 고친 음은 하늘색, 원래 자리는 점선 · 가운데 숫자를 누르면 그 근처만 들려요", need: 'g.fillStyle = "#5fd4ff"; g.fillRect(x0', when: (o) => typeof o.onTime === "function" },
     { text: () => "음 이름 칸: 누르면 소리 · 위아래로 밀면 미세(센트) · 꾹 누른 뒤 밀면 반음씩", need: 'n_.lp = setTimeout(() => { if (nd !== n_ || n_.ax) return; n_.fine = false; buzz(40);', when: (o) => typeof o.onFix === "function" },
-    { text: () => "✂ 나누기: 세로줄이 막대 안이면 그 자리, 밖이면 가운데에서 나뉘고 오른쪽 조각이 골라져요", need: "fixSheet(host, cv, { t0: ts, t1: T1, c: Math.round(m * 100) }, onFix, getT, st)", when: (o) => typeof o.onFix === "function" },
+    { text: () => "✂ 나누기: 세로줄이 막대 안이면 그 자리, 밖이면 가운데에서 나뉘고 오른쪽 조각이 골라져요", need: "fixSheet(host, cv, { t0: ts, t1: T1, c: Math.round(m * 100), ...(gh ? { ghost: true } : {}) }, onFix, getT, st)", when: (o) => typeof o.onFix === "function" },
     { text: () => "↺ 톡 = 이 음 원래대로(확인 후) · 한 단계 되돌리기는 아래 ↶", need: "hold = setTimeout(() => { fired = true; stop(); askOrig(); }, 1000)", when: (o) => typeof o.onFix === "function" },
     { text: () => "고치기 창은 그래프 빈 곳 톡·뒤로 가기로 닫혀요 — 고친 건 자동 저장돼요", need: "if (!onBar) { sheetClose(); lastTap = 0; return; }", when: (o) => typeof o.onFix === "function" },
     { text: () => "막대 색: 노랑 고친 음 · 분홍 원음 · 보라 MIDI · 하늘 원곡 · 초록 악보·키", need: "const SRC_C = {", when: (o) => typeof o.onFix === "function" },
