@@ -195,6 +195,7 @@
   .sum { display:flex; flex-wrap:wrap; gap:6px; padding:10px 0 4px; }
   .tabs { display:flex; gap:6px; margin:10px 0; } .tabs button { flex:1 1 auto; min-height:42px; padding:0 10px; white-space:nowrap; }
   .tabs button:not(.on) { background:transparent; color:var(--accent); border:2px solid var(--accent); }
+  .oneLine { display:flex; width:100%; justify-content:space-between; align-items:center; gap:8px; text-align:left; color:var(--fg); font-weight:400; margin:6px 0 8px; }
   .todo-item { display:flex; justify-content:space-between; gap:8px; align-items:center; padding:9px 0; border-top:1px solid var(--line); cursor:pointer; }
   .todo-item:first-of-type { border-top:0; } .tdSw { touch-action:pan-y; user-select:none; -webkit-user-select:none; background:var(--card); position:relative; }
   .tdW { position:relative; overflow:hidden; border-top:1px solid var(--line); } .tdW:first-of-type { border-top:0; } .tdW > .todo-item { border-top:0; }
@@ -1276,6 +1277,11 @@ function paintList(data, stale) {
       (tdHidN ? `<div class="muted" style="font-size:.82rem;margin-top:8px">숨긴 ${tdHidN}개 · <a href="#" id="tdShowAll">다시 보기</a></div>` : "") + `</div>`;
   };
   const todoHtml = todoCardHtml();
+  // (11/16 A안) 오늘 한 줄: 오늘 레슨 건수(수강 현황의 다음 레슨 날짜가 오늘인 수강생) · 확인 대기(검토 대기 알림). 누르면 오늘 할 일로 이동
+  const kst = (t) => new Date(t + 9 * 36e5).toISOString().slice(0, 10), today = kst(Date.now());
+  const todayLs = data.filter(d => !isTeacher(cfg.students[d.sid] || {})).map(d => attOf(d.sid)?.next_lesson).filter(x => x && Number.isFinite(Date.parse(x)) && kst(Date.parse(x)) === today).sort();
+  const nextToday = todayLs.find(x => Date.parse(x) > Date.now());
+  const oneLine = `<button type="button" class="card oneLine" id="oneLine"><span><b>오늘 레슨 ${todayLs.length}건</b>${nextToday ? ` <span class="muted">· 다음 ${new Date(Date.parse(nextToday) + 9 * 36e5).toISOString().slice(11, 16)}</span>` : ""}</span><span class="${bells ? "chip todo" : "muted"}">${bells ? `확인 대기 ${bells}건` : "확인 대기 없음"}</span></button>`;
   const order = data.slice().sort((a, b) => (isTeacher(cfg.students[a.sid] || {}) - isTeacher(cfg.students[b.sid] || {})) || ((enrollOf(cfg.students[a.sid]) !== "active") - (enrollOf(cfg.students[b.sid]) !== "active")));   // 쉬는 중·그만둠은 아래로
   const blocks = order.map((d) => {
     const st = cfg.students[d.sid]; if (!st) return "";
@@ -1283,8 +1289,10 @@ function paintList(data, stale) {
     const act = (d.jobs || []).filter(j => ["queued", "working"].includes(j.req.status)).length;
     const pay = (st.payments || []).slice(-1)[0];
     const a = attOf(d.sid);
+    // (11/16 A안) 목록 한 줄: 수강 현황 → 없으면 마지막 레슨 경과일 → 없으면 '기록 쌓이는 중'. 결제 기록은 수강생 상세 화면에 그대로 있음
+    const lastD = d.rows.filter(r => !r.err && r.l?.name).map(r => r.l.name.slice(0, 10)).sort().pop(), lastAgo = lastD ? Math.floor(daysAgo(lastD)) : null;
     const sub = isTeacher(st) ? "선생님 본인 곡·작업" : a?.line ? `${esc(a.line)}${a.next_lesson ? ` · 다음 ${esc(attWhen(a.next_lesson))}` : ""}`
-      : pay ? `최근 결제 ${esc(pay.date)} · ${esc(pay.sessions)}회 묶음` : "결제 기록 없음";
+      : lastAgo != null && lastAgo < 99 ? `마지막 레슨 ${lastAgo <= 0 ? "오늘" : lastAgo + "일 전"}` : "기록 쌓이는 중";
     const tag = st.status === "test" ? ` <span class="chip">연습용</span>` : isTeacher(st) ? ` <span class="chip">선생님</span>` : enrollOf(st) !== "active" ? ` <span class="chip">${esc(ENROLL[enrollOf(st)])}</span>` : "";
     const chips = [
       d.err ? `<span class="chip todo retry" title="${esc(d.err)}">불러오기 실패(다시 시도)</span>` : "",
@@ -1298,11 +1306,13 @@ function paintList(data, stale) {
       `<div class="muted">${sub}</div></div><div class="stuBody"><div class="sum">${chips || `<span class="muted">아직 기록 없음</span>`}</div></div></div>`;
   });
   // 가입 신청·계정 연결 카드는 맨 아래(2026-10-27 사용자: 맨 위에 늦게 생겨 아래가 밀리며 엉뚱한 게 눌림)
-  $("vList").innerHTML = `<div class="row" style="gap:6px;margin:0 0 8px;flex-wrap:nowrap"><button class="ghost topBtn" id="calBtn">${IC_CAL} 레슨 캘린더</button>${isStaffApp() ? "" : `<button class="ghost topBtn" id="songBtn">🎵 곡 서랍</button><button class="ghost topBtn" id="jamBtn">🎸 합주 베스트</button>`}</div>` + pitchLinkHtml() + `<div id="pitchAll"></div><div id="pitchRec"></div>` + segHtml + todoHtml + `<div id="careBox"></div>` + blocks.join("") + (isStaffApp() ? "" : `<button class="ghost" id="nsBtn" style="width:100%;margin:4px 0 8px">＋ 신규 수강생 등록</button>`) + `<div id="joinReq">${lastJoinHtml}</div>` +
+  $("vList").innerHTML = `<div class="row" style="gap:6px;margin:0 0 8px;flex-wrap:nowrap"><button class="ghost topBtn" id="calBtn">${IC_CAL} 레슨 캘린더</button>${isStaffApp() ? "" : `<button class="ghost topBtn" id="songBtn">🎵 곡 서랍</button><button class="ghost topBtn" id="jamBtn">🎸 합주 베스트</button>`}</div>` + oneLine + segHtml + todoHtml + `<div id="careBox"></div>` + blocks.join("") + `<details class="card" id="practiceBox"${LS.get("vn_practice_open") ? " open" : ""}><summary><b>🎤 연습·발성 도구</b> <span class="muted">연습 천재 · 연습 기록</span></summary>${pitchLinkHtml()}<div id="pitchAll"></div><div id="pitchRec"></div></details>` + (isStaffApp() ? "" : `<button class="ghost" id="nsBtn" style="width:100%;margin:4px 0 8px">＋ 신규 수강생 등록</button>`) + `<div id="joinReq">${lastJoinHtml}</div>` +
     `<p class="muted">${stale ? "최신 내용 확인 중…" : "최신 상태"} · <a href="#" id="reload">새로고침</a> · 앱 버전 ${typeof BUILD === "string" ? BUILD : ""}</p>`;
   $("reload").onclick = (e) => { e.preventDefault(); renderList(); };
   $("calBtn").onclick = () => openCal(); if ($("songBtn")) $("songBtn").onclick = () => openSongs(); if ($("jamBtn")) $("jamBtn").onclick = () => openJam();
   if ($("nsBtn")) $("nsBtn").onclick = () => newStudentSheet();
+  if ($("oneLine")) $("oneLine").onclick = () => $("todoCard")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  if ($("practiceBox")) $("practiceBox").ontoggle = () => LS.set("vn_practice_open", $("practiceBox").open ? 1 : null);
   if (!isStaffApp()) staffPortalSync().catch(() => {});
   if (isStaffApp()) asgStaffCheck().catch(() => {});
   else if (Object.keys(staffOf()).length) (listNet.asg ??= asgOwnerTodos()).then(xs => { if (!xs.length || !$("todoCard")) return;
@@ -4369,7 +4379,7 @@ function paintCare(data) {
   const students = Object.fromEntries(Object.entries(cfg.students).map(([k, v]) => [k, { ...v, isTeacher: isTeacher(v) }]));
   const xs = careTodos(data, { students, att: att?.students, usage: usageCache?.u, hide: LS.get("vn_care_hide") || {}, sent: LS.get("vn_mo_sent") || {}, ym: moDefault() });
   if (!xs.length) { box.innerHTML = ""; return; }
-  box.innerHTML = `<details class="card" data-fold="care"${xs.length <= 4 ? " open" : ""}><summary><b>🤝 챙기기</b> <span class="muted">${xs.length} · 급하진 않지만 오래 다니게 하는 일</span></summary>
+  box.innerHTML = `<details class="card" data-fold="care"${xs.length <= 4 ? " open" : ""}><summary><b>🤝 챙길 수강생</b> <span class="muted">${xs.length} · 레슨 기록이 오래 없거나 챙기면 좋은 수강생</span></summary>
     ${xs.map((x, n) => `<div class="todo-item careIt" data-c="${n}"><span>${esc(x.t)}</span><span><span class="chip">${esc(x.c)}</span> <button type="button" class="small ghost careX" data-c="${n}" aria-label="7일 동안 숨기기">✕</button></span></div>`).join("")}</details>`;
   box.querySelectorAll(".careIt").forEach(el => el.onclick = (e) => { const x = xs[+el.dataset.c];
     if (e.target.closest(".careX")) { e.stopPropagation(); const h = LS.get("vn_care_hide") || {}; h[x.sid + ":" + x.ck] = Date.now() + 7 * 864e5; LS.set("vn_care_hide", h); paintCare(data); return; }
