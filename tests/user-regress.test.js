@@ -42,4 +42,10 @@ assert.ok(T.includes("...(gh ? { ghost: true } : {}) }, onFix, getT, st)") && T.
   assert.ok(!selHit({ t0: 1.24, t1: 2.0 }, { t0: 0.8, t1: 1.28 }), "끝이 0.04초 겹친 이웃은 안 골라짐"); assert.ok(selHit({ t0: 1.24, t1: 2.0 }, { t0: 1.24, t1: 2.0 })); }
 // ⑩ 11/16 17:55 '회색 음을 애매하게 잡지 말고' — 서로 다른 음을 한 회색 막대로 묶지 않음 · 2.5반음 넘게 움직이는 덩어리는 회색 막대로 안 그림
 assert.ok(T.includes("Math.abs(lmd[vi] - gm) > 150") && T.includes("sv0[Math.floor(sv0.length * 0.9)] - sv0[Math.floor(sv0.length * 0.1)] > 250) gr = null"));
+// ⑪ 11/16 18:19 '🎤 원음으로 했는데 실제 음이 다름' — 원음으로 둔 음의 파란 선 = 부른 높이(소리와 같게)
+{ const syncCorr = new Function("tgCol", src + "; return syncCorr;")((cv) => 2 + cv.levels.length);
+  const P = []; for (let i = 0; i < 20; i++) P.push([i * 0.04, 5620 + (i % 3) * 5, 5700, 5700]);
+  const cv = { levels: [3], pts: P, _orig: {}, _fixes: [{ t0: 0, t1: 0.76, midi: null, off: true }] }; syncCorr(cv);
+  P.forEach(p => assert.ok(Math.abs(p[2] - p[1]) < 1, `원음 = 부른 높이: ${p[1]} vs ${p[2]}`));
+  cv._fixes = []; syncCorr(cv); P.forEach(p => assert.ok(Math.abs(p[2] - 5700) < 1, "원음 끄면 서버 보정선으로")); }
 console.log("user-regress ok");
