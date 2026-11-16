@@ -7,6 +7,7 @@
 <meta name="theme-color" content="#17191d">
 <link rel="icon" href="../brand/app-192.png?v=20261031b">
 <link rel="apple-touch-icon" href="../brand/app-512.png?v=20261031b">
+<link rel="preconnect" href="https://script.google.com"><link rel="preconnect" href="https://www.googleapis.com" crossorigin>
 <script src="https://accounts.google.com/gsi/client" async></script>
 <style>
   :root { color-scheme:dark; --bg:#17191d; --fg:#eceff3; --muted:#a9b1bc; --card:#22262c; --line:#363c45; --accent:#9cc3ff; --on-accent:#10141a; --good:#7fd99a; }
@@ -211,7 +212,7 @@ function saved() { const v = LS.get("sn_tok"); return v && exp(v) > Date.now() +
 function lgFootSet() { try { const f = document.getElementById("lgFoot"); if (f) f.style.display = idToken && data ? "" : "none"; } catch {} }
 function doLogout() {
   if (!confirm("로그아웃할까요? 다시 들어오려면 구글 로그인이 필요해요.")) return;
-  LS.set("sn_tok", null); idToken = null; data = null;
+  LS.set("sn_tok", null); try { portalCacheClear(); } catch {} idToken = null; data = null;
   try { google.accounts.id.disableAutoSelect(); } catch {}
   lgFootSet(); loginView("로그아웃했어요. 다른 구글 계정으로 들어갈 수 있어요.");
 }
@@ -268,29 +269,54 @@ function utWire() {
   try { new MutationObserver((ms) => { if (ms.some(m => [...m.addedNodes].some(n => n.id === "tuneFs"))) track("tune"); }).observe(document.body, { childList: true }); } catch {}   // 음정선 전체화면이 열린 순간
 }
 
+// (11/16 사용자: 페이지 로딩이 느림) 앱을 열 때 중계 서버(Apps Script) 응답을 기다리는 동안 빈 화면이던 것을 → 지난번에 받은 노트를 먼저 그리고 뒤에서 새로 받음
+// 이 폰 안(localStorage)에만 저장, 같은 구글 계정(sub)일 때만 사용, 로그아웃·접근 막힘·로그인 오류 때 지움
+const PCACHE = "sn_portal", PCACHE_MAX_MS = 30 * 864e5;
+function tokSub(tok) { try { return JSON.parse(atob(tok.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).sub || ""; } catch { return ""; } }
+function portalCacheGet() { const c = LS.get(PCACHE); return c && c.j && c.sub && c.sub === tokSub(idToken || "") && Date.now() - (c.at || 0) < PCACHE_MAX_MS && Array.isArray(c.j.lessons) ? c.j : null; }
+function portalCachePut(j) { if (j && j.state !== "pending" && j.state !== "rejected" && j.state !== "closed" && Array.isArray(j.lessons)) LS.set(PCACHE, { sub: tokSub(idToken || ""), at: Date.now(), j }); }
+function portalCacheClear() { LS.set(PCACHE, null); }
+let snOpened = false;
+function applyPortal(j, quiet) {   // quiet: 데이터만 바꾸고 화면은 다시 그리지 않음
+  if (j.state === "pending") { portalCacheClear(); return $("view").innerHTML = `<div class="card"><h2>가입 신청 완료 🙌</h2><p>${esc(j.name || "")}님, 선생님이 확인하시면 바로 볼 수 있어요. 승인되면 이 페이지를 다시 열어 주세요.</p></div>`; }
+  if (j.state === "rejected") { portalCacheClear(); return $("view").innerHTML = `<div class="card"><p>이 계정은 연결되지 않았어요. 선생님께 문의해 주세요.</p></div>`; }
+  if (j.state === "closed") { portalCacheClear(); return $("view").innerHTML = `<div class="card"><p>지금은 노트를 볼 수 없어요. 선생님께 문의해 주세요.</p></div>`; }
+  data = j; lgFootSet();
+  if (!snOpened) { snOpened = true; try { utWire(); track("open", { lesson: "" }); } catch {} }
+  // 출석·수강권 현황(선생님 앱이 '_status' 칸으로 보냄, 2026-10-29): 레슨 목록에서는 빼고 맨 위 카드로
+  const sx = (j.lessons || []).find(l => l && l.id === "_status"); data.status = sx && sx.kind === "status" ? sx : null;
+  const gx = (j.lessons || []).find(l => l && l.id === "_growth"); data.growth = gx && gx.kind === "growth" ? gx : null;   // (11/02) 나의 성장
+  data.months = (j.lessons || []).filter(l => l && ((String(l.id).startsWith("_month_") && l.kind === "month" && /^\d{4}-\d{2}$/.test(l.ym || "")) || (String(l.id).startsWith("_pack_") && l.kind === "pack")))
+    .sort((a, b) => String(b.updated_at || b.ym || "").localeCompare(String(a.updated_at || a.ym || "")));   // (11/04) 월간 성장 리포트 · (11/05) 수강권 돌아보기 — 최근에 보낸 것이 위
+  const gl = (j.lessons || []).find(l => l && l.id === "_goal"); data.goal = gl && gl.kind === "goal" && gl.title ? gl : null;   // (11/05) 🎯 목표곡
+  data.lessons = (j.lessons || []).filter(l => l && l.id !== "_status" && l.id !== "_growth" && l.id !== "_goal" && !String(l.id).startsWith("_month_") && !String(l.id).startsWith("_pack_"));
+  if (quiet) return;
+  const want = params.get("l");
+  if (want && data.lessons.some(l => l.id === want)) openLesson(want); else timeline();
+}
 async function load() {
   idToken = idToken || saved();
   if (!idToken) return loginView();
-  try { Brand.loading(true); } catch {}
+  const cj = portalCacheGet(); let shown = false;
+  if (cj) { try { applyPortal(JSON.parse(JSON.stringify(cj)), false); shown = true; } catch { portalCacheClear(); } }   // 지난 노트를 먼저 그림(중계 서버 응답 기다리지 않음)
+  try { if (!shown) Brand.loading(true); } catch {}
   try {
     const j = await call("portal");
     try { Brand.loading(false); } catch {}
-    if (j.state === "pending") return $("view").innerHTML = `<div class="card"><h2>가입 신청 완료 🙌</h2><p>${esc(j.name || "")}님, 선생님이 확인하시면 바로 볼 수 있어요. 승인되면 이 페이지를 다시 열어 주세요.</p></div>`;
-    if (j.state === "rejected") return $("view").innerHTML = `<div class="card"><p>이 계정은 연결되지 않았어요. 선생님께 문의해 주세요.</p></div>`;
-    if (j.state === "closed") return $("view").innerHTML = `<div class="card"><p>지금은 노트를 볼 수 없어요. 선생님께 문의해 주세요.</p></div>`;
-    data = j; lgFootSet();
-    try { utWire(); track("open", { lesson: "" }); } catch {}
-    // 출석·수강권 현황(선생님 앱이 '_status' 칸으로 보냄, 2026-10-29): 레슨 목록에서는 빼고 맨 위 카드로
-    const sx = (j.lessons || []).find(l => l && l.id === "_status"); data.status = sx && sx.kind === "status" ? sx : null;
-    const gx = (j.lessons || []).find(l => l && l.id === "_growth"); data.growth = gx && gx.kind === "growth" ? gx : null;   // (11/02) 나의 성장
-    data.months = (j.lessons || []).filter(l => l && ((String(l.id).startsWith("_month_") && l.kind === "month" && /^\d{4}-\d{2}$/.test(l.ym || "")) || (String(l.id).startsWith("_pack_") && l.kind === "pack")))
-      .sort((a, b) => String(b.updated_at || b.ym || "").localeCompare(String(a.updated_at || a.ym || "")));   // (11/04) 월간 성장 리포트 · (11/05) 수강권 돌아보기 — 최근에 보낸 것이 위
-    const gl = (j.lessons || []).find(l => l && l.id === "_goal"); data.goal = gl && gl.kind === "goal" && gl.title ? gl : null;   // (11/05) 🎯 목표곡
-    data.lessons = (j.lessons || []).filter(l => l && l.id !== "_status" && l.id !== "_growth" && l.id !== "_goal" && !String(l.id).startsWith("_month_") && !String(l.id).startsWith("_pack_"));
-    const want = params.get("l");
-    if (want && data.lessons.some(l => l.id === want)) openLesson(want); else timeline();
+    if (shown) {   // 새로 받은 것이 지난번과 같으면 그대로 · 다르면: 목록 화면을 보고 있을 때만 다시 그림(읽는 중인 노트·재생 중인 화면은 건드리지 않음)
+      const same = JSON.stringify(j) === JSON.stringify(cj);
+      if (j.state === "pending" || j.state === "rejected" || j.state === "closed") { applyPortal(j, false); return; }
+      portalCachePut(j);
+      if (same) return;
+      const onList = !!document.getElementById("allAu") && ![...document.querySelectorAll("audio")].some(a => !a.paused);
+      applyPortal(j, !onList);   // 목록 화면이면 다시 그림, 노트를 읽는 중이면 데이터만 바꿔 둠(다음에 열 때 반영)
+      return;
+    }
+    portalCachePut(j);
+    applyPortal(j, false);
   } catch (e) {   // 로그인 문제일 때만 저장된 로그인을 지움(오프라인·일시 오류로 매번 다시 로그인하지 않게)
-    if (/로그인/.test(e.message)) { LS.set("sn_tok", null); idToken = null; return loginView(e.message); }
+    if (/로그인/.test(e.message)) { LS.set("sn_tok", null); portalCacheClear(); idToken = null; return loginView(e.message); }
+    if (shown) return;   // 오프라인이어도 지난 노트는 그대로 보여 줌
     $("view").innerHTML = `<div class="card"><p>연결이 잠시 안 돼요. 인터넷을 확인하고 다시 눌러 주세요.</p><button class="full" id="retry">다시 불러오기</button><p class="muted">${esc(e.message)}</p></div>`;
     $("retry").onclick = load;
   } finally { try { Brand.loading(false); } catch {} }
