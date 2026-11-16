@@ -1127,6 +1127,15 @@ if (/KAKAOTALK/i.test(navigator.userAgent)) {
   location.href = "kakaotalk://web/openExternal?url=" + encodeURIComponent(location.href);
   $("view").innerHTML = `<div class="card"><p>카카오톡 안에서는 구글 로그인이 안 돼요. 잠시 뒤 다른 브라우저로 열리지 않으면 오른쪽 위 <b>⋮ → 다른 브라우저로 열기</b>를 눌러 주세요.</p></div>`;
 } else load();
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});   // (11/16 속도) 버전 붙은 스크립트 캐시
+
+// (11/16 속도) 주소 끝에 ?perf=1을 붙이면 맨 아래에 '어디서 시간이 걸렸는지' 표시(평소엔 아무 일도 없음)
+if (/[?&]perf=1/.test(location.search)) setTimeout(() => { try {
+  const n = performance.getEntriesByType("navigation")[0] || {}, fcp = (performance.getEntriesByType("paint").find(p => p.name === "first-contentful-paint") || {}).startTime || 0;
+  const rs = performance.getEntriesByType("resource").filter(r => r.duration > 150).sort((a, b) => b.duration - a.duration).slice(0, 8).map(r => `${Math.round(r.duration)}ms ${r.name.replace(/^https?:\/\//, "").slice(0, 60)}`);
+  const d = document.createElement("pre"); d.style.cssText = "position:fixed;left:0;right:0;bottom:0;z-index:99999;margin:0;padding:8px;background:#000c;color:#9f9;font:11px/1.35 monospace;white-space:pre-wrap;max-height:40vh;overflow:auto";
+  d.textContent = `첫 화면 ${Math.round(fcp)}ms · 문서 ${Math.round(n.domContentLoadedEventEnd || 0)}ms · 완료 ${Math.round(n.loadEventEnd || 0)}ms\n느린 요청(150ms 이상):\n` + (rs.join("\n") || "없음") + "\n(눌러서 닫기)"; d.onclick = () => d.remove(); document.body.appendChild(d);
+} catch {} }, 4000);
 </script>
 </body>
 </html>
