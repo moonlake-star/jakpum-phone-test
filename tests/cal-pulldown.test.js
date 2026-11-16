@@ -1,11 +1,12 @@
 // (11/16) 달력: 아래로 당기면 날짜 칸에 이름·시간 · 접기 줄 · 당기기 함수 — 실제 코드 실행
 const fs = require("fs"), vm = require("vm"), assert = require("assert");
 const T = fs.readFileSync(__dirname + "/../teacher/index.html", "utf8");
-const a = T.indexOf("let calDet = false;"), b = T.indexOf("function calNums");
+const a = T.indexOf("let calDet = true;"), b = T.indexOf("function calNums");
 const ctx = { esc: (x) => String(x).replace(/[&<>"]/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[m])), CAL_S: { done: ["✅", "완료"], makeup_done: ["🔁", "보강"], scheduled: ["C", "예정"], cancelled: ["✖", "휴강"], moved: ["↪", "이동"], review: ["⏳", "확인"], past: ["☑", "지난"] }, IC_CAL: "C", isStaffApp: () => false, calNums: (xs) => `<b class="icnum">${xs.length}</b>`, Map, Date };
 vm.createContext(ctx); vm.runInContext(T.slice(a, b), ctx);
 vm.runInContext(T.slice(T.indexOf("function calPullSet"), T.indexOf("function calCellWire(")), ctx);
 const by = { "2026-11-19": [{ s: "scheduled", time: "19:00", name: "김하나" }, { s: "scheduled", time: "20:00", name: "박<b>x" }, { s: "cancelled", time: "21:00", name: "이도윤" }, { s: "scheduled", time: "22:00", name: "넷째" }] };
+assert.strictEqual(vm.runInContext("calDet", ctx), true, "기본은 펼침"); vm.runInContext("calDet = false", ctx);
 let h = ctx.calGrid("2026-11", by, null, true);
 assert.ok(h.includes('class="cal"') && h.includes('id="calPull"') && h.includes("▾ 아래로 당기면 이름·시간"), "접힌 상태 + 당기기 줄");
 assert.ok(h.includes("<b>19:00</b>김하나") && h.includes("박&lt;b&gt;x") && h.includes("+1") && !h.includes("넷째"), "이름·시간 3명까지 + 나머지 +N, 이스케이프");
