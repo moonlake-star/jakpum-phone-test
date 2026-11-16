@@ -500,12 +500,19 @@
       // → 선생님 화면에서만 회색 점선 막대(부른 높이에 가까운 음)로 보여 주고, 톡 하면 다른 막대처럼 고치기 창 — 고치기 전엔 자동 보정에 아무 영향 없음
       if (st && st.ghostOn) { let gr = null;
         const flush = () => { if (gr) for (const r of runs) { if (!r.fx && r.t1 - r.t0 < 0.1) continue; if (r.t0 <= gr.t0 && r.t1 > gr.t0) gr.t0 = r.t1; if (r.t0 > gr.t0 && r.t0 < gr.t1) gr.t1 = r.t0; }   // (11/16 17:46) 옆 막대와 겹치지 않게(겹치면 같이 골라지고, 저장할 때 옆 음 고침까지 지워질 수 있음)
+          if (gr && gr.v.length >= 3) { const sv0 = gr.v.slice().sort((x, y) => x - y); if (sv0[Math.floor(sv0.length * 0.9)] - sv0[Math.floor(sv0.length * 0.1)] > 250) gr = null; }   // 2.5반음 넘게 움직이는 덩어리 = 미끄러짐·꺾기 → 음표(회색 막대)로 안 그림
           if (gr && gr.t1 - gr.t0 >= 0.1) { const sv = gr.v.slice().sort((a, b) => a - b), c = Math.round(sv[sv.length >> 1] / 100) * 100, gx0 = xs(gr.t0), gx1 = xs(gr.t1), yy = y(c);
             const rw_ = (cv._fixes || []).some(x => x.off && x.t0 < gr.t1 && x.t1 > gr.t0);   // (11/11) 🎤 원음으로 둔 음 = 분홍(점선 회색 '정음 없는 곳'과 구분)
             g.save(); g.fillStyle = rw_ ? SRC_C.raw : "rgba(160,168,180,.16)"; g.fillRect(gx0, yy - bh / 2, Math.max(3, gx1 - gx0), bh); if (!rw_) { g.setLineDash([3, 3]); g.strokeStyle = "rgba(205,210,218,.65)"; g.lineWidth = 1.2; g.strokeRect(gx0, yy - bh / 2, Math.max(3, gx1 - gx0), bh); } g.restore();
             bars.push({ x0: gx0, x1: gx1, t0: gr.t0, t1: gr.t1, c, y: yy, h: bh, ghost: true }); } gr = null; };
         const gcB = (cv._fixes || []).filter(f => f && (f.gcut || f.cut)).flatMap(f => [f.t0, f.t1]);   // 회색 막대를 나눈 자리(나눈 조각의 양 끝 모두)
-        for (const p of vis) { if ((p[kt] != null && !tiny.has(p)) || p[1] == null) { flush(); continue; } if (gr && (p[0] - gr.tl > 0.13 || gcB.some(x => x > gr.tl + 1e-6 && x <= p[0] + 1e-6))) flush(); if (!gr) gr = { t0: p[0], t1: p[0], tl: p[0], v: [] }; gr.v.push(p[1]); gr.tl = p[0]; gr.t1 = p[0] + 0.04; }
+        // (11/16 17:55 사용자 '이렇게 애매하게 잡지 말고 똑바로') 회색 막대가 서로 다른 두 음(예: A#3에 머물다 F3로 내려감)을 한 덩어리로 묶어 그 가운데 값(F#3)에 그려졌던 것
+        //   → 부른 높이가 지금 덩어리 가운데에서 1.5반음 넘게 벗어나 이어지면(앞뒤 2점 중앙값으로 판단) 거기서 나눔 · 0.1초 안 되는 미끄러짐 조각은 막대로 안 그림
+        const lmd = vis.map((_, i) => { const w = []; for (let d = -2; d <= 2; d++) { const q = vis[i + d]; if (q && q[1] != null) w.push(q[1]); } w.sort((x, y) => x - y); return w.length ? w[w.length >> 1] : null; });
+        const gMed = () => { const sv = gr.v.slice().sort((x, y) => x - y); return sv[sv.length >> 1]; };
+        for (let vi = 0; vi < vis.length; vi++) { const p = vis[vi]; if ((p[kt] != null && !tiny.has(p)) || p[1] == null) { flush(); continue; } if (gr && (p[0] - gr.tl > 0.13 || gcB.some(x => x > gr.tl + 1e-6 && x <= p[0] + 1e-6))) flush();
+          if (gr && gr.v.length >= 3 && lmd[vi] != null) { const gm = gMed(), l2 = lmd[vi + 2]; if (Math.abs(lmd[vi] - gm) > 150 && (l2 == null || Math.abs(l2 - gm) > 150)) flush(); }
+          if (!gr) gr = { t0: p[0], t1: p[0], tl: p[0], v: [] }; gr.v.push(p[1]); gr.tl = p[0]; gr.t1 = p[0] + 0.04; }
         flush(); }
       for (const b of bars) { const f = (cv._fixes || []).find(x => x.t0 < b.t1 && x.t1 > b.t0);   // 선생님이 고친 정음 = 노란 테두리(나누기만 한 조각은 경계 틈만)
         if (f && !f.cut) { g.strokeStyle = f.off ? "#ff9ec0" : "#ffd27a"; g.lineWidth = 2; g.strokeRect(b.x0, b.y - b.h / 2, Math.max(4, b.x1 - b.x0), b.h);
