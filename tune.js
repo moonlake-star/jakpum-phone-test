@@ -336,9 +336,27 @@
   }
   function tgCol(cv) { return cv.target ? 2 + (cv.levels || []).length : 0; }   // 정음(목표음) 열(서버 v2부터)
   // (11/06 21:50 사용자) 음표를 위아래로 옮기면(반음·미세) 하늘색 '보정 후' 선도 바로 같이 움직이게: 그 구간 보정 후 음높이 = 서버 값 + (새 정음 − 서버가 고른 정음) (근사 · 정확한 건 완성본 다시 만들기 뒤)
+  // 고친 음(cv._fixes, 🎤원음 제외)마다 점 번호 → 들리는 높이(센트). 폰 미리듣기(pvFixCenter)·서버(pitch.plan_targets)와 같은 규칙:
+  //   그 음 안 '머문' 점(빠르기 400센트/초 미만 가중 0.5 초과)만 ±2점 가중 평균을 기준으로 정음까지 옮김 → 정음 + (부른 높이 − 기준)
+  function fixAbs(cv) {
+    const F = (cv._fixes || []).filter(f => f && !f.off && f.midi != null), P = cv.pts || [];
+    const sig = P.length + "|" + F.map(f => f.t0 + ":" + f.t1 + ":" + f.midi).join(",");
+    if (cv._fxAbs && cv._fxAbs.sig === sig) return cv._fxAbs.m;
+    const m = new Map();
+    for (const f of F) { const ids = []; for (let i = 0; i < P.length; i++) { const t = P[i][0]; if (t > f.t1 + 0.001) break; if (t >= f.t0 - 0.001 && P[i][1] != null) ids.push(i); }
+      const W = new Map(); for (const i of ids) { const a = P[i - 1] && P[i - 1][1] != null ? P[i - 1] : P[i], b = P[i + 1] && P[i + 1][1] != null ? P[i + 1] : P[i], dt = Math.max(1e-3, b[0] - a[0]);
+        const v = a === b ? 0 : Math.abs(b[1] - a[1]) / dt, w = 1 / (1 + (v / 400) ** 2); if (w > 0.5) W.set(i, w); }
+      const cen = new Map(), got = [];
+      for (const i of ids) { let s_ = 0, c_ = 0; for (let d = -2; d <= 2; d++) { const w = W.get(i + d); if (w) { s_ += P[i + d][1] * w; c_ += w; } } if (c_ > 0) { cen.set(i, s_ / c_); got.push(i); } }
+      if (!got.length) { for (const i of ids) m.set(i, f.midi * 100); continue; }   // 머문 점이 하나도 없는 음(통째로 미끄러짐) = 소리도 점마다 정음으로 평평하게(pvFixCenter·서버와 같음)
+      for (const i of ids) { let c = cen.get(i); if (c == null) { let b = got[0]; for (const g of got) if (Math.abs(g - i) < Math.abs(b - i)) b = g; c = cen.get(b); }
+        m.set(i, Math.max(f.midi * 100 - 1200, Math.min(f.midi * 100 + 1200, f.midi * 100 + (P[i][1] - c)))); } }
+    cv._fxAbs = { sig, m }; return m;
+  }
   function syncCorr(cv) {
     const o_ = cv._orig, ks = cv._kShift || (cv._kShift = {}), kt = tgCol(cv); if (!kt || !cv.pts) return; const L = (cv.levels || []).length; if (!L) return;
-    const idx = new Set([...Object.keys(o_ || {}), ...Object.keys(ks)]); if (!idx.size) return; const base = cv._advBase, kc = 2 + L - 1;
+    const fxA = fixAbs(cv);   // (11/16 사용자 '두 음을 C에 가깝게 고쳤는데 두번째는 B로 남') 고친 음 안은 소리(폰 미리듣기·서버)와 같은 식으로 그림: 정음 + (부른 높이 − 그 음 안 머문 칸 평균)
+    const idx = new Set([...Object.keys(o_ || {}), ...Object.keys(ks), ...fxA.keys()].map(String)); if (!idx.size) return; const base = cv._advBase, kc = 2 + L - 1;
     // (11/09 14:45 사용자 '음표 높이를 바꾸면 파란선도') 서버가 정음을 안 줬던 곳(o0 없음)에 선생님이 음을 정하면: 그 음 덩어리의 부른 높이(중앙값)를 새 음으로 옮긴 만큼
     const nullMed = {}; { const ids = [...idx].map(Number).filter(i => cv.pts[i] && !(o_ && i in o_ && o_[i] != null) && cv.pts[i][kt] != null).sort((a, b) => a - b); let run = [];
       const flush = () => { if (!run.length) return; const v = run.map(i => cv.pts[i][1]).filter(x => x != null).sort((a, b) => a - b); const m = v.length ? v[v.length >> 1] : null; for (const i of run) nullMed[i] = m; run = []; };
@@ -347,8 +365,12 @@
     for (const si of idx) { const i = +si, p = cv.pts[i]; if (!p) continue; const o0 = o_ && si in o_ ? o_[si] : null;
       // (11/14 18:43 사용자 '자르고 음정 보정하면 그래프와 소리가 안 맞음') 서버가 처음엔 정음을 안 줬지만(o0 없음) 완성본에 이미 선생님 음(_rend)이 들어간 곳:
       //   서버 보정선은 이미 그 음으로 옮겨져 있음 → '이미 옮긴 양'으로 한 번만 기록(예전엔 한 번 더 옮겨 그래프가 실제 소리보다 그만큼 높게·낮게 그려졌음, ▲138 = 두 번)
-      if (o0 == null && rd_ && rd_[i] != null && !rk_[si] && nullMed[i] != null) { rk_[si] = 1; if (!(si in ks)) ks[si] = rd_[i] - nullMed[i]; }
-      const want = o0 != null && p[kt] != null ? p[kt] - o0 : p[kt] != null && nullMed[i] != null ? p[kt] - nullMed[i] : 0, d = want - (ks[si] || 0); if (!d) continue;
+      const fa = fxA.get(i);
+      if (fa == null && o0 == null && rd_ && rd_[i] != null && !rk_[si] && nullMed[i] != null) { rk_[si] = 1; if (!(si in ks)) ks[si] = rd_[i] - nullMed[i]; }
+      let want;
+      if (fa != null) { const ref = base && base[i] != null ? base[i] : p[kc]; if (ref == null) continue; want = fa - (ref - (ks[si] || 0)); }   // 서버가 그린 선과 상관없이 '들리는 높이'로
+      else want = o0 != null && p[kt] != null ? p[kt] - o0 : p[kt] != null && nullMed[i] != null ? p[kt] - nullMed[i] : 0;
+      const d = want - (ks[si] || 0); if (!d) continue;
       for (let c = 2; c < 2 + L; c++) if (p[c] != null) p[c] += d;
       if (base && base[i] != null) base[i] += d;   // 고급 보정 미리보기(adv.js)가 되돌릴 때 쓰는 기준도 같이
       if (want) ks[si] = want; else delete ks[si]; } }

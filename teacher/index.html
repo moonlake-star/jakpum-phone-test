@@ -604,7 +604,7 @@
 <div id="v2Shade" class="v2only"></div>
 <div id="toast"></div>
 <script src="../lesson-replies.js"></script>
-<script src="../tune.js?v=20261115-1155"></script>
+<script src="../tune.js?v=20261116-1140"></script>
 <script src="../adv.js?v=20261114-2310"></script>
 <script src="../pitch-embed.js?v=20261105-1850"></script>
 
@@ -5170,7 +5170,20 @@ function pvRawPaste(buf, src, spans, sr) {   // 원음 자리: p0 그대로(30ms
     for (let c = 0; c < buf.numberOfChannels; c++) { const out = buf.getChannelData(c), x = pvSrc(src, c, i0, i1), n = i1 - i0;
       for (let k = 0; k < n; k++) { const a = k < R ? k / R : k > n - R ? (n - k) / R : 1; out[i0 + k] = out[i0 + k] * (1 - a) + x[k] * a; } } } }
 // (11/12 10:21 사용자 '사람이 낼 수 없는 옥타브 이동이 튐') 서버가 옥타브를 바로잡았거나 믿을 수 없는 높이로 본 자리(pitch_curve.bad) — 서버처럼 원음 그대로
-function pvBadSpans(cv) { return ((cv && cv.bad) || []).map((x) => ({ t0: +x[0], t1: +x[1] })).filter((x) => x.t1 - x.t0 > 0.04); }
+// (11/16 사용자 '그래프와 실제 음정 출력이 다름') 원음 그대로 둘 곳 = 믿을 수 없는 높이·튄 점만(서버 bad_raw). 옥타브만 잘못 읽힌 곳은 이제 진짜 높이로 보정(PraatCore.apply의 ftrue)
+//   예전 곡(bad_raw 없음): bad 중 부른 높이 선이 비어 있는 곳만(옥타브 바로잡은 곳은 선이 있음)
+function pvBadSpans(cv) {
+  if (cv && Array.isArray(cv.bad_raw)) return cv.bad_raw.map((x) => ({ t0: +x[0], t1: +x[1] })).filter((x) => x.t1 - x.t0 > 0.04);
+  const P = (cv && cv.pts) || [];
+  return ((cv && cv.bad) || []).map((x) => ({ t0: +x[0], t1: +x[1] })).filter((x) => { if (x.t1 - x.t0 <= 0.04) return false; let n = 0, h = 0; for (const p of P) { if (p[0] < x.t0) continue; if (p[0] > x.t1) break; n++; if (p[1] != null) h++; } return !n || h < n / 2; });
+}
+// 분석점마다 진짜 높이(Hz): Praat이 한 옥타브 잘못 읽은 곳은 서버가 바로잡은 부른 높이 선(1열)에 맞춰 옥타브만 고침 — 서버 analyze의 f_true와 같은 뜻
+function pvFtrue(cv, A, t0) {
+  const fps = cv.fps || 25, raw = pvBins(cv, 1), out = Float64Array.from(A.f); let any = false;
+  for (let i = 0; i < A.t.length; i++) { const f = A.f[i]; if (!(f > 0)) continue; const x = (t0 + A.t[i]) * fps, k0 = Math.round(x), r = raw.get(k0) ?? raw.get(k0 - 1) ?? raw.get(k0 + 1); if (r == null) continue;
+    const c = 1200 * Math.log2(f / 440) + 6900, k = Math.round((r - c) / 1200); if (k && Math.abs(r - c - 1200 * k) < 300) { out[i] = f * 2 ** k; any = true; } }
+  return any ? out : null;
+}
 function pvClusters(fixes) { const out = []; for (const f of [...fixes].sort((a, b) => a.t0 - b.t0)) { const L = out[out.length - 1];
   if (L && f.t0 - L.t1 < 0.3) { L.t1 = Math.max(L.t1, f.t1); L.fx.push(f); } else out.push({ t0: f.t0, t1: f.t1, fx: [f] }); } return out; }
 function pvClusterRatio(cv, cl, dry, lvCol, sr, i0, n) {   // 덩어리 안 칸마다 보정량(센트) → 샘플마다 비율
@@ -5227,10 +5240,10 @@ function pvPraatLoad() {
     if (typeof document === "undefined") { PVP.state = "fail"; return; }
     if (typeof location !== "undefined" && /[?&]praat=0\b/.test(location.search)) { PVP.state = "off"; return; }
     PVP.state = "loading";
-    await pvLoadScript("../praat/praat-core.js?v=20261112-1334");
+    await pvLoadScript("../praat/praat-core.js?v=20261116-1150");
     const r = await fetch("../praat/praat_web.wasm.gz"); if (!r.ok) throw new Error("praat " + r.status); const gz = await r.arrayBuffer();
     // (11/11) 워커에서 돌림(화면 안 멈춤). 워커를 못 만들면 예전처럼 화면 스레드에서
-    let wk = false; try { wk = await PraatCore.useWorker("../praat/praat-worker.js?v=20261112-1334", gz); } catch {}
+    let wk = false; try { wk = await PraatCore.useWorker("../praat/praat-worker.js?v=20261116-1150", gz); } catch {}
     if (!wk) { await pvLoadScript("../praat/praat_web.js?v=20261106-1130"); await PraatCore.init(gz, PraatModule); }
     PVP.state = "ready"; document.dispatchEvent(new Event("advpv"));
   })().catch((e) => { PVP.state = "fail"; console.warn("Praat 미리듣기를 못 불러옴(간이 소리로 계속)", e); if (typeof toast === "function") toast("서버와 같은 엔진을 못 불러와 대략의 소리로 들려요"); });
@@ -5303,7 +5316,7 @@ function pvPraatJob(reg, bins, cv, sr) {   // 한 구간: 원래 소리(p0)를 �
     const ak = `${sr}|${ia}|${ib}`, ce = PVP.an.get(ak); let A = ce && ce.src === src ? ce.A : null;
     if (!A) { A = await PraatCore.analyze(x, sr); PVP.an.set(ak, { src, A }); if (PVP.an.size > 40) PVP.an.delete(PVP.an.keys().next().value); }
     const sh = Float64Array.from(A.t, (t) => pvShiftAt(bins, fps, ia / sr + t));
-    let y = await PraatCore.apply(x, sr, A.t, A.f, sh);
+    let y = await PraatCore.apply(x, sr, A.t, A.f, sh, undefined, pvFtrue(cv, A, ia / sr));
     if (reg.ns && reg.ns.length) { y = await PraatCore.formantNotes(y, sr, reg.ns, ia); const gc = PraatCore.gain(y.length, sr, reg.ns, ia, src.length); if (gc) for (let i = 0; i < y.length; i++) y[i] *= gc[i]; }   // 서버 post_audio 차례: 음별 음색 → 볼륨
     PVP.cache.set(reg.key, y.slice(reg.i0 - ia, reg.i1 - ia)); if (PVP.cache.size > 60) PVP.cache.delete(PVP.cache.keys().next().value);
   })().catch((e) => { PVP.cache.set(reg.key, null); console.warn("Praat 구간 실패(간이 소리로 계속)", e); }).finally(() => { PVP.pend.delete(reg.key); if (!PVP.pend.size) setTimeout(() => { for (const o of Object.values(mkPv.orig)) o.sig = "?"; try { pvApplyAll(); } catch {} PVP.flush(); }, 0); });
@@ -5336,7 +5349,7 @@ async function pvFullVocal(name, onProg) {
     onProg && onProg(`보정 다시 만드는 중 ${q + 1}/${N}`);
     const c0 = q * step, c1 = Math.min(len, c0 + step), e0 = Math.max(0, c0 - X), e1 = Math.min(len, c1 + X), ia = Math.max(0, e0 - C), ib = Math.min(len, e1 + C);
     const x = pvSrc(src, 0, ia, ib), A = await PraatCore.analyze(x, sr), sh = Float64Array.from(A.t, (t) => pvShiftAt(bins, fps, ia / sr + t));
-    const y = await PraatCore.apply(x, sr, A.t, A.f, sh);
+    const y = await PraatCore.apply(x, sr, A.t, A.f, sh, undefined, pvFtrue(cv, A, ia / sr));
     for (let i = 0; i < A.t.length; i++) { const tt = ia / sr + A.t[i]; if (A.f[i] > 0 && tt >= c0 / sr && tt < c1 / sr) vt.push(tt); }   // 치찰음 찾기용 '소리 높이 있는 시각'(서버 분석점과 같은 0.01초)
     for (let i = e0; i < e1; i++) {   // 조각끼리 100ms(앞뒤 50ms) 겹쳐 더함: 앞 조각 꼬리 무게 + 이 조각 머리 무게 = 1
       let w = 1; if (q > 0 && i < c0 + X) w = (i - (c0 - X)) / (2 * X); if (c1 < len && i >= c1 - X) w = Math.min(w, 1 - (i - (c1 - X)) / (2 * X));
@@ -5446,7 +5459,7 @@ async function pvProgRun(name, job) {
     const [k0, k1] = chunks[qi], e0 = Math.max(0, k0 - X), e1 = Math.min(len, k1 + X), ia = Math.max(0, e0 - C), ib = Math.min(len, e1 + C);
     const x = pvSrc(src, 0, ia, ib), ak = `${sr}|${ia}|${ib}`, ce = PVP.an.get(ak); let A = ce && ce.src === src ? ce.A : null;
     if (!A) { A = await PraatCore.analyze(x, sr); PVP.an.set(ak, { src, A }); if (PVP.an.size > 80) PVP.an.delete(PVP.an.keys().next().value); }
-    let y = await PraatCore.apply(x, sr, A.t, A.f, Float64Array.from(A.t, (t) => pvShiftAt(bins, fps, ia / sr + t)));
+    let y = await PraatCore.apply(x, sr, A.t, A.f, Float64Array.from(A.t, (t) => pvShiftAt(bins, fps, ia / sr + t)), undefined, pvFtrue(cv, A, ia / sr));
     const R = Math.round(sr * 0.03);   // 원음 자리(🎤·옥타브 튐) = p0 그대로
     for (const f of rawS) { const a = Math.max(ia, Math.round(f.t0 * sr)), b = Math.min(ib, Math.round(f.t1 * sr)); if (b - a < 2 * R) continue; for (let i = a; i < b; i++) { const k = i - a, n = b - a, w = k < R ? k / R : k > n - R ? (n - k) / R : 1; y[i - ia] = y[i - ia] * (1 - w) + x[i - ia] * w; } }
     for (const [u0, u1] of tp.regs) {   // 타이밍 창: p0에서 높이+길이를 한 번에
@@ -8816,7 +8829,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261116-0030";
+const BUILD = "20261116-1140";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {

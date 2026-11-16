@@ -2,7 +2,7 @@
 //  서버 보정선은 이미 그 음 → 앱이 한 번 더 옮기면 안 됨(예전: ▲138처럼 두 배)
 const assert = require("assert"), fs = require("fs"), path = require("path");
 const T = fs.readFileSync(path.join(__dirname, "..", "tune.js"), "utf8");
-const src = T.match(/  function syncCorr\(cv\) \{[\s\S]*?if \(want\) ks\[si\] = want; else delete ks\[si\]; \} \}/)[0];
+const src = T.match(/  function fixAbs\(cv\) \{[\s\S]*?if \(want\) ks\[si\] = want; else delete ks\[si\]; \} \}/)[0];
 const syncCorr = new Function("tgCol", src + "; return syncCorr;")((cv) => 2 + cv.levels.length);
 // [시각, 부른, 보정, 정음] — 부른 ≈ 6630(G4−70), 완성본은 이미 G4(6700)로 옮김(보정 ≈ 6700), 서버 자동 정음은 없었음(_orig null) · _rend = 완성본 당시 정음
 const mk = () => ({ levels: [3], pts: [[0, 6620, 6690, 6700], [0.04, 6640, 6710, 6700], [0.08, 6630, 6700, 6700]], _orig: { 0: null, 1: null, 2: null }, _rend: { 0: 6700, 1: 6700, 2: 6700 } });

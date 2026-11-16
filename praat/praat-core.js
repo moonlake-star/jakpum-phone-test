@@ -144,16 +144,91 @@ Save as WAV file: "out.wav"
 `);
       return outWav(M);
     },
-    async apply(x, sr, t, f, shift, keepMask) {
+    // (11/16 사용자 '그래프와 실제 음정이 다름 — 치명적') 서버 pitch.apply와 같게: 옥타브가 잘못 읽힌 곳(ftrue ≠ f)은 진짜 높이 기준으로 옮기고
+    //   그 구간 펄스(주기 표시)를 진짜 높이 둘레로만 다시 찾아 찍음. 펄스를 충분히 못 찾은 조각은 원음 그대로(예전엔 이런 곳 전체가 원음 그대로라 그래프와 달랐음)
+    octChunks(t, f, ftrue) {
+      const n = t.length, oct = new Uint8Array(n); let any = false;
+      for (let i = 0; i < n; i++) { const r = Math.abs(Math.log2(Math.max(ftrue[i], 1e-6) / Math.max(f[i], 1e-6))); if (r > 0.5) { oct[i] = 1; any = true; } }
+      if (!any) return { oct, chunks: [] };
+      const chunks = [];
+      for (let i = 0; i < n;) { if (!oct[i]) { i++; continue; } let i1 = i; while (i1 < n && oct[i1]) i1++;
+        for (let k = i; k < i1;) { let e = k; while (e < i1 && t[e] - t[k] < 0.3) e++; if (i1 - e < 4) e = i1;
+          const a = k === 0 || !oct[k - 1] ? t[k] - 0.005 : (t[k - 1] + t[k]) / 2, b = e >= n || !oct[e] ? t[e - 1] + 0.005 : (t[e - 1] + t[e]) / 2;
+          const fv = Array.from(ftrue.slice(k, e)).filter((v) => v > 0 && isFinite(v)).sort((p, q) => p - q);
+          if (fv.length && b - a >= 0.02) { const q = (p) => fv[Math.min(fv.length - 1, Math.floor(p * (fv.length - 1) + 1e-9))], md = fv.length % 2 ? fv[fv.length >> 1] : (fv[fv.length / 2 - 1] + fv[fv.length / 2]) / 2;
+            const lo = Math.max(50, Math.min(q(0.1), md) * 0.78), hi = Math.min(1200, Math.max(q(0.9), md) * 1.3), ex = (b - a) * md;
+            chunks.push({ a, b, lo, hi, minN: Math.max(2, 0.6 * ex), maxN: 1.35 * ex + 2 }); }
+          k = e; }
+        i = i1; }
+      return { oct, chunks };
+    },
+    // 재합성 + 옥타브 조각 펄스 다시 찍기 → { y, raw: [[a, b], …] (못 찾아 원음으로 둘 조각) }
+    async resynthOct(x, sr, t, f, chunks) {
+      let pts = ""; for (let i = 0; i < t.length; i++) pts += `Add point: ${num(t[i])}, ${num(f[i])}\n`;
+      const dur = x.length / sr; let fix = "";
+      chunks.forEach((c, i) => { const A = Math.max(0, c.a - 0.06), B = Math.min(dur, c.b + 0.06);
+        fix += `selectObject: snd
+part = Extract part: ${num(A)}, ${num(B)}, "rectangular", 1, "yes"
+pch = To Pitch (ac): 0.005, ${num(c.lo)}, 15, "no", 0.03, 0.45, 0.01, 0.35, 0.14, ${num(c.hi)}
+selectObject: part, pch
+pp = To PointProcess (cc)
+n = Get number of points
+c = 0
+for k to n
+  tp = Get time from index: k
+  if tp >= ${num(c.a)} and tp < ${num(c.b)}
+    c = c + 1
+  endif
+endfor
+if c >= ${num(c.minN)} and c <= ${num(c.maxN)}
+  selectObject: pul
+  Remove points between: ${num(c.a)}, ${num(c.b)}
+  for k to n
+    selectObject: pp
+    tp = Get time from index: k
+    if tp >= ${num(c.a)} and tp < ${num(c.b)}
+      selectObject: pul
+      Add point: tp
+    endif
+  endfor
+else
+  appendInfoLine: "RAW ${i}"
+endif
+removeObject: part, pch, pp
+`; });
+      const M = await run(x, sr, `snd = Read from file: "in.wav"
+manip = To Manipulation: 0.01, 75, 1000
+selectObject: manip
+pul = Extract pulses
+${fix}selectObject: manip, pul
+Replace pulses
+tier = Create PitchTier: "corr", 0, ${num(dur)}
+${pts}selectObject: tier, manip
+Replace pitch tier
+selectObject: manip
+out = Get resynthesis (overlap-add)
+Save as WAV file: "out.wav"
+`);
+      const raw = []; for (const l of M._lines) { const m_ = /^RAW (\d+)/.exec(l); if (m_) { const c = chunks[+m_[1]]; raw.push([c.a, c.b]); } }
+      return { y: outWav(M), raw };
+    },
+    async apply(x, sr, t, f, shift, keepMask, ftrue) {
       if (!shift.some((v) => v)) return Float32Array.from(x);
-      const nf = Float64Array.from(f, (v, i) => v * 2 ** (shift[i] / 1200)), y = await Core.resynth(x, sr, t, nf), n = Math.min(x.length, y.length), m = Core.mask(n, sr, t, shift, keepMask), out = new Float32Array(n);
+      const oc = ftrue && ftrue.length === f.length ? Core.octChunks(t, f, ftrue) : { chunks: [] };
+      let y, raw = [];
+      if (oc.chunks.length) { const nf = Float64Array.from(f, (v, i) => (oc.oct[i] ? ftrue[i] : v) * 2 ** (shift[i] / 1200)); const r = await Core.resynthOct(x, sr, t, nf, oc.chunks); y = r.y; raw = r.raw; }
+      else { const nf = Float64Array.from(f, (v, i) => v * 2 ** (shift[i] / 1200)); y = await Core.resynth(x, sr, t, nf); }
+      const n = Math.min(x.length, y.length), m = Core.mask(n, sr, t, shift, keepMask), out = new Float32Array(n);
+      if (raw.length) { const rm = new Float32Array(n); for (const [a, b] of raw) for (let i = Math.max(0, Math.floor(a * sr)); i < Math.min(n, Math.floor(b * sr)); i++) rm[i] = 1;
+        const w = Math.max(1, Math.floor(0.03 * sr)), cs = new Float64Array(n + 1); for (let i = 0; i < n; i++) cs[i + 1] = cs[i] + rm[i];
+        for (let i = 0; i < n; i++) { const lo = Math.max(0, i - (w >> 1)), hi = Math.min(n, i + (w >> 1) + 1); m[i] *= 1 - (cs[hi] - cs[lo]) / (hi - lo); } }
       for (let i = 0; i < n; i++) out[i] = x[i] * (1 - m[i]) + y[i] * m[i];
       return out;
     },
   };
   // (11/11 사용자 '실시간 구조 재검토') 무거운 Praat 실행(분석·재합성·길이·음색)을 Web Worker로 옮김 → 화면(메인) 스레드가 멈추지 않음(폰 실측: 화면 최대 멈춤 165ms → 15ms, 처리 시간은 같음)
   //   같은 코드를 워커 안에서 그대로 돌리므로 소리는 바뀌지 않음. 못 만들면(useWorker가 false) 예전처럼 화면 스레드에서 직접 실행.
-  const local = { analyze: Core.analyze, resynth: Core.resynth, warp: Core.warp, formantShift: Core.formantShift };
+  const local = { analyze: Core.analyze, resynth: Core.resynth, resynthOct: Core.resynthOct, warp: Core.warp, formantShift: Core.formantShift };
   let W = null, seq = 0, ok = false; const pend = new Map();
   const fail = (msg) => { for (const [, p] of pend) p.no(new Error(msg)); pend.clear(); };
   Core.useWorker = (url, gz) => new Promise((res) => {
