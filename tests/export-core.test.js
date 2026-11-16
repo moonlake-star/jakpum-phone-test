@@ -36,5 +36,5 @@ console.log("export-core ok");
 { const C = require(require("path").join(__dirname, "..", "export", "export-core.js")); const n = 1000, a = Float32Array.from({ length: n }, (_, i) => Math.sin(i / 7) * 0.4), w = C.wav([a, a], 48000, 24), v = new DataView(w.buffer);
   if (w.length !== 44 + n * 6 || v.getUint32(24, true) !== 48000 || v.getUint16(34, true) !== 24 || v.getUint16(22, true) !== 2) throw new Error("wav 머리글");
   const s = v.getUint8(44 + 6 * 5) | (v.getUint8(45 + 6 * 5) << 8) | (v.getInt8(46 + 6 * 5) << 16); if (Math.abs(s / 8388607 - Math.sin(5 / 7) * 0.4) > 1e-5) throw new Error("wav 값");
-  const T = require("fs").readFileSync(require("path").join(__dirname, "..", "teacher", "index.html"), "utf8"); if (!T.includes('id="mkPhoneWav"') || !T.includes("ExportCore.wav(o.ch, o.sr, 24)")) throw new Error("WAV 버튼");
+  const T = require("fs").readFileSync(require("path").join(__dirname, "..", "teacher", "index.html"), "utf8"); if (!T.includes('id="mkPhoneWav"') || !T.includes("ExportCore.wav(o.ch, o.sr, 16)")) throw new Error("WAV 버튼");
   console.log("export wav ok"); }
