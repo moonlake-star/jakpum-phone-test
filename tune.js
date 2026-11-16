@@ -365,6 +365,7 @@
     const nullMed = {}; { const ids = [...idx].map(Number).filter(i => cv.pts[i] && !(o_ && i in o_ && o_[i] != null) && cv.pts[i][kt] != null).sort((a, b) => a - b); let run = [];
       const flush = () => { if (!run.length) return; const v = run.map(i => cv.pts[i][1]).filter(x => x != null).sort((a, b) => a - b); const m = v.length ? v[v.length >> 1] : null; for (const i of run) nullMed[i] = m; run = []; };
       for (const i of ids) { if (run.length && (i !== run[run.length - 1] + 1 || cv.pts[i][kt] !== cv.pts[run[0]][kt])) flush(); run.push(i); } flush(); }
+    const cutF = (cv._fixes || []).filter(f => f && f.cut && !f.off), inCut = (t) => cutF.some(f => t >= f.t0 - 0.001 && t <= f.t1 + 0.001);
     const rd_ = cv._rend, rk_ = cv._rendK || (cv._rendK = {});
     for (const si of idx) { const i = +si, p = cv.pts[i]; if (!p) continue; const o0 = o_ && si in o_ ? o_[si] : null;
       // (11/14 18:43 사용자 '자르고 음정 보정하면 그래프와 소리가 안 맞음') 서버가 처음엔 정음을 안 줬지만(o0 없음) 완성본에 이미 선생님 음(_rend)이 들어간 곳:
@@ -373,6 +374,9 @@
       if (fa == null && o0 == null && rd_ && rd_[i] != null && !rk_[si] && nullMed[i] != null) { rk_[si] = 1; if (!(si in ks)) ks[si] = rd_[i] - nullMed[i]; }
       let want;
       if (fa != null) { const ref = base && base[i] != null ? base[i] : p[kc]; if (ref == null) continue; want = fa - (ref - (ks[si] || 0)); }   // 서버가 그린 선과 상관없이 '들리는 높이'로
+      // (11/16 16:32 사용자 '앞 조각만 내렸는데 뒤 음이 튐') 나누기만 한 조각(cut)은 서버·미리듣기처럼 아무것도 옮기지 않음 — 예전엔 옆 조각 음을 바꾸면 '같은 음 덩어리'가 갈라져
+      //   이 조각만의 부른 높이 중앙값(급히 떨어지는 곳이라 낮음)으로 다시 계산돼 선이 2.5반음 위로 튀었음
+      else if (inCut(p[0])) want = 0;
       else want = o0 != null && p[kt] != null ? p[kt] - o0 : p[kt] != null && nullMed[i] != null ? p[kt] - nullMed[i] : 0;
       const d = want - (ks[si] || 0); if (!d) continue;
       for (let c = 2; c < 2 + L; c++) if (p[c] != null) p[c] += d;
