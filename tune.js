@@ -339,10 +339,8 @@
   // 고친 음(cv._fixes, 🎤원음 제외)마다 점 번호 → 들리는 높이(센트). 폰 미리듣기(pvFixCenter)·서버(pitch.plan_targets)와 같은 규칙:
   //   그 음 안 '머문' 점(빠르기 400센트/초 미만 가중 0.5 초과)만 ±2점 가중 평균을 기준으로 정음까지 옮김 → 정음 + (부른 높이 − 기준)
   function fixAbs(cv) {
-    // 고친 음 안 '부른 높이 − 기준'은 떨림·작은 굴곡(±80센트)만 그대로, 그보다 크게 벗어난 미끄러짐은 1/4로 줄이고 최대 ±150센트(정음에서 크게 튀지 않게) — 서버 pitch._soft_dev·폰 미리듣기와 같음
-    function softDev(d) { const a = Math.abs(d); return a <= 80 ? d : Math.sign(d) * Math.min(150, 80 + (a - 80) * 0.25); }
     function wMed(v, w) { const o = v.map((x, i) => [x, w[i]]).filter(q => q[0] != null).sort((p, q) => p[0] - q[0]); const T = o.reduce((s_, q) => s_ + q[1], 0); let acc = 0; for (const q of o) { acc += q[1]; if (acc >= T / 2) return q[0]; } return o.length ? o[o.length >> 1][0] : 0; }
-    const F = (cv._fixes || []).filter(f => f && !f.off && f.midi != null), P = cv.pts || [];
+    const F = (cv._fixes || []).filter(f => f && !f.off && !f.cut && f.midi != null), P = cv.pts || [];   // (11/16 16:12 사용자 '쪼개기만 했는데 보정 라인이 바뀜') 나누기만 한 조각(cut)은 서버·미리듣기처럼 무시
     const sig = P.length + "|" + F.map(f => f.t0 + ":" + f.t1 + ":" + f.midi).join(",");
     if (cv._fxAbs && cv._fxAbs.sig === sig) return cv._fxAbs.m;
     const m = new Map();
@@ -356,7 +354,7 @@
       // 머문 점이 없는 음(통째로 미끄러짐·떨림만) = 그 음 전체의 가운데(빠르기 가중 중앙값)를 기준으로
       const cMed = got.length ? null : wMed(ids.map(i => P[i][1]), ids.map(i => { const a = P[i - 1] && P[i - 1][1] != null ? P[i - 1] : P[i], b = P[i + 1] && P[i + 1][1] != null ? P[i + 1] : P[i]; const v = a === b ? 0 : Math.abs(b[1] - a[1]) / Math.max(1e-3, b[0] - a[0]); return 1 / (1 + (v / 400) ** 2); }));
       for (const i of ids) { let c = cMed; if (c == null) { c = cen.get(i); if (c == null) { let b = got[0]; for (const g of got) if (Math.abs(g - i) < Math.abs(b - i)) b = g; c = cen.get(b); } }
-        m.set(i, f.midi * 100 + softDev(P[i][1] - c)); } }
+        m.set(i, Math.max(f.midi * 100 - 1200, Math.min(f.midi * 100 + 1200, f.midi * 100 + (P[i][1] - c)))); } }   // (11/16 16:04 사용자 '비브라토 진폭을 줄임'·'끝이 뿔처럼 튐') 14:59에 넣은 ±150센트 줄이기는 뺌 — 떨림·끝 처짐 모양은 그대로
     cv._fxAbs = { sig, m }; return m;
   }
   function syncCorr(cv) {
@@ -498,7 +496,8 @@
             const rw_ = (cv._fixes || []).some(x => x.off && x.t0 < gr.t1 && x.t1 > gr.t0);   // (11/11) 🎤 원음으로 둔 음 = 분홍(점선 회색 '정음 없는 곳'과 구분)
             g.save(); g.fillStyle = rw_ ? SRC_C.raw : "rgba(160,168,180,.16)"; g.fillRect(gx0, yy - bh / 2, Math.max(3, gx1 - gx0), bh); if (!rw_) { g.setLineDash([3, 3]); g.strokeStyle = "rgba(205,210,218,.65)"; g.lineWidth = 1.2; g.strokeRect(gx0, yy - bh / 2, Math.max(3, gx1 - gx0), bh); } g.restore();
             bars.push({ x0: gx0, x1: gx1, t0: gr.t0, t1: gr.t1, c, y: yy, h: bh, ghost: true }); } gr = null; };
-        for (const p of vis) { if ((p[kt] != null && !tiny.has(p)) || p[1] == null) { flush(); continue; } if (gr && p[0] - gr.tl > 0.13) flush(); if (!gr) gr = { t0: p[0], t1: p[0], tl: p[0], v: [] }; gr.v.push(p[1]); gr.tl = p[0]; gr.t1 = p[0] + 0.04; }
+        const gcB = (cv._fixes || []).filter(f => f && f.gcut).map(f => f.t0);   // 회색 막대를 나눈 자리
+        for (const p of vis) { if ((p[kt] != null && !tiny.has(p)) || p[1] == null) { flush(); continue; } if (gr && (p[0] - gr.tl > 0.13 || gcB.some(x => x > gr.tl + 1e-6 && x <= p[0] + 1e-6))) flush(); if (!gr) gr = { t0: p[0], t1: p[0], tl: p[0], v: [] }; gr.v.push(p[1]); gr.tl = p[0]; gr.t1 = p[0] + 0.04; }
         flush(); }
       for (const b of bars) { const f = (cv._fixes || []).find(x => x.t0 < b.t1 && x.t1 > b.t0);   // 선생님이 고친 정음 = 노란 테두리(나누기만 한 조각은 경계 틈만)
         if (f && !f.cut) { g.strokeStyle = f.off ? "#ff9ec0" : "#ffd27a"; g.lineWidth = 2; g.strokeRect(b.x0, b.y - b.h / 2, Math.max(4, b.x1 - b.x0), b.h);
@@ -946,7 +945,10 @@
       x.onclick = (e) => { if (e.detail === 0) step(+x.dataset.d, true); };   // 키보드(Enter)
       x.addEventListener("contextmenu", (e) => e.preventDefault()); });
     // (11/06 16:02 사용자) 끄는 동안엔 저장 안 함 → 손을 뗄 때 한 번만(제자리로 돌아오면 기록 없음) — 되돌리기 기록에 중간 단계가 안 남게
-    if (st) { st.onBarDrag = (k, start) => { if (start) st._dragBase = m; const nm_ = rnd(st._dragBase + k); if (nm_ !== m) { if (Math.abs(nm_ - m) > 0.5) buzz(20); else if (Math.floor(nm_ * 20 + 1e-6) !== Math.floor(m * 20 + 1e-6)) buzz(10);   /* (11/06 21:59 사용자) 반음 한 칸 = 진동 · 미세는 5센트마다 짧게 */ m = nm_; st.focusC = m * 100; st.focusMin = true; paint(); preview(); sndFor(m, 400); } }; /* 끄는 음이 화면 밖으로 나가면 그만큼만 따라감 */
+    // (11/16 16:00 사용자 '음표를 잡고 미세하게 올리려 하면 음이 아래로 순간 점프한 뒤 움직임') 회색(자동 보정 안 한) 음은 막대가 가까운 반음에 그려져 있어
+    //   끌기 시작하자마자 '그 반음'으로 고친 셈이 되어 소리·선이 부른 높이에서 그 반음으로 먼저 뛰었음 → 아직 안 고친 회색 음은 지금 부른 높이(머문 곳 기준)에서 시작
+    const ghostBase = () => { if (!b.ghost || Math.abs(m - m0) > 1e-6 || (cv._fixes || []).some(f => f && !f.off && !f.cut && f.midi != null && f.t0 < b.t1 - 0.001 && f.t1 > b.t0 + 0.001)) return null; try { const P = cv.pts || [], mm = fixAbs({ pts: P, _fixes: [{ t0: b.t0, t1: b.t1, midi: 0 }] }); let s_ = 0, n_ = 0; for (const [i, v] of mm) { if (P[i] && P[i][1] != null) { s_ += P[i][1] - v; n_++; } } return n_ ? s_ / n_ / 100 : null; } catch { return null; } };
+    if (st) { st.onBarDrag = (k, start) => { if (start) { const gb = ghostBase(); st._dragBase = gb != null ? gb : m; } const nm_ = rnd(st._dragBase + k); if (nm_ !== m) { if (Math.abs(nm_ - m) > 0.5) buzz(20); else if (Math.floor(nm_ * 20 + 1e-6) !== Math.floor(m * 20 + 1e-6)) buzz(10);   /* (11/06 21:59 사용자) 반음 한 칸 = 진동 · 미세는 5센트마다 짧게 */ m = nm_; st.focusC = m * 100; st.focusMin = true; paint(); preview(); sndFor(m, 400); } }; /* 끄는 음이 화면 밖으로 나가면 그만큼만 따라감 */
       st.onBarDragEnd = () => { if (st._dragBase != null && Math.abs(m - st._dragBase) > 0.004) persist(); st._dragBase = null; }; }
     const nb = d.querySelector("[data-p]");   // 음 이름을 누르는 동안 그 음 소리
     // (11/06 22:54 사용자 시안 ② 승인) 음 이름 칸에서 바로 위아래로 밀기 · (11/07 09:39 뒤바꿈) 바로 밀면 미세(2px = 1센트) · 꾹 0.6초(진동) 뒤 밀면 반음씩(24px마다) · 톡 = 소리
@@ -970,8 +972,9 @@
       // (11/16 사용자 '회색이었던 노트는 쪼개기가 안 될 때가 있음') 회색(정음 없는) 막대는 정음 칸이 비어 있어 나눠도 막대가 그대로 한 덩어리였고,
       //   '나누기만 함(cut)' 표시라 서버·미리듣기도 무시 → 회색 막대를 나누면 그 음으로 정한 두 조각(cut 아님)으로 만들고 정음 칸도 채움(서버에 정음 없던 곳 = _orig null)
       const gh = !!b.ghost;
-      if (gh && kt) { const o_ = cv._orig || (cv._orig = {}); (cv.pts || []).forEach((p, i) => { if (p[0] >= T0 - 0.001 && p[0] <= T1 + 0.001 && p[1] != null && p[kt] == null) { if (!(i in o_)) o_[i] = null; p[kt] = Math.round(m * 100); } }); }
-      const ts = +(tAt != null ? tAt : here ? tc : atHead ? tNow : (b.t0 + b.t1) / 2).toFixed(2), a = { t0: T0, t1: ts, midi: rnd(m), cut: same() && !gh }, c = { t0: ts, t1: T1, midi: rnd(m), cut: same() && !gh };
+      // (11/16 16:12 사용자 '쪼개기만 했는데 보정 라인이 이상하게 바뀜') 회색 막대를 나누면 그 반음으로 정한 두 조각이 되어 부른 선이 크게 끌려갔음
+      //   → 회색 조각도 '나누기만 함'(cut, 서버·미리듣기·그래프 모두 무시) + gcut 표시(회색 막대를 그 자리에서 둘로 그림) · 음을 옮기면 그때 고친 음이 됨
+      const ts = +(tAt != null ? tAt : here ? tc : atHead ? tNow : (b.t0 + b.t1) / 2).toFixed(2), a = { t0: T0, t1: ts, midi: rnd(m), cut: same() || gh, ...(gh ? { gcut: true } : {}) }, c = { t0: ts, t1: T1, midi: rnd(m), cut: same() || gh, ...(gh ? { gcut: true } : {}) };
       cv._fixes = prior.filter(x => !(x.t0 < b.t1 && x.t1 > b.t0)).concat([a, c]);
       try { fxSave(onFix, a); fxSave(onFix, c); } catch {} sndOff();
       // (11/12 21:00 사용자 '두 군데 쪼갰는데 고르면 한 음으로 크게') 길이·타이밍을 고친 음을 쪼개면 그 고침도 같은 비율로 둘로 나눔 — 안 나누면 옛 한 덩어리 막대가 조각들을 덮어 통째로 골라졌음
@@ -1528,7 +1531,9 @@
       const tip = (t) => { const cb = wrap.querySelector(".tfCvBox"); if (!cb) return; cb.querySelectorAll(".tfUTip").forEach(x => x.remove()); const el = document.createElement("div"); el.className = "tfFixTip tfUTip"; el.textContent = t; cb.appendChild(el); setTimeout(() => el.remove(), 1700); };
       let histEl = null;
       // (11/06 17:03 사용자) 되돌리기·다시하기 = 바뀐 음을 바로 골라 보여 줌(한 음 = 고치기 창, 여러 음 = 여러 음 고르기)
-      const histSnap = () => ({ fx: (cv._fixes || []).map(x => JSON.stringify(x)), te: (cv._tedits || []).map(x => JSON.stringify({ t0: x.t0, t1: x.t1, nt0: x.nt0, nt1: x.nt1 })),
+      // (11/16 16:00 사용자 '되돌리기 한 번에 전전 편집 음으로 화면이 감') 폰 미리듣기가 고친 음에 붙여 두는 계산용 값(_cen 등, 밑줄로 시작)까지 비교해서
+      //   되돌린 뒤 모든 고친 음이 '바뀐 것'으로 잡혀 가장 앞 음으로 갔음 → 밑줄 값은 빼고 비교
+      const histSnap = () => ({ fx: (cv._fixes || []).map(x => JSON.stringify(x, (k, v) => (k && k[0] === "_" ? undefined : v))), te: (cv._tedits || []).map(x => JSON.stringify({ t0: x.t0, t1: x.t1, nt0: x.nt0, nt1: x.nt1 })),
         ne: ((st._adv && st._adv.ne.notes) || (typeof st.advGet === "function" ? ((st.advGet() || {}).notes || []) : [])).map(x => JSON.stringify(x)) });
       const histDiff = (a, b) => { const out = []; for (const k of ["fx", "te", "ne"]) { const A_ = new Set(a[k]), B_ = new Set(b[k]);
         for (const x of [...a[k].filter(v => !B_.has(v)), ...b[k].filter(v => !A_.has(v))]) { try { const o_ = JSON.parse(x); if (Number.isFinite(o_.t0) && Number.isFinite(o_.t1)) out.push([o_.t0, o_.t1]); } catch {} } }
