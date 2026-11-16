@@ -402,6 +402,13 @@
   .cal .de { display:block; font-style:normal; font-size:.62rem; line-height:1.15; margin-top:3px; padding-left:3px; border-left:2px solid var(--accent); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--fg); }
   .cal .de b { display:block; font-weight:700; font-size:.6rem; color:var(--muted); } .cal .de.off { opacity:.5; text-decoration:line-through; } .cal .de.dn { opacity:.75; } .cal .de.more { border-left-color:transparent; color:var(--muted); }
   .cal .dy { padding:3px 1px; }
+  /* (11/16 사용자: 아이콘·숫자 버튼이 세로를 많이 차지) 펼친 상태에선 날짜 숫자 옆 한 줄로 작게 — 칸 높이 약 40px 절약 */
+  .cal.det .dy, .cal.det button.dy { min-height:40px; position:relative; text-align:left; padding:3px 1px 3px 4px; font-size:.78rem; }
+  .cal.det button.dy { display:flex; flex-direction:column; justify-content:flex-start; align-items:stretch; }
+  .cal.det .dy .ic { position:absolute; top:3px; right:2px; display:inline-flex; align-items:center; gap:0; margin:0; font-size:.6rem; line-height:1; }
+  .cal.det .icnum { min-width:15px; height:15px; padding:0 3px; font-size:.62rem; border-radius:8px; }
+  .cal.det .icw { display:inline-block; } .cal.det .icn { position:static; display:inline-block; margin-left:1px; top:auto; right:auto; min-width:13px; height:13px; line-height:13px; padding:0 2px; font-size:.55rem; vertical-align:middle; }
+  .cal.det .dt { margin-top:1px; }
   .cal .hd { text-align:center; font-size:.8rem; color:var(--muted); padding:2px 0; }
   .cal .dy { min-height:54px; border-radius:10px; background:#1b1f26; border:1px solid var(--line); padding:3px 2px; text-align:center; font-size:.85rem; line-height:1.2; color:var(--fg); }
   .cal .dy.today { border-color:var(--accent); } .cal .dy.empty { background:transparent; border-color:transparent; }
@@ -997,7 +1004,7 @@ const IC_CAL = '<svg class="icCal" viewBox="0 0 24 24" width="1.05em" height="1.
 const CAL_S = { done: ["✅", "완료"], makeup_done: ["🔁", "보강 완료"], scheduled: [IC_CAL, "예정"], cancelled: ["✖️", "휴강"], forfeit: ["✖️", "휴강"], review: ["⏳", "확인 중"], moved: ["↪️", "이동"], past: ["☑️", "지난 레슨"] };   // (11/02 사용자) 옮긴 레슨은 휴강이 아니라 이동
 const calYm = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 const calShift = (ym, n) => { const [y, m] = ym.split("-").map(Number), d = new Date(y, m - 1 + n, 1); return calYm(d); };
-let calDet = false;   // 달력 칸 안에 수강생 이름·시간을 펼쳐 보는 중인지(달을 넘겨도 유지)
+let calDet = true;   // 달력 칸 안에 수강생 이름·시간을 펼쳐 보는 중인지(달을 넘겨도 유지) — (11/16 사용자) 기본은 펼침
 function calGrid(ym, byDate, sel, tap) {   // byDate[YYYY-MM-DD] = [{s}] → 칸마다 대표 아이콘(여럿이면 개수)
   const [y, m] = ym.split("-").map(Number), first = new Date(y, m - 1, 1), n = new Date(y, m, 0).getDate(), today = new Date();
   const td = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
