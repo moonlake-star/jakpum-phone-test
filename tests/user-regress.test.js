@@ -34,4 +34,6 @@ assert.ok(/const pvF = \(\) => dF\(\)\.filter\(f => !f\.cut\)/.test(H), "미리�
   const after = P.slice(20).map(p => p[2]); after.forEach((v, k) => assert.ok(Math.abs(v - before[k]) < 1, `뒤 조각 선 그대로: ${before[k]} → ${v}`)); }
 // ⑦ 11/16 16:00·17:09 '음 상하 조정 꾹 눌렀을 때 음이 아래에서 시작' — 아직 안 고친 음은 지금 들리는 높이(파란 선)에서 끌기 시작
 assert.ok(T.includes("const heard = !b.ghost && kc_ >= 2 && p[kc_] != null ? p[kc_] : p[1]") && T.includes("const gb = ghostBase(); st._dragBase = gb != null ? gb : m;"));
+// ⑧ 11/16 17:20 '수정 직후 재생하면 음이 튐(다시 재생하면 괜찮음)' — 듣는 자리 조각이 다 될 때까지 기다렸다 재생 · 지금 나는 소리 한가운데선 갈아 끼우지 않음
+assert.ok(H.includes("if (!pvReadyAt(at, 3))") && H.includes("k0 > pos + 0.15 * sr") && H.includes("job.fin = true;"));
 console.log("user-regress ok");
