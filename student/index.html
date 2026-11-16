@@ -40,6 +40,8 @@
   @media (max-width:360px) { body { font-size:18px; } main { padding:12px; } .ab { grid-template-columns:1fr; } }
   .lesson { display:block; width:100%; text-align:left; background:var(--card); color:var(--fg); border:1px solid var(--line); margin:10px 0; padding:14px 16px; min-height:64px; font-weight:400; }
   .lesson b { font-size:1.05rem; } .new { color:var(--good); font-weight:700; }
+  .newBar { display:block; width:100%; text-align:left; color:var(--fg); border:1.5px solid var(--good); font-weight:400; }
+  .lesson.latestNew { border:1.5px solid var(--good); }
   .play { width:100%; min-height:64px; font-size:1.1rem; }
   .pre { white-space:pre-wrap; }
   /* 레슨 전체 기록(2026-10-29): V1 선생님 앱처럼 말풍선(선생님 왼쪽·나 오른쪽·노래 보라), 누르면 화면 아래 재생바가 올라옴 */
@@ -166,7 +168,7 @@
 </main>
 <script src="../lesson-replies.js"></script>
 <script src="../tune.js?v=20261116-1205"></script>
-<script src="../pitch-embed.js?v=20261105-1850"></script>
+<script src="../pitch-embed.js?v=20261116-1300"></script>
 <script>
 // ── 설정(비밀값 아님): 수강생 로그인용 구글 클라이언트 ID, 노트 연결(Apps Script 웹 앱) 주소 ──
 const STUDENT_CLIENT_ID = "712936245254-2itl2rolhhcsq9cdqnhku4u43hpdv2mk.apps.googleusercontent.com";
@@ -473,13 +475,18 @@ function timeline() {
   history.replaceState(history.state, "", location.pathname);   // (11/09) 화면 버튼으로 돌아와도 기록 칸은 그대로(남은 칸 = 뒤로 가기 여유)
   const ls = data.lessons, seen = seenLocal();
   const bests = ls.filter(l => l.best?.file_id);
-  $("view").innerHTML = `${statusHtml(data.status)}${typeof goalHtml === "function" ? goalHtml(data.goal) : ""}${typeof monthHtml === "function" ? monthHtml(data.months) : ""}${growthHtml(data.growth)}${pitchLinkHtml()}<div class="card"><h2>${esc(data.name)}님의 레슨 노트</h2>
+  // (11/16 S1·S3) 안 열어 본 노트: 가장 최근 것을 맨 위 한 줄로 알리고 목록에서도 강조. 더 오래된 안 본 노트도 목록에 '● 새 노트'로 그대로 남음
+  const unseen = ls.filter(l => !seen[l.id] && !l.seen_at), latestNew = unseen[0] || null;
+  // (11/16 S2) 연습 기록이 있으면 연습 카드를 위로, 없으면 목표곡·성장 아래(기존 자리)
+  const hasPractice = (() => { try { return !!(typeof PitchEmbed !== "undefined" && PitchEmbed.hasRecord && PitchEmbed.hasRecord("student")); } catch { return false; } })();
+  const newBar = latestNew ? `<button class="card newBar" data-l="${esc(latestNew.id)}"><b>🆕 새 레슨 노트${unseen.length > 1 ? ` ${unseen.length}개` : ""}</b><span class="muted"> · ${md(latestNew.date)} 레슨 보기 ›</span></button>` : "";
+  $("view").innerHTML = `${newBar}${statusHtml(data.status)}${hasPractice ? pitchLinkHtml() : ""}${typeof goalHtml === "function" ? goalHtml(data.goal) : ""}${typeof monthHtml === "function" ? monthHtml(data.months) : ""}${growthHtml(data.growth)}${hasPractice ? "" : pitchLinkHtml()}<div class="card"><h2>${esc(data.name)}님의 레슨 노트</h2>
       <p class="muted" style="margin:0">레슨 ${ls.length}회 · 최근 ${md(ls[0]?.date)}</p>
       ${bests.length > 1 && !albumTracks(ls).length ? `<button class="ghost full" id="playAll" style="margin-top:10px">▶ 그동안의 베스트 가창 이어 듣기 (${bests.length}곡)</button>` : ""}</div>
     ${albumHtml(ls)}
     ${typeof fullSongsHtml === "function" ? fullSongsHtml(ls) : ""}
     ${storyHtml(ls)}
-    ${ls.map(l => `<button class="lesson" data-l="${esc(l.id)}"><b>${md(l.date)} 레슨</b> ${!seen[l.id] && !l.seen_at ? `<span class="new">● 새 노트</span>` : ""}
+    ${ls.map(l => `<button class="lesson${latestNew && l.id === latestNew.id ? " latestNew" : ""}" data-l="${esc(l.id)}"><b>${md(l.date)} 레슨</b> ${!seen[l.id] && !l.seen_at ? `<span class="new">● 새 노트</span>` : ""}
       <div class="muted">${esc((l.highlight || l.points?.[0] || "").slice(0, 40))}</div></button>`).join("") || `<div class="card"><p>아직 올라온 노트가 없어요.</p></div>`}
     <audio id="allAu" class="hidden" controls></audio>`;
   document.querySelectorAll("[data-l]").forEach(b => b.onclick = () => openLesson(b.dataset.l));

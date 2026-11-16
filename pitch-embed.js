@@ -48,7 +48,7 @@
     const ly = G.Brand && G.Brand.layer ? G.Brand.layer(shut) : null;
     cur = { d, f, close: () => (ly ? ly.close() : shut()) };
   }
-  G.PitchEmbed = { open, isOpen: () => !!cur, cardInner, statText, paint };
+  G.PitchEmbed = { open, isOpen: () => !!cur, cardInner, statText, paint, hasRecord: (who) => { const s = stat(who); return !!(s && s.any); } };   // (11/16) 수강생 화면이 연습 기록이 있을 때 연습 카드를 위로 올림
   document.addEventListener("click", (e) => {
     const a = e.target && e.target.closest && e.target.closest("[data-pitch-open]");
     if (!a) return; e.preventDefault(); open(a.dataset.pitchOpen);
