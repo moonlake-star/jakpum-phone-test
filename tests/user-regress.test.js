@@ -40,4 +40,6 @@ assert.ok(H.includes("if (!pvReadyAt(at, 3))") && H.includes("k0 > pos + 0.15 * 
 assert.ok(T.includes("...(gh ? { ghost: true } : {}) }, onFix, getT, st)") && T.includes("filter(f => f && (f.gcut || f.cut)).flatMap(f => [f.t0, f.t1])"));
 { const selHit = new Function(T.match(/  function selHit\(sel, b\) \{[^\n]*\}/)[0] + "; return selHit;")();
   assert.ok(!selHit({ t0: 1.24, t1: 2.0 }, { t0: 0.8, t1: 1.28 }), "끝이 0.04초 겹친 이웃은 안 골라짐"); assert.ok(selHit({ t0: 1.24, t1: 2.0 }, { t0: 1.24, t1: 2.0 })); }
+// ⑩ 11/16 17:55 '회색 음을 애매하게 잡지 말고' — 서로 다른 음을 한 회색 막대로 묶지 않음 · 2.5반음 넘게 움직이는 덩어리는 회색 막대로 안 그림
+assert.ok(T.includes("Math.abs(lmd[vi] - gm) > 150") && T.includes("sv0[Math.floor(sv0.length * 0.9)] - sv0[Math.floor(sv0.length * 0.1)] > 250) gr = null"));
 console.log("user-regress ok");
