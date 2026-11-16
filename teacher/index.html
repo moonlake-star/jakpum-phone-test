@@ -5827,7 +5827,7 @@ function mkApply() {
 }
 // (11/06 사용자 '폰에서 최종 익스포트까지') 지금 들리는 소리(고친 것 반영) 그대로 폰 안에서 합치기 → 목표 LUFS → 리미터 → mp3(320k). 서버 makeup.py와 같은 식(tests/export-core.test.js로 대조)
 // 울림은 서버가 만든 울림 트랙 그대로 · 서버가 정식 파일을 따로 다시 만들어 둠(‘이 설정으로 완성본 다시 만들기’)
-async function mkExportPhone(j, r, setMsg) {
+async function mkExportPhone(j, r, setMsg, wavOnly) {   // wavOnly: WAV만 받을 때는 mp3를 만들지 않음(11/16 15:55 사용자 'wav 받기인데 mp3 만드는 중이 나옴')
   await pvLoadScript("../export/export-core.js?v=20261116-1240"); await pvLoadScript("../export/lame.min.js?v=20261106-1130");
   if (typeof PVP !== "undefined") { while (PVP.busy()) { setMsg("서버와 같은 소리 준비 중…"); await Promise.all(PVP.jobs.slice()); await new Promise((f) => setTimeout(f, 30)); } }
   mkApply(); const tr = Object.entries(mkLastGain).filter(([n, g]) => g > 0 && mkTracks[n]?.buf);
@@ -5848,6 +5848,7 @@ async function mkExportPhone(j, r, setMsg) {
       let b = b0; if (full[n]) { b = oc.createBuffer(1, L_, sr); b.getChannelData(0).set(full[n].subarray(0, L_)); }
       cv_.normalize = false; cv_.buffer = mkRev.buf; s.buffer = b; s.connect(cv_); cv_.connect(oc.destination); s.start(); const w = await oc.startRendering(); parts.push({ ch: ch(w), gain: g * wetG }); } }
   const m = ExportCore.master(parts, sr, target); await tick();
+  if (wavOnly) return { ch: m.ch, sr, secs: 0, full: fullOk };
   const t0 = Date.now(), mp = await ExportCore.mp3Async(m.ch, sr, 320, undefined, (q) => setMsg(`mp3 만드는 중… ${Math.round(q * 100)}%`));
   const blob = new Blob([mp], { type: "audio/mpeg" }); mkPhone = { blob, ch: m.ch, secs: (Date.now() - t0) / 1000, lufs: m.pre + 20 * Math.log10(m.gain), sr, full: fullOk }; return mkPhone;   // ch = WAV로도 받을 수 있게 마스터 소리 보관
 }
@@ -7028,22 +7029,24 @@ async function openMkJob(j, backTo) {
     try { await writeJSON(j.folder.id, MKREQ, q, j.reqId); showProgress(j, "서버 호출 중…"); kick(); } catch (e) { stopProg(); toast(e.message); }
   };
   $("mkMix").onclick = async () => { const au = $("mkMixAu"); try { if (mkPlaying) { mkOffset = mkNow(); mkStop(); paintTransport(); } au.src = URL.createObjectURL(await readBlob(by("mix.mp3").id, true)); au.classList.remove("hidden"); $("mkMix").classList.add("hidden"); au.play(); } catch (e) { toast(e.message); } };
+  // (11/16 15:55 사용자 '받기 누르고 다른 화면으로 가도 되나? 알려주는 문구') 폰에서 직접 소리를 만들어서, 만드는 동안 화면을 나가거나 다른 앱으로 가면 멈추거나 아주 느려짐 → 끝(✓)까지 이 화면에
+  const KEEP = " · 다 될 때까지 이 화면에 있어 주세요(다른 화면·앱으로 가면 멈출 수 있어요)";
   $("mkPhoneMix").onclick = async () => {
     const b = $("mkPhoneMix"), t = $("mkPhoneT"); b.disabled = true;
-    try { mkStop(); paintTransport(); t.textContent = "트랙 받는 중…"; await ensure(base()); const o = await mkExportPhone(j, r, (s) => { t.textContent = s; }); o.sig = mkEditsSig(r); paintFixN();
+    try { mkStop(); paintTransport(); t.textContent = "트랙 받는 중…" + KEEP; await ensure(base()); const o = await mkExportPhone(j, r, (s) => { t.textContent = s + KEEP; }); o.sig = mkEditsSig(r); paintFixN();
       const au = $("mkMixAu"); au.src = URL.createObjectURL(o.blob); au.classList.remove("hidden"); $("mkMix").classList.add("hidden");
-      t.textContent = `✓ 폰에서 만듦 · ${(o.blob.size / 1048576).toFixed(1)}MB · ${o.secs.toFixed(1)}초 · 아래 ‘수강생에게 보내기’로 바로 보낼 수 있어요`; }
+      t.textContent = `✓ 폰에서 만듦(이제 다른 화면으로 가도 돼요) · ${(o.blob.size / 1048576).toFixed(1)}MB · ${o.secs.toFixed(1)}초 · 아래 ‘수강생에게 보내기’로 바로 보낼 수 있어요`; }
     catch (e) { t.textContent = "못 만들었어요: " + e.message; console.warn("폰 합치기", e); } finally { b.disabled = false; }
   };
   // (11/16 사용자 '최종 출력을 wav로도') 지금 소리(고친 것 반영)를 폰에서 만든 마스터 그대로 무손실 WAV(16비트, CD와 같은 형식 — 11/16 12:50 사용자 '16bit로')로 받기 — 이미 만들었으면 바로, 아니면 만든 뒤
   $("mkPhoneWav").onclick = async () => {
     const b = $("mkPhoneWav"), t = $("mkPhoneT"); b.disabled = true;
     try { let o = phoneFresh() && mkPhone?.ch ? mkPhone : null;
-      if (!o) { mkStop(); paintTransport(); t.textContent = "트랙 받는 중…"; await ensure(base()); o = await mkExportPhone(j, r, (s) => { t.textContent = s; }); o.sig = mkEditsSig(r); paintFixN(); }
-      t.textContent = "WAV 만드는 중…"; await new Promise((f) => setTimeout(f, 20));
+      if (!o) { mkStop(); paintTransport(); t.textContent = "트랙 받는 중…" + KEEP; await ensure(base()); o = await mkExportPhone(j, r, (s) => { t.textContent = s + KEEP; }, true); }
+      t.textContent = "WAV 만드는 중…" + KEEP; await new Promise((f) => setTimeout(f, 20));
       const w = new Blob([ExportCore.wav(o.ch, o.sr, 16)], { type: "audio/wav" });
       songSave(w, `${j.st.name}_${r.title}_메이크업.wav`.replace(/[\\/:*?"<>|]/g, "_"));
-      t.textContent = `✓ WAV 받음(다운로드 폴더) · ${(w.size / 1048576).toFixed(1)}MB · 16비트 ${Math.round(o.sr / 100) / 10}kHz`; }
+      t.textContent = `✓ WAV 받음(다운로드 폴더) · 이제 다른 화면으로 가도 돼요 · ${(w.size / 1048576).toFixed(1)}MB · 16비트 ${Math.round(o.sr / 100) / 10}kHz`; }
     catch (e) { t.textContent = "WAV를 못 만들었어요: " + e.message; console.warn("WAV", e); } finally { b.disabled = false; }
   };
   // (11/12 18:33 사용자 화면 'Permission denied') 폰 공유 창은 '누른 직후'에만 열려요 — 예전엔 누른 뒤 완성본을 내려받느라 기다리는 사이 허락이 끝나 버렸음
@@ -8940,7 +8943,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261116-1500";
+const BUILD = "20261116-1600";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
