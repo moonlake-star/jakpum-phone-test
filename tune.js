@@ -339,6 +339,9 @@
   // 고친 음(cv._fixes, 🎤원음 제외)마다 점 번호 → 들리는 높이(센트). 폰 미리듣기(pvFixCenter)·서버(pitch.plan_targets)와 같은 규칙:
   //   그 음 안 '머문' 점(빠르기 400센트/초 미만 가중 0.5 초과)만 ±2점 가중 평균을 기준으로 정음까지 옮김 → 정음 + (부른 높이 − 기준)
   function fixAbs(cv) {
+    // 고친 음 안 '부른 높이 − 기준'은 떨림·작은 굴곡(±80센트)만 그대로, 그보다 크게 벗어난 미끄러짐은 1/4로 줄이고 최대 ±150센트(정음에서 크게 튀지 않게) — 서버 pitch._soft_dev·폰 미리듣기와 같음
+    function softDev(d) { const a = Math.abs(d); return a <= 80 ? d : Math.sign(d) * Math.min(150, 80 + (a - 80) * 0.25); }
+    function wMed(v, w) { const o = v.map((x, i) => [x, w[i]]).filter(q => q[0] != null).sort((p, q) => p[0] - q[0]); const T = o.reduce((s_, q) => s_ + q[1], 0); let acc = 0; for (const q of o) { acc += q[1]; if (acc >= T / 2) return q[0]; } return o.length ? o[o.length >> 1][0] : 0; }
     const F = (cv._fixes || []).filter(f => f && !f.off && f.midi != null), P = cv.pts || [];
     const sig = P.length + "|" + F.map(f => f.t0 + ":" + f.t1 + ":" + f.midi).join(",");
     if (cv._fxAbs && cv._fxAbs.sig === sig) return cv._fxAbs.m;
@@ -346,11 +349,14 @@
     for (const f of F) { const ids = []; for (let i = 0; i < P.length; i++) { const t = P[i][0]; if (t > f.t1 + 0.001) break; if (t >= f.t0 - 0.001 && P[i][1] != null) ids.push(i); }
       const W = new Map(); for (const i of ids) { const a = P[i - 1] && P[i - 1][1] != null ? P[i - 1] : P[i], b = P[i + 1] && P[i + 1][1] != null ? P[i + 1] : P[i], dt = Math.max(1e-3, b[0] - a[0]);
         const v = a === b ? 0 : Math.abs(b[1] - a[1]) / dt, w = 1 / (1 + (v / 400) ** 2); if (w > 0.5) W.set(i, w); }
+      // (11/16 14:50 사용자 '자른 뒤 뒤 음이 튀어 올라감') 미끄러짐의 꺾이는 꼭짓점 한 점(그 점만 느림)은 '머문' 점이 아님 → 앞뒤 점도 느려야 머문 점
+      { const W0 = new Set(W.keys()), inI = new Set(ids); for (const i of W0) if (!((W0.has(i - 1) || !inI.has(i - 1)) && (W0.has(i + 1) || !inI.has(i + 1)))) W.delete(i); }
       const cen = new Map(), got = [];
       for (const i of ids) { let s_ = 0, c_ = 0; for (let d = -2; d <= 2; d++) { const w = W.get(i + d); if (w) { s_ += P[i + d][1] * w; c_ += w; } } if (c_ > 0) { cen.set(i, s_ / c_); got.push(i); } }
-      if (!got.length) { for (const i of ids) m.set(i, f.midi * 100); continue; }   // 머문 점이 하나도 없는 음(통째로 미끄러짐) = 소리도 점마다 정음으로 평평하게(pvFixCenter·서버와 같음)
-      for (const i of ids) { let c = cen.get(i); if (c == null) { let b = got[0]; for (const g of got) if (Math.abs(g - i) < Math.abs(b - i)) b = g; c = cen.get(b); }
-        m.set(i, Math.max(f.midi * 100 - 1200, Math.min(f.midi * 100 + 1200, f.midi * 100 + (P[i][1] - c)))); } }
+      // 머문 점이 없는 음(통째로 미끄러짐·떨림만) = 그 음 전체의 가운데(빠르기 가중 중앙값)를 기준으로
+      const cMed = got.length ? null : wMed(ids.map(i => P[i][1]), ids.map(i => { const a = P[i - 1] && P[i - 1][1] != null ? P[i - 1] : P[i], b = P[i + 1] && P[i + 1][1] != null ? P[i + 1] : P[i]; const v = a === b ? 0 : Math.abs(b[1] - a[1]) / Math.max(1e-3, b[0] - a[0]); return 1 / (1 + (v / 400) ** 2); }));
+      for (const i of ids) { let c = cMed; if (c == null) { c = cen.get(i); if (c == null) { let b = got[0]; for (const g of got) if (Math.abs(g - i) < Math.abs(b - i)) b = g; c = cen.get(b); } }
+        m.set(i, f.midi * 100 + softDev(P[i][1] - c)); } }
     cv._fxAbs = { sig, m }; return m;
   }
   function syncCorr(cv) {
