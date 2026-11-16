@@ -5678,7 +5678,15 @@ function mkSwapTracks(only) {
     sg.gain.setValueAtTime(0, when); sg.gain.linearRampToValueAtTime(1, when + F); s.start(when, Math.max(0, Math.min(at, t.buf.duration))); s._g = sg; t.src = s;
     try { if (old._g) { old._g.gain.setValueAtTime(1, when); old._g.gain.linearRampToValueAtTime(0, when + F); } old.stop(when + F + 0.01); } catch {} }
 }
+// 아이패드·아이폰(사파리): 소리 장치(AudioContext)는 손으로 누른 바로 그 순간에만 깨울 수 있음. 예전엔 트랙을 받은(await) 뒤나 0.25초 기다린 뒤에 깨워서
+//   사파리가 막음 → 장치가 잠든 채라 재생 시각이 안 흘러 '노래 불러오는 중'만 뜨고 시작 안 됨. → 누르자마자 깨우고, 아무 소리 없는 아주 짧은 소리를 한 번 틀어 잠금 해제
+function mkUnlock() {
+  try { mkCtx ??= new AudioContext(); if (mkCtx.state !== "running") mkCtx.resume().catch(() => {});
+    if (!mkUnlock._done) { const b = mkCtx.createBuffer(1, 1, mkCtx.sampleRate), s = mkCtx.createBufferSource(); s.buffer = b; s.connect(mkCtx.destination); s.start(0); mkUnlock._done = mkCtx; }
+    if (mkUnlock._done !== mkCtx) mkUnlock._done = null; } catch {}
+}
 function mkPlay(at) {
+  mkUnlock();
   // (11/12 10:52 사용자 '음 수정 후 들어보기 딜레이 없이 바로') 고친 소리를 만드는 중이면 최대 0.25초만 기다리고 바로 재생 → 다 되면 끊김 없이 새 소리로 이어 받음(mkSwapTracks)
   if (typeof PVP !== "undefined" && PVP.busy() && !mkPlay._waited) { mkPlay._waited = true; let go = false; const fire = () => { if (go) return; go = true; PVP.later = null; mkPlay(at); }; PVP.later = fire; setTimeout(fire, 250); return; }
   mkPlay._waited = false;
@@ -5714,12 +5722,25 @@ async function mkIrLoad(fileId) {
     for (const [n, t] of Object.entries(mkTracks)) if (/^[pq][0-3]$/.test(n)) t.gain.connect(R.send); mkApply(); })();
   return R.p;
 }
+// (11/16 사용자 '아이패드에서 재생 시작이 안 됨·앱이 엄청 느림') 4분 30초 곡 트랙 하나를 풀면 48kHz 2채널 약 105MB — 보정 단계 트랙을 다 미리 받으면 700MB가 넘어
+//   아이패드 사파리가 메모리 부족으로 소리 풀기를 실패하거나 화면을 다시 띄움. ① 보컬 트랙(목소리 한 줄)은 풀자마자 1채널로 합쳐 절반으로 ② 아이패드·아이폰에선 풀기를 한 번에 하나씩
+//   (울림·반주·보정 전 섞인 소리는 2채널 그대로)
+const MK_IOS = typeof navigator !== "undefined" && (/iPad|iPhone|iPod/.test(navigator.userAgent || "") || (/Macintosh/.test(navigator.userAgent || "") && (navigator.maxTouchPoints || 0) > 1));
+let mkDecQ = Promise.resolve();
+function mkDecode(name, ab) {
+  const run = async () => { let b = await mkCtx.decodeAudioData(ab);
+    if (b.numberOfChannels > 1 && /^([pq][0-3]|dry|bv)$/.test(name)) { const n = b.length, m = mkCtx.createBuffer(1, n, b.sampleRate), o = m.getChannelData(0), L = b.getChannelData(0), R = b.getChannelData(1);
+      for (let i = 0; i < n; i++) o[i] = (L[i] + R[i]) * 0.5; b = m; }
+    return b; };
+  if (!MK_IOS) return run();
+  const p = mkDecQ.then(run, run); mkDecQ = p.catch(() => {}); return p;
+}
 async function mkLoad(name, fileId) {
   if (mkTracks[name]?.buf || mkTracks[name]?.loading) return mkTracks[name]?.loading;
   mkCtx ??= new AudioContext();
   const g = mkCtx.createGain(); g.gain.value = 0; g.connect(mkBus()); if (/^[pq][0-3]$/.test(name) && mkRev && mkRev.ctx === mkCtx) g.connect(mkRev.send);
   const t = mkTracks[name] = { gain: g, buf: null, src: null };
-  t.loading = (async () => { t.buf = await mkCtx.decodeAudioData(await (await readBlob(fileId, true)).arrayBuffer());
+  t.loading = (async () => { t.buf = await mkDecode(name, await (await readBlob(fileId, true)).arrayBuffer());
     mkDurS = Math.max(mkDurS, t.buf.duration); mkAutoGain(); let re = false; try { re = pvApplyAll(); } catch {} if (mkPlaying && !re) mkStartTrack(t, mkNow()); mkApply(); })();   // 다시 만들었으면 pvApplyAll이 전부 다시 틀었음(두 번 겹쳐 나오지 않게)
   return t.loading;
 }
@@ -6738,11 +6759,12 @@ async function openMkJob(j, backTo) {
   const beforeSet = () => by("before_vocal.mp3") ? [["bv", "before_vocal.mp3"], ["bm", "before_mr.mp3"]] : [["before", "before.mp3"]];
   $("mkPP").onclick = async () => {
     if (mkPlaying) { mkOffset = mkNow(); mkStop(); return paintTransport(); }
+    mkUnlock();   // (11/16 사용자 '아이패드에서 재생 시작이 안 됨 — 불러오는 중만') 아이패드·아이폰 사파리는 누른 그 순간(기다리기 전)에 소리 장치를 깨워야 함
     try {
       $("mkT").textContent = "불러오는 중…"; if (irF) { try { await mkIrLoad(irF.id); } catch (e) { console.warn("울림 IR", e); mkRev = null; } } await ensure(base()); if (mkRaw) await ensure(beforeSet());
       mkPlay(mkOffset); playLabel();
       clearInterval(mkTick); mkTick = setInterval(() => { if (!$("mkPos")) return clearInterval(mkTick); paintTransport(); }, 250);
-      ensure(hasP ? [1, 2, 3].flatMap(stage) : []);  // 나머지 음정 단계는 뒤에서 미리
+      if (!MK_IOS) ensure(hasP ? [1, 2, 3].flatMap(stage) : []);  // 나머지 음정 단계는 뒤에서 미리(아이패드·아이폰은 메모리 때문에 고를 때 받음)
     } catch (e) { toast(e.message); $("mkT").textContent = ""; }
   };
   $("mkSeek").onchange = (e) => mkSeekTo(e.target.value / 1000 * mkDurS);
@@ -8871,7 +8893,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261116-1252";
+const BUILD = "20261116-1315";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
@@ -8886,7 +8908,10 @@ async function checkBuild() {
     }
   } catch {}
 }
-checkBuild(); document.addEventListener("visibilitychange", () => { if (!document.hidden) checkBuild(); });
+// (11/16 사용자 '앱 로딩 자체도 엄청 느림') 새 버전 확인은 화면 전체(약 1MB)를 한 번 더 받음 → 켜자마자 받으면 첫 화면·목록과 회선을 나눠 써서 느려짐.
+//   켜고 20초 뒤에, 다시 볼 때는 5분에 한 번만
+let cbAt = 0; const checkBuildSoon = () => { if (Date.now() - cbAt < 300000) return; cbAt = Date.now(); checkBuild(); };
+setTimeout(checkBuildSoon, 20000); document.addEventListener("visibilitychange", () => { if (!document.hidden) checkBuildSoon(); });
 $("miniBtn").onclick = () => full.paused ? full.play() : full.pause();
 document.querySelectorAll("[data-mini]").forEach(b => b.onclick = () => {
   const a = b.dataset.mini;
