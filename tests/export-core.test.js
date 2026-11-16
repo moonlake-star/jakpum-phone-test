@@ -32,3 +32,9 @@ try { const out = cp.execFileSync("ffmpeg", ["-v", "error", "-i", f, "-f", "f32l
   for (let i = 0; i < len; i++) { dec[0][i] = fl[2 * i]; dec[1][i] = fl[2 * i + 1]; } const ld = X.lufs(dec, sr); console.log("mp3 풀어서 LUFS", ld.toFixed(2), "길이", (len / sr).toFixed(3), "초"); assert.ok(Math.abs(ld - lo) < 0.3 && Math.abs(len / sr - 5) < 0.1, "mp3로 저장해도 크기·길이 그대로");
 } catch (e) { if (e.code === "ENOENT") console.log("(ffmpeg 없음 — mp3 풀기 시험 건너뜀)"); else throw e; }
 console.log("export-core ok");
+// (11/16 사용자 '최종 출력을 wav로도') 24비트 WAV: 머리글·길이·값
+{ const C = require(require("path").join(__dirname, "..", "export", "export-core.js")); const n = 1000, a = Float32Array.from({ length: n }, (_, i) => Math.sin(i / 7) * 0.4), w = C.wav([a, a], 48000, 24), v = new DataView(w.buffer);
+  if (w.length !== 44 + n * 6 || v.getUint32(24, true) !== 48000 || v.getUint16(34, true) !== 24 || v.getUint16(22, true) !== 2) throw new Error("wav 머리글");
+  const s = v.getUint8(44 + 6 * 5) | (v.getUint8(45 + 6 * 5) << 8) | (v.getInt8(46 + 6 * 5) << 16); if (Math.abs(s / 8388607 - Math.sin(5 / 7) * 0.4) > 1e-5) throw new Error("wav 값");
+  const T = require("fs").readFileSync(require("path").join(__dirname, "..", "teacher", "index.html"), "utf8"); if (!T.includes('id="mkPhoneWav"') || !T.includes("ExportCore.wav(o.ch, o.sr, 24)")) throw new Error("WAV 버튼");
+  console.log("export wav ok"); }

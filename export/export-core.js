@@ -68,6 +68,17 @@
     const e = enc.flush(); if (e.length) { parts.push(e); len += e.length; }
     const out = new Uint8Array(len); let p = 0; for (const b of parts) { out.set(b, p); p += b.length; } return out;
   }
-  const Core = { lufs, limit, master, mp3, mp3Async, db };
+  // (11/16 사용자 '오늘의 베스트 최종 출력을 wav로도') 무손실 WAV(PCM, 기본 24비트·2채널) — 마스터(크기 맞춤·리미터)까지 mp3와 같은 소리, 압축만 안 함
+  function wav(chs, sr, bits = 24) {
+    const n = chs[0].length, C = 2, B = bits / 8, L = chs[0], R = chs[1] || chs[0], data = n * C * B, buf = new ArrayBuffer(44 + data), v = new DataView(buf), u8 = new Uint8Array(buf);
+    const str = (o, t) => { for (let i = 0; i < t.length; i++) u8[o + i] = t.charCodeAt(i); };
+    str(0, "RIFF"); v.setUint32(4, 36 + data, true); str(8, "WAVE"); str(12, "fmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, C, true);
+    v.setUint32(24, sr, true); v.setUint32(28, sr * C * B, true); v.setUint16(32, C * B, true); v.setUint16(34, bits, true); str(36, "data"); v.setUint32(40, data, true);
+    const mx = 2 ** (bits - 1) - 1; let o = 44;
+    for (let i = 0; i < n; i++) for (const a of [L, R]) { const x = Math.max(-1, Math.min(1, a[i])), q = Math.round(x * mx);
+      if (B === 3) { u8[o] = q & 255; u8[o + 1] = (q >> 8) & 255; u8[o + 2] = (q >> 16) & 255; } else v.setInt16(o, q, true); o += B; }
+    return u8;
+  }
+  const Core = { lufs, limit, master, mp3, mp3Async, wav, db };
   if (typeof module !== "undefined" && module.exports) module.exports = Core; else root.ExportCore = Core;
 })(typeof self !== "undefined" ? self : globalThis);
