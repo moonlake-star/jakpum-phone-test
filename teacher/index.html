@@ -5556,7 +5556,7 @@ async function pvProgRun(name, job) {
   // 조각 나누기: 4초 격자, 타이밍 창이 걸치면 그 창 끝까지 늘림
   const step = Math.round(sr * PV_PROG_CH), chunks = []; let c0 = 0;
   while (c0 < len) { let c1 = Math.min(len, c0 + step); for (const [u0, u1] of tp.regs) { const a = Math.round(u0 * sr), b = Math.round(u1 * sr); if (a < c1 && b > c1) c1 = Math.min(len, b + X); } chunks.push([c0, c1]); c0 = c1; }
-  const now = Math.round((typeof mkNow === "function" ? mkNow() : 0) * sr), done = new Set();
+  const now = Math.round((typeof mkNow === "function" ? mkNow() : 0) * sr), done = new Set(); job.chunks = chunks; job.done = done; job.sr = sr;   // (11/16 17:20) 재생 전 '듣는 자리 조각이 다 됐나' 확인용
   const order = chunks.map((c, i) => i).sort((p, q) => { const d = (i) => { const [a, b] = chunks[i]; return now >= a && now < b ? -1 : a >= now ? (a - now) : (now - b) * 3 + 1e9 * 0; }; return d(p) - d(q); });   // 듣는 자리 → 그 앞 → 지나간 쪽
   for (const qi of order) {
     if (job.stop || mkPv.prog[name] !== job) return;
@@ -5593,9 +5593,12 @@ async function pvProgRun(name, job) {
         else out[i] = v; } }
     done.add(qi); mkPhone = null;
     const pos = (typeof mkNow === "function" ? mkNow() : 0) * sr;
-    if (mkPlaying && k1 > pos && k0 < pos + 12 * sr) { try { mkSwapTracks(tr); } catch {} }   // 듣는 자리·바로 앞이 바뀌면 끊김 없이 새 소리로 이어 받음
+    // (11/16 17:20 사용자 '수정 직후 재생하면 음이 튀고, 한 번 더 재생하면 괜찮음') 지금 소리 나는 자리 한가운데서 새 소리로 갈아 끼우면 같은 음 안에서 높이가 바뀌어 튐
+    //   → 갈아 끼우는 건 바뀐 조각이 아직 앞(0.15초 넘게 뒤)에 있을 때만. 재생을 시작할 땐 듣는 자리 조각이 다 될 때까지 기다림(mkPlay)
+    if (mkPlaying && k1 > pos && k0 > pos + 0.15 * sr && k0 < pos + 12 * sr) { try { mkSwapTracks(tr); } catch {} }
     await new Promise((f) => setTimeout(f, 0));
   }
+  job.fin = true;
 }
 function pvSibP90(src, sr) {   // 치찰음 판정의 '큰 소리' 기준(곡 전체 10ms 칸 크기의 90%) — 원래 녹음에서 한 번만, 빠른 계산(서버와 같은 값)
   if (src._sibP90 != null) return src._sibP90;
@@ -5744,6 +5747,12 @@ function mkStartTrack(t, at) {
   const s = mkCtx.createBufferSource(), sg = mkCtx.createGain(); s.buffer = t.buf; s.connect(sg); sg.connect(t.gain); s.start(0, Math.min(at, t.buf.duration)); s._g = sg; t.src = s;
 }
 // (11/12 10:52 사용자 '들어볼 때 끊김은 당연히 없어야') 재생 중에 소리가 바뀌면 멈췄다 다시 틀지 않고, 같은 자리에서 새 소리를 30ms 겹쳐 이어 받음
+function pvReadyAt(at, span) {   // 고친 소리(대기 없는 미리듣기) 조각 중 [at, at+span]초에 걸친 것이 다 만들어졌나 — 만드는 중인 일이 없으면 true
+  const P = (typeof mkPv !== "undefined" && mkPv.prog) || {};
+  for (const k of Object.keys(P)) { const j = P[k]; if (!j || j.stop || j.fin) continue; if (!j.chunks) return PVP.state === "ready" ? false : true;
+    const a = at * j.sr, b = (at + span) * j.sr; for (let i = 0; i < j.chunks.length; i++) { const [k0, k1] = j.chunks[i]; if (k1 > a && k0 < b && !j.done.has(i)) return false; } }
+  return true;
+}
 function mkSwapTracks(only) {
   if (!mkPlaying || !mkCtx) return; const when = mkCtx.currentTime + 0.02, at = when - mkT0, F = 0.03;
   for (const t of Object.values(mkTracks)) { if (!t.buf || !t.src || (only && t !== only)) continue;
@@ -5762,7 +5771,9 @@ function mkPlay(at) {
   mkUnlock();
   // (11/12 10:52 사용자 '음 수정 후 들어보기 딜레이 없이 바로') 고친 소리를 만드는 중이면 최대 0.25초만 기다리고 바로 재생 → 다 되면 끊김 없이 새 소리로 이어 받음(mkSwapTracks)
   if (typeof PVP !== "undefined" && PVP.busy() && !mkPlay._waited) { mkPlay._waited = true; let go = false; const fire = () => { if (go) return; go = true; PVP.later = null; mkPlay(at); }; PVP.later = fire; setTimeout(fire, 250); return; }
-  mkPlay._waited = false;
+  // (11/16 17:20 사용자 '수정 직후 재생하면 음이 튐') 고친 소리를 만드는 중이면 듣기 시작하는 자리부터 3초 조각이 다 될 때까지 기다림(최대 4초) — 반쯤 바뀐 소리로 시작해 중간에 갈아 끼우며 튀지 않게
+  if (!pvReadyAt(at, 3)) { const w0 = mkPlay._w0 || (mkPlay._w0 = Date.now()); if (Date.now() - w0 < 4000) { try { $("mkPP").textContent = "⏳"; } catch {} clearTimeout(mkPlay._wt); mkPlay._wt = setTimeout(() => mkPlay(at), 80); return; } }
+  mkPlay._w0 = 0; mkPlay._waited = false;
   pauseOthers("mk"); mkStop(); try { if (mkCtx.state !== "running") mkCtx.resume(); } catch {} mkOffset = at; mkT0 = mkCtx.currentTime - at; mkPlaying = true;
   try { Brand.focusHold?.("mk", true, () => { mkStop(); try { paintTransport(); } catch {} }); } catch {}   // 다른 앱 소리와 겹침 방지·다른 앱이 시작하면 멈춤
   try { Brand.audioRelease?.(); } catch {}   // (11/09 블루투스 볼륨 조절) 재생을 시작하면 다른 소리 장치(종소리·기준음·미리듣기 등)는 모두 쉬게 함 — 재생 중인 이 장치만 남김(audioKeep)
@@ -8969,7 +8980,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261116-1715";
+const BUILD = "20261116-1730";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
