@@ -961,7 +961,11 @@
       clearTimeout(tm); tm = null;
       // (11/13 14:17 사용자 '쪼개기 했는데 세로줄보다 오른쪽에서 나뉨') 창을 연 순간의 세로줄 자리(tNow)가 아니라 ✂를 누른 지금 자리로
       const tc = typeof getT === "function" ? +getT() || 0 : -1, here = tc > b.t0 + 0.04 && tc < b.t1 - 0.04;
-      const ts = +(tAt != null ? tAt : here ? tc : atHead ? tNow : (b.t0 + b.t1) / 2).toFixed(2), a = { t0: T0, t1: ts, midi: rnd(m), cut: same() }, c = { t0: ts, t1: T1, midi: rnd(m), cut: same() };
+      // (11/16 사용자 '회색이었던 노트는 쪼개기가 안 될 때가 있음') 회색(정음 없는) 막대는 정음 칸이 비어 있어 나눠도 막대가 그대로 한 덩어리였고,
+      //   '나누기만 함(cut)' 표시라 서버·미리듣기도 무시 → 회색 막대를 나누면 그 음으로 정한 두 조각(cut 아님)으로 만들고 정음 칸도 채움(서버에 정음 없던 곳 = _orig null)
+      const gh = !!b.ghost;
+      if (gh && kt) { const o_ = cv._orig || (cv._orig = {}); (cv.pts || []).forEach((p, i) => { if (p[0] >= T0 - 0.001 && p[0] <= T1 + 0.001 && p[1] != null && p[kt] == null) { if (!(i in o_)) o_[i] = null; p[kt] = Math.round(m * 100); } }); }
+      const ts = +(tAt != null ? tAt : here ? tc : atHead ? tNow : (b.t0 + b.t1) / 2).toFixed(2), a = { t0: T0, t1: ts, midi: rnd(m), cut: same() && !gh }, c = { t0: ts, t1: T1, midi: rnd(m), cut: same() && !gh };
       cv._fixes = prior.filter(x => !(x.t0 < b.t1 && x.t1 > b.t0)).concat([a, c]);
       try { fxSave(onFix, a); fxSave(onFix, c); } catch {} sndOff();
       // (11/12 21:00 사용자 '두 군데 쪼갰는데 고르면 한 음으로 크게') 길이·타이밍을 고친 음을 쪼개면 그 고침도 같은 비율로 둘로 나눔 — 안 나누면 옛 한 덩어리 막대가 조각들을 덮어 통째로 골라졌음

@@ -604,7 +604,7 @@
 <div id="v2Shade" class="v2only"></div>
 <div id="toast"></div>
 <script src="../lesson-replies.js"></script>
-<script src="../tune.js?v=20261116-1140"></script>
+<script src="../tune.js?v=20261116-1205"></script>
 <script src="../adv.js?v=20261114-2310"></script>
 <script src="../pitch-embed.js?v=20261105-1850"></script>
 
@@ -5311,8 +5311,10 @@ function pvSmoothTeach(m, teach, fps, cv, lvCol) {
     for (let i = 1; i < z.length; i++) z[i] = z[i - 1] + al * (z[i] - z[i - 1]);
     for (let i = z.length - 2; i >= 0; i--) z[i] = z[i + 1] + al * (z[i] - z[i + 1]);
     for (let i = 0; i < z.length; i++) if (teach.has(seg[i]) && Math.abs(z[i] - auto[i]) < 2) z[i] = auto[i];   // 고친 음 안쪽은 그대로(서버와 같음)
-    for (let i = 1; i < z.length; i++) { const d = z[i] - z[i - 1]; if (Math.abs(d) > slew) z[i] = z[i - 1] + Math.sign(d) * slew; }   // 앞으로
-    for (let i = z.length - 2; i >= 0; i--) { const d = z[i] - z[i + 1]; if (Math.abs(d) > slew) z[i] = z[i + 1] + Math.sign(d) * slew; }   // 뒤로
+    // (11/16 사용자 '회색 노트 쪼개고 고치면 소리가 그래프보다 낮음') 서버 _deblip처럼 선생님이 고친 칸은 바뀌는 속도 제한에서 뺌 — 예전엔 고친 칸까지 초당 900센트로 묶여
+    //   옆 조각과 보정량이 크게 다르면(예: −590 → +150센트) 0.8초 동안 끌려가 그래프(고친 음)보다 수백 센트 낮게 들렸음
+    for (let i = 1; i < z.length; i++) { if (teach.has(seg[i])) continue; const d = z[i] - z[i - 1]; if (Math.abs(d) > slew) z[i] = z[i - 1] + Math.sign(d) * slew; }   // 앞으로
+    for (let i = z.length - 2; i >= 0; i--) { if (teach.has(seg[i])) continue; const d = z[i] - z[i + 1]; if (Math.abs(d) > slew) z[i] = z[i + 1] + Math.sign(d) * slew; }   // 뒤로
     let lastT = -1e9; const dist = new Array(z.length).fill(1e9);
     for (let i = 0; i < z.length; i++) { if (teach.has(seg[i])) lastT = i; dist[i] = i - lastT; }
     lastT = 1e9; for (let i = z.length - 1; i >= 0; i--) { if (teach.has(seg[i])) lastT = i; dist[i] = Math.min(dist[i], lastT - i); }
@@ -8858,7 +8860,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261116-1140";
+const BUILD = "20261116-1205";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
