@@ -195,6 +195,13 @@
   .sum { display:flex; flex-wrap:wrap; gap:6px; padding:10px 0 4px; }
   .tabs { display:flex; gap:6px; margin:10px 0; } .tabs button { flex:1 1 auto; min-height:42px; padding:0 10px; white-space:nowrap; }
   .tabs button:not(.on) { background:transparent; color:var(--accent); border:2px solid var(--accent); }
+  #botNav { display:none; position:fixed; left:0; right:0; bottom:0; z-index:40; max-width:760px; margin:0 auto; background:#171c23; border-top:1px solid var(--line); padding-bottom:env(safe-area-inset-bottom); }
+  #vList:not(.hidden) ~ #botNav { display:flex; } #vList:not(.hidden) { padding-bottom:70px; }
+  body:has(#vList:not(.hidden)) #brTipBar { bottom:calc(56px + env(safe-area-inset-bottom)); }
+  #botNav button { flex:1; background:none; border:0; border-radius:0; color:#8da0b5; font-size:.72rem; padding:8px 0 9px; min-height:56px; position:relative; font-weight:400; } #botNav button .ic { display:block; font-size:1.25rem; line-height:1.1; }
+  #botNav button.on { color:#7fb2ff; font-weight:700; } #botNav .dot { position:absolute; top:6px; left:calc(50% + 8px); width:9px; height:9px; border-radius:50%; background:#ff7a7a; }
+  #vList .pane { display:none; } #vList[data-tab="today"] .pane[data-p="today"], #vList[data-tab="stu"] .pane[data-p="stu"], #vList[data-tab="songs"] .pane[data-p="songs"], #vList[data-tab="more"] .pane[data-p="more"] { display:block; }
+  .tabRow { display:flex; width:100%; justify-content:space-between; align-items:center; cursor:pointer; } .tabH { margin:14px 4px 4px; font-size:.95rem; color:var(--muted,#9fb0c3); }
   .oneLine { display:flex; width:100%; justify-content:space-between; align-items:center; gap:8px; text-align:left; color:var(--fg); font-weight:400; margin:6px 0 8px; }
   .todo-item { display:flex; justify-content:space-between; gap:8px; align-items:center; padding:9px 0; border-top:1px solid var(--line); cursor:pointer; }
   .todo-item:first-of-type { border-top:0; } .tdSw { touch-action:pan-y; user-select:none; -webkit-user-select:none; background:var(--card); position:relative; }
@@ -598,7 +605,7 @@
     <button id="btnSave" class="full" style="order:6">검수 저장</button>
     <p class="muted" id="saveMsg" style="order:7"></p>
   </section>
-  <style>#lgFoot{display:none}#vList:not(.hidden) ~ #lgFoot{display:block}</style><p id="lgFoot" class="muted" style="text-align:center;margin:28px 0 12px"><button type="button" id="btnLogout" class="ghost small">로그아웃</button></p>
+  <style>#lgFoot{display:none}#vList:not(.hidden)[data-tab="more"] ~ #lgFoot{display:block}</style><p id="lgFoot" class="muted" style="text-align:center;margin:28px 0 12px"><button type="button" id="btnLogout" class="ghost small">로그아웃</button></p>
 </main>
 <div id="v2Dock" class="v2only hidden"><div class="in"><span id="v2DockMsg" class="muted"></span>
   <div class="btns"><button type="button" class="ghost" id="v2Save">임시저장</button><button type="button" class="ghost" id="v2PvDock" aria-label="수강생 화면 미리보기">👀 미리보기</button><button type="button" id="v2Send" aria-label="수강생에게 전달하기">✈ 전달하기</button></div></div></div>
@@ -1238,6 +1245,14 @@ const isTeacher = (st) => st.status === "teacher";
 const daysAgo = (name) => { const d = Date.parse((name || "").slice(0, 10)); return isNaN(d) ? 99 : (Date.now() - d) / 864e5; };
 // (11/05 사용자) 선생님도 발성 연습 화면으로 들어갈 수 있게 목록 맨 위에 입구 — 선생님 계정으로 열면 기록은 저장하지 않고 연습 도구로만 써요
 const pitchLinkHtml = () => `<a class="card pitchGo" href="../pitch/" data-pitch-open="teacher" aria-label="연습 천재 열기">${typeof PitchEmbed !== "undefined" && PitchEmbed.cardInner ? PitchEmbed.cardInner("teacher") : "연습 천재"}</a>`;
+// ── 하단 탭(11/16) ──
+const BOT_TABS = [["today", "🏠", "오늘"], ["stu", "👥", "수강생"], ["songs", "🎵", "곡·연습"], ["more", "⋯", "더보기"]];
+function setBotTab(t) { if (!BOT_TABS.some(x => x[0] === t)) t = "today"; LS.set("vn_tab", t); const v = $("vList"); if (v) v.dataset.tab = t; document.querySelectorAll("#botNav [data-bt]").forEach(b => { const on = b.dataset.bt === t; b.classList.toggle("on", on); b.setAttribute("aria-current", on ? "page" : "false"); }); window.scrollTo(0, 0); }
+function ensureBotNav(tab, bells) {
+  let n = $("botNav");
+  if (!n) { n = document.createElement("nav"); n.id = "botNav"; n.setAttribute("aria-label", "하단 메뉴"); $("vList").after(n); n.addEventListener("click", (e) => { const b = e.target.closest("[data-bt]"); if (b) setBotTab(b.dataset.bt); }); }
+  n.innerHTML = BOT_TABS.map(([k, ic, nm]) => `<button type="button" data-bt="${k}" class="${k === tab ? "on" : ""}" aria-current="${k === tab ? "page" : "false"}"><span class="ic">${ic}</span>${nm}${k === "today" && bells ? `<i class="dot" aria-label="확인 대기 ${bells}건"></i>` : ""}</button>`).join("");
+}
 function paintList(data, stale) {
   data.forEach(attach);
   // (11/02 사용자 시안 ②) 원장 앱: [전체 | 작품(원장) | 강사…] — 고른 강사 것만(오늘 할 일·수강생 목록)
@@ -1306,19 +1321,27 @@ function paintList(data, stale) {
       `<div class="muted">${sub}</div></div><div class="stuBody"><div class="sum">${chips || `<span class="muted">아직 기록 없음</span>`}</div></div></div>`;
   });
   // 가입 신청·계정 연결 카드는 맨 아래(2026-10-27 사용자: 맨 위에 늦게 생겨 아래가 밀리며 엉뚱한 게 눌림)
-  $("vList").innerHTML = `<div class="row" style="gap:6px;margin:0 0 8px;flex-wrap:nowrap"><button class="ghost topBtn" id="calBtn">${IC_CAL} 레슨 캘린더</button>${isStaffApp() ? "" : `<button class="ghost topBtn" id="songBtn">🎵 곡 서랍</button><button class="ghost topBtn" id="jamBtn">🎸 합주 베스트</button>`}</div>` + oneLine + segHtml + todoHtml + `<div id="careBox"></div>` + blocks.join("") + `<details class="card" id="practiceBox"${LS.get("vn_practice_open") ? " open" : ""}><summary><b>🎤 연습·발성 도구</b> <span class="muted">연습 천재 · 연습 기록</span></summary>${pitchLinkHtml()}<div id="pitchAll"></div><div id="pitchRec"></div></details>` + (isStaffApp() ? "" : `<button class="ghost" id="nsBtn" style="width:100%;margin:4px 0 8px">＋ 신규 수강생 등록</button>`) + `<div id="joinReq">${lastJoinHtml}</div>` +
-    `<p class="muted">${stale ? "최신 내용 확인 중…" : "최신 상태"} · <a href="#" id="reload">새로고침</a> · 앱 버전 ${typeof BUILD === "string" ? BUILD : ""}</p>`;
+  // (11/16 하단 탭 4개 — 사용자 '이 구조로 고고') 한 화면에 쌓여 있던 것을 [오늘 | 수강생 | 곡·연습 | 더보기]로 나눔. 칸 전체를 한 번에 그려 두고 보이기만 바꿈(탭을 눌러도 다시 불러오지 않음 → 기존 그리기·연결 코드 그대로)
+  const tab0 = LS.get("vn_tab"), tabNow = ["today", "stu", "songs", "more"].includes(tab0) ? tab0 : "today";
+  $("vList").dataset.tab = tabNow;
+  const songRows = isStaffApp() ? "" : `<div class="card tabRow" id="songBtn" role="button"><div><b>🎵 곡 서랍</b><small class="muted" style="display:block">수업용 곡 자료 · 보컬·반주 분리, 키·속도 조절</small></div><span>›</span></div><div class="card tabRow" id="jamBtn" role="button"><div><b>🎸 합주 베스트</b><small class="muted" style="display:block">보컬+악기 구간별 고르기</small></div><span>›</span></div>`;
+  $("vList").innerHTML =
+    `<div class="pane" data-p="today"><div class="row" style="gap:6px;margin:0 0 4px;flex-wrap:nowrap;justify-content:flex-end"><button class="ghost topBtn" id="calBtn" style="max-width:190px">${IC_CAL} 레슨 캘린더</button></div>` + oneLine + segHtml + todoHtml + `<div id="careBox"></div></div>` +
+    `<div class="pane" data-p="stu">` + segHtml + blocks.join("") + (isStaffApp() ? "" : `<button class="ghost" id="nsBtn" style="width:100%;margin:4px 0 8px">＋ 신규 수강생 등록</button>`) + `<div id="joinReq">${lastJoinHtml}</div><div id="retBox"></div></div>` +
+    `<div class="pane" data-p="songs">${songRows ? `<h3 class="tabH">곡 서랍 · 합주</h3>` + songRows : ""}<h3 class="tabH">연습 도구 <span class="muted" style="font-weight:400;font-size:.85rem">수강생 연습용</span></h3><details class="card" id="practiceBox" open><summary><b>🎤 연습·발성 도구</b> <span class="muted">연습 천재 · 연습 기록</span></summary>${pitchLinkHtml()}<div id="pitchAll"></div><div id="pitchRec"></div></details></div>` +
+    `<div class="pane" data-p="more"><div class="card tabRow" id="calBtn2" role="button"><div><b>${IC_CAL} 레슨 캘린더</b><small class="muted" style="display:block">‘오늘’ 화면에서도 바로 열려요</small></div><span>›</span></div><div id="prefsBox"></div><div id="advPermBox"></div><div id="laBox"></div>` +
+    `<p class="muted">${stale ? "최신 내용 확인 중…" : "최신 상태"} · <a href="#" id="reload">새로고침</a> · 앱 버전 ${typeof BUILD === "string" ? BUILD : ""}</p></div>`;
+  ensureBotNav(tabNow, bells);
   $("reload").onclick = (e) => { e.preventDefault(); renderList(); };
-  $("calBtn").onclick = () => openCal(); if ($("songBtn")) $("songBtn").onclick = () => openSongs(); if ($("jamBtn")) $("jamBtn").onclick = () => openJam();
+  $("calBtn").onclick = () => openCal(); if ($("calBtn2")) $("calBtn2").onclick = () => openCal(); if ($("songBtn")) $("songBtn").onclick = () => openSongs(); if ($("jamBtn")) $("jamBtn").onclick = () => openJam();
   if ($("nsBtn")) $("nsBtn").onclick = () => newStudentSheet();
   if ($("oneLine")) $("oneLine").onclick = () => $("todoCard")?.scrollIntoView({ behavior: "smooth", block: "start" });
-  if ($("practiceBox")) $("practiceBox").ontoggle = () => LS.set("vn_practice_open", $("practiceBox").open ? 1 : null);
   if (!isStaffApp()) staffPortalSync().catch(() => {});
   if (isStaffApp()) asgStaffCheck().catch(() => {});
   else if (Object.keys(staffOf()).length) (listNet.asg ??= asgOwnerTodos()).then(xs => { if (!xs.length || !$("todoCard")) return;
     tdExtra = xs.map(x => `<div class="todo-item"><span>${esc(x.t)}</span><span class="chip todo">${esc(x.c)}</span></div>`).join(""); repaintTodo(); }).catch(() => {});
   $("vList").querySelectorAll("[data-tf]").forEach(b => b.onclick = () => { LS.set("vn_tfilter", b.dataset.tf); paintList(allData, stale); });
-  $("vList").insertAdjacentHTML("beforeend", `<div id="retBox"></div><div id="prefsBox"></div><div id="advPermBox"></div><div id="laBox"></div>`); try { paintRetention(allData); } catch (e) { console.warn("유지 지표", e); } paintPrefs(); paintAdvPerm(); paintLaBox(); if (laIsOn()) laStart();
+  try { paintRetention(allData); } catch (e) { console.warn("유지 지표", e); } paintPrefs(); paintAdvPerm(); paintLaBox(); if (laIsOn()) laStart();
   paintJoinRequests();
   try { paintPitchAll(data); paintRecMgr(); } catch {}
   try { paintCare(data); if (!isStaffApp() && portalUrl()) usageOf().then(() => paintCare(data)).catch(() => {}); } catch {}
