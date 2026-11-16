@@ -951,7 +951,12 @@
     // (11/06 16:02 사용자) 끄는 동안엔 저장 안 함 → 손을 뗄 때 한 번만(제자리로 돌아오면 기록 없음) — 되돌리기 기록에 중간 단계가 안 남게
     // (11/16 16:00 사용자 '음표를 잡고 미세하게 올리려 하면 음이 아래로 순간 점프한 뒤 움직임') 회색(자동 보정 안 한) 음은 막대가 가까운 반음에 그려져 있어
     //   끌기 시작하자마자 '그 반음'으로 고친 셈이 되어 소리·선이 부른 높이에서 그 반음으로 먼저 뛰었음 → 아직 안 고친 회색 음은 지금 부른 높이(머문 곳 기준)에서 시작
-    const ghostBase = () => { if (!b.ghost || Math.abs(m - m0) > 1e-6 || (cv._fixes || []).some(f => f && !f.off && !f.cut && f.midi != null && f.t0 < b.t1 - 0.001 && f.t1 > b.t0 + 0.001)) return null; try { const P = cv.pts || [], mm = fixAbs({ pts: P, _fixes: [{ t0: b.t0, t1: b.t1, midi: 0 }] }); let s_ = 0, n_ = 0; for (const [i, v] of mm) { if (P[i] && P[i][1] != null) { s_ += P[i][1] - v; n_++; } } return n_ ? s_ / n_ / 100 : null; } catch { return null; } };
+    // (11/16 17:09 사용자 '여전히 음 상하 조정 꾹 눌렀을 때 음이 아래에서 시작') 회색 음뿐 아니라 자동 보정 음도: 아직 선생님이 안 고친 음은 '지금 들리는 높이'(파란 선)에서 시작
+    //   — 막대(서버가 고른 반음) 높이로 먼저 정해 버리면 파란 선·소리가 그 반음으로 먼저 뛰었다가 움직임
+    const ghostBase = () => { if (Math.abs(m - m0) > 1e-6 || (cv._fixes || []).some(f => f && !f.off && !f.cut && f.midi != null && f.t0 < b.t1 - 0.001 && f.t1 > b.t0 + 0.001)) return null;
+      try { const P = cv.pts || [], kc_ = 2 + (cv.levels || []).length - 1, mm = fixAbs({ pts: P, _fixes: [{ t0: b.t0, t1: b.t1, midi: 0 }] }); let s_ = 0, n_ = 0;
+        for (const [i, v] of mm) { const p = P[i]; if (!p || p[1] == null) continue; const heard = !b.ghost && kc_ >= 2 && p[kc_] != null ? p[kc_] : p[1]; s_ += heard - v; n_++; }   // 들리는 높이 − (부른 높이 − 머문 곳 기준) = 이 음을 그대로 두는 정음
+        return n_ ? Math.round(s_ / n_) / 100 : null; } catch { return null; } };
     if (st) { st.onBarDrag = (k, start) => { if (start) { const gb = ghostBase(); st._dragBase = gb != null ? gb : m; } const nm_ = rnd(st._dragBase + k); if (nm_ !== m) { if (Math.abs(nm_ - m) > 0.5) buzz(20); else if (Math.floor(nm_ * 20 + 1e-6) !== Math.floor(m * 20 + 1e-6)) buzz(10);   /* (11/06 21:59 사용자) 반음 한 칸 = 진동 · 미세는 5센트마다 짧게 */ m = nm_; st.focusC = m * 100; st.focusMin = true; paint(); preview(); sndFor(m, 400); } }; /* 끄는 음이 화면 밖으로 나가면 그만큼만 따라감 */
       st.onBarDragEnd = () => { if (st._dragBase != null && Math.abs(m - st._dragBase) > 0.004) persist(); st._dragBase = null; }; }
     const nb = d.querySelector("[data-p]");   // 음 이름을 누르는 동안 그 음 소리
