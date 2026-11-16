@@ -822,10 +822,10 @@
   function tone(m) {
     try { toneCtx ??= new (G.AudioContext || G.webkitAudioContext)(); if (toneCtx.state === "suspended") toneCtx.resume(); } catch { return; }
     const c = toneCtx; if (toneNow && toneNow.m === m && performance.now() - toneNow.at < 80) return;
-    if (!toneOut) { try { toneOut = c.createDynamicsCompressor(); toneOut.threshold.value = -14; toneOut.knee.value = 0; toneOut.ratio.value = 20; toneOut.attack.value = 0.002; toneOut.release.value = 0.1; toneOut.connect(c.destination); } catch { toneOut = c.destination; } }
+    if (!toneOut) { try { toneOut = c.createDynamicsCompressor(); toneOut.threshold.value = -8; toneOut.knee.value = 0; toneOut.ratio.value = 20; toneOut.attack.value = 0.002; toneOut.release.value = 0.1; toneOut.connect(c.destination); } catch { toneOut = c.destination; } }
     if (toneNow) { const o_ = toneNow, t_ = c.currentTime; toneNow = null; try { o_.g.gain.cancelScheduledValues(t_); o_.g.gain.setValueAtTime(o_.g.gain.value, t_); o_.g.gain.linearRampToValueAtTime(0, t_ + 0.015); o_.os.forEach(o => o.stop(t_ + 0.03)); } catch {} }   // 앞 소리는 빨리(15ms) 꺼서 겹치지 않게
     const f = 440 * 2 ** ((m - 69) / 12), g = c.createGain(), now = c.currentTime;
-    g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(0.14, now + 0.008); g.gain.exponentialRampToValueAtTime(0.06, now + 0.6); g.connect(toneOut);
+    g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(0.25, now + 0.008); g.gain.exponentialRampToValueAtTime(0.107, now + 0.6);   /* (11/16 17:00 사용자 '피아노 소리 5dB 키워') 0.14→0.25(+5dB) · 제한기 문턱도 −14→−8dB(키운 만큼 안 눌리게, 겹침 보호는 그대로) */ g.connect(toneOut);
     const os = [[1, 1], [2, 0.3], [3, 0.12]].map(([k, a]) => { const o = c.createOscillator(), ga = c.createGain(); o.type = "sine"; o.frequency.value = f * k; ga.gain.value = a; o.connect(ga); ga.connect(g); o.start(now); return o; });
     toneNow = { g, os, m, at: performance.now() };
   }
