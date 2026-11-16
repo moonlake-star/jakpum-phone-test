@@ -2,7 +2,7 @@
 const assert = require("assert"), fs = require("fs"), path = require("path");
 const T = fs.readFileSync(path.join(__dirname, "..", "teacher", "index.html"), "utf8");
 const grab = (name) => { const i = T.indexOf("function " + name + "("); assert.ok(i > 0, name); let d = 0, j = T.indexOf("{", i); for (; j < T.length; j++) { if (T[j] === "{") d++; else if (T[j] === "}" && --d === 0) break; } return T.slice(i, j + 1); };
-const env = new Function(grab("pvBins") + grab("pvBadSpans") + grab("pvFtrue") + "; return { pvBadSpans, pvFtrue };")();
+const env = new Function(grab("pvBins") + grab("pvBadSpans") + grab("pvOctSpans") + grab("pvFtrue") + "; return { pvBadSpans, pvFtrue };")();
 // 25칸/초 · 1~2초는 옥타브를 바로잡아 부른 높이 선이 있음(6700) · 3~3.5초는 믿을 수 없는 높이라 선이 없음
 const pts = []; for (let i = 0; i < 125; i++) { const t = i / 25; pts.push([t, t >= 3 && t <= 3.5 ? null : 6700, 6700, 6700]); }
 const cv = { fps: 25, levels: [3], pts, bad: [[1.0, 2.0], [3.0, 3.5]] };
@@ -13,6 +13,11 @@ const A = { t: Float64Array.from([0.5, 1.5, 2.5]), f: Float64Array.from([392, 78
 const ft = env.pvFtrue(cv, A, 0);
 assert.ok(ft && Math.abs(ft[1] - 392) < 1 && ft[0] === 392 && ft[2] === 392);
 assert.strictEqual(env.pvFtrue(cv, { t: Float64Array.from([0.5]), f: Float64Array.from([392]) }, 0), null, "옥타브 틀린 곳 없으면 null(예전과 같은 계산)");
+// (11/16 13:22 '예전엔 미처 몰랐어요 3:08 보정 후 = 보정 전') 서버가 옥타브 오류로 표시하지 않은 곳은 폰에서 옥타브 다르게 읽어도 건드리지 않음(원음 그대로 조각이 번지지 않게)
+const cv2 = { fps: 25, levels: [3], pts, bad: [[1.0, 1.2], [3.0, 3.5]], bad_raw: [[3.0, 3.5]] };
+const A2 = { t: Float64Array.from([1.1, 1.5, 1.9]), f: Float64Array.from([784, 784, 784]) }, ft2 = env.pvFtrue(cv2, A2, 0);
+assert.ok(ft2 && Math.abs(ft2[0] - 392) < 1 && ft2[1] === 784 && ft2[2] === 784, "옥타브 구간(1.0~1.2) 안만 고침");
+assert.strictEqual(env.pvFtrue({ ...cv2, bad: [[3.0, 3.5]] }, A2, 0), null, "옥타브 구간 없으면 고치지 않음");
 // Praat 엔진: 옥타브 조각 나누기
 global.self = {}; const Core = require(path.join(__dirname, "..", "praat", "praat-core.js"));
 const t = Float64Array.from({ length: 100 }, (_, i) => i * 0.01), f = Float64Array.from(t, (x) => x >= 0.3 && x < 0.8 ? 784 : 392), ftr = Float64Array.from(t, () => 392);

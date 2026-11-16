@@ -5217,9 +5217,18 @@ function pvBadSpans(cv) {
   return ((cv && cv.bad) || []).map((x) => ({ t0: +x[0], t1: +x[1] })).filter((x) => { if (x.t1 - x.t0 <= 0.04) return false; let n = 0, h = 0; for (const p of P) { if (p[0] < x.t0) continue; if (p[0] > x.t1) break; n++; if (p[1] != null) h++; } return !n || h < n / 2; });
 }
 // 분석점마다 진짜 높이(Hz): Praat이 한 옥타브 잘못 읽은 곳은 서버가 바로잡은 부른 높이 선(1열)에 맞춰 옥타브만 고침 — 서버 analyze의 f_true와 같은 뜻
+// (11/16 13:22 사용자 '예전엔 미처 몰랐어요 3:08 — 보정 후가 보정 전과 같음') 폰에서 다시 잰 높이와 그래프 선을 곡 전체에서 비교해 옥타브 오인식을 찾았더니
+//   서버가 옥타브 오류로 본 곳(0.05~0.4초)보다 훨씬 넓게(한 조각 점의 절반 이상) '옥타브'로 잡혀, 펄스를 못 맞춘 조각이 통째로 원음 그대로 → 보정 후 = 보정 전.
+//   → 서버가 옥타브 오류로 표시한 구간(bad 중 bad_raw가 아닌 곳)에서만 진짜 높이로 고침(서버 _oct_mask와 같은 자리)
+function pvOctSpans(cv) {
+  if (!cv || !Array.isArray(cv.bad)) return [];
+  const br = Array.isArray(cv.bad_raw) ? cv.bad_raw : [], inRaw = (x) => br.some((r) => r[0] <= x[0] + 0.005 && r[1] >= x[1] - 0.005);
+  return cv.bad.filter((x) => !inRaw(x)).map((x) => [+x[0] - 0.02, +x[1] + 0.02]);
+}
 function pvFtrue(cv, A, t0) {
-  const fps = cv.fps || 25, raw = pvBins(cv, 1), out = Float64Array.from(A.f); let any = false;
-  for (let i = 0; i < A.t.length; i++) { const f = A.f[i]; if (!(f > 0)) continue; const x = (t0 + A.t[i]) * fps, k0 = Math.round(x), r = raw.get(k0) ?? raw.get(k0 - 1) ?? raw.get(k0 + 1); if (r == null) continue;
+  const fps = cv.fps || 25, raw = pvBins(cv, 1), out = Float64Array.from(A.f), sp = pvOctSpans(cv); let any = false;
+  if (!sp.length) return null;
+  for (let i = 0; i < A.t.length; i++) { const f = A.f[i]; if (!(f > 0)) continue; const tt = t0 + A.t[i]; if (!sp.some((s) => tt >= s[0] && tt <= s[1])) continue; const x = tt * fps, k0 = Math.round(x), r = raw.get(k0) ?? raw.get(k0 - 1) ?? raw.get(k0 + 1); if (r == null) continue;
     const c = 1200 * Math.log2(f / 440) + 6900, k = Math.round((r - c) / 1200); if (k && Math.abs(r - c - 1200 * k) < 300) { out[i] = f * 2 ** k; any = true; } }
   return any ? out : null;
 }
@@ -8903,7 +8912,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261116-1315";
+const BUILD = "20261116-1335";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
