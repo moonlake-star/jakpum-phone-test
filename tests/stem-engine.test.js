@@ -104,7 +104,7 @@ function world(opt = {}) {
     vm.runInContext(T.slice(a, b), ctx); const qs = vm.runInContext("quietSave", ctx);
     const p = qs(() => new Promise(r => setTimeout(() => { seen.push(g.__quiet); r(); }, 20))); assert.strictEqual(g.__quiet, 1, "저장 중엔 busy 억제"); await p; assert.strictEqual(g.__quiet, 0); assert.deepStrictEqual(seen, [1]);
     await qs(() => Promise.reject(new Error("x"))); assert.strictEqual(g.__quiet, 0, "실패해도 원복"); await qs(() => { throw new Error("sync"); }); assert.strictEqual(g.__quiet, 0);
-    const rb = T.indexOf("const readBlob = "); const line = T.slice(rb, T.indexOf("\n", rb));
+    const rb = T.indexOf("const ABC = "), END = "return quiet ? p : autoBusy(p, true); };"; const line = T.slice(rb, T.indexOf(END, rb) + END.length);   // (11/16) 오디오 보관 코드(abc*)가 readBlob 앞에 붙음
     const calls = []; const f = vm.runInNewContext("(function(autoBusy, api, DRIVE){" + line + "\n; return readBlob; })", {})((p) => { calls.push("busy"); return p; }, async () => ({ blob: async () => "B" }), "d");
     assert.strictEqual(await f("id", false, true), "B"); assert.deepStrictEqual(calls, [], "quiet 읽기는 팝업 경로 안 탐"); await f("id"); assert.deepStrictEqual(calls, ["busy"], "기존 읽기는 그대로");
     console.log("stem-engine: busy 억제 ok"); }

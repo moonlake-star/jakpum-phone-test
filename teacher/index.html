@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>작품 보컬노트 · 선생님</title>
 <link rel="manifest" href="manifest.webmanifest">
+<link rel="preconnect" href="https://www.googleapis.com" crossorigin>
 <link rel="icon" href="../brand/app-192.png?v=20261031b">
 <meta name="theme-color" content="#17191d">
 <script src="https://accounts.google.com/gsi/client" async></script>
@@ -774,7 +775,39 @@ async function list(folder) {
   return out;
 }
 const readJSON = (id) => autoBusy((async () => (await api(`${DRIVE}/files/${id}?alt=media`)).json())(), true);
-const readBlob = (id, fresh, quiet) => { const p = (async () => (await api(`${DRIVE}/files/${id}?alt=media${fresh ? "&_=" + Date.now() : ""}`, fresh ? { cache: "no-store" } : {})).blob())(); return quiet ? p : autoBusy(p, true); };   // quiet: 곡 플레이어는 카드 안 글자만(전체 화면 팝업 없음)   // 받는 동안(본문 포함) 안내
+// (11/16 사용자: 페이지 로딩·재생이 느림) 같은 녹음을 다시 들을 때 처음부터 다시 받지 않음 — 이 폰의 저장소(Cache Storage)에 '오디오 파일만' 보관(최대 40개)
+// 다시 쓸 때 드라이브에서 파일 지문(md5)·크기가 같은지 확인(1분 안에 받은 것은 확인 없이 바로). 다르면 새로 받음. '새로 받기(fresh)'는 항상 그대로 새로 받음
+const ABC = "vn-audio-v1", ABC_MAX = 40, ABC_FRESH_MS = 60 * 1000, abcReq = (id) => new Request("https://audio-cache.local/" + encodeURIComponent(id));
+const abcOn = () => typeof caches !== "undefined" && caches && typeof caches.open === "function";
+const abcMeta = (id) => api(`${DRIVE}/files/${id}?fields=md5Checksum,size`).then(r => r.json()).catch(() => null);
+async function abcGet(id) {
+  try {
+    if (!abcOn()) return null;
+    const c = await caches.open(ABC), hit = await c.match(abcReq(id)); if (!hit) return null;
+    if (Date.now() - (+hit.headers.get("x-at") || 0) > ABC_FRESH_MS) {
+      const m = await abcMeta(id);
+      if (!m || !m.md5Checksum || hit.headers.get("x-md5") !== m.md5Checksum || hit.headers.get("x-size") !== String(m.size)) { await c.delete(abcReq(id)); return null; }
+    }
+    return await hit.blob();
+  } catch { return null; }
+}
+async function abcPut(id, blob, meta) {
+  try {
+    if (!abcOn() || !meta || !meta.md5Checksum || String(meta.size) !== String(blob.size)) return;   // 지문·크기를 못 얻었거나 받은 크기가 다르면 보관하지 않음(바뀐 파일을 옛 것으로 오해하지 않게)
+    if (!/^audio\//.test(blob.type || "") || blob.size < 100000 || blob.size > 60e6) return;
+    const c = await caches.open(ABC);
+    await c.put(abcReq(id), new Response(blob, { headers: { "Content-Type": blob.type, "x-md5": meta.md5Checksum, "x-size": String(meta.size), "x-at": String(Date.now()) } }));
+    const ks = await c.keys(); for (let n = 0; n < ks.length - ABC_MAX; n++) await c.delete(ks[n]);
+  } catch {}
+}
+const abcClear = async () => { try { if (abcOn()) await caches.delete(ABC); } catch {} };
+const readBlob = (id, fresh, quiet) => { const p = (async () => {
+  if (!fresh) { const hit = await abcGet(id); if (hit) return hit; }
+  const metaP = fresh ? null : abcMeta(id);   // 받는 것과 동시에 지문 확인(기다림 늘지 않음)
+  const bl = await (await api(`${DRIVE}/files/${id}?alt=media${fresh ? "&_=" + Date.now() : ""}`, fresh ? { cache: "no-store" } : {})).blob();
+  if (metaP) metaP.then(m => abcPut(id, bl, m));
+  return bl;
+})(); return quiet ? p : autoBusy(p, true); };   // quiet: 곡 플레이어는 카드 안 글자만(전체 화면 팝업 없음)   // 받는 동안(본문 포함) 안내
 async function writeJSON(folder, name, obj, existingId) {
   const body = new Blob([JSON.stringify(obj, null, 1)], { type: "application/json" });
   if (existingId) { await api(`${UPLOAD}/files/${existingId}?uploadType=media`, { method: "PATCH", body }); return existingId; }
@@ -8719,6 +8752,7 @@ document.addEventListener("click", (e) => {
 $("btnLogout").onclick = () => {
   if (!confirm("로그아웃할까요? 다시 들어오려면 구글 로그인이 필요해요. (이 폰에 저장된 녹음·설정은 지워지지 않아요)")) return;
   for (const k of ["vn_tok", "vn_ctok", "vn_hint", "vn_cfg_id", "vn_cfg", "vn_list"]) LS.set(k, null);
+  abcClear();   // (11/16) 보관해 둔 오디오도 함께 지움
   try { const t = token; token = null; if (t && window.google?.accounts?.oauth2) google.accounts.oauth2.revoke(t, () => {}); } catch {}
   try { google.accounts.id.disableAutoSelect(); } catch {}
   location.reload();
