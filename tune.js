@@ -1222,7 +1222,11 @@
       for (const r of bars) { const t0 = +r.t0.toFixed(2), t1 = +r.t1.toFixed(2), f = was ? { t0, t1, midi: null } : { t0, t1, midi: null, off: true };
         nf = nf.filter(x => !(x.t0 < r.t1 && x.t1 > r.t0)); if (!was) nf.push({ t0: r.t0, t1: r.t1, midi: null, off: true }); pend.set(t0 + "|" + t1, f); }
       cv._fixes = nf.sort((x, y) => x.t0 - y.t0); clearTimeout(ptm); ptm = setTimeout(flush, 450);
-      stEl.textContent = was ? `🎤 ${bars.length}음 원음 끔 · 자동 보정 · 저장 중…` : `🎤 ${bars.length}음 보정 안 함(부른 그대로) · 저장 중…`; paint(); };
+      stEl.textContent = was ? `🎤 ${bars.length}음 원음 끔 · 자동 보정 · 저장 중…` : `🎤 ${bars.length}음 보정 안 함(부른 그대로) · 저장 중…`; paint();
+      // (11/16 15:58 사용자 '구간 선택 후 원음 누르면 구간 선택이 풀리고, 창 스크롤 없이 그 자리에') 바로 저장하고 고르기를 끝냄 — 화면(창·그래프) 위치는 그대로 둠
+      clearTimeout(ptm); const keep = [document.scrollingElement || document.documentElement, ...[...document.querySelectorAll("#tuneFs, #tuneFs *")].filter(el => el.scrollTop > 0 || el.scrollLeft > 0)].map(el => [el, el.scrollTop, el.scrollLeft]);
+      const back = () => keep.forEach(([el, y, x]) => { if (el.isConnected) { el.scrollTop = y; el.scrollLeft = x; } });
+      close_(); back(); requestAnimationFrame(() => { back(); requestAnimationFrame(back); }); setTimeout(back, 120); setTimeout(back, 350); };
     const core = () => { flush(); if (st.mStr && st.mStr.active()) st.mStr.end(); st.mMode = false; st.msel = null; st.onMSel = null; st.mStr = null; d.remove(); };
     const leave = () => { if (sheetClose === close_) sheetClose = null; try { if (history.state && history.state.tuneSheet) { const nl = dropL(); skipPop = true; history.go(-1 - nl); } } catch {} };
     const close_ = (fromPop) => { core(); saveToast(); if (bot) bot._h0 = 0; if (fromPop === true) { if (sheetClose === close_) sheetClose = null; } else leave(); if (st && st.dock) st.dock(); };
