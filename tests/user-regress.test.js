@@ -48,4 +48,9 @@ assert.ok(T.includes("Math.abs(lmd[vi] - gm) > 150") && T.includes("sv0[Math.flo
   const cv = { levels: [3], pts: P, _orig: {}, _fixes: [{ t0: 0, t1: 0.76, midi: null, off: true }] }; syncCorr(cv);
   P.forEach(p => assert.ok(Math.abs(p[2] - p[1]) < 1, `원음 = 부른 높이: ${p[1]} vs ${p[2]}`));
   cv._fixes = []; syncCorr(cv); P.forEach(p => assert.ok(Math.abs(p[2] - 5700) < 1, "원음 끄면 서버 보정선으로")); }
+// ⑫ 11/17 08:59 '음표 막대가 사라지는 현상' — 한 음을 고치거나 원음으로 바꿔도 끝만 살짝 겹친 옆 음 고침은 남음
+{ const fxDrop = new Function(T.match(/  function fxDrop\(list, t0, t1\) \{[\s\S]*?return out; \}/)[0] + "; return fxDrop;")();
+  const L = [{ t0: 1.0, t1: 1.44, midi: 64 }, { t0: 1.4, t1: 1.9, midi: 64 }, { t0: 1.9, t1: 2.3, midi: 64 }];
+  const o = fxDrop(L, 1.4, 1.94); assert.strictEqual(o.length, 1 + 1, "가운데만 빠지고 양옆 남음"); assert.ok(o[0].t0 === 1.0 && o[0].t1 === 1.4 && o[1].t0 === 1.94);
+  assert.ok(/function fxDropT\(list, t0, t1\)/.test(H) && H.includes("const cur = fxDropT(r.target_fixes, f.t0, f.t1);")); }
 console.log("user-regress ok");
