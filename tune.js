@@ -336,6 +336,10 @@
   }
   // (11/16 17:46 사용자 '2를 골랐는데 1과 함께 골라짐') 이웃 막대는 끝이 0.04초쯤 겹쳐 그려짐(마지막 점 + 한 칸) → 그만큼 겹친 이웃까지 고른 것으로 칠하던 것.
   //   고른 음 = 시작이 같거나, 짧은 쪽 길이의 절반 넘게 겹친 막대만
+  // (11/17 08:59 사용자 '음표 막대가 사라지는 현상') 막대 끝이 옆 막대와 0.04초쯤 겹쳐 그려져서, 한 음을 고치거나 원음으로 바꾸면 '겹친 고침 지우기'에 옆 음 고침까지 지워졌음
+  //   → 같은 음(시작이 같거나 절반 넘게 겹침)만 지우고, 끝만 살짝 겹친 옆 음은 겹친 만큼만 잘라 그대로 둠
+  function fxDrop(list, t0, t1) { const out = []; for (const x of list || []) { if (!x) continue; const ov = Math.min(x.t1, t1) - Math.max(x.t0, t0); if (ov <= 0) { out.push(x); continue; }
+      if (Math.abs(x.t0 - t0) < 0.02 || ov > 0.5 * Math.min(x.t1 - x.t0, t1 - t0)) continue; const y = { ...x }; if (y.t0 < t0) y.t1 = +t0.toFixed(4); else y.t0 = +t1.toFixed(4); if (y.t1 - y.t0 > 0.02) out.push(y); } return out; }
   function selHit(sel, b) { if (Math.abs(b.t0 - sel.t0) < 0.02) return true; const ov = Math.min(sel.t1, b.t1) - Math.max(sel.t0, b.t0); return ov > 0.5 * Math.min(sel.t1 - sel.t0, b.t1 - b.t0); }
   function tgCol(cv) { return cv.target ? 2 + (cv.levels || []).length : 0; }   // 정음(목표음) 열(서버 v2부터)
   // (11/06 21:50 사용자) 음표를 위아래로 옮기면(반음·미세) 하늘색 '보정 후' 선도 바로 같이 움직이게: 그 구간 보정 후 음높이 = 서버 값 + (새 정음 − 서버가 고른 정음) (근사 · 정확한 건 완성본 다시 만들기 뒤)
@@ -516,7 +520,7 @@
           if (gr && gr.v.length >= 3 && lmd[vi] != null) { const gm = gMed(), l2 = lmd[vi + 2]; if (Math.abs(lmd[vi] - gm) > 150 && (l2 == null || Math.abs(l2 - gm) > 150)) flush(); }
           if (!gr) gr = { t0: p[0], t1: p[0], tl: p[0], v: [] }; gr.v.push(p[1]); gr.tl = p[0]; gr.t1 = p[0] + 0.04; }
         flush(); }
-      for (const b of bars) { const f = (cv._fixes || []).find(x => x.t0 < b.t1 && x.t1 > b.t0);   // 선생님이 고친 정음 = 노란 테두리(나누기만 한 조각은 경계 틈만)
+      for (const b of bars) { const f = (cv._fixes || []).find(x => selHit(x, b));   // 선생님이 고친 정음 = 노란 테두리(나누기만 한 조각은 경계 틈만)
         if (f && !f.cut) { g.strokeStyle = f.off ? "#ff9ec0" : "#ffd27a"; g.lineWidth = 2; g.strokeRect(b.x0, b.y - b.h / 2, Math.max(4, b.x1 - b.x0), b.h);
           if (f.off && b.x1 - b.x0 > 22) { g.font = "bold 10.5px system-ui, sans-serif"; g.textBaseline = "middle"; g.fillStyle = "#ffd3e2"; g.fillText("🎤 원음", Math.max(L + 2, b.x0) + 3, b.y - b.h / 2 - 8); } }
         if (f && f.cut) { g.fillStyle = "#0f1115"; g.fillRect(b.x0 - 1.5, b.y - b.h / 2 - 3, 3, b.h + 6); }
@@ -936,7 +940,7 @@
     const keepFix = () => !!b.ghost || !(same() && !isCut);   // 회색 막대는 같은 음이어도 '이 음으로 맞춤' 기록   // 서버가 고른 음 그대로면 기록 없음(나눈 조각은 나눔 표시로 남김)
     const preview = () => { const o_ = cv._orig || (cv._orig = {}); for (const i in snap) { if (!(i in o_)) o_[i] = snap[i]; cv.pts[i][kt] = Math.round(m * 100); }
       for (const x of cv._tedits || []) if (Math.abs(x.t0 - b.t0) < 0.02 && Math.abs(x.t1 - b.t1) < 0.02) x.c = Math.round(m * 100);   // (11/06) 옮긴 음의 막대도 새 음 높이로
-      cv._fixes = prior.filter(x => !(x.t0 < b.t1 && x.t1 > b.t0)).concat(keepFix() ? [{ t0: T0, t1: T1, midi: rnd(m), ...(isCut && same() ? { cut: true } : {}) }] : []); };
+      cv._fixes = fxDrop(prior, b.t0, b.t1).concat(keepFix() ? [{ t0: T0, t1: T1, midi: rnd(m), ...(isCut && same() ? { cut: true } : {}) }] : []); };
     let tm = null;
     const persist = () => { clearTimeout(tm); stEl.textContent = "저장 중…"; tm = setTimeout(() => { tm = null; try { fxSave(onFix, { t0: T0, t1: T1, midi: keepFix() ? rnd(m) : null, ...(isCut && same() ? { cut: true } : {}) }); } catch {} commit(); stEl.textContent = "✓ 저장됨"; }, 450); };
     const core = () => { if (st) { st.selSnd = null; st.snapSel = null; st.stepSel = null; st.advRepaint = null; st.cutAtNow = null; } try { sndOff(); } catch {} if (tTm) { clearTimeout(tTm); tTm = null; tSave(); commit(); } if (st) { if (st._dragBase != null && Math.abs(m - st._dragBase) > 0.004) persist(); st._dragBase = null; st.onBarDrag = null; st.onBarDragX = null; st.onBarDragEnd = null; st.onBarDragXEnd = null; st.stopAt = 0; } if (tm) { clearTimeout(tm); tm = null; try { fxSave(onFix, { t0: T0, t1: T1, midi: keepFix() ? rnd(m) : null, ...(isCut && same() ? { cut: true } : {}) }); } catch {} commit(); } toneOff(); if (st) st.sel = null; d.remove(); };
@@ -997,7 +1001,7 @@
       // (11/16 16:12 사용자 '쪼개기만 했는데 보정 라인이 이상하게 바뀜') 회색 막대를 나누면 그 반음으로 정한 두 조각이 되어 부른 선이 크게 끌려갔음
       //   → 회색 조각도 '나누기만 함'(cut, 서버·미리듣기·그래프 모두 무시) + gcut 표시(회색 막대를 그 자리에서 둘로 그림) · 음을 옮기면 그때 고친 음이 됨
       const ts = +(tAt != null ? tAt : here ? tc : atHead ? tNow : (b.t0 + b.t1) / 2).toFixed(2), a = { t0: T0, t1: ts, midi: rnd(m), cut: same() || gh, ...(gh ? { gcut: true } : {}) }, c = { t0: ts, t1: T1, midi: rnd(m), cut: same() || gh, ...(gh ? { gcut: true } : {}) };
-      cv._fixes = prior.filter(x => !(x.t0 < b.t1 && x.t1 > b.t0)).concat([a, c]);
+      cv._fixes = fxDrop(prior, b.t0, b.t1).concat([a, c]);
       try { fxSave(onFix, a); fxSave(onFix, c); } catch {} sndOff();
       // (11/12 21:00 사용자 '두 군데 쪼갰는데 고르면 한 음으로 크게') 길이·타이밍을 고친 음을 쪼개면 그 고침도 같은 비율로 둘로 나눔 — 안 나누면 옛 한 덩어리 막대가 조각들을 덮어 통째로 골라졌음
       { const te = (cv._tedits || []).find(x => x.t0 < ts - 0.01 && x.t1 > ts + 0.01);
@@ -1025,7 +1029,7 @@
       if (!L.length) { stEl.textContent = "되돌릴 저장이 없어요"; return; }
       const s_ = L.pop(); m = s_.m; paint(); pSaveNow(); if (s_.t) tSet(s_.t); saved = s_; stEl.textContent = "↺ 직전 저장으로 · 저장됨"; try { sndFor(m, 500); } catch {} };
     const toOrig = () => { clearTimeout(tm); tm = null; m = mO; paint(); for (const i in snap) cv.pts[i][kt] = i in o0 ? o0[i] : snap[i];   // m = mO; paint(); — 처음(서버가 고른) 음
-      cv._fixes = prior.filter(x => !(x.t0 < b.t1 && x.t1 > b.t0)); try { fxSave(onFix, { t0: T0, t1: T1, midi: null }); } catch {}
+      cv._fixes = fxDrop(prior, b.t0, b.t1); try { fxSave(onFix, { t0: T0, t1: T1, midi: null }); } catch {}
       tOrig(); if (uni && advBox) { try { G.TuneAdv.resetNote(st, cv, b); G.TuneAdv.panel(advBox, b, st, cv); placeOrg(); } catch {} } H[hk] = []; saved = curS(); stEl.textContent = "↺ 자동 보정으로 · 저장됨"; };
     const askOrig = () => { const old = (host.querySelector(".tfCfm")); if (old) old.remove();
       const cf = document.createElement("div"); cf.className = "tfCfm"; cf.setAttribute("role", "dialog");
@@ -1048,10 +1052,10 @@
           try { cv.onOctave(b.t0, b.t1, dd); } catch (e3) { console.warn("옥타브", e3); } paintO(); stEl.textContent = dd ? `🎚 인식 한 옥타브 ${dd > 0 ? "위" : "아래"} · 저장됨` : "🎚 옥타브 표시 지움 · 저장됨"; });
         host.appendChild(cf); }; }
     // (11/09 12:39 사용자 '자동 보정 선이 맘에 안 들어 원본으로 — 그런데 그대로') '↺ 자동' = 선생님 고침만 지움(자동 보정은 남음) · '🎤 원음' = 이 음은 보정 안 함(부른 그대로)
-    const rawB = d.querySelector("[data-raw]"); if (rawB) { const isRaw = () => (cv._fixes || []).some(x => x.off && x.t0 < b.t1 && x.t1 > b.t0); rawB.classList.toggle("on", isRaw());
+    const rawB = d.querySelector("[data-raw]"); if (rawB) { const isRaw = () => (cv._fixes || []).some(x => x.off && selHit(x, b)); rawB.classList.toggle("on", isRaw());
       rawB.addEventListener("pointerdown", (e) => e.stopPropagation());
       rawB.onclick = (e) => { e.stopPropagation(); clearTimeout(tm); tm = null; const was = isRaw(), f = was ? { t0: T0, t1: T1, midi: null } : { t0: T0, t1: T1, midi: null, off: true };
-        cv._fixes = prior.filter(x => !(x.t0 < b.t1 && x.t1 > b.t0)).concat(was ? [] : [{ t0: b.t0, t1: b.t1, midi: null, off: true }]); try { fxSave(onFix, f); } catch {}
+        cv._fixes = fxDrop(prior, b.t0, b.t1).concat(was ? [] : [{ t0: b.t0, t1: b.t1, midi: null, off: true }]); try { fxSave(onFix, f); } catch {}
         rawB.classList.toggle("on", !was); saved = curS(); stEl.textContent = was ? "🎤 원음 끔 · 자동 보정 · 저장됨" : "🎤 이 음은 보정 안 함(부른 그대로) · 저장됨"; }; }
     d.querySelectorAll("[data-r],[data-tr]").forEach(x => { let hold = null, fired = false;
       const stop = () => { clearTimeout(hold); hold = null; x.classList.remove("hold"); };
