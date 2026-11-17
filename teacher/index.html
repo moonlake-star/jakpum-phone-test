@@ -5099,7 +5099,9 @@ function paintProg(r, clientStage) {
   const leftTxt = r.status === "done" ? "완료!" : r.status === "error" ? "" : left > 5 ? `약 ${left >= 60 ? Math.floor(left / 60) + "분 " : ""}${Math.round(left % 60)}초 남음` : "거의 다 됐어요 (예상보다 조금 걸리는 중)";
   // 단계 목록(서버 퍼센트 기준). 두 파일이거나 이미 분리한 곡은 'AI 분리' 단계 없음
   const sep = r.mode === "single" && !r.render_count;
-  const steps = [["파일 올리기", 0], ["서버 시작", 1], ...(sep ? [["AI가 보컬·MR 나누기", 20]] : []), ["소리·음정 다듬기", sep ? 80 : 30], ["완성본 저장", 92], ["완료", 100]];
+  // (11/18 08:33 사용자 '다시 만들기인데 파일 올리기? 매번 mp3로 압축해 올리면 음질이 계속 깎임') 다시 만들기는 폰에서 아무 소리도 안 올림 —
+  //   서버가 드라이브 '원본' 폴더의 무손실 WAV(원본 녹음·분리_보컬·분리_MR)로 처음부터 다시 만듦 → 첫 단계 이름을 사실대로
+  const steps = [[r.render_count ? "다시 만들기 요청(원본 WAV로)" : "파일 올리기", 0], ["서버 시작", 1], ...(sep ? [["AI가 보컬·MR 나누기", 20]] : []), ["소리·음정 다듬기", sep ? 80 : 30], ["완성본 저장", 92], ["완료", 100]];
   const nowI = r.status === "done" ? steps.length - 1 : Math.max(1, steps.reduce((k, [, p], i) => (shown >= p ? i : k), 1));
   const err = r.status === "error";
   $("vMkJob").innerHTML = `<div class="card"><h2 style="margin:0">${esc(r.student_name || "")} · ${esc(r.title || "")}</h2>
@@ -8988,7 +8990,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261118-0820";
+const BUILD = "20261118-0840";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
