@@ -842,7 +842,10 @@ const abcClear = async () => { try { if (abcOn()) await caches.delete(ABC); } ca
 const readBlob = (id, fresh, quiet) => { const p = (async () => {
   if (!fresh) { const hit = await abcGet(id); if (hit) return hit; }
   const metaP = fresh ? null : abcMeta(id);   // 받는 것과 동시에 지문 확인(기다림 늘지 않음)
-  const bl = await (await api(`${DRIVE}/files/${id}?alt=media${fresh ? "&_=" + Date.now() : ""}`, fresh ? { cache: "no-store" } : {})).blob();
+  // (11/17 09:48 사용자 화면 '못 열었어요: Failed to fetch') 이동 중 휴대폰 데이터가 잠깐 끊기면 받기 자체가 실패 → 망 오류(TypeError)는 1·3초 쉬고 두 번 더 받아 봄
+  let bl;
+  for (let k = 0; ; k++) { try { bl = await (await api(`${DRIVE}/files/${id}?alt=media${fresh ? "&_=" + Date.now() : ""}`, fresh ? { cache: "no-store" } : {})).blob(); break; }
+    catch (e) { if (k >= 2 || !(e instanceof TypeError)) throw e; await new Promise(r => setTimeout(r, k ? 3000 : 1000)); } }
   if (metaP) metaP.then(m => abcPut(id, bl, m));
   return bl;
 })(); return quiet ? p : autoBusy(p, true); };   // quiet: 곡 플레이어는 카드 안 글자만(전체 화면 팝업 없음)   // 받는 동안(본문 포함) 안내
@@ -6061,7 +6064,9 @@ async function jamOpenSong(si, gi) {
     $("jamBar").onclick = (e) => { const r = $("jamBar").getBoundingClientRect(), t = e.target.dataset?.t != null ? +e.target.dataset.t : (e.clientX - r.left) / r.width * dur; if (p.on) start(t); else p.at = t; };
     box.querySelectorAll("[data-take]").forEach(b => b.onclick = async () => { const a = $("jamTake"); b.textContent = "받는 중…"; try { const bl = await readBlob(js.take_files[b.dataset.take], false, true); if (p.on) $("jamPP").click(); a.src = URL.createObjectURL(bl); a.style.display = "block"; a.play().catch(() => {}); } catch (e) { toast("못 받았어요: " + errMsg(e)); } b.textContent = "▶ 원본"; });
     $("jamDl").onclick = async (e) => { e.preventDefault(); try { const bl = await readBlob(g.files.mix, false, true), u = URL.createObjectURL(bl), a = document.createElement("a"); a.href = u; a.download = `${s.name} ${g.title} 베스트.mp3`; document.body.appendChild(a); a.click(); a.remove(); } catch (er) { toast("못 받았어요: " + errMsg(er)); } };
-  } catch (e) { box.innerHTML = `<p class="muted">못 열었어요: ${esc(errMsg(e))}</p>`; }
+  } catch (e) { const net = e instanceof TypeError || /fetch|network/i.test(String(e && e.message));
+    box.innerHTML = `<p class="muted">${net ? "인터넷 연결이 잠깐 끊겨서 못 받았어요(세 번 시도)." : "못 열었어요: " + esc(errMsg(e))}</p><button type="button" class="ghost small" id="jamRetry">다시 받기</button>`;
+    const rb = $("jamRetry"); if (rb) rb.onclick = () => jamOpenSong(si, gi); }
 }
 async function openSongs(focus) {
   goBack = () => renderList(); show("vSongs"); songLib.open = focus || songLib.open;
@@ -8983,7 +8988,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261117-0905";
+const BUILD = "20261117-0955";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
