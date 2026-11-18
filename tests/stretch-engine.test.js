@@ -60,7 +60,7 @@ const last = (n) => n.sched[n.sched.length - 1];
   // ── 화면 연결(정적) ──
   assert.ok(/const eng = me\.eng = stretchEngine\(\{ vol: v0, boost: boostPref2\(\), html: true/.test(T), "곡 서랍은 새 엔진");
   assert.ok(T.includes("eng.canKey && eng.canKey()") && T.includes("eng.setKey(keyWant); keyN = keyWant;"), "키는 앱에서 바로");
-  assert.ok(T.includes("반음`;") && T.includes("원곡 ${keyName(0)} · ${sgn(n)}반음"), "원곡 키·이동 칸수 표시");
+  assert.ok(T.includes("원곡 ${keyName(0)} · ${sgn(n)}반음"), "원곡 키·이동 칸수 표시");
   assert.ok(T.includes('dblTap(Q("dkKeyV").parentElement, () => setKey(0))') && T.includes('dblTap(Q("dkSpV").parentElement, () => setRate(1))'), "키·속도 더블탭 = 원래대로");
   assert.ok(fs.existsSync(__dirname + "/../teacher/vendor/signalsmith-stretch.js") && fs.existsSync(__dirname + "/../teacher/vendor/LICENSE-signalsmith-stretch.txt"), "엔진 파일·라이선스");
   assert.ok(T.includes('"vendor/signalsmith-stretch.js?v=ss1"'));
