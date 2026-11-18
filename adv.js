@@ -141,7 +141,15 @@
     gain: (v) => { const n = v <= -25 ? -1 : v < -8 ? 1 : v < 3 ? 2 : 3; let d = "M4 14 L11 14 L21 5 L21 35 L11 26 L4 26 Z";
       if (n < 0) return d + " M28 13 L42 27 M42 13 L28 27"; for (let k = 0; k < n; k++) { const r = 6 + k * 6.5; d += ` M${23 + r * 0.4} ${20 - r} A${r} ${r} 0 0 1 ${23 + r * 0.4} ${20 + r}`; } return d; },
     fin: () => "M6 34 L50 8 L94 8",
-    fout: () => "M6 8 L50 8 L94 34" };
+    fout: () => "M6 8 L50 8 L94 34",
+    // (11/18 15:44 사용자 V4 팝업) 손잡이 아이콘 — 모두 같은 크기 칸
+    bin: (v) => { const h = Math.max(-14, Math.min(14, -(v || 0) / 300 * 14)); return `M6 ${20 + h} Q22 20 40 20 L94 20 ` + arrowV(6, 5, 35) + (v ? "||M6 20 L94 20" : "||"); },
+    bout: (v) => { const h = Math.max(-14, Math.min(14, -(v || 0) / 300 * 14)); return `M6 20 L60 20 Q78 20 94 ${20 + h} ` + arrowV(94, 5, 35) + (v ? "||M6 20 L94 20" : "||"); },
+    lenL: () => "M34 20 L94 20 M34 12 L34 28 " + arrowH(4, 28, 20),
+    lenR: () => "M6 20 L66 20 M66 12 L66 28 " + arrowH(72, 96, 20),
+    pitch: () => "M14 20 L86 20 " + arrowV(50, 3, 37),
+    trin: () => "M6 10 L34 10 C50 10 50 30 66 30 L94 30",
+    fmt: () => "M6 34 C30 34 34 8 50 8 C66 8 70 34 94 34" };
   const ICO_MEET = { gain: "xMinYMid meet" };
   const ICO_OF = { "흐름": "tilt", "이어짐": "tr", "원래 떨림": "vib", "떨림 폭": "depth", "새 떨림 폭": "depth", "주기": "rate", "시작": "delay", "커지는 시간": "fade", "사람처럼": "human", "볼륨": "gain", "페이드 인": "fin", "페이드 아웃": "fout" };
   // (11/06 21:53 사용자) 칸을 누르면 아래 안내 줄에 그 칸 설명
@@ -174,7 +182,7 @@
     c.addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); try { c.setPointerCapture(e.pointerId); } catch {} const ds = o.desc || DESC[label], tp = ds && c.closest(".advBody") && c.closest(".advBody").querySelector(".advTip"); if (tp) { tp.innerHTML = ""; const bb = document.createElement("b"); bb.textContent = label + " · "; tp.append(bb, ds); tp.classList.add("desc"); } d = { id: e.pointerId, x: e.clientX, y: e.clientY, v0: get(), n: 0, drag: false, home: Math.abs(get() - o.def) < 1e-9 }; });
     c.addEventListener("pointermove", (e) => { if (!d || e.pointerId !== d.id) return; const dx_ = e.clientX - d.x, dy_ = d.y - e.clientY; if (!d.ax && Math.max(Math.abs(dx_), Math.abs(dy_)) >= 7) d.ax = Math.abs(dy_) > Math.abs(dx_) ? "v" : "h"; const dd = d.ax === "v" ? dy_ : d.ax === "h" ? dx_ : 0;   // 오른쪽·위 = 올림 · 처음 움직인 방향 하나만 씀(대각선으로 움직여도 서로 지워지지 않게)
       if (!d.drag) { if (Math.abs(dd) < 7) return; d.drag = true; c.classList.add("act"); bubble(true); }
-      const a = Math.max(0, Math.abs(dd) - 7) / 16, k = Math.sign(dd) * (a + a * a / 30);   // 빨리(멀리) 끌수록 성큼
+      const a = Math.max(0, Math.abs(dd) - 7) / (o.px || 16), k = Math.sign(dd) * (a + a * a / 30);   // 빨리(멀리) 끌수록 성큼
       let n = Math.trunc(k); const nDef = (o.def - d.v0) / o.step * sgn;
       if (Math.abs(k - nDef) < 0.7 && Math.abs(nDef - Math.round(nDef)) < 1e-6) n = Math.round(nDef);   // 원래 값 근처면 거기 붙음
       if (n === d.n) return; d.n = n; if (put(d.v0 + n * o.step * sgn)) { const home = Math.abs(get() - o.def) < 1e-9; vib(home ? 40 : 15); d.home = home; bubble(true); } });
@@ -476,5 +484,13 @@
   function bendGet(st, b, key) { const n = noteOf(state(st), b, false); return n && n[key] ? n[key] : 0; }
   function bendSet(st, cv, b, key, v, first) { const A = state(st); if (first) { A.hist.push(JSON.stringify(A.ne)); if (A.hist.length > 100) A.hist.shift(); }
     const n = noteOf(A, b, true); n[key] = v; clean(A); preview(cv, A.ne); clearTimeout(A.tm); A.tm = setTimeout(() => save(A, st), 400); }
-  G.TuneAdv = { bendGet, bendSet, groupVol, scrub, panel, resetNote, globalSheet, engineBox, toolsBox, resetDetail, preview, state, uvList, relabel, uvSheet, UV_NAME, addDraw, drawAt, removeDraw, flatNote, cleanStroke, undoLast: (st, cv) => undo(state(st), st, cv), _t: { shapeNote, notesFromCurve, midiBytes, clean, N_DEF } };
+  // (11/18 15:31 사용자 V4 팝업) 음 하나의 고급 값 하나 = { get, set } — 팝업 손잡이(scrub)에 그대로 꽂음
+  function v4Param(st, cv, b, key) { const A = state(st), MUTE_DB = -25;
+    const get = () => { const n = noteOf(A, b, false) || {}; if (key === "gain_db") return n.mute ? MUTE_DB : (n.gain_db || 0); if (key === "vib") return n.vib != null ? n.vib : (n.vs ? 0 : 1); return n[key] != null ? n[key] : (N_DEF[key] || 0); };
+    const set = (v) => change(A, st, cv, () => { const n = noteOf(A, b, true);
+      if (key === "gain_db") { if (v <= MUTE_DB) { n.mute = true; delete n.gain_db; } else { n.mute = false; n.gain_db = v; } }
+      else if (key === "tr_ms") { if (v) n.tr_ms = v; else delete n.tr_ms; delete n.tr_shape; }
+      else n[key] = v; });
+    return { get, set }; }
+  G.TuneAdv = { bendGet, bendSet, v4Param, groupVol, scrub, panel, resetNote, globalSheet, engineBox, toolsBox, resetDetail, preview, state, uvList, relabel, uvSheet, UV_NAME, addDraw, drawAt, removeDraw, flatNote, cleanStroke, undoLast: (st, cv) => undo(state(st), st, cv), _t: { shapeNote, notesFromCurve, midiBytes, clean, N_DEF } };
 })(typeof window !== "undefined" ? window : globalThis);
