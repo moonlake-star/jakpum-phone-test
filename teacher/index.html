@@ -626,8 +626,8 @@
 <div id="v2Shade" class="v2only"></div>
 <div id="toast"></div>
 <script src="../lesson-replies.js"></script>
-<script src="../tune.js?v=20261118-1710"></script>
-<script src="../adv.js?v=20261118-1710"></script>
+<script src="../tune.js?v=20261118-1720"></script>
+<script src="../adv.js?v=20261118-1720"></script>
 <script src="../pitch-embed.js?v=20261116-1300"></script>
 
 <script>
@@ -5724,13 +5724,25 @@ function voiceTone(t0, t1, midi) {
   // (11/18 16:53 사용자 '너무 사인파 느낌 — 사람 목소리로') 예전(11/03 15:16): 한 주기를 평균 내 되풀이 + 낮은 소리만 남김 = 사인파에 가까움
   //   → 이제 그 음 가운데 0.3~0.6초를 그 높이로 평평하게 맞춘 '진짜 목소리'를 그대로 되풀이(주기 맞춘 60ms 크로스페이드 이음) · 필터는 잡음(8kHz 위)만
   const sh = pvPsola(x, sr, f0, rat), hz = 440 * 2 ** ((midi - 69) / 12), per = sr / hz;
-  const XF = Math.min(Math.round(0.06 * sr), Math.floor(sh.length / 4)), want = sh.length - XF, kP = Math.max(1, Math.round(want / per)), L = Math.round(kP * per);
-  if (L < 16 || L + XF > sh.length) return null;
-  const loop = new Float32Array(L); loop.set(sh.subarray(0, L));
-  for (let k = 0; k < XF; k++) { const u = k / XF, wi = Math.sin(u * Math.PI / 2), wo = Math.cos(u * Math.PI / 2); loop[k] = sh[k] * wi + sh[L + k] * wo; }   // 끝 → 처음이 같은 위상으로 이어짐
+  // (11/18 17:09 사용자 '루핑 텀이 길다') 긴 조각 하나를 되풀이하면 0.5초마다 같은 떨림이 반복돼 들림 →
+  //   그 음 안의 고른 곳(가운데 70%)에서 짧은 알갱이(약 50ms, 주기 단위)를 무작위로 골라 겹쳐 2초 소리를 만들고 그걸 되풀이(같은 무늬 반복이 안 느껴지게)
+  //   음높이는 이미 평평하게 맞춰 놔서 알갱이를 주기 단위로만 놓으면 위상이 맞음 · 알갱이마다 크기를 고르게(숨·떨림에 따른 커졌다 작아짐 없앰)
+  const r0 = Math.floor(sh.length * 0.15), r1 = Math.floor(sh.length * 0.85), pI = Math.max(1, Math.round(per));
+  const nG = Math.max(2, 2 * Math.ceil(0.025 * sr / per)), G = Math.round(nG * per), Hp = nG / 2;   // 알갱이 = 짝수 주기(약 50ms) · 반씩 겹침(한 알갱이 = 주기 Hp개 간격)
+  if (r1 - r0 < G + pI) return null;
+  const kP = Hp * Math.max(1, Math.round(2.0 * sr / per / Hp)), L = Math.round(kP * per), loop = new Float32Array(L), win = new Float32Array(G);   // 길이 = 알갱이 간격의 정수배(되풀이 이음매에서 겹침이 맞게)
+  for (let k = 0; k < G; k++) win[k] = 0.5 - 0.5 * Math.cos(2 * Math.PI * k / G);
+  let er = 0; for (let k = r0; k < r1; k++) er += sh[k] * sh[k]; er = Math.sqrt(er / (r1 - r0)) || 1e-6;
+  const nPer = Math.floor((r1 - r0 - G) / per);
+  for (let j = 0, p0 = 0; p0 < L - Hp * per / 2; j++, p0 = j * Hp * per) {   // 나가는 자리도 주기 단위
+    const q = r0 + Math.round(Math.floor(Math.random() * (nPer + 1)) * per), o0 = Math.round(p0);
+    let gs = 0; for (let k = 0; k < G; k++) gs += sh[q + k] * sh[q + k]; const gn = Math.min(3, er / (Math.sqrt(gs / G) || er));
+    for (let k = 0; k < G; k++) { const t = (o0 + k) % L; loop[t] += sh[q + k] * win[k] * gn; }   // 끝을 넘으면 처음으로 감아 넣음 = 되풀이 이음매 없음
+  }
+  const rate0 = L / (kP * per);
   let ss = 0; for (const v of loop) ss += v * v; const rms = Math.sqrt(ss / L);
   const b = mkCtx.createBuffer(1, L, sr); b.getChannelData(0).set(loop);
-  const s = mkCtx.createBufferSource(); s.buffer = b; s.loop = true; const rate0 = L / (kP * per); s.playbackRate.value = rate0;
+  const s = mkCtx.createBufferSource(); s.buffer = b; s.loop = true; s.playbackRate.value = rate0;
   const lp = mkCtx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 8000; lp.Q.value = 0.5;
   try { if (mkCtx.state !== "running") mkCtx.resume(); } catch {}   // (11/05) 쉬고 있던 소리 장치 깨우기
   const g = mkCtx.createGain(), now = mkCtx.currentTime, vol = rms > 1e-5 ? Math.min(6, 0.18 / rms) : 1;
@@ -9029,7 +9041,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261118-1710";
+const BUILD = "20261118-1720";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
