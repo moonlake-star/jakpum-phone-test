@@ -1544,7 +1544,7 @@
         rp.addEventListener("pointerdown", (e) => { e.stopPropagation(); shut(); });
         bye && bye.remove();   // 안내가 겹치지 않게 '닫을 때는…'은 이번엔 생략
         setTimeout(() => { if (!wrap.isConnected) return; wrap.appendChild(rp); setTimeout(shut, 3500); }, 400); } }
-    const done = () => { if (hist) { hist.keep(true); try { document.removeEventListener("visibilitychange", hidKeep); } catch {} } exitCard(o, hist); try { document.removeEventListener("keydown", st.onKey); } catch {} G.removeEventListener("resize", layout); G.removeEventListener("orientationchange", layout); try { st.glideStop && st.glideStop(); } catch {} wrap.remove(); if (fsClose === done) fsClose = null; };
+    const done = () => { try { if (!isPaused() && typeof o.play === "function") o.play(); } catch {} /* (11/18 18:38 사용자) 전체화면을 닫고 곡 화면으로 나오면 재생 멈춤 */ if (hist) { hist.keep(true); try { document.removeEventListener("visibilitychange", hidKeep); } catch {} } exitCard(o, hist); try { document.removeEventListener("keydown", st.onKey); } catch {} G.removeEventListener("resize", layout); G.removeEventListener("orientationchange", layout); try { st.glideStop && st.glideStop(); } catch {} wrap.remove(); if (fsClose === done) fsClose = null; };
     fsClose = done;
     const hidKeep = () => { if (document.visibilityState === "hidden" && hist) hist.keep(true); };   // 앱을 내리거나 꺼도 기록 보관
     if (hist) document.addEventListener("visibilitychange", hidKeep);
