@@ -462,6 +462,8 @@
     const HP = H - RB;
     const L = full ? 36 : 30, y = (c) => T + HP - 6 - (c - lo) / (hi - lo) * (HP - 12);
     const t0 = t - W8 * HEAD, xs0 = (tt) => L + (tt - t0) / W8 * (w - L), sc = cv.scale;
+    // (11/18 18:20) 으뜸음 = 서버 키의 tonic(scale은 정렬돼 있어 sc[0]은 으뜸음이 아니었음 — G장조인데 C가 진하게 보이던 것) · 단조면 이끔음(으뜸음 반음 아래, 화성단음계)도 반쯤 강조
+    const tnc = cv.key && Number.isFinite(+cv.key.tonic) ? ((+cv.key.tonic % 12) + 12) % 12 : (sc ? sc[0] : 0), lead = cv.key && cv.key.mode === "minor" ? (tnc + 11) % 12 : -1;
     // (11/09 11:18 사용자 '보컬은 한 음씩이라 뒤 음을 당기면 앞 음도 밀려야') 타이밍 고침(아직 완성본 전)이 있으면 그래프 전체를 서버와 같은 시간표로 미리 옮겨 그림
     //   → 당긴 음 앞의 음은 그만큼 짧아져(눌려) 보이고, 늘린 음 뒤의 음은 밀려 보임. 원래 자리 점선·새 자리 하늘색 막대는 원래 좌표(xs0)
     let xs = xs0; if (cv._tedits && cv._tedits.length) { const key = cv._tedits.map(e => `${e.t0},${e.t1},${e.nt0},${e.nt1}`).join(";");
@@ -472,24 +474,24 @@
     for (let m = Math.floor(hi / 100); m >= Math.ceil(lo / 100); m--) {
       const pc = ((m % 12) + 12) % 12, ins = !sc || sc.includes(pc), yy = Math.round(y(m * 100)) + 0.5;
       if (ins && sc) { g.fillStyle = "rgba(156,195,255,.06)"; g.fillRect(L, yy - 4, w - L, 8); }
-      if (full && st && st.advOn && sc && ins) { const ya = y(m * 100 + 50), yb = y(m * 100 - 50); g.fillStyle = pc === sc[0] ? "rgba(156,195,255,.14)" : "rgba(156,195,255,.07)"; g.fillRect(L, ya + 0.5, w - L, Math.max(1, yb - ya - 1)); }
-      if (full && st && st.advOn && sc && !ins) { const ya = y(m * 100 + 50), yb = y(m * 100 - 50); g.fillStyle = "rgba(0,0,0,.3)"; g.fillRect(L, ya + 0.5, w - L, Math.max(1, yb - ya - 1)); }   // (11/18 18:02 사용자) 키를 알면 음계 밖 줄은 더 어둡게   // (11/06) 보정 모드 음계 격자: 음계 음 = 줄 전체 띠(으뜸음은 진하게), 음계 밖 = 어두운 칸
-      if (full && st && st.advOn && sc) { if (ins) { g.fillStyle = pc === sc[0] ? "rgba(140,185,255,.5)" : "rgba(150,190,255,.32)"; g.fillRect(L, yy - (pc === sc[0] ? 0.75 : 0.5), w - L, pc === sc[0] ? 2 : 1.5); } else { g.fillStyle = "#1e232b"; g.fillRect(L, yy, w - L, 1); } }   // (11/18 18:08 사용자 시안 '중간 정도만 밝게') 칸 가운데 = 정음 선
+      if (full && st && st.advOn && sc && ins) { const ya = y(m * 100 + 50), yb = y(m * 100 - 50); g.fillStyle = pc === tnc ? "rgba(156,195,255,.14)" : "rgba(156,195,255,.07)"; g.fillRect(L, ya + 0.5, w - L, Math.max(1, yb - ya - 1)); }
+      if (full && st && st.advOn && sc && !ins) { const ya = y(m * 100 + 50), yb = y(m * 100 - 50); g.fillStyle = pc === lead ? "rgba(0,0,0,.1)" : "rgba(0,0,0,.3)"; g.fillRect(L, ya + 0.5, w - L, Math.max(1, yb - ya - 1)); }   // (11/18 18:02 사용자) 키를 알면 음계 밖 줄은 더 어둡게   // (11/06) 보정 모드 음계 격자: 음계 음 = 줄 전체 띠(으뜸음은 진하게), 음계 밖 = 어두운 칸
+      if (full && st && st.advOn && sc) { if (ins) { g.fillStyle = pc === tnc ? "rgba(140,185,255,.5)" : "rgba(150,190,255,.32)"; g.fillRect(L, yy - (pc === tnc ? 0.75 : 0.5), w - L, pc === tnc ? 2 : 1.5); } else { g.fillStyle = pc === lead ? "rgba(150,190,255,.16)" : "#1e232b"; g.fillRect(L, yy, w - L, 1); } }   // (11/18 18:08 사용자 시안 '중간 정도만 밝게') 칸 가운데 = 정음 선
       else { g.fillStyle = ins ? "#2c3440" : "#1b1f26"; g.fillRect(L, yy, w - L, 1); }
       if (yy > T + HP) continue;
       if (full && (HP - 12) / ((hi - lo) / 100) > 60) { g.fillStyle = "#171b21"; for (const q of [25, 50, 75]) g.fillRect(L, Math.round(y(m * 100 - q)) + 0.5, w - L, 1); }   // 크게 확대하면 ¼반음 눈금
       if (full) continue;   // 전체화면은 아래에서 건반으로
-      if (ins && yy - lastY >= 12) { g.fillStyle = sc && pc === sc[0] ? "#9cc3ff" : "#6b7480"; g.fillText(NAMES[pc] + (Math.floor(m / 12) - 1), 2, yy); lastY = yy; }   // 가까운 이름은 건너뜀
+      if (ins && yy - lastY >= 12) { g.fillStyle = sc && pc === tnc ? "#9cc3ff" : "#6b7480"; g.fillText(NAMES[pc] + (Math.floor(m / 12) - 1), 2, yy); lastY = yy; }   // 가까운 이름은 건너뜀
     }
     if (full) {   // (11/02 15:48 사용자) 왼쪽 음 이름 = 건반(누르는 동안 소리)
       const semi = (HP - 12) / ((hi - lo) / 100), KW = L - 3, fs = Math.max(8, Math.min(11, semi * 0.7));
       g.save(); g.beginPath(); g.rect(0, T, L, HP); g.clip(); g.font = fs + "px system-ui, sans-serif"; g.textBaseline = "middle";
       for (let m = Math.ceil(hi / 100) + 1; m >= Math.floor(lo / 100) - 1; m--) {
         const pc = ((m % 12) + 12) % 12, blk = [1, 3, 6, 8, 10].includes(pc), y0 = y(m * 100 + 50), y1 = y(m * 100 - 50), down = st && st.kbDown === m;
-        const dia = !!sc && sc.includes(pc), out_ = !!sc && !dia;   // (11/18 18:02 사용자 '곡의 키가 인식됐으면 다이어토닉 음을 알아보기 쉽게') 음계 음 = 밝게 + 오른쪽 파란 띠 · 음계 밖 = 흐리게
+        const dia = !!sc && sc.includes(pc), out_ = !!sc && !dia && pc !== lead;   // 단조 이끔음은 흐리게 하지 않음(반쯤)   // (11/18 18:02 사용자 '곡의 키가 인식됐으면 다이어토닉 음을 알아보기 쉽게') 음계 음 = 밝게 + 오른쪽 파란 띠 · 음계 밖 = 흐리게
         g.fillStyle = down ? "#ff9f5a" : blk ? (dia ? "#3a4456" : "#1a1d22") : (out_ ? "#8d949e" : "#eef1f5"); g.fillRect(0, y0, blk ? KW * 0.62 : KW, Math.max(1, y1 - y0 - 0.6));
-        if (dia && !down) { g.fillStyle = pc === sc[0] ? "#4c8dff" : "rgba(76,141,255,.7)"; g.fillRect(KW - 4, y0 + 1, 4, Math.max(1, y1 - y0 - 2.6)); }
-        if ((semi >= 9 && (!blk || semi >= 16)) || pc === 0) { g.font = (dia ? "bold " : "") + fs + "px system-ui, sans-serif"; g.fillStyle = down ? "#111" : blk ? (dia ? "#e6ecf5" : "#7d8590") : (sc && pc === sc[0] ? "#2a5bd7" : out_ ? "#4a4f57" : "#1d2128"); g.fillText(NAMES[pc] + (Math.floor(m / 12) - 1), 3, (y0 + y1) / 2); }
+        if (dia && !down) { g.fillStyle = pc === tnc ? "#4c8dff" : "rgba(76,141,255,.7)"; g.fillRect(KW - 4, y0 + 1, 4, Math.max(1, y1 - y0 - 2.6)); }
+        if ((semi >= 9 && (!blk || semi >= 16)) || pc === 0) { g.font = (dia ? "bold " : "") + fs + "px system-ui, sans-serif"; g.fillStyle = down ? "#111" : blk ? (dia ? "#e6ecf5" : "#7d8590") : (sc && pc === tnc ? "#2a5bd7" : out_ ? "#4a4f57" : "#1d2128"); g.fillText(NAMES[pc] + (Math.floor(m / 12) - 1), 3, (y0 + y1) / 2); }
       }
       g.restore();
       if (st) { st.kb = { L, inv: (Y) => lo + (T + HP - 6 - Y) / (HP - 12) * (hi - lo) }; }
@@ -634,7 +636,7 @@
       if (st) st.cutHit = null;
       // (11/13 18:45 사용자) 고급 모드에선 음을 안 골라도 세로줄이 음표 위에 있으면 ✂ — 톡 = 그 음을 골라 바로 나눔
       const cutSel = full && st && st.sel && st.cutAtNow && t > st.sel.t0 + 0.04 && t < st.sel.t1 - 0.04;
-      const cutFree = full && st && !st.sel && st.advOn && !st.msel && !st.mMode && (st.tbars || []).find(x => t > x.t0 + 0.04 && t < x.t1 - 0.04);
+      const cutFree = full && st && !cutSel && st.advOn && !st.msel && !st.mMode && (st.tbars || []).find(x => t > x.t0 + 0.04 && t < x.t1 - 0.04 && !(st.sel && selHit(st.sel, x)));   // (11/18 18:20 사용자) 다른 음을 골라 둔 상태여도 세로줄이 걸친 음이면 ✂
       if ((cutSel || cutFree) && st.map && !st.dragging && (!st.isPaused || st.isPaused())) {   // (11/06 22:20 사용자) 고른 음 위에 세로줄이 오면 줄 위에 ✂ — 톡 = 그 자리에서 나누기
         const sb = cutSel ? (st.tbars || []).find(x => Math.abs(x.t0 - st.sel.t0) < 0.02) : cutFree, mp = st.map, X = mp.L + (t - mp.t0) / Math.max(1e-6, mp.W8) * (mp.w - mp.L);
         // (11/13 18:45 사용자 '쪼개기 버튼 조금만 더 아래로') 길이 손잡이(음표 끝 동그라미) 줄보다 조금 아래 — 손잡이 가까이면 더 아래
@@ -646,8 +648,11 @@
       if (st) st.qHit = null;
       // (11/18 17:51 사용자 '들어본 직후 손가락을 많이 안 움직이고 고르기') 멈춰 있을 때 세로줄 아래(엄지 자리)에 '방금 지나간 음'·'지금 음' 단추 — 톡 = 그 음 고르기
       if (full && st && st.ghostOn && st.map && st.sel && !st.dragging && !st.mMode && kt) {   // (11/18 18:06 사용자 시안 B) 음을 고른 동안 그래프 아래 양 끝 [◀ 앞 음] [뒤 음 ▶] — 톡 = 그 음 고르기
-        const s0 = st.sel, near_ = barsIn(cv, s0.t0 - 12, s0.t1 + 12).map(r => ({ t0: r.t0, t1: r.t1, c: r.c })).concat(ghostsOf(cv, kt).filter(q => q.t1 > s0.t0 - 12 && q.t0 < s0.t1 + 12).map(q => ({ ...q, ghost: true }))).filter(r => !selHit(s0, r));
-        const pv = near_.filter(r => r.t1 <= s0.t0 + 0.03).sort((a_, b_) => b_.t1 - a_.t1)[0], nx = near_.filter(r => r.t0 >= s0.t1 - 0.03).sort((a_, b_) => a_.t0 - b_.t0)[0];
+        // (11/18 18:18 사용자 '다음 음이 아주 멀리 떨어져 있어도') 곡 전체에서 찾음 — 고른 음·고침이 바뀔 때만 다시 계산
+        const s0 = st.sel, nk_ = s0.t0 + "|" + s0.t1 + "|" + (cv._fixes || []).length + "|" + ((cv._gh && cv._gh.key) || "").length;
+        if (st._navK !== nk_) { const all_ = barsIn(cv, -1, 1e9).map(r => ({ t0: r.t0, t1: r.t1, c: r.c })).concat(ghostsOf(cv, kt).map(q => ({ ...q, ghost: true }))).filter(r => !selHit(s0, r));
+          st._navK = nk_; st._nav = [all_.filter(r => r.t1 <= s0.t0 + 0.03).sort((a_, b_) => b_.t1 - a_.t1)[0] || null, all_.filter(r => r.t0 >= s0.t1 - 0.03).sort((a_, b_) => a_.t0 - b_.t0)[0] || null]; }
+        const [pv, nx] = st._nav || [];
         const nm = (b_) => NAMES[((Math.round(b_.c / 100) % 12) + 12) % 12] + (Math.floor(Math.round(b_.c / 100) / 12) - 1), Y = T + HP - 46, H_ = 38, hits = [];
         g.save(); g.font = "bold 16px system-ui, sans-serif"; g.textBaseline = "middle";
         const chip = (b_, side) => { const tx = side < 0 ? "◀ " + nm(b_) : nm(b_) + " ▶", tw = g.measureText(tx).width + 28, PX = Math.round(xs0(t)), x0 = Math.max(L + 6, Math.min(w - 6 - tw, side < 0 ? PX - 10 - tw : PX + 10));   /* (11/18 18:09 사용자) 세로줄(재생 위치) 양옆 가운데 쪽 */
