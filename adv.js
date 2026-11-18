@@ -180,17 +180,18 @@
     const sgn = o.inv ? -1 : 1;   // inv = 화면에 −로 보이는 값: 왼쪽(−)으로 끌면 숫자가 더 마이너스로
     let d = null, lastTap = 0, bub = null;
     const bubble = (on) => { if (on && !bub) { bub = document.createElement("span"); bub.className = "advScB"; c.appendChild(bub); } if (bub) { if (on) bub.textContent = o.fmt(get()); else { bub.remove(); bub = null; } } };
-    c.addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); try { c.setPointerCapture(e.pointerId); } catch {} const ds = o.desc || DESC[label], tp = ds && c.closest(".advBody") && c.closest(".advBody").querySelector(".advTip"); if (tp) { tp.innerHTML = ""; const bb = document.createElement("b"); bb.textContent = label + " · "; tp.append(bb, ds); tp.classList.add("desc"); } d = { id: e.pointerId, x: e.clientX, y: e.clientY, v0: get(), n: 0, drag: false, home: Math.abs(get() - o.def) < 1e-9 }; });
-    c.addEventListener("pointermove", (e) => { if (!d || e.pointerId !== d.id) return; const dx_ = e.clientX - d.x, dy_ = d.y - e.clientY; if (!d.ax && Math.max(Math.abs(dx_), Math.abs(dy_)) >= 7) d.ax = Math.abs(dy_) > Math.abs(dx_) ? "v" : "h"; const dd = d.ax === "v" ? dy_ : d.ax === "h" ? dx_ : 0;   // 오른쪽·위 = 올림 · 처음 움직인 방향 하나만 씀(대각선으로 움직여도 서로 지워지지 않게)
-      if (!d.drag) { if (Math.abs(dd) < 7) return; d.drag = true; c.classList.add("act"); bubble(true); }
-      const a = Math.max(0, Math.abs(dd) - 7) / (o.px || 16), k = Math.sign(dd) * (a + a * a / 30);   // 빨리(멀리) 끌수록 성큼
-      let n = Math.trunc(k); const nDef = (o.def - d.v0) / o.step * sgn;
+    c.addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); try { c.setPointerCapture(e.pointerId); } catch {} const ds = o.desc || DESC[label], tp = ds && c.closest(".advBody") && c.closest(".advBody").querySelector(".advTip"); if (tp) { tp.innerHTML = ""; const bb = document.createElement("b"); bb.textContent = label + " · "; tp.append(bb, ds); tp.classList.add("desc"); } d = { id: e.pointerId, x: e.clientX, y: e.clientY, v0: get(), n: 0, drag: false, home: Math.abs(get() - o.def) < 1e-9 };
+      if (o.longStep) { const d0 = d; d0.lp = setTimeout(() => { if (d !== d0 || d0.drag) return; d0.semi = true; d0.v0 = get(); vib(40); c.classList.add("semi"); try { o.onLong && o.onLong(); } catch {} }, 500); } });   // (11/18 16:59 사용자) 꾹 0.5초 = 큰 단위(반음)로
+    c.addEventListener("pointermove", (e) => { if (!d || e.pointerId !== d.id) return; const dx_ = e.clientX - d.x, dy_ = d.y - e.clientY; const DZ = o.dead || 7; if (!d.ax && Math.max(Math.abs(dx_), Math.abs(dy_)) >= DZ) d.ax = Math.abs(dy_) > Math.abs(dx_) ? "v" : "h"; const dd = d.ax === "v" ? dy_ : d.ax === "h" ? dx_ : 0;   // 오른쪽·위 = 올림 · 처음 움직인 방향 하나만 씀(대각선으로 움직여도 서로 지워지지 않게)
+      if (!d.drag) { if (Math.abs(dd) < DZ) return; clearTimeout(d.lp); d.drag = true; c.classList.add("act"); bubble(true); try { o.onStart && o.onStart(); } catch {} }   // (11/18 16:53 사용자) 칸마다 처음 무딘 구간(o.dead px)
+      const ST = d.semi ? o.longStep : o.step, a = Math.max(0, Math.abs(dd) - DZ) / (d.semi ? (o.longPx || 28) : (o.px || 16)), k = Math.sign(dd) * (d.semi ? a : a + a * a / 30);   // 빨리(멀리) 끌수록 성큼
+      let n = Math.trunc(k); const nDef = (o.def - d.v0) / ST * sgn;
       if (Math.abs(k - nDef) < 0.7 && Math.abs(nDef - Math.round(nDef)) < 1e-6) n = Math.round(nDef);   // 원래 값 근처면 거기 붙음
-      if (n === d.n) return; d.n = n; if (put(d.v0 + n * o.step * sgn)) { const home = Math.abs(get() - o.def) < 1e-9; vib(home ? HOME_BUZZ : 15); d.home = home; bubble(true); } });
-    const end = (e) => { if (!d || (e && e.pointerId !== d.id)) return; const was = d; d = null; c.classList.remove("act"); bubble(false);
-      if (was.drag || !e || e.type !== "pointerup") return;
+      if (n === d.n) return; d.n = n; if (put(d.v0 + n * ST * sgn)) { const home = Math.abs(get() - o.def) < 1e-9; vib(home ? HOME_BUZZ : 15); d.home = home; bubble(true); } });
+    const end = (e) => { if (!d || (e && e.pointerId !== d.id)) return; const was = d; d = null; clearTimeout(was.lp); c.classList.remove("act", "semi"); bubble(false); if (was.semi && !was.drag) { try { o.onEnd && o.onEnd(); } catch {} return; }
+      if (was.drag) { try { o.onEnd && o.onEnd(); } catch {} } if (was.drag || !e || e.type !== "pointerup") return;
       const now = Date.now(); if (now - lastTap < 320) { lastTap = 0; put(o.def); vib(HOME_BUZZ); return; }   // 두 번 톡 = 원래 값
-      lastTap = now; const r = c.getBoundingClientRect(); if (put(get() + ((o.vert ? e.clientY > r.top + r.height / 2 : e.clientX < r.left + r.width / 2) ? -1 : 1) * o.step * sgn)) vib(15); };   // 세로 칸: 위 절반 톡 = 올림 · 아래 절반 = 내림
+      lastTap = now; if (o.noTap) return; const r = c.getBoundingClientRect(); if (put(get() + ((o.vert ? e.clientY > r.top + r.height / 2 : e.clientX < r.left + r.width / 2) ? -1 : 1) * o.step * sgn)) vib(15); };   // 세로 칸: 위 절반 톡 = 올림 · 아래 절반 = 내림
     c.addEventListener("pointerup", end); c.addEventListener("pointercancel", end); c.addEventListener("lostpointercapture", () => { if (d) end(null); });
     c.addEventListener("keydown", (e) => { const k = e.key; if (k === "ArrowRight" || k === "ArrowUp") put(get() + o.step * sgn); else if (k === "ArrowLeft" || k === "ArrowDown") put(get() - o.step * sgn); else if (k === "Enter" || k === "0") put(o.def); else return; e.preventDefault(); e.stopPropagation(); });
     c.addEventListener("dblclick", (e) => { e.preventDefault(); put(o.def); });   // 마우스 두 번 클릭

@@ -594,7 +594,7 @@
             const ix = lx + Math.min(18, (rx - lx) * 0.2), ox = rx - Math.min(18, (rx - lx) * 0.2);
             if (ix >= L + 8) vh(ix, vI, st.vAct === "i"); if (ox <= w + 4) vh(ox, vO, st.vAct === "o");
             st.vhdl = { i: { x: ix, y: vy, r: R + 8 }, o: { x: ox, y: vy, r: R + 8 }, b: bb }; }
-          const tips = [["v", "↕ 잡자마자 끌기 = ", "반음씩"], ["fine", "꾹 0.5초 → 위아래 = ", "미세"], ["dbl", "두 번 톡 = ", "가까운 음에 착"], ["arr", "‹ › 꾹 0.5초 → 끌기 = ", "앞·뒤 길이"]].filter(q => !learned(q[0]) && (q[0] !== "dbl" || st.advOn));
+          const tips = [["v", "↕ 잡자마자 끌기 = ", "반음씩"], ["fine", "꾹 0.5초 → 위아래 = ", "미세"], ["arr", "‹ › 꾹 0.5초 → 끌기 = ", "앞·뒤 길이"]].filter(q => !learned(q[0]) && (q[0] !== "dbl" || st.advOn));
           if (tips.length && !st.dragging && !st.coachOwn) {   // (11/12 18:06 사용자 고) 선생님 편집 화면은 위쪽 안내 띠로 옮김
             g.font = "11.5px system-ui, sans-serif"; g.textBaseline = "middle"; const cx = Math.max(L + 70, Math.min(w - 70, (Math.max(L, sb.x0) + Math.min(w, sb.x1)) / 2));
             const tag = (yy, a, b2) => { const wa = g.measureText(a).width; g.font = "bold 11.5px system-ui, sans-serif"; const wb = g.measureText(b2).width; g.font = "11.5px system-ui, sans-serif";
@@ -921,8 +921,8 @@
     const v4 = uni && !!(G.TuneAdv && G.TuneAdv.v4Param) && v4On();
     if (st) st.v4 = v4;
     if (v4) { d.classList.add("tfUni", "tfV4");
-      d.innerHTML = `<div class="tfFixBox tfV4Box"><span class="tfFixSt tfV4St" aria-live="polite"></span><div class="tfV4R" data-v4a>${["tin", "bin", "lin", "fine", "lout", "bout", "tout"].map(k => `<i data-slot="${k}"></i>`).join("")}</div><div class="tfV4R" data-v4b><i data-slot="tilt"></i><i data-slot="vib"></i><i data-slot="fmt"></i><button type="button" class="tfV4B tfRaw" data-raw aria-label="이 음은 보정 안 함(부른 그대로)"><i>🎤</i><small>원음</small></button><button type="button" class="tfV4B tfOrg" data-r aria-label="이 음 자동 보정으로(선생님 고침 지움, 확인 창)"><i>↺</i><small>자동</small></button><button type="button" class="tfV4B tfSnap" data-snap aria-label="가까운 음에 맞춤(두 번 톡과 같음)"><i>🧲</i><small>자석</small></button><i data-slot="gain"></i></div>
-        <div class="tfFixRow tfP tfV4P"><button type="button" data-d="1" aria-label="반음 올림">▲</button><button type="button" class="tfFixN" data-p aria-label="누르는 동안 이 음 소리"></button><button type="button" data-d="-1" aria-label="반음 내림">▼</button>${mgNb ? `<button type="button" class="tfCut tfIc" data-merge aria-label="옆 조각과 하나로 합치기">⇔</button>` : ""}${typeof cv.onOctave === "function" ? `<button type="button" class="tfIc tfOct tfV4O" data-oct aria-label="인식 옥타브 바로잡기(소리는 그대로)">8va</button>` : ""}<button type="button" class="tfV4Sw" data-vsw aria-label="예전 고치기 창(V3)으로">V3</button></div></div>`; }
+      d.innerHTML = `<div class="tfFixBox tfV4Box"><span class="tfFixSt tfV4St" aria-live="polite"></span><div class="tfV4R" data-v4a>${["tin", "bin", "lin", "fine", "lout", "bout", "tout"].map(k => `<i data-slot="${k}"></i>`).join("")}</div><div class="tfV4R" data-v4b><i data-slot="tilt"></i><i data-slot="vib"></i><i data-slot="fmt"></i><button type="button" class="tfV4B tfRaw" data-raw aria-label="이 음은 보정 안 함(부른 그대로)"><i>🎤</i><small>원음</small></button><button type="button" class="tfV4B tfOrg" data-r aria-label="이 음 자동 보정으로(선생님 고침 지움, 확인 창)"><i>↺</i><small>자동</small></button>${typeof cv.onOctave === "function" ? `<button type="button" class="tfV4B tfOct" data-oct aria-label="인식 옥타브 바로잡기(소리는 그대로)"><i>8va</i><small>옥타브</small></button>` : ""}<i data-slot="gain"></i></div>
+        <span class="tfFixN tfV4Hid" data-p hidden></span>${mgNb ? `<button type="button" class="tfV4Mg" data-merge aria-label="옆 조각과 하나로 합치기">⇔ 합치기</button>` : ""}</div>`; }
     else if (uni) { d.classList.add("tfUni");
       d.innerHTML = `<div class="tfFixBox"><div class="tfUniTop"><div class="tfStRow"><span class="tfFixSt"></span><button type="button" class="tfRaw" data-raw aria-label="이 음은 보정 안 함(부른 그대로)">🎤 원음</button><button type="button" class="tfOrg" data-r aria-label="이 음 자동 보정으로(선생님 고침 지움, 확인 창)">↺ 자동</button>${G.TuneAdv && G.TuneAdv.v4Param ? `<button type="button" class="tfV4Sw" data-vsw aria-label="새 고치기 팝업(V4)으로">V4</button>` : ""}</div>
         <div class="tfFixRow tfP"><button type="button" data-d="-1" aria-label="반음 내림">▼</button><button type="button" class="tfFixN" data-p aria-label="누르는 동안 이 음 소리"></button><button type="button" data-d="1" aria-label="반음 올림">▲</button><button type="button" class="tfIc tfSnap" data-snap aria-label="가까운 음에 맞춤(두 번 톡과 같음)">🧲</button>${canCut ? `<button type="button" class="tfCut tfIc" data-cut aria-label="두 음으로 나누기(세로줄 자리, 막대 밖이면 가운데)">✂</button>` : ""}${mgNb ? `<button type="button" class="tfCut tfIc" data-merge aria-label="옆 조각과 하나로 합치기">⇔</button>` : ""}${typeof cv.onOctave === "function" ? `<button type="button" class="tfIc tfOct" data-oct aria-label="인식 옥타브 바로잡기(소리는 그대로)">8va</button>` : ""}</div></div><div class="tfUniAdv"></div></div>`; }
@@ -994,8 +994,8 @@
       st.onBarDragEnd = () => { if (st._dragBase != null && Math.abs(m - st._dragBase) > 0.004) persist(); st._dragBase = null; }; }
     const nb = d.querySelector("[data-p]");   // 음 이름을 누르는 동안 그 음 소리
     // (11/06 22:54 사용자 시안 ② 승인) 음 이름 칸에서 바로 위아래로 밀기 · (11/07 09:39 뒤바꿈) 바로 밀면 미세(2px = 1센트) · 꾹 0.6초(진동) 뒤 밀면 반음씩(24px마다) · 톡 = 소리
-    let nd = null; if (st && st.onBarDrag) nb.classList.add("tfNScr");
-    nb.addEventListener("pointerdown", (e) => { e.preventDefault(); snd(m); if (!(st && st.onBarDrag)) return; try { nb.setPointerCapture(e.pointerId); } catch {}
+    let nd = null; if (st && st.onBarDrag && !v4) nb.classList.add("tfNScr");   // (11/18 16:53 사용자 '전체상하와 같은 역할') V4는 음 이름 칸 = 표시 + 누르는 동안 듣기만(미세는 전체상하)
+    nb.addEventListener("pointerdown", (e) => { e.preventDefault(); snd(m); if (!(st && st.onBarDrag) || v4) return; try { nb.setPointerCapture(e.pointerId); } catch {}
       const n_ = nd = { id: e.pointerId, y: e.clientY, fine: true, ax: false };   // (11/07 09:39 사용자) 이 칸은 ▼▲ 버튼이 옆에 있으니: 바로 밀면 미세(센트) · 꾹 0.6초(진동) 뒤 밀면 반음씩
       n_.lp = setTimeout(() => { if (nd !== n_ || n_.ax) return; n_.fine = false; buzz(40); nb.classList.remove("fineOn"); void nb.offsetWidth; nb.classList.add("fineOn"); }, LONG_MS); });
     nb.addEventListener("pointermove", (e) => { if (!nd || e.pointerId !== nd.id || !st || !st.onBarDrag) return; const dy = nd.y - e.clientY;
@@ -1056,7 +1056,7 @@
       cf.querySelectorAll("[data-cf]").forEach(x => x.onclick = (e) => { e.stopPropagation(); ly.close(); if (x.dataset.cf === "1") toOrig(); });
       host.appendChild(cf); };
     // (11/09 10:47 사용자 고) 인식 옥타브 바로잡기: 음 높이 추적이 한 옥타브 틀리게 읽은 음 → 인식만 한 옥타브(소리는 그대로) · 완성본 다시 만들기 때 서버도 같은 높이로 봄
-    const octB = d.querySelector("[data-oct]"); if (octB) { const paintO = () => { const v = typeof cv.octOf === "function" ? cv.octOf(b.t0, b.t1) : 0; octB.classList.toggle("on", !!v); octB.textContent = v > 0 ? "8va↑" : v < 0 ? "8va↓" : "8va"; }; paintO();
+    const octB = d.querySelector("[data-oct]"); if (octB) { const paintO = () => { const v = typeof cv.octOf === "function" ? cv.octOf(b.t0, b.t1) : 0; octB.classList.toggle("on", !!v); const tx_ = v > 0 ? "8va↑" : v < 0 ? "8va↓" : "8va"; if (v4) octB.innerHTML = `<i>${tx_}</i><small>옥타브</small>`; else octB.textContent = tx_; }; paintO();
       octB.addEventListener("pointerdown", (e) => e.stopPropagation());
       octB.onclick = (e) => { e.stopPropagation(); const old = host.querySelector(".tfCfm"); if (old) old.remove(); const cur = typeof cv.octOf === "function" ? cv.octOf(b.t0, b.t1) : 0;
         const cf = document.createElement("div"); cf.className = "tfCfm"; cf.setAttribute("role", "dialog");
@@ -1113,12 +1113,12 @@
       const cents_ = (v) => (Math.round(v) ? `${v > 0 ? "+" : "−"}${Math.abs(Math.round(v))}¢` : "0");
       const ms_ = (v) => (v ? `${Math.round(v)}ms` : "0");
       const P = (bb, k) => TA.v4Param(st, cv, bb, k);
-      const sc = (lbl, gs, o) => { const c = TA.scrub(lbl, gs.get, gs.set, o, true); cs.push(c); return c; };
+      const sc = (lbl, gs, o) => { const c = TA.scrub(lbl, gs.get, gs.set, Object.assign({ dead: 14, noTap: true }, o), true); cs.push(c); return c; };   // (11/18 16:53 사용자 '미스터치에 덜 민감하게') 14px 무딘 구간 · 한 번 톡으로는 안 바뀜(두 번 톡 = 원래 값)
       // 앞 음(바로 붙은 음)이 있어야 앞이어짐 · 뒤 음이 붙어 있어야 뒤이어짐(서버 이어짐 규칙: 0.12초 안)
       const prevB = barsIn(cv, b.t0 - 3, b.t0 + 0.001).filter(x => x.t1 <= b.t0 + 0.02 && b.t0 - x.t1 < 0.12 && Math.abs(x.t0 - b.t0) > 0.02).pop() || null;
       const nextOk = (cv.pts || []).some(p => p[0] > b.t1 + 0.005 && p[0] - b.t1 <= 0.12 && p[kt] != null);
       const off_ = (c, ok, why) => { if (!ok) { c.classList.add("v4off"); c.title = why; } return c; };
-      const fine = { get: () => m, set: (v) => { m = rnd(v); paint(); preview(); persist(); } };
+      const fine = { get: () => m, set: (v) => { m = rnd(v); paint(); preview(); persist(); if (vh && vh.set) vh.set(m); else snd(m); } };   // (11/18 16:53 사용자) 전체상하를 움직이는 동안 그 음 목소리
       const tIn = { get: () => r2(n0 - b.t0), set: (v) => { n0 = b.t0 + v; tClamp("l"); tPaint(); tPreview(); tPersist(); } };
       const tOut = { get: () => r2(n1 - b.t1), set: (v) => { n1 = b.t1 + v; tClamp("r"); tPaint(); tPreview(); tPersist(); } };
       const noop = { get: () => 0, set: () => {} };
@@ -1126,7 +1126,7 @@
       put_("tin", off_(sc("앞이어짐", prevB ? P({ t0: prevB.t0, t1: prevB.t1 }, "tr_ms") : noop, { step: 20, min: 0, max: 800, def: 0, fmt: ms_, ico: "trin", px: 10, inv: true }), !!prevB, "바로 앞에 붙은 음이 없어요"));
       put_("bin", sc("앞상하", P(b, "tilt_in"), { step: 5, min: -300, max: 300, def: 0, vert: true, fmt: cents_, ico: "bin", px: 6 }));
       put_("lin", sc("앞길이", tIn, { step: 0.02, min: -0.6, max: 0.6, def: 0, fmt: sg_, ico: "lenL", px: 10 }));
-      put_("fine", sc("전체상하", fine, { step: 0.01, min: m0 - 12, max: m0 + 12, def: mO, vert: true, fmt: (v) => { const r = Math.round(v), c = Math.round((v - r) * 100); return noteName(r) + (c ? (c > 0 ? "+" : "") + c : ""); }, ico: "pitch", px: 4 }));
+      put_("fine", sc("전체상하", fine, { step: 0.01, min: m0 - 12, max: m0 + 12, def: mO, vert: true, fmt: (v) => { const r = Math.round(v), c = Math.round((v - r) * 100); return noteName(r) + (c ? (c > 0 ? "+" : "") + c : ""); }, ico: "pitch", px: 4, longStep: 1, longPx: 28, onLong: () => snd(m), onStart: () => snd(m), onEnd: () => { clearTimeout(vtm); vtm = setTimeout(sndOff, 250); } }));
       put_("lout", sc("뒤길이", tOut, { step: 0.02, min: -L0 * 0.5, max: L0, def: 0, fmt: sg_, ico: "lenR", px: 10 }));
       put_("bout", sc("뒤상하", P(b, "tilt_out"), { step: 5, min: -300, max: 300, def: 0, vert: true, fmt: cents_, ico: "bout", px: 6 }));
       put_("tout", off_(sc("뒤이어짐", nextOk ? P(b, "tr_ms") : noop, { step: 20, min: 0, max: 800, def: 0, fmt: ms_, ico: "tr", px: 10 }), nextOk, "바로 뒤에 붙은 음이 없어요"));
@@ -1351,7 +1351,7 @@
     { text: () => "🌬 치찰음·호흡: 보정 모드에서 구간을 고르면 나오는 🌬 버튼 → 그 구간의 ㅅ·ㅊ(숨소리) 크기 조절", need: "G.TuneAdv.uvSheet(host.querySelector", when: (o) => typeof o.onAdv === "function" },
     { text: () => "보정 모드: 고른 음을 잡고 위아래 = 반음 · 꾹 0.5초 누른 뒤 위아래 = 미세", need: "if (drag.fine) drag.axis = \"v\"", when: (o) => typeof o.onAdv === "function" },
     { text: () => "보정 모드: 음 양 끝 ‹ › 화살표를 꾹 누른 채 좌우로 = 길이 미세 조절", need: "d0.hArmed = true", when: (o) => typeof o.onAdv === "function" },
-    { text: () => "보정 모드: 음을 두 번 톡 = 가까운 음계 음에 맞추고 흐름 평평하게", need: "const snapNote = () =>", when: (o) => typeof o.onAdv === "function" },
+    { text: () => "보정 모드: 음을 두 번 톡 = 가까운 음계 음에 맞추고 흐름 평평하게", need: "const snapNote = () =>", when: () => false },
     { text: () => "✏️ 펜: 음정선 위에 그리면 그 구간 음높이가 그린 대로 · 선 톡 = 지우기", need: "drag = { pen: true", when: () => false },
     { text: () => "🥁 박자: 반주 박자 격자 · 음을 끌어 옮기면 시작이 가까운 박에 붙어요", need: "st.beatOn && edge !== \"r\"", when: () => false }
   ];
@@ -1558,7 +1558,7 @@
       const advGuide = (force) => {   // (11/06 16:36 사용자) 보정 모드 처음 들어오면 손짓 안내 한 번(⋯ 곡 메뉴에서 다시 보기)
         try { if (!force && localStorage.getItem("tune_adv_guide_v1") === "1") return; } catch {}
         wrap.querySelectorAll(".tfGuide").forEach(x => x.remove()); const gd = document.createElement("div"); gd.className = "tfRot tfGuide"; gd.setAttribute("role", "dialog"); gd.setAttribute("aria-label", "보정 모드 손짓");
-        gd.innerHTML = `<div class="rpBox gdBox"><b style="font-size:16px">🎛 보정 모드 손짓</b><ol class="gdL"><li><span>초록 음 톡</span><em>음 고르기</em></li><li><span>↕ 잡자마자 위아래</span><em>반음씩</em></li><li><span>꾹 0.5초(진동) → 위아래</span><em>미세 조절</em></li><li><span>두 번 톡</span><em>가까운 음에 착</em></li><li><span>양 끝 ‹ › 꾹 0.5초 → 좌우</span><em>앞·뒤 길이</em></li><li><span>두 손가락</span><em>확대 · 이동</em></li></ol><p class="gdS">고른 음 옆에도 안내가 떠요 · 두 번씩 써 보면 사라져요</p><button type="button" class="rpOk">알겠어요</button></div>`;
+        gd.innerHTML = `<div class="rpBox gdBox"><b style="font-size:16px">🎛 보정 모드 손짓</b><ol class="gdL"><li><span>초록 음 톡</span><em>음 고르기</em></li><li><span>↕ 잡자마자 위아래</span><em>반음씩</em></li><li><span>꾹 0.5초(진동) → 위아래</span><em>미세 조절</em></li><li><span>양 끝 ‹ › 꾹 0.5초 → 좌우</span><em>앞·뒤 길이</em></li><li><span>두 손가락</span><em>확대 · 이동</em></li></ol><p class="gdS">고른 음 옆에도 안내가 떠요 · 두 번씩 써 보면 사라져요</p><button type="button" class="rpOk">알겠어요</button></div>`;
         const gone = () => { try { localStorage.setItem("tune_adv_guide_v1", "1"); } catch {} gd.classList.add("out"); setTimeout(() => gd.remove(), 300); };
         const ly = G.Brand && G.Brand.layer ? G.Brand.layer(gone) : { close: gone };   // 뒤로 가기 = 이 안내만 닫기
         gd.addEventListener("pointerdown", (e) => e.stopPropagation()); gd.addEventListener("click", (e) => { if (e.target === gd || e.target.closest(".rpOk")) ly.close(); }); wrap.appendChild(gd); };
@@ -1678,7 +1678,7 @@
       if (st.sel) {
         if (adv) { R.push(["↕", "음표 잡고 위아래", "반음씩"], ["✊", "꾹 0.5초 → 위아래", "미세"]);
           if (typeof st.onBarDragX === "function") R.push(["‹›", "아래 ‹ › 꾹 0.5초 → 좌우", "길이"]);
-          if (st.advOn) R.push(["✌", "두 번 톡", "가까운 음에 착"]); }
+          }
         else R.push(["👆", "다른 음표 톡", "그 음으로"], ["✋", "빈 곳 톡", "창 닫기"]);
         return R; }
       R.push(["👆", "음표 톡", "그 음 고치기"]);
@@ -1905,7 +1905,7 @@
         if (d.axis) learn(d.fine ? "fine" : "v");
         if (d.axis === "v" && st.onBarDragEnd) { try { st.onBarDragEnd(); } catch {} return; }
         if (d.axis || d.fine || e.type !== "pointerup") return;
-        if (st.snapSel && Date.now() - (st._bt || 0) < 350) { st._bt = 0; learn("dbl"); snapNote(); return; }   // 두 번 톡 = 가까운 음에 착
+        // (11/18 16:54 사용자) 두 번 톡 = 가까운 음에 착 없앰(자동 보정이 이미 함 · 필요하면 🧲 자석)   // 두 번 톡 = 가까운 음에 착
         st._bt = Date.now(); if (st.selSnd) st.selSnd(); return; }
       if (d.pen) { const raw = st.penPts || []; st.penPts = null;
         if (d.moved) { const dd = G.TuneAdv.addDraw(st, cv, raw); if (dd) undo(`그린 선으로 바꿨어요(${(dd.t1 - dd.t0).toFixed(1)}초) · ▶로 들어 보세요`, () => { try { G.TuneAdv.undoLast(st, cv); } catch {} }); else undo("조금 더 길게 그려 주세요(0.05초 넘게)"); }
@@ -1921,7 +1921,7 @@
       if (st.mMode && !d.mode && e.type === "pointerup" && sheetClose) { const le = loc(d.cx ?? e.clientX, d.cy ?? e.clientY, cvEl.getBoundingClientRect()), hb = st.tbars && typeof o.onFix === "function" ? (hitT(le) || hitBar(le)) : null;
         sheetClose(); lastTap = 0; if (hb) { st.msel = null; st.mMode = false; pauseNow(); fixSheet(wrap, cv, hb, o.onFix, getT, st); } return; }   // (11/12 16:06 사용자) 범위 고른 상태에서 음을 톡 = 범위 해제 + 그 음 바로 고르기
       if (st.msel && !wrap.querySelector(".tfMulti") && !d.mode && e.type === "pointerup") { st.msel = null; st.mMode = false; st.mStr = null; }   // (11/12 15:56 사용자) 범위 고른 뒤 빈 곳 톡 = 바로 해제(창이 없어도)   // (11/03 13:58 사용자) 여러 음 고르기 중 빈 곳 톡 = 끝내기 · (13:59) 끌기는 평소처럼 화면 이동, 다시 고르기는 꾹 누른 채 끌기
-      if ((d.bar || d.barX) && !d.moved && e.type === "pointerup" && st.advOn && st.snapSel && !d.hdl && Date.now() - (st._bt || 0) < 350) { st._bt = 0; snapNote(); return; }   // (11/06) 보정 모드: 음 두 번 톡 = 가까운 음계 음에 맞춤 + 흐름 평평하게
+      if (false) { snapNote(); return; }   // (11/06) 보정 모드: 음 두 번 톡 = 가까운 음계 음에 맞춤 + 흐름 평평하게
       if ((d.bar || d.barX) && !d.moved && e.type === "pointerup") st._bt = Date.now();
       if ((d.bar || d.barX) && !d.moved && e.type === "pointerup" && st.selSnd) { st.selSnd(); return; }   // 고른 막대 다시 톡 = 소리
       if (d.bar && st.onBarDragEnd) { try { st.onBarDragEnd(); } catch {} }
@@ -2120,7 +2120,7 @@
 #tuneFs .tfMulti.tfMV .tfMRd,#tuneFs .tfMulti.tfMV .tfMH{display:none}#tuneFs .tfMulti .tfMAr{display:flex;align-items:center;gap:6px;flex-wrap:nowrap}#tuneFs .tfMulti .tfMAr .advGVol{margin-left:auto;flex:0 1 auto;min-width:0;padding:0;border:0;background:none}#tuneFs .tfMulti .tfMAr .advGVol .advL{font-size:12px;margin-right:4px;white-space:nowrap}#tuneFs .tfMulti .tfMAr .advGVol.off{opacity:.4;pointer-events:none}/* (11/13 18:45) 여러 음 볼륨 · 두 줄 */#tuneFs .tfOv{position:absolute;left:8px;right:8px;top:0;height:16px;z-index:6;cursor:pointer;touch-action:none}#tuneFs .tfOv::before{content:"";position:absolute;left:0;right:0;top:6px;height:4px;border-radius:2px;background:rgba(255,255,255,.14)}#tuneFs .tfOvW{position:absolute;top:5px;height:6px;border-radius:3px;background:rgba(156,195,255,.45)}#tuneFs .tfOvP{position:absolute;top:3px;width:10px;height:10px;margin-left:-5px;border-radius:50%;background:#ff9a3d;box-shadow:0 0 0 2px #0b0d11}/* (11/13 18:57) 1분 넘는 곡 전체 타임라인 */#tuneFs .tfAbRow{display:flex;align-items:center;justify-content:center;gap:8px;max-width:100%}#tuneFs .tfAbRow>button{width:44px;height:44px;min-height:0!important;flex:none;padding:0;margin:0;border-radius:22px;border:1.5px solid #4a505c;background:#11141a;color:#eceff3;font-size:21px;font-weight:800;line-height:1}#tuneFs .tfAbRow>button:disabled{opacity:.35}/* (11/06 18:13 사용자 '버튼 정렬') 세로: ↶ 스위치 ↷ 줄 · 처음 -5 ▶ +5 줄 · 아래 고치기 칸의 좌우 끝을 같게 */#tuneFs .port .tfCtl{align-self:stretch}#tuneFs .port .tfAbRow{width:100%;justify-content:space-between}#tuneFs .port .tfAbRow .tfAbW{flex:1;min-width:0}#tuneFs .port .tfAbRow .tfAb{width:100%!important;max-width:none!important}#tuneFs .port .tfNav{margin-left:0!important;margin-right:0!important;padding-left:0!important;padding-right:0!important;width:100%}#tuneFs .port .tfNav button{flex:1;min-width:0!important}#tuneFs .port .tfFix.inBot,#tuneFs .port .tfFix.inBot .tfFixBox{margin-left:0!important;margin-right:0!important}/* (11/06 18:13 사용자) 폰 가로(높이 낮음): 긴 안내 글이 좁은 기둥으로 찌그러져 음정선을 밀어냄 → 안내 글 숨김(💡 팁 보기로 볼 수 있음) */@media (max-height:560px){#tuneFs .tfBox:not(.port) .tfHint,#tuneFs .tfBox:not(.port) .tfNote{display:none!important}#tuneFs .tfBox:not(.port) .tfBot{justify-content:center}}/* (11/06 17:35 사용자) ↶ ↷ 더 크게 — 원음|보정본 스위치와 같은 높이(스위치 높이를 따라감) */#tuneFs .tfAbRow>button{height:auto!important;align-self:stretch;width:58px;border-radius:16px;font-size:26px}#tuneFs .tfAbRow .tfAb,#tuneFs .port .tfAbRow .tfAb{width:min(190px,calc(100vw - 150px))}#tuneFs .port .tfAbRow .tfAb button{padding:0 8px;font-size:15px}`;
   const css3 = `/* (11/18 V4 팝업) */#tuneFs .tfFix.tfV4{border-radius:16px 16px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.55);background:#151922;border-top:1px solid #2c3340}
 #tuneFs .tfFix.tfV4 .tfV4Box{display:flex;flex-direction:column;gap:6px;padding:8px 8px 6px!important;position:relative}
-#tuneFs .tfV4R{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+#tuneFs .tfV4R{display:flex;gap:4px}#tuneFs .tfV4R>*{flex:1 1 0!important;min-width:0!important}#tuneFs .tfV4B.tfOct i{font-size:14px;font-weight:800}#tuneFs .tfV4R .advSc.semi{border-color:#ffb86b!important;box-shadow:0 0 0 2px rgba(255,184,107,.35)}#tuneFs .tfV4Mg{position:absolute;left:10px;top:-30px;height:26px;padding:0 10px;border-radius:13px;border:1px solid #3b4250;background:#151922;color:#eceff3;font-size:12px;margin:0}
 #tuneFs .tfV4R .advSc,#tuneFs .tfV4R .tfV4B{width:auto!important;min-width:0;height:48px;margin:0;padding:0;border-radius:10px;box-sizing:border-box}
 #tuneFs .tfV4R .advSc .advScI{position:absolute!important;inset:auto!important;left:10%!important;top:4px!important;width:80%!important;height:15px!important;opacity:.5!important;pointer-events:none}
 #tuneFs .tfV4R .advSc .advScL{position:absolute;left:0;right:0;bottom:4px;margin:0!important;font-size:9.5px!important;font-weight:700!important;line-height:1;letter-spacing:-.4px;white-space:nowrap;overflow:hidden;color:#a9b1bc!important;text-align:center}
