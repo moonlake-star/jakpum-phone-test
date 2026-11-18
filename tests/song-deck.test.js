@@ -152,3 +152,15 @@ const mk = new Function(code + "; return stemEngine;")();
   assert.ok(Math.abs(r - 0.8) < 1e-9 && Math.round(125 * r) === 100, "아래 한계 0.8배");
   const f2 = fn({}, 1); let q = 1; q = f2.setRate(q + f2.rStep()); assert.ok(Math.abs(q - 1.01) < 1e-9, "BPM 모르면 1%");
 }
+
+// ── 11/19: 프롬프터 닫기=재생 정지 · 제목 누르면 재생 없이 열기 · 프롬프터 키/속도 칸
+{
+  const fs = require("fs"), assert = require("assert"), H = fs.readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  assert(/const stopPlay = \(\) => \{ try \{ eng\.pause\(\); \}/.test(H), "프롬프터 stopPlay 없음");
+  assert(/Brand\.layer\(\(\) => \{ stopPlay\(\);/.test(H), "뒤로가기/닫기 때 stopPlay 호출 없음");
+  assert(/\{ close: \(\) => \{ stopPlay\(\);/.test(H), "대체 close에도 stopPlay 필요");
+  assert(/data-slt/.test(H) && /songLib\.auto = null; songDestroy\(\); songPaintList\(\);\s*\};/.test(H), "제목 탭: 자동재생 없이 열기");
+  for (const id of ["prKm", "prKp", "prSm", "prSp", "prKv", "prSv"]) assert(H.includes('id="' + id + '"'), id + " 없음");
+  assert(/#dkPr \.prKg button\{[^}]*min-height:0/.test(H), "전역 button min-height 덮어쓰기 필요");
+  console.log("song-deck: prompter close/title/keytempo ok");
+}

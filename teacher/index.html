@@ -450,7 +450,7 @@
 #dkPr .prT{display:flex;flex-direction:column;line-height:1.15;min-width:0;flex:none;width:calc(var(--u)*19)}#dkPr .prT b{font-size:calc(var(--u)*2.1);font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#dkPr .prT span{font-size:calc(var(--u)*1.2);color:#b8b8b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #dkPr .prVo{display:flex;align-items:center;gap:calc(var(--u)*1);flex:1;min-width:0;max-width:calc(var(--u)*46);margin-left:calc(var(--u)*1.6)}#dkPr .prVo small{font-size:calc(var(--u)*1.2);color:#b8b8b8;white-space:nowrap}#dkPr .prVo input{flex:1;min-width:0;margin:0;height:calc(var(--u)*2.4);accent-color:#FFE066}#dkPr .prVo b{font-size:calc(var(--u)*1.4);font-weight:900;color:#FFE066;min-width:calc(var(--u)*6.8);white-space:nowrap}
 #dkPr .prBtn{flex:none;height:calc(var(--u)*4.4);padding:0 calc(var(--u)*1.4);border-radius:calc(var(--u)*1.1);border:2px solid #b8b8b8;background:#000;color:#fff;font-size:calc(var(--u)*1.6);font-weight:700;margin:0}#dkPr .prBtn:disabled{opacity:.5}#dkPr .prBtn.on{background:#4DD0E1;border-color:#4DD0E1;color:#000}
-#dkPr .prEd{margin-left:auto}
+#dkPr .prEd{margin-left:auto}#dkPr .prKt{display:flex;gap:calc(var(--u)*1.2);flex:none;margin-left:calc(var(--u)*1)}#dkPr .prKg{display:flex;align-items:center;gap:calc(var(--u)*.5)}#dkPr .prKg small{font-size:calc(var(--u)*1.1);color:#b8b8b8;white-space:nowrap}#dkPr .prKg b{font-size:calc(var(--u)*1.5);font-weight:900;color:#FFE066;min-width:calc(var(--u)*5.2);text-align:center;white-space:nowrap;user-select:none;touch-action:manipulation}#dkPr .prKg button{flex:none;width:calc(var(--u)*3.4);height:calc(var(--u)*3.4);min-width:0;min-height:0;padding:0;margin:0;border-radius:50%;border:2px solid #b8b8b8;background:#000;color:#fff;font-size:calc(var(--u)*1.9);font-weight:900;line-height:1;touch-action:manipulation;user-select:none}#dkPr .prKg button:disabled{opacity:.35}
 #dkPr .prX{flex:none;width:calc(var(--u)*4.4);height:calc(var(--u)*4.4);border-radius:50%;border:1px solid #666;background:#000;color:#ddd;font-size:calc(var(--u)*1.8);padding:0;margin:0}
 #dkPr .prTl{display:flex;align-items:center;gap:calc(var(--u)*1.1);min-height:calc(var(--u)*3.2)}#dkPr .prTl>span{font-size:calc(var(--u)*1.4);font-weight:700;min-width:calc(var(--u)*3.6)}#dkPr #prT0{color:#FFE066;text-align:right}#dkPr #prT1{color:#b8b8b8}
 #dkPr .prSg{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}#dkPr .prSgs{display:flex;gap:2px;height:calc(var(--u)*3);flex:none}#dkPr .prSgs button{min-width:0;min-height:0;height:100%;line-height:1;padding:0;border-radius:5px;border:1px solid #555;background:#161616;color:#e0e0e0;font-size:calc(var(--u)*1.3);font-weight:700;white-space:nowrap;overflow:hidden;margin:0}#dkPr .prSgs button.on{background:#FFE066;border-color:#FFE066;color:#000}#dkPr .prSgs button.fl{border:2px solid #4DD0E1}
@@ -6107,13 +6107,14 @@ function songPaintList() {
   const mm = (t) => (t ? `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}` : "");
   box.innerHTML = L.map(x => { const d = x.d, [ic, lab] = SONG_ST[d.status] || ["·", d.status || ""], op = songLib.open === x.folder && d.status === "done";
     return `<div class="card slRow${op ? " op" : ""}" data-sl="${esc(x.folder)}" style="padding:10px 12px;margin:8px 0">
-      <div class="row" style="gap:8px;flex-wrap:nowrap;align-items:center"><div style="flex:1;min-width:0"><b>${esc(d.title || (d.youtube ? "유튜브 곡 · 제목은 받은 뒤 채워져요" : "(이름 없음)"))}</b>${d.artist ? ` <span class="muted">— ${esc(d.artist)}</span>` : ""}
+      <div class="row" style="gap:8px;flex-wrap:nowrap;align-items:center"><div style="flex:1;min-width:0${d.status === "done" ? ";cursor:pointer" : ""}" data-slt><b>${esc(d.title || (d.youtube ? "유튜브 곡 · 제목은 받은 뒤 채워져요" : "(이름 없음)"))}</b>${d.artist ? ` <span class="muted">— ${esc(d.artist)}</span>` : ""}
         <div class="muted" style="font-size:.8rem">${ic} ${esc(lab)}${d.status === "done" && d.dur ? ` · ${mm(d.dur)}` : ""}${d.by === "makeup" ? " · 메이크업에서" : ""}${d.status === "error" && d.error ? ` · ${esc(String(d.error).slice(0, 80))}` : ""}</div></div>
         ${d.status === "done" ? `<button type="button" class="small" data-slp>${op ? "접기" : "▶ 듣기"}</button>` : d.status === "error" ? `<button type="button" class="small" data-slr>다시</button>` : ["queued", "home_wait", "working"].includes(d.status) ? `<div class="sgSp" style="width:16px;height:16px;border:2px solid #444;border-top-color:#ffb86b;border-radius:50%;animation:sgSpin 1s linear infinite"></div>` : ""}
         <button type="button" class="ghost small" data-sld aria-label="곡 지우기" style="flex:none">🗑</button></div>
       ${op ? `<div class="slPl" style="margin-top:8px"></div>` : ""}</div>`; }).join("");
   box.querySelectorAll("[data-sl]").forEach(row => { const x = songLib.list.find(y => y.folder === row.dataset.sl); if (!x) return;
     const pb = row.querySelector("[data-slp]"); if (pb) pb.onclick = () => { const opening = songLib.open !== x.folder; songLib.open = opening ? x.folder : null; songLib.auto = opening ? x.folder : null; songDestroy(); songPaintList(); };
+    const tt = row.querySelector("[data-slt]"); if (tt && x.d.status === "done") tt.onclick = () => { const opening = songLib.open !== x.folder; songLib.open = opening ? x.folder : null; songLib.auto = null; songDestroy(); songPaintList(); };   // 제목을 누르면 재생은 시작 없이 그 곡 페이지만 열림/접힘(11/19)
     const rb = row.querySelector("[data-slr]"); if (rb) rb.onclick = async () => { rb.disabled = true; try { x.d = { ...x.d, status: "queued", error: null, updated: new Date().toISOString() }; await writeJSON(x.folder, "song.json", x.d, x.fileId); songPaintList(); songPollArm(); kick(); toast("다시 해 볼게요"); } catch (e) { toast("실패: " + errMsg(e)); rb.disabled = false; } };
     row.querySelector("[data-sld]").onclick = async () => { if (!confirm(`‘${x.d.title || "이 곡"}’을 곡 서랍에서 지울까요?\n(드라이브 휴지통으로 — 30일 안엔 되살릴 수 있어요 · 이 곡을 쓰는 메이크업·노트의 원곡 파일도 함께 안 들려요)`)) return;
       try { await api(`${DRIVE}/files/${x.folder}?fields=id`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trashed: true }) }); songLib.list = songLib.list.filter(y => y !== x); if (songLib.open === x.folder) { songDestroy(); songLib.open = null; } songPaintList(); toast("지웠어요(휴지통)"); } catch (e) { toast("지우기 실패: " + errMsg(e)); } };
@@ -6335,6 +6336,102 @@ function stemEngine(d) {
   return E;
 }
 // </stem-engine>
+
+// <stretch-engine> 곡 서랍 전용(선생님 앱만) — 키(반음)·속도를 앱 안에서 바로 바꿈: 반주·보컬을 Signalsmith Stretch(AudioWorklet, 시간·음높이 따로 변환하는 고음질 엔진)로 실시간 처리.
+// 보컬만 포먼트 보정(키를 올려도 목소리가 얇아지지 않게). 안 되는 기기·긴 곡·엔진 파일 실패 → 예전 방식(stemEngine: 오디오 태그 + 서버가 만든 키 파일)으로 자동 복귀.
+// 위치는 스케줄 값에서 계산: pos = off + (지금 − t0) × 속도 (구간 반복이면 A~B 안으로 접음). d = stemEngine과 같은 옵션 + { stretchSrc?, AC?, lib? }
+let _ssLib = null;
+function stretchLib(d) {
+  if (d && d.lib) return Promise.resolve(d.lib);
+  return _ssLib ||= new Promise((ok, no) => {
+    if (typeof globalThis.SignalsmithStretch === "function") return ok(globalThis.SignalsmithStretch);
+    const s = document.createElement("script"); s.src = (d && d.stretchSrc) || "vendor/signalsmith-stretch.js?v=ss1";
+    s.onload = () => (typeof globalThis.SignalsmithStretch === "function" ? ok(globalThis.SignalsmithStretch) : no(new Error("엔진 없음"))); s.onerror = () => no(new Error("엔진 파일을 못 받았어요")); document.head.appendChild(s);
+  }).catch((e) => { _ssLib = null; throw e; });
+}
+function stretchEngine(d) {
+  const G = typeof globalThis !== "undefined" ? globalThis : window, AC = "AC" in d ? d.AC : (G.AudioContext || G.webkitAudioContext), stale = () => new Error("stale"), clamp = (v) => Math.max(0, Math.min(100, Math.round(+v) || 0));
+  const tm = d.timers || { set: (f, ms) => G.setInterval(f, ms), clear: (t) => G.clearInterval(t) };
+  const base = stemEngine(Object.assign({}, d, { html: true }));   // 폴백(오디오 태그 방식)
+  let ctx = null, nm = null, nv = null, gv = null, gm = null, master = null, loading = null, dead = false, ss = false, why = "", EN = null;
+  let vol = clamp(d.vol ?? 30), mrVol = 100, boostOn = d.boost !== false, rate = 1, semis = 0, off = 0, t0 = 0, playing = false, starting = false, dur0 = 0, loop = null, timer = 0, idleT = null;
+  const LEAD = 0.05, BOOST_TARGET = -11;
+  const lift = () => { if (!EN || !EN.n) return 1; const lv = 10 * Math.log10((EN.mm + 2 * EN.mv + EN.vv) / EN.n + 1e-12); return Math.max(1, Math.min(10 ** (6 / 20), 10 ** ((BOOST_TARGET - lv) / 20))); };
+  const comp = () => { if (!EN) return 1; const g = vol / 100, e = EN.mm + 2 * g * EN.mv + g * g * EN.vv, eo = EN.mm + 2 * EN.mv + EN.vv; return e > 1e-12 ? Math.max(1, Math.min(10 ** (9 / 20), Math.sqrt(eo / e))) : 1; };
+  const boostGain = (on) => (on ? lift() * comp() : 1);
+  const setMaster = (tc) => { if (!master) return; const g = master.gain, n = ctx.currentTime, v = boostGain(boostOn); try { g.cancelScheduledValues(n); g.setTargetAtTime(v, n, tc); } catch { g.value = v; } };
+  const strided = (b) => { const n = b.length, a = b.getChannelData(0), a2 = b.numberOfChannels > 1 ? b.getChannelData(1) : a, o = new Float32Array(Math.ceil(n / 37)); for (let i = 0, k = 0; i < n; i += 37, k++) o[k] = (a[i] + a2[i]) / 2; return o; };
+  const decode = (ab) => new Promise((ok, no) => { try { const p = ctx.decodeAudioData(ab, ok, no); if (p && p.then) p.then(ok, no); } catch (e) { no(e); } });
+  const posAt = (T) => { let p = off + (T - t0) * rate; if (loop && p >= loop.b) p = loop.a + ((p - loop.a) % (loop.b - loop.a)); return Math.max(0, Math.min(p, dur0)); };
+  const pos = () => (!ss ? base.pos() : playing ? posAt(ctx.currentTime) : off);
+  // 두 노드에 같은 시각으로 같은 값을 보냄(반주·보컬이 같은 시계) — out: 이 시각부터 적용 · input: 그때의 곡 안 위치
+  const send = (out, on) => {
+    const p = { output: out, active: on, input: off, rate, semitones: semis, loopStart: loop ? loop.a : 0, loopEnd: loop ? loop.b : 0 };
+    nm.schedule(Object.assign({ formantCompensation: false }, p)); nv.schedule(Object.assign({ formantCompensation: true }, p));
+  };
+  const rebase = () => { const T = ctx.currentTime + LEAD; off = posAt(T); t0 = T; send(T, true); };   // 재생 중 값이 바뀔 때: 지금 위치에서 이어서
+  const stopTimer = () => { if (timer) tm.clear(timer); timer = 0; };
+  const fh = (on) => { try { d.focus && d.focus(on, () => { if (playing) { E.pause(); try { d.onPause && d.onPause(); } catch {} } }); } catch {} };
+  const sleepSoon = () => { tm.clear(idleT); idleT = tm.set(() => { try { if (!playing && !starting && ctx && ctx.state === "running") ctx.suspend(); } catch {} }, 1500); };
+  const end = () => { off = 0; playing = false; try { send(ctx.currentTime, false); } catch {} stopTimer(); sleepSoon(); fh(false); try { d.onEnd && d.onEnd(); } catch {} };
+  const tick = () => { if (ss && playing && pos() >= dur0 - 0.02 && !loop) return end(); try { d.onTick && d.onTick(E); } catch {} };
+  const closeAll = () => { for (const n of [nm, nv, gv, gm, master]) { try { n && n.disconnect(); } catch {} } nm = nv = gv = gm = master = null; try { ctx && ctx.close && ctx.close(); } catch {} ctx = null; };
+  const ssLoad = async () => {
+    if (!AC) throw new Error("WebAudio 없음");
+    ctx ||= new AC(); if (!ctx.audioWorklet) throw new Error("AudioWorklet 없음");
+    const lib = await stretchLib(d); if (dead) throw stale();
+    const a = await d.fetchBuf("mr"), b = await d.fetchBuf("voc"); if (dead) throw stale();
+    if (Math.max(a.byteLength, b.byteLength) / (d.bytesPerSec || 20000) > (d.maxDecodeSec || 480)) throw new Error("곡이 너무 길어요(메모리)");   // 160kbps MP3 ≈ 20000바이트/초 · 8분 넘으면 폴백
+    const opt = { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2] };
+    const mk = async (ab) => {   // 한 트랙씩 디코드 → 채널 복사 → 처리기로 넘김(복사본은 넘기며 비움): 순간 메모리를 한 트랙 분으로
+      const buf = await decode(ab); if (dead) throw stale(); const node = await lib(ctx, opt); if (dead) throw stale();
+      const ch = []; for (let c = 0; c < buf.numberOfChannels; c++) ch.push(buf.getChannelData(c).slice());
+      const s = strided(buf), dur = buf.duration; await node.addBuffers(ch, ch.map((x) => x.buffer)); return { node, s, dur };
+    };
+    const m = await mk(a), v = await mk(b); if (dead) throw stale();
+    const n = Math.min(m.s.length, v.s.length); let mm = 0, vv = 0, mv = 0; for (let i = 0; i < n; i++) { mm += m.s[i] * m.s[i]; vv += v.s[i] * v.s[i]; mv += m.s[i] * v.s[i]; } EN = { mm, vv, mv, n };
+    let tail = ctx.destination; try { const lim = ctx.createDynamicsCompressor(); lim.threshold.value = -1; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.003; lim.release.value = 0.12; lim.connect(ctx.destination); tail = lim; } catch {}
+    master = ctx.createGain(); master.gain.value = boostGain(boostOn); master.connect(tail);
+    gv = ctx.createGain(); gv.gain.value = vol / 100; gv.connect(master); gm = ctx.createGain(); gm.gain.value = mrVol / 100; gm.connect(master);
+    nm = m.node; nv = v.node; nm.connect(gm); nv.connect(gv); dur0 = m.dur; ss = true;
+  };
+  const load = () => loading ||= (async () => {
+    try { await ssLoad(); return E; }
+    catch (e) { if (e && e.message === "stale") throw e; if (dead) throw stale(); why = String(e && e.message || e); ss = false; closeAll(); d.fallback = why; await base.load(); base.setRate(rate); return E; }
+  })().catch((e) => { loading = null; throw e; });
+  const E = {
+    load, pos, mode: () => (ss ? "ss" : base.mode()), dur: () => (ss ? dur0 : base.dur()), isPlaying: () => (ss ? playing : base.isPlaying()), isDead: () => dead || base.isDead(),
+    vol: () => vol, rate: () => rate, mrVol: () => mrVol, loop: () => (ss ? loop : base.loop()), fallbackReason: () => why || base.fallbackReason(), boost: () => boostOn,
+    canKey: () => ss, key: () => semis,   // 키를 앱에서 바로 바꿀 수 있나(엔진이 실시간 변환 방식일 때만)
+    unlock() {   // 사용자 터치 안에서 동기로: 소리 장치를 미리 만들고 깨움(모바일 자동재생 정책)
+      if (dead) return; try { if (!ctx && !ss && !loading && AC) ctx = new AC(); if (ctx && ctx.state !== "running") { const p = ctx.resume(); if (p && p.catch) p.catch(() => {}); } } catch { if (!ss) ctx = null; }
+    },
+    async play() {
+      await load(); if (dead) throw stale(); if (!ss) return base.play(); if (playing || starting) return; starting = true; tm.clear(idleT); idleT = null;
+      try {
+        if (ctx.state !== "running") { await Promise.race([ctx.resume(), new Promise((res) => setTimeout(res, d.resumeMs || 3000))]); if (dead) throw stale(); if (ctx.state !== "running") throw new Error("blocked"); }
+        if (off >= dur0 - 0.05) off = 0;
+        const T = ctx.currentTime + 0.08; t0 = T; send(T, true); playing = true; fh(true); stopTimer(); timer = tm.set(tick, 250);
+      } finally { starting = false; }
+    },
+    pause() { if (!ss) return base.pause(); if (!playing) return; off = pos(); playing = false; try { send(ctx.currentTime, false); } catch {} stopTimer(); sleepSoon(); fh(false); },
+    async seek(t) { await load(); if (dead) throw stale(); if (!ss) return base.seek(t); off = Math.max(0, Math.min(t, Math.max(0, dur0 - 0.05))); if (playing) { const T = ctx.currentTime + LEAD; t0 = T; send(T, true); } },
+    setVol(v) {
+      vol = clamp(v); if (!ss) return base.setVol(v);
+      if (gv) { const g = gv.gain, n = ctx.currentTime; try { g.cancelScheduledValues(n); g.setTargetAtTime(vol / 100, n, 0.015); } catch { g.value = vol / 100; } }
+      setMaster(0.05);
+    },
+    setBoost(on) { boostOn = !!on; if (!ss) return base.setBoost(on); setMaster(0.03); },
+    setRate(r) { rate = Math.max(0.5, Math.min(2, +r || 1)); if (!ss) { base.setRate(rate); return; } if (playing) rebase(); },
+    setKey(n) { semis = Math.max(-12, Math.min(12, Math.round(+n) || 0)); if (ss && playing) rebase(); return ss; },   // 반음 단위(소수 없음)
+    setMrVol(v) { mrVol = clamp(v); if (!ss) return base.setMrVol(v); if (gm) { const g = gm.gain, n = ctx.currentTime; try { g.cancelScheduledValues(n); g.setTargetAtTime(mrVol / 100, n, 0.015); } catch { g.value = mrVol / 100; } } },
+    setLoop(a, b) { const l = (Number.isFinite(a) && Number.isFinite(b) && b - a >= 0.5) ? { a: +a, b: +b } : null; if (!ss) return base.setLoop(a, b); if (playing) { const T = ctx.currentTime + LEAD; off = posAt(T); t0 = T; loop = l; send(T, true); } else loop = l; },
+    swap: (...a) => base.swap(...a),
+    destroy() { if (dead) return; dead = true; fh(false); stopTimer(); tm.clear(idleT); playing = false; closeAll(); base.destroy(); },
+  };
+  return E;
+}
+// </stretch-engine>
 // 원곡 플레이어(메이크업 화면·곡 서랍 같이 씀): ids = { mr, voc, orig } 드라이브 파일 · o = { head, vol, name, extra, onVol(v), wire(Q) }
 function songPlayer(el, ids, o) {
   const boostPref = () => { try { return localStorage.getItem("jk_stemBoost") !== "0"; } catch { return true; } }, boostSave = (on) => { try { localStorage.setItem("jk_stemBoost", on ? "1" : "0"); } catch {} };
@@ -6381,6 +6478,11 @@ function songPlayer(el, ids, o) {
 // (11/14 사용자 시안 B) 곡 서랍 전용 플레이어: 소리 파형(좌우로 밀기)·큰 재생 버튼·반복·구간 반복(A·B)·속도(80~120%)·보컬/반주 볼륨
 // 키 바꾸기·코드·악보는 서버가 파일을 만들어 줘야 해서 여기엔 아직 없음 · 파형은 곡당 한 번 만들어 song.json(wave)에 적어 둠
 const DK_STEP = 0.1, DK_PPS = 14, DK_RATES = [0.8, 0.85, 0.9, 0.95, 1, 1.05, 1.1, 1.15, 1.2];
+// 더블탭(0.35초 안에 같은 칸을 두 번): 키·속도 칸을 원래 값으로. 버튼 위의 탭은 무시
+function dblTap(el, fn) {
+  let last = 0; el.style.touchAction = "manipulation";
+  el.addEventListener("pointerup", (e) => { if (e.target.closest && e.target.closest("button")) { last = 0; return; } const n = Date.now(); if (n - last < 350) { last = 0; fn(); } else last = n; });
+}
 // 누르면 한 번, 0.4초 넘게 누르고 있으면 주루룩(점점 빨라짐). 손가락이 버튼을 벗어나거나 떼면 멈춤. 키보드(Enter)는 click 한 번.
 function holdRepeat(btn, fn) {
   let t = 0, iv = 0, n = 0, fired = false;
@@ -6549,7 +6651,7 @@ function songDeck(el, ids, o) {
   let ED = JSON.parse(JSON.stringify(o.edits && typeof o.edits === "object" ? o.edits : {})); const M0 = AN ? songMeasures(AN, 0, null) : []; let LE = CHORDS ? songLaneEvents(AN, CHORDS, ED, M0) : [];   // 코드 고침은 프롬프터와 같은 기록(ED)
   const saveED = () => { clearTimeout(me.edT); me.edT = setTimeout(() => { me.edT = 0; try { o.onEdits && o.onEdits(ED); } catch {} }, 700); };
   let rate = 1, rep = false, A = null, B = null, vp = 0, lastP = 0, lastT = 0, raf = 0, drag = null, glide = null, wave = o.wave && o.wave.mr && o.wave.voc ? o.wave : null, mrV = m0;
-  const eng = me.eng = stemEngine({ vol: v0, boost: boostPref2(), html: true, focus: (on, lost) => Brand.focusHold?.("song", on, lost), onPause: () => { if (alive()) { Q("sgPb").textContent = "▶"; kick_(); } }, fetchBuf: async (k) => (await blob(k)).arrayBuffer(),
+  const eng = me.eng = stretchEngine({ vol: v0, boost: boostPref2(), html: true, focus: (on, lost) => Brand.focusHold?.("song", on, lost), onPause: () => { if (alive()) { Q("sgPb").textContent = "▶"; kick_(); } }, fetchBuf: async (k) => (await blob(k)).arrayBuffer(),
     onTick: (E) => { if (!alive()) return; if (!el.isConnected) return songDestroy(); Q("sgT0").textContent = mmss(E.pos()); },
     onEnd: () => { if (!alive()) return; Q("sgPb").textContent = "▶"; Q("sgT0").textContent = "0:00"; vp = 0; draw();
       if (rep) setTimeout(() => { if (alive()) Q("sgPb").onclick(); }, 150); } });
@@ -6592,18 +6694,21 @@ function songDeck(el, ids, o) {
   const setRate = (r) => { const st = rStep(); rate = Math.max(0.8, Math.min(1.2, Math.round(r / st) * st)); if (Math.abs(rate - 1) < st / 2) rate = 1; eng.setRate(rate); paintRate(); draw(); };
   paintRate();
   const sgn = (n) => (n > 0 ? "+" : "") + n, keyName = (n) => songChordName(AN.key + (AN.mode === "minor" ? "m" : ""), n);
-  const paintKey = () => { if (!AN) return; const n = keyWant; Q("dkKeyV").textContent = keyName(n); Q("dkKeyN").textContent = keyBusy || keyN !== keyWant ? "준비 중…" : n === 0 ? "원곡 키" : `원곡 ${keyName(0)} · ${sgn(n)}`;
+  const paintKey = () => { if (!AN) return; const n = keyWant; Q("dkKeyV").textContent = keyName(n); Q("dkKeyN").textContent = keyBusy || keyN !== keyWant ? "준비 중…" : n === 0 ? "원곡 키" : `원곡 ${keyName(0)} · ${sgn(n)}반음`;
     Q("dkKeyM").disabled = n <= -6; Q("dkKeyP").disabled = n >= 6; Q("dkRst").classList.toggle("show", Math.abs(rate - 1) > 1e-6 || n !== 0); };
   const getFiles = async (n) => { const f = n === 0 ? { mr: ids.mr, voc: ids.voc } : kd[n] || kd[String(n)]; me.kb ||= {}; return (me.kb[n] ||= (async () => { const [a, b] = await Promise.all([n === 0 ? blob("mr") : readBlob(f.mr, false, true), n === 0 ? blob("voc") : readBlob(f.voc, false, true)]); return [await a.arrayBuffer(), await b.arrayBuffer()]; })().catch((e) => { delete me.kb[n]; throw e; })); };
   const applyKey = async () => { if (keyBusy) return; keyBusy = true; paintKey();
     try { while (alive() && keyN !== keyWant) { const n = keyWant; if (n !== 0 && !(kd[n] || kd[String(n)])) break; await load(); const [a, b] = await getFiles(n); if (!alive()) return; await eng.swap(a.slice(0), b.slice(0)); keyN = n; draw(); } }
     catch (e) { if (alive() && e.message !== "stale") { keyWant = keyN; toast("키를 바꾸지 못했어요: " + errMsg(e)); } } finally { keyBusy = false; if (alive()) paintKey(); } };
   const keyPoll = () => { clearTimeout(me.keyT); if (!alive() || keyN === keyWant || !o.fetchD) return; me.keyT = setTimeout(async () => { try { const d = await o.fetchD(); kd = d.keys || kd; if (kd[keyWant] || kd[String(keyWant)]) { applyKey(); return; } } catch {} keyPoll(); }, 12000); };
-  const setKey = (n) => { if (!AN) return; keyWant = Math.max(-6, Math.min(6, n)); paintKey();
+  const setKey = async (n) => { if (!AN) return; keyWant = Math.max(-6, Math.min(6, n)); paintKey();
+    // 앱에서 바로(고음질 실시간 변환): 서버가 만든 키 파일 없이 반음만 바꿈. 안 되는 기기·긴 곡은 아래 예전 방식(키 파일)으로
+    try { await load(); } catch { if (alive()) { keyWant = keyN; paintKey(); } return; } if (!alive()) return;
+    if (eng.canKey && eng.canKey()) { eng.setKey(keyWant); keyN = keyWant; paintKey(); draw(); return; }
     if (keyWant === 0 || kd[keyWant] || kd[String(keyWant)]) { applyKey(); return; }
     if (!kReq.includes(keyWant)) { kReq.push(keyWant); try { o.onKeyReq && o.onKeyReq(kReq); } catch {} }
     paintKey(); keyPoll(); };
-  if (AN) { paintKey(); Q("dkKeyM").onclick = () => setKey(keyWant - 1); Q("dkKeyP").onclick = () => setKey(keyWant + 1); }
+  if (AN) { paintKey(); Q("dkKeyM").onclick = () => setKey(keyWant - 1); Q("dkKeyP").onclick = () => setKey(keyWant + 1); dblTap(Q("dkKeyV").parentElement, () => setKey(0)); }
   const paintAB = () => { Q("dkAB").textContent = A != null && B != null ? `A ${mmss1(A)} – B ${mmss1(B)}` : A != null ? `A ${mmss1(A)} · B를 정해 주세요` : B != null ? `B ${mmss1(B)} · A를 정해 주세요` : ""; Q("dkA").textContent = A != null ? `A 지점 ${mmss(A)}` : "A 지점"; Q("dkB").textContent = B != null ? `B 지점 ${mmss(B)}` : "B 지점";
     const on = A != null && B != null; Q("dkLoop").classList.toggle("on", on); Q("dkLoop").setAttribute("aria-pressed", on); eng.setLoop(on ? A : NaN, on ? B : NaN); draw(); };
   let loadP = null;
@@ -6637,6 +6742,7 @@ function songDeck(el, ids, o) {
     const meas = () => songApplyEdits(songMeasures(AN, keyN, o.lyrics), ED, keyN); let M = meas(), mKey = keyN, SL = songSecList(M.length, SEC);
     d.innerHTML = `<div class="prTop"><button type="button" class="prPlay" id="prPlay" aria-label="재생 또는 일시정지">▶</button><div class="prT"><b id="prTitle"></b><span id="prSub"></span></div>
       <div class="prVo"><small>보컬</small><input type="range" id="prVol" min="0" max="100" aria-label="보컬 소리"><b id="prVv"></b></div>
+      <div class="prKt"><div class="prKg"><small>키</small><button type="button" id="prKm" aria-label="키 한 음 내리기">−</button><b id="prKv">–</b><button type="button" id="prKp" aria-label="키 한 음 올리기">＋</button></div><div class="prKg"><small>속도</small><button type="button" id="prSm" aria-label="속도 1 내리기">−</button><b id="prSv">–</b><button type="button" id="prSp" aria-label="속도 1 올리기">＋</button></div></div>
       <button type="button" class="prBtn prEd" id="prEd">✎ 수정</button><button type="button" class="prBtn" id="prPdf" aria-label="PDF로 저장">PDF</button><button type="button" class="prX" id="prX" aria-label="닫기">✕</button></div>
       <div class="prTl"><span id="prT0">0:00</span><div class="prSg"><div class="prSgs" id="prSgs"></div><input type="range" id="prSeek" min="0" max="1000" step="1" value="0" aria-label="곡 전체 위치"></div><span id="prT1">–:–</span><div class="prPg"><button type="button" id="prPv" aria-label="이전 쪽">◀</button><span id="prPn"></span><button type="button" id="prNx" aria-label="다음 쪽">▶</button></div></div>
       <div class="prGrid" id="prGrid"></div>`;
@@ -6690,8 +6796,12 @@ function songDeck(el, ids, o) {
     const vv = () => { const v = me.vol; $("#prVol").value = v; $("#prVv").textContent = v === 0 ? "끄기" : v <= 40 ? `가이드 ${v}%` : v + "%"; }; me.onVol = vv; vv(); $("#prVol").oninput = () => setVol(+$("#prVol").value);
     const sk = $("#prSeek"); sk.onpointerdown = sk.ontouchstart = () => { sd = true; }; sk.onchange = () => { sd = false; }; sk.onpointerup = sk.ontouchend = sk.onpointercancel = () => { sd = false; };
     sk.oninput = () => { const t = (+sk.value / 1000) * dur(), q = songBeatPos(AN, t), si = songSecAt(SL, Math.min(M.length - 1, q.m)); if (lastSi >= 0 && si !== lastSi) buzz(si); lastSi = si; seekTo(t); };
+    let lastKt = "";   // 키·속도 칸(프롬프터 위쪽): 곡 서랍 카드와 같은 엔진·같은 값을 씀 — 여기서 바꿔도 소리는 바로 바뀜
+    const paintPk = () => { $("#prKv").textContent = AN ? keyName(keyWant) : "–"; $("#prKm").disabled = $("#prKp").disabled = !AN; $("#prSv").textContent = +o.bpm > 0 ? Math.round(+o.bpm * rate) : Math.round(rate * 100) + "%"; };
+    $("#prKm").onclick = () => setKey(keyWant - 1); $("#prKp").onclick = () => setKey(keyWant + 1); holdRepeat($("#prSm"), () => setRate(rate - rStep())); holdRepeat($("#prSp"), () => setRate(rate + rStep()));
+    dblTap($("#prKv"), () => setKey(0)); dblTap($("#prSv"), () => setRate(1)); paintPk();
     build(); sub(); paintEd();
-    const tickP = () => { raf2 = 0; if (!d.isConnected || !alive()) return; if (mKey !== keyN) { build(); sub(); } if (needFit) fit();
+    const tickP = () => { raf2 = 0; if (!d.isConnected || !alive()) return; if (mKey !== keyN) { build(); sub(); } { const kt = keyWant + "|" + keyN + "|" + rate; if (kt !== lastKt) { lastKt = kt; sub(); paintPk(); } } if (needFit) fit();
       const p = eng.pos(), n0 = performance.now(); if (p !== lastP) { lastP = p; lastT = n0; } const tt = eng.isPlaying() ? lastP + Math.min(0.3, (n0 - lastT) / 1000 * rate) : p, q = songBeatPos(AN, tt), mi = Math.min(M.length - 1, q.m);
       $("#prPlay").textContent = eng.isPlaying() ? "❚❚" : "▶";
       if (!sd) { sk.value = dur() ? Math.round(Math.max(0, Math.min(1, tt / dur())) * 1000) : 0; lastSi = songSecAt(SL, mi); }
@@ -6699,7 +6809,8 @@ function songDeck(el, ids, o) {
       const mp = Math.floor(mi / SG_PER); if (mp !== lastPg) { lastPg = mp; if (mp !== pg) { pg = mp; closeEdit(); build(); } }
       if (mi !== on) { d.querySelectorAll(".prM.on").forEach((e) => e.classList.remove("on")); const cur = d.querySelector(`.prM[data-i="${mi}"]`); if (cur) cur.classList.add("on"); on = mi; paintSegs(); }
       const cur = d.querySelector(".prM.on .prHd"); if (cur) cur.style.left = (q.b / 4 * 100) + "%"; raf2 = requestAnimationFrame(tickP); };
-    const ly = typeof Brand !== "undefined" && Brand.layer ? Brand.layer(() => { cancelAnimationFrame(raf2); flush(); LE = songLaneEvents(AN, CHORDS, ED, M0); draw(); me.onVol = null; clearTimeout(flT); try { wl && wl.release(); } catch {} try { if (document.fullscreenElement) document.exitFullscreen(); } catch {} try { screen.orientation && screen.orientation.unlock && screen.orientation.unlock(); } catch {} d.remove(); }) : { close: () => { flush(); LE = songLaneEvents(AN, CHORDS, ED, M0); draw(); me.onVol = null; d.remove(); } };   // 뒤로 가기 = 프롬프터만 닫힘
+    const stopPlay = () => { try { eng.pause(); } catch {} try { Q("sgPb").textContent = "▶"; } catch {} };   // 사용자 11/19: 프롬프터 닫기 = 재생도 멈춤
+    const ly = typeof Brand !== "undefined" && Brand.layer ? Brand.layer(() => { stopPlay(); cancelAnimationFrame(raf2); flush(); LE = songLaneEvents(AN, CHORDS, ED, M0); draw(); me.onVol = null; clearTimeout(flT); try { wl && wl.release(); } catch {} try { if (document.fullscreenElement) document.exitFullscreen(); } catch {} try { screen.orientation && screen.orientation.unlock && screen.orientation.unlock(); } catch {} d.remove(); }) : { close: () => { stopPlay(); flush(); LE = songLaneEvents(AN, CHORDS, ED, M0); draw(); me.onVol = null; d.remove(); } };   // 뒤로 가기 = 프롬프터만 닫힘
     const pdfBtn = $("#prPdf");   // 사용자 11/14: 프롬프터 PDF 저장(파일명 제목_가수_Key) · 한 쪽 5줄 · 조작 부품 없이 악보만
     pdfBtn.onclick = async () => { pdfBtn.disabled = true; const t0 = pdfBtn.textContent; pdfBtn.textContent = "만드는 중…";
       try { const MM = meas(), L2 = songSecList(MM.length, SEC), sec = {}; L2.forEach((s) => { sec[s.start] = "[" + s.name + "]"; }); const pgs = Math.max(1, Math.ceil(MM.length / SG_PER)), sb = `${o.artist ? o.artist + " · " : ""}Key ${keyName(keyN)} · ${+o.bpm > 0 ? Math.round(+o.bpm) + " BPM · " : ""}4/4박(추정)`, out = [];
@@ -6720,7 +6831,7 @@ function songDeck(el, ids, o) {
   Q("sgVol").oninput = () => setVol(+Q("sgVol").value); Q("sgVol").ondblclick = () => setVol(100);
   el.querySelectorAll("[data-sgv]").forEach(b => b.onclick = () => setVol(+b.dataset.sgv));
   Q("dkMr").oninput = () => { mrV = +Q("dkMr").value; Q("dkMv").textContent = mrV + "%"; eng.setMrVol(mrV); clearTimeout(me.mrT); me.mrT = setTimeout(() => { try { o.onMrVol && o.onMrVol(mrV); } catch {} }, 1500); };
-  holdRepeat(Q("dkSpM"), () => setRate(rate - rStep())); holdRepeat(Q("dkSpP"), () => setRate(rate + rStep())); Q("dkRst").onclick = () => { setRate(1); if (AN) setKey(0); };
+  holdRepeat(Q("dkSpM"), () => setRate(rate - rStep())); holdRepeat(Q("dkSpP"), () => setRate(rate + rStep())); dblTap(Q("dkSpV").parentElement, () => setRate(1)); Q("dkRst").onclick = () => { setRate(1); if (AN) setKey(0); };
   // 파형 밀기: 손가락을 따라 움직이는 동안은 소리를 멈추고(끊김 방지) 놓은 뒤 미끄러지다 멈추면 그 자리로 옮겨 이어서 재생
   const pps = () => DK_PPS / rate;
   let lp = null; const lpStop = () => { if (lp) { clearTimeout(lp.t); lp = null; } };
@@ -9042,7 +9153,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261119-0050";
+const BUILD = "20261119-0110";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
