@@ -136,3 +136,19 @@ const mk = new Function(code + "; return stemEngine;")();
   assert.ok(/min-height:0/.test(css) && /height:100%/.test(css), "프롬프터 구간 칸 버튼: 전역 button 최소높이(46px)에 눌려 슬라이더를 덮지 않게 min-height:0 · 부모 높이에 맞춤");
   assert.ok(/#dkPr \.prSgs\{[^}]*flex:none/.test(css), "구간 칸 줄은 줄어들지 않음");
 }
+
+{
+  assert.ok(T.includes('id="dkSpM" aria-label="속도 1 내리기') && T.includes(">−1</button>") && !T.includes(">−5%</button>"), "속도 버튼은 ±1");
+  assert.ok(/holdRepeat\(Q\("dkSpM"\)[^;]*rate - rStep\(\)/.test(T) && /holdRepeat\(Q\("dkSpP"\)[^;]*rate \+ rStep\(\)/.test(T), "속도 버튼은 길게 누르면 계속");
+  assert.ok(T.includes("const rStep = () => { const b = +o.bpm; return b > 0 ? 1 / b : 0.01; }"), "한 칸 = BPM 1(분석 없으면 1%)");
+  // 로직: 한 칸 단위로 맞춤 + 0.8~1.2 한계
+  const fn = new Function("o", "rate", "const rStep = () => { const b = +o.bpm; return b > 0 ? 1 / b : 0.01; };" +
+    "const setRate = (r) => { const st = rStep(); rate = Math.max(0.8, Math.min(1.2, Math.round(r / st) * st)); if (Math.abs(rate - 1) < st / 2) rate = 1; return rate; };" +
+    "return { setRate, rStep };");
+  const { setRate, rStep } = fn({ bpm: 125 }, 1);
+  let r = 1; for (let i = 0; i < 3; i++) r = setRate(r + rStep());
+  assert.strictEqual(Math.round(125 * r), 128, "+1 세 번 = 128 BPM");
+  for (let i = 0; i < 100; i++) r = setRate(r - rStep());
+  assert.ok(Math.abs(r - 0.8) < 1e-9 && Math.round(125 * r) === 100, "아래 한계 0.8배");
+  const f2 = fn({}, 1); let q = 1; q = f2.setRate(q + f2.rStep()); assert.ok(Math.abs(q - 1.01) < 1e-9, "BPM 모르면 1%");
+}
