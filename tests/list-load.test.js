@@ -20,9 +20,9 @@ function mkDrive(nStu, nLes, fail = {}) {
   return { st, students, list, readJSON };
 }
 function mk(d) {
-  const f = new Function("cfg", "list", "readJSON", "loadSubs", "REVIEW", "NOTE", "MKREQ",
+  const f = new Function("cfg", "list", "readJSON", "readJSONm", "loadSubs", "REVIEW", "NOTE", "MKREQ",
     `${lim}; ${body}; return { listData, studentData, LIST_CONC };`);
-  return f({ students: d.students }, d.list, d.readJSON, async () => ({ recs: [] }), "검수.json", "노트.json", "요청.json");
+  return f({ students: d.students }, d.list, d.readJSON, (f) => d.readJSON(f.id), async () => ({ recs: [] }), "검수.json", "노트.json", "요청.json");
 }
 (async () => {
   // 1. 20명 × 10레슨: 동시 호출이 6개를 넘지 않고, 모든 레슨이 정상
