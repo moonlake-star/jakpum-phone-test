@@ -314,7 +314,7 @@ if ($Stage -eq "A") {
     }
 
     Try-Step "PowerShell 스크립트 실행 허용" {
-        Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope LocalMachine -Force
+        try { Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope LocalMachine -Force -ErrorAction Stop } catch { Log "  (정책이 이미 정해져 있어 건너뜀 — 스크립트는 Bypass로 실행하므로 문제 없음)" }
     }
 
     # ---------------- 프로그램 설치(winget) ----------------
@@ -348,7 +348,15 @@ if ($Stage -eq "A") {
     foreach ($p in $pkgs) {
         $id = $p.id; $label = $p.label
         Try-Step ("설치: " + $label) {
-            if (-not (Install-Pkg $id $label)) { throw ($label + " 설치 실패") }
+            if (-not (Install-Pkg $id $label)) {
+                if ($id -eq "Google.Chrome") {
+                    Log "  winget 설치가 막혀 구글에서 직접 받습니다"
+                    $f = Join-Path $env:TEMP "chrome_setup.msi"
+                    Invoke-WebRequest -UseBasicParsing -Uri "https://dl.google.com/dl/chrome/install/googlechromestandaloneenterprise64.msi" -OutFile $f
+                    $c = Start-Process msiexec.exe -ArgumentList @("/i", ('"' + $f + '"'), "/qn", "/norestart") -Wait -PassThru
+                    if ($c.ExitCode -ne 0 -and $c.ExitCode -ne 3010) { throw ("Chrome 직접 설치 실패(" + $c.ExitCode + ")") }
+                } else { throw ($label + " 설치 실패") }
+            }
         }
     }
 
@@ -504,6 +512,22 @@ else {
     }
 }
 
+if ($py) {
+    Try-Step "pyworld(음정 엔진) 호환 맞추기" {
+        $ok = { (& $py -c "import pyworld; print('OK')" 2>$null) -match "OK" }
+        if (& $ok) { Log "  pyworld 정상"; return }
+        Log "  pyworld 불러오기 실패 → numpy 1.x로 맞춤"
+        [void](Run-Quiet $py @("-m", "pip", "install", "--quiet", "numpy<2"))
+        if (& $ok) { Log "  numpy<2 로 해결"; return }
+        Log "  → pyworld 다시 설치"
+        [void](Run-Quiet $py @("-m", "pip", "install", "--quiet", "--force-reinstall", "--no-deps", "--no-cache-dir", "pyworld==0.3.4"))
+        if (& $ok) { Log "  pyworld 재설치로 해결"; return }
+        [void](Run-Quiet $py @("-m", "pip", "install", "--quiet", "numpy>=2"))
+        if (& $ok) { Log "  numpy 2.x 로 해결"; return }
+        throw "pyworld를 쓸 수 없습니다(일부 보정 엔진 제한)"
+    }
+}
+
 # ---- 일꾼 시작 파일 · 자동 시작 등록 ----
 Try-Step "일꾼 시작 파일 만들기" {
     $bat = Join-Path $Src "start_worker.bat"
@@ -578,8 +602,9 @@ Read-Host "Enter로 닫기"
 
 # ---- 시험(이 노트북이 일꾼 노릇을 할 수 있는지) ----
 $testSummary = "시험을 돌리지 못함"
-if ($py -and (Test-Path (Join-Path $Src "app\tests"))) {
+if ($py -and (Test-Path (Join-Path $Src "app\tests")) -and ($state.bTries -le 1 -or -not (Test-Path (Join-Path $Base "tests_done.flag")))) {
     Try-Step "서버 시험 실행(수 분 걸립니다)" {
+        $env:PYTHONUTF8 = "1"
         Push-Location (Join-Path $Src "app")
         $out = & $py -m pytest tests -q -p no:cacheprovider 2>&1 | Out-String
         Pop-Location
@@ -587,6 +612,7 @@ if ($py -and (Test-Path (Join-Path $Src "app\tests"))) {
         $last = ($out -split "`n" | Where-Object { $_ -match "passed|failed" } | Select-Object -Last 1)
         $script:testSummary = "$last".Trim()
         Log ("  시험 결과: " + $script:testSummary)
+        Set-Content -Path (Join-Path $Base "tests_done.flag") -Value "1"
     }
 }
 
@@ -594,8 +620,11 @@ if ($py -and (Test-Path (Join-Path $Src "app\tests"))) {
 Try-Step "Google 드라이브·Claude 앱 열기(로그인 화면)" {
     $gd = Get-ChildItem "C:\Program Files\Google\Drive File Stream" -Filter "GoogleDriveFS.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($gd) { Start-Process -FilePath $gd.FullName }
-    $cl = Get-AppxPackage -Name "*Claude*" -ErrorAction SilentlyContinue | Select-Object -First 1
-    if ($cl) { Start-Process "shell:AppsFolder\$($cl.PackageFamilyName)!App" -ErrorAction SilentlyContinue }
+    try {
+        $cl = Get-AppxPackage -Name "*Claude*" -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($cl) { Start-Process "shell:AppsFolder\$($cl.PackageFamilyName)!Claude" -ErrorAction Stop }
+        else { Start-Process "claude:" -ErrorAction Stop }
+    } catch { Log "  Claude 앱은 시작 메뉴에서 직접 열어 주세요" }
 }
 
 # ---- 마무리 ----
