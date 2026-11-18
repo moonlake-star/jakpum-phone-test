@@ -390,6 +390,10 @@
     const draft = clone(g() || {}), dg = () => draft, base = JSON.stringify(draft);
     const body = d.querySelector(".advBody"), G_ = (k, dft) => (dg()[k] != null ? dg()[k] : dft);
     const dirty = () => JSON.stringify(draft) !== base;
+    if (typeof st.fixVSet === "function") {   // (11/18 18:02 사용자 'V3·V4를 보정 설정 안쪽으로') 고치기 창 방식 — 바로 바뀜(적용 버튼과 무관)
+      const vr = document.createElement("div"); vr.className = "advRow advFixV"; vr.innerHTML = `<span class="advL">고치기 창</span><span class="advChips"><button type="button" data-fv="4">V4 팝업</button><button type="button" data-fv="3">V3 예전 창</button></span>`;
+      const pv = () => vr.querySelectorAll("[data-fv]").forEach(b => b.classList.toggle("on", (st.fixVGet() ? "4" : "3") === b.dataset.fv));
+      vr.querySelectorAll("[data-fv]").forEach(b => b.onclick = (e) => { e.stopPropagation(); st.fixVSet(b.dataset.fv === "4"); pv(); }); pv(); body.appendChild(vr); }
     const mark = () => { const ap = d.querySelector(".advGApply"); if (ap) ap.disabled = !dirty(); };
     const put = (k, v) => { dg()[k] = v; mark(); };
     const putLv = (k, v) => { dg().level = Object.assign({ quiet: 0, loud: 0 }, dg().level || {}); dg().level[k] = v; mark(); };
