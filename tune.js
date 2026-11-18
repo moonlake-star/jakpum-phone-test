@@ -640,7 +640,7 @@
         const sb = cutSel ? (st.tbars || []).find(x => Math.abs(x.t0 - st.sel.t0) < 0.02) : cutFree, mp = st.map, X = mp.L + (t - mp.t0) / Math.max(1e-6, mp.W8) * (mp.w - mp.L);
         // (11/13 18:45 사용자 '쪼개기 버튼 조금만 더 아래로') 길이 손잡이(음표 끝 동그라미) 줄보다 조금 아래 — 손잡이 가까이면 더 아래
         const nearEnd = sb && (Math.abs(X - sb.x0) < 40 || Math.abs(X - sb.x1) < 40);
-        if (sb && X > mp.L + 10 && X < mp.w - 10) { const R = 17, Y = Math.min(T + HP - R - 4, sb.y + (sb.h || 10) / 2 + (nearEnd ? 70 : 42));   /* (11/13) 예전: 24·58px 아래 */
+        if (sb && X > mp.L + 10 && X < mp.w - 10) { const R = 17, Y = Math.round(T + HP * 0.78) + 4;   /* (11/18 18:40 사용자) ✂ 자리 고정 = 세로줄 아래쪽, '5초 두 번 톡' 표시와 같은 높이(엄지 자리) */ void nearEnd;   /* (11/13) 예전: 24·58px 아래 */
           g.beginPath(); g.arc(X, Y, R, 0, Math.PI * 2); g.fillStyle = "rgba(255,110,199,.92)"; g.fill(); g.lineWidth = 2; g.strokeStyle = "#1a0714"; g.stroke();
           g.fillStyle = "#1a0714"; g.font = "bold 18px system-ui,sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText("✂", X, Y + 1); g.textAlign = "left"; g.textBaseline = "alphabetic";
           st.cutHit = { x: X, y: Y, r: R + 8, bar: cutSel ? null : sb }; } }
