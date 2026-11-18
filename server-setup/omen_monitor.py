@@ -4,6 +4,7 @@ HP OMEN 노트북 전용(팬 읽기·조절은 OmenMon 프로그램을 불러 �
 팬을 못 읽거나 조절이 안 되면 숫자만 '-'로 보이고 나머지는 정상 동작한다. 기본값은 항상 'HP 자동'이다."""
 import json, os, re, subprocess, sys, threading, time, traceback
 from collections import deque
+import queue
 
 BASE = r"C:\jakpum"
 OMEN_DIR = os.path.join(BASE, "OmenMon")
@@ -427,6 +428,112 @@ def main():
     btn("진단 저장", lambda: threading.Thread(target=diagnose, daemon=True).start()).pack(side="right")
     tk.Label(root, textvariable=status, bg=BG, fg=AC, font=("맑은 고딕", 10), anchor="w").pack(padx=12, pady=(0, 10), fill="x")
 
+    # ---------- 트레이(작업표시줄 오른쪽 아래) 아이콘 ----------
+    tray = {"icon": None, "metric": "cpu", "last_click": 0.0, "sig": None}
+    cmds = queue.Queue()
+    try:
+        import pystray
+        from PIL import Image, ImageDraw, ImageFont
+    except Exception:
+        pystray = None
+        log("트레이 없음(pystray/pillow 미설치): " + traceback.format_exc().splitlines()[-1])
+
+    def tray_value(d):
+        m = tray["metric"]
+        if m == "gpu":
+            return d.get("gpu")
+        if m == "vram":
+            return None if not d.get("vram_total") else int(d.get("vram_used", 0) * 100 / d["vram_total"])
+        if m == "ram":
+            return None if d.get("ram_pct") is None else int(d["ram_pct"])
+        return None if d.get("cpu") is None else int(d["cpu"])
+
+    def tray_image(val):
+        label = "--" if val is None else str(min(99, int(val))) if val < 100 else "99"
+        col = "#3a7d44" if (val or 0) < 50 else ("#c98a00" if val < 80 else "#c0392b")
+        im = Image.new("RGB", (64, 64), col)
+        dr = ImageDraw.Draw(im)
+        try:
+            ft = ImageFont.truetype("arialbd.ttf", 46)
+        except Exception:
+            ft = ImageFont.load_default()
+        try:
+            box = dr.textbbox((0, 0), label, font=ft)
+            tw, th = box[2] - box[0], box[3] - box[1]
+            dr.text(((64 - tw) / 2 - box[0], (64 - th) / 2 - box[1]), label, fill="white", font=ft)
+        except Exception:
+            dr.text((8, 20), label, fill="white")
+        return im
+
+    def tray_tip(d):
+        g = "GPU %s%% %s°C VRAM %s/%sMB" % (fmt(d.get("gpu")), fmt(d.get("gpu_t") or d.get("ec_gpu_t")), fmt(d.get("vram_used")), fmt(d.get("vram_total")))
+        c = "CPU %s%% %s°C" % (fmt(None if d.get("cpu") is None else int(d["cpu"])), fmt(d.get("cpu_t") or d.get("cpu_t_wmi")))
+        r = "RAM %s%%" % fmt(None if d.get("ram_pct") is None else int(d["ram_pct"]))
+        n = "▲%.1f ▼%.1f Mbps" % (d.get("up") or 0, d.get("down") or 0)
+        return "\n".join([c, g, r, n])[:127]
+
+    def on_tray_default(icon=None, item=None):
+        now = time.time()                       # 아이콘 '두 번 클릭'일 때만 큰 창 열기
+        if now - tray["last_click"] < 0.6:
+            cmds.put("show")
+            tray["last_click"] = 0.0
+        else:
+            tray["last_click"] = now
+
+    def set_metric(name):
+        def f(icon=None, item=None):
+            tray["metric"] = name
+        return f
+
+    def start_tray():
+        if not pystray:
+            return
+        try:
+            def chk(name):
+                return lambda item: tray["metric"] == name
+            menu = pystray.Menu(
+                pystray.MenuItem("기본(더블클릭)", on_tray_default, default=True, visible=False),
+                pystray.MenuItem("큰 창 열기 (아이콘 더블클릭)", lambda i, it: cmds.put("show")),
+                pystray.MenuItem("아이콘 숫자", pystray.Menu(
+                    pystray.MenuItem("CPU 사용률", set_metric("cpu"), checked=chk("cpu"), radio=True),
+                    pystray.MenuItem("GPU 사용률", set_metric("gpu"), checked=chk("gpu"), radio=True),
+                    pystray.MenuItem("VRAM 사용률", set_metric("vram"), checked=chk("vram"), radio=True),
+                    pystray.MenuItem("RAM 사용률", set_metric("ram"), checked=chk("ram"), radio=True))),
+                pystray.MenuItem("종료", lambda i, it: cmds.put("quit")))
+            ic = pystray.Icon("jakpum_monitor", tray_image(None), "서버 모니터", menu)
+            ic.run_detached()
+            tray["icon"] = ic
+        except Exception:
+            log("트레이 시작 실패 " + traceback.format_exc())
+            tray["icon"] = None
+
+    def poll_cmds():
+        try:
+            while True:
+                c = cmds.get_nowait()
+                if c == "show":
+                    show_window()
+                elif c == "quit":
+                    quit_all()
+                    return
+        except queue.Empty:
+            pass
+        root.after(150, poll_cmds)
+
+    def update_tray(d):
+        ic = tray["icon"]
+        if not ic:
+            return
+        try:
+            v = tray_value(d)
+            sig = (tray["metric"], v)
+            if sig != tray["sig"]:
+                ic.icon = tray_image(v)
+                tray["sig"] = sig
+            ic.title = tray_tip(d)
+        except Exception:
+            log("tray " + traceback.format_exc())
+
     def fmt(v, suffix="", dash="-"):
         return dash if v is None else ("%s%s" % (v, suffix))
 
@@ -440,6 +547,7 @@ def main():
         for k, dk in (("cpu", "cpu"), ("gpu", "gpu"), ("ram", "ram_pct"), ("up", "up"), ("down", "down")):
             hist[k].append(d.get(dk) or 0)
         update_sparks()
+        update_tray(d)
         p = state["proc"]
         if state["mode"] == "graph" and p and p.poll() is not None:
             status.set("팬 조절이 멈췄습니다 → HP 자동으로 복귀")
@@ -447,15 +555,37 @@ def main():
         redraw()
         root.after(1500, tick)
 
-    def on_close():
+    def quit_all():
         try:
             if state["mode"] == "graph":
                 set_auto()
         finally:
             sens.stop()
+            try:
+                if tray["icon"]:
+                    tray["icon"].stop()
+            except Exception:
+                pass
             root.destroy()
 
+    def on_close():
+        # 트레이 아이콘이 있으면 X 버튼은 '트레이로 숨기기', 종료는 트레이 아이콘 우클릭 → 종료
+        if tray["icon"]:
+            root.withdraw()
+        else:
+            quit_all()
+
+    def show_window():
+        root.deiconify()
+        root.lift()
+        try:
+            root.focus_force()
+        except Exception:
+            pass
+
     root.protocol("WM_DELETE_WINDOW", on_close)
+    start_tray()
+    poll_cmds()
     if sens.has_omen and not os.path.exists(DEBUG):
         threading.Thread(target=diagnose, daemon=True).start()
     tick()
