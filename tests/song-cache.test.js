@@ -7,3 +7,5 @@ const body = h.slice(i, j);
 assert(body.indexOf("songCacheGet()") > 0 && body.indexOf("songCacheGet()") < body.indexOf("await songLoad()"), "불러오기 전에 저장본을 먼저 그림");
 assert(/function songPaintList\(\)[\s\S]{0,200}songCachePut\(\)/.test(h), "목록이 바뀔 때마다 저장");
 console.log("song-cache ok");
+assert(/LS\.get\("vn_jam"\)[\s\S]{0,300}await jamIndex\(\)/.test(h), "합주 목록도 저장본 먼저");
+console.log("jam-cache ok");

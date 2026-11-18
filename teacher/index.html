@@ -6048,7 +6048,10 @@ async function jamIndex() {
 async function openJam() {
   goBack = () => { jamStop(); renderList(); }; show("vJam"); const v = $("vJam");
   v.innerHTML = `<h2 style="margin:4px 0 2px">🎸 합주 베스트</h2><p class="muted" style="margin:0 0 10px;font-size:.88rem">녹음함(Easy Voice Recorder)에 이름에 <b>합주</b>·<b>연습</b>이 들어간 녹음이 올라오면, 서버가 곡별로 나눠 <b>가장 잘 부른 구절만 이어 붙인 편집본</b>을 만들어요 · 구간마다 <b>보컬을 잘 부른 테이크</b>와 <b>악기가 안 틀린 테이크</b>를 순위로 골라 한 곡씩 완성해요</p><div id="jamList"><p class="muted">불러오는 중…</p></div>`;
-  try { jam.idx = await jamIndex(); } catch (e) { $("jamList").innerHTML = `<p class="muted">못 불러왔어요: ${esc(errMsg(e))}</p>`; return; }
+  // (11/19 사용자) 지난번 합주 목록을 먼저 보여주고 뒤에서 새로 받음
+  const jc = LS.get("vn_jam"); if (jc && Array.isArray(jc.sessions) && jc.sessions.length) { jam.idx = jc; jamPaint(); }
+  try { jam.idx = await jamIndex(); LS.set("vn_jam", jam.idx); }
+  catch (e) { if (!jam.idx) { $("jamList").innerHTML = `<p class="muted">못 불러왔어요: ${esc(errMsg(e))}</p>`; return; } }
   jamPaint(); jamPollArm();
 }
 function jamPollArm() { clearTimeout(jam.poll); if (!(jam.idx?.sessions || []).some(s => s.status !== "done" && s.status !== "failed")) return;
