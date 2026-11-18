@@ -91,7 +91,7 @@ const mk = new Function(code + "; return stemEngine;")();
   for (const k of ["prVol", "prSeek", "prSgs", "prEd", "prPv", "prNx", "prCi", "prLi", "prSi"]) assert.ok(dk.includes('id="' + k + '"'), "프롬프터 " + k);
   assert.ok(!dk.includes('id="prNow"') && !dk.includes('id="prNext"'), "‘지금·다음 코드’는 뺌(사용자 11/14)");
   assert.ok(dk.includes("navigator.vibrate(20)") && dk.includes("buzz(si)"), "구간 경계를 지나면 짧은 진동");
-  assert.ok(dk.includes("songSecList(M.length, SEC)") && dk.includes("o.onEdits") && dk.includes("o.onSections") && /onEdits: \(e\)[^]*onSections: \(v\)/.test(T), "수정·구간 이름이 song.json에 저장됨");
+  assert.ok(dk.includes("songSecList(M.length, SEC.length ? SEC : autoSec())") && dk.includes("o.onEdits") && dk.includes("o.onSections") && /onEdits: \(e\)[^]*onSections: \(v\)/.test(T), "수정·구간 이름이 song.json에 저장됨");
   assert.ok(dk.includes("for (let r = 0; r < 5; r++)"), "한 쪽 5줄");
   { const pp = T.slice(T.indexOf("function songPdfPage("), T.indexOf("async function songPeaks(")); assert.ok(!/prVol|prSeek|슬라이더|타임라인/.test(pp) && pp.includes("(H - gy - 40 - 4 * gap) / 5"), "PDF는 5줄 악보만(조작 부품 없음)"); }
   assert.ok(dk.includes("me.onVol") && /me\.onVol && me\.onVol\(\)/.test(T), "곡 서랍 보컬 볼륨과 프롬프터 슬라이더가 같이 움직임");
@@ -245,4 +245,20 @@ const mk = new Function(code + "; return stemEngine;")();
   assert.match(T, /me\.capo = k; me\.capoOff = !k;/);
   assert.match(T, /\(me\.capo \? ` · 카포 \$\{me\.capo\}` : ""\)/, "키 표시에 카포");
   assert.ok(!/const paintKey = \(\) => \{[^\n]*capoOf\(\)/.test(T), "paintKey 는 capoOf(TDZ) 대신 me.capo");
+}
+
+{ // 구간 자동 이름: 전주·벌스·코러스·간주·후주
+  const src = T.slice(T.indexOf("// (11/19 사용자 '전주·벌스·코러스·간주로"), T.indexOf("async function songPeaks(")), f = new Function(src + "; return { songAutoSections };")();
+  // 마디 1초(0.1초 단위 10칸). 구성: 전주4 · 벌스8 · 코러스8 · 간주4 · 벌스8 · 코러스8 · 후주4
+  const plan = [["i", 4], ["v", 8], ["c", 8], ["m", 4], ["v", 8], ["c", 8], ["o", 4]], chordOf = { i: "C", v: "Am F", c: "G C", m: "C", o: "C" };
+  const M = [], voc = [], mr = []; let t = 0;
+  for (const [k, n] of plan) for (let i = 0; i < n; i++) { M.push({ t0: t, t1: t + 1, chords: chordOf[k].split(" ").map((x, b) => ({ b, name: x, len: 2 })) }); const q = (x) => String.fromCharCode(48 + Math.round(Math.sqrt(x) * 63)); for (let j = 0; j < 10; j++) { voc.push(k === "v" ? q(0.2) : k === "c" ? q(0.5) : q(0)); mr.push(q(k === "c" ? 0.6 : 0.3)); } t++; }
+  const r = f.songAutoSections(M, { s: 0.1, voc: voc.join(""), mr: mr.join("") });
+  assert.deepStrictEqual(r.map((x) => x[1]), ["전주", "벌스 1", "코러스 1", "간주", "벌스 2", "코러스 2", "후주"]);
+  assert.deepStrictEqual(r.map((x) => x[0]), [0, 4, 12, 20, 24, 32, 40]);
+  assert.deepStrictEqual(f.songAutoSections(M, null), [], "파형 없으면 이름 안 붙임(예전 8마디 구간)");
+  // 코드가 전부 같은 곡(반복 진행): 소리 큰 쪽이 코러스
+  const M2 = M.map((m) => ({ ...m, chords: [{ b: 0, name: "G", len: 4 }] })), r2 = f.songAutoSections(M2, { s: 0.1, voc: voc.join(""), mr: mr.join("") });
+  assert.ok(r2.some((x) => /^코러스/.test(x[1])) && r2.some((x) => /^벌스/.test(x[1])) && r2[0][1] === "전주" && r2[r2.length - 1][1] === "후주");
+  assert.match(T, /SEC\.length \? SEC : autoSec\(\)/); assert.match(T, /return a\.length \? a : autoSec\(\)/, "직접 이름이 있으면 그게 우선");
 }
