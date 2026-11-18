@@ -3,6 +3,7 @@
 HP OMEN 노트북 전용(팬 읽기·조절은 OmenMon 프로그램을 불러 씀). 관리자 권한으로 실행(바탕화면 '서버모니터' 아이콘이 알아서 함).
 팬을 못 읽거나 조절이 안 되면 숫자만 '-'로 보이고 나머지는 정상 동작한다. 기본값은 항상 'HP 자동'이다."""
 import json, os, re, subprocess, sys, threading, time, traceback
+from collections import deque
 
 BASE = r"C:\jakpum"
 OMEN_DIR = os.path.join(BASE, "OmenMon")
@@ -142,9 +143,16 @@ def ec(name):
         return None
 
 
+def _smi():
+    for c in (r"C:\Windows\System32\nvidia-smi.exe", r"C:\Program Files\NVIDIA Corporation\NVSMI\nvidia-smi.exe"):
+        if os.path.exists(c):
+            return c
+    return "nvidia-smi"
+
+
 def gpu_info():
     try:
-        r = subprocess.run(["nvidia-smi", "--query-gpu=utilization.gpu,temperature.gpu,memory.used,memory.total",
+        r = subprocess.run([_smi(), "--query-gpu=utilization.gpu,temperature.gpu,memory.used,memory.total",
                             "--format=csv,noheader,nounits"], capture_output=True, text=True, timeout=6, creationflags=NOWIN)
         a = [x.strip() for x in r.stdout.strip().splitlines()[0].split(",")]
         return int(a[0]), int(a[1]), int(a[2]), int(a[3])
@@ -236,13 +244,45 @@ def main():
     rows = {}
     top = tk.Frame(root, bg=BG)
     top.pack(padx=12, pady=(10, 4), fill="x")
+    SPW, SPH, HIST = 352, 30, 90          # 추이 그래프 크기, 기록 개수(1.5초×90 ≈ 2분 15초)
+    hist = {k: deque(maxlen=HIST) for k in ("cpu", "gpu", "ram", "up", "down")}
+    sparks = {}
     for key, title in [("cpu", "CPU"), ("gpu", "GPU"), ("ram", "RAM"), ("net", "네트워크"), ("fan", "팬")]:
         f = tk.Frame(top, bg=PANEL)
         f.pack(fill="x", pady=3)
-        lab(f, title, 11, AC, True).pack(side="left", padx=8, pady=6)
+        head = tk.Frame(f, bg=PANEL)
+        head.pack(fill="x")
+        lab(head, title, 11, AC, True).pack(side="left", padx=8, pady=(6, 2))
         v = tk.StringVar(value="-")
-        tk.Label(f, textvariable=v, bg=PANEL, fg=FG, font=("맑은 고딕", 12), anchor="e", justify="right").pack(side="right", padx=8)
+        tk.Label(head, textvariable=v, bg=PANEL, fg=FG, font=("맑은 고딕", 12), anchor="e", justify="right").pack(side="right", padx=8)
         rows[key] = v
+        if key != "fan":
+            c = tk.Canvas(f, width=SPW, height=SPH, bg="#222222", highlightthickness=0)
+            c.pack(padx=8, pady=(0, 6))
+            sparks[key] = c
+
+    def draw_spark(c, series, vmax):
+        """series: [(데이터, 색)] — 오른쪽이 최신, 옆으로 흘러감"""
+        c.delete("all")
+        for y in (SPH * 0.25, SPH * 0.5, SPH * 0.75):
+            c.create_line(0, y, SPW, y, fill="#333333")
+        for data, color in series:
+            n = len(data)
+            if n < 2:
+                continue
+            step = SPW / (HIST - 1)
+            x0 = SPW - (n - 1) * step
+            pts = []
+            for i, val in enumerate(data):
+                pts += [x0 + i * step, SPH - 2 - min(1.0, max(0.0, val / vmax)) * (SPH - 4)]
+            c.create_line(*pts, fill=color, width=2)
+
+    def update_sparks():
+        draw_spark(sparks["cpu"], [(hist["cpu"], AC)], 100)
+        draw_spark(sparks["gpu"], [(hist["gpu"], "#7fd1ff")], 100)
+        draw_spark(sparks["ram"], [(hist["ram"], "#9be37f")], 100)
+        peak = max([1.0] + list(hist["up"]) + list(hist["down"]))
+        draw_spark(sparks["net"], [(hist["down"], "#7fd1ff"), (hist["up"], "#ff9f7f")], peak * 1.1)
 
     gf = tk.Frame(root, bg=BG)
     gf.pack(padx=12, pady=(6, 2), fill="x")
@@ -397,6 +437,9 @@ def main():
         rows["ram"].set("%s%%   %s / %s GB" % (fmt(None if d.get("ram_pct") is None else int(d["ram_pct"])), "-" if d.get("ram_used") is None else "%.1f" % d["ram_used"], "-" if d.get("ram_total") is None else "%.1f" % d["ram_total"]))
         rows["net"].set("▲ %s   ▼ %s Mbps" % ("-" if d.get("up") is None else "%.1f" % d["up"], "-" if d.get("down") is None else "%.1f" % d["down"]))
         rows["fan"].set("%s / %s rpm" % (fmt(d.get("rpm1")), fmt(d.get("rpm2"))))
+        for k, dk in (("cpu", "cpu"), ("gpu", "gpu"), ("ram", "ram_pct"), ("up", "up"), ("down", "down")):
+            hist[k].append(d.get(dk) or 0)
+        update_sparks()
         p = state["proc"]
         if state["mode"] == "graph" and p and p.poll() is not None:
             status.set("팬 조절이 멈췄습니다 → HP 자동으로 복귀")
