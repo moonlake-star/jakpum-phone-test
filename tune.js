@@ -473,9 +473,9 @@
     for (let m = Math.floor(hi / 100); m >= Math.ceil(lo / 100); m--) {
       const pc = ((m % 12) + 12) % 12, ins = !sc || sc.includes(pc), yy = Math.round(y(m * 100)) + 0.5;
       if (ins && sc) { g.fillStyle = "rgba(156,195,255,.06)"; g.fillRect(L, yy - 4, w - L, 8); }
-      if (full && st && st.advOn && sc && ins) { const ya = y(m * 100 + 50), yb = y(m * 100 - 50); g.fillStyle = pc === tnc ? "rgba(156,195,255,.14)" : "rgba(156,195,255,.07)"; g.fillRect(L, ya + 0.5, w - L, Math.max(1, yb - ya - 1)); }
+      if (full && st && st.advOn && sc && ins) { const ya = y(m * 100 + 50), yb = y(m * 100 - 50); g.fillStyle = pc === tnc ? "rgba(255,255,255,.1)" : "rgba(255,255,255,.05)"; g.fillRect(L, ya + 0.5, w - L, Math.max(1, yb - ya - 1)); }
       if (full && st && st.advOn && sc && !ins) { const ya = y(m * 100 + 50), yb = y(m * 100 - 50); g.fillStyle = pc === lead ? "rgba(0,0,0,.1)" : "rgba(0,0,0,.3)"; g.fillRect(L, ya + 0.5, w - L, Math.max(1, yb - ya - 1)); }   // (11/18 18:02 사용자) 키를 알면 음계 밖 줄은 더 어둡게   // (11/06) 보정 모드 음계 격자: 음계 음 = 줄 전체 띠(으뜸음은 진하게), 음계 밖 = 어두운 칸
-      if (full && st && st.advOn && sc) { if (ins) { g.fillStyle = pc === tnc ? "rgba(140,185,255,.5)" : "rgba(150,190,255,.32)"; g.fillRect(L, yy - (pc === tnc ? 0.75 : 0.5), w - L, pc === tnc ? 2 : 1.5); } else { g.fillStyle = pc === lead ? "rgba(150,190,255,.16)" : "#1e232b"; g.fillRect(L, yy, w - L, 1); } }   // (11/18 18:08 사용자 시안 '중간 정도만 밝게') 칸 가운데 = 정음 선
+      if (full && st && st.advOn && sc) { if (ins) { g.fillStyle = pc === tnc ? "rgba(255,255,255,.42)" : "rgba(255,255,255,.24)"; g.fillRect(L, yy - (pc === tnc ? 0.75 : 0.5), w - L, pc === tnc ? 2 : 1.5); } else { g.fillStyle = pc === lead ? "rgba(255,255,255,.12)" : "#1e232b"; g.fillRect(L, yy, w - L, 1); } }   // (11/18 18:08 사용자 시안 '중간 정도만 밝게') 칸 가운데 = 정음 선
       else { g.fillStyle = ins ? "#2c3440" : "#1b1f26"; g.fillRect(L, yy, w - L, 1); }
       if (yy > T + HP) continue;
       if (full && (HP - 12) / ((hi - lo) / 100) > 60) { g.fillStyle = "#171b21"; for (const q of [25, 50, 75]) g.fillRect(L, Math.round(y(m * 100 - q)) + 0.5, w - L, 1); }   // 크게 확대하면 ¼반음 눈금
@@ -487,10 +487,10 @@
       g.save(); g.beginPath(); g.rect(0, T, L, HP); g.clip(); g.font = fs + "px system-ui, sans-serif"; g.textBaseline = "middle";
       for (let m = Math.ceil(hi / 100) + 1; m >= Math.floor(lo / 100) - 1; m--) {
         const pc = ((m % 12) + 12) % 12, blk = [1, 3, 6, 8, 10].includes(pc), y0 = y(m * 100 + 50), y1 = y(m * 100 - 50), down = st && st.kbDown === m;
-        const dia = !!sc && sc.includes(pc), out_ = !!sc && !dia && pc !== lead;   // 단조 이끔음은 흐리게 하지 않음(반쯤)   // (11/18 18:02 사용자 '곡의 키가 인식됐으면 다이어토닉 음을 알아보기 쉽게') 음계 음 = 밝게 + 오른쪽 파란 띠 · 음계 밖 = 흐리게
-        g.fillStyle = down ? "#ff9f5a" : blk ? (dia ? "#3a4456" : "#1a1d22") : (out_ ? "#8d949e" : "#eef1f5"); g.fillRect(0, y0, blk ? KW * 0.62 : KW, Math.max(1, y1 - y0 - 0.6));
-        if (dia && !down) { g.fillStyle = pc === tnc ? "#4c8dff" : "rgba(76,141,255,.7)"; g.fillRect(KW - 4, y0 + 1, 4, Math.max(1, y1 - y0 - 2.6)); }
-        if ((semi >= 9 && (!blk || semi >= 16)) || pc === 0) { g.font = (dia ? "bold " : "") + fs + "px system-ui, sans-serif"; g.fillStyle = down ? "#111" : blk ? (dia ? "#e6ecf5" : "#7d8590") : (sc && pc === tnc ? "#2a5bd7" : out_ ? "#4a4f57" : "#1d2128"); g.fillText(NAMES[pc] + (Math.floor(m / 12) - 1), 3, (y0 + y1) / 2); }
+        const dia = !!sc && sc.includes(pc), out_ = !!sc && !dia && pc !== lead;   // 단조 이끔음은 흐리게 하지 않음(반쯤)   // (11/18 18:02 사용자 '곡의 키가 인식됐으면 다이어토닉 음을 알아보기 쉽게') (18:49 '파란색이라 안 보임' → 흰색·민트 띠, 으뜸음 주황) 음계 음 = 밝게 + 오른쪽 파란 띠 · 음계 밖 = 흐리게
+        g.fillStyle = down ? "#ff9f5a" : blk ? (dia ? "#7a8494" : "#16191e") : (out_ ? "#4b5059" : "#ffffff"); g.fillRect(0, y0, blk ? KW * 0.62 : KW, Math.max(1, y1 - y0 - 0.6));
+        if (dia && !down) { g.fillStyle = pc === tnc ? "#ff9f5a" : "#7fe3c0"; g.fillRect(KW - 4, y0 + 1, 4, Math.max(1, y1 - y0 - 2.6)); }
+        if ((semi >= 9 && (!blk || semi >= 16)) || pc === 0) { g.font = (dia ? "bold " : "") + fs + "px system-ui, sans-serif"; g.fillStyle = down ? "#111" : blk ? (dia ? "#ffffff" : "#5d646e") : (sc && pc === tnc ? "#c2410c" : out_ ? "#8a909a" : "#111418"); g.fillText(NAMES[pc] + (Math.floor(m / 12) - 1), 3, (y0 + y1) / 2); }
       }
       g.restore();
       if (st) { st.kb = { L, inv: (Y) => lo + (T + HP - 6 - Y) / (HP - 12) * (hi - lo) }; }
