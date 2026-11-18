@@ -236,3 +236,13 @@ const mk = new Function(code + "; return stemEngine;")();
   assert(/capoOf\(\) - keyN/.test(H), "카포 중 코드 고치기는 카포 번호만큼 되돌려 원곡 키로 저장");
   console.log("song-deck: capo view/preview/seek/gesture ok");
 })().catch((e) => { console.error(e); process.exit(1); });
+
+{ // 키를 바꾸면 가장 편한 카포를 자동으로, 직접 해제하면 자동은 쉼
+  assert.match(T, /const autoCapo = \(\) => \{ if \(!AN \|\| me\.capoOff\) return;/);
+  assert.match(T, /songCapoBest\(songApplyEdits\(songMeasures\(AN, keyN, o\.lyrics\), ED, keyN\)\)/);
+  assert.match(T, /keyN = keyWant; autoCapo\(\); paintKey\(\)/, "실시간 엔진 경로");
+  assert.match(T, /keyN = n; autoCapo\(\); draw\(\)/, "키 파일 경로");
+  assert.match(T, /me\.capo = k; me\.capoOff = !k;/);
+  assert.match(T, /\(me\.capo \? ` · 카포 \$\{me\.capo\}` : ""\)/, "키 표시에 카포");
+  assert.ok(!/const paintKey = \(\) => \{[^\n]*capoOf\(\)/.test(T), "paintKey 는 capoOf(TDZ) 대신 me.capo");
+}

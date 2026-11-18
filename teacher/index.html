@@ -6792,17 +6792,21 @@ function songDeck(el, ids, o) {
   const setRate = (r) => { const st = rStep(); rate = Math.max(0.8, Math.min(1.2, Math.round(r / st) * st)); if (Math.abs(rate - 1) < st / 2) rate = 1; eng.setRate(rate); paintRate(); draw(); };
   paintRate();
   const sgn = (n) => (n > 0 ? "+" : "") + n, keyName = (n) => songChordName(AN.key + (AN.mode === "minor" ? "m" : ""), n);
-  const paintKey = () => { if (!AN) return; const n = keyWant; Q("dkKeyV").textContent = keyName(n); Q("dkKeyN").textContent = keyBusy || keyN !== keyWant ? "준비 중…" : n === 0 ? "원곡 키" : `원곡 ${keyName(0)} · ${sgn(n)}반음`;
+  const paintKey = () => { if (!AN) return; const n = keyWant; Q("dkKeyV").textContent = keyName(n); Q("dkKeyN").textContent = keyBusy || keyN !== keyWant ? "준비 중…" : (n === 0 ? "원곡 키" : `원곡 ${keyName(0)} · ${sgn(n)}반음`) + (me.capo ? ` · 카포 ${me.capo}` : "");
     Q("dkKeyM").disabled = n <= -6; Q("dkKeyP").disabled = n >= 6; Q("dkRst").classList.toggle("show", Math.abs(rate - 1) > 1e-6 || n !== 0); };
   const getFiles = async (n) => { const f = n === 0 ? { mr: ids.mr, voc: ids.voc } : kd[n] || kd[String(n)]; me.kb ||= {}; return (me.kb[n] ||= (async () => { const [a, b] = await Promise.all([n === 0 ? blob("mr") : readBlob(f.mr, false, true), n === 0 ? blob("voc") : readBlob(f.voc, false, true)]); return [await a.arrayBuffer(), await b.arrayBuffer()]; })().catch((e) => { delete me.kb[n]; throw e; })); };
   const applyKey = async () => { if (keyBusy) return; keyBusy = true; paintKey();
-    try { while (alive() && keyN !== keyWant) { const n = keyWant; if (n !== 0 && !(kd[n] || kd[String(n)])) break; await load(); const [a, b] = await getFiles(n); if (!alive()) return; await eng.swap(a.slice(0), b.slice(0)); keyN = n; draw(); } }
+    try { while (alive() && keyN !== keyWant) { const n = keyWant; if (n !== 0 && !(kd[n] || kd[String(n)])) break; await load(); const [a, b] = await getFiles(n); if (!alive()) return; await eng.swap(a.slice(0), b.slice(0)); keyN = n; autoCapo(); draw(); } }
     catch (e) { if (alive() && e.message !== "stale") { keyWant = keyN; toast("키를 바꾸지 못했어요: " + errMsg(e)); } } finally { keyBusy = false; if (alive()) paintKey(); } };
   const keyPoll = () => { clearTimeout(me.keyT); if (!alive() || keyN === keyWant || !o.fetchD) return; me.keyT = setTimeout(async () => { try { const d = await o.fetchD(); kd = d.keys || kd; if (kd[keyWant] || kd[String(keyWant)]) { applyKey(); return; } } catch {} keyPoll(); }, 12000); };
+  // (11/19 사용자) 키를 바꾸면 그 키에서 코드 치기 가장 편한 카포 위치를 자동으로 골라 코드·키 표시를 바꿈. 선생님이 '카포 해제'를 눌렀으면(capoOff) 다시 직접 고를 때까지 자동은 쉼
+  const autoCapo = () => { if (!AN || me.capoOff) return; let k = 0; try { const R = songCapoBest(songApplyEdits(songMeasures(AN, keyN, o.lyrics), ED, keyN)); if (R) k = R.best[0].capo; } catch { return; }
+    if (k === (me.capo || 0)) return; me.capo = k; try { me.onCapo && me.onCapo(); } catch {} paintKey();
+    try { toast(k ? `카포 ${k}프렛 자동 · ${songFlat(songChordName(keyName(keyWant), -k))} 폼` : "카포 없이 쳐도 편한 키예요"); } catch {} };
   const setKey = async (n) => { if (!AN) return; keyWant = Math.max(-6, Math.min(6, n)); paintKey();
     // 앱에서 바로(고음질 실시간 변환): 서버가 만든 키 파일 없이 반음만 바꿈. 안 되는 기기·긴 곡은 아래 예전 방식(키 파일)으로
     try { await load(); } catch { if (alive()) { keyWant = keyN; paintKey(); } return; } if (!alive()) return;
-    if (eng.canKey && eng.canKey()) { eng.setKey(keyWant); keyN = keyWant; paintKey(); draw(); return; }
+    if (eng.canKey && eng.canKey()) { eng.setKey(keyWant); keyN = keyWant; autoCapo(); paintKey(); draw(); return; }
     if (keyWant === 0 || kd[keyWant] || kd[String(keyWant)]) { applyKey(); return; }
     if (!kReq.includes(keyWant)) { kReq.push(keyWant); try { o.onKeyReq && o.onKeyReq(kReq); } catch {} }
     paintKey(); keyPoll(); };
@@ -6928,7 +6932,7 @@ function songDeck(el, ids, o) {
   const capoPanel = () => {
     document.querySelectorAll(".capoP").forEach((e) => e.remove()); const R = songCapoBest(baseMeas()), p = document.createElement("div"); p.className = "capoP"; p.setAttribute("role", "dialog"); p.setAttribute("aria-label", "카포 추천");
     const h = document.createElement("h4"); h.textContent = `카포 추천 · 소리 키 ${keyName(keyWant)}`; p.appendChild(h);
-    const pick = (k) => { me.capo = k; p.remove(); try { me.onCapo && me.onCapo(); } catch {} toast(k ? `카포 ${k}프렛 · ${songFlat(songChordName(keyName(keyWant), -k))} 폼으로 표시해요` : "카포 없이 표시해요"); };
+    const pick = (k) => { me.capo = k; me.capoOff = !k; p.remove(); paintKey(); try { me.onCapo && me.onCapo(); } catch {} toast(k ? `카포 ${k}프렛 · ${songFlat(songChordName(keyName(keyWant), -k))} 폼으로 표시해요` : "카포 없이 표시해요"); };
     if (!R) { const t = document.createElement("div"); t.className = "cn"; t.textContent = "코드가 아직 없어요"; p.appendChild(t); }
     else { const rows = R.best.slice(); if (!rows.some((x) => x.capo === capoOf())) { const cur = R.all.find((x) => x.capo === capoOf()); if (cur) rows.push(cur); }
       rows.forEach((x, i) => { const r = document.createElement("div"); r.className = "cr" + (i === 0 ? " best" : ""); r.setAttribute("role", "button"); r.tabIndex = 0; const go = document.createElement("span"), b = document.createElement("b"), sm = document.createElement("small"), f = document.createElement("div"); f.className = "cf";
@@ -9351,7 +9355,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261119-0240";
+const BUILD = "20261119-0300";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
