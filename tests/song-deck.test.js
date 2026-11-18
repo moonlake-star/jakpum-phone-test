@@ -87,7 +87,7 @@ const mk = new Function(code + "; return stemEngine;")();
   assert.ok(dk.includes("o.analysis && o.analysis.key") && dk.includes("eng.swap(") && dk.includes("o.onKeyReq"), "키 카드는 서버가 분석한 곡에만 · 파일 없으면 요청");
   assert.ok(/songDeck\(pl, ids, \{[^]*analysis: x\.d\.analysis, keys: x\.d\.keys, keyReq: x\.d\.key_req/.test(T), "곡 서랍이 분석·키 파일을 넘김");
   assert.ok(dk.includes("openPrompter") && dk.includes("Brand.layer") && dk.includes('id="dkTv"') && dk.includes("o.analysis.chords.length"), "프롬프터는 코드가 있는 곡에만 · 뒤로 가기 한 칸");
-  assert.ok(dk.includes('id="prPdf"') && dk.includes("songPdfName(o.name, o.artist, keyName(keyN))"), "프롬프터 PDF 버튼·파일명 규칙");
+  assert.ok(dk.includes('id="prPdf"') && dk.includes("songPdfName(o.name, o.artist, capoOf() ? keyName(keyN)"), "프롬프터 PDF 버튼·파일명 규칙");
   for (const k of ["prVol", "prSeek", "prSgs", "prEd", "prPv", "prNx", "prCi", "prLi", "prSi"]) assert.ok(dk.includes('id="' + k + '"'), "프롬프터 " + k);
   assert.ok(!dk.includes('id="prNow"') && !dk.includes('id="prNext"'), "‘지금·다음 코드’는 뺌(사용자 11/14)");
   assert.ok(dk.includes("navigator.vibrate(20)") && dk.includes("buzz(si)"), "구간 경계를 지나면 짧은 진동");
@@ -116,7 +116,7 @@ const mk = new Function(code + "; return stemEngine;")();
     // 빈 자리 추가: 마디 0의 3박부터 Em
     const rg = f.songEditRange(ON, 2); assert.deepStrictEqual(rg, [2, 4]); const C2 = f.songRenameBeats(ON, rg[0], rg[1], "Em"); assert.deepStrictEqual(f.songChordsOfRow(C2, 0, 4), [[3, "Em"]]);
     assert.deepStrictEqual(f.songApplyEdits(M0, { 0: { ch: [[3, "Em"]] } }, 0)[0].chords.map((c) => [c.b, c.name]), [[2, "Em"]], "프롬프터도 같은 기록으로 그림"); }
-  assert.ok(dk.includes("const meas = () => songApplyEdits(songMeasures(AN, keyN, o.lyrics), ED, keyN)"), "프롬프터(·PDF·코드 악보)도 같은 고침 기록을 그림");
+  assert.ok(dk.includes("baseMeas = () => songApplyEdits(songMeasures(AN, keyN, o.lyrics), ED, keyN)") && dk.includes("const meas = () => showM(baseMeas())"), "프롬프터(·PDF·코드 악보)도 같은 고침 기록을 그림");
   { const pr = dk.slice(dk.indexOf("const openPrompter"), dk.indexOf("if (Q(\"dkTv\"))")); assert.ok(!/f === 2|d9b8ff|8dffb0|a287d0/.test(pr), "프롬프터에는 고침 색 구분 없음(사용자 11/14 22:16)"); }
   assert.ok(dk.includes("openChordEdit") && dk.includes('e.clientY - rc.top < 30') && dk.includes("navigator.vibrate(15)"), "코드 줄 길게 누르기");
   assert.ok(dk.includes("let tx = x + 3; if (tx < 2)") && dk.includes("put.pop()"), "코드 글자 겹침 방지");
@@ -184,8 +184,8 @@ const mk = new Function(code + "; return stemEngine;")();
   assert.strictEqual(await f.songFetchLyrics("x", "y", 100, async () => { throw new Error("net"); }), undefined, "인터넷 안 되면 undefined(다시 시도 가능)");
   assert.deepStrictEqual(f.songSheetPages(40), { pages: 1, rpp: 10 }); assert.strictEqual(f.songSheetPages(107).pages, 1, "27줄이면 한 장"); assert.strictEqual(f.songSheetPages(200).pages, 2);
   for (const k of ["id=\"dkSh0\"", "id=\"shPlay\"", "id=\"shKm\"", "id=\"shSm\"", "id=\"shPdf\"", "id=\"shLy\""]) assert(H.includes(k), k + " 없음");
-  assert(/Brand\.layer\(\(\) => \{ stopPlay\(\); cancelAnimationFrame\(raf\); me\.onLyrics = null; me\.onVol = null; me\.sh = null;/.test(H), "A4 악보 닫기=재생 정지");
-  assert(/songPdf\(out, 595, 842\)/.test(H), "A4 크기 PDF"); assert(/if \(CHORDS && needLy\(\)\) setTimeout/.test(H), "가사 비면 자동 찾기");
+  assert(/Brand\.layer\(\(\) => \{ stopPlay\(\); cancelAnimationFrame\(raf\); if \(sv\) \{ clearTimeout\(sv\); flushEd\(\); \} try \{ LE = songLaneEvents\(AN, CHORDS, ED, M0\); draw\(\); \} catch \{\} me\.onLyrics = null; me\.onVol = null; me\.onCapo = null; me\.sh = null;/.test(H), "A4 악보 닫기=재생 정지");
+  assert(/pdfPreview\(out, 595, 842,/.test(H) && /songPdf\(out, pw, ph\)/.test(H), "A4 크기 PDF"); assert(/if \(CHORDS && needLy\(\)\) setTimeout/.test(H), "가사 비면 자동 찾기");
   assert(/onLyrics: \(L, t\) => \{[^}]*cx\.d\.lyrics_try = t/.test(H), "찾은 가사·시도 시각을 곡 파일에 저장");
   console.log("song-deck: lyrics + A4 sheet ok");
 })().catch((e) => { console.error(e); process.exit(1); });
@@ -205,7 +205,34 @@ const mk = new Function(code + "; return stemEngine;")();
   R = f.songCapoBest([{ chords: [{ name: "C#", len: 28 }, { name: "A#m", len: 4 }] }]); assert.ok(R.best[0].capo >= 1, "C# 위주 → 카포로 내림");
   assert(/#dkPr \.prVo\{[^}]*max-width:calc\(var\(--u\)\*22\)/.test(H), "프롬프터 볼륨 슬라이더 폭 줄임");
   for (const id of ["prCp", "shCp", "shVol", "shVv"]) assert(H.includes('id="' + id + '"'), id);
-  assert(/\$\("#prCp"\)\.onclick = \(\) => capoPanel\(meas\(\)\)/.test(H) && /\$\("#shCp"\)\.onclick = \(\) => capoPanel\(M\)/.test(H));
+  assert(/\$\("#prCp"\)\.onclick = \(\) => capoPanel\(\)/.test(H) && /\$\("#shCp"\)\.onclick = \(\) => capoPanel\(\)/.test(H));
   assert(/\$\("#shVol"\)\.oninput = \(\) => setVol/.test(H), "A4 악보 볼륨 → 같은 setVol");
   console.log("song-deck: capo + slim volume ok");
 }
+
+
+// ── 11/19: 카포 고르면 화면 코드·키 표시 변경 · PDF 미리보기 · 구간 슬라이더 · 더블탭 재생/길게 눌러 수정
+(async () => {
+  const fs = require("fs"), assert = require("assert"), H = fs.readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  const src = H.slice(H.indexOf("const SG_NOTES"), H.indexOf("async function songPeaks("));
+  const f = new Function(src + "; return { songFlat, songCapoBest, cellGesture, songChordName };")();
+  assert.strictEqual(f.songFlat("A#"), "Bb"); assert.strictEqual(f.songFlat("D#m7"), "Ebm7"); assert.strictEqual(f.songFlat("C/G#"), "C/Ab"); assert.strictEqual(f.songFlat("F#"), "F#");
+  const R = f.songCapoBest([{ chords: [{ name: "D", len: 8 }, { name: "A#", len: 2 }] }]); assert.strictEqual(R.all.length, 8); assert.strictEqual(R.all[0].capo, 0, "all은 카포 번호 순");
+  // 카포 모양 이름: D#(소리) 카포 3 → 'C' 폼
+  assert.strictEqual(f.songChordName("D#", -3), "C");
+  // cellGesture: 탭·더블탭·길게 누름·움직이면 취소
+  { const L = {}, el = { addEventListener: (n, fn) => { L[n] = fn; } }, ev = []; const timers = []; const realST = global.setTimeout, realCT = global.clearTimeout;
+    global.setTimeout = (fn, ms) => { timers.push([fn, ms]); return timers.length; }; global.clearTimeout = (id) => { if (timers[id - 1]) timers[id - 1][0] = null; };
+    f.cellGesture(el, { tap: () => ev.push("tap"), dbl: () => ev.push("dbl"), long: () => ev.push("long") });
+    const down = (x = 0, y = 0) => L.pointerdown({ clientX: x, clientY: y }); const flush = () => timers.splice(0).forEach(([fn]) => fn && fn());
+    down(); L.pointerup(); assert.deepStrictEqual(ev, ["tap"]); down(); L.pointerup(); assert.deepStrictEqual(ev, ["tap", "dbl"], "350ms 안 두 번 = 더블");
+    ev.length = 0; down(); flush(); L.pointerup(); assert.deepStrictEqual(ev, ["long"], "길게 누르면 long만(탭 아님)");
+    ev.length = 0; down(0, 0); L.pointermove({ clientX: 40, clientY: 0 }); flush(); L.pointerup(); assert.deepStrictEqual(ev, [], "스크롤하려고 움직이면 모두 취소");
+    ev.length = 0; down(); L.pointercancel(); L.pointerup(); assert.deepStrictEqual(ev, []);
+    global.setTimeout = realST; global.clearTimeout = realCT; }
+  for (const k of ['const showM = (M)', 'const keyLabel = (n)', 'const meas = () => showM(baseMeas())', 'const pdfPreview = (out, pw, ph, fname)', 'pdfPreview(out, 960, 600,', 'pdfPreview(out, 595, 842,', 'id="shSeek"', 'id="shSgs"', 'cellGesture(c, { tap: () => seekTo(m.t0), dbl: () => playFrom(m.t0), long: () => openShEdit(i) })', 'dbl: () => playFrom(m.t0), long: () => openEdit(i)', 'me.onCapo = () => { build(); sub(); paintPk(); }'])
+    assert(H.includes(k), "없음: " + k);
+  assert(!/songSave\(songPdf\(out, (595, 842|960, 600)/.test(H.replace(/const pdfPreview[\s\S]*?close\(\); \};/, "")), "PDF는 미리보기를 거쳐서만 저장");
+  assert(/capoOf\(\) - keyN/.test(H), "카포 중 코드 고치기는 카포 번호만큼 되돌려 원곡 키로 저장");
+  console.log("song-deck: capo view/preview/seek/gesture ok");
+})().catch((e) => { console.error(e); process.exit(1); });
