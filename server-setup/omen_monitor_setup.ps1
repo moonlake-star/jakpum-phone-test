@@ -18,6 +18,9 @@ if (-not (Test-Path $pyw)) { $pyw = $py }
 Step "psutil 설치"
 & $py -m pip install --quiet psutil
 if ($LASTEXITCODE -ne 0) { throw "psutil 설치 실패" }
+Step "트레이 아이콘용 pystray·pillow 설치"
+& $py -m pip install --quiet pystray pillow
+if ($LASTEXITCODE -ne 0) { Write-Host "  (트레이 부품 설치 실패 — 트레이 없이 창만 동작)" }
 
 Step "모니터 프로그램 내려받기"
 Invoke-WebRequest -UseBasicParsing -Uri "https://moonlake-star.github.io/jakpum-phone-test/server-setup/omen_monitor.py" -OutFile (Join-Path $Base "omen_monitor.py")
