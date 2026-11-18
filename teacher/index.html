@@ -6344,9 +6344,9 @@ let _ssLib = null;
 function stretchLib(d) {
   if (d && d.lib) return Promise.resolve(d.lib);
   return _ssLib ||= new Promise((ok, no) => {
-    if (typeof SignalsmithStretch === "function") return ok(SignalsmithStretch);
+    if (typeof globalThis.SignalsmithStretch === "function") return ok(globalThis.SignalsmithStretch);
     const s = document.createElement("script"); s.src = (d && d.stretchSrc) || "vendor/signalsmith-stretch.js?v=ss1";
-    s.onload = () => (typeof SignalsmithStretch === "function" ? ok(SignalsmithStretch) : no(new Error("엔진 없음"))); s.onerror = () => no(new Error("엔진 파일을 못 받았어요")); document.head.appendChild(s);
+    s.onload = () => (typeof globalThis.SignalsmithStretch === "function" ? ok(globalThis.SignalsmithStretch) : no(new Error("엔진 없음"))); s.onerror = () => no(new Error("엔진 파일을 못 받았어요")); document.head.appendChild(s);
   }).catch((e) => { _ssLib = null; throw e; });
 }
 function stretchEngine(d) {
