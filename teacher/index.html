@@ -6636,7 +6636,7 @@ function songDeck(el, ids, o) {
     <div class="dkTm"><span id="sgT0">0:00</span><span id="dkAB" class="dkLab"></span><span id="sgT1">–:–</span></div>
     <div class="dkTr"><button type="button" id="dkHome" aria-label="처음으로">⏮<small>처음</small></button><button type="button" id="dkBk" aria-label="5초 뒤로">⏪<small>5초</small></button><button type="button" class="sgPb" id="sgPb" aria-label="재생">▶</button><button type="button" id="dkFw" aria-label="5초 앞으로">⏩<small>5초</small></button><button type="button" id="dkEnd" aria-label="맨 끝으로">⏭<small>끝</small></button></div>
     <div class="dkR2"><button type="button" id="dkRep" aria-pressed="false">🔁 반복</button><button type="button" id="dkLoop" aria-pressed="false">구간 반복</button>${o.analysis && o.analysis.key && Array.isArray(o.analysis.chords) && o.analysis.chords.length && (o.analysis.beats || []).length > 8 ? `<button type="button" id="dkTv">📺 TV</button>` : ""}</div>
-    <div class="dkRv" id="dkRv"><button type="button" id="dkA">A 지점</button><button type="button" id="dkB">B 지점</button><button type="button" id="dkClr">지우기</button></div>
+    <div class="dkRv" id="dkRv"><button type="button" id="dkA">A 지점</button><button type="button" id="dkB">B 지점</button><button type="button" id="dkClr">해제</button></div>
     <div class="sgVo"><div class="sgVl">보컬 볼륨<span id="sgVv">${v0}%</span></div><input type="range" id="sgVol" min="0" max="100" value="${v0}">
       <div class="sgPre">${[[0, "MR", "0%"], [30, "가이드", "30%"], [100, "원곡", "100%"]].map(([v, a, b]) => `<button type="button" data-sgv="${v}">${a}<small>${b}</small></button>`).join("")}</div>
       <div class="sgVl" style="margin-top:10px">반주 볼륨<span id="dkMv">${m0}%</span></div><input type="range" id="dkMr" min="0" max="100" value="${m0}"></div>
@@ -9153,7 +9153,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261119-0110";
+const BUILD = "20261119-0115";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
