@@ -451,6 +451,7 @@
 #dkPr .prVo{display:flex;align-items:center;gap:calc(var(--u)*1);flex:1;min-width:0;max-width:calc(var(--u)*22);margin-left:calc(var(--u)*1)}#dkPr .prVo small{font-size:calc(var(--u)*1.2);color:#b8b8b8;white-space:nowrap}#dkPr .prVo input{flex:1;min-width:0;margin:0;height:calc(var(--u)*2.4);accent-color:#FFE066}#dkPr .prVo b{font-size:calc(var(--u)*1.4);font-weight:900;color:#FFE066;min-width:calc(var(--u)*6.8);white-space:nowrap}
 #dkPr .prBtn{flex:none;height:calc(var(--u)*4.4);padding:0 calc(var(--u)*1.4);border-radius:calc(var(--u)*1.1);border:2px solid #b8b8b8;background:#000;color:#fff;font-size:calc(var(--u)*1.6);font-weight:700;margin:0}#dkPr .prBtn:disabled{opacity:.5}#dkPr .prBtn.on{background:#4DD0E1;border-color:#4DD0E1;color:#000}
 #dkSh{position:fixed;inset:0;z-index:10010;background:#3a3a3a;color:#111;display:flex;flex-direction:column;font-family:inherit}#dkSh button{font-family:inherit}
+.dkBusy{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45);-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px)}.dkBusyC{background:#16181d;color:#fff;border:1px solid #444;border-radius:16px;padding:22px 26px;text-align:center;max-width:78vw;box-shadow:0 8px 30px rgba(0,0,0,.5)}.dkBusyC b{display:block;font-size:1.05rem;margin:10px 0 4px}.dkBusyC span{display:block;font-size:.85rem;color:#c9c9c9}.dkBusyC small{display:block;margin-top:8px;color:#FFE066;font-size:.8rem}.dkSpin{width:34px;height:34px;margin:0 auto;border-radius:50%;border:4px solid #444;border-top-color:#FFE066;animation:dkSp .9s linear infinite}@keyframes dkSp{to{transform:rotate(360deg)}}@media (prefers-reduced-motion:reduce){.dkSpin{animation-duration:3s}}
 #dkSh .shBar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:6px 8px;background:#111;color:#fff}
 #dkSh .shCt{flex:1 1 100%;display:flex;align-items:center;gap:8px;min-width:0}#dkSh .shCt .shVo{flex:1 1 0;min-width:0}#dkSh .shCt .shVo input{width:auto;flex:1;min-width:40px}#dkSh .shCt .shVo b{min-width:34px}#dkSh .shCt .shKt{flex:none;gap:6px;flex-wrap:nowrap}#dkSh .shCt .shKg small{display:none}#dkSh .shCt .shKg b{min-width:34px}#dkSh .shCt .shKg button{width:32px;height:32px;font-size:16px}
 #dkSh .shPlay{flex:none;width:40px;height:40px;min-height:0;border-radius:50%;border:2px solid #FFE066;background:#000;color:#FFE066;font-size:18px;padding:0;margin:0}
@@ -6763,7 +6764,7 @@ function songDeck(el, ids, o) {
     <div class="dkWv" id="dkWv"><canvas id="dkCv"></canvas><div class="dkHead"></div><div class="dkEmpty" id="dkWE">파형 만드는 중…</div></div>
     <div class="dkTm"><span id="sgT0">0:00</span><span id="dkAB" class="dkLab"></span><span id="sgT1">–:–</span></div>
     <div class="dkTr"><button type="button" id="dkHome" aria-label="처음으로">⏮<small>처음</small></button><button type="button" id="dkBk" aria-label="5초 뒤로">⏪<small>5초</small></button><button type="button" class="sgPb" id="sgPb" aria-label="재생">▶</button><button type="button" id="dkFw" aria-label="5초 앞으로">⏩<small>5초</small></button><button type="button" id="dkEnd" aria-label="맨 끝으로">⏭<small>끝</small></button></div>
-    <div class="dkR2"><button type="button" id="dkRep" aria-pressed="false">🔁 반복</button><button type="button" id="dkLoop" aria-pressed="false">구간 반복</button>${o.analysis && o.analysis.key && Array.isArray(o.analysis.chords) && o.analysis.chords.length && (o.analysis.beats || []).length > 8 ? `<button type="button" id="dkTv">📺 TV</button><button type="button" id="dkSh0">📄 A4 악보</button>` : ""}</div>
+    <div class="dkR2"><button type="button" id="dkRep" aria-pressed="false">🔁 반복</button><button type="button" id="dkLoop" aria-pressed="false">구간 반복</button>${o.analysis && o.analysis.key && Array.isArray(o.analysis.chords) && o.analysis.chords.length && (o.analysis.beats || []).length > 8 ? `<button type="button" id="dkSh0">📄 A4 악보</button><button type="button" id="dkTv">📺 TV</button>` : ""}</div>
     <div class="dkRv" id="dkRv"><button type="button" id="dkA">A 지점</button><button type="button" id="dkB">B 지점</button><button type="button" id="dkClr">해제</button></div>
     <div class="sgVo"><div class="sgVl">보컬 볼륨<span id="sgVv">${v0}%</span></div><input type="range" id="sgVol" min="0" max="100" value="${v0}">
       <div class="sgPre">${[[0, "MR", "0%"], [30, "가이드", "30%"], [100, "원곡", "100%"]].map(([v, a, b]) => `<button type="button" data-sgv="${v}">${a}<small>${b}</small></button>`).join("")}</div>
@@ -6844,8 +6845,13 @@ function songDeck(el, ids, o) {
   const paintAB = () => { Q("dkAB").textContent = A != null && B != null ? `A ${mmss1(A)} – B ${mmss1(B)}` : A != null ? `A ${mmss1(A)} · B를 정해 주세요` : B != null ? `B ${mmss1(B)} · A를 정해 주세요` : ""; Q("dkA").textContent = A != null ? `A 지점 ${mmss(A)}` : "A 지점"; Q("dkB").textContent = B != null ? `B 지점 ${mmss(B)}` : "B 지점";
     const on = A != null && B != null; Q("dkLoop").classList.toggle("on", on); Q("dkLoop").setAttribute("aria-pressed", on); eng.setLoop(on ? A : NaN, on ? B : NaN); draw(); };
   let loadP = null;
-  const load = () => loadP ||= (async () => { Q("sgPb").textContent = "…"; Q("sgT1").textContent = "준비 중…";
-    try { await eng.load(); } catch (e) { loadP = null; if (alive()) { Q("sgPb").textContent = "▶"; Q("sgT1").textContent = dur() ? mmss(dur()) : "–:–"; } throw e; }
+  // (11/19 사용자 '처음 재생 누르면 대기가 걸리는데 팝업') 처음 재생에서 곡 불러오는 동안 가운데 팝업(0.25초 넘게 걸릴 때만 · 몇 초째인지 표시)
+  const busyPop = (title, sub) => { let box = null, t0 = Date.now(), iv = 0; const tm = setTimeout(() => { box = document.createElement("div"); box.className = "dkBusy"; box.setAttribute("role", "status"); box.setAttribute("aria-live", "polite");
+      box.innerHTML = `<div class="dkBusyC"><div class="dkSpin" aria-hidden="true"></div><b></b><span></span><small></small></div>`; box.querySelector("b").textContent = title; box.querySelector("span").textContent = sub; document.body.appendChild(box);
+      const up = () => { const q = box && box.querySelector("small"); if (q) q.textContent = Math.floor((Date.now() - t0) / 1000) + "초째"; }; up(); iv = setInterval(up, 1000); }, 250);
+    return { close: () => { clearTimeout(tm); clearInterval(iv); if (box) box.remove(); box = null; } }; };
+  const load = () => loadP ||= (async () => { Q("sgPb").textContent = "…"; Q("sgT1").textContent = "준비 중…"; const pop = busyPop("곡 불러오는 중이에요", "처음 재생할 때만 걸려요 · 잠시만요");
+    try { await eng.load(); } catch (e) { loadP = null; if (alive()) { Q("sgPb").textContent = "▶"; Q("sgT1").textContent = dur() ? mmss(dur()) : "–:–"; } throw e; } finally { pop.close(); }
     if (alive()) { Q("sgT1").textContent = mmss(eng.dur()); eng.setRate(rate); eng.setMrVol(mrV); draw(); wavePrep(); } })();
   const wavePrep = async () => {   // 파형이 없으면 한 번 만들어 둠(재생엔 영향 없게 소리 장치 없이·재생 시작 뒤에)
     if (wave) { Q("dkWE").remove(); return; }
@@ -9385,7 +9391,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261119-0350";
+const BUILD = "20261119-0840";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
