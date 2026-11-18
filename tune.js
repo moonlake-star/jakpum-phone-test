@@ -5,7 +5,7 @@
 // 음정 인식은 AI 추정(숨소리·자음에서 선이 튈 수 있음) — 참고용.
 (function (G) {
   const BAR_GAP = 0.5;   // 정음 막대 이어 붙이는 최대 틈(초) — 서버 pitch.BRIDGE_S와 같게
-  const DT_JUMP = 2;   // (11/03 10:24 사용자) 그래프 두 번 톡 = 2초 이동
+  const DT_JUMP = 5;   // (11/03 10:24 사용자) 그래프 두 번 톡 = 이동 · (11/18 18:23 사용자) ±5초 버튼을 없애며 5초로
   const HANDLE_R = 15;
   const LONG_MS = 500, FINE = 0.25;   // (11/12 17:55 사용자) 길이 손잡이·빈 곳 여러 음 고르기 꾹 = 둘 다 0.5초(0.6 → 0.5)   // (11/06 16:36 사용자) 꾹 0.6초가 지나면 켜지고 진동   // (11/06 16:13 사용자) 꾹 누르는 시간 · 미세 조절은 손가락 움직임의 1/4만큼
   const BEAT_SNAP = 0.12;   // (11/06) 박자 맞춤: 음 시작이 박에서 이만큼(초) 안이면 박에 붙임
@@ -646,6 +646,11 @@
           g.fillStyle = "#1a0714"; g.font = "bold 18px system-ui,sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText("✂", X, Y + 1); g.textAlign = "left"; g.textBaseline = "alphabetic";
           st.cutHit = { x: X, y: Y, r: R + 8, bar: cutSel ? null : sb }; } }
       if (st) st.qHit = null;
+      if (full && st && st.ghostOn && st.map && !st.dragging && !st.mMode) {   // (11/18 18:23 사용자) 세로줄 왼쪽·오른쪽 아래에 연하게 '두 번 톡 = 5초' 표시(버튼 아님)
+        const X_ = Math.round(xs0(t)), yh = T + HP * 0.78; g.save(); g.globalAlpha = 0.2; g.fillStyle = "#cfd5de"; g.font = "bold 15px system-ui, sans-serif"; g.textAlign = "center"; g.textBaseline = "middle";
+        if (X_ - L > 90) { g.fillText(`⏪ ${DT_JUMP}초`, (L + X_) / 2, yh); g.font = "11px system-ui, sans-serif"; g.fillText("두 번 톡", (L + X_) / 2, yh + 16); g.font = "bold 15px system-ui, sans-serif"; }
+        if (w - X_ > 90) { g.fillText(`${DT_JUMP}초 ⏩`, (X_ + w) / 2, yh); g.font = "11px system-ui, sans-serif"; g.fillText("두 번 톡", (X_ + w) / 2, yh + 16); }
+        g.restore(); }
       // (11/18 17:51 사용자 '들어본 직후 손가락을 많이 안 움직이고 고르기') 멈춰 있을 때 세로줄 아래(엄지 자리)에 '방금 지나간 음'·'지금 음' 단추 — 톡 = 그 음 고르기
       if (full && st && st.ghostOn && st.map && st.sel && !st.dragging && !st.mMode && kt) {   // (11/18 18:06 사용자 시안 B) 음을 고른 동안 그래프 아래 양 끝 [◀ 앞 음] [뒤 음 ▶] — 톡 = 그 음 고르기
         // (11/18 18:18 사용자 '다음 음이 아주 멀리 떨어져 있어도') 곡 전체에서 찾음 — 고른 음·고침이 바뀔 때만 다시 계산
@@ -1495,7 +1500,7 @@
       <button type="button" class="tfNoteChip" hidden aria-label="선생님 피드백 보기"><i class="tfCk" aria-hidden="true"></i>💬 피드백 <b></b></button>
       <button type="button" class="tfX" aria-label="닫기"><i>✕</i>닫기</button></div>
       <div class="tfCvBox"><canvas class="tfCv"></canvas><span class="tfMid" aria-hidden="true"></span><button type="button" class="tfSkip off">⏩ 노래 시작 1초 전으로</button><span class="tfBye" aria-live="polite">닫을 때는 <b>✕</b> 또는 폰의 <b>뒤로 가기</b></span></div>
-      <div class="tfBot"><span class="tfHint">톡 = 재생·멈춤 · 좌우로 밀면 이동<span class="tfSep"> · </span><br>두 손가락으로 벌리면 확대 · 기준선 왼쪽·오른쪽 두 번 톡 = 2초 뒤로·앞으로<span class="tfSep"> · </span><br>${typeof o.onFix === "function" ? "건반 = 그 음 소리 · 멈춘 뒤 초록 정음 막대 톡 = 정음 고치기" : "왼쪽 건반을 누르면 그 음 소리"}</span>
+      <div class="tfBot"><span class="tfHint">톡 = 재생·멈춤 · 좌우로 밀면 이동<span class="tfSep"> · </span><br>두 손가락으로 벌리면 확대 · 기준선 왼쪽·오른쪽 두 번 톡 = 5초 뒤로·앞으로<span class="tfSep"> · </span><br>${typeof o.onFix === "function" ? "건반 = 그 음 소리 · 멈춘 뒤 초록 정음 막대 톡 = 정음 고치기" : "왼쪽 건반을 누르면 그 음 소리"}</span>
       <span class="tfCtl">${hasAb ? `<span class="tfAbW"><span class="tfAbL">듣는 소리</span><span class="tfAb" role="group" aria-label="듣는 소리: 보정 전·보정 후"><button type="button" data-m="o">🎤 보정 전</button><i class="tfSwap" aria-hidden="true">⇄</i><button type="button" data-m="p">✨ 보정 후</button></span></span>` : ""}<span class="tfNav"><button type="button" data-j="0" aria-label="처음으로">⏮ 처음</button><button type="button" data-j="-5" aria-label="5초 뒤로">-5초</button><button type="button" class="tfPP" data-pp="1" aria-label="재생/일시정지">▶</button><button type="button" data-j="5" aria-label="5초 앞으로">+5초</button></span></span>
       <span class="tfNote">자동 단순 보정이라 정확하지 않을 수 있어요.<br>정식 음원은 전문 엔지니어가 한 음 한 음 더 정밀하게 다듬어요.</span></div></div>`;
     document.body.appendChild(wrap);
