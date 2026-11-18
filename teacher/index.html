@@ -6781,10 +6781,12 @@ async function editFromBest(job, t) {
 }
 async function openMkJob(j, backTo) {
   goBack = backTo || (() => openStudent(j.sid, "mk"));
-  if (!["done", "error"].includes(j.req.status)) { if (j.req.status === "waiting_download") ytPromote(j).catch(() => {}); return showProgress(j); }
+  // (11/18 사용자 '완성본 다시 만들기 개념이 이상') 이미 완성본이 있는 곡은 서버가 고친 내용을 반영하는 중이어도 편집 화면 그대로(진행 화면으로 막지 않음)
+  const mkHasOut = (j.req.render_count || 0) > 0 && ["queued", "working"].includes(j.req.status);
+  if (!["done", "error"].includes(j.req.status) && !mkHasOut) { if (j.req.status === "waiting_download") ytPromote(j).catch(() => {}); return showProgress(j); }
   stopProg(); mkStop(); mkU = null; mkTracks = {}; mkPv = { fixes: [], rendered: () => null, orig: {}, tedits: [], tplan: null }; mkDurS = 0; mkOffset = 0; mkBefore = false; mkRaw = false; mkJob = j; show("vMkJob");
   if (!j.files?.length) j.files = await list(j.folder.id);
-  const r = j.req, by = (n) => j.files.find(f => f.name === n);
+  const r = j.req, by = (n) => j.files.find(f => f.name === n); let mkAuto = () => {};   // (11/18) 자동 완성본 반영 타이머(아래에서 채움)
   const meas = r.result?.measure || {}, pi = r.result?.pitch || {};
   mkHasW = false; mkBound = "center";   // A/B 버튼 없앰: 서버가 습관 반영 방식 하나로 만든다
   const mdl = pi.model || {};
@@ -6793,9 +6795,9 @@ async function openMkJob(j, backTo) {
   let curveF = null, tuneOk = false;   // (11/02 15:29 고침) 블록 안 const라 아래 음정선 불러오기에서 ReferenceError → 메이크업 화면 음정선이 늘 검은 칸이던 원인
   const revNow = Math.round((r.wet_gain ?? r.result?.wet_gain ?? 0.0288) / REV_UNIT);   // (11/09 21:23 사용자) 기본 30% → 20% · (21:34) 저장값을 바꿨으면(r.wet_gain) 그 값부터 — 실시간 리버브라 바로 들림
   let body = `<div class="card"><h2 style="margin:0">${esc(j.st.name)} · ${esc(r.title || "")}</h2>
-    <p class="muted">${r.status === "done" ? `완성 ${r.render_count || 1}번째 · 길이 ${fmt(meas.duration_sec || 0)} · 최종 ${meas.mix_lufs_out ?? "?"} LUFS${pi.key ? ` · 키 ${esc(pi.key.name)}${pi.key_auto ? "(자동 인식)" : ""}` : ""}` :
+    <p class="muted">${r.status === "done" || mkHasOut ? `완성 ${r.render_count || 1}번째 · 길이 ${fmt(meas.duration_sec || 0)} · 최종 ${meas.mix_lufs_out ?? "?"} LUFS${pi.key ? ` · 키 ${esc(pi.key.name)}${pi.key_auto ? "(자동 인식)" : ""}` : ""}` :
       `실패: ${esc(r.error || "")}`}</p></div>`;
-  if (r.status === "done" && (by("vocal_dry.mp3") || hasP)) {
+  if ((r.status === "done" || mkHasOut) && (by("vocal_dry.mp3") || hasP)) {
     curveF = by("pitch_curve.json"); tuneOk = !!(hasP && curveF && typeof Tune !== "undefined");
     body += `<div class="card"><h3 style="margin-top:0">바로 듣고 조절</h3>
       ${tuneOk ? `<div class="tuneWrap mkDockWrap"><canvas class="tune sm" id="mkTune" aria-label="음정선 — 누르면 크게 보기"></canvas><span class="tuneDim" aria-hidden="true"></span><span class="tuneHint" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1a1307" stroke-width="2.8" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>전체화면으로 크게 보기</span></div>${Tune.legend(true)}<div class="muted tnSum" id="mkTnSum" style="font-size:.8rem;margin:2px 0 4px"></div>`
@@ -6830,9 +6832,9 @@ async function openMkJob(j, backTo) {
       </div>
       <div class="card mkDone" id="mkDone"><h3 style="margin-top:0">완성본</h3>
         <div class="mkdSt" id="mkFixN"></div><div class="mkdSub muted" id="mkdSub"></div>
-        <button class="full" id="mkFinal">🔊 완성본 다시 만들기</button>
+        <button class="full" id="mkFinal">🔄 지금 바로 완성본에 반영</button>
         <div class="mkdPh"><div class="row" style="flex-wrap:nowrap;gap:6px"><button class="ghost" id="mkPhoneMix" style="flex:1;margin:0">⚡ 지금 소리 그대로 mp3</button><button class="ghost" id="mkPhoneWav" style="margin:0" aria-label="지금 소리 그대로 WAV 파일로 받기">⬇ WAV</button></div><span class="muted" id="mkPhoneT"></span></div>
-        <p class="mkdNote" id="mkdNote">두 버튼 차이: <b>완성본 다시 만들기</b> = 서버가 고음질로 다시 처리(보정 설정·포먼트까지 정확, 몇 분) · <b>지금 소리 그대로 mp3</b> = 폰에서 지금 듣는 소리를 바로 파일로(빠르지만 보정 설정은 빠짐)</p>
+        <p class="mkdNote" id="mkdNote">완성본은 고친 그대로 서버가 원본 WAV로 자동으로 따라 만들어요(몇 분, 편집은 계속). 급하면 <b>지금 소리 그대로 mp3/WAV</b> = 폰에서 지금 듣는 소리를 바로 파일로(빠르지만 보정 설정은 빠짐)</p>
         <div class="row mkdAct" style="flex-wrap:nowrap"><button class="ghost" id="mkMix" style="flex:1;margin:0">▶ 듣기</button><button id="mkShare" style="flex:1;margin:0">📤 수강생에게 보내기</button></div>
         <audio id="mkMixAu" controls class="hidden" style="width:100%;margin-top:6px"></audio>
         <div class="muted mkdWho" id="mkdWho"></div>
@@ -6841,7 +6843,7 @@ async function openMkJob(j, backTo) {
       <div id="mkSong"></div>`;
   }
   $("vMkJob").innerHTML = body;
-  if (r.status !== "done" || !$("mkVol")) return;
+  if ((r.status !== "done" && !mkHasOut) || !$("mkVol")) return;
   ["mkVol", "mkRev", "mkMr"].forEach(id => $(id).oninput = mkApply);
   mkApply();
   const ensure = async (names) => Promise.all(names.filter(([, f]) => by(f)).map(([n, f]) => mkLoad(n, by(f).id)));
@@ -6894,11 +6896,13 @@ async function openMkJob(j, backTo) {
     const parts = [n ? `정음 ${n}` : "", nt ? `타이밍 ${nt}` : "", na ? `디테일 ${na}` : "", sl ? "크기·리버브" : "", rvP && !sl ? `리버브 ${Math.round(r.wet_gain / REV_UNIT)}%` : ""].filter(Boolean).join(" · ");
     const when = r.done_at ? new Date(r.done_at).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
     $("mkDone").classList.toggle("dirty", d);
-    el.innerHTML = d ? `<span class="mkTag warn">✏️ 반영 전</span>고친 내용을 완성본에 아직 적용하지 않았어요.` : `<span class="mkTag ok">✅ 최신</span>완성본${when ? " · " + when : ""}`;
+    const busyR = ["queued", "working"].includes(r.status), pp = r.progress?.pct;
+    el.innerHTML = busyR ? `<span class="mkTag warn">⏳ 반영 중</span>서버가 고친 그대로 완성본을 만드는 중${pp ? ` (${pp}%)` : ""} · 편집은 계속 돼요`
+      : d ? `<span class="mkTag warn">✏️ 곧 반영</span>고친 내용은 저장됐어요 · 더 안 고치고 1분 반쯤 지나거나 이 화면을 나가면 완성본에 자동 반영` : `<span class="mkTag ok">✅ 지금 고친 그대로</span>완성본${when ? " · " + when : ""}`;
     $("mkdSub").textContent = d ? `${parts || "고친 내용"} · 지금 듣는 소리에는 이미 들어가 있어요${r.note_edits?.global && Object.keys(r.note_edits.global).length ? "(보정 설정은 새로 만들어야 들려요)" : ""}`
       : `${parts ? "고친 내용(" + parts + ") 모두 들어가 있어요" : "자동 보정 그대로"}${meas.mix_lufs_out != null ? " · " + meas.mix_lufs_out + " LUFS" : ""}`;
     $("mkdNote")?.classList.toggle("hidden", !d);   // (11/09 23:33 사용자 '완성본 새로 만들기가 어디 있냐') 최신일 때도 버튼은 늘 보이게(서버 개선 반영용) — 최신이면 작은 회색 버튼
-    const fb = $("mkFinal"); if (fb) { fb.classList.toggle("ghost", !d); fb.textContent = "🔊 완성본 다시 만들기"; }   // (11/13 22:44 사용자 '두 버튼 매번 헷갈림') 곡 메뉴 버튼과 이름·기능 똑같이(같은 버튼) — 최신이면 회색만
+    const fb = $("mkFinal"); if (fb) { fb.classList.toggle("ghost", !d); fb.disabled = busyR; fb.textContent = busyR ? "⏳ 완성본 반영 중" : d ? "🔄 지금 바로 완성본에 반영" : "🔄 완성본 새로 만들기(서버 개선 반영)"; }   // (11/13 22:44 사용자 '두 버튼 매번 헷갈림') 곡 메뉴 버튼과 이름·기능 똑같이(같은 버튼) — 최신이면 회색만
     document.querySelector("#mkDone .mkdPh")?.classList.toggle("hidden", !d && !phoneFresh());
     if ($("mkMix")) $("mkMix").textContent = d ? "▶ 지난 완성본 듣기" : "▶ 듣기";
     $("mkdWho").innerHTML = phoneFresh() ? "보낼 파일: ⚡ 방금 폰에서 만든 mp3(지금 소리 그대로)" : d ? "⚠ 지금 보내면 <b>고친 게 빠진 지난 완성본</b>이 나가요 · 보내기를 누르면 고를 수 있어요" : `보낼 파일: 서버 완성본${when ? "(" + when + ")" : ""}`; };
@@ -6971,7 +6975,10 @@ async function openMkJob(j, backTo) {
     let mkBusy = 0, mkFail = false;
     // (11/06 18:02) 저장은 한 줄로 세움: 앞 저장이 끝난 뒤 다음 저장(빠르게 ↶↶ 눌러도 늦게 시작한 옛 상태가 나중에 덮어쓰지 않게) · 쓸 때마다 그 순간의 r 전체
     let mkQ = Promise.resolve();
-    const mkWrite = () => { mkBusy++; const p = mkQ.then(() => writeJSON(j.folder.id, MKREQ, r, j.reqId)).then(() => { mkFail = false; }, (e) => { mkFail = true; throw e; }).finally(() => { mkBusy--; }); mkQ = p.catch(() => {}); return p; };
+    // (11/18) 서버가 반영하는 동안 앱이 저장하면 서버가 쓴 상태·진행·결과를 옛 값으로 되돌리던 것 → 저장 직전 드라이브의 서버 칸을 받아 와 유지(완성본 반영을 요청할 때만 앱 값으로)
+    const MK_SRV = ["status", "progress", "result", "done_at", "render_count", "level_v", "error", "net_retries", "started_at", "song", "rendered_sig"];
+    const mkSync = async () => { if (r._queueing || !j.reqId) return; try { const cur = await readJSON(j.reqId); if (cur && typeof cur === "object") for (const k of MK_SRV) { if (k in cur) r[k] = cur[k]; else delete r[k]; } } catch {} };
+    const mkWrite = () => { mkBusy++; const p = mkQ.then(() => mkSync()).then(() => writeJSON(j.folder.id, MKREQ, r, j.reqId)).then(() => { mkFail = false; if (!r._queueing) try { mkAuto(); } catch {} }, (e) => { mkFail = true; throw e; }).finally(() => { mkBusy--; }); mkQ = p.catch(() => {}); return p; };
     const onFix = async (f0_) => { const f = tmS ? { ...f0_, t0: r4(toO(f0_.t0)), t1: r4(toO(f0_.t1)) } : f0_;
       const cur = fxDropT(r.target_fixes, f.t0, f.t1); if (f.midi != null || f.off) cur.push(f); r.target_fixes = cur.sort((a, b) => a.t0 - b.t0); try { offApply(); } catch {}
       mkPv.fixes = pvF(); try { pvApplyAll(); } catch (e) { console.warn("미리듣기", e); }
@@ -7061,7 +7068,9 @@ async function openMkJob(j, backTo) {
     { const md = b.dataset.v === "skip" ? null : nmMidi(b.textContent); if (md != null && typeof Tune !== "undefined" && Tune.tone) { clearTimeout(rvTm); Tune.tone(md); rvTm = setTimeout(() => Tune.toneOff(), 700); } }
     document.querySelectorAll(`#vMkJob .mkD[data-id="${b.dataset.id}"]`).forEach(x => x.classList.toggle("ghost", x !== b)); });
   if ($("mkPitchOk")) $("mkPitchOk").onclick = () => { r.pitch_review = { decisions: dec }; sendPitchReview(j.sid, j.folder.id, j.folder.id, { approved: true, decisions: dec }, $("mkPitchOkT")); };
-  $("mkFinal").onclick = async () => {
+  // (11/18 사용자 '완성본 다시 만들기 개념이 이상') 완성본 = 지금 고친 그대로를 서버가 뒤에서 따라 만듦. 진행 화면으로 넘어가지 않고 편집은 계속.
+  //   고친 뒤 90초 동안 더 고치지 않거나 이 화면을 나가면 자동으로 요청 · 반영 중에 또 고치면 끝난 뒤 다시 자동
+  const mkBuildQ = () => {
     const v = +$("mkVol").value, rv = +$("mkRev").value, m = +$("mkMr").value, prev = r.result?.settings || {};
     const q = { ...r, status: "queued", ...MK_NEWQ, preset: "표준" };
     q.settings = { ...(q.settings || {}), vocal_over_mr_lu: (prev.vocal_over_mr_lu ?? 2) + v - m };
@@ -7071,10 +7080,21 @@ async function openMkJob(j, backTo) {
       const [t, mo] = $("mkKey").value.split(":"), auto = pi.key && +t === pi.key.tonic && mo === pi.key.mode;
       q.pitch_key = auto && pi.key_auto ? null : keyOf($("mkKey").value);
     }
-    q.requested_at = new Date().toISOString(); delete q.progress; q.baked_sig = mkEditsSig(q);   // (11/09) 이 완성본에 들어간 고침 지문
-    mkStop(); j.req = q; showProgress(j, "요청 저장 중…");
-    try { await writeJSON(j.folder.id, MKREQ, q, j.reqId); showProgress(j, "서버 호출 중…"); kick(); } catch (e) { stopProg(); toast(e.message); }
-  };
+    q.requested_at = new Date().toISOString(); delete q.progress; delete q.error; q.baked_sig = mkEditsSig(q);   // (11/09) 이 완성본에 들어간 고침 지문
+    return q; };
+  const mkBusyRender = () => ["queued", "working"].includes(r.status);
+  const mkSyncO = async () => { if (!j.reqId) return; try { const cur = await readJSON(j.reqId); if (cur && typeof cur === "object") for (const k of ["status", "progress", "result", "done_at", "render_count", "level_v", "error", "net_retries", "started_at", "song", "rendered_sig"]) { if (k in cur) r[k] = cur[k]; else delete r[k]; } } catch {} };
+  const mkQueueBg = async (why) => { if (mkBusyRender()) return false; const q = mkBuildQ();
+    for (const k of ["status", "progress", "error", "requested_at", "baked_sig", "preset", "settings", "wet_gain", "pitch_level", "pitch_key", "pitch_boundary", ...Object.keys(MK_NEWQ)]) { if (k in q) r[k] = q[k]; else delete r[k]; }
+    r._queueing = true; try { await writeJSON(j.folder.id, MKREQ, r, j.reqId); kick(); paintFixN(); mkPoll(); if (why) toast(why); return true; } catch (e) { toast("완성본 반영 요청 실패: " + errMsg(e)); return false; } finally { delete r._queueing; } };
+  let mkAutoT = 0; const mkEditDirty = () => (r.baked_sig != null ? mkEditsSig(r) !== r.baked_sig : mkEditsSig(r) !== sigOpen) || (revBaked != null && r.wet_gain != null && Math.abs(r.wet_gain - revBaked) > 1e-4);
+  mkAuto = (ms = 90000) => { clearTimeout(mkAutoT); mkAutoT = setTimeout(() => { if (mkJob !== j) return; if (mkEditDirty() && !mkBusyRender()) mkQueueBg("고친 내용을 완성본에 반영하는 중이에요(편집은 계속 돼요)"); }, ms); };
+  let mkPollT = 0; const mkPoll = () => { clearTimeout(mkPollT); if (!mkBusyRender()) return; mkPollT = setTimeout(async () => { if (mkJob !== j) return; const was = r.status; await mkSyncO(); paintFixN();
+      if (was !== r.status && r.status === "done") { try { j.files = await list(j.folder.id); } catch {} toast("✓ 완성본에 고친 내용이 반영됐어요"); if (mkEditDirty()) mkAuto(30000); }
+      else if (r.status === "error") toast("완성본 반영 실패: " + (r.error || "")); mkPoll(); }, 20000); };
+  mkPoll();
+  { const gb0 = goBack; goBack = () => { clearTimeout(mkAutoT); clearTimeout(mkPollT); if (mkEditDirty() && !mkBusyRender()) mkQueueBg().catch(() => {}); return gb0(); }; }
+  $("mkFinal").onclick = () => mkQueueBg("완성본 반영을 요청했어요 · 편집은 계속 돼요");
   $("mkMix").onclick = async () => { const au = $("mkMixAu"); try { if (mkPlaying) { mkOffset = mkNow(); mkStop(); paintTransport(); } au.src = URL.createObjectURL(await readBlob(by("mix.mp3").id, true)); au.classList.remove("hidden"); $("mkMix").classList.add("hidden"); au.play(); } catch (e) { toast(e.message); } };
   // (11/16 15:55 사용자 '받기 누르고 다른 화면으로 가도 되나? 알려주는 문구') 폰에서 직접 소리를 만들어서, 만드는 동안 화면을 나가거나 다른 앱으로 가면 멈추거나 아주 느려짐 → 끝(✓)까지 이 화면에
   const KEEP = " · 다 될 때까지 이 화면에 있어 주세요(다른 화면·앱으로 가면 멈출 수 있어요)";
@@ -8990,7 +9010,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261118-0840";
+const BUILD = "20261118-1130";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
