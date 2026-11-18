@@ -531,11 +531,15 @@ if ($py) {
 # ---- 일꾼 시작 파일 · 자동 시작 등록 ----
 Try-Step "일꾼 시작 파일 만들기" {
     $bat = Join-Path $Src "start_worker.bat"
+    # 이미 만든 시작 파일에 시스템 폴더 ID가 들어 있으면 그대로 유지(ID는 공개 저장소에 둘 수 없음)
+    $sid = ""
+    if (Test-Path $bat) { $m = Select-String -Path $bat -Pattern "^set SYSTEM_FOLDER_ID=(.+)$" | Select-Object -First 1; if ($m) { $sid = $m.Matches[0].Groups[1].Value.Trim() } }
+    if (-not $sid -and (Test-Path (Join-Path $UserHome "jakpum_secret\keys.env"))) { $m = Select-String -Path (Join-Path $UserHome "jakpum_secret\keys.env") -Pattern "^SYSTEM_FOLDER_ID=(.+)$" | Select-Object -First 1; if ($m) { $sid = $m.Matches[0].Groups[1].Value.Trim().Trim('"') } }
     $lines = @(
         "@echo off",
         "cd /d `"%USERPROFILE%\jakpum_src`"",
         "set PYTHONUTF8=1",
-        "rem SYSTEM_FOLDER_ID 등 비밀값은 %USERPROFILE%\jakpum_secret\keys.env 에서 읽습니다(저장소에 올리지 않음)",
+        "set SYSTEM_FOLDER_ID=$sid",
         ":loop",
         "python app\tools\local_worker.py",
         "timeout /t 20 /nobreak >nul",
