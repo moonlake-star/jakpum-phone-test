@@ -323,8 +323,7 @@
       const bh = HP * 0.26, by = T + HP - 4, bw = Math.max(2, (w - L) / (W8 / wv.hop) - 1);
       for (let x = L; x < w; x += bw + 1) { const tt = t0 + (x - L) / (w - L) * W8, i = Math.floor(tt / wv.hop); if (i < 0 || i >= wv.pk.length) continue;
         const h = wv.pk[i] * bh; g.fillStyle = tt <= t ? "rgba(127,138,153,.55)" : "rgba(127,138,153,.3)"; g.fillRect(x, by - h, bw, h); }
-      if (wv.per) { const ph = ((t - wv.ph) % wv.per + wv.per) % wv.per, a = Math.max(0, 1 - ph / (wv.per * 0.6)), xs0 = L + (t - t0) / W8 * (w - L);   // 박자 점(세로줄 위)
-        g.fillStyle = `rgba(255,159,90,${(0.3 + 0.7 * a).toFixed(2)})`; g.beginPath(); g.arc(xs0, T + HP * 0.3, 5 + 5 * a, 0, 7); g.fill(); }
+      // (11/18 18:34 사용자 '간주 때 두 개가 뜸') 박자 점은 아래 늘 뜨는 것 하나만(그림 draw)
     }
     // 카운트다운
     const cx = L + (w - L) / 2, big = 48;
@@ -650,7 +649,7 @@
         let a = null; const B = cv.beats && cv.beats.t;
         if (B && B.length > 1) { let lo_ = 0, hi_ = B.length - 1; if (t >= B[0]) { while (hi_ - lo_ > 1) { const md = (lo_ + hi_) >> 1; if (B[md] <= t) lo_ = md; else hi_ = md; } const b0 = B[t >= B[hi_] ? hi_ : lo_], b1 = B[Math.min(B.length - 1, (t >= B[hi_] ? hi_ : lo_) + 1)], per = Math.max(0.25, Math.min(1.5, (b1 - b0) || 0.5)); if (t - b0 < 2) a = Math.max(0, 1 - (t - b0) / (per * 0.6)); } }
         else { const wv = typeof st.wave === "function" ? waveOf(st.wave()) : null; if (wv && wv.per) { const ph = ((t - wv.ph) % wv.per + wv.per) % wv.per; a = Math.max(0, 1 - ph / (wv.per * 0.6)); } }
-        if (a != null) { const X_ = Math.round(xs0(t)); g.fillStyle = `rgba(255,159,90,${(0.3 + 0.7 * a).toFixed(2)})`; g.beginPath(); g.arc(X_, T + HP * 0.22, 5 + 5 * a, 0, 7); g.fill(); } }
+        if (a != null) { const X_ = Math.round(xs0(t)); g.fillStyle = `rgba(255,159,90,${(0.3 + 0.7 * a).toFixed(2)})`; g.beginPath(); g.arc(X_, T + HP * 0.1, 5 + 5 * a, 0, 7); g.fill(); } }
       if (full && st && st.ghostOn && st.map && !st.dragging && !st.mMode) {   // (11/18 18:23 사용자) 세로줄 왼쪽·오른쪽 아래에 연하게 '두 번 톡 = 5초' 표시(버튼 아님)
         const X_ = Math.round(xs0(t)), yh = T + HP * 0.78; g.save(); g.globalAlpha = 0.2; g.fillStyle = "#cfd5de"; g.font = "bold 15px system-ui, sans-serif"; g.textAlign = "center"; g.textBaseline = "middle";
         if (X_ - L > 90) { g.fillText(`⏪ ${DT_JUMP}초`, (L + X_) / 2, yh); g.font = "11px system-ui, sans-serif"; g.fillText("두 번 톡", (L + X_) / 2, yh + 16); g.font = "bold 15px system-ui, sans-serif"; }
