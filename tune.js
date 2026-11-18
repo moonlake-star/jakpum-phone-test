@@ -433,6 +433,7 @@
     const full = !!(st && st.full), W8 = full ? (st.win || 6) / (st.xz || 1) : WIN, k = col(cv, lv), lane = k && h > 110 && !(st && st.advOn) ? (full ? 40 : LANE) : 0, H = h - lane, T = lane, kt = tgCol(cv);   // (10/30 15:39 사용자) 고친 양 = 그래프 위
     if (cv._orig || cv._kShift) { try { syncCorr(cv); } catch {} }
     let [lo, hi] = range(cv);
+    if (full && st && st.yAn) { const k_ = Math.min(1, (performance.now() - st.yAn.t) / 280), e_ = 1 - (1 - k_) ** 3; st[st.yAn.k] = st.yAn.a + (st.yAn.b - st.yAn.a) * e_; if (k_ >= 1) st.yAn = null; }   // (11/18 17:47) 고른 음으로 옮길 때 애니
     if (full && (st.yz || 1) > 1) {   // 전체화면 핀치 확대: 배율은 손가락으로만 바뀜. 가운데는 지금 음을 부드럽게 따라가고, 손으로 위아래로 밀면 그 자리에 머묾
       const half = (hi - lo) / 2 / st.yz, now = Date.now();
       if ((!st.panAt || now - st.panAt > 4000) && !st.sel && !st.dragging && !st.msel) {   // (11/06 21:48 사용자 '음표를 위아래로 옮길 때 화면이 엉뚱하게 움직임') 음을 고르거나 옮기는 중엔 따라가지 않음 · 재생 중엔 지금 부르는 음(노란선 근처)을 화면 가운데로 따라감 — 화면 밖 음도 들어오게
@@ -444,7 +445,7 @@
     if (full && st.focusC != null) {   // 고치기 창이 뜨며 그래프가 줄어들 때 고른 막대가 화면 안(위아래 20% 안쪽)에 오게 한 번 옮김
       const fc = st.focusC, m = (hi - lo) * 0.2; st.focusC = null;
       const mn = st.focusMin; st.focusMin = false;
-      if ((st.v4 && !mn) || fc < lo + m || fc > hi - m) { const sh = mn ? (fc < lo + m ? fc - (lo + m) : fc - (hi - m)) : st.v4 ? fc - (lo + (hi - lo) * 0.28) : fc - (lo + hi) / 2;   /* (11/18 17:32 사용자) V4: 고른 음은 그래프 아래쪽(바로 밑에 고치기 상자) */ /* 끄는 중(mn)엔 화면 안쪽으로 들어올 만큼만 살짝 */ if ((st.yz || 1) > 1) { st.yc = (st.yc ?? (lo + hi) / 2) + sh; st.panAt = Date.now(); } else st.yo = (st.yo || 0) + sh; lo += sh; hi += sh; }
+      if ((st.v4 && !mn) || fc < lo + m || fc > hi - m) { const sh = mn ? (fc < lo + m ? fc - (lo + m) : fc - (hi - m)) : st.v4 ? fc - (lo + (hi - lo) * 0.42) : fc - (lo + hi) / 2;   /* (11/18 17:32 사용자) V4: 고른 음은 그래프 아래쪽(바로 밑에 고치기 상자) */ /* 끄는 중(mn)엔 화면 안쪽으로 들어올 만큼만 살짝 */ if ((st.yz || 1) > 1) { const a_ = st.yc ?? (lo + hi) / 2; st.yAn = { k: "yc", a: a_, b: a_ + sh, t: performance.now() }; st.panAt = Date.now(); } else { const a_ = st.yo || 0; st.yAn = { k: "yo", a: a_, b: a_ + sh, t: performance.now() }; } }   /* (11/18 17:47 사용자) 순간이동 대신 0.28초 부드럽게(아래 st.yAn) */
     }
     if (st && st.zoom && !full) {   // 확대: 화면 안(지금 앞뒤 8초) 음이 모두 들어오게 — 기본 ±4반음, 크게 도약하면 그만큼 넓힘(10/30 13:28 사용자)
       const f = fitAt(cv, t, k);
@@ -638,6 +639,16 @@
           g.beginPath(); g.arc(X, Y, R, 0, Math.PI * 2); g.fillStyle = "rgba(255,110,199,.92)"; g.fill(); g.lineWidth = 2; g.strokeStyle = "#1a0714"; g.stroke();
           g.fillStyle = "#1a0714"; g.font = "bold 18px system-ui,sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText("✂", X, Y + 1); g.textAlign = "left"; g.textBaseline = "alphabetic";
           st.cutHit = { x: X, y: Y, r: R + 8, bar: cutSel ? null : sb }; } }
+      if (st) st.qHit = null;
+      // (11/18 17:51 사용자 '들어본 직후 손가락을 많이 안 움직이고 고르기') 멈춰 있을 때 세로줄 아래(엄지 자리)에 '방금 지나간 음'·'지금 음' 단추 — 톡 = 그 음 고르기
+      if (full && st && st.ghostOn && st.map && !st.dragging && !st.mMode && (!st.isPaused || st.isPaused()) && (st.tbars || []).length) { const mp = st.map, X = mp.L + (t - mp.t0) / Math.max(1e-6, mp.W8) * (mp.w - mp.L);
+        const tb_ = st.tbars, cur_ = tb_.find(x => t >= x.t0 + 0.02 && t <= x.t1 - 0.02), prv_ = tb_.filter(x => x !== cur_ && x.t1 <= t + 0.02 && t - x.t1 < 2.5).sort((a_, b_) => b_.t1 - a_.t1)[0];
+        const nm = (b_) => NAMES[((Math.round(b_.c / 100) % 12) + 12) % 12] + (Math.floor(Math.round(b_.c / 100) / 12) - 1), Y = T + HP - 34, H_ = 30, hits = [];
+        g.save(); g.font = "bold 14px system-ui, sans-serif"; g.textBaseline = "middle";
+        const chip = (b_, side) => { const sel_ = st.sel && selHit(st.sel, b_); if (sel_) return; const tx = side < 0 ? "◀ " + nm(b_) : nm(b_), tw = g.measureText(tx).width + 22, x0 = side < 0 ? X - 8 - tw : X + 8;
+          if (x0 < mp.L + 2 || x0 + tw > mp.w - 2) return; g.fillStyle = side < 0 ? "rgba(255,184,107,.95)" : "rgba(127,217,154,.95)"; g.beginPath(); if (g.roundRect) g.roundRect(x0, Y, tw, H_, 15); else g.rect(x0, Y, tw, H_); g.fill();
+          g.fillStyle = "#14100a"; g.fillText(tx, x0 + 11, Y + H_ / 2 + 1); hits.push({ x: x0, y: Y, w: tw, h: H_, bar: b_ }); };
+        if (prv_) chip(prv_, -1); if (cur_) chip(cur_, 1); g.restore(); if (hits.length) st.qHit = hits; }
       if (st && st.pulse && performance.now() - st.pulse.at < 700) {   // (11/06 22:02 사용자) 꾹 켜짐 표시를 더 크고 확실하게: 안쪽 채운 원 + 두 겹 퍼지는 고리(최대 반지름 ~90px)
         const k_ = (performance.now() - st.pulse.at) / 700, e_ = 1 - (1 - k_) ** 3, X_ = st.pulse.x, Y_ = st.pulse.y;
         g.beginPath(); g.arc(X_, Y_, 18 + 20 * e_, 0, Math.PI * 2); g.fillStyle = `rgba(255,184,107,${0.32 * (1 - k_)})`; g.fill();
@@ -1806,6 +1817,8 @@
     cvEl.addEventListener("pointerdown", (e) => {
       vGlide = null;
       if (tGlide) { tGlide = null; if (preview != null) { const t = preview; preview = null; st.stopAt = 0; try { seek(t, true); } catch {} } }   // 미끄러지는 중 다시 잡으면 그 자리에서 멈추고 이어서
+      if (pts.size === 0 && st.qHit) { const lc = loc(e.clientX, e.clientY, cvEl.getBoundingClientRect()), q_ = st.qHit.find(q => lc.x >= q.x - 6 && lc.x <= q.x + q.w + 6 && lc.y >= q.y - 8 && lc.y <= q.y + q.h + 8);
+        if (q_) { e.preventDefault(); st.qHit = null; try { fixSheet(wrap, cv, q_.bar, o.onFix, getT, st); } catch {} return; } }   // (11/18) 세로줄 아래 음 단추 톡 = 그 음 고르기
       if (pts.size === 0 && st.cutHit && (st.cutAtNow || st.cutHit.bar)) { const lc = loc(e.clientX, e.clientY, cvEl.getBoundingClientRect()); if (Math.hypot(lc.x - st.cutHit.x, lc.y - st.cutHit.y) <= st.cutHit.r) { e.preventDefault();
         try { if (!st.cutAtNow || st.cutHit.bar) { const hb_ = st.cutHit.bar; st.cutHit = null; fixSheet(wrap, cv, hb_, o.onFix, getT, st); } if (st.cutAtNow) st.cutAtNow(+getT() || 0); } catch {} return; } }   // ✂ 톡 (안 고른 음이면 먼저 고르고 나눔)
       pts.set(e.pointerId, { a: along(e), b: across(e) }); try { cvEl.setPointerCapture(e.pointerId); } catch {}
