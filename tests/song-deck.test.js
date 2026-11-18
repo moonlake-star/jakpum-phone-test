@@ -262,3 +262,8 @@ const mk = new Function(code + "; return stemEngine;")();
   assert.ok(r2.some((x) => /^코러스/.test(x[1])) && r2.some((x) => /^벌스/.test(x[1])) && r2[0][1] === "전주" && r2[r2.length - 1][1] === "후주");
   assert.match(T, /SEC\.length \? SEC : autoSec\(\)/); assert.match(T, /return a\.length \? a : autoSec\(\)/, "직접 이름이 있으면 그게 우선");
 }
+
+{ // 처음 재생 대기 팝업 + A4/TV 버튼 순서
+  assert.ok(T.includes('const pop = busyPop("곡 불러오는 중이에요"') && T.includes("finally { pop.close(); }"), "불러오는 동안 팝업·끝나면 닫힘");
+  assert.ok(T.indexOf('id="dkSh0"') < T.indexOf('id="dkTv"'), "A4 악보 버튼이 TV 앞");
+}
