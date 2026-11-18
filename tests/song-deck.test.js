@@ -164,3 +164,28 @@ const mk = new Function(code + "; return stemEngine;")();
   assert(/#dkPr \.prKg button\{[^}]*min-height:0/.test(H), "전역 button min-height 덮어쓰기 필요");
   console.log("song-deck: prompter close/title/keytempo ok");
 }
+
+// ── 11/19: 가사 자동 찾기(LRCLIB) · A4 악보 모드
+(async () => {
+  const fs = require("fs"), assert = require("assert"), H = fs.readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  const src = H.slice(H.indexOf("const SG_NOTES"), H.indexOf("async function songPeaks("));
+  const f = new Function(src + "; return { songParseLrc, songPickLyrics, songFetchLyrics, songSheetPages, songCleanTitle };")();
+  const L = f.songParseLrc("[ar:x]\n[00:12.50]하나\n[01:02.3][02:00]둘\n[00:20.00]\n[00:30]셋\n[00:40]넷");
+  assert.deepStrictEqual(L.slice(0, 2), [[12.5, "하나"], [30, "셋"]]); assert.strictEqual(L.length, 5, "빈 줄 제외·한 줄 여러 시각 지원");
+  const synced = (d) => ({ duration: d, syncedLyrics: "[00:01.0]a\n[00:02.0]b\n[00:03.0]c\n[00:04.0]d", trackName: "t", artistName: "a" });
+  assert.strictEqual(f.songPickLyrics([synced(300)], 200), null, "길이가 6초 넘게 다르면(다른 버전) 안 씀");
+  assert.strictEqual(f.songPickLyrics([synced(230), synced(201)], 200).df, 1, "길이 가장 비슷한 것");
+  assert.strictEqual(f.songPickLyrics([{ duration: 200, plainLyrics: "x" }, { duration: 200, instrumental: true, syncedLyrics: "[00:01]a" }], 200), null, "시간표 없는/연주곡은 안 씀");
+  assert.strictEqual(f.songCleanTitle("Stumblin' In (Official MV) [Live]"), "Stumblin' In");
+  const calls = []; const mkF = (fn) => async (u) => { calls.push(u); return fn(u); };
+  let r = await f.songFetchLyrics("Song (Live)", "Art", 200, mkF((u) => u.includes("/get?") ? { ok: false } : u.includes("/search?track_name") ? { ok: true, json: async () => [synced(199)] } : { ok: true, json: async () => [] }));
+  assert.ok(r && r.lines.length === 4, "get 실패 → 검색으로 찾음"); assert.ok(calls[0].includes("track_name=Song") && calls[0].includes("duration=200") && !calls[0].includes("Live"));
+  assert.strictEqual(await f.songFetchLyrics("x", "y", 100, mkF(() => ({ ok: true, json: async () => [] }))), null, "없으면 null");
+  assert.strictEqual(await f.songFetchLyrics("x", "y", 100, async () => { throw new Error("net"); }), undefined, "인터넷 안 되면 undefined(다시 시도 가능)");
+  assert.deepStrictEqual(f.songSheetPages(40), { pages: 1, rpp: 10 }); assert.strictEqual(f.songSheetPages(107).pages, 1, "27줄이면 한 장"); assert.strictEqual(f.songSheetPages(200).pages, 2);
+  for (const k of ["id=\"dkSh0\"", "id=\"shPlay\"", "id=\"shKm\"", "id=\"shSm\"", "id=\"shPdf\"", "id=\"shLy\""]) assert(H.includes(k), k + " 없음");
+  assert(/Brand\.layer\(\(\) => \{ stopPlay\(\); cancelAnimationFrame\(raf\); me\.onLyrics = null; me\.sh = null;/.test(H), "A4 악보 닫기=재생 정지");
+  assert(/songPdf\(out, 595, 842\)/.test(H), "A4 크기 PDF"); assert(/if \(CHORDS && needLy\(\)\) setTimeout/.test(H), "가사 비면 자동 찾기");
+  assert(/onLyrics: \(L, t\) => \{[^}]*cx\.d\.lyrics_try = t/.test(H), "찾은 가사·시도 시각을 곡 파일에 저장");
+  console.log("song-deck: lyrics + A4 sheet ok");
+})().catch((e) => { console.error(e); process.exit(1); });
