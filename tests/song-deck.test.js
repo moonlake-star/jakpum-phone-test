@@ -156,7 +156,7 @@ const mk = new Function(code + "; return stemEngine;")();
 // ── 11/19: 프롬프터 닫기=재생 정지 · 제목 누르면 재생 없이 열기 · 프롬프터 키/속도 칸
 {
   const fs = require("fs"), assert = require("assert"), H = fs.readFileSync(__dirname + "/../teacher/index.html", "utf8");
-  assert(/const stopPlay = \(\) => \{ try \{ eng\.pause\(\); \}/.test(H), "프롬프터 stopPlay 없음");
+  assert(/const stopPlay = \(\) => \{ document\.querySelectorAll\("\.capoP"\)\.forEach\(\(e\) => e\.remove\(\)\); try \{ eng\.pause\(\); \}/.test(H), "프롬프터 stopPlay 없음");
   assert(/Brand\.layer\(\(\) => \{ stopPlay\(\);/.test(H), "뒤로가기/닫기 때 stopPlay 호출 없음");
   assert(/\{ close: \(\) => \{ stopPlay\(\);/.test(H), "대체 close에도 stopPlay 필요");
   assert(/data-slt/.test(H) && /songLib\.auto = null; songDestroy\(\); songPaintList\(\);\s*\};/.test(H), "제목 탭: 자동재생 없이 열기");
@@ -184,8 +184,28 @@ const mk = new Function(code + "; return stemEngine;")();
   assert.strictEqual(await f.songFetchLyrics("x", "y", 100, async () => { throw new Error("net"); }), undefined, "인터넷 안 되면 undefined(다시 시도 가능)");
   assert.deepStrictEqual(f.songSheetPages(40), { pages: 1, rpp: 10 }); assert.strictEqual(f.songSheetPages(107).pages, 1, "27줄이면 한 장"); assert.strictEqual(f.songSheetPages(200).pages, 2);
   for (const k of ["id=\"dkSh0\"", "id=\"shPlay\"", "id=\"shKm\"", "id=\"shSm\"", "id=\"shPdf\"", "id=\"shLy\""]) assert(H.includes(k), k + " 없음");
-  assert(/Brand\.layer\(\(\) => \{ stopPlay\(\); cancelAnimationFrame\(raf\); me\.onLyrics = null; me\.sh = null;/.test(H), "A4 악보 닫기=재생 정지");
+  assert(/Brand\.layer\(\(\) => \{ stopPlay\(\); cancelAnimationFrame\(raf\); me\.onLyrics = null; me\.onVol = null; me\.sh = null;/.test(H), "A4 악보 닫기=재생 정지");
   assert(/songPdf\(out, 595, 842\)/.test(H), "A4 크기 PDF"); assert(/if \(CHORDS && needLy\(\)\) setTimeout/.test(H), "가사 비면 자동 찾기");
   assert(/onLyrics: \(L, t\) => \{[^}]*cx\.d\.lyrics_try = t/.test(H), "찾은 가사·시도 시각을 곡 파일에 저장");
   console.log("song-deck: lyrics + A4 sheet ok");
 })().catch((e) => { console.error(e); process.exit(1); });
+
+// ── 11/19: 카포 추천 · 볼륨 슬라이더 줄임 · A4 악보에도 볼륨/카포
+{
+  const fs = require("fs"), assert = require("assert"), H = fs.readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  const src = H.slice(H.indexOf("const SG_NOTES"), H.indexOf("async function songPeaks("));
+  const f = new Function(src + "; return { songChordCost, songCapoBest };")();
+  assert.strictEqual(f.songChordCost("G"), 0); assert.strictEqual(f.songChordCost("Em7"), 0); assert.ok(f.songChordCost("F") > 0.5); assert.strictEqual(f.songChordCost("Bb"), 1); assert.strictEqual(f.songChordCost("G/B"), 0.15);
+  const mk = (arr) => arr.map((n, i) => ({ no: i + 1, chords: [{ b: 0, name: n, len: 4 }] }));
+  // Bb 키 곡(Bb Gm Eb F): 카포 3 → G Em C D (전부 열린 코드)
+  let R = f.songCapoBest(mk(["A#", "Gm", "D#", "F", "A#", "Gm", "D#", "F"]));
+  assert.strictEqual(R.best[0].capo, 3, "A# Gm D# F → 카포 3"); assert.deepStrictEqual(R.best[0].forms.sort(), ["C", "D", "Em", "G"]); assert.strictEqual(R.best[0].easy, 1);
+  R = f.songCapoBest(mk(["G", "C", "D", "Em"])); assert.strictEqual(R.best[0].capo, 0, "이미 쉬우면 카포 없이"); assert.strictEqual(f.songCapoBest([]), null);
+  // 오래 나오는 코드가 더 큰 비중
+  R = f.songCapoBest([{ chords: [{ name: "C#", len: 28 }, { name: "A#m", len: 4 }] }]); assert.ok(R.best[0].capo >= 1, "C# 위주 → 카포로 내림");
+  assert(/#dkPr \.prVo\{[^}]*max-width:calc\(var\(--u\)\*22\)/.test(H), "프롬프터 볼륨 슬라이더 폭 줄임");
+  for (const id of ["prCp", "shCp", "shVol", "shVv"]) assert(H.includes('id="' + id + '"'), id);
+  assert(/\$\("#prCp"\)\.onclick = \(\) => capoPanel\(meas\(\)\)/.test(H) && /\$\("#shCp"\)\.onclick = \(\) => capoPanel\(M\)/.test(H));
+  assert(/\$\("#shVol"\)\.oninput = \(\) => setVol/.test(H), "A4 악보 볼륨 → 같은 setVol");
+  console.log("song-deck: capo + slim volume ok");
+}

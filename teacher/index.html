@@ -448,13 +448,13 @@
 #dkPr .prTop{display:flex;align-items:center;gap:calc(var(--u)*1.4);min-height:calc(var(--u)*4.6)}
 #dkPr .prPlay{flex:none;width:calc(var(--u)*4.6);height:calc(var(--u)*4.6);border-radius:50%;border:2px solid #FFE066;background:#000;color:#FFE066;font-size:calc(var(--u)*1.9);padding:0;margin:0}
 #dkPr .prT{display:flex;flex-direction:column;line-height:1.15;min-width:0;flex:none;width:calc(var(--u)*19)}#dkPr .prT b{font-size:calc(var(--u)*2.1);font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#dkPr .prT span{font-size:calc(var(--u)*1.2);color:#b8b8b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#dkPr .prVo{display:flex;align-items:center;gap:calc(var(--u)*1);flex:1;min-width:0;max-width:calc(var(--u)*46);margin-left:calc(var(--u)*1.6)}#dkPr .prVo small{font-size:calc(var(--u)*1.2);color:#b8b8b8;white-space:nowrap}#dkPr .prVo input{flex:1;min-width:0;margin:0;height:calc(var(--u)*2.4);accent-color:#FFE066}#dkPr .prVo b{font-size:calc(var(--u)*1.4);font-weight:900;color:#FFE066;min-width:calc(var(--u)*6.8);white-space:nowrap}
+#dkPr .prVo{display:flex;align-items:center;gap:calc(var(--u)*1);flex:1;min-width:0;max-width:calc(var(--u)*22);margin-left:calc(var(--u)*1)}#dkPr .prVo small{font-size:calc(var(--u)*1.2);color:#b8b8b8;white-space:nowrap}#dkPr .prVo input{flex:1;min-width:0;margin:0;height:calc(var(--u)*2.4);accent-color:#FFE066}#dkPr .prVo b{font-size:calc(var(--u)*1.4);font-weight:900;color:#FFE066;min-width:calc(var(--u)*6.8);white-space:nowrap}
 #dkPr .prBtn{flex:none;height:calc(var(--u)*4.4);padding:0 calc(var(--u)*1.4);border-radius:calc(var(--u)*1.1);border:2px solid #b8b8b8;background:#000;color:#fff;font-size:calc(var(--u)*1.6);font-weight:700;margin:0}#dkPr .prBtn:disabled{opacity:.5}#dkPr .prBtn.on{background:#4DD0E1;border-color:#4DD0E1;color:#000}
 #dkSh{position:fixed;inset:0;z-index:10010;background:#3a3a3a;color:#111;display:flex;flex-direction:column;font-family:inherit}#dkSh button{font-family:inherit}
 #dkSh .shBar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 10px;background:#111;color:#fff}
 #dkSh .shPlay{flex:none;width:46px;height:46px;min-height:0;border-radius:50%;border:2px solid #FFE066;background:#000;color:#FFE066;font-size:18px;padding:0;margin:0}
 #dkSh .shT{display:flex;flex-direction:column;min-width:0;flex:1 1 120px;line-height:1.2}#dkSh .shT b{font-size:1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#dkSh .shT span{font-size:.75rem;color:#b8b8b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#dkSh .shKt{display:flex;gap:12px;flex-wrap:wrap}#dkSh .shKg{display:flex;align-items:center;gap:4px}#dkSh .shKg small{font-size:.72rem;color:#b8b8b8}#dkSh .shKg b{min-width:46px;text-align:center;color:#FFE066;font-size:.95rem;user-select:none;touch-action:manipulation}
+#dkSh .shVo{display:flex;align-items:center;gap:6px}#dkSh .shVo small{font-size:.72rem;color:#b8b8b8}#dkSh .shVo input{width:96px;min-height:0;margin:0;accent-color:#FFE066}#dkSh .shVo b{font-size:.78rem;color:#FFE066;min-width:56px;white-space:nowrap}#dkSh .shKt{display:flex;gap:12px;flex-wrap:wrap}#dkSh .shKg{display:flex;align-items:center;gap:4px}#dkSh .shKg small{font-size:.72rem;color:#b8b8b8}#dkSh .shKg b{min-width:46px;text-align:center;color:#FFE066;font-size:.95rem;user-select:none;touch-action:manipulation}
 #dkSh .shKg button{flex:none;width:38px;height:38px;min-width:0;min-height:0;padding:0;margin:0;border-radius:50%;border:2px solid #b8b8b8;background:#000;color:#fff;font-size:18px;font-weight:900;line-height:1;touch-action:manipulation;user-select:none}#dkSh .shKg button:disabled{opacity:.35}
 #dkSh .shBtn{flex:none;min-height:0;height:38px;padding:0 12px;margin:0;border-radius:10px;border:2px solid #b8b8b8;background:#000;color:#fff;font-weight:700;font-size:.85rem}#dkSh .shBtn:disabled{opacity:.5}
 #dkSh .shX{flex:none;width:38px;height:38px;min-height:0;min-width:0;padding:0;margin:0;border-radius:50%;border:1px solid #777;background:#000;color:#ddd;font-size:16px}
@@ -466,7 +466,8 @@
 #dkSh .shM.on{background:#fff0a6}#dkSh .shN{font-size:max(9px,calc(var(--f)*10px));color:#888;line-height:1.2}#dkSh .shN b{color:#111;margin-left:.3em}
 #dkSh .shC{position:relative;height:max(22px,calc(var(--f)*26px))}#dkSh .shC span{position:absolute;top:0;font-weight:900;color:#0b3d91;font-size:max(15px,calc(var(--f)*20px));line-height:1.2;white-space:nowrap}
 #dkSh .shL{font-size:max(11px,calc(var(--f)*13px));line-height:1.25;color:#111;word-break:keep-all;overflow-wrap:anywhere;min-height:1.25em}
-#dkPr .prEd{margin-left:auto}#dkPr .prKt{display:flex;gap:calc(var(--u)*1.2);flex:none;margin-left:calc(var(--u)*1)}#dkPr .prKg{display:flex;align-items:center;gap:calc(var(--u)*.5)}#dkPr .prKg small{font-size:calc(var(--u)*1.1);color:#b8b8b8;white-space:nowrap}#dkPr .prKg b{font-size:calc(var(--u)*1.5);font-weight:900;color:#FFE066;min-width:calc(var(--u)*5.2);text-align:center;white-space:nowrap;user-select:none;touch-action:manipulation}#dkPr .prKg button{flex:none;width:calc(var(--u)*3.4);height:calc(var(--u)*3.4);min-width:0;min-height:0;padding:0;margin:0;border-radius:50%;border:2px solid #b8b8b8;background:#000;color:#fff;font-size:calc(var(--u)*1.9);font-weight:900;line-height:1;touch-action:manipulation;user-select:none}#dkPr .prKg button:disabled{opacity:.35}
+.capoP{position:fixed;z-index:10030;left:50%;top:10vh;transform:translateX(-50%);width:min(94vw,600px);max-height:80vh;overflow:auto;box-sizing:border-box;background:#0b0b0b;color:#fff;border:2px solid #FFE066;border-radius:14px;padding:14px 16px;box-shadow:0 8px 40px rgba(0,0,0,.8);font-family:inherit}.capoP h4{margin:0 0 8px;font-size:1.05rem;color:#FFE066}.capoP .cr{padding:9px 10px;border-radius:10px;border:1px solid #444;margin:6px 0}.capoP .cr.best{border-color:#FFE066;background:#1f1a00}.capoP .cr b{font-size:1.05rem}.capoP .cr small{color:#b8b8b8;margin-left:8px}.capoP .cf{margin-top:3px;font-size:1.1rem;font-weight:800;color:#FFE066;letter-spacing:.02em}.capoP .cn{font-size:.78rem;color:#b8b8b8;margin:8px 0 10px}.capoP button{min-height:0;height:40px;padding:0 16px;margin:0;border-radius:10px;border:2px solid #b8b8b8;background:#000;color:#fff;font-weight:700}
+#dkPr .prEd{margin-left:0}#dkPr .prTop>.prVo+.prKt{margin-left:auto}#dkPr .prKt{display:flex;gap:calc(var(--u)*1.2);flex:none;margin-left:calc(var(--u)*1)}#dkPr .prKg{display:flex;align-items:center;gap:calc(var(--u)*.5)}#dkPr .prKg small{font-size:calc(var(--u)*1.1);color:#b8b8b8;white-space:nowrap}#dkPr .prKg b{font-size:calc(var(--u)*1.5);font-weight:900;color:#FFE066;min-width:calc(var(--u)*5.2);text-align:center;white-space:nowrap;user-select:none;touch-action:manipulation}#dkPr .prKg button{flex:none;width:calc(var(--u)*3.4);height:calc(var(--u)*3.4);min-width:0;min-height:0;padding:0;margin:0;border-radius:50%;border:2px solid #b8b8b8;background:#000;color:#fff;font-size:calc(var(--u)*1.9);font-weight:900;line-height:1;touch-action:manipulation;user-select:none}#dkPr .prKg button:disabled{opacity:.35}
 #dkPr .prX{flex:none;width:calc(var(--u)*4.4);height:calc(var(--u)*4.4);border-radius:50%;border:1px solid #666;background:#000;color:#ddd;font-size:calc(var(--u)*1.8);padding:0;margin:0}
 #dkPr .prTl{display:flex;align-items:center;gap:calc(var(--u)*1.1);min-height:calc(var(--u)*3.2)}#dkPr .prTl>span{font-size:calc(var(--u)*1.4);font-weight:700;min-width:calc(var(--u)*3.6)}#dkPr #prT0{color:#FFE066;text-align:right}#dkPr #prT1{color:#b8b8b8}
 #dkPr .prSg{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}#dkPr .prSgs{display:flex;gap:2px;height:calc(var(--u)*3);flex:none}#dkPr .prSgs button{min-width:0;min-height:0;height:100%;line-height:1;padding:0;border-radius:5px;border:1px solid #555;background:#161616;color:#e0e0e0;font-size:calc(var(--u)*1.3);font-weight:700;white-space:nowrap;overflow:hidden;margin:0}#dkPr .prSgs button.on{background:#FFE066;border-color:#FFE066;color:#000}#dkPr .prSgs button.fl{border:2px solid #4DD0E1}
@@ -6686,6 +6687,20 @@ function songSheetPage(M, page, rpp, meta) {
   g.fillStyle = "#999"; g.font = `500 22px ${F}`; g.textAlign = "center"; g.fillText("작품 보컬노트", W / 2, H - 40); g.textAlign = "left";
   return cv;
 }
+// ── (11/19 사용자) 카포 추천: 지금 키의 코드를 카포 0~7프렛으로 내려 열린 코드(C·D·E·G·A·Am·Em·Dm 등) 비율이 가장 높은 자리를 골라 알려줌(오래 나오는 코드일수록 비중 큼)
+const CAPO_OPEN = { "": ["C", "D", "E", "G", "A"], m: ["A", "D", "E"], "7": ["C", "D", "E", "G", "A", "B"], m7: ["A", "D", "E"], maj7: ["C", "D", "F", "A", "G"], sus: ["A", "D", "E"], add9: ["C", "G", "D"] };
+function songChordCost(nm) {   // 0 = 열린 코드(쉬움) · 0.7~1 = 바레(어려움)
+  const m = /^([A-G]#?)([^/]*)(?:\/([A-G]#?))?$/.exec(String(nm || "")); if (!m) return 1;
+  const r = m[1], q = m[2], k = q === "" ? "" : q === "m" ? "m" : q === "7" ? "7" : q === "m7" ? "m7" : /^(maj7|M7)$/.test(q) ? "maj7" : /^sus[24]?$/.test(q) ? "sus" : q === "add9" ? "add9" : null;
+  if (k === null) return 1; if ((CAPO_OPEN[k] || []).includes(r)) return m[3] ? 0.15 : 0; if (k === "" && r === "F") return 0.7; if (k === "m" && (r === "B" || r === "F#")) return 0.8; return 1;
+}
+function songCapoBest(M) {
+  const w = {}; let tot = 0; for (const m of M || []) for (const c of m.chords || []) { const x = +c.len || 1; w[c.name] = (w[c.name] || 0) + x; tot += x; }
+  if (!tot) return null; const all = [];
+  for (let k = 0; k <= 7; k++) { let sc = 0, easy = 0; const forms = []; for (const [n, x] of Object.entries(w)) { const f = songChordName(n, -k), c = songChordCost(f); sc += c * x; if (c <= 0.3) easy += x; forms.push([f, x]); }
+    forms.sort((a, b) => b[1] - a[1]); all.push({ capo: k, score: sc / tot + k * 0.02, easy: easy / tot, forms: forms.slice(0, 8).map((x) => x[0]) }); }
+  const none = all[0]; all.sort((a, b) => a.score - b.score); return { best: all.slice(0, 3), none };
+}
 async function songPeaks(ab) {   // MP3 → 0.1초마다 가장 큰 소리(0~63) 글자열 · 소리 장치 없이 디코드(OfflineAudioContext)
   const OC = window.OfflineAudioContext || window.webkitOfflineAudioContext; if (!OC) throw new Error("파형 미지원");
   const c = new OC(1, 1, 8000), a = await new Promise((ok, no) => { try { const p = c.decodeAudioData(ab, ok, no); if (p && p.then) p.then(ok, no); } catch (e) { no(e); } });
@@ -6809,7 +6824,7 @@ function songDeck(el, ids, o) {
     d.innerHTML = `<div class="prTop"><button type="button" class="prPlay" id="prPlay" aria-label="재생 또는 일시정지">▶</button><div class="prT"><b id="prTitle"></b><span id="prSub"></span></div>
       <div class="prVo"><small>보컬</small><input type="range" id="prVol" min="0" max="100" aria-label="보컬 소리"><b id="prVv"></b></div>
       <div class="prKt"><div class="prKg"><small>키</small><button type="button" id="prKm" aria-label="키 한 음 내리기">−</button><b id="prKv">–</b><button type="button" id="prKp" aria-label="키 한 음 올리기">＋</button></div><div class="prKg"><small>속도</small><button type="button" id="prSm" aria-label="속도 1 내리기">−</button><b id="prSv">–</b><button type="button" id="prSp" aria-label="속도 1 올리기">＋</button></div></div>
-      <button type="button" class="prBtn prEd" id="prEd">✎ 수정</button><button type="button" class="prBtn" id="prPdf" aria-label="PDF로 저장">PDF</button><button type="button" class="prX" id="prX" aria-label="닫기">✕</button></div>
+      <button type="button" class="prBtn" id="prCp" aria-label="카포 추천">카포</button><button type="button" class="prBtn prEd" id="prEd">✎ 수정</button><button type="button" class="prBtn" id="prPdf" aria-label="PDF로 저장">PDF</button><button type="button" class="prX" id="prX" aria-label="닫기">✕</button></div>
       <div class="prTl"><span id="prT0">0:00</span><div class="prSg"><div class="prSgs" id="prSgs"></div><input type="range" id="prSeek" min="0" max="1000" step="1" value="0" aria-label="곡 전체 위치"></div><span id="prT1">–:–</span><div class="prPg"><button type="button" id="prPv" aria-label="이전 쪽">◀</button><span id="prPn"></span><button type="button" id="prNx" aria-label="다음 쪽">▶</button></div></div>
       <div class="prGrid" id="prGrid"></div>`;
     d.querySelector("#prTitle").textContent = o.name || "곡";
@@ -6865,7 +6880,7 @@ function songDeck(el, ids, o) {
     sk.oninput = () => { const t = (+sk.value / 1000) * dur(), q = songBeatPos(AN, t), si = songSecAt(SL, Math.min(M.length - 1, q.m)); if (lastSi >= 0 && si !== lastSi) buzz(si); lastSi = si; seekTo(t); };
     let lastKt = "";   // 키·속도 칸(프롬프터 위쪽): 곡 서랍 카드와 같은 엔진·같은 값을 씀 — 여기서 바꿔도 소리는 바로 바뀜
     const paintPk = () => { $("#prKv").textContent = AN ? keyName(keyWant) : "–"; $("#prKm").disabled = $("#prKp").disabled = !AN; $("#prSv").textContent = +o.bpm > 0 ? Math.round(+o.bpm * rate) : Math.round(rate * 100) + "%"; };
-    $("#prKm").onclick = () => setKey(keyWant - 1); $("#prKp").onclick = () => setKey(keyWant + 1); holdRepeat($("#prSm"), () => setRate(rate - rStep())); holdRepeat($("#prSp"), () => setRate(rate + rStep()));
+    $("#prCp").onclick = () => capoPanel(meas()); $("#prKm").onclick = () => setKey(keyWant - 1); $("#prKp").onclick = () => setKey(keyWant + 1); holdRepeat($("#prSm"), () => setRate(rate - rStep())); holdRepeat($("#prSp"), () => setRate(rate + rStep()));
     dblTap($("#prKv"), () => setKey(0)); dblTap($("#prSv"), () => setRate(1)); paintPk();
     build(); sub(); paintEd();
     const tickP = () => { raf2 = 0; if (!d.isConnected || !alive()) return; if (mKey !== keyN) { build(); sub(); } { const kt = keyWant + "|" + keyN + "|" + rate; if (kt !== lastKt) { lastKt = kt; sub(); paintPk(); } } if (needFit) fit();
@@ -6876,7 +6891,7 @@ function songDeck(el, ids, o) {
       const mp = Math.floor(mi / SG_PER); if (mp !== lastPg) { lastPg = mp; if (mp !== pg) { pg = mp; closeEdit(); build(); } }
       if (mi !== on) { d.querySelectorAll(".prM.on").forEach((e) => e.classList.remove("on")); const cur = d.querySelector(`.prM[data-i="${mi}"]`); if (cur) cur.classList.add("on"); on = mi; paintSegs(); }
       const cur = d.querySelector(".prM.on .prHd"); if (cur) cur.style.left = (q.b / 4 * 100) + "%"; raf2 = requestAnimationFrame(tickP); };
-    const stopPlay = () => { try { eng.pause(); } catch {} try { Q("sgPb").textContent = "▶"; } catch {} };   // 사용자 11/19: 프롬프터 닫기 = 재생도 멈춤
+    const stopPlay = () => { document.querySelectorAll(".capoP").forEach((e) => e.remove()); try { eng.pause(); } catch {} try { Q("sgPb").textContent = "▶"; } catch {} };   // 사용자 11/19: 프롬프터 닫기 = 재생도 멈춤
     const ly = typeof Brand !== "undefined" && Brand.layer ? Brand.layer(() => { stopPlay(); cancelAnimationFrame(raf2); flush(); LE = songLaneEvents(AN, CHORDS, ED, M0); draw(); me.onVol = null; me.onLyrics = null; clearTimeout(flT); try { wl && wl.release(); } catch {} try { if (document.fullscreenElement) document.exitFullscreen(); } catch {} try { screen.orientation && screen.orientation.unlock && screen.orientation.unlock(); } catch {} d.remove(); }) : { close: () => { stopPlay(); flush(); LE = songLaneEvents(AN, CHORDS, ED, M0); draw(); me.onVol = null; me.onLyrics = null; d.remove(); } };   // 뒤로 가기 = 프롬프터만 닫힘
     const pdfBtn = $("#prPdf");   // 사용자 11/14: 프롬프터 PDF 저장(파일명 제목_가수_Key) · 한 쪽 5줄 · 조작 부품 없이 악보만
     pdfBtn.onclick = async () => { pdfBtn.disabled = true; const t0 = pdfBtn.textContent; pdfBtn.textContent = "만드는 중…";
@@ -6889,6 +6904,15 @@ function songDeck(el, ids, o) {
     (async () => { try { wl = await navigator.wakeLock?.request("screen"); } catch {} try { await d.requestFullscreen?.({ navigationUI: "hide" }); } catch {} try { await screen.orientation?.lock?.("landscape"); } catch {} })();   // 되는 폰만(안 되면 그대로 보임)
     raf2 = requestAnimationFrame(tickP);
   };
+  // 카포 추천 창(프롬프터·A4 악보 공용): 지금 키 + 직접 고친 코드를 기준으로 계산 — 소리 키는 그대로, 카포를 끼운 프렛에서 잡을 코드 모양만 알려줌
+  const capoPanel = (M) => {
+    document.querySelectorAll(".capoP").forEach((e) => e.remove()); const R = songCapoBest(M), p = document.createElement("div"); p.className = "capoP"; p.setAttribute("role", "dialog"); p.setAttribute("aria-label", "카포 추천");
+    const h = document.createElement("h4"); h.textContent = `카포 추천 · 지금 키 ${keyName(keyWant)}`; p.appendChild(h);
+    if (!R) { const t = document.createElement("div"); t.className = "cn"; t.textContent = "코드가 아직 없어요"; p.appendChild(t); }
+    else { R.best.forEach((x, i) => { const r = document.createElement("div"); r.className = "cr" + (i === 0 ? " best" : ""); const b = document.createElement("b"), sm = document.createElement("small"), f = document.createElement("div"); f.className = "cf";
+        b.textContent = (i === 0 ? "추천 · " : "") + (x.capo ? `카포 ${x.capo}프렛` : "카포 없이"); sm.textContent = `열린 코드 ${Math.round(x.easy * 100)}%`; f.textContent = x.forms.join(" · "); r.append(b, sm, f); p.appendChild(r); });
+      const cn = document.createElement("div"); cn.className = "cn"; cn.textContent = (R.best.some((x) => x.capo === 0) ? "" : `카포 없이는 열린 코드 ${Math.round(R.none.easy * 100)}% · `) + "굵은 글씨 코드가 그 자리에서 잡을 모양이에요(자주 나오는 순서). 소리 키는 그대로예요. 화면 키를 바꾸면 다시 계산돼요."; p.appendChild(cn); }
+    const bt = document.createElement("button"); bt.type = "button"; bt.textContent = "닫기"; bt.onclick = () => p.remove(); p.appendChild(bt); document.body.appendChild(p); return p; };
   // ── (11/19 사용자) 가사 자동 채우기: 가사가 비어 있으면 인터넷(LRCLIB)에서 시간표 달린 가사를 찾아 곡 파일에 저장 · 7일 안에 다시 안 찾음(수동 '가사 찾기'는 언제든)
   const needLy = () => !(Array.isArray(o.lyrics) && o.lyrics.length) && !(o.lyricsTry && Date.now() - Date.parse(o.lyricsTry) < 7 * 864e5);
   const findLy = async (manual) => {
@@ -6904,8 +6928,9 @@ function songDeck(el, ids, o) {
     if (!CHORDS || document.getElementById("dkSh")) return;
     const d = document.createElement("div"); d.id = "dkSh"; d.setAttribute("role", "dialog"); d.setAttribute("aria-label", "A4 악보");
     d.innerHTML = `<div class="shBar"><button type="button" class="shPlay" id="shPlay" aria-label="재생 또는 일시정지">▶</button><div class="shT"><b id="shTitle"></b><span id="shSub"></span></div>
+      <div class="shVo"><small>보컬</small><input type="range" id="shVol" min="0" max="100" aria-label="보컬 소리"><b id="shVv"></b></div>
       <div class="shKt"><div class="shKg"><small>키</small><button type="button" id="shKm" aria-label="키 한 음 내리기">−</button><b id="shKv">–</b><button type="button" id="shKp" aria-label="키 한 음 올리기">＋</button></div><div class="shKg"><small>속도</small><button type="button" id="shSm" aria-label="속도 1 내리기">−</button><b id="shSv">–</b><button type="button" id="shSp" aria-label="속도 1 올리기">＋</button></div></div>
-      <button type="button" class="shBtn" id="shLy">가사 찾기</button><button type="button" class="shBtn" id="shPdf">A4 PDF</button><button type="button" class="shX" id="shX" aria-label="닫기">✕</button></div>
+      <button type="button" class="shBtn" id="shCp" aria-label="카포 추천">카포</button><button type="button" class="shBtn" id="shLy">가사 찾기</button><button type="button" class="shBtn" id="shPdf">A4 PDF</button><button type="button" class="shX" id="shX" aria-label="닫기">✕</button></div>
     <div class="shScroll"><div class="shPaper" id="shPaper"></div></div>`;
     const $ = (q) => d.querySelector(q); $("#shTitle").textContent = o.name || "곡";
     const meas = () => songApplyEdits(songMeasures(AN, keyN, o.lyrics), ED, keyN), secs = () => (Array.isArray(me.sec || o.sections) ? (me.sec || o.sections) : []).map((x) => [+x[0], String(x[1])]);
@@ -6929,10 +6954,11 @@ function songDeck(el, ids, o) {
       if (mi !== on) { d.querySelectorAll(".shM.on").forEach((e) => e.classList.remove("on")); const c = d.querySelector(`.shM[data-i="${mi}"]`); if (c) { c.classList.add("on"); if (eng.isPlaying() && Date.now() - fl > 1200) { const r = c.getBoundingClientRect(), sc = d.querySelector(".shScroll").getBoundingClientRect(); if (r.top < sc.top + 20 || r.bottom > sc.bottom - 20) c.scrollIntoView({ block: "center", behavior: "smooth" }); } } on = mi; }
       raf = requestAnimationFrame(tick); };
     d.querySelector(".shScroll").addEventListener("touchmove", () => { fl = Date.now() + 2500; }, { passive: true });   // 손으로 넘기는 중엔 자동으로 따라가지 않음
+    const vv = () => { const v = me.vol; $("#shVol").value = v; $("#shVv").textContent = v === 0 ? "끄기" : v <= 40 ? `가이드 ${v}%` : v + "%"; }; me.onVol = vv; vv(); $("#shVol").oninput = () => setVol(+$("#shVol").value); $("#shCp").onclick = () => capoPanel(M);
     $("#shKm").onclick = () => setKey(keyWant - 1); $("#shKp").onclick = () => setKey(keyWant + 1); holdRepeat($("#shSm"), () => setRate(rate - rStep())); holdRepeat($("#shSp"), () => setRate(rate + rStep()));
     dblTap($("#shKv"), () => setKey(0)); dblTap($("#shSv"), () => setRate(1)); $("#shPlay").onclick = () => Q("sgPb").onclick(); $("#shLy").onclick = async () => { $("#shLy").disabled = true; $("#shLy").textContent = "찾는 중…"; try { await findLy(true); } finally { $("#shLy").disabled = false; $("#shLy").textContent = "가사 찾기"; } };
-    const stopPlay = () => { try { eng.pause(); } catch {} try { Q("sgPb").textContent = "▶"; } catch {} };
-    const ly = typeof Brand !== "undefined" && Brand.layer ? Brand.layer(() => { stopPlay(); cancelAnimationFrame(raf); me.onLyrics = null; me.sh = null; d.remove(); }) : { close: () => { stopPlay(); cancelAnimationFrame(raf); me.onLyrics = null; me.sh = null; d.remove(); } };   // 닫기·뒤로가기 = 재생도 멈춤
+    const stopPlay = () => { document.querySelectorAll(".capoP").forEach((e) => e.remove()); try { eng.pause(); } catch {} try { Q("sgPb").textContent = "▶"; } catch {} };
+    const ly = typeof Brand !== "undefined" && Brand.layer ? Brand.layer(() => { stopPlay(); cancelAnimationFrame(raf); me.onLyrics = null; me.onVol = null; me.sh = null; d.remove(); }) : { close: () => { stopPlay(); cancelAnimationFrame(raf); me.onLyrics = null; me.onVol = null; me.sh = null; d.remove(); } };   // 닫기·뒤로가기 = 재생도 멈춤
     $("#shX").onclick = () => ly.close(); me.onLyrics = () => { build(); };
     const pdfBtn = $("#shPdf"); pdfBtn.onclick = async () => { pdfBtn.disabled = true; const t0 = pdfBtn.textContent; pdfBtn.textContent = "만드는 중…";
       try { const MM = meas(), SL = songSecList(MM.length, secs()), sec = {}; SL.forEach((x) => { sec[x.start] = "[" + x.name + "]"; }); const { pages, rpp } = songSheetPages(MM.length), sb = `${o.artist ? o.artist + " · " : ""}Key ${keyName(keyN)} · ${+o.bpm > 0 ? Math.round(+o.bpm) + " BPM · " : ""}4/4박(추정)`, out = [];
@@ -9274,7 +9300,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261119-0150";
+const BUILD = "20261119-0200";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
