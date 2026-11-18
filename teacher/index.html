@@ -6994,7 +6994,7 @@ function songDeck(el, ids, o) {
     if (!CHORDS || document.getElementById("dkSh")) return;
     const d = document.createElement("div"); d.id = "dkSh"; d.setAttribute("role", "dialog"); d.setAttribute("aria-label", "A4 악보");
     d.innerHTML = `<div class="shBar"><button type="button" class="shPlay" id="shPlay" aria-label="재생 또는 일시정지">▶</button><div class="shT"><b id="shTitle"></b><span id="shSub"></span></div>
-      <button type="button" class="shBtn" id="shCp" aria-label="카포 추천">카포</button><button type="button" class="shBtn" id="shLy">가사</button><button type="button" class="shBtn" id="shPdf">PDF</button><button type="button" class="shX" id="shX" aria-label="닫기">✕</button>
+      <button type="button" class="shBtn" id="shCp" aria-label="카포 추천">카포</button><button type="button" class="shBtn" id="shPdf">PDF</button><button type="button" class="shX" id="shX" aria-label="닫기">✕</button>
       <div class="shCt"><div class="shVo"><small>보컬</small><input type="range" id="shVol" min="0" max="100" aria-label="보컬 소리"><b id="shVv"></b></div>
       <div class="shKt"><div class="shKg"><small>키</small><button type="button" id="shKm" aria-label="키 한 음 내리기">−</button><b id="shKv">–</b><button type="button" id="shKp" aria-label="키 한 음 올리기">＋</button></div><div class="shKg"><small>속도</small><button type="button" id="shSm" aria-label="속도 1 내리기">−</button><b id="shSv">–</b><button type="button" id="shSp" aria-label="속도 1 올리기">＋</button></div></div></div></div>
     <div class="shTl"><span id="shT0">0:00</span><div class="shSg"><div class="shSgs" id="shSgs"></div><input type="range" id="shSeek" min="0" max="1000" step="1" value="0" aria-label="곡 전체 위치"></div><span id="shT1">–:–</span></div>
@@ -7041,7 +7041,7 @@ function songDeck(el, ids, o) {
     d.querySelector(".shScroll").addEventListener("touchmove", () => { fl = Date.now() + 2500; }, { passive: true });   // 손으로 넘기는 중엔 자동으로 따라가지 않음
     const vv = () => { const v = me.vol; $("#shVol").value = v; $("#shVv").textContent = v === 0 ? "끄기" : v <= 40 ? `가이드 ${v}%` : v + "%"; }; me.onVol = vv; vv(); $("#shVol").oninput = () => setVol(+$("#shVol").value); $("#shCp").onclick = () => capoPanel();
     $("#shKm").onclick = () => setKey(keyWant - 1); $("#shKp").onclick = () => setKey(keyWant + 1); holdRepeat($("#shSm"), () => setRate(rate - rStep())); holdRepeat($("#shSp"), () => setRate(rate + rStep()));
-    dblTap($("#shKv"), () => setKey(0)); dblTap($("#shSv"), () => setRate(1)); $("#shPlay").onclick = () => Q("sgPb").onclick(); $("#shLy").onclick = async () => { $("#shLy").disabled = true; $("#shLy").textContent = "…"; try { await findLy(true); } finally { $("#shLy").disabled = false; $("#shLy").textContent = "가사"; } };
+    dblTap($("#shKv"), () => setKey(0)); dblTap($("#shSv"), () => setRate(1)); $("#shPlay").onclick = () => Q("sgPb").onclick();
     const stopPlay = () => { document.querySelectorAll(".capoP").forEach((e) => e.remove()); try { eng.pause(); } catch {} try { Q("sgPb").textContent = "▶"; } catch {} };
     const ly = typeof Brand !== "undefined" && Brand.layer ? Brand.layer(() => { stopPlay(); cancelAnimationFrame(raf); if (sv) { clearTimeout(sv); flushEd(); } try { LE = songLaneEvents(AN, CHORDS, ED, M0); draw(); } catch {} me.onLyrics = null; me.onVol = null; me.onCapo = null; me.sh = null; d.remove(); }) : { close: () => { stopPlay(); cancelAnimationFrame(raf); if (sv) { clearTimeout(sv); flushEd(); } try { LE = songLaneEvents(AN, CHORDS, ED, M0); draw(); } catch {} me.onLyrics = null; me.onVol = null; me.onCapo = null; me.sh = null; d.remove(); } };   // 닫기·뒤로가기 = 재생도 멈춤
     $("#shX").onclick = () => ly.close(); me.onLyrics = () => { build(); }; me.onCapo = () => { build(); sub(); paintPk(); };
@@ -9385,7 +9385,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261119-0330";
+const BUILD = "20261119-0350";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {

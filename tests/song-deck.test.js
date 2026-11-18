@@ -183,7 +183,7 @@ const mk = new Function(code + "; return stemEngine;")();
   assert.strictEqual(await f.songFetchLyrics("x", "y", 100, mkF(() => ({ ok: true, json: async () => [] }))), null, "없으면 null");
   assert.strictEqual(await f.songFetchLyrics("x", "y", 100, async () => { throw new Error("net"); }), undefined, "인터넷 안 되면 undefined(다시 시도 가능)");
   assert.deepStrictEqual(f.songSheetPages(40), { pages: 1, rpp: 10 }); assert.strictEqual(f.songSheetPages(107).pages, 1, "27줄이면 한 장"); assert.strictEqual(f.songSheetPages(200).pages, 2);
-  for (const k of ["id=\"dkSh0\"", "id=\"shPlay\"", "id=\"shKm\"", "id=\"shSm\"", "id=\"shPdf\"", "id=\"shLy\""]) assert(H.includes(k), k + " 없음");
+  for (const k of ["id=\"dkSh0\"", "id=\"shPlay\"", "id=\"shKm\"", "id=\"shSm\"", "id=\"shPdf\""]) assert(H.includes(k), k + " 없음");
   assert(/Brand\.layer\(\(\) => \{ stopPlay\(\); cancelAnimationFrame\(raf\); if \(sv\) \{ clearTimeout\(sv\); flushEd\(\); \} try \{ LE = songLaneEvents\(AN, CHORDS, ED, M0\); draw\(\); \} catch \{\} me\.onLyrics = null; me\.onVol = null; me\.onCapo = null; me\.sh = null;/.test(H), "A4 악보 닫기=재생 정지");
   assert(/pdfPreview\(out, 595, 842,/.test(H) && /songPdf\(out, pw, ph\)/.test(H), "A4 크기 PDF"); assert(/if \(CHORDS && needLy\(\)\) setTimeout/.test(H), "가사 비면 자동 찾기");
   assert(/onLyrics: \(L, t\) => \{[^}]*cx\.d\.lyrics_try = t/.test(H), "찾은 가사·시도 시각을 곡 파일에 저장");
