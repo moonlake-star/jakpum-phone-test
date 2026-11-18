@@ -75,25 +75,64 @@ def program_xml(points):
     rows = "".join(
         '        <Level Temperature="%d"><Cpu>%d</Cpu><Gpu>%d</Gpu></Level>\n' % (t, l, l)
         for t, l in build_levels(points))
-    return ('<?xml version="1.0" encoding="utf-8"?>\n<OmenMon>\n  <Config>\n    <FanPrograms>\n'
+    return ('<?xml version="1.0" encoding="utf-8"?>\n<OmenMon>\n  <Config>\n    <FanLevelUseEc>true</FanLevelUseEc>\n    <FanPrograms>\n'
             '      <Program Name="Jakpum">\n        <FanMode>Performance</FanMode>\n'
             '        <GpuPower>Maximum</GpuPower>\n' + rows +
             '      </Program>\n    </FanPrograms>\n  </Config>\n</OmenMon>\n')
 
 
 def last_number(text):
-    nums = re.findall(r"0[xX][0-9a-fA-F]+|\d+", text or "")
-    if not nums:
-        return None
-    s = nums[-1]
-    return int(s, 16) if s.lower().startswith("0x") else int(s)
+    """OmenMon 출력 '… = 2848 (Little-Endian) [RPM3]' 에서 10진 값(= 뒤 마지막 숫자)을 뽑는다."""
+    m = re.findall(r"=\s*(\d+)", text or "")
+    if m:
+        return int(m[-1])
+    nums = re.findall(r"\d+", text or "")
+    return int(nums[-1]) if nums else None
 
 
 # ---------------- 센서 ----------------
+def _hidden():
+    """OmenMon은 스스로 콘솔 창을 만들기 때문에 '창 숨김' 시작 정보를 줘야 깜빡이지 않는다."""
+    if os.name != "nt":
+        return None
+    si = subprocess.STARTUPINFO()
+    si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    si.wShowWindow = 0   # SW_HIDE
+    return si
+
+
 def run_omen(args, timeout=8):
     r = subprocess.run([OMEN] + args, capture_output=True, text=True, encoding="utf-8", errors="replace",
-                       timeout=timeout, creationflags=NOWIN, cwd=OMEN_DIR)
+                       timeout=timeout, startupinfo=_hidden(), cwd=OMEN_DIR)
     return (r.stdout or "") + (r.stderr or "")
+
+
+def parse_ec_table(text):
+    """`OmenMon -Ec` 표(줄마다 '3_ 00 80 …' 16칸) → 256바이트. 못 읽으면 None."""
+    regs = bytearray(256)
+    got = 0
+    for line in (text or "").splitlines():
+        m = re.match(r"^\s*([0-9a-fA-F])_\s+((?:[0-9a-fA-F]{2}\s*){16})\s*$", line)
+        if m:
+            row = int(m.group(1), 16)
+            vals = m.group(2).split()
+            regs[row * 16:row * 16 + 16] = bytes(int(v, 16) for v in vals)
+            got += 1
+    return regs if got == 16 else None
+
+
+def cpu_temp_wmi():
+    """EC에 CPU 온도가 없는 모델용: Windows 열 센서(있을 때만). 못 믿을 값이면 None."""
+    try:
+        r = subprocess.run(["powershell", "-NoProfile", "-Command",
+                            "(Get-CimInstance -Namespace root/wmi -ClassName MSAcpi_ThermalZoneTemperature -ErrorAction Stop | "
+                            "ForEach-Object { [math]::Round($_.CurrentTemperature/10 - 273.15) }) -join ','"],
+                           capture_output=True, text=True, timeout=15, creationflags=NOWIN)
+        vals = [int(x) for x in re.findall(r"-?\d+", r.stdout or "")]
+        vals = [v for v in vals if 20 <= v <= 120]
+        return max(vals) if vals else None
+    except Exception:
+        return None
 
 
 def ec(name):
@@ -153,13 +192,20 @@ class Sensors:
         while not self._stop:
             try:
                 if self.has_omen:
-                    self.data["cpu_t"] = sane(ec("CPUT"), 1, 125)
-                    self.data["ec_gpu_t"] = sane(ec("GPTM"), 1, 125)
-                    self.data["rpm1"] = sane(ec("RPM1(2)"), 0, 9999)
-                    self.data["rpm2"] = sane(ec("RPM3(2)"), 0, 9999)
+                    regs = parse_ec_table(run_omen(["-Ec"]))
+                    if regs:
+                        self.data["cpu_t"] = sane(regs[0x57], 1, 125)          # 이 모델은 0(없음)일 수 있음
+                        self.data["ec_gpu_t"] = sane(regs[0xB7], 1, 125)
+                        self.data["rpm1"] = sane(regs[0xB0] | regs[0xB1] << 8, 0, 9999)
+                        self.data["rpm2"] = sane(regs[0xB2] | regs[0xB3] << 8, 0, 9999)
+                if not self.data.get("cpu_t"):
+                    n = getattr(self, "_wmi_n", 0)
+                    if n % 2 == 0:
+                        self.data["cpu_t_wmi"] = cpu_temp_wmi()
+                    self._wmi_n = n + 1
             except Exception:
                 log("slow " + traceback.format_exc())
-            time.sleep(3)
+            time.sleep(6)
 
     def stop(self):
         self._stop = True
@@ -225,7 +271,7 @@ def main():
         for i, (t, l) in enumerate(pts):
             cv.create_oval(px(t) - 7, py(l) - 7, px(t) + 7, py(l) + 7, fill=AC, outline="#000")
         d = sens.data
-        cur = max([x for x in (d.get("cpu_t"), d.get("gpu_t"), d.get("ec_gpu_t")) if x] or [0])
+        cur = max([x for x in (d.get("cpu_t"), d.get("cpu_t_wmi"), d.get("gpu_t"), d.get("ec_gpu_t")) if x] or [0])
         if cur:
             cv.create_line(px(clamp(cur, T_MIN, T_MAX)), MT, px(clamp(cur, T_MIN, T_MAX)), H - MB, fill="#66ccff")
 
@@ -289,8 +335,11 @@ def main():
         state["mode"] = "auto"
         try:
             if os.path.exists(OMEN):
-                run_omen(["-Bios", "FanMax=Off"])
-                run_omen(["-Bios", "FanMode=Default"])
+                for a in (["-Bios", "FanMax=Off"], ["-Bios", "FanMode=Default"]):
+                    try:
+                        run_omen(a)
+                    except Exception:
+                        pass
             status.set("팬: HP 자동")
         except Exception as ex:
             status.set("팬: 자동 복귀 실패(%s)" % ex)
@@ -304,8 +353,11 @@ def main():
         try:
             with open(CFG, "w", encoding="utf-8", newline="\n") as f:
                 f.write(program_xml(points))
-            run_omen(["-Bios", "FanMax=Off"])
-            state["proc"] = subprocess.Popen([OMEN, "-Prog", "Jakpum"], creationflags=NOWIN, cwd=OMEN_DIR,
+            try:
+                run_omen(["-Bios", "FanMax=Off"])
+            except Exception:
+                pass
+            state["proc"] = subprocess.Popen([OMEN, "-Prog", "Jakpum"], startupinfo=_hidden(), cwd=OMEN_DIR,
                                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL)
             state["mode"] = "graph"
             status.set("팬: 그래프 조절 중")
@@ -340,7 +392,7 @@ def main():
 
     def tick():
         d = sens.data
-        rows["cpu"].set("%s%%   %s" % (fmt(None if d.get("cpu") is None else int(d["cpu"])), fmt(d.get("cpu_t"), "°C")))
+        rows["cpu"].set("%s%%   %s" % (fmt(None if d.get("cpu") is None else int(d["cpu"])), fmt(d.get("cpu_t") or d.get("cpu_t_wmi"), "°C")))
         rows["gpu"].set("%s%%   %s   VRAM %s/%s MB" % (fmt(d.get("gpu")), fmt(d.get("gpu_t") or d.get("ec_gpu_t"), "°C"), fmt(d.get("vram_used")), fmt(d.get("vram_total"))))
         rows["ram"].set("%s%%   %s / %s GB" % (fmt(None if d.get("ram_pct") is None else int(d["ram_pct"])), "-" if d.get("ram_used") is None else "%.1f" % d["ram_used"], "-" if d.get("ram_total") is None else "%.1f" % d["ram_total"]))
         rows["net"].set("▲ %s   ▼ %s Mbps" % ("-" if d.get("up") is None else "%.1f" % d["up"], "-" if d.get("down") is None else "%.1f" % d["down"]))
