@@ -651,9 +651,11 @@
         else { const wv = typeof st.wave === "function" ? waveOf(st.wave()) : null; if (wv && wv.per) { const ph = ((t - wv.ph) % wv.per + wv.per) % wv.per; a = Math.max(0, 1 - ph / (wv.per * 0.6)); } }
         if (a != null) { const X_ = Math.round(xs0(t)); g.fillStyle = `rgba(255,159,90,${(0.3 + 0.7 * a).toFixed(2)})`; g.beginPath(); g.arc(X_, T + HP * 0.1, 5 + 5 * a, 0, 7); g.fill(); } }
       if (full && st && st.ghostOn && st.map && !st.dragging && !st.mMode) {   // (11/18 18:23 사용자) 세로줄 왼쪽·오른쪽 아래에 연하게 '두 번 톡 = 5초' 표시(버튼 아님)
-        const X_ = Math.round(xs0(t)), yh = T + HP * 0.78; g.save(); g.globalAlpha = 0.2; g.fillStyle = "#cfd5de"; g.font = "bold 15px system-ui, sans-serif"; g.textAlign = "center"; g.textBaseline = "middle";
+        const pz_ = !st.isPaused || st.isPaused(); if (pz_) { if (!st._pzAt) st._pzAt = performance.now(); } else st._pzAt = 0;   // (11/18 18:35 사용자) 멈췄을 때만 0.4초 페이드인
+        const fa_ = st._pzAt ? Math.min(1, (performance.now() - st._pzAt) / 400) : 0;
+        const X_ = Math.round(xs0(t)), yh = T + HP * 0.78; g.save(); g.globalAlpha = 0.2 * fa_; if (fa_ > 0) { g.fillStyle = "#cfd5de"; g.font = "bold 15px system-ui, sans-serif"; g.textAlign = "center"; g.textBaseline = "middle";
         if (X_ - L > 90) { g.fillText(`⏪ ${DT_JUMP}초`, (L + X_) / 2, yh); g.font = "11px system-ui, sans-serif"; g.fillText("두 번 톡", (L + X_) / 2, yh + 16); g.font = "bold 15px system-ui, sans-serif"; }
-        if (w - X_ > 90) { g.fillText(`${DT_JUMP}초 ⏩`, (X_ + w) / 2, yh); g.font = "11px system-ui, sans-serif"; g.fillText("두 번 톡", (X_ + w) / 2, yh + 16); }
+        if (w - X_ > 90) { g.fillText(`${DT_JUMP}초 ⏩`, (X_ + w) / 2, yh); g.font = "11px system-ui, sans-serif"; g.fillText("두 번 톡", (X_ + w) / 2, yh + 16); } }
         g.restore(); }
       // (11/18 17:51 사용자 '들어본 직후 손가락을 많이 안 움직이고 고르기') 멈춰 있을 때 세로줄 아래(엄지 자리)에 '방금 지나간 음'·'지금 음' 단추 — 톡 = 그 음 고르기
       if (full && st && st.ghostOn && st.map && st.sel && !st.dragging && !st.mMode && kt) {   // (11/18 18:06 사용자 시안 B) 음을 고른 동안 그래프 아래 양 끝 [◀ 앞 음] [뒤 음 ▶] — 톡 = 그 음 고르기
