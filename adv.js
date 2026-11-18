@@ -120,7 +120,8 @@
   // ── 조절 줄(− 값 +) — 손가락으로 누르기 쉽게 44px · 꾹 누르면 계속 ──
   // (11/06 18:21 사용자 시안 승인) −/+ 버튼 → 끌어서 조절하는 칸: 좌우(또는 위아래)로 끌기 = 값 · 톡 = 한 칸(왼쪽 절반 내림·오른쪽 절반 올림) · 두 번 톡 = 원래 값
   // 한 칸마다 짧은 진동, 원래 값에 닿으면 조금 센 진동 + 살짝 붙음 · 끄는 동안 위에 큰 숫자 · 빨리 끌면 성큼 · 손 뗀 뒤 0.4초 모아 한 번 저장(change)
-  const vib = (ms) => { try { navigator.vibrate && navigator.vibrate(Math.max(20, ms)); } catch {} };
+  const vib = (ms) => { try { navigator.vibrate && navigator.vibrate(Array.isArray(ms) ? ms : Math.max(20, ms)); } catch {} };
+  const HOME_BUZZ = [90, 60, 90];   // (11/18 16:46 사용자) 고쳤다가 원래 자리(처음 값)로 돌아오면 확실히 느껴지게 — 길게 두 번(웹은 세기 조절이 안 돼 길이·횟수로)
   // (11/06 19:01 사용자 시안) 칸 뒤에 기능을 상징하는 희미한 선 그림 — 흐름은 지금 값만큼 기울어짐 · 떨림 폭·원래 떨림은 값만큼 출렁임
   const wave = (amp, cyc, f) => { let d = ""; for (let i = 0; i <= 60; i++) { const x = i / 60, a = typeof f === "function" ? f(x) : 1; d += `${i ? "L" : "M"}${(6 + x * 88).toFixed(1)} ${(20 - amp * a * Math.sin(x * cyc * 2 * Math.PI)).toFixed(1)}`; } return d; };
   const arrowV = (x, y0, y1) => `M${x} ${y0} L${x} ${y1} M${x - 2.5} ${y0 + 4} L${x} ${y0} L${x + 2.5} ${y0 + 4} M${x - 2.5} ${y1 - 4} L${x} ${y1} L${x + 2.5} ${y1 - 4}`;   // ↕
@@ -185,10 +186,10 @@
       const a = Math.max(0, Math.abs(dd) - 7) / (o.px || 16), k = Math.sign(dd) * (a + a * a / 30);   // 빨리(멀리) 끌수록 성큼
       let n = Math.trunc(k); const nDef = (o.def - d.v0) / o.step * sgn;
       if (Math.abs(k - nDef) < 0.7 && Math.abs(nDef - Math.round(nDef)) < 1e-6) n = Math.round(nDef);   // 원래 값 근처면 거기 붙음
-      if (n === d.n) return; d.n = n; if (put(d.v0 + n * o.step * sgn)) { const home = Math.abs(get() - o.def) < 1e-9; vib(home ? 40 : 15); d.home = home; bubble(true); } });
+      if (n === d.n) return; d.n = n; if (put(d.v0 + n * o.step * sgn)) { const home = Math.abs(get() - o.def) < 1e-9; vib(home ? HOME_BUZZ : 15); d.home = home; bubble(true); } });
     const end = (e) => { if (!d || (e && e.pointerId !== d.id)) return; const was = d; d = null; c.classList.remove("act"); bubble(false);
       if (was.drag || !e || e.type !== "pointerup") return;
-      const now = Date.now(); if (now - lastTap < 320) { lastTap = 0; put(o.def); vib(40); return; }   // 두 번 톡 = 원래 값
+      const now = Date.now(); if (now - lastTap < 320) { lastTap = 0; put(o.def); vib(HOME_BUZZ); return; }   // 두 번 톡 = 원래 값
       lastTap = now; const r = c.getBoundingClientRect(); if (put(get() + ((o.vert ? e.clientY > r.top + r.height / 2 : e.clientX < r.left + r.width / 2) ? -1 : 1) * o.step * sgn)) vib(15); };   // 세로 칸: 위 절반 톡 = 올림 · 아래 절반 = 내림
     c.addEventListener("pointerup", end); c.addEventListener("pointercancel", end); c.addEventListener("lostpointercapture", () => { if (d) end(null); });
     c.addEventListener("keydown", (e) => { const k = e.key; if (k === "ArrowRight" || k === "ArrowUp") put(get() + o.step * sgn); else if (k === "ArrowLeft" || k === "ArrowDown") put(get() - o.step * sgn); else if (k === "Enter" || k === "0") put(o.def); else return; e.preventDefault(); e.stopPropagation(); });

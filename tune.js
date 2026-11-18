@@ -15,7 +15,8 @@
   const learned = (k) => (learnGet()[k] || 0) >= LEARN_N;
   const learn = (k) => { try { const o = learnGet(); o[k] = (o[k] || 0) + 1; localStorage.setItem(LEARN_KEY, JSON.stringify(o)); } catch {} };
   const learnReset = () => { try { localStorage.removeItem(LEARN_KEY); localStorage.removeItem("tune_adv_guide_v1"); } catch {} };
-  const buzz = (ms) => { try { navigator.vibrate && navigator.vibrate(Math.max(20, ms || 25)); } catch {} };   // (11/06 22:09) 20ms보다 짧으면 갤럭시 등에서 거의 안 느껴짐   // 아이폰 사파리는 진동을 지원 안 함 → 대신 화면에 퍼지는 동그라미
+  const buzz = (ms) => { try { navigator.vibrate && navigator.vibrate(Array.isArray(ms) ? ms : Math.max(20, ms || 25)); } catch {} };
+  const HOME_BUZZ = [90, 60, 90];   // (11/18 16:46 사용자) 원래 자리로 돌아오면 길게 두 번   // (11/06 22:09) 20ms보다 짧으면 갤럭시 등에서 거의 안 느껴짐   // 아이폰 사파리는 진동을 지원 안 함 → 대신 화면에 퍼지는 동그라미
   const beatNear = (cv, t) => { const B = cv && cv.beats && cv.beats.t; if (!B || !B.length) return null; let lo = 0, hi = B.length - 1; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (B[m] <= t) lo = m; else hi = m; } return Math.abs(B[lo] - t) <= Math.abs(B[hi] - t) ? B[lo] : B[hi]; };   // (11/06) 보정 모드 큰 손잡이 반지름(px) — 손가락·펜으로 잡기 쉽게
   const WIN = 8, HEAD = 0.4, NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"], LANE = 34, ZOOM_HALF = 400;
   function range(cv) {
@@ -1161,7 +1162,7 @@
       if (st.beatOn && edge !== "r") { const bt = beatNear(cv, n0); if (bt != null && Math.abs(bt - n0) <= BEAT_SNAP) { const dd = bt - n0; n0 = bt; if (edge === "c") n1 += dd; } }   // (11/06) 🥁 박자 맞춤: 음 시작을 가까운 박에 착(스마트 어택)
       // (11/06 17:59 사용자) 늘렸다 줄였다 하다 처음 자리(누르기 시작할 때 길이)로 돌아오면 진동 + 그 자리에 살짝 붙음(±0.015초)
       const DET = 0.015, home = Math.abs(n0 - a0) <= DET && Math.abs(n1 - a1) <= DET; if (home) { n0 = a0; n1 = a1; }
-      if (home && !st._tbHome && st._tbAway) { buzz(40); st.pulse = st.hdl && st.hdl[edge] ? { x: st.hdl[edge].x, y: st.hdl[edge].y, at: performance.now() } : st.pulse; }
+      if (home && !st._tbHome && st._tbAway) { buzz(HOME_BUZZ); st.pulse = st.hdl && st.hdl[edge] ? { x: st.hdl[edge].x, y: st.hdl[edge].y, at: performance.now() } : st.pulse; }
       st._tbHome = home; if (!home) st._tbAway = true;
       tClamp(edge === "c" ? "m" : edge); tPaint(); tPreview(); };
     st.onBarDragXEnd = () => { const b0 = st._tb; st._tb = null; if (b0 && (Math.abs(n0 - b0[0]) > 0.004 || Math.abs(n1 - b0[1]) > 0.004)) tPersist(); };   // 손 뗄 때 한 번만 저장
@@ -1847,7 +1848,7 @@
       if (!drag || drag.id !== e.pointerId) return;
       if (drag.armed && st.mMode) st.mSelecting = true;   // 고르는 동안은 분홍 범위
       if (drag.vBend) { const l0 = loc(e.clientX, e.clientY, cvEl.getBoundingClientRect()), c = (drag.y0 - l0.y) * drag.cpp, v = Math.max(-300, Math.min(300, Math.round((drag.v0 + c) / 5) * 5));
-        if (v !== drag.last) { drag.last = v; drag.moved = true; st.dragging = true; G.TuneAdv.bendSet(st, cv, drag.b, drag.key, v, drag.first); drag.first = false; if (v === 0) buzz(30); } return; }
+        if (v !== drag.last) { drag.last = v; drag.moved = true; st.dragging = true; G.TuneAdv.bendSet(st, cv, drag.b, drag.key, v, drag.first); drag.first = false; if (v === 0) buzz(HOME_BUZZ); } return; }
       if (drag.hArm) { const l0 = loc(e.clientX, e.clientY, cvEl.getBoundingClientRect()), mp = st.map;
         if (!drag.hArmed) { if (Math.hypot(l0.x - drag.x0, l0.y - drag.y0) > 8) { clearTimeout(drag.lp); drag.cancel = true; } return; }
         if (!mp || drag.cancel) return; drag.moved = true; st.onBarDragX(Math.round((l0.x - drag.x0) / Math.max(1, mp.w - mp.L) * mp.W8 * FINE * 100) / 100, drag.edge, false); return; }

@@ -38,7 +38,7 @@ console.log("exit card wiring ok");
 assert.ok(!T.includes("else if (st.sel || st.msel) {") && T.includes("else { toggle(); lastTap = now; } }"), "(11/09) 고른 채 빈 곳 톡 = 선택 해제만");
 console.log("deselect on play ok");
 // (11/06 17:59 사용자) 화살표 꾹 = 진동 · 늘렸다 처음 자리로 돌아오면 진동(살짝 붙음)
-assert.ok(T.includes('st.onBarDragX(0, ed, true); if (e.pointerType !== "mouse") { buzz(50);') && T.includes("if (home && !st._tbHome && st._tbAway) { buzz(40);") && T.includes("st._tbHome = true; st._tbAway = false; return; }"));
+assert.ok(T.includes('st.onBarDragX(0, ed, true); if (e.pointerType !== "mouse") { buzz(50);') && T.includes("if (home && !st._tbHome && st._tbAway) { buzz(HOME_BUZZ);") && T.includes("st._tbHome = true; st._tbAway = false; return; }"));
 console.log("arrow buzz ok");
 // (11/06 18:02 사용자) ↶↷ 누르면 바로(저장 안 기다림) · 소리 없이 고름 · 저장은 한 줄로
 assert.ok(T.includes("if (!(st && st._quiet)) { try { sndFor(m, 1000); } catch {} }") && T.includes("st._quiet = true;") && !T.includes("try { await o.histSet(H.S[i]); }"));
@@ -49,7 +49,7 @@ assert.ok(T.includes("#tuneFs .port .tfAbRow{width:100%;justify-content:space-be
 console.log("align ok");
 // (11/06 18:21·18:24 사용자) −/+ → 끌어서 조절하는 칸 · 흐름 1줄 · 이어짐 1줄 · 두 번 톡 = 원래 값
 { const A = fs.readFileSync(path.join(__dirname, "..", "adv.js"), "utf8");
-  assert.ok(A.includes("function scrub(label, get, set, o, inLabel, en)") && A.includes("if (now - lastTap < 320) { lastTap = 0; put(o.def); vib(40); return; }") && A.includes("vib(home ? 40 : 15)"));
+  assert.ok(A.includes("function scrub(label, get, set, o, inLabel, en)") && A.includes("if (now - lastTap < 320) { lastTap = 0; put(o.def); vib(HOME_BUZZ); return; }") && A.includes("vib(home ? HOME_BUZZ : 15)"));
   assert.ok(A.includes("rows.push(cells(tl, trC, vlC));") && !A.includes('"계단"'));
   console.log("scrub ok"); }
 // (11/06 18:36 사용자) 비브라토 3칸×2줄 · 볼륨 1줄 · 눈금 낮게·이름 크게·숫자 작게
@@ -82,7 +82,7 @@ assert.ok(T.includes("performance.now() - st.pulse.at < 700") && T.includes("20 
 console.log("pulse ok");
 // (11/06 22:09 사용자) 초록 더 진하게 · 📳 진동 시험 · 진동 최소 20ms
 { const A = fs.readFileSync(path.join(__dirname, "..", "adv.js"), "utf8");
-  assert.ok(T.includes('scale: "rgba(127,217,154,.46)"') && T.includes("navigator.vibrate(Math.max(20, ms || 25))") && A.includes('data-g="vib">📳 진동 시험') && A.includes("navigator.vibrate(Math.max(20, ms))"));
+  assert.ok(T.includes('scale: "rgba(127,217,154,.46)"') && T.includes("Math.max(20, ms || 25)") && A.includes('data-g="vib">📳 진동 시험') && A.includes("Math.max(20, ms))"));
   console.log("green / vib test ok"); }
 // (11/06 22:18 사용자) 여러 음 고르기는 빈 곳 꾹에서만(음표 위 꾹은 안 함)
 assert.ok(T.includes("if (st.kb && (hitT(l0) || hitBar(l0))) return;   // (11/06 22:18 사용자)"));
