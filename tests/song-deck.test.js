@@ -130,3 +130,9 @@ const mk = new Function(code + "; return stemEngine;")();
   assert.ok(T.includes("function songDestroy() {") && /dispose\?\.\(\)/.test(T), "닫을 때 애니메이션 정리");
   console.log("song-deck: ok");
 })().catch((e) => { console.error(e); process.exit(1); });
+
+{
+  const css = T.match(/#dkPr \.prSgs\{[^}]*\}#dkPr \.prSgs button\{[^}]*\}/)[0];
+  assert.ok(/min-height:0/.test(css) && /height:100%/.test(css), "프롬프터 구간 칸 버튼: 전역 button 최소높이(46px)에 눌려 슬라이더를 덮지 않게 min-height:0 · 부모 높이에 맞춤");
+  assert.ok(/#dkPr \.prSgs\{[^}]*flex:none/.test(css), "구간 칸 줄은 줄어들지 않음");
+}
