@@ -840,6 +840,20 @@ async function list(folder) {
   return out;
 }
 const readJSON = (id) => autoBusy((async () => (await api(`${DRIVE}/files/${id}?alt=media`)).json())(), true);
+// (11/19 사용자 '목록 파일 대조해서 같으면 바로') 파일 목록에서 이미 알고 있는 '수정 시각'이 같으면 내용을 다시 받지 않고 이 폰에 저장해 둔 것을 씀(드라이브 요청 1번 절약).
+//   수정 시각이 다르면 새로 받아 바꿔 저장. 저장소를 못 쓰면 그냥 예전처럼 받음. 최대 JC_MAX개(오래된 것부터 지움)
+const JC = "vn-json-v1", JC_MAX = 400;
+const jcReq = (id, mt) => new Request("https://json-cache.local/" + encodeURIComponent(id) + "@" + encodeURIComponent(mt));
+async function readJSONm(f) {
+  if (!f || !f.modifiedTime || typeof caches === "undefined" || !caches || typeof caches.open !== "function") return readJSON(f.id);
+  try { const c = await caches.open(JC), hit = await c.match(jcReq(f.id, f.modifiedTime)); if (hit) return await hit.json(); } catch {}
+  const v = await readJSON(f.id);
+  (async () => { try { const c = await caches.open(JC); await c.put(jcReq(f.id, f.modifiedTime), new Response(JSON.stringify(v)));
+    const ks = await c.keys(), pre = "https://json-cache.local/" + encodeURIComponent(f.id) + "@", cur = jcReq(f.id, f.modifiedTime).url;
+    for (const k of ks) if (k.url.startsWith(pre) && k.url !== cur) await c.delete(k);            // 같은 파일의 예전 버전 지움
+    const rest = ks.filter(k => !(k.url.startsWith(pre) && k.url !== cur)); for (const k of rest.slice(0, Math.max(0, rest.length - JC_MAX))) await c.delete(k); } catch {} })();
+  return v;
+}
 // (11/16 사용자: 페이지 로딩·재생이 느림) 같은 녹음을 다시 들을 때 처음부터 다시 받지 않음 — 이 폰의 저장소(Cache Storage)에 '오디오 파일만' 보관(최대 40개)
 // 다시 쓸 때 드라이브에서 파일 지문(md5)·크기가 같은지 확인(1분 안에 받은 것은 확인 없이 바로). 다르면 새로 받음. '새로 받기(fresh)'는 항상 그대로 새로 받음
 const ABC = "vn-audio-v1", ABC_MAX = 40, ABC_FRESH_MS = 60 * 1000, abcReq = (id) => new Request("https://audio-cache.local/" + encodeURIComponent(id));
@@ -1262,7 +1276,7 @@ async function loadMkJobs(sid) {
   const hb = all.find(x => x.name === "음정성향.json"); if (hb && hb.modifiedTime !== st._habitAt) { st._habitId = hb.id; st._habitAt = hb.modifiedTime; st._habit = null; }
   const jobs = await Promise.all(folders.map(async (f) => {
     const files = await gList(f.id), rq = files.find(x => x.name === MKREQ);
-    return rq ? { sid, st, folder: f, files, reqId: rq.id, req: await gJSON(rq.id).catch(() => ({})) } : null;
+    return rq ? { sid, st, folder: f, files, reqId: rq.id, req: await listGate(() => readJSONm(rq)).catch(() => ({})) } : null;
   }));
   return jobs.filter(Boolean).sort((a, b) => (b.req.requested_at || "").localeCompare(a.req.requested_at || ""));
 }
@@ -1275,7 +1289,7 @@ async function studentData(sid, prev) {
     try {
       const files = await gList(l.id);
       const rf = files.find(f => f.name === REVIEW);
-      const rv = rf ? await gJSON(rf.id).catch(() => ({})) : {};
+      const rv = rf ? await listGate(() => readJSONm(rf)).catch(() => ({})) : {};
       return { l, files, done: !!rf, fb: !!rv.sent?.feedback, ck: !!rv.sent?.check,
                ai: files.some(f => f.name === "AI초안.json"), pub: files.some(f => f.name === NOTE), ...(rv.celeb?.full?.on && rv.celeb.full.title ? { full_song: String(rv.celeb.full.title).slice(0, 40) } : {}) };
     } catch (e) {   // 이 레슨만 실패: 지난번 값(있으면)으로 표시만 하고, 누르면 다시 불러옴
@@ -3850,7 +3864,7 @@ function adoptConfig(latest) {   // 서버 최신본을 cfg로 쓰되, 화면용
 async function loadSubs(st) {
   const fid = st.sub?.["04_과제제출"]; if (!fid) return { recs: [], files: [] };
   const files = await list(fid), rf = files.find(f => f.name === SUBS);
-  return { recs: rf ? await readJSON(rf.id) : [], files, recId: rf?.id, folder: fid };
+  return { recs: rf ? await readJSONm(rf) : [], files, recId: rf?.id, folder: fid };
 }
 async function uploadFile(folder, name, blob, onProg) {
   const meta = JSON.stringify({ name, parents: [folder] });
@@ -7565,9 +7579,10 @@ async function openMkJob(j, backTo) {
 // ── 레슨 검수 ───────────────────────────────────────────
 // 레슨 자료(변하지 않는 것들)는 한 번 받으면 기억. 목록이 뜨면 최근 레슨 몇 개를 미리 받아 둔다.
 const lessonCache = new Map();
+const JC_SKIP = new Set(["수강생노트.json", REVIEW, "음정검수_대기.json"]);
 function lessonData(folderId, files) {
   if (lessonCache.has(folderId)) return lessonCache.get(folderId);
-  const by = (n) => files.find(f => f.name === n), j = (n, dflt) => by(n) ? readJSON(by(n).id).catch(() => dflt) : Promise.resolve(dflt);
+  const by = (n) => files.find(f => f.name === n), j = (n, dflt) => by(n) ? (JC_SKIP.has(n) ? readJSON(by(n).id) : readJSONm(by(n))).catch(() => dflt) : Promise.resolve(dflt);   // 앱이 직접 고쳐 쓰는 파일은 항상 새로 받음
   const dir = (n) => { const f = files.find(x => x.name === n); return f ? list(f.id) : Promise.resolve([]); };
   const p = Promise.all([j("처리요약.json", {}), j("전사_원본.json", []), j("candidates.json", []), dir("노래후보_클립"),
                          j("화자샘플.json", []), dir("화자샘플"), j("AI초안.json", null), j("음정분석.json", null), j("레슨분석.json", null),

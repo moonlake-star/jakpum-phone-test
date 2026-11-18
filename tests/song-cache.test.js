@@ -12,3 +12,6 @@ console.log("jam-cache ok");
 assert(/async function songLoad\(prev = \[\]\)/.test(h) && /o\.mt === st\.modifiedTime/.test(h), "수정 시각이 같으면 저장본 그대로");
 assert(!/await songLoad\(\)/.test(h), "저장본 전달");
 console.log("song-delta ok");
+assert(/async function readJSONm\(f\)/.test(h) && /jcReq\(f\.id, f\.modifiedTime\)/.test(h), "수정시각 대조 읽기");
+assert(/readJSONm\(rf\)/.test(h) && /readJSONm\(rq\)/.test(h) && /JC_SKIP/.test(h), "목록·레슨 자료에 적용, 앱이 쓰는 파일은 제외");
+console.log("json-cache ok");
