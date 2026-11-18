@@ -6018,11 +6018,24 @@ const SONG_CACHE_KEY = "jakpum_songlib_v1";
 function songCacheGet() { try { const j = JSON.parse(localStorage.getItem(SONG_CACHE_KEY) || "null"); return j && Array.isArray(j.list) && j.list.length ? j.list : null; } catch { return null; } }
 let songCacheT = 0;
 function songCachePut() { clearTimeout(songCacheT); songCacheT = setTimeout(() => { try { const t = JSON.stringify({ at: Date.now(), list: songLib.list }); if (t.length < 2500000) localStorage.setItem(SONG_CACHE_KEY, t); } catch {} }, 800); }   // 용량 넘거나 막히면 그냥 건너뜀
-async function songLoad() {
+// (11/19 사용자 '드라이브에 목록 파일을 두고 앱 것과 대조해 같으면 바로') 곡마다 폴더를 열어 읽던 것(곡 수+2번 요청) 대신:
+//   ① 곡 폴더 목록 1번 ② 모든 song.json의 '수정 시각'만 한 번에 1번 → 저장본과 수정 시각이 같은 곡은 그대로 쓰고, 바뀐 곡만 새로 읽음
+async function songLoad(prev = []) {
   const rid = await songRoot(false); if (!rid) return [];
   const fos = (await list(rid)).filter(x => x.mimeType === "application/vnd.google-apps.folder"), lim = limiter(6);
-  const out = await Promise.all(fos.map(fo => lim(async () => { try { const fs = await list(fo.id), sf = fs.find(x => x.name === "song.json"); if (!sf) return null;
-    return { folder: fo.id, fileId: sf.id, d: await readJSON(sf.id) }; } catch { return null; } })));
+  const stamp = new Map();
+  try {
+    let page = "";
+    do { const r = await (await api(`${DRIVE}/files?q=${q("name='song.json' and trashed=false")}&pageSize=1000&fields=nextPageToken,files(id,parents,modifiedTime)${page ? "&pageToken=" + page : ""}`)).json();
+      for (const f of r.files || []) for (const p_ of f.parents || []) stamp.set(p_, f); page = r.nextPageToken || ""; } while (page);
+  } catch { stamp.clear(); }   // 수정 시각 조회가 막히면 예전 방식(곡마다 읽기)으로
+  const old = new Map((prev || []).map(x => [x.folder, x]));
+  const out = await Promise.all(fos.map(fo => lim(async () => { try {
+    const st = stamp.get(fo.id), o = old.get(fo.id);
+    if (st && o && o.fileId === st.id && o.mt && o.mt === st.modifiedTime) return o;          // 안 바뀜 → 저장본 그대로(요청 없음)
+    if (st) return { folder: fo.id, fileId: st.id, mt: st.modifiedTime, d: await readJSON(st.id) };
+    const fs = await list(fo.id), sf = fs.find(x => x.name === "song.json"); if (!sf) return null;
+    return { folder: fo.id, fileId: sf.id, mt: sf.modifiedTime, d: await readJSON(sf.id) }; } catch { return null; } })));
   return out.filter(Boolean).sort((a, b) => String(b.d.updated || b.d.created || "").localeCompare(String(a.d.updated || a.d.created || "")));
 }
 // (11/07 17:42 사용자) 서버 살아 있나: 원곡 받기 프로그램이 5분마다 _시스템/db_backup/원곡받기/노트북_신호.json을 덮어씀 → 그 파일의 바뀐 시각
@@ -6125,7 +6138,7 @@ async function openSongs(focus) {
   // (11/19 08:53 사용자 '리스트는 앱에 저장해 두고 바로 불러오면?') 지난번 목록을 폰에 저장해 두었다가 먼저 보여주고, 뒤에서 새로 받아 바뀐 것만 갱신(드라이브에서 곡마다 읽느라 늦던 대기를 없앰)
   if (!songLib.list.length) { const c = songCacheGet(); if (c) songLib.list = c; }
   if (songLib.list.length) { songPaintList(); songPollArm(); }
-  try { songLib.list = await songLoad(); }
+  try { songLib.list = await songLoad(songLib.list); }
   catch (e) { if (!songLib.list.length) { $("slList").innerHTML = `<p class="muted">곡 목록을 못 불러왔어요: ${esc(errMsg(e))}</p>`; return; } const h = $("slHome"); if (h) h.insertAdjacentHTML("afterend", `<p class="muted" style="font-size:.78rem;margin:4px 2px">저장해 둔 목록이에요 · 새로 못 받았어요(${esc(errMsg(e))})</p>`); }
   songPaintList(); songPollArm();
   if (songLib.list.some(x => x.d.status === "queued" && Date.now() - Date.parse(x.d.updated || x.d.created || 0) > 180000) && Date.now() - (songLib.kAt || 0) > 300000) { songLib.kAt = Date.now(); kick(); }   // 3분 넘게 '서버 대기'인 곡이 있으면 서버를 한 번 더 깨움
@@ -6134,7 +6147,7 @@ function songPollArm() {   // 처리 중인 곡이 있으면 20초마다 다시 
   clearTimeout(songLib.poll);
   if (!songLib.list.some(x => ["queued", "home_wait", "working"].includes(x.d.status))) return;
   songLib.poll = setTimeout(async () => { if ($("vSongs").classList.contains("hidden")) return; songHomePaint();
-    try { const nx = await songLoad(), ch = JSON.stringify(nx.map(x => [x.folder, x.d.status, x.d.updated])) !== JSON.stringify(songLib.list.map(x => [x.folder, x.d.status, x.d.updated])); songLib.list = nx; if (ch) songPaintList(); } catch {}   /* 다시 그려도 열린 플레이어 카드는 그대로 옮겨 둠(songPaintList) */
+    try { const nx = await songLoad(songLib.list), ch = JSON.stringify(nx.map(x => [x.folder, x.d.status, x.d.updated])) !== JSON.stringify(songLib.list.map(x => [x.folder, x.d.status, x.d.updated])); songLib.list = nx; if (ch) songPaintList(); } catch {}   /* 다시 그려도 열린 플레이어 카드는 그대로 옮겨 둠(songPaintList) */
     songPollArm(); }, 20000);
 }
 function songPaintList() {
