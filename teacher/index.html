@@ -450,6 +450,22 @@
 #dkPr .prT{display:flex;flex-direction:column;line-height:1.15;min-width:0;flex:none;width:calc(var(--u)*19)}#dkPr .prT b{font-size:calc(var(--u)*2.1);font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#dkPr .prT span{font-size:calc(var(--u)*1.2);color:#b8b8b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #dkPr .prVo{display:flex;align-items:center;gap:calc(var(--u)*1);flex:1;min-width:0;max-width:calc(var(--u)*46);margin-left:calc(var(--u)*1.6)}#dkPr .prVo small{font-size:calc(var(--u)*1.2);color:#b8b8b8;white-space:nowrap}#dkPr .prVo input{flex:1;min-width:0;margin:0;height:calc(var(--u)*2.4);accent-color:#FFE066}#dkPr .prVo b{font-size:calc(var(--u)*1.4);font-weight:900;color:#FFE066;min-width:calc(var(--u)*6.8);white-space:nowrap}
 #dkPr .prBtn{flex:none;height:calc(var(--u)*4.4);padding:0 calc(var(--u)*1.4);border-radius:calc(var(--u)*1.1);border:2px solid #b8b8b8;background:#000;color:#fff;font-size:calc(var(--u)*1.6);font-weight:700;margin:0}#dkPr .prBtn:disabled{opacity:.5}#dkPr .prBtn.on{background:#4DD0E1;border-color:#4DD0E1;color:#000}
+#dkSh{position:fixed;inset:0;z-index:10010;background:#3a3a3a;color:#111;display:flex;flex-direction:column;font-family:inherit}#dkSh button{font-family:inherit}
+#dkSh .shBar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 10px;background:#111;color:#fff}
+#dkSh .shPlay{flex:none;width:46px;height:46px;min-height:0;border-radius:50%;border:2px solid #FFE066;background:#000;color:#FFE066;font-size:18px;padding:0;margin:0}
+#dkSh .shT{display:flex;flex-direction:column;min-width:0;flex:1 1 120px;line-height:1.2}#dkSh .shT b{font-size:1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#dkSh .shT span{font-size:.75rem;color:#b8b8b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#dkSh .shKt{display:flex;gap:12px;flex-wrap:wrap}#dkSh .shKg{display:flex;align-items:center;gap:4px}#dkSh .shKg small{font-size:.72rem;color:#b8b8b8}#dkSh .shKg b{min-width:46px;text-align:center;color:#FFE066;font-size:.95rem;user-select:none;touch-action:manipulation}
+#dkSh .shKg button{flex:none;width:38px;height:38px;min-width:0;min-height:0;padding:0;margin:0;border-radius:50%;border:2px solid #b8b8b8;background:#000;color:#fff;font-size:18px;font-weight:900;line-height:1;touch-action:manipulation;user-select:none}#dkSh .shKg button:disabled{opacity:.35}
+#dkSh .shBtn{flex:none;min-height:0;height:38px;padding:0 12px;margin:0;border-radius:10px;border:2px solid #b8b8b8;background:#000;color:#fff;font-weight:700;font-size:.85rem}#dkSh .shBtn:disabled{opacity:.5}
+#dkSh .shX{flex:none;width:38px;height:38px;min-height:0;min-width:0;padding:0;margin:0;border-radius:50%;border:1px solid #777;background:#000;color:#ddd;font-size:16px}
+#dkSh .shScroll{flex:1;min-height:0;overflow:auto;padding:10px 6px 40px;-webkit-overflow-scrolling:touch}
+#dkSh .shPaper{--f:1;width:min(100%,794px);margin:0 auto;background:#fff;box-sizing:border-box;padding:calc(var(--f)*28px) calc(var(--f)*30px) calc(var(--f)*40px);box-shadow:0 2px 14px rgba(0,0,0,.6);aspect-ratio:auto;min-height:calc(var(--f)*1123px)}
+#dkSh .shH b{display:block;font-size:max(18px,calc(var(--f)*24px));font-weight:900}#dkSh .shH span{display:block;font-size:max(12px,calc(var(--f)*13px));color:#555;margin-bottom:calc(var(--f)*10px)}
+#dkSh .shG{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-left:2px solid #222}
+#dkSh .shM{position:relative;border-top:2px solid #222;border-right:1px solid #999;border-bottom:0;padding:2px 4px 4px;cursor:pointer;min-height:calc(var(--f)*58px);box-sizing:border-box;display:flex;flex-direction:column;justify-content:space-between}#dkSh .shM:nth-child(4n){border-right:2px solid #222}#dkSh .shM.sh-last{border-bottom:2px solid #222}
+#dkSh .shM.on{background:#fff0a6}#dkSh .shN{font-size:max(9px,calc(var(--f)*10px));color:#888;line-height:1.2}#dkSh .shN b{color:#111;margin-left:.3em}
+#dkSh .shC{position:relative;height:max(22px,calc(var(--f)*26px))}#dkSh .shC span{position:absolute;top:0;font-weight:900;color:#0b3d91;font-size:max(15px,calc(var(--f)*20px));line-height:1.2;white-space:nowrap}
+#dkSh .shL{font-size:max(11px,calc(var(--f)*13px));line-height:1.25;color:#111;word-break:keep-all;overflow-wrap:anywhere;min-height:1.25em}
 #dkPr .prEd{margin-left:auto}#dkPr .prKt{display:flex;gap:calc(var(--u)*1.2);flex:none;margin-left:calc(var(--u)*1)}#dkPr .prKg{display:flex;align-items:center;gap:calc(var(--u)*.5)}#dkPr .prKg small{font-size:calc(var(--u)*1.1);color:#b8b8b8;white-space:nowrap}#dkPr .prKg b{font-size:calc(var(--u)*1.5);font-weight:900;color:#FFE066;min-width:calc(var(--u)*5.2);text-align:center;white-space:nowrap;user-select:none;touch-action:manipulation}#dkPr .prKg button{flex:none;width:calc(var(--u)*3.4);height:calc(var(--u)*3.4);min-width:0;min-height:0;padding:0;margin:0;border-radius:50%;border:2px solid #b8b8b8;background:#000;color:#fff;font-size:calc(var(--u)*1.9);font-weight:900;line-height:1;touch-action:manipulation;user-select:none}#dkPr .prKg button:disabled{opacity:.35}
 #dkPr .prX{flex:none;width:calc(var(--u)*4.4);height:calc(var(--u)*4.4);border-radius:50%;border:1px solid #666;background:#000;color:#ddd;font-size:calc(var(--u)*1.8);padding:0;margin:0}
 #dkPr .prTl{display:flex;align-items:center;gap:calc(var(--u)*1.1);min-height:calc(var(--u)*3.2)}#dkPr .prTl>span{font-size:calc(var(--u)*1.4);font-weight:700;min-width:calc(var(--u)*3.6)}#dkPr #prT0{color:#FFE066;text-align:right}#dkPr #prT1{color:#b8b8b8}
@@ -6122,6 +6138,7 @@ function songPaintList() {
       if (keep && keep.folder === x.folder) { pl.appendChild(keep.el); return; }
       const auto = songLib.auto === x.folder; if (auto) songLib.auto = null;   // 한 번만(20초 갱신·다시 그리기로는 재시작 안 함)
       songDeck(pl, ids, { folder: x.folder, autoplay: auto, dur: +x.d.dur || 0, bpm: +x.d.bpm || 0, wave: x.d.wave, lyrics: x.d.lyrics, artist: x.d.artist, analysis: x.d.analysis, keys: x.d.keys, keyReq: x.d.key_req, fileId: x.fileId, edits: x.d.edits, sections: x.d.sections,
+        lyricsTry: x.d.lyrics_try, onLyrics: (L, t) => { const cx = songLib.list.find(y => y.folder === x.folder) || x; if (L) cx.d.lyrics = L; cx.d.lyrics_try = t; quietSave(() => writeJSON(cx.folder, "song.json", cx.d, cx.fileId)); },
         fetchD: () => readJSON(x.fileId), onKeyReq: (l) => { const cx = songLib.list.find(y => y.folder === x.folder) || x; cx.d.key_req = l; quietSave(() => writeJSON(cx.folder, "song.json", cx.d, cx.fileId)); }, mrVol: Number.isFinite(+x.d.mr_vol) ? +x.d.mr_vol : 100, head: `<div class="muted" style="font-size:.85rem">보컬 볼륨을 움직여 MR·가이드·원곡으로 들어 보세요</div>`, vol: Number.isFinite(+x.d.voc_vol) ? +x.d.voc_vol : 30, name: x.d.title,
         onVol: (vv) => { const cx = songLib.list.find(y => y.folder === x.folder) || x; cx.d.voc_vol = vv; quietSave(() => writeJSON(cx.folder, "song.json", cx.d, cx.fileId)); },
         onMrVol: (vv) => { const cx = songLib.list.find(y => y.folder === x.folder) || x; cx.d.mr_vol = vv; quietSave(() => writeJSON(cx.folder, "song.json", cx.d, cx.fileId)); },
@@ -6620,6 +6637,55 @@ function songPdfPage(M, from, meta) {
       run(); while (fs > 30 && m.lyrics.length && ex - 20 > avail + 18) { fs -= 4; run(); } for (const l of lay) g.fillText(l[0], x + l[1], y + 245); } }
   return cv;
 }
+// ── (11/19 사용자) 가사는 인터넷에서 찾아 채움: 시간표 달린 가사(LRC)를 LRCLIB에서 받아 [[초,글]]로 — 곡 길이가 6초 넘게 다르면(다른 버전) 시간이 안 맞으니 쓰지 않음
+function songParseLrc(txt) {
+  const out = [];
+  for (const ln of String(txt || "").split(/\r?\n/)) {
+    const ts = [...ln.matchAll(/\[(\d{1,3}):(\d{2})(?:[.:](\d{1,3}))?\]/g)]; if (!ts.length) continue;
+    const tx = ln.replace(/\[[^\]]*\]/g, "").trim(); if (!tx) continue;
+    for (const m of ts) out.push([Math.round((+m[1] * 60 + +m[2] + (m[3] ? +("0." + m[3]) : 0)) * 100) / 100, tx]);
+  }
+  return out.sort((a, b) => a[0] - b[0]);
+}
+function songCleanTitle(t) { const s = String(t || "").replace(/[(\[（【][^)\]）】]*[)\]）】]/g, " ").replace(/\b(official|lyrics?|lyric video|audio|mv|m\/v|live|karaoke|instrumental|remaster(?:ed)?)\b/gi, " ").replace(/\s+/g, " ").trim(); return s || String(t || "").trim(); }
+function songPickLyrics(list, dur) {   // 후보 중 시간표가 있고 곡 길이가 가장 비슷한 것
+  let best = null;
+  for (const it of Array.isArray(list) ? list : []) {
+    if (!it || it.instrumental || !it.syncedLyrics) continue;
+    const df = dur > 0 && it.duration > 0 ? Math.abs(it.duration - dur) : 0; if (df > 6) continue;
+    const lines = songParseLrc(it.syncedLyrics); if (lines.length < 4) continue;
+    if (!best || df < best.df) best = { lines, df, title: it.trackName || "", artist: it.artistName || "" };
+  }
+  return best;
+}
+async function songFetchLyrics(title, artist, dur, F) {   // 찾으면 {lines,…} · 없으면 null · 인터넷이 안 되면 undefined(다시 시도해도 됨)
+  F = F || (typeof fetch === "function" ? fetch.bind(globalThis) : null); if (!F) return undefined;
+  const tl = songCleanTitle(title), ar = String(artist || "").trim(); if (!tl) return null;
+  const B = "https://lrclib.net/api/", qs = (o) => Object.entries(o).filter(([, v]) => v).map(([k, v]) => k + "=" + encodeURIComponent(v)).join("&"); let reached = false;
+  const j = async (u) => { const c = typeof AbortController === "function" ? new AbortController() : null, tm = c ? setTimeout(() => c.abort(), 9000) : 0;
+    try { const r = await F(u, c ? { signal: c.signal } : undefined); reached = true; if (!r.ok) return null; return await r.json(); } catch { return null; } finally { clearTimeout(tm); } };
+  const tries = [];
+  if (ar) { tries.push(B + "get?" + qs({ track_name: tl, artist_name: ar, duration: dur > 0 ? Math.round(dur) : "" })); tries.push(B + "search?" + qs({ track_name: tl, artist_name: ar })); }
+  tries.push(B + "search?" + qs({ q: (ar + " " + tl).trim() }));
+  for (const u of tries) { const r = await j(u), p = songPickLyrics(Array.isArray(r) ? r : r && typeof r === "object" ? [r] : [], dur); if (p) return p; }
+  return reached ? null : undefined;
+}
+// ── (11/19 사용자) A4 한 장 악보: 흰 바탕·검은 글자(인쇄용) · 한 줄 4마디 · 28줄까지 한 장에(넘으면 쪽을 나눔) · 1240×1754(A4 150dpi)
+function songSheetPages(total) { const rows = Math.max(1, Math.ceil(total / 4)), pg = Math.ceil(rows / 28), rpp = Math.ceil(rows / pg); return { pages: pg, rpp }; }
+function songSheetPage(M, page, rpp, meta) {
+  const W = 1240, H = 1754, cv = document.createElement("canvas"); cv.width = W; cv.height = H; const g = cv.getContext("2d"), F = '"Noto Sans KR","Malgun Gothic","Apple SD Gothic Neo",sans-serif';
+  g.fillStyle = "#fff"; g.fillRect(0, 0, W, H); g.textBaseline = "alphabetic"; g.fillStyle = "#111"; g.font = `900 52px ${F}`; g.fillText(meta.title || "곡", 80, 100);
+  g.fillStyle = "#555"; g.font = `500 28px ${F}`; g.fillText(meta.sub || "", 80, 148); g.textAlign = "right"; g.fillText(`${page + 1} / ${meta.pages}쪽`, W - 80, 100); g.textAlign = "left";
+  const gx = 80, gy = 190, cw = (W - 160) / 4, rh = Math.min(150, (H - gy - 90) / rpp), from = page * rpp * 4;
+  for (let i = 0; i < rpp * 4; i++) { const m = M[from + i]; if (!m) continue; const x = gx + (i % 4) * cw, y = gy + Math.floor(i / 4) * rh;
+    g.fillStyle = "#222"; g.fillRect(x, y, cw, 2); g.fillRect(x, y + rh - 2, cw, 2); g.fillRect(x, y, 3, rh); if (i % 4 === 3) g.fillRect(x + cw - 3, y, 3, rh);
+    g.fillStyle = "#888"; g.font = `500 ${Math.max(13, rh * 0.13)}px ${F}`; g.fillText(String(m.no), x + 10, y + rh * 0.16 + 2); const sec = meta.sec && meta.sec[from + i]; if (sec) { g.fillStyle = "#111"; g.font = `700 ${Math.max(13, rh * 0.13)}px ${F}`; g.fillText(sec, x + 10 + g.measureText(String(m.no)).width + 10, y + rh * 0.16 + 2); }
+    const bw = cw / 4, cf = Math.max(22, Math.min(46, rh * 0.34));
+    for (const c of m.chords) { let fs = cf, mw = c.len * bw - 14; g.font = `900 ${fs}px ${F}`; while (fs > 16 && g.measureText(c.name).width > mw) { fs -= 2; g.font = `900 ${fs}px ${F}`; } g.fillStyle = "#0b3d91"; g.fillText(c.name, x + c.b * bw + 10, y + rh * 0.58); }
+    const tx = m.lyrics.map((l) => l.text).join(" "); if (tx) { let fs = Math.max(14, Math.min(28, rh * 0.2)); g.font = `500 ${fs}px ${F}`; while (fs > 11 && g.measureText(tx).width > cw - 18) { fs -= 1; g.font = `500 ${fs}px ${F}`; } g.fillStyle = "#111"; g.fillText(tx, x + 10, y + rh * 0.88); } }
+  g.fillStyle = "#999"; g.font = `500 22px ${F}`; g.textAlign = "center"; g.fillText("작품 보컬노트", W / 2, H - 40); g.textAlign = "left";
+  return cv;
+}
 async function songPeaks(ab) {   // MP3 → 0.1초마다 가장 큰 소리(0~63) 글자열 · 소리 장치 없이 디코드(OfflineAudioContext)
   const OC = window.OfflineAudioContext || window.webkitOfflineAudioContext; if (!OC) throw new Error("파형 미지원");
   const c = new OC(1, 1, 8000), a = await new Promise((ok, no) => { try { const p = c.decodeAudioData(ab, ok, no); if (p && p.then) p.then(ok, no); } catch (e) { no(e); } });
@@ -6635,7 +6701,7 @@ function songDeck(el, ids, o) {
     <div class="dkWv" id="dkWv"><canvas id="dkCv"></canvas><div class="dkHead"></div><div class="dkEmpty" id="dkWE">파형 만드는 중…</div></div>
     <div class="dkTm"><span id="sgT0">0:00</span><span id="dkAB" class="dkLab"></span><span id="sgT1">–:–</span></div>
     <div class="dkTr"><button type="button" id="dkHome" aria-label="처음으로">⏮<small>처음</small></button><button type="button" id="dkBk" aria-label="5초 뒤로">⏪<small>5초</small></button><button type="button" class="sgPb" id="sgPb" aria-label="재생">▶</button><button type="button" id="dkFw" aria-label="5초 앞으로">⏩<small>5초</small></button><button type="button" id="dkEnd" aria-label="맨 끝으로">⏭<small>끝</small></button></div>
-    <div class="dkR2"><button type="button" id="dkRep" aria-pressed="false">🔁 반복</button><button type="button" id="dkLoop" aria-pressed="false">구간 반복</button>${o.analysis && o.analysis.key && Array.isArray(o.analysis.chords) && o.analysis.chords.length && (o.analysis.beats || []).length > 8 ? `<button type="button" id="dkTv">📺 TV</button>` : ""}</div>
+    <div class="dkR2"><button type="button" id="dkRep" aria-pressed="false">🔁 반복</button><button type="button" id="dkLoop" aria-pressed="false">구간 반복</button>${o.analysis && o.analysis.key && Array.isArray(o.analysis.chords) && o.analysis.chords.length && (o.analysis.beats || []).length > 8 ? `<button type="button" id="dkTv">📺 TV</button><button type="button" id="dkSh0">📄 A4 악보</button>` : ""}</div>
     <div class="dkRv" id="dkRv"><button type="button" id="dkA">A 지점</button><button type="button" id="dkB">B 지점</button><button type="button" id="dkClr">해제</button></div>
     <div class="sgVo"><div class="sgVl">보컬 볼륨<span id="sgVv">${v0}%</span></div><input type="range" id="sgVol" min="0" max="100" value="${v0}">
       <div class="sgPre">${[[0, "MR", "0%"], [30, "가이드", "30%"], [100, "원곡", "100%"]].map(([v, a, b]) => `<button type="button" data-sgv="${v}">${a}<small>${b}</small></button>`).join("")}</div>
@@ -6738,7 +6804,7 @@ function songDeck(el, ids, o) {
   const openPrompter = () => {
     if (!CHORDS || document.getElementById("dkPr")) return;
     const d = document.createElement("div"); d.id = "dkPr"; d.setAttribute("role", "dialog"); d.setAttribute("aria-label", "TV 프롬프터");
-    let SEC = Array.isArray(o.sections) ? o.sections.map((x) => [+x[0], String(x[1])]) : [];
+    let SEC = Array.isArray(me.sec || o.sections) ? (me.sec || o.sections).map((x) => [+x[0], String(x[1])]) : [];
     const meas = () => songApplyEdits(songMeasures(AN, keyN, o.lyrics), ED, keyN); let M = meas(), mKey = keyN, SL = songSecList(M.length, SEC);
     d.innerHTML = `<div class="prTop"><button type="button" class="prPlay" id="prPlay" aria-label="재생 또는 일시정지">▶</button><div class="prT"><b id="prTitle"></b><span id="prSub"></span></div>
       <div class="prVo"><small>보컬</small><input type="range" id="prVol" min="0" max="100" aria-label="보컬 소리"><b id="prVv"></b></div>
@@ -6749,7 +6815,7 @@ function songDeck(el, ids, o) {
     d.querySelector("#prTitle").textContent = o.name || "곡";
     let needFit = false, pg = 0, lastPg = -1, on = -1, raf2 = 0, wl = null, edit = false, sel = -1, sd = false, lastSi = -1, flT = 0, sv = 0, fl = -1;
     const pages = () => Math.max(1, Math.ceil(M.length / SG_PER)), $ = (s) => d.querySelector(s);
-    const save = () => { clearTimeout(sv); sv = setTimeout(() => { try { o.onEdits && o.onEdits(ED); } catch {} try { o.onSections && o.onSections(SEC); } catch {} }, 700); };
+    const save = () => { me.sec = SEC; clearTimeout(sv); sv = setTimeout(() => { try { o.onEdits && o.onEdits(ED); } catch {} try { o.onSections && o.onSections(SEC); } catch {} }, 700); };
     const flush = () => { if (sv) { clearTimeout(sv); sv = 0; try { o.onEdits && o.onEdits(ED); } catch {} try { o.onSections && o.onSections(SEC); } catch {} } };
     const paintEd = () => { const n = Object.keys(ED).length; $("#prEd").textContent = "✎ 수정" + (n ? " " + n : ""); $("#prEd").classList.toggle("on", edit); };
     const buzz = (si) => { try { if (navigator.vibrate) navigator.vibrate(20); } catch {} fl = si; paintSegs(); clearTimeout(flT); flT = setTimeout(() => { fl = -1; paintSegs(); }, 350); };
@@ -6789,6 +6855,7 @@ function songDeck(el, ids, o) {
       const k = (e) => { if (e.key === "Enter") closeEdit(); }; ci.onkeydown = li.onkeydown = si.onkeydown = k;
       ep.querySelector("#prOk").onclick = closeEdit; ep.querySelector("#prRs").onclick = () => { delete ED[i]; SEC = SEC.filter((x) => x[0] !== i); save(); build(); closeEdit(); openEdit(i); }; ci.focus(); };
     const refresh = () => { const keep = sel; M = meas(); build(); if (keep >= 0) { const c2 = d.querySelector(`.prM[data-i="${keep}"]`); if (c2) c2.classList.add("sel"); } paintEd(); };
+    me.onLyrics = () => { refresh(); };   // 가사를 인터넷에서 찾아오면 바로 반영
     const refreshSec = () => { SL = songSecList(M.length, SEC); build(); if (sel >= 0) { const c2 = d.querySelector(`.prM[data-i="${sel}"]`); if (c2) c2.classList.add("sel"); } };
     $("#prEd").onclick = () => { edit = !edit; closeEdit(); build(); paintEd(); };
     $("#prPv").onclick = () => { pg = Math.max(0, pg - 1); closeEdit(); build(); }; $("#prNx").onclick = () => { pg = Math.min(pages() - 1, pg + 1); closeEdit(); build(); };
@@ -6810,7 +6877,7 @@ function songDeck(el, ids, o) {
       if (mi !== on) { d.querySelectorAll(".prM.on").forEach((e) => e.classList.remove("on")); const cur = d.querySelector(`.prM[data-i="${mi}"]`); if (cur) cur.classList.add("on"); on = mi; paintSegs(); }
       const cur = d.querySelector(".prM.on .prHd"); if (cur) cur.style.left = (q.b / 4 * 100) + "%"; raf2 = requestAnimationFrame(tickP); };
     const stopPlay = () => { try { eng.pause(); } catch {} try { Q("sgPb").textContent = "▶"; } catch {} };   // 사용자 11/19: 프롬프터 닫기 = 재생도 멈춤
-    const ly = typeof Brand !== "undefined" && Brand.layer ? Brand.layer(() => { stopPlay(); cancelAnimationFrame(raf2); flush(); LE = songLaneEvents(AN, CHORDS, ED, M0); draw(); me.onVol = null; clearTimeout(flT); try { wl && wl.release(); } catch {} try { if (document.fullscreenElement) document.exitFullscreen(); } catch {} try { screen.orientation && screen.orientation.unlock && screen.orientation.unlock(); } catch {} d.remove(); }) : { close: () => { stopPlay(); flush(); LE = songLaneEvents(AN, CHORDS, ED, M0); draw(); me.onVol = null; d.remove(); } };   // 뒤로 가기 = 프롬프터만 닫힘
+    const ly = typeof Brand !== "undefined" && Brand.layer ? Brand.layer(() => { stopPlay(); cancelAnimationFrame(raf2); flush(); LE = songLaneEvents(AN, CHORDS, ED, M0); draw(); me.onVol = null; me.onLyrics = null; clearTimeout(flT); try { wl && wl.release(); } catch {} try { if (document.fullscreenElement) document.exitFullscreen(); } catch {} try { screen.orientation && screen.orientation.unlock && screen.orientation.unlock(); } catch {} d.remove(); }) : { close: () => { stopPlay(); flush(); LE = songLaneEvents(AN, CHORDS, ED, M0); draw(); me.onVol = null; me.onLyrics = null; d.remove(); } };   // 뒤로 가기 = 프롬프터만 닫힘
     const pdfBtn = $("#prPdf");   // 사용자 11/14: 프롬프터 PDF 저장(파일명 제목_가수_Key) · 한 쪽 5줄 · 조작 부품 없이 악보만
     pdfBtn.onclick = async () => { pdfBtn.disabled = true; const t0 = pdfBtn.textContent; pdfBtn.textContent = "만드는 중…";
       try { const MM = meas(), L2 = songSecList(MM.length, SEC), sec = {}; L2.forEach((s) => { sec[s.start] = "[" + s.name + "]"; }); const pgs = Math.max(1, Math.ceil(MM.length / SG_PER)), sb = `${o.artist ? o.artist + " · " : ""}Key ${keyName(keyN)} · ${+o.bpm > 0 ? Math.round(+o.bpm) + " BPM · " : ""}4/4박(추정)`, out = [];
@@ -6822,6 +6889,60 @@ function songDeck(el, ids, o) {
     (async () => { try { wl = await navigator.wakeLock?.request("screen"); } catch {} try { await d.requestFullscreen?.({ navigationUI: "hide" }); } catch {} try { await screen.orientation?.lock?.("landscape"); } catch {} })();   // 되는 폰만(안 되면 그대로 보임)
     raf2 = requestAnimationFrame(tickP);
   };
+  // ── (11/19 사용자) 가사 자동 채우기: 가사가 비어 있으면 인터넷(LRCLIB)에서 시간표 달린 가사를 찾아 곡 파일에 저장 · 7일 안에 다시 안 찾음(수동 '가사 찾기'는 언제든)
+  const needLy = () => !(Array.isArray(o.lyrics) && o.lyrics.length) && !(o.lyricsTry && Date.now() - Date.parse(o.lyricsTry) < 7 * 864e5);
+  const findLy = async (manual) => {
+    if (me.lyBusy) return false; me.lyBusy = true;
+    try { const r = await songFetchLyrics(o.name, o.artist, o.dur || (eng.dur ? eng.dur() : 0), o.lyricsFetch); if (!alive()) return false;
+      if (r === undefined) { if (manual) toast("인터넷이 연결돼야 가사를 찾아요"); return false; }
+      o.lyricsTry = new Date().toISOString(); if (r) o.lyrics = r.lines; try { o.onLyrics && o.onLyrics(r ? r.lines : null, o.lyricsTry); } catch {}
+      if (r) { try { me.onLyrics && me.onLyrics(); } catch {} if (manual) toast(`가사를 찾았어요 · ${r.lines.length}줄`); } else if (manual) toast("시간표 있는 가사를 못 찾았어요(곡 길이가 다른 버전이면 맞지 않아 쓰지 않아요)");
+      return !!r; } finally { me.lyBusy = false; } };
+  me.findLy = findLy; if (CHORDS && needLy()) setTimeout(() => { if (alive() && needLy()) findLy(false); }, 1200);
+  // ── A4 악보 모드: 흰 종이 위에 마디·코드·가사 · 재생/키/템포 그대로 조작 · 재생 중엔 지금 마디가 노랗게 따라가요 · 닫으면 재생 멈춤
+  const openSheet = () => {
+    if (!CHORDS || document.getElementById("dkSh")) return;
+    const d = document.createElement("div"); d.id = "dkSh"; d.setAttribute("role", "dialog"); d.setAttribute("aria-label", "A4 악보");
+    d.innerHTML = `<div class="shBar"><button type="button" class="shPlay" id="shPlay" aria-label="재생 또는 일시정지">▶</button><div class="shT"><b id="shTitle"></b><span id="shSub"></span></div>
+      <div class="shKt"><div class="shKg"><small>키</small><button type="button" id="shKm" aria-label="키 한 음 내리기">−</button><b id="shKv">–</b><button type="button" id="shKp" aria-label="키 한 음 올리기">＋</button></div><div class="shKg"><small>속도</small><button type="button" id="shSm" aria-label="속도 1 내리기">−</button><b id="shSv">–</b><button type="button" id="shSp" aria-label="속도 1 올리기">＋</button></div></div>
+      <button type="button" class="shBtn" id="shLy">가사 찾기</button><button type="button" class="shBtn" id="shPdf">A4 PDF</button><button type="button" class="shX" id="shX" aria-label="닫기">✕</button></div>
+    <div class="shScroll"><div class="shPaper" id="shPaper"></div></div>`;
+    const $ = (q) => d.querySelector(q); $("#shTitle").textContent = o.name || "곡";
+    const meas = () => songApplyEdits(songMeasures(AN, keyN, o.lyrics), ED, keyN), secs = () => (Array.isArray(me.sec || o.sections) ? (me.sec || o.sections) : []).map((x) => [+x[0], String(x[1])]);
+    let M = [], mKey = -99, mLy = null, on = -1, raf = 0, lastKt = "", last = null, fl = 0;
+    const paper = $("#shPaper"), sub = () => { $("#shSub").textContent = `${o.artist ? o.artist + " · " : ""}Key ${keyName(keyWant)} · ${+o.bpm > 0 ? Math.round(+o.bpm * rate) + " BPM" : "4/4박(추정)"}`; };
+    const paintPk = () => { $("#shKv").textContent = AN ? keyName(keyWant) : "–"; $("#shKm").disabled = $("#shKp").disabled = !AN; $("#shSv").textContent = +o.bpm > 0 ? Math.round(+o.bpm * rate) : Math.round(rate * 100) + "%"; };
+    const build = () => { M = meas(); mKey = keyN; mLy = o.lyrics; const SL = songSecList(M.length, secs()), nm = {}; SL.forEach((x) => { nm[x.start] = x.name; });
+      paper.textContent = ""; const f = Math.max(0.45, Math.min(1.4, paper.clientWidth / 794)); paper.style.setProperty("--f", f.toFixed(3));
+      const h = document.createElement("div"); h.className = "shH"; const hb = document.createElement("b"), hs = document.createElement("span"); hb.textContent = o.name || "곡"; hs.textContent = `${o.artist ? o.artist + " · " : ""}Key ${keyName(keyN)}${+o.bpm > 0 ? " · " + Math.round(+o.bpm) + " BPM" : ""} · 4/4박(추정)`; h.append(hb, hs); paper.appendChild(h);
+      const G = document.createElement("div"); G.className = "shG";
+      M.forEach((m, i) => { const c = document.createElement("div"); c.className = "shM" + (i >= M.length - (M.length % 4 || 4) ? " sh-last" : ""); c.dataset.i = i;
+        const n = document.createElement("div"); n.className = "shN"; n.textContent = m.no; if (nm[i]) { const b = document.createElement("b"); b.textContent = "[" + nm[i] + "]"; n.appendChild(b); }
+        const ch = document.createElement("div"); ch.className = "shC"; for (const x of m.chords) { const e = document.createElement("span"); e.style.left = x.b * 25 + "%"; e.textContent = x.name; ch.appendChild(e); }
+        const ly = document.createElement("div"); ly.className = "shL"; ly.textContent = m.lyrics.map((y) => y.text).join(" ");
+        c.append(n, ch, ly); c.onclick = () => seekTo(m.t0); G.appendChild(c); });
+      paper.appendChild(G); on = -1; sub(); };
+    const tick = () => { raf = 0; if (!d.isConnected || !alive()) return;
+      if (mKey !== keyN || mLy !== o.lyrics) build();
+      { const kt = keyWant + "|" + keyN + "|" + rate; if (kt !== lastKt) { lastKt = kt; sub(); paintPk(); } }
+      const p = eng.pos(), mi = Math.max(0, Math.min(M.length - 1, songBeatPos(AN, p).m)); $("#shPlay").textContent = eng.isPlaying() ? "❚❚" : "▶";
+      if (mi !== on) { d.querySelectorAll(".shM.on").forEach((e) => e.classList.remove("on")); const c = d.querySelector(`.shM[data-i="${mi}"]`); if (c) { c.classList.add("on"); if (eng.isPlaying() && Date.now() - fl > 1200) { const r = c.getBoundingClientRect(), sc = d.querySelector(".shScroll").getBoundingClientRect(); if (r.top < sc.top + 20 || r.bottom > sc.bottom - 20) c.scrollIntoView({ block: "center", behavior: "smooth" }); } } on = mi; }
+      raf = requestAnimationFrame(tick); };
+    d.querySelector(".shScroll").addEventListener("touchmove", () => { fl = Date.now() + 2500; }, { passive: true });   // 손으로 넘기는 중엔 자동으로 따라가지 않음
+    $("#shKm").onclick = () => setKey(keyWant - 1); $("#shKp").onclick = () => setKey(keyWant + 1); holdRepeat($("#shSm"), () => setRate(rate - rStep())); holdRepeat($("#shSp"), () => setRate(rate + rStep()));
+    dblTap($("#shKv"), () => setKey(0)); dblTap($("#shSv"), () => setRate(1)); $("#shPlay").onclick = () => Q("sgPb").onclick(); $("#shLy").onclick = async () => { $("#shLy").disabled = true; $("#shLy").textContent = "찾는 중…"; try { await findLy(true); } finally { $("#shLy").disabled = false; $("#shLy").textContent = "가사 찾기"; } };
+    const stopPlay = () => { try { eng.pause(); } catch {} try { Q("sgPb").textContent = "▶"; } catch {} };
+    const ly = typeof Brand !== "undefined" && Brand.layer ? Brand.layer(() => { stopPlay(); cancelAnimationFrame(raf); me.onLyrics = null; me.sh = null; d.remove(); }) : { close: () => { stopPlay(); cancelAnimationFrame(raf); me.onLyrics = null; me.sh = null; d.remove(); } };   // 닫기·뒤로가기 = 재생도 멈춤
+    $("#shX").onclick = () => ly.close(); me.onLyrics = () => { build(); };
+    const pdfBtn = $("#shPdf"); pdfBtn.onclick = async () => { pdfBtn.disabled = true; const t0 = pdfBtn.textContent; pdfBtn.textContent = "만드는 중…";
+      try { const MM = meas(), SL = songSecList(MM.length, secs()), sec = {}; SL.forEach((x) => { sec[x.start] = "[" + x.name + "]"; }); const { pages, rpp } = songSheetPages(MM.length), sb = `${o.artist ? o.artist + " · " : ""}Key ${keyName(keyN)} · ${+o.bpm > 0 ? Math.round(+o.bpm) + " BPM · " : ""}4/4박(추정)`, out = [];
+        for (let p = 0; p < pages; p++) { const cv = songSheetPage(MM, p, rpp, { title: o.name, sub: sb, pages, sec }), jb = await new Promise((ok) => cv.toBlob(ok, "image/jpeg", 0.92)); out.push({ jpg: new Uint8Array(await jb.arrayBuffer()), w: cv.width, h: cv.height }); }
+        songSave(songPdf(out, 595, 842), songPdfName(o.name, o.artist, keyName(keyN))); toast("A4 PDF를 받았어요(다운로드 폴더)"); }
+      catch (e) { toast("PDF 만들기 실패: " + errMsg(e)); } finally { pdfBtn.disabled = false; pdfBtn.textContent = t0; } };
+    document.body.appendChild(d); me.sh = d; paintPk(); build(); raf = requestAnimationFrame(tick);
+    if (needLy()) findLy(false);
+  };
+  if (Q("dkSh0")) Q("dkSh0").onclick = openSheet;
   if (Q("dkTv")) Q("dkTv").onclick = openPrompter;
   Q("dkRep").onclick = () => { rep = !rep; Q("dkRep").classList.toggle("on", rep); Q("dkRep").setAttribute("aria-pressed", rep); };
   Q("dkLoop").onclick = () => { const rv = Q("dkRv"), open = !rv.classList.contains("open"); rv.classList.toggle("open", open); };
@@ -9153,7 +9274,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261119-0115";
+const BUILD = "20261119-0150";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
