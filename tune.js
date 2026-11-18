@@ -472,7 +472,8 @@
     for (let m = Math.floor(hi / 100); m >= Math.ceil(lo / 100); m--) {
       const pc = ((m % 12) + 12) % 12, ins = !sc || sc.includes(pc), yy = Math.round(y(m * 100)) + 0.5;
       if (ins && sc) { g.fillStyle = "rgba(156,195,255,.06)"; g.fillRect(L, yy - 4, w - L, 8); }
-      if (full && st && st.advOn && sc && ins) { const ya = y(m * 100 + 50), yb = y(m * 100 - 50); g.fillStyle = pc === sc[0] ? "rgba(156,195,255,.12)" : "rgba(156,195,255,.05)"; g.fillRect(L, ya + 0.5, w - L, Math.max(1, yb - ya - 1)); }   // (11/06) 보정 모드 음계 격자: 음계 음 = 줄 전체 띠(으뜸음은 진하게), 음계 밖 = 어두운 칸
+      if (full && st && st.advOn && sc && ins) { const ya = y(m * 100 + 50), yb = y(m * 100 - 50); g.fillStyle = pc === sc[0] ? "rgba(156,195,255,.2)" : "rgba(156,195,255,.1)"; g.fillRect(L, ya + 0.5, w - L, Math.max(1, yb - ya - 1)); }
+      if (full && st && st.advOn && sc && !ins) { const ya = y(m * 100 + 50), yb = y(m * 100 - 50); g.fillStyle = "rgba(0,0,0,.3)"; g.fillRect(L, ya + 0.5, w - L, Math.max(1, yb - ya - 1)); }   // (11/18 18:02 사용자) 키를 알면 음계 밖 줄은 더 어둡게   // (11/06) 보정 모드 음계 격자: 음계 음 = 줄 전체 띠(으뜸음은 진하게), 음계 밖 = 어두운 칸
       g.fillStyle = ins ? "#2c3440" : "#1b1f26"; g.fillRect(L, yy, w - L, 1);
       if (yy > T + HP) continue;
       if (full && (HP - 12) / ((hi - lo) / 100) > 60) { g.fillStyle = "#171b21"; for (const q of [25, 50, 75]) g.fillRect(L, Math.round(y(m * 100 - q)) + 0.5, w - L, 1); }   // 크게 확대하면 ¼반음 눈금
@@ -484,8 +485,10 @@
       g.save(); g.beginPath(); g.rect(0, T, L, HP); g.clip(); g.font = fs + "px system-ui, sans-serif"; g.textBaseline = "middle";
       for (let m = Math.ceil(hi / 100) + 1; m >= Math.floor(lo / 100) - 1; m--) {
         const pc = ((m % 12) + 12) % 12, blk = [1, 3, 6, 8, 10].includes(pc), y0 = y(m * 100 + 50), y1 = y(m * 100 - 50), down = st && st.kbDown === m;
-        g.fillStyle = down ? "#ff9f5a" : blk ? "#22262d" : "#e6e9ee"; g.fillRect(0, y0, blk ? KW * 0.62 : KW, Math.max(1, y1 - y0 - 0.6));
-        if ((semi >= 9 && (!blk || semi >= 16)) || pc === 0) { g.fillStyle = down ? "#111" : blk ? "#cfd5de" : (sc && pc === sc[0] ? "#2a5bd7" : "#2b2f36"); g.fillText(NAMES[pc] + (Math.floor(m / 12) - 1), 3, (y0 + y1) / 2); }
+        const dia = !!sc && sc.includes(pc), out_ = !!sc && !dia;   // (11/18 18:02 사용자 '곡의 키가 인식됐으면 다이어토닉 음을 알아보기 쉽게') 음계 음 = 밝게 + 오른쪽 파란 띠 · 음계 밖 = 흐리게
+        g.fillStyle = down ? "#ff9f5a" : blk ? (dia ? "#3a4456" : "#1a1d22") : (out_ ? "#8d949e" : "#eef1f5"); g.fillRect(0, y0, blk ? KW * 0.62 : KW, Math.max(1, y1 - y0 - 0.6));
+        if (dia && !down) { g.fillStyle = pc === sc[0] ? "#4c8dff" : "rgba(76,141,255,.7)"; g.fillRect(KW - 4, y0 + 1, 4, Math.max(1, y1 - y0 - 2.6)); }
+        if ((semi >= 9 && (!blk || semi >= 16)) || pc === 0) { g.font = (dia ? "bold " : "") + fs + "px system-ui, sans-serif"; g.fillStyle = down ? "#111" : blk ? (dia ? "#e6ecf5" : "#7d8590") : (sc && pc === sc[0] ? "#2a5bd7" : out_ ? "#4a4f57" : "#1d2128"); g.fillText(NAMES[pc] + (Math.floor(m / 12) - 1), 3, (y0 + y1) / 2); }
       }
       g.restore();
       if (st) { st.kb = { L, inv: (Y) => lo + (T + HP - 6 - Y) / (HP - 12) * (hi - lo) }; }
@@ -1590,7 +1593,7 @@
       // (11/05 사용자 '추천모드로 진행') [👂 확인 | 🎛 보정] 두 칸 토글 · 보정 모드에서만 일괄 보정·치찰음/호흡 · 원음/보정본 스위치는 두 모드 모두 그대로 · 모드를 바꿔도 재생 위치·확대·선택은 그대로
       const advRow = document.createElement("div"); advRow.className = "tfAdvRow"; advRow.addEventListener("pointerdown", (e) => e.stopPropagation());
       const seg = document.createElement("span"); seg.className = "tfModeSeg"; seg.setAttribute("role", "group"); seg.setAttribute("aria-label", "고급 보정");
-      seg.innerHTML = `<button type="button" data-md2="1" class="tfAdvOne" aria-label="고급 보정 켜기·끄기" hidden style="display:none">🎛 고급</button><button type="button" class="tfAdvOne tfVTop" data-vtop aria-label="고치기 창 V3·V4 바꾸기"></button>`;   /* (11/18 16:30 사용자 '기본 보정은 없애고 V3·V4로만') 늘 고급 · 위 버튼 = V3/V4 바꾸기 */ /* (11/06 22:49 사용자) [확인|보정] 두 칸 → [🎛 고급] 한 개(누르면 켜짐·다시 누르면 기본) */ seg.addEventListener("pointerdown", (e) => e.stopPropagation()); xb.parentNode.insertBefore(seg, xb);   /* (11/18 16:20 사용자) 고급 버튼은 다시 위 줄로 */   /* (11/09 사용자) 고급 버튼은 아래쪽 줄로(세로) · 가로 화면은 위 줄 그대로(placeAdv) */   /* (11/07 09:43 사용자) 세로 고급: 위 줄 [고급] … [닫기] · 아래 줄 [일괄 보정][펜][박자] · 시간·배율 글자 없앰 */
+      seg.innerHTML = `<button type="button" data-md2="1" class="tfAdvOne" aria-label="고급 보정 켜기·끄기" hidden style="display:none">🎛 고급</button><button type="button" class="tfAdvOne tfVTop" data-vtop aria-label="고치기 창 V3·V4 바꾸기" hidden style="display:none"></button>`;   /* (11/18 18:02 사용자) V3·V4는 보정 설정 안으로 */ seg.style.display = "none";   /* (11/18 16:30 사용자 '기본 보정은 없애고 V3·V4로만') 늘 고급 · 위 버튼 = V3/V4 바꾸기 */ /* (11/06 22:49 사용자) [확인|보정] 두 칸 → [🎛 고급] 한 개(누르면 켜짐·다시 누르면 기본) */ seg.addEventListener("pointerdown", (e) => e.stopPropagation()); xb.parentNode.insertBefore(seg, xb);   /* (11/18 16:20 사용자) 고급 버튼은 다시 위 줄로 */   /* (11/09 사용자) 고급 버튼은 아래쪽 줄로(세로) · 가로 화면은 위 줄 그대로(placeAdv) */   /* (11/07 09:43 사용자) 세로 고급: 위 줄 [고급] … [닫기] · 아래 줄 [일괄 보정][펜][박자] · 시간·배율 글자 없앰 */
       const gl = mk("advGlB", "🎛 보정 설정"), pen = mk("advPenB", "✏️ 펜"), bt = mk("advBeatB", "🥁 박자"); xb.parentNode.insertBefore(gl, xb); pen.remove(); bt.remove();   /* (11/18 16:30 사용자) 보정 설정도 위 줄로 */   // (11/18 16:20 사용자) 펜·박자 버튼 없앰   // (11/10 19:03 사용자) 일괄 보정·펜도 위 → 아래 줄로   // (11/09 사용자) 박자 버튼 → 아래 줄 '박자 맞춤' 스위치(기본 꺼짐)
       st.placeAdv = () => { const botEl = wrap.querySelector(".tfBot"); if (!botEl || !gl.parentNode) return; if (box.classList.contains("port")) { if (advRow.parentNode !== botEl) botEl.appendChild(advRow); } else if (advRow.nextSibling !== xb || advRow.parentNode !== xb.parentNode) xb.parentNode.insertBefore(advRow, xb); }; st.placeAdv();   // 가로(그리드 레이아웃)에선 아래 줄이 칸을 늘려 그래프를 누르므로 위 줄
       const nbB = typeof o.notes === "function" ? mk("advNoteB", "💬 피드백") : null;
@@ -1628,6 +1631,7 @@
         paintV(); vb.onclick = () => { v4Set(!v4On()); paintV(); const keep = st.sel && st._selBar && wrap.querySelector(".tfFix:not(.tfDock):not(.tfMulti)") ? st._selBar : null;
           if (keep) { try { fixSheet(wrap, cv, keep, o.onFix, getT, st); } catch (e) { console.warn("고치기 창", e); } }
           undo(v4On() ? "V4 팝업으로 고쳐요" : "V3(예전 창)으로 고쳐요", null, 2500, "확인"); }; st.paintVTop = paintV; }
+      st.fixVGet = () => v4On(); st.fixVSet = (on) => { if (on === v4On()) return; const vb_ = seg.querySelector("[data-vtop]"); if (vb_) vb_.click(); };
       try { if (localStorage.getItem("tune_adv_default") === "1") setTimeout(() => { if (wrap.isConnected && !st.advOn) { const b0 = seg.querySelector("[data-md2]"); if (b0) b0.click(); } }, 80); } catch {}   // (11/09 사용자) 기본 모드 = 고급
       pen.onclick = () => { st.penTool = !st.penTool; st.penPts = null; if (st.penTool) { pauseNow(); undo("음정선 위에 그리면 그 구간 음높이가 그린 대로 · 그린 선을 톡 = 지우기", null, 4500, "확인"); } paintAdv(); };   // (11/06) 펜으로 그리기
       gl.onclick = () => { try { G.TuneAdv.globalSheet(wrap.querySelector(".tfBox") || wrap, st, cv); } catch (e) { console.warn("고급 보정", e); } };
