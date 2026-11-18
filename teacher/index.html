@@ -6014,6 +6014,10 @@ async function songRoot(create) {
   if (f) return (songLib.root = f.id); if (!create) return null;
   return (songLib.root = await joinMakeFolder(SONG_LIB, db));
 }
+const SONG_CACHE_KEY = "jakpum_songlib_v1";
+function songCacheGet() { try { const j = JSON.parse(localStorage.getItem(SONG_CACHE_KEY) || "null"); return j && Array.isArray(j.list) && j.list.length ? j.list : null; } catch { return null; } }
+let songCacheT = 0;
+function songCachePut() { clearTimeout(songCacheT); songCacheT = setTimeout(() => { try { const t = JSON.stringify({ at: Date.now(), list: songLib.list }); if (t.length < 2500000) localStorage.setItem(SONG_CACHE_KEY, t); } catch {} }, 800); }   // 용량 넘거나 막히면 그냥 건너뜀
 async function songLoad() {
   const rid = await songRoot(false); if (!rid) return [];
   const fos = (await list(rid)).filter(x => x.mimeType === "application/vnd.google-apps.folder"), lim = limiter(6);
@@ -6115,7 +6119,11 @@ async function openSongs(focus) {
     catch { h.textContent = "곡 이름을 못 가져왔어요 · 비워 두면 서버가 받은 뒤 채워요"; } }, 400); };
   $("slQ").oninput = () => { songLib.q = $("slQ").value.trim(); songPaintList(); };
   songHomePaint();
-  try { songLib.list = await songLoad(); } catch (e) { $("slList").innerHTML = `<p class="muted">곡 목록을 못 불러왔어요: ${esc(errMsg(e))}</p>`; return; }
+  // (11/19 08:53 사용자 '리스트는 앱에 저장해 두고 바로 불러오면?') 지난번 목록을 폰에 저장해 두었다가 먼저 보여주고, 뒤에서 새로 받아 바뀐 것만 갱신(드라이브에서 곡마다 읽느라 늦던 대기를 없앰)
+  if (!songLib.list.length) { const c = songCacheGet(); if (c) songLib.list = c; }
+  if (songLib.list.length) { songPaintList(); songPollArm(); }
+  try { songLib.list = await songLoad(); }
+  catch (e) { if (!songLib.list.length) { $("slList").innerHTML = `<p class="muted">곡 목록을 못 불러왔어요: ${esc(errMsg(e))}</p>`; return; } const h = $("slHome"); if (h) h.insertAdjacentHTML("afterend", `<p class="muted" style="font-size:.78rem;margin:4px 2px">저장해 둔 목록이에요 · 새로 못 받았어요(${esc(errMsg(e))})</p>`); }
   songPaintList(); songPollArm();
   if (songLib.list.some(x => x.d.status === "queued" && Date.now() - Date.parse(x.d.updated || x.d.created || 0) > 180000) && Date.now() - (songLib.kAt || 0) > 300000) { songLib.kAt = Date.now(); kick(); }   // 3분 넘게 '서버 대기'인 곡이 있으면 서버를 한 번 더 깨움
 }
@@ -6127,7 +6135,7 @@ function songPollArm() {   // 처리 중인 곡이 있으면 20초마다 다시 
     songPollArm(); }, 20000);
 }
 function songPaintList() {
-  const box = $("slList"); if (!box) return; const q = songLib.q.toLowerCase();
+  const box = $("slList"); if (!box) return; songCachePut(); const q = songLib.q.toLowerCase();
   const keep = sgCur?.folder && sgCur.el && box.contains(sgCur.el) && !sgCur.eng.isDead() ? sgCur : null; if (keep) keep.el.remove();   // 듣는 중인 카드는 떼어 두었다가 새 목록에 그대로 끼움(재생·불러오기 유지)
   const L = songLib.list.filter(x => !q || `${x.d.title} ${x.d.artist}`.toLowerCase().includes(q));
   if (!L.length) { if (keep) songDestroy(); box.innerHTML = `<p class="muted">${songLib.list.length ? "찾는 곡이 없어요" : "아직 곡이 없어요 · 위에서 곡을 넣어 보세요"}</p>`; return; }
