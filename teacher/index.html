@@ -5916,7 +5916,7 @@ function tunePending(c, msg = "음정선 불러오는 중…") {   // (11/02) �
 const REF_LAB = { teacher: ["✏️ 선생님", "#ffd27a"], midi: ["🎹 MIDI", "#c7a4ff"], sheet: ["🌐 악보", "#7fd99a"], youtube: ["🎧 원곡", "#7fd9ff"], scale: ["🎼 키·스케일만", "#7fd99a"] };
 const songGuess = (r) => String(r.song?.title || r.title || "").replace(/^\d{4}-\d{2}-\d{2}_?/, "").replace(/_?(베스트_이어붙임|베스트|메이크업)$/g, "").replace(/remix.*$/i, "").trim();
 function mkRefShareHTML(pi) {
-  const sh = pi?.ref?.share; if (!sh) return `<p class="muted" style="margin:4px 0">아직 이 기준으로 만든 적이 없어요 · 곡 이름을 저장하고 ‘완성본 다시 만들기’를 누르면 서버가 악보·원곡을 찾아요</p>`;
+  const sh = pi?.ref?.share; if (!sh) return `<p class="muted" style="margin:4px 0">아직 이 기준으로 만든 적이 없어요 · 곡 이름을 저장하면 서버가 악보·원곡을 찾아 완성본에 넣어요</p>`;
   const ks = Object.keys(REF_LAB).filter(k => (sh[k] || 0) > 0.005);
   return `<div style="display:flex;height:12px;border-radius:6px;overflow:hidden;margin:6px 0 4px">${ks.map(k => `<i style="display:block;width:${(sh[k] * 100).toFixed(1)}%;background:${REF_LAB[k][1]}"></i>`).join("")}</div>
     <div class="row muted" style="gap:4px 12px;flex-wrap:wrap;font-size:.82rem">${ks.map(k => `<span><b style="display:inline-block;width:9px;height:9px;border-radius:3px;background:${REF_LAB[k][1]}"></b> ${REF_LAB[k][0]} ${Math.round(sh[k] * 100)}%</span>`).join("")}</div>`;
@@ -5929,7 +5929,7 @@ async function mkRefPaint(j, r, pi, by) {
   const src = ref?.sheet_src, yt = ref?.youtube_src, cands = ref?.cands || [];
   el.innerHTML = `<details class="card" style="padding:10px;margin:0" ${s.title ? "" : "open"}><summary><b>🎼 정음 기준</b> <span class="muted" style="font-size:.85rem">어떤 음에 맞출지</span></summary>
     ${mkRefShareHTML(pi)}
-    <div class="row" style="gap:6px;flex-wrap:wrap;margin:6px 0">${st("sheet", "🌐 악보")}${st("youtube", "🎧 원곡")}${s.yt_wait ? `<span class="chip" title="유튜브가 서버를 막아 집 노트북이 원곡을 받는 중 · 받아지면 다음 '완성본 다시 만들기' 때 반영">🏠 원곡 집 노트북이 받는 중</span>` : ""}${(s.ref_error || (ref?.errors || []).length) ? `<span class="chip todo" title="${esc(s.ref_error || ref.errors.join(" / "))}">일부 못 찾음</span>` : ""}</div>
+    <div class="row" style="gap:6px;flex-wrap:wrap;margin:6px 0">${st("sheet", "🌐 악보")}${st("youtube", "🎧 원곡")}${s.yt_wait ? `<span class="chip" title="유튜브가 서버를 막아 집 노트북이 원곡을 받는 중 · 받아지면 완성본에 자동으로 넣어요">🏠 원곡 집 노트북이 받는 중</span>` : ""}${(s.ref_error || (ref?.errors || []).length) ? `<span class="chip todo" title="${esc(s.ref_error || ref.errors.join(" / "))}">일부 못 찾음</span>` : ""}</div>
     ${src ? `<p class="muted" style="margin:2px 0">악보: ${esc(src.site || "")} ${src.page ? `<a href="${esc(src.page)}" target="_blank" rel="noopener">보기</a>` : ""}</p>` : ""}
     ${yt?.url ? `<p class="muted" style="margin:2px 0">원곡: <a href="${esc(yt.url)}" target="_blank" rel="noopener">${esc(yt.title || "유튜브")}</a></p>` : ""}
     <label class="muted">곡 이름</label><input id="mkSongT" value="${esc(s.title || songGuess(r))}" style="width:100%;margin:2px 0 6px">
@@ -5937,7 +5937,7 @@ async function mkRefPaint(j, r, pi, by) {
     <label class="muted" style="display:block;margin-top:6px">원곡 유튜브 주소(선택 · 비우면 곡 이름으로 찾음)</label><input id="mkSongY" value="${esc(s.youtube || "")}" placeholder="https://youtu.be/…" style="width:100%">
     ${cands.length ? `<details style="margin-top:6px"><summary class="muted">찾은 악보 후보 ${cands.length}개 · 다른 것 고르기</summary>${cands.slice(0, 8).map((c, i) => `<div class="row" style="gap:8px;margin:6px 0;flex-wrap:nowrap"><img src="${esc(c.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" style="width:64px;height:64px;object-fit:cover;border-radius:8px;background:#222"><span style="flex:1;font-size:.85rem">${esc(c.site || "")}<br><span class="muted">${esc((c.title || "").slice(0, 40))}</span></span><button type="button" class="small ${s.sheet_pick === i || (s.sheet_pick == null && src?.i === i) ? "" : "ghost"}" data-pick="${i}">${s.sheet_pick === i || (s.sheet_pick == null && src?.i === i) ? "쓰는 중" : "이 악보"}</button></div>`).join("")}</details>` : ""}
     <label class="muted" style="display:block;margin-top:6px">🖼 악보 사진 올리기(선택 · 있으면 인터넷 악보보다 먼저)</label><input type="file" id="mkSheet" accept="image/*">${s.sheet_file_id ? `<span class="chip ok">사진 올림</span>` : ""}
-    <div class="row" style="margin-top:8px"><button type="button" class="small" id="mkSongSave">저장</button><span class="muted" id="mkSongMsg">저장한 뒤 ‘완성본 다시 만들기’를 누르면 적용돼요</span></div>
+    <div class="row" style="margin-top:8px"><button type="button" class="small" id="mkSongSave">저장</button><span class="muted" id="mkSongMsg">저장하면 완성본에 자동으로 넣어요(몇 분)</span></div>
     <p class="muted" style="margin:6px 0 0;font-size:.8rem">우선순위: ✏️ 선생님이 고친 음 &gt; 🎹 MIDI &gt; 🌐 악보(사진 &gt; 인터넷) &gt; 🎧 원곡 &gt; 🎼 키·스케일 · 악보·원곡은 맞는 곳만 쓰고 수강생에게 보내지 않아요</p></details>`;
   let pick = s.sheet_pick ?? null;
   el.querySelectorAll("[data-pick]").forEach(b => b.onclick = () => { pick = +b.dataset.pick; el.querySelectorAll("[data-pick]").forEach(x => { const on = +x.dataset.pick === pick; x.classList.toggle("ghost", !on); x.textContent = on ? "고름" : "이 악보"; }); });
@@ -5950,7 +5950,7 @@ async function mkRefPaint(j, r, pi, by) {
       const same = ["title", "artist", "youtube", "sheet_pick", "sheet_file_id"].every(k => (nx[k] ?? "") === (s[k] ?? ""));
       if (!same) { nx.built = false; delete nx.ref_found; delete nx.ref_error; delete nx.yt_wait; }
       r.song = nx; await writeJSON(j.folder.id, MKREQ, r, j.reqId);
-      msg.textContent = "저장했어요 · ‘완성본 다시 만들기’를 누르면 서버가 악보·원곡을 찾아 맞춰요";
+      msg.textContent = "저장했어요 · 악보·원곡을 찾아 맞춘 완성본을 새로 만드는 중이에요(몇 분)"; try { window.mkForceQ?.("곡 정보로 악보·원곡을 찾아 완성본을 새로 만드는 중이에요"); } catch {}
     } catch (e) { msg.textContent = "저장 실패: " + errMsg(e); } finally { b.disabled = false; }
   };
 }
@@ -6189,7 +6189,7 @@ function songPaint(j, r, by) {
   const nm = [s.title, s.artist].filter(Boolean).join(" — ") || "원곡";
   const head = `<div class="sgH"><b>🎧 원곡 듣기</b>${ids ? `<button type="button" class="sgSrc" data-sglib style="border:0;cursor:pointer">🎵 곡 서랍 ›</button>` : ""}</div><div class="muted" style="font-size:.85rem">${esc(nm)}</div>`;
   if (stt !== "ready") {
-    el.innerHTML = `<div class="card sgC">${head}${stt === "none" ? `<p class="muted" style="margin:6px 0 0">아직 원곡 보컬·반주가 없어요 · 위 ‘완성본 다시 만들기’를 누르면 서버가 원곡을 찾아 나눠요(원곡을 못 찾으면 안 생겨요)</p>`
+    el.innerHTML = `<div class="card sgC">${head}${stt === "none" ? `<p class="muted" style="margin:6px 0 0">아직 원곡 보컬·반주가 없어요 · 곡 이름을 저장하면 서버가 원곡을 찾아 나눠요(원곡을 못 찾으면 안 생겨요)</p>`
       : `<div class="sgWait"><div class="sgSp"></div>${stt === "home" ? "집 노트북이 원곡 받는 중 · 받으면 저절로 보컬·반주를 나눠요" : "보컬·반주 나누는 중 · 보통 5~10분"}</div>`}</div>`;
     return;
   }
@@ -6815,8 +6815,8 @@ async function openMkJob(j, backTo) {
         <div class="abSw" id="mkAb" role="group" aria-label="음정 보정 끔·켬"><button type="button" data-ab="0">보정 끔</button><button type="button" data-ab="1">보정 켬</button></div>
         <input type="hidden" id="mkPitch" value="${r.pitch_level != null && +r.pitch_level === 0 ? 0 : 3}">
         <div class="row" style="margin-top:4px"><label class="muted">키</label><select id="mkKey" style="flex:1">${keyOptions(pi.key, false)}</select></div>
-        <p class="muted" style="margin:2px 0 0">키를 바꾸면 ‘완성본 다시 만들기’ 때 그 키로 다시 보정해요(자동 인식 후보: ${esc((pi.key_candidates || []).join(", "))}).</p>${boundBox}</div>`
-        : `<p class="muted">음정 보정은 ‘이 설정으로 완성본 다시 만들기’를 한 번 하면 생겨요.</p>`}
+        <p class="muted" style="margin:2px 0 0">키를 바꾸면 15초 뒤 그 키로 완성본을 새로 만들어요(자동 인식 후보: ${esc((pi.key_candidates || []).join(", "))}).</p>${boundBox}</div>`
+        : `<p class="muted">음정 보정은 완성본을 한 번 새로 만들면 생겨요(⋯ 더보기).</p>`}
       <div style="margin-top:8px">보컬 크기 <b id="mkVolT"></b><input type="range" id="mkVol" min="-6" max="6" step="0.5" value="0" style="width:100%"></div>
       <div>MR 크기 <b id="mkMrT"></b><input type="range" id="mkMr" min="-6" max="6" step="0.5" value="0" style="width:100%"></div>
       <div class="mkFx">리버브(울림) <b id="mkRevT"></b><input type="range" id="mkRev" min="0" max="100" step="1" value="${revNow}" style="width:100%"></div>
@@ -6832,14 +6832,14 @@ async function openMkJob(j, backTo) {
       </div>
       <div class="card mkDone" id="mkDone"><h3 style="margin-top:0">완성본</h3>
         <div class="mkdSt" id="mkFixN"></div><div class="mkdSub muted" id="mkdSub"></div>
-        <button class="full" id="mkFinal">🔄 지금 바로 완성본에 반영</button>
-        <div class="mkdPh"><div class="row" style="flex-wrap:nowrap;gap:6px"><button class="ghost" id="mkPhoneMix" style="flex:1;margin:0">⚡ 지금 소리 그대로 mp3</button><button class="ghost" id="mkPhoneWav" style="margin:0" aria-label="지금 소리 그대로 WAV 파일로 받기">⬇ WAV</button></div><span class="muted" id="mkPhoneT"></span></div>
-        <p class="mkdNote" id="mkdNote">완성본은 고친 그대로 서버가 원본 WAV로 자동으로 따라 만들어요(몇 분, 편집은 계속). 급하면 <b>지금 소리 그대로 mp3/WAV</b> = 폰에서 지금 듣는 소리를 바로 파일로(빠르지만 보정 설정은 빠짐)</p>
+        <!-- (11/18 11:26 사용자 '왜 서버에 올려야 하는지·버튼이 여러 개인지·용도가 뭐가 다른지 모르겠다') 할 일 세 가지만: 듣기 · 보내기 · 내 폰에 받기. 서버·폰 같은 속사정은 숨김 -->
         <div class="row mkdAct" style="flex-wrap:nowrap"><button class="ghost" id="mkMix" style="flex:1;margin:0">▶ 듣기</button><button id="mkShare" style="flex:1;margin:0">📤 수강생에게 보내기</button></div>
+        <div class="mkdPh"><div class="row" style="flex-wrap:nowrap;gap:6px;margin-top:8px"><button class="ghost small" id="mkGetMp3" style="flex:1;margin:0">⬇ 내 폰에 받기 (mp3)</button><button class="ghost small" id="mkPhoneWav" style="margin:0" aria-label="내 폰에 WAV 파일로 받기">WAV</button></div><span class="muted" id="mkPhoneT"></span></div>
+        <button class="hidden" id="mkFinal"></button><button class="hidden" id="mkPhoneMix"></button><p class="hidden" id="mkdNote"></p>
         <audio id="mkMixAu" controls class="hidden" style="width:100%;margin-top:6px"></audio>
         <div class="muted mkdWho" id="mkdWho"></div>
         <div class="muted" style="margin-top:2px">보낸 기록: <span class="chip ${r.sent_at ? "ok" : ""}" id="mkSentT">${r.sent_at ? "보냄 " + new Date(r.sent_at).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "아직 안 보냄"}</span></div>
-        <details class="mkdMore"><summary>⋯ 더보기</summary><a href="https://drive.google.com/drive/folders/${esc(j.folder.id)}" target="_blank" rel="noopener">드라이브에서 WAV 받기</a><p class="muted" style="margin:4px 0 0">MIDI 내보내기·소리 지연은 음정선 크게 보기 → ⋯ 곡 메뉴 → 기타 설정</p></details></div>
+        <details class="mkdMore"><summary>⋯ 더보기</summary><a href="https://drive.google.com/drive/folders/${esc(j.folder.id)}" target="_blank" rel="noopener">드라이브 폴더 열기</a> · <button type="button" class="small ghost" id="mkRebuild" style="margin:4px 0 0">완성본 처음부터 새로 만들기(보정 방식이 좋아졌을 때)</button><p class="muted" style="margin:4px 0 0">MIDI 내보내기·소리 지연은 음정선 크게 보기 → ⋯ 곡 메뉴 → 기타 설정</p></details></div>
       <div id="mkSong"></div>`;
   }
   $("vMkJob").innerHTML = body;
@@ -6897,15 +6897,14 @@ async function openMkJob(j, backTo) {
     const when = r.done_at ? new Date(r.done_at).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
     $("mkDone").classList.toggle("dirty", d);
     const busyR = ["queued", "working"].includes(r.status), pp = r.progress?.pct;
-    el.innerHTML = busyR ? `<span class="mkTag warn">⏳ 반영 중</span>서버가 고친 그대로 완성본을 만드는 중${pp ? ` (${pp}%)` : ""} · 편집은 계속 돼요`
-      : d ? `<span class="mkTag warn">✏️ 곧 반영</span>고친 내용은 저장됐어요 · 더 안 고치고 1분 반쯤 지나거나 이 화면을 나가면 완성본에 자동 반영` : `<span class="mkTag ok">✅ 지금 고친 그대로</span>완성본${when ? " · " + when : ""}`;
-    $("mkdSub").textContent = d ? `${parts || "고친 내용"} · 지금 듣는 소리에는 이미 들어가 있어요${r.note_edits?.global && Object.keys(r.note_edits.global).length ? "(보정 설정은 새로 만들어야 들려요)" : ""}`
+    el.innerHTML = busyR ? `<span class="mkTag warn">⏳ 새로 만드는 중${pp ? " " + pp + "%" : ""}</span>방금 고친 내용을 넣고 있어요 · 몇 분 걸려요`
+      : d ? `<span class="mkTag warn">✏️ 고친 내용 저장됨</span>곧 완성본에 넣을게요(손 떼고 1분 반 뒤 또는 이 화면을 나가면)` : `<span class="mkTag ok">✅ 최신</span>지금 고친 그대로예요${when ? " · " + when : ""}`;
+    $("mkdSub").textContent = (busyR || d) ? `${parts || "고친 내용"} · 그동안도 계속 고치고 들을 수 있어요`
       : `${parts ? "고친 내용(" + parts + ") 모두 들어가 있어요" : "자동 보정 그대로"}${meas.mix_lufs_out != null ? " · " + meas.mix_lufs_out + " LUFS" : ""}`;
     $("mkdNote")?.classList.toggle("hidden", !d);   // (11/09 23:33 사용자 '완성본 새로 만들기가 어디 있냐') 최신일 때도 버튼은 늘 보이게(서버 개선 반영용) — 최신이면 작은 회색 버튼
-    const fb = $("mkFinal"); if (fb) { fb.classList.toggle("ghost", !d); fb.disabled = busyR; fb.textContent = busyR ? "⏳ 완성본 반영 중" : d ? "🔄 지금 바로 완성본에 반영" : "🔄 완성본 새로 만들기(서버 개선 반영)"; }   // (11/13 22:44 사용자 '두 버튼 매번 헷갈림') 곡 메뉴 버튼과 이름·기능 똑같이(같은 버튼) — 최신이면 회색만
-    document.querySelector("#mkDone .mkdPh")?.classList.toggle("hidden", !d && !phoneFresh());
-    if ($("mkMix")) $("mkMix").textContent = d ? "▶ 지난 완성본 듣기" : "▶ 듣기";
-    $("mkdWho").innerHTML = phoneFresh() ? "보낼 파일: ⚡ 방금 폰에서 만든 mp3(지금 소리 그대로)" : d ? "⚠ 지금 보내면 <b>고친 게 빠진 지난 완성본</b>이 나가요 · 보내기를 누르면 고를 수 있어요" : `보낼 파일: 서버 완성본${when ? "(" + when + ")" : ""}`; };
+    const stale = busyR || d, sh = $("mkShare"); if (sh) { sh.textContent = stale && !phoneFresh() ? "⏳ 다 되면 보낼 수 있어요" : "📤 수강생에게 보내기"; sh.classList.toggle("ghost", stale && !phoneFresh()); }   // (11/13 22:44 사용자 '두 버튼 매번 헷갈림') 곡 메뉴 버튼과 이름·기능 똑같이(같은 버튼) — 최신이면 회색만
+    if ($("mkMix")) $("mkMix").textContent = stale ? "▶ 지금 고친 소리 듣기" : "▶ 듣기";
+    $("mkdWho").innerHTML = ""; };
   paintFixN(); for (const id of ["mkVol", "mkMr", "mkRev"]) $(id)?.addEventListener("input", () => { try { paintFixN(); } catch {} });
   if (tuneOk) tunePending($("mkTune"));
   let resetSome = null;   // 음정선을 받으면 채움(아래)
@@ -7004,7 +7003,7 @@ async function openMkJob(j, backTo) {
     const engGet = () => ({ engine: r.engine || "psola", ab: !!r.engine_ab, range: Array.isArray(r.engine_ab_range) ? r.engine_ab_range : null, made: r.result?.pitch?.engine_ab || null, pick: r.engine_pick || null,
       files: { o: engFid("엔진비교_원본.mp3"), A: engFid("엔진비교_A.mp3"), B: engFid("엔진비교_B.mp3") } });
     const engSet = async (p) => { Object.assign(r, p); if (!r.engine || r.engine === "psola") delete r.engine; if (!r.engine_ab) delete r.engine_ab; if (!r.engine_pick) delete r.engine_pick; if (!Array.isArray(r.engine_ab_range)) delete r.engine_ab_range;
-      try { await mkWrite(); toast(p.engine ? "보정 엔진을 바꿨어요 · 완성본 다시 만들기 뒤 적용" : "저장했어요"); } catch (e) { toast("저장 실패: " + errMsg(e)); } };
+      try { await mkWrite(); toast(p.engine ? "보정 엔진을 바꿨어요 · 완성본을 새로 만드는 중" : "저장했어요"); if (p.engine) try { window.mkForceQ?.("바꾼 엔진으로 완성본을 새로 만드는 중이에요"); } catch {}; } catch (e) { toast("저장 실패: " + errMsg(e)); } };
     let engAu = null, engBtn = null;
     const engPlay = async (btn, k) => { const id = engGet().files[k]; if (!id) return;
       if (engAu && engBtn === btn) { engAu.pause(); engAu = null; btn.textContent = btn.dataset.l || btn.textContent; engBtn = null; return; }
@@ -7094,8 +7093,12 @@ async function openMkJob(j, backTo) {
       else if (r.status === "error") toast("완성본 반영 실패: " + (r.error || "")); mkPoll(); }, 20000); };
   mkPoll();
   { const gb0 = goBack; goBack = () => { clearTimeout(mkAutoT); clearTimeout(mkPollT); if (mkEditDirty() && !mkBusyRender()) mkQueueBg().catch(() => {}); return gb0(); }; }
-  $("mkFinal").onclick = () => mkQueueBg("완성본 반영을 요청했어요 · 편집은 계속 돼요");
-  $("mkMix").onclick = async () => { const au = $("mkMixAu"); try { if (mkPlaying) { mkOffset = mkNow(); mkStop(); paintTransport(); } au.src = URL.createObjectURL(await readBlob(by("mix.mp3").id, true)); au.classList.remove("hidden"); $("mkMix").classList.add("hidden"); au.play(); } catch (e) { toast(e.message); } };
+  $("mkFinal").onclick = () => mkQueueBg("완성본에 넣는 중이에요 · 계속 고쳐도 돼요");
+  if ($("mkRebuild")) $("mkRebuild").onclick = () => mkQueueBg("완성본을 처음부터 새로 만드는 중이에요 · 몇 분 걸려요");
+  window.mkForceQ = (why) => { if (mkJob === j) mkQueueBg(why || "바꾼 설정을 넣어 완성본을 새로 만드는 중이에요"); };   // 곡 정보·키·엔진처럼 '고침 지문' 밖의 설정을 바꿨을 때
+  $("mkKey")?.addEventListener("change", () => { clearTimeout(mkAutoT); mkAutoT = setTimeout(() => window.mkForceQ("바꾼 키로 완성본을 새로 만드는 중이에요"), 15000); });
+  $("mkMix").onclick = async () => { if (mkEditDirty() || mkBusyRender()) { try { mkSeekTo(0); } catch {} try { if (!mkPlaying) $("mkPP").click(); } catch {} window.scrollTo({ top: 0, behavior: "smooth" }); return; }   // 새 완성본이 아직이면 위 재생기로 지금 고친 소리
+    const au = $("mkMixAu"); try { if (mkPlaying) { mkOffset = mkNow(); mkStop(); paintTransport(); } au.src = URL.createObjectURL(await readBlob(by("mix.mp3").id, true)); au.classList.remove("hidden"); $("mkMix").classList.add("hidden"); au.play(); } catch (e) { toast(e.message); } };
   // (11/16 15:55 사용자 '받기 누르고 다른 화면으로 가도 되나? 알려주는 문구') 폰에서 직접 소리를 만들어서, 만드는 동안 화면을 나가거나 다른 앱으로 가면 멈추거나 아주 느려짐 → 끝(✓)까지 이 화면에
   const KEEP = " · 다 될 때까지 이 화면에 있어 주세요(다른 화면·앱으로 가면 멈출 수 있어요)";
   $("mkPhoneMix").onclick = async () => {
@@ -7106,6 +7109,12 @@ async function openMkJob(j, backTo) {
     catch (e) { t.textContent = "못 만들었어요: " + e.message; console.warn("폰 합치기", e); } finally { b.disabled = false; }
   };
   // (11/16 사용자 '최종 출력을 wav로도') 지금 소리(고친 것 반영)를 폰에서 만든 마스터 그대로 무손실 WAV(16비트, CD와 같은 형식 — 11/16 12:50 사용자 '16bit로')로 받기 — 이미 만들었으면 바로, 아니면 만든 뒤
+  // 내 폰에 받기(mp3): 완성본이 최신이면 그 파일 그대로, 아직 새로 만드는 중이면 지금 고친 소리를 폰에서 바로 만들어 저장
+  $("mkGetMp3").onclick = async () => { const b = $("mkGetMp3"), t = $("mkPhoneT"), nm = `${j.st.name}_${r.title}_메이크업.mp3`.replace(/[\\/:*?"<>|]/g, "_"); b.disabled = true;
+    try { if (!mkEditDirty() && !mkBusyRender() && mixId()) { t.textContent = "완성본 받는 중…"; const bl = await mixPre(); songSave(bl, nm); t.textContent = "✓ 저장했어요(다운로드 폴더)"; return; }
+      mkStop(); paintTransport(); t.textContent = "지금 고친 소리로 만드는 중…" + KEEP; await ensure(base()); const o = await mkExportPhone(j, r, (s_) => { t.textContent = s_ + KEEP; }); o.sig = mkEditsSig(r); paintFixN();
+      songSave(o.blob, nm); t.textContent = `✓ 저장했어요(다운로드 폴더) · ${(o.blob.size / 1048576).toFixed(1)}MB · 이제 다른 화면으로 가도 돼요`; }
+    catch (e) { t.textContent = "못 받았어요: " + e.message; } finally { b.disabled = false; } };
   $("mkPhoneWav").onclick = async () => {
     const b = $("mkPhoneWav"), t = $("mkPhoneT"); b.disabled = true;
     try { let o = phoneFresh() && mkPhone?.ch ? mkPhone : null;
@@ -7136,6 +7145,7 @@ async function openMkJob(j, backTo) {
   // (11/09 시안 고) 고친 게 완성본에 없는데 보내려 하면: 어느 파일을 보낼지 고르게(예전엔 몰래 지난 완성본이 나갈 수 있었음)
   $("mkShare").onclick = () => {
     if (phoneFresh()) return shareNow(true);
+    if (mkBusyRender() || mkEditDirty()) { if (!mkBusyRender()) mkQueueBg(); return toast("방금 고친 내용을 완성본에 넣는 중이에요 · 다 되면(몇 분) 보내기가 켜져요"); }
     if (!mkDirty()) return shareNow(false);
     document.getElementById("mkShD")?.remove();
     const d = document.createElement("div"); d.id = "mkShD"; d.setAttribute("role", "dialog");
@@ -9010,7 +9020,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261118-1130";
+const BUILD = "20261118-1145";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
