@@ -597,7 +597,8 @@
         if (sb_) { const a_ = Math.max(L, sb_.x0 - 10), c_ = Math.min(w, sb_.x1 + 10); if (a_ > L) g.fillRect(L, T, a_ - L, HP); if (c_ < w) g.fillRect(c_, T, w - c_, HP); }
         else g.fillRect(L, T, w - L, HP); }
       if (st) st.hdl = null;
-      if (st && (st.advOn || st.buMode) && st.sel) {   // (11/06 16:20 사용자) 고른 음 양 끝 = 화살표 손잡이(꾹 누른 채 좌우로 = 길이 미세) · 음 가운데를 잡아 위아래 = 음정, 좌우 = 자리
+      if (st) st.vhdl = st.v4 ? null : st.vhdl;   // (11/18 18:47 사용자 'V4에서 이 손잡이들이 의미가 있을까') V4는 팝업 칸(앞상하·뒤상하·앞길이·뒤길이)이 같은 일 → 그래프 손잡이 숨김(V3는 그대로)
+      if (st && (st.advOn || st.buMode) && st.sel && !st.v4) {   // (11/06 16:20 사용자) 고른 음 양 끝 = 화살표 손잡이(꾹 누른 채 좌우로 = 길이 미세) · 음 가운데를 잡아 위아래 = 음정, 좌우 = 자리
         const sb = (st.tebars || []).find(x => Math.abs(x.t0 - st.sel.t0) < 0.02) || bars.find(x => Math.abs(x.t0 - st.sel.t0) < 0.02) || bars.find(x => selHit(st.sel, x));
         if (sb && sb.x1 > L && sb.x0 < w && typeof st.onBarDragX === "function") { const R = HANDLE_R, hh = 26, lx = sb.x0, rx = sb.x1;
           // (11/12 17:55 사용자) 손잡이는 음표 조금 아래(손가락이 음표 끝을 가리지 않게) · 아래 자리가 없으면 위로 · 음표 끝에서 가는 선으로 이어 줌
