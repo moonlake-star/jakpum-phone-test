@@ -24,11 +24,11 @@ console.log("song stems ok");
 // (11/07 10:58 사용자 '고고') 🎵 곡 서랍: 첫 화면 버튼 · 곡 넣기(song.json queued + 서버 깨우기) · 목록 상태 · 같은 플레이어 · 메이크업은 서버가 적은 id 먼저
 assert.ok(T.includes('<section id="vSongs" class="hidden"></section>') && T.includes('"vCal","vSongs"') && T.includes('id="songBtn"') && T.includes("async function openSongs(focus)"));
 assert.ok(T.includes('status: "queued"') && T.includes("const ok = await kick();") && T.includes("function songPlayer(el, ids, o)") && T.includes("stemIds(r.song) || songFiles(by)") && T.includes("(stemIds(job.req.song) || songFiles("));
-assert.ok(T.includes('home_wait: ["🏠", "집 노트북이 원곡 받는 중"]') && T.includes("trashed: true }) }); songLib.list"), "상태 표시·지우기(휴지통)");
+assert.ok(T.includes('home_wait: ["🏠", "서버가 원곡 받는 중"]') && T.includes("trashed: true }) }); songLib.list"), "상태 표시·지우기(휴지통)");
 console.log("song lib ok");
 // (11/07 17:33 사용자) 유튜브 주소 → 곡 제목(버전)·가수 자동
 { const a = T.indexOf("function ytTitle"), b = T.indexOf("async function ytInfo"); const cx = {}; require("vm").createContext(cx); require("vm").runInContext(T.slice(a, b), cx);
   assert.deepStrictEqual({ ...cx.ytTitle("[MV] 애즈원(As One) - 원하고 원망하죠 (Official Music Video)") }, { title: "원하고 원망하죠", artist: "애즈원(As One)" });
   assert.deepStrictEqual({ ...cx.ytTitle("둥지", "남진 - Topic") }, { title: "둥지", artist: "남진" });
   assert.ok(T.includes('youtube.com/oembed?format=json&url=') && T.includes("ytParse?.(y)?.url || y")); console.log("yt autofill ok"); }
-assert.ok(T.includes('x.name === "노트북_신호.json"') && T.includes("m <= 15 ?") && T.includes("songHomePaint();"), "(11/07) 곡 서랍에 집 노트북 상태");
+assert.ok(T.includes('x.name === "노트북_신호.json"') && T.includes("m <= 15 ?") && T.includes("songHomePaint();"), "(11/07) 곡 서랍에 서버 상태");
