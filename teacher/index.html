@@ -6255,6 +6255,7 @@ function ytTitle(t, ch) {
   if (m.length >= 3 && m.every((x) => x.trim()) && CV.test(t)) { const cb = cvName(m.slice(2).join(" - ")), o = { title: m[0].trim(), artist: m[1].trim() }; if (cb) o.cover_by = cb; return o; }
   const multi = (x) => /,|\s&\s|\s\/\s|\bfeat\.?\s|\bft\.?\s/i.test(x);
   if (m.length === 2 && m[0] && m[1] && CV.test(m[1])) { const mm = m[1].match(/^(.*?)\s*\(([^)]*)\)\s*$/); if (mm && mm[1].trim() && CV.test(mm[2]) && multi(mm[1]) && !multi(m[0])) { const cb = cvName(mm[2]).replace(/\b(?:acoustic|piano|guitar|ver\.?|version)\b/gi, " ").replace(/\s+/g, " ").replace(/^[\s\-–—()·,]+|[\s\-–—()·,]+$/g, ""), o = { title: m[0].trim(), artist: mm[1].trim() }; if (cb) o.cover_by = cb; return o; } }
+  if (m.length === 2 && m[0] && m[1]) { const nm = m[1].match(/^(.+?)\s*\(([^)]*)\)\s*$/); if (nm && new RegExp(nm[1].trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*의").test(nm[2])) return { title: m[0].trim(), artist: nm[1].trim() }; }   // (11/20 사용자 '낭만에 대하여 - 최백호 (최백호의 낭만이즈백)') 뒤 칸이 '이름 (이름의 …)' 꼴이면 뒤가 가수 — 서버 split_yt 와 같음
   if (m.length >= 2 && m[0] && m[1]) return { title: m.slice(1).join(" - ").trim(), artist: m[0].trim() };
   return { title: t, artist: String(ch || "").replace(/\s*-\s*Topic$|VEVO$|\s*Official$|\s*공식$/i, "").trim() };
 }
@@ -9635,7 +9636,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261120-0810";
+const BUILD = "20261120-0815";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
