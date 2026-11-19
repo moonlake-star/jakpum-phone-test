@@ -321,3 +321,11 @@ const mk = new Function(code + "; return stemEngine;")();
   const L = f.songMeasures({ beats, down: 0, chords: [[0, "C"]] }, 0, [[3.9, "나는 사랑해요 너무나 오래전부터"]]);
   assert.ok(L[2].lyrics.length && L[2].lyrics[0].b < 1.0 && L[1].lyrics.length === 0, "마디 끝(3.9초) 가사는 다음 칸으로(0.4초 미룸): " + JSON.stringify(L.map((m) => m.lyrics)));
 }
+
+// (11/19 사용자) 파형: 기본 확대를 지금보다 살짝 더(14→18 px/초 · 약 1.3배, 확대/축소 조작은 없음) · 멈춰 있을 때 파형을 톡 누르면 재생
+{
+  const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  assert.ok(T.includes("DK_PPS = 18,"), "기본 확대 1.3배");
+  assert.ok(T.includes('const commitTap = async (d) => { if (!d.was) { if (alive()) Q("sgPb").onclick(); return; }'), "멈춘 파형 톡 = 재생");
+  assert.ok(!T.includes("pinch"), "확대·축소 조작 없음");
+}
