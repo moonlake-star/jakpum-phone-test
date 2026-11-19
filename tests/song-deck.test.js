@@ -362,3 +362,20 @@ const mk = new Function(code + "; return stemEngine;")();
   const two = f.songMeasures(an, 0, [[4.1, "도 레 미 파"]]);   // 4.5초부터: 3박째에서 시작해 다음 마디로 이어짐
   assert.strictEqual(two.flatMap((m) => m.lyrics.map((l) => l.text)).join(" "), "도 레 미 파", "글자는 그대로 · 순서 유지");
 }
+
+// (11/19 사용자) 피아노 추천 키: 검은건반이 적은 키 · 흰건반만이면 그대로 · 코드 이름은 그 키로 옮겨 계산
+{
+  const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  const src = T.slice(T.indexOf("const SG_NOTES"), T.indexOf("async function songPeaks(")), f = new Function(src + "; return { songPianoCost, songPianoBest };")();
+  assert.strictEqual(f.songPianoCost("C"), 0); assert.strictEqual(f.songPianoCost("Am"), 0); assert.strictEqual(f.songPianoCost("G7"), 0);
+  assert.ok(f.songPianoCost("F#m") > 0.4 && f.songPianoCost("Bb") > 0.4, "검은건반 코드는 어려움");
+  assert.ok(f.songPianoCost("D/F#") > 0, "슬래시 베이스가 검은건반이면 감점");
+  const M = (names) => [{ chords: names.map((n) => ({ name: n, len: 4 })) }];
+  const A = f.songPianoBest(M(["E", "C#m", "A", "B"]), 0);   // 검은건반 많은 키 → C·Am·F·G(-4)가 가장 쉬움
+  assert.strictEqual(A.key, -4); assert.strictEqual(A.white, 1);
+  const B = f.songPianoBest(M(["C", "Am", "F", "G"]), 0); assert.strictEqual(B.key, 0, "이미 흰건반이면 그대로");
+  const C = f.songPianoBest(M(["D", "Bm", "G", "A"]), 2);   // 지금 키가 +2(원래 키보다 2 높음)면 -2 옮기기 = 원래 키 기준 0 … 절대 키로 환산
+  assert.strictEqual(C.key, 0, "현재 키(+2)에서 D·Bm·G·A → 원래 키 C·Am·F·G = 절대 0");
+  assert.strictEqual(f.songPianoBest([], 0), null);
+  assert.ok(T.includes("피아노 추천 키") && T.includes("songPianoBest(baseMeas(), keyN)"), "카포 창에 버튼");
+}
