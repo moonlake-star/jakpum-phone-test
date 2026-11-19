@@ -230,7 +230,7 @@ const mk = new Function(code + "; return stemEngine;")();
     ev.length = 0; down(0, 0); L.pointermove({ clientX: 40, clientY: 0 }); flush(); L.pointerup(); assert.deepStrictEqual(ev, [], "스크롤하려고 움직이면 모두 취소");
     ev.length = 0; down(); L.pointercancel(); L.pointerup(); assert.deepStrictEqual(ev, []);
     global.setTimeout = realST; global.clearTimeout = realCT; }
-  for (const k of ['const showM = (M)', 'const keyLabel = (n)', 'const meas = () => showM(baseMeas())', 'const pdfPreview = (out, pw, ph, fname)', 'pdfPreview(out, 960, 600,', 'pdfPreview(out, 595, 842,', 'id="shSeek"', 'id="shSgs"', 'cellGesture(c, { tap: () => tapCell(m.t0), dbl: () => playFrom(m.t0), long: () => openShEdit(i) })', 'dbl: () => playFrom(m.t0), long: () => openEdit(i)', 'me.onCapo = () => { build(); sub(); paintPk(); }'])
+  for (const k of ['const showM = (M)', 'const keyLabel = (n)', 'const meas = () => showM(baseMeas())', 'const pdfPreview = (out, pw, ph, fname, opt = {})', 'pdfPreview(out, 960, 600,', 'pdfPreview(out, 595, 842,', 'id="shSeek"', 'id="shSgs"', 'cellGesture(c, { tap: () => tapCell(m.t0), dbl: () => playFrom(m.t0), long: () => openShEdit(i) })', 'dbl: () => playFrom(m.t0), long: () => openEdit(i)', 'me.onCapo = () => { build(); sub(); paintPk(); }'])
     assert(H.includes(k), "없음: " + k);
   assert(!/songSave\(songPdf\(out, (595, 842|960, 600)/.test(H.replace(/const pdfPreview[\s\S]*?close\(\); \};/, "")), "PDF는 미리보기를 거쳐서만 저장");
   assert(/capoOf\(\) - keyN/.test(H), "카포 중 코드 고치기는 카포 번호만큼 되돌려 원곡 키로 저장");
@@ -427,7 +427,9 @@ const mk = new Function(code + "; return stemEngine;")();
 {
   const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
   assert.ok(/#dkSh \.shL\{font-size:calc\(var\(--ly\)\*max\(11px/.test(T) && /--ly:1\.25/.test(T), "가사 글자는 기본 크게(1.25배) + 크기 변수");
-  assert.ok(/const LYS = \[1, 1\.25, 1\.5, 1\.8\]/.test(T) && /id="shFt"/.test(T) && /localStorage\.setItem\("sgShLy"/.test(T), "가사 글자 크기 버튼(기기에 기억)");
+  assert.ok(/const LYS = \[1, 1\.25, 1\.5, 1\.8\]/.test(T) && /id="shFtM"/.test(T) && /id="shFtP"/.test(T) && /localStorage\.setItem\("sgShLy"/.test(T), "가사 글자 크기 버튼(가− 가＋, 기기에 기억)");
+  assert.ok(/h\.append\(hb, hs\); paper\.appendChild\(h\); paper\.appendChild\(shTools\(\)\)/.test(T) && !/class="shBtn" id="(shFt|shFs|shPdf)"/.test(T), "글자 크기·전체화면·PDF 버튼은 제목 아래 줄로(위 조작줄에서 뺌 → 제목이 덜 잘림)");
+  assert.ok(/const makePdf = async \(pdfBtn\) =>/.test(T) && /pb\.onclick = \(\) => makePdf\(pb\)/.test(T) && /class="shPdfB" id="shPdf"/.test(T), "PDF 버튼도 같은 줄");
   assert.ok(/#dkSh \.shC\{display:flex;justify-content:space-between/.test(T) && !/e\.style\.left = x\.b \* 25/.test(T), "코드는 순서대로 한 줄(절대 위치 겹침 제거)");
   assert.ok(/const fitChords = \(\) =>/.test(T) && /scrollWidth > c\.clientWidth \+ 1/.test(T) && /fitChords\(\); paper\.style\.minHeight = ""/.test(T), "칸에 안 들어가면 코드 글자를 줄임");
   assert.ok(/id="shFs"/.test(T) && /const setFs = \(on\) =>/.test(T) && /requestFullscreen/.test(T) && /#dkSh\.fs \.shBar,#dkSh\.fs \.shTl\{display:none\}/.test(T), "전체화면 버튼");
@@ -443,4 +445,30 @@ const mk = new Function(code + "; return stemEngine;")();
   for (const [k, v] of Object.entries(cases)) assert.deepStrictEqual(P(k), v, k);
   assert.ok(/SG_CHF = '"Roboto Condensed","Arial Narrow"/.test(T) && /font-stretch:condensed/.test(T) && /sans-serif-condensed/.test(T), "좁은 글꼴 목록");
   assert.ok(/songChordFill\(e, x\.name\)/.test(T) && /songChordFill\(e, ch\.name\)/.test(T) && /songChordParts\(c\.name\)/.test(T), "악보·TV·PDF 모두 같은 규칙");
+}
+
+// (11/19 사용자 'TV 버튼도 악보 페이지로') 악보 위 조작줄에는 재생·카포·닫기만, 글자 크기·전체화면·TV·PDF는 제목 아래 줄
+{
+  const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  assert.ok(/class="shTvB" id="shTv"/.test(T) && !/class="shBtn" id="shTv"/.test(T) && !/\$\("#shTv"\)\.onclick/.test(T), "TV 버튼은 제목 아래 줄(만든 뒤 연결)");
+  assert.ok(/t\.querySelector\("#shTv"\)\.onclick = \(\) => \{ ly\.close\(\); setTimeout\(\(\) => \{ try \{ openPrompter\(\)/.test(T), "TV 버튼 동작 그대로");
+}
+
+// (11/19 사용자) PDF: 가사 글자 크기가 그대로 들어가고(미리보기에서도 조절·전체화면) · 제목이 세로로 깨지지 않음
+{
+  const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  const src = T.slice(T.indexOf("function songSheetPages"), T.indexOf("function songSheetPage(")), P = new Function(src + "; return songSheetPages;")();
+  assert.deepStrictEqual(P(120, 1), { pages: 2, rpp: 15 }, "보통 크기: 120마디 = 30줄 → 2쪽");
+  assert.deepStrictEqual(P(120, 1.25), { pages: 3, rpp: 10 }); const big = P(120, 1.8); assert.ok(big.pages > 3 && big.rpp <= 8, "글자를 키우면 한 쪽 줄 수가 줄어 쪽이 늘거나 줄 수가 준다: " + JSON.stringify(big));
+  assert.ok(P(4, 1.8).pages === 1);
+  assert.ok(/meta\.ly \|\| 1/.test(T) && /songSheetPage\(MM, p, rpp, \{ title: o\.name, sub: sb, pages, sec, ly: ls \}\)/.test(T) && /songSheetPages\(MM\.length, ls\)/.test(T), "PDF 쪽을 가사 배율로 만듦");
+  assert.ok(/regen: pdfPages/.test(T) && /out = await opt\.regen\(li\)/.test(T) && /onLy: \(i\) => setLy\(i\)/.test(T), "미리보기에서 크기를 바꾸면 그 크기로 다시 만들고 저장은 보이는 그대로");
+  assert.ok(/id="pvFm"/.test(T) && /id="pvFs"/.test(T) && /\.pvW\.fs \.pvB\{display:none\}/.test(T), "미리보기 가사 크기·전체화면");
+  assert.ok(/\.pvB\{flex-wrap:wrap\}/.test(T) && /\.pvB b\{flex:1 1 auto;font-size:1rem;white-space:nowrap\}/.test(T) && /white-space:nowrap;font-family:inherit\}\.pvB2/.test(T), "미리보기 윗줄이 좁은 폰에서 세로로 깨지지 않게 줄바꿈·nowrap");
+}
+
+// (11/19 사용자 '시간 글씨가 슬라이더 줄과 겹쳐 가려져 → 아래로') 0:00·전체 시간은 슬라이더 바 양옆(맨 아래 정렬)
+{
+  const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  assert.ok(/#dkSh \.shTl\{display:flex;align-items:flex-end/.test(T) && /#dkSh \.shTl>span\{font-size:\.75rem;min-width:34px;height:18px;line-height:18px;align-self:flex-end\}/.test(T));
 }
