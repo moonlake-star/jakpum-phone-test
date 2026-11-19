@@ -230,7 +230,7 @@ const mk = new Function(code + "; return stemEngine;")();
     ev.length = 0; down(0, 0); L.pointermove({ clientX: 40, clientY: 0 }); flush(); L.pointerup(); assert.deepStrictEqual(ev, [], "스크롤하려고 움직이면 모두 취소");
     ev.length = 0; down(); L.pointercancel(); L.pointerup(); assert.deepStrictEqual(ev, []);
     global.setTimeout = realST; global.clearTimeout = realCT; }
-  for (const k of ['const showM = (M)', 'const keyLabel = (n)', 'const meas = () => showM(baseMeas())', 'const pdfPreview = (out, pw, ph, fname, opt = {})', 'pdfPreview(out, 960, 600,', 'pdfPreview(out, 595, 842,', 'id="shSeek"', 'id="shSgs"', 'cellGesture(c, { tap: () => tapCell(m.t0), dbl: () => playFrom(m.t0), long: () => openShEdit(i) })', 'dbl: () => playFrom(m.t0), long: () => openEdit(i)', 'me.onCapo = () => { build(); sub(); paintPk(); }'])
+  for (const k of ['const showM = (M)', 'const keyLabel = (n)', 'const meas = () => showM(baseMeas())', 'const pdfPreview = (out, pw, ph, fname, opt = {})', 'pdfPreview(out, 960, 600,', 'pdfPreview(out, 595, 842,', 'id="shSeek"', 'id="shSgs"', 'cellGesture(c, { tap: () => tapCell(i === 0 ? 0 : m.t0), dbl: () => playFrom(i === 0 ? 0 : m.t0), long: () => openShEdit(i) })', 'dbl: () => playFrom(i === 0 ? 0 : m.t0), long: () => openEdit(i)', 'me.onCapo = () => { build(); sub(); paintPk(); }'])
     assert(H.includes(k), "없음: " + k);
   assert(!/songSave\(songPdf\(out, (595, 842|960, 600)/.test(H.replace(/const pdfPreview[\s\S]*?close\(\); \};/, "")), "PDF는 미리보기를 거쳐서만 저장");
   assert(/capoOf\(\) - keyN/.test(H), "카포 중 코드 고치기는 카포 번호만큼 되돌려 원곡 키로 저장");
@@ -272,7 +272,7 @@ const mk = new Function(code + "; return stemEngine;")();
 
 { // 멈춰 있을 때 한 번 누르면 그 칸부터 재생
   assert.ok(T.includes("const tapCell = (t) => { if (eng.isPlaying()) Q(\"sgPb\").onclick(); else playFrom(t); };"), "재생 중 터치 = 일시정지 · 멈춰 있을 때 터치 = 그 칸부터 재생(11/19)");
-  assert.ok(T.includes("tap: () => tapCell(m.t0), dbl: () => playFrom(m.t0), long: () => openShEdit(i)") && T.includes("else tapCell(m.t0); }, dbl: () => playFrom(m.t0)"), "A4·프롬프터 둘 다");
+  assert.ok(T.includes("tap: () => tapCell(i === 0 ? 0 : m.t0), dbl: () => playFrom(i === 0 ? 0 : m.t0), long: () => openShEdit(i)") && T.includes("else tapCell(i === 0 ? 0 : m.t0); }, dbl: () => playFrom(i === 0 ? 0 : m.t0)"), "A4·프롬프터 둘 다");
 }
 
 { // 긴 가사 줄은 여러 마디에 나눠 놓음
@@ -380,7 +380,7 @@ const mk = new Function(code + "; return stemEngine;")();
   assert.ok(A.all.length === 13 && A.all[0].t === -6 && A.all[12].t === 6, "-6~+6 전부 계산");
   assert.strictEqual(f.songPianoShift([]), null);
   // 화면 연결: 모드 선택 버튼 · 상단 버튼/부제에 값 · 키 ± 때 자동 재추천 · 옛 '피아노 추천 키(소리 키 바꾸기)' 버튼은 없앰
-  assert.ok(T.includes("SG_GUITAR_SVG + \" 기타 · 카포\"") && !T.slice(T.indexOf("const capoPanel = () =>"), T.indexOf("const capoPanel = () =>") + 3000).includes("🎸") && T.includes("🎹 피아노 · 트랜스포즈") && T.includes('localStorage.setItem("sgMode"'), "모드 선택 버튼·기억");
+  assert.ok(T.includes("SG_GUITAR_SVG + \" 기타 · 카포\"") && !T.slice(T.indexOf("const capoPanel = () =>"), T.indexOf("const capoPanel = () =>") + 3000).includes("🎸") && T.includes("🎹 피아노 · 키 변경") && T.includes('localStorage.setItem("sgMode"'), "모드 선택 버튼·기억");
   assert.ok(/shiftBtn = \(\) => \(modeP\(\) \? "🎹"/.test(T) && /\$\("#prCp"\)\.textContent = shiftBtn\(\)/.test(T) && /\$\("#shCp"\)\.textContent = shiftBtn\(\)/.test(T), "상단 버튼에 카포/트랜스포즈 값");
   assert.ok(/트랜스포즈 \$\{k \? sgn\(k\) : "0"\} \(소리/.test(T), "부제(키 옆)에 트랜스포즈 값");
   assert.ok(/songPianoShift\(M\)/.test(T) && /const autoCapo = \(\) => \{ if \(!AN\) return; const P = modeP\(\)/.test(T), "키를 바꾸면 모드에 맞게 자동 재추천");
@@ -430,8 +430,8 @@ const mk = new Function(code + "; return stemEngine;")();
   assert.ok(/const LYS = \[1, 1\.25, 1\.5, 1\.8\]/.test(T) && /id="shFtM"/.test(T) && /id="shFtP"/.test(T) && /localStorage\.setItem\("sgShLy"/.test(T), "가사 글자 크기 버튼(가− 가＋, 기기에 기억)");
   assert.ok(/h\.append\(hb, hs\); paper\.appendChild\(h\); paper\.appendChild\(shTools\(\)\)/.test(T) && !/class="shBtn" id="(shFt|shFs|shPdf)"/.test(T), "글자 크기·전체화면·PDF 버튼은 제목 아래 줄로(위 조작줄에서 뺌 → 제목이 덜 잘림)");
   assert.ok(/const makePdf = async \(pdfBtn\) =>/.test(T) && /pb\.onclick = \(\) => makePdf\(pb\)/.test(T) && /class="shPdfB" id="shPdf"/.test(T), "PDF 버튼도 같은 줄");
-  assert.ok(/#dkSh \.shC\{display:flex;justify-content:space-between/.test(T) && !/e\.style\.left = x\.b \* 25/.test(T), "코드는 순서대로 한 줄(절대 위치 겹침 제거)");
-  assert.ok(/const fitChords = \(\) =>/.test(T) && /scrollWidth > c\.clientWidth \+ 1/.test(T) && /fitChords\(\); paper\.style\.minHeight = ""/.test(T), "칸에 안 들어가면 코드 글자를 줄임");
+  assert.ok(/#dkSh \.shC\{position:relative;/.test(T) && /e\.dataset\.l = String\(x\.b \/ Math\.max\(1, m\.beats\) \* 100\)/.test(T) && !/justify-content:space-between;align-items:flex-start;gap:\.3em/.test(T), "코드는 박 위치에 놓고 겹칠 때만 밀거나 줄임");
+  assert.ok(/const fitChords = \(\) =>/.test(T) && /x\[0\] >= 0 || fs <= 9/.test(T) && /fitChords\(\); paper\.style\.minHeight = ""/.test(T), "칸에 안 들어가면 코드 글자를 줄임");
   assert.ok(/id="shFs"/.test(T) && /const setFs = \(on\) =>/.test(T) && /requestFullscreen/.test(T) && /#dkSh\.fs \.shBar,#dkSh\.fs \.shTl\{display:none\}/.test(T), "전체화면 버튼");
   assert.ok(/classList\.contains\("fs"\)\) \{ if \(r\.top > sc\.top \+ sc\.height \* 0\.45/.test(T) && /scrollBy\(\{ top: r\.top - \(sc\.top \+ sc\.height \* 0\.12\)/.test(T), "전체화면 자동 위로 스크롤");
   assert.ok(/id="pvPv"/.test(T) && /id="pvNx"/.test(T) && /Math\.abs\(dx\) > 50 && Math\.abs\(dx\) > 1\.5 \* Math\.abs\(dy\)/.test(T) && /ArrowRight/.test(T), "PDF 미리보기 좌우 넘기기");
@@ -491,4 +491,14 @@ const mk = new Function(code + "; return stemEngine;")();
   // 줄 안 낱말의 간격은 유지
   const M4 = f.songMeasures(an, 0, [[0.3 + 0.0, "가나다 라마바 사아자"], [4.3, "하하 호호 후후"], [8.3, "가나다 라마바 사아자"], [12.3, "하하 호호 후후"]]);
   assert.ok(M4.length >= 8);
+}
+// (11/20 사용자 '버튼 이거 뭐야' — 카포·키 패널 모드 버튼 글자가 "카/포"로 세로로 깨짐) 한 줄 고정 + 작은 글자 + 줄인 이름
+{
+  const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  assert.ok(/min-width:0;min-height:44px;margin:0;padding:0 6px;white-space:nowrap;font-size:\.92rem;/.test(T) && T.includes('["p", "🎹 피아노 · 키 변경"]'));
+}
+// (11/20 사용자 '첫 마디를 눌렀는데 5초부터 재생') 첫 마디는 0초부터 — 악보·프롬프터 둘 다
+{
+  const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  assert.strictEqual((T.match(/tapCell\(i === 0 \? 0 : m\.t0\)/g) || []).length, 2); assert.strictEqual((T.match(/playFrom\(i === 0 \? 0 : m\.t0\)/g) || []).length, 2);
 }
