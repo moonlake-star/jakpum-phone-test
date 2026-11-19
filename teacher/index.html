@@ -6856,6 +6856,8 @@ function songPianoCost(nm) {   // 0 = 흰건반만 · 1 = 어려움 · null = �
   return (t.filter((x) => SG_BLACK[x]).length + (SG_BLACK[r] ? 1 : 0)) / (t.length + 1);
 }
 // (11/19 사용자 '기타/피아노 모드') 피아노 모드: 소리 키는 그대로 두고, 화면에는 검은건반이 가장 적은 '치는 모양'을 보여 주며 전자키보드 트랜스포즈를 몇 눌러야 소리 키가 되는지(t = 소리 − 모양, -6~+6)를 알려줌. 기타의 카포와 같은 구조
+// (11/19 사용자 '기타 아이콘 어쿠스틱 기타로') 기타 이모지는 일렉기타라 어쿠스틱 기타 모양을 직접 그림(글자색을 따라감)
+const SG_GUITAR_SVG = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" style="vertical-align:-4px" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 10.5c-2.6 0-4.2 1.6-4.2 3.5 0 1 .5 1.6 1 2.1-.9.7-1.4 1.7-1.4 2.8 0 1.9 1.9 3 4.6 3s4.6-1.1 4.6-3c0-1.1-.5-2.1-1.4-2.8.5-.5 1-1.1 1-2.1 0-1.9-1.6-3.5-4.2-3.5z"/><circle cx="12" cy="16.2" r="1.5"/><path d="M12 10.5V3.2"/><path d="M10.5 1.8h3v2h-3z" fill="currentColor"/></svg>';
 function songPianoShift(M) {   // M = 지금 소리 키로 읽은 마디들 → {best:[t,…상위 3], none: t=0, all}
   const w = {}; let tot = 0; for (const m of M || []) for (const c of m.chords || []) { const x = +c.len || 1; w[c.name] = (w[c.name] || 0) + x; tot += x; }
   if (!tot) return null; const all = [];
@@ -7127,7 +7129,7 @@ function songDeck(el, ids, o) {
     document.querySelectorAll(".capoP").forEach((e) => e.remove()); const P = modeP(), R = P ? songPianoShift(baseMeas()) : songCapoBest(baseMeas()), p = document.createElement("div"); p.className = "capoP"; p.setAttribute("role", "dialog"); p.setAttribute("aria-label", P ? "피아노 트랜스포즈 추천" : "카포 추천");
     // (11/19 사용자) 기타 모드(카포) ↔ 피아노 모드(트랜스포즈): 고르면 그 모드의 추천을 바로 적용하고 상단 버튼·부제에 값이 표시됨
     const tg = document.createElement("div"); tg.className = "capoM"; tg.style.cssText = "display:flex;gap:8px;margin:0 0 12px";
-    [["g", "🎸 기타 · 카포"], ["p", "🎹 피아노 · 트랜스포즈"]].forEach(([m, lb]) => { const b = document.createElement("button"); b.type = "button"; b.textContent = lb; b.style.cssText = "flex:1;min-height:44px;margin:0;" + ((m === "p") === P ? "background:#FFE066;color:#000;border-color:#FFE066;font-weight:800" : ""); b.setAttribute("aria-pressed", String((m === "p") === P));
+    [["g", SG_GUITAR_SVG + " 기타 · 카포"], ["p", "🎹 피아노 · 트랜스포즈"]].forEach(([m, lb]) => { const b = document.createElement("button"); b.type = "button"; b.innerHTML = lb;   // 고정 글자·SVG만(사용자 입력 없음) b.style.cssText = "flex:1;min-height:44px;margin:0;" + ((m === "p") === P ? "background:#FFE066;color:#000;border-color:#FFE066;font-weight:800" : ""); b.setAttribute("aria-pressed", String((m === "p") === P));
       b.onclick = () => { if ((m === "p") === P) return; me.mode = m; try { localStorage.setItem("sgMode", m); } catch {} autoCapo(); try { me.onCapo && me.onCapo(); } catch {} paintKey(); capoPanel(); }; tg.appendChild(b); }); p.appendChild(tg);
     const h = document.createElement("h4"); h.textContent = `${P ? "피아노 추천" : "카포 추천"} · 소리 키 ${keyName(keyWant)}`; p.appendChild(h);
     const done = (k) => { p.remove(); paintKey(); try { me.onCapo && me.onCapo(); } catch {} };
@@ -9566,7 +9568,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261119-1500";
+const BUILD = "20261119-1520";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {

@@ -380,7 +380,7 @@ const mk = new Function(code + "; return stemEngine;")();
   assert.ok(A.all.length === 13 && A.all[0].t === -6 && A.all[12].t === 6, "-6~+6 전부 계산");
   assert.strictEqual(f.songPianoShift([]), null);
   // 화면 연결: 모드 선택 버튼 · 상단 버튼/부제에 값 · 키 ± 때 자동 재추천 · 옛 '피아노 추천 키(소리 키 바꾸기)' 버튼은 없앰
-  assert.ok(T.includes("🎸 기타 · 카포") && T.includes("🎹 피아노 · 트랜스포즈") && T.includes('localStorage.setItem("sgMode"'), "모드 선택 버튼·기억");
+  assert.ok(T.includes("SG_GUITAR_SVG + \" 기타 · 카포\"") && !T.slice(T.indexOf("const capoPanel = () =>"), T.indexOf("const capoPanel = () =>") + 3000).includes("🎸") && T.includes("🎹 피아노 · 트랜스포즈") && T.includes('localStorage.setItem("sgMode"'), "모드 선택 버튼·기억");
   assert.ok(/shiftBtn = \(\) => \(modeP\(\) \? "🎹"/.test(T) && /\$\("#prCp"\)\.textContent = shiftBtn\(\)/.test(T) && /\$\("#shCp"\)\.textContent = shiftBtn\(\)/.test(T), "상단 버튼에 카포/트랜스포즈 값");
   assert.ok(/트랜스포즈 \$\{k \? sgn\(k\) : "0"\} \(소리/.test(T), "부제(키 옆)에 트랜스포즈 값");
   assert.ok(/songPianoShift\(M\)/.test(T) && /const autoCapo = \(\) => \{ if \(!AN\) return; const P = modeP\(\)/.test(T), "키를 바꾸면 모드에 맞게 자동 재추천");
