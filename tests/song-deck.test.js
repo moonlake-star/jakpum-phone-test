@@ -434,3 +434,13 @@ const mk = new Function(code + "; return stemEngine;")();
   assert.ok(/classList\.contains\("fs"\)\) \{ if \(r\.top > sc\.top \+ sc\.height \* 0\.45/.test(T) && /scrollBy\(\{ top: r\.top - \(sc\.top \+ sc\.height \* 0\.12\)/.test(T), "전체화면 자동 위로 스크롤");
   assert.ok(/id="pvPv"/.test(T) && /id="pvNx"/.test(T) && /Math\.abs\(dx\) > 50 && Math\.abs\(dx\) > 1\.5 \* Math\.abs\(dy\)/.test(T) && /ArrowRight/.test(T), "PDF 미리보기 좌우 넘기기");
 }
+
+// (11/19 사용자 '좌우폭 작은 글꼴 · sus4·add2 같은 뒤 글씨는 작게') 코드 = 뿌리+단조(크게) + 뒤에 붙는 글씨(작게) · 좁은 글꼴
+{
+  const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  const src = T.slice(T.indexOf("function songChordParts"), T.indexOf("function songChordFill")), P = new Function(src + "; return songChordParts;")();
+  const cases = { Am: ["Am", ""], Am7: ["Am", "7"], D: ["D", ""], D7: ["D", "7"], Gsus4: ["G", "sus4"], Cadd9: ["C", "add9"], Cmaj7: ["C", "maj7"], "F#m7": ["F#m", "7"], Bbdim: ["Bb", "dim"], "C/E": ["C", "/E"], Dsus2: ["D", "sus2"], Emadd9: ["Em", "add9"] };
+  for (const [k, v] of Object.entries(cases)) assert.deepStrictEqual(P(k), v, k);
+  assert.ok(/SG_CHF = '"Roboto Condensed","Arial Narrow"/.test(T) && /font-stretch:condensed/.test(T) && /sans-serif-condensed/.test(T), "좁은 글꼴 목록");
+  assert.ok(/songChordFill\(e, x\.name\)/.test(T) && /songChordFill\(e, ch\.name\)/.test(T) && /songChordParts\(c\.name\)/.test(T), "악보·TV·PDF 모두 같은 규칙");
+}
