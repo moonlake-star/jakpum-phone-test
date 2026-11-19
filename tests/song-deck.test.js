@@ -285,6 +285,6 @@ const mk = new Function(code + "; return stemEngine;")();
 }
 
 { // 곡을 열면 그 카드가 화면 맨 위에
-  assert.ok(T.includes("function songOpenScroll(folder)") && T.includes('block: "start"'));
+  assert.ok(T.includes("function songOpenScroll(folder)") && T.includes(`block: "start"`));
   assert.strictEqual((T.match(/if \(opening\) songOpenScroll\(x\.folder\)/g) || []).length, 2, "▶ 듣기와 제목 둘 다");
 }
