@@ -288,3 +288,12 @@ const mk = new Function(code + "; return stemEngine;")();
   assert.ok(T.includes("function songOpenScroll(folder)") && T.includes(`block: "start"`));
   assert.strictEqual((T.match(/if \(opening\) songOpenScroll\(x\.folder\)/g) || []).length, 2, "▶ 듣기와 제목 둘 다");
 }
+
+// (11/19 사용자) 곡이 열린 화면에서 뒤로 스와이프 = 곡만 접히고 곡 서랍 맨 위로 — 열려 있는 동안 Brand.layer 한 칸
+{
+  const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  assert.ok(T.includes("function songSyncLayer()") && T.includes("songLy = Brand.layer((pop) =>"), "곡 열림 = 뒤로 가기 한 칸");
+  assert.ok(T.includes("function songPaintList() { songPaintList0(); try { songSyncLayer(); } catch {} }"), "목록을 그릴 때마다 칸 맞춤");
+  assert.ok(T.includes("window.scrollTo({ top: 0"), "접힌 뒤 맨 위로");
+  assert.ok(/try \{ if \(songLy\) \{ const l = songLy; songLy = null; l\.close\(\); \} \} catch \{\} \}/.test(T), "다른 화면으로 가면 칸 정리");
+}

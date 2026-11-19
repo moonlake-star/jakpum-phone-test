@@ -688,7 +688,7 @@ window.addEventListener("popstate", (e) => {
     homeBackAt = Date.now(); toast("한 번 더 뒤로 밀면 앱이 닫혀요"); try { Brand.backToBase(); } catch {}
   }
 });
-function show(view) { syncBackHistory(view); try { Brand.bar(); } catch {} for (const v of VIEWS) $(v).classList.toggle("hidden", v !== view); try { $("v2Dock")?.classList.add("hidden"); document.body.classList.remove("v2send"); document.getElementById("v2Ai")?.remove(); } catch {} $("btnBack").classList.toggle("hidden", ["vLogin","vList"].includes(view)); if (view !== "vMkJob") { mkStop?.(); stopProg?.(); } if (view !== "vSongs" && view !== "vMkJob") { try { songDestroy(); } catch {} } if (view !== "vJam") { try { jamStop(); clearTimeout(jam.poll); } catch {} } window.scrollTo(0,0); }
+function show(view) { syncBackHistory(view); try { Brand.bar(); } catch {} for (const v of VIEWS) $(v).classList.toggle("hidden", v !== view); try { $("v2Dock")?.classList.add("hidden"); document.body.classList.remove("v2send"); document.getElementById("v2Ai")?.remove(); } catch {} $("btnBack").classList.toggle("hidden", ["vLogin","vList"].includes(view)); if (view !== "vMkJob") { mkStop?.(); stopProg?.(); } if (view !== "vSongs" && view !== "vMkJob") { try { songDestroy(); } catch {} try { if (songLy) { const l = songLy; songLy = null; l.close(); } } catch {} } if (view !== "vJam") { try { jamStop(); clearTimeout(jam.poll); } catch {} } window.scrollTo(0,0); }
 
 // ── 구글 로그인 · 드라이브 ───────────────────────────────
 // 로그인 유지: 구글이 주는 출입증(1시간짜리)을 이 폰에만 보관해, 새로고침·앱 다시 열기에도 다시 묻지 않는다.
@@ -6189,7 +6189,17 @@ function songOpenScroll(folder) {   // (11/19 사용자 '올라올 때 약간의
   const go = () => { try { const r = [...document.querySelectorAll("[data-sl]")].find((e) => e.dataset.sl === folder); if (!r) return; r.style.scrollMarginTop = "8px"; if (Math.abs(r.getBoundingClientRect().top - 8) > 4) r.scrollIntoView({ block: "start", behavior: calm ? "auto" : "smooth" }); } catch {} };
   setTimeout(go, 60); setTimeout(go, 800);   // 뒤 것은 곡 카드가 다 그려진 뒤 위치가 어긋났을 때만 한 번 더 맞춤
 }
-function songPaintList() {
+// (11/19 사용자 '곡이 열린 화면에서 뒤로 스와이프 = 곡 서랍 처음 화면') 곡이 펼쳐져 있는 동안은 뒤로 가기 한 칸(Brand.layer)을 둠 → 밀면 곡만 접히고 맨 위로
+let songLy = null;
+function songSyncLayer() {
+  const open = !!document.querySelector("#slList .slRow.op");
+  if (open && !songLy && typeof Brand !== "undefined" && Brand.layer) {
+    songLy = Brand.layer((pop) => { songLy = null; if (songLib.open) { songLib.open = null; songLib.auto = null; songDestroy(); songPaintList(); }
+      if (pop) { try { window.scrollTo({ top: 0, behavior: window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }); } catch { window.scrollTo(0, 0); } } });
+  } else if (!open && songLy) { const l = songLy; songLy = null; try { l.close(); } catch {} }
+}
+function songPaintList() { songPaintList0(); try { songSyncLayer(); } catch {} }
+function songPaintList0() {
   const box = $("slList"); if (!box) return; songCachePut(); const q = songLib.q.toLowerCase();
   const keep = sgCur?.folder && sgCur.el && box.contains(sgCur.el) && !sgCur.eng.isDead() ? sgCur : null; if (keep) keep.el.remove();   // 듣는 중인 카드는 떼어 두었다가 새 목록에 그대로 끼움(재생·불러오기 유지)
   const L = songLib.list.filter(x => !q || `${x.d.title} ${x.d.artist}`.toLowerCase().includes(q));
@@ -9463,7 +9473,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261119-1100";
+const BUILD = "20261119-1115";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
