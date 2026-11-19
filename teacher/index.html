@@ -6615,10 +6615,10 @@ const SG_PICK_SNAP = 3.75;   // 줄 첫 낱말이 마디의 이 박 이후면 �
 const SG_LY_DELAY = 0.4;   // 초
 // (11/19 사용자 '앞 칸 가사가 뒷 칸에 섞임') 음성 인식 없이 보컬 소리(파형)만으로 낱말 위치를 잡음: ① 줄 시작을 그 근처 첫 노래 소리에 맞추고 ② 줄 안의 쉬는 곳은 건너뛰며 ③ 노래 소리가 난 시간에만 낱말을 음절 수 비율로 나눔
 function songVoiced(voc) {   // 0.1초마다 노래 중이면 1(파형 값 6 이상 · 0.5초보다 짧은 쉼은 숨 쉬는 곳이라 메움)
-  const s = String(voc || ""), n = s.length, v = new Uint8Array(n);
-  for (let i = 0; i < n; i++) v[i] = s.charCodeAt(i) - 48 >= 6 ? 1 : 0;
+  const s = String(voc || ""), n = s.length, v = new Uint8Array(n), am = new Uint8Array(n);
+  for (let i = 0; i < n; i++) { am[i] = Math.max(0, s.charCodeAt(i) - 48); v[i] = am[i] >= 6 ? 1 : 0; }
   for (let i = 0; i < n;) { if (v[i]) { i++; continue; } let j = i; while (j < n && !v[j]) j++; if (i > 0 && j < n && j - i < 5) for (let k = i; k < j; k++) v[k] = 1; i = j; }
-  return v;
+  v.amp = am; return v;
 }
 function songSyll(w) { const k = (w.match(/[가-힣]/g) || []).length; return k || Math.max(1, (w.match(/[aeiouyAEIOUY]+/g) || []).length); }
 function songLineStart(t, V) {   // 가사 시간 근처(0.3초 앞~1.5초 뒤)의 첫 노래 소리 시각 · 못 찾으면 null
@@ -6630,7 +6630,11 @@ function songWordTimes(t, nxt, words, V) {   // 낱말마다 시작 시각 목�
   const sy = words.map(songSyll), W = sy.reduce((p, q) => p + q, 0), lim = Math.min(n, Math.round(Math.min(nxt - 0.1, st + W * 0.45 + 2) / 0.1)), fr = []; let gap = 0;
   for (let i = Math.round(st / 0.1); i < lim; i++) { if (V[i]) { fr.push(i); gap = 0; } else if (++gap > 20 && fr.length) break; }   // 2초 넘게 조용하면 줄이 끝난 것
   if (fr.length < 6) return null;
-  let acc = 0; return words.map((_, j) => { const f = fr[Math.min(fr.length - 1, Math.floor(fr.length * acc / W))]; acc += sy[j]; return f * 0.1; });
+  // (11/19 사용자 '줄 끝 낱말이 다음 칸으로') 줄 마지막 낱말은 길게 끌어 부르는 일이 많아 두 배 길이로 치고(그래야 시작이 일찍 잡힘), 낱말 시작은 근처(±0.2초)에서 소리가 가장 약해지는 자리(음절 사이)로 붙임
+  const ww = sy.map((x, j) => (j === sy.length - 1 && sy.length >= 3 ? x * 2 : x)), WW = ww.reduce((p, q) => p + q, 0), am = V.amp; let acc = 0, prev = -1;
+  return words.map((_, j) => { let f = fr[Math.min(fr.length - 1, Math.floor(fr.length * acc / WW))]; acc += ww[j];
+    if (am && j > 0) { let b = f, bv = am[f]; for (let i = f - 2; i <= f + 2; i++) if (i > prev && i >= fr[0] && i < n && am[i] < bv) { bv = am[i]; b = i; } f = b; }
+    if (f <= prev) f = prev + 1; prev = f; return f * 0.1; });
 }
 function songMeasures(an, n, lyrics, voc) {
   const B = (an && an.beats) || [], dn = (an && an.down) || 0, ch = ((an && an.chords) || []).slice().sort((a, b) => a[0] - b[0]), ly = (lyrics || []).slice().sort((a, b) => a[0] - b[0]), V = voc ? songVoiced(voc) : null;
@@ -9539,7 +9543,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261119-1325";
+const BUILD = "20261119-1345";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
