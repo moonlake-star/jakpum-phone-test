@@ -6183,6 +6183,11 @@ function songPollArm() {   // 처리 중인 곡이 있으면 20초마다 다시 
     try { const nx = await songLoad(songLib.list), ch = JSON.stringify(nx.map(x => [x.folder, x.d.status, x.d.updated])) !== JSON.stringify(songLib.list.map(x => [x.folder, x.d.status, x.d.updated])); songLib.list = nx; if (ch) songPaintList(); } catch {}   /* 다시 그려도 열린 플레이어 카드는 그대로 옮겨 둠(songPaintList) */
     songPollArm(); }, 20000);
 }
+// (11/19 사용자 '제목이나 재생을 눌러 곡이 열리면 딱 그 곡 카드가 화면 맨 위에') 열린 곡 카드의 윗줄을 화면 맨 위에 맞춤(이전에 열려 있던 곡이 접히며 밀리는 것까지 두 번 맞춤)
+function songOpenScroll(folder) {
+  const go = () => { try { const r = [...document.querySelectorAll("[data-sl]")].find((e) => e.dataset.sl === folder); if (r) { r.style.scrollMarginTop = "8px"; r.scrollIntoView({ block: "start", behavior: "auto" }); } } catch {} };
+  requestAnimationFrame(go); setTimeout(go, 400);
+}
 function songPaintList() {
   const box = $("slList"); if (!box) return; songCachePut(); const q = songLib.q.toLowerCase();
   const keep = sgCur?.folder && sgCur.el && box.contains(sgCur.el) && !sgCur.eng.isDead() ? sgCur : null; if (keep) keep.el.remove();   // 듣는 중인 카드는 떼어 두었다가 새 목록에 그대로 끼움(재생·불러오기 유지)
@@ -6197,8 +6202,8 @@ function songPaintList() {
         <button type="button" class="ghost small" data-sld aria-label="곡 지우기" style="flex:none">🗑</button></div>
       ${op ? `<div class="slPl" style="margin-top:8px"></div>` : ""}</div>`; }).join("");
   box.querySelectorAll("[data-sl]").forEach(row => { const x = songLib.list.find(y => y.folder === row.dataset.sl); if (!x) return;
-    const pb = row.querySelector("[data-slp]"); if (pb) pb.onclick = () => { const opening = songLib.open !== x.folder; songLib.open = opening ? x.folder : null; songLib.auto = opening ? x.folder : null; songDestroy(); songPaintList(); };
-    const tt = row.querySelector("[data-slt]"); if (tt && x.d.status === "done") tt.onclick = () => { const opening = songLib.open !== x.folder; songLib.open = opening ? x.folder : null; songLib.auto = null; songDestroy(); songPaintList(); };   // 제목을 누르면 재생은 시작 없이 그 곡 페이지만 열림/접힘(11/19)
+    const pb = row.querySelector("[data-slp]"); if (pb) pb.onclick = () => { const opening = songLib.open !== x.folder; songLib.open = opening ? x.folder : null; songLib.auto = opening ? x.folder : null; songDestroy(); songPaintList(); if (opening) songOpenScroll(x.folder); };
+    const tt = row.querySelector("[data-slt]"); if (tt && x.d.status === "done") tt.onclick = () => { const opening = songLib.open !== x.folder; songLib.open = opening ? x.folder : null; songLib.auto = null; songDestroy(); songPaintList(); if (opening) songOpenScroll(x.folder); };   // 제목을 누르면 재생은 시작 없이 그 곡 페이지만 열림/접힘(11/19)
     const rb = row.querySelector("[data-slr]"); if (rb) rb.onclick = async () => { rb.disabled = true; try { x.d = { ...x.d, status: "queued", error: null, updated: new Date().toISOString() }; await writeJSON(x.folder, "song.json", x.d, x.fileId); songPaintList(); songPollArm(); kick(); toast("다시 해 볼게요"); } catch (e) { toast("실패: " + errMsg(e)); rb.disabled = false; } };
     row.querySelector("[data-sld]").onclick = async () => { if (!confirm(`‘${x.d.title || "이 곡"}’을 곡 서랍에서 지울까요?\n(드라이브 휴지통으로 — 30일 안엔 되살릴 수 있어요 · 이 곡을 쓰는 메이크업·노트의 원곡 파일도 함께 안 들려요)`)) return;
       try { await api(`${DRIVE}/files/${x.folder}?fields=id`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trashed: true }) }); songLib.list = songLib.list.filter(y => y !== x); if (songLib.open === x.folder) { songDestroy(); songLib.open = null; } songPaintList(); toast("지웠어요(휴지통)"); } catch (e) { toast("지우기 실패: " + errMsg(e)); } };
@@ -9457,7 +9462,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261119-1040";
+const BUILD = "20261119-1050";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {

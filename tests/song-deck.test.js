@@ -159,7 +159,7 @@ const mk = new Function(code + "; return stemEngine;")();
   assert(/const stopPlay = \(\) => \{ document\.querySelectorAll\("\.capoP"\)\.forEach\(\(e\) => e\.remove\(\)\); try \{ eng\.pause\(\); \}/.test(H), "프롬프터 stopPlay 없음");
   assert(/Brand\.layer\(\(\) => \{ stopPlay\(\);/.test(H), "뒤로가기/닫기 때 stopPlay 호출 없음");
   assert(/\{ close: \(\) => \{ stopPlay\(\);/.test(H), "대체 close에도 stopPlay 필요");
-  assert(/data-slt/.test(H) && /songLib\.auto = null; songDestroy\(\); songPaintList\(\);\s*\};/.test(H), "제목 탭: 자동재생 없이 열기");
+  assert(/data-slt/.test(H) && /songLib\.auto = null; songDestroy\(\); songPaintList\(\); if \(opening\) songOpenScroll\(x\.folder\); \};/.test(H), "제목 탭: 자동재생 없이 열기");
   for (const id of ["prKm", "prKp", "prSm", "prSp", "prKv", "prSv"]) assert(H.includes('id="' + id + '"'), id + " 없음");
   assert(/#dkPr \.prKg button\{[^}]*min-height:0/.test(H), "전역 button min-height 덮어쓰기 필요");
   console.log("song-deck: prompter close/title/keytempo ok");
@@ -282,4 +282,9 @@ const mk = new Function(code + "; return stemEngine;")();
   assert.ok(withLy.length >= 3, "한 줄이 3마디 이상에 나뉨: " + withLy);
   assert.strictEqual(M.flatMap((m) => m.lyrics.map((l) => l.text)).join(" ").replace(/\s+/g, " "), "Our love is alive, and so we begin tonight 다음 줄 가사입니다 여기 모두 같이", "글자는 하나도 안 사라지고 순서 그대로");
   assert.strictEqual(M[0].lyrics[0].b < 1, true, "첫 낱말은 줄이 시작한 자리");
+}
+
+{ // 곡을 열면 그 카드가 화면 맨 위에
+  assert.ok(T.includes("function songOpenScroll(folder)") && T.includes('block: "start"'));
+  assert.strictEqual((T.match(/if \(opening\) songOpenScroll\(x\.folder\)/g) || []).length, 2, "▶ 듣기와 제목 둘 다");
 }
