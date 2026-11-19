@@ -6249,7 +6249,13 @@ function songPaintList0() {
 function ytTitle(t, ch) {
   t = String(t || "").replace(/\[[^\]]*\]|【[^】]*】/g, " ").replace(/\((?:[^)]*?(?:official|music\s*video|m\/?v\b|lyric|가사|audio|visuali[sz]er|\bhd\b|4k|teaser|뮤직\s*비디오))[^)]*\)/gi, " ")
     .replace(/\s+(?:M\/?V|MV|Official\s+(?:Music\s+)?Video|Lyrics?)\s*$/i, "").replace(/\s+/g, " ").replace(/^[\s\-–—]+|[\s\-–—]+$/g, "");
-  const m = t.split(/\s+[-–—]\s+/); if (m.length >= 2 && m[0] && m[1]) return { title: m.slice(1).join(" - ").trim(), artist: m[0].trim() };
+  const m = t.split(/\s+[-–—]\s+/), CV = /\b(?:cover(?:ed)?|covers)\b|커버/i;
+  // (11/19 사용자 'You Needed Me - Anne Murray, Boyzone - Connie Talbot (Cover)') 곡 - 원곡 가수 - 커버 가수 (Cover) 꼴: 앞 칸이 곡 · 둘째 칸이 원곡 가수 · 셋째 칸 이후는 커버 가수. 서버 song_lib.split_yt 와 같은 규칙
+  const cvName = (x) => x.replace(/\(\s*(?:cover(?:ed)?(?:\s+by)?|커버)\s*([^)]*)\)/gi, " $1 ").replace(/\b(?:cover(?:ed)?(?:\s+by)?|커버)\b/gi, " ").replace(/\s+/g, " ").replace(/^[\s\-–—()·,]+|[\s\-–—()·,]+$/g, "");
+  if (m.length >= 3 && m.every((x) => x.trim()) && CV.test(t)) { const cb = cvName(m.slice(2).join(" - ")), o = { title: m[0].trim(), artist: m[1].trim() }; if (cb) o.cover_by = cb; return o; }
+  const multi = (x) => /,|\s&\s|\s\/\s|\bfeat\.?\s|\bft\.?\s/i.test(x);
+  if (m.length === 2 && m[0] && m[1] && CV.test(m[1])) { const mm = m[1].match(/^(.*?)\s*\(([^)]*)\)\s*$/); if (mm && mm[1].trim() && CV.test(mm[2]) && multi(mm[1]) && !multi(m[0])) { const cb = cvName(mm[2]).replace(/\b(?:acoustic|piano|guitar|ver\.?|version)\b/gi, " ").replace(/\s+/g, " ").replace(/^[\s\-–—()·,]+|[\s\-–—()·,]+$/g, ""), o = { title: m[0].trim(), artist: mm[1].trim() }; if (cb) o.cover_by = cb; return o; } }
+  if (m.length >= 2 && m[0] && m[1]) return { title: m.slice(1).join(" - ").trim(), artist: m[0].trim() };
   return { title: t, artist: String(ch || "").replace(/\s*-\s*Topic$|VEVO$|\s*Official$|\s*공식$/i, "").trim() };
 }
 // (11/14 10:14 사용자) 추천 곡 칸: 유튜브 주소를 넣으면 제목·가수를 채우고, 이유가 비었으면 초안을 넣음.
@@ -9545,7 +9551,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261119-1345";
+const BUILD = "20261119-1400";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {

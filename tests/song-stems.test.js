@@ -30,5 +30,9 @@ console.log("song lib ok");
 { const a = T.indexOf("function ytTitle"), b = T.indexOf("async function ytInfo"); const cx = {}; require("vm").createContext(cx); require("vm").runInContext(T.slice(a, b), cx);
   assert.deepStrictEqual({ ...cx.ytTitle("[MV] 애즈원(As One) - 원하고 원망하죠 (Official Music Video)") }, { title: "원하고 원망하죠", artist: "애즈원(As One)" });
   assert.deepStrictEqual({ ...cx.ytTitle("둥지", "남진 - Topic") }, { title: "둥지", artist: "남진" });
+  // (11/19 사용자) 곡 - 원곡 가수 - 커버 가수 (Cover) 꼴
+  assert.deepStrictEqual({ ...cx.ytTitle("You Needed Me - Anne Murray, Boyzone - Connie Talbot (Cover)") }, { title: "You Needed Me", artist: "Anne Murray, Boyzone", cover_by: "Connie Talbot" });
+  assert.deepStrictEqual({ ...cx.ytTitle("Without You - Mariah Carey, Harry Nilsson, Air Supply (Boyce Avenue ft Connie Talbot acoustic cover)") }, { title: "Without You", artist: "Mariah Carey, Harry Nilsson, Air Supply", cover_by: "Boyce Avenue ft Connie Talbot" });
+  assert.deepStrictEqual({ ...cx.ytTitle("Adele - Hello (Cover)") }, { title: "Hello (Cover)", artist: "Adele" }, "앞 칸이 가수인 보통 꼴은 그대로");
   assert.ok(T.includes('youtube.com/oembed?format=json&url=') && T.includes("ytParse?.(y)?.url || y")); console.log("yt autofill ok"); }
 assert.ok(T.includes('x.name === "노트북_신호.json"') && T.includes("m <= 15 ?") && T.includes("songHomePaint();"), "(11/07) 곡 서랍에 서버 상태");
