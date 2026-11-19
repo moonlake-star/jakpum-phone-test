@@ -6611,14 +6611,15 @@ function holdRepeat(btn, fn) {
 const SG_NOTES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 function songChordName(nm, n) { if (!(+n)) return String(nm || ""); const T1 = (x) => { const m = /^([A-G][#b]?)(.*)$/.exec(x); if (!m) return x; const FLAT = { Db: "C#", Eb: "D#", Gb: "F#", Ab: "G#", Bb: "A#" }, r = SG_NOTES.indexOf(FLAT[m[1]] || m[1]); return r < 0 ? x : SG_NOTES[((r + (+n || 0)) % 12 + 12) % 12] + m[2]; }, sl = String(nm || "").split("/"); return sl.map(T1).join("/"); }
 // (11/14 사용자 시안 D) TV 프롬프터용: 서버가 읽은 박·코드를 마디로 나눔(4/4 가정) · 가사(d.lyrics=[[초,글]])는 있으면 박 자리에 얹음
+const SG_LY_DELAY = 0.4;   // 초
 function songMeasures(an, n, lyrics) {
   const B = (an && an.beats) || [], dn = (an && an.down) || 0, ch = ((an && an.chords) || []).slice().sort((a, b) => a[0] - b[0]), ly = (lyrics || []).slice().sort((a, b) => a[0] - b[0]);
   if (B.length < dn + 4) return [];
   // (11/19 사용자 '가사가 한 칸에 몰려 있다') 긴 가사 줄(3낱말 이상)은 다음 줄이 시작되기 전까지의 시간에 낱말 길이 비율로 펼쳐서 마디마다 나눠 놓음(한 마디에 몰아 넣지 않음). 짧은 줄은 그대로.
-  const ev = []; ly.forEach((L, i) => { const tx = String(L[1]), w = tx.trim().split(/\s+/).filter(Boolean), gap = Math.max(0.5, (i + 1 < ly.length ? ly[i + 1][0] : L[0] + 6) - L[0]);
-    if (w.length < 3) { ev.push({ t: L[0], x: tx, i }); return; }
+  const ev = []; ly.forEach((L, i) => { const tx = String(L[1]), w = tx.trim().split(/\s+/).filter(Boolean), gap = Math.max(0.5, (i + 1 < ly.length ? ly[i + 1][0] : L[0] + 6) - L[0]), L0 = L[0] + SG_LY_DELAY;   // (11/19 사용자 '가사가 앞칸에') 가사 시간표는 실제 노래보다 조금 먼저 찍혀 있어 뒤로 살짝 미룸
+    if (w.length < 3) { ev.push({ t: L0, x: tx, i }); return; }
     const wt = w.map((x) => Math.max(2, x.length)), W = wt.reduce((p, q) => p + q, 0), span = Math.min(gap * 0.92, W * 0.17); let acc = 0;
-    w.forEach((x, j) => { ev.push({ t: L[0] + span * acc / W, x, i }); acc += wt[j]; }); });
+    w.forEach((x, j) => { ev.push({ t: L0 + span * acc / W, x, i }); acc += wt[j]; }); });
   const out = []; let ci = -1, li = 0;
   for (let s = dn, k = 0; s < B.length; s += 4, k++) {
     const last = B[B.length - 1] + (B[B.length - 1] - B[B.length - 2]), t0 = B[s], t1 = s + 4 < B.length ? B[s + 4] : last, m = { no: k + 1, t0, t1, chords: [], lyrics: [], beats: Math.min(4, B.length - s) };
@@ -6629,11 +6630,17 @@ function songMeasures(an, n, lyrics) {
       if (nm && (b === 0 || nm !== prev)) m.chords.push({ b, name: nm, len: 0 }); prev = nm || prev;
     }
     m.chords.forEach((c, i) => { c.len = (i + 1 < m.chords.length ? m.chords[i + 1].b : m.beats) - c.b; });
+    songChordTidy(m);
     let lastI = -1;   // 같은 줄에서 이어진 낱말은 한 덩어리로
     while (li < ev.length && ev[li].t < t1) { const e = ev[li], pos = Math.max(0, Math.min(3.9, (e.t - t0) / (t1 - t0) * 4)), l = m.lyrics[m.lyrics.length - 1]; if (l && lastI === e.i) l.text += " " + e.x; else m.lyrics.push({ b: pos, text: e.x }); lastI = e.i; li++; }
     out.push(m);
   }
+  for (let k = 0; k + 1 < out.length; k++) { const a = out[k].chords, nx = out[k + 1].chords[0];   // 마디 끝 박(4박)에 걸친 코드가 다음 마디 첫 코드와 같으면 다음 마디의 코드(코드 바뀌는 시각이 박보다 살짝 앞서 찍힌 것) → 뺌
+    if (a.length > 1 && nx && nx.b === 0 && a[a.length - 1].b >= out[k].beats - 1 && a[a.length - 1].name === nx.name) { a.pop(); a.forEach((c, i) => { c.len = (i + 1 < a.length ? a[i + 1].b : out[k].beats) - c.b; }); } }
   return out;
+}
+function songChordTidy(m) {   // (11/19 사용자 '코드가 애매하게 걸쳐서') 같은 뿌리음(Am→Am7)이 1박 간격으로 붙어 글자가 겹치면 하나로 합침(뒤 코드 이름)
+  const c = m.chords; for (let i = 0; i + 1 < c.length;) { if (c[i].len < 2 && c[i + 1].b - c[i].b < 2 && (/^[A-G][#b]?/.exec(c[i].name) || [0])[0] === (/^[A-G][#b]?/.exec(c[i + 1].name) || [1])[0]) { c[i + 1].b = c[i].b; c[i + 1].len += c[i].len; c.splice(i, 1); } else i++; }
 }
 function songBeatPos(an, t) {   // 재생 시각 → {m: 마디 번호(0부터), b: 마디 안 박(0~4 소수)}
   const B = (an && an.beats) || [], dn = (an && an.down) || 0; if (B.length < 2) return { m: 0, b: 0 };
@@ -7076,7 +7083,7 @@ function songDeck(el, ids, o) {
     const close = () => { urls.forEach((u) => { try { URL.revokeObjectURL(u); } catch {} }); w.remove(); };
     w.querySelector("#pvX").onclick = close; w.querySelector("#pvOk").onclick = () => { songSave(songPdf(out, pw, ph), fname); toast("PDF를 받았어요(다운로드 폴더)"); close(); }; document.body.appendChild(w); };
   // (11/19 사용자 '처음 열었을 땐 어느 칸이든 터치하면 그 칸에서 재생 시작') 멈춰 있을 땐 한 번 누르면 그 마디부터 재생 · 재생 중엔 그 마디로 이동만
-  const tapCell = (t) => { if (eng.isPlaying()) seekTo(t); else playFrom(t); };
+  const tapCell = (t) => { if (eng.isPlaying()) Q("sgPb").onclick(); else playFrom(t); };   // (11/19 사용자) 재생 중 아무 칸이나 터치 = 일시정지 · 멈춰 있을 때 터치 = 그 칸부터 재생
   const playFrom = async (t) => { await seekTo(t); if (alive() && !eng.isPlaying()) Q("sgPb").onclick(); };
   // ── (11/19 사용자) 가사 자동 채우기: 가사가 비어 있으면 인터넷(LRCLIB)에서 시간표 달린 가사를 찾아 곡 파일에 저장 · 7일 안에 다시 안 찾음(수동 '가사 찾기'는 언제든)
   const needLy = () => !(Array.isArray(o.lyrics) && o.lyrics.length) && !(o.lyricsTry && Date.now() - Date.parse(o.lyricsTry) < 7 * 864e5);
@@ -7125,7 +7132,7 @@ function songDeck(el, ids, o) {
       const G = document.createElement("div"); G.className = "shG";
       M.forEach((m, i) => { const c = document.createElement("div"); c.className = "shM" + (i >= M.length - (M.length % 4 || 4) ? " sh-last" : ""); c.dataset.i = i;
         const n = document.createElement("div"); n.className = "shN"; n.textContent = m.no; if (nm[i]) { const b = document.createElement("b"); b.textContent = "[" + nm[i] + "]"; n.appendChild(b); }
-        const ch = document.createElement("div"); ch.className = "shC"; for (const x of m.chords) { const e = document.createElement("span"); e.style.left = x.b * 25 + "%"; e.textContent = x.name; ch.appendChild(e); }
+        const ch = document.createElement("div"); ch.className = "shC"; for (const x of m.chords) { const e = document.createElement("span"); e.style.left = x.b * 25 + "%"; e.style.transform = `translateX(-${x.b * 25}%)`; e.textContent = x.name; ch.appendChild(e); }
         const ly = document.createElement("div"); ly.className = "shL"; ly.textContent = m.lyrics.map((y) => y.text).join(" ");
         c.append(n, ch, ly); if (i === sel) c.classList.add("sel"); cellGesture(c, { tap: () => tapCell(m.t0), dbl: () => playFrom(m.t0), long: () => openShEdit(i) }); G.appendChild(c); });
       paper.appendChild(G); on = -1; sub(); };
@@ -9486,7 +9493,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261119-1205";
+const BUILD = "20261119-1225";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
