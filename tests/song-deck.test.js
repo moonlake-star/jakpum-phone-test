@@ -350,14 +350,15 @@ const mk = new Function(code + "; return stemEngine;")();
   assert.ok(T.includes("o.wave && o.wave.voc"), "보컬 파형을 넘겨 줌");
 }
 
-// (11/19 사용자 '못갖춘마디·가사가 앞 마디에서 시작') 줄 첫 낱말: 8분음표 이상 먼저면 앞 마디, 마디 끝 1/4박 안이면 다음 마디 첫 박, 첫 박자 전이면 첫 마디 앞
+// (11/19 사용자 '못갖춘마디·가사가 앞 마디에서 시작') 낱말은 소리가 시작하는 마디에(마디 끝에 걸쳐도 앞 마디) · 첫 박자 전이면 첫 마디
 {
   const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
   const src = T.slice(T.indexOf("const SG_NOTES"), T.indexOf("async function songPeaks(")), f = new Function(src + "; return { songMeasures };")();
   const an = { beats: Array.from({ length: 81 }, (_, i) => +(i * 0.5).toFixed(3)), down: 2, chords: [[1, "C"]] };   // 마디 = 2초, 첫 마디 시작 1.0초
   const L = (t, tx) => f.songMeasures(an, 0, [[t - 0.4, tx]]).filter((m) => m.lyrics.length).map((m) => [m.no, +m.lyrics[0].b.toFixed(2), m.lyrics[0].text])[0];   // 가사 시각은 0.4초 지연이 더해짐
   assert.deepStrictEqual(L(4.5, "하나"), [2, 3.0, "하나"], "3박(3.0)에서 시작 → 앞 마디(2번)");   // 3.0초 마디 2: 3.0~5.0 → 4.5 = 3박째
-  assert.deepStrictEqual(L(4.9, "하나"), [3, 0, "하나"], "마디 끝 직전 → 다음 마디 첫 박");
+  assert.deepStrictEqual(L(4.9, "하나"), [2, 3.8, "하나"], "마디 끝 직전에 시작해 다음 마디로 걸쳐도 → 앞 마디");
+  assert.ok(!T.includes("SG_PICK_SNAP"), "예외 규칙(줄 첫 낱말 밀기) 없음");
   assert.strictEqual(L(0.5, "먼저")[0], 1, "첫 박자 전 가사는 첫 마디");
   const two = f.songMeasures(an, 0, [[4.1, "도 레 미 파"]]);   // 4.5초부터: 3박째에서 시작해 다음 마디로 이어짐
   assert.strictEqual(two.flatMap((m) => m.lyrics.map((l) => l.text)).join(" "), "도 레 미 파", "글자는 그대로 · 순서 유지");
