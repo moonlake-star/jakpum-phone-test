@@ -6184,18 +6184,22 @@ function songPollArm() {   // 처리 중인 곡이 있으면 20초마다 다시 
     songPollArm(); }, 20000);
 }
 // (11/19 사용자 '제목이나 재생을 눌러 곡이 열리면 딱 그 곡 카드가 화면 맨 위에') 열린 곡 카드의 윗줄을 화면 맨 위에 맞춤(이전에 열려 있던 곡이 접히며 밀리는 것까지 두 번 맞춤)
-const SONG_GLIDE_MS = 900;   // (11/19 사용자 '곡서랍 애니 시간을 지금보다 2배로') 기본 부드러운 스크롤(약 0.45초)의 2배
+const SONG_GLIDE_MS = 900;   // (11/19 사용자 '곡서랍 애니 2배' → '더 부드럽게') 거리에 따라 0.9~1.3초
 let songGlideId = 0;
-function songGlide(toY, ms) {   // 화면을 toY 높이까지 천천히(출발·도착이 부드럽게) 옮김 · 움직임 줄이기 설정이면 바로
-  const calm = !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches), y0 = window.scrollY, dy = toY - y0, id = ++songGlideId;
-  if (calm || Math.abs(dy) < 4 || typeof requestAnimationFrame !== "function") { window.scrollTo(0, toY); return; }
-  const t0 = performance.now(), dur = ms || SONG_GLIDE_MS, ease = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
-  const step = (now) => { if (id !== songGlideId) return; const k = Math.min(1, (now - t0) / dur); window.scrollTo(0, y0 + dy * ease(k)); if (k < 1) requestAnimationFrame(step); };
-  requestAnimationFrame(step);
+function songGlide(toY, ms) {   // 화면을 목표 높이까지 옮김: 목표를 매 프레임 다시 읽어(앞 곡이 접히며 밀려도 끊김 없이 따라감) · 처음·끝이 천천히(3차 곡선) · 움직임 줄이기 설정이면 바로
+  const get = typeof toY === "function" ? toY : () => toY, max = () => Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+  const calm = !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches), y0 = window.scrollY, id = ++songGlideId;
+  if (calm || Math.abs(get() - y0) < 4 || typeof requestAnimationFrame !== "function") { window.scrollTo(0, Math.min(max(), Math.max(0, get()))); return; }
+  const dur = ms || Math.min(1300, Math.max(SONG_GLIDE_MS, 500 + Math.abs(get() - y0) * 0.45)), ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+  let t0 = 0;
+  const step = (now) => { if (id !== songGlideId) return; if (!t0) t0 = now; const k = Math.min(1, (now - t0) / dur), y = Math.min(max(), Math.max(0, get()));
+    window.scrollTo(0, y0 + (y - y0) * ease(k)); if (k < 1) requestAnimationFrame(step); };
+  requestAnimationFrame(() => requestAnimationFrame(step));   // 목록을 다시 그린 직후의 무거운 프레임은 건너뛰고 시작
 }
 function songOpenScroll(folder) {   // (11/19 사용자 '올라올 때 약간의 애니') 부드럽게 올라옴
-  const go = () => { try { const r = [...document.querySelectorAll("[data-sl]")].find((e) => e.dataset.sl === folder); if (!r) return; r.style.scrollMarginTop = "8px"; const dy = r.getBoundingClientRect().top - 8; if (Math.abs(dy) > 4) songGlide(Math.max(0, window.scrollY + dy)); } catch {} };
-  setTimeout(go, 60); setTimeout(go, SONG_GLIDE_MS + 250);   // 뒤 것은 곡 카드가 다 그려진 뒤 위치가 어긋났을 때만 한 번 더 맞춤
+  const row = () => [...document.querySelectorAll("[data-sl]")].find((e) => e.dataset.sl === folder);
+  try { const r = row(); if (r) r.style.scrollMarginTop = "8px"; } catch {}
+  setTimeout(() => { try { if (row()) songGlide(() => { const r = row(); return r ? window.scrollY + r.getBoundingClientRect().top - 8 : window.scrollY; }); } catch {} }, 40);
 }
 // (11/19 사용자 '곡이 열린 화면에서 뒤로 스와이프 = 곡 서랍 처음 화면') 곡이 펼쳐져 있는 동안은 뒤로 가기 한 칸(Brand.layer)을 둠 → 밀면 곡만 접히고 맨 위로
 let songLy = null;
@@ -9481,7 +9485,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261119-1125";
+const BUILD = "20261119-1135";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
