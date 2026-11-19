@@ -6590,7 +6590,7 @@ function songPlayer(el, ids, o) {
 }
 // (11/14 사용자 시안 B) 곡 서랍 전용 플레이어: 소리 파형(좌우로 밀기)·큰 재생 버튼·반복·구간 반복(A·B)·속도(80~120%)·보컬/반주 볼륨
 // 키 바꾸기·코드·악보는 서버가 파일을 만들어 줘야 해서 여기엔 아직 없음 · 파형은 곡당 한 번 만들어 song.json(wave)에 적어 둠
-const DK_STEP = 0.1, DK_PPS = 18, DK_RATES = [0.8, 0.85, 0.9, 0.95, 1, 1.05, 1.1, 1.15, 1.2];
+const DK_STEP = 0.1, DK_PPS = 22, DK_RATES = [0.8, 0.85, 0.9, 0.95, 1, 1.05, 1.1, 1.15, 1.2];
 // 더블탭(0.35초 안에 같은 칸을 두 번): 키·속도 칸을 원래 값으로. 버튼 위의 탭은 무시
 function dblTap(el, fn) {
   let last = 0; el.style.touchAction = "manipulation";
@@ -9543,7 +9543,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261119-1345";
+const BUILD = "20261119-1320";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {

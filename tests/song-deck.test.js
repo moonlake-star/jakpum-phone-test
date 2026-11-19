@@ -325,7 +325,7 @@ const mk = new Function(code + "; return stemEngine;")();
 // (11/19 사용자) 파형: 기본 확대를 지금보다 살짝 더(14→18 px/초 · 약 1.3배, 확대/축소 조작은 없음) · 멈춰 있을 때 파형을 톡 누르면 재생
 {
   const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
-  assert.ok(T.includes("DK_PPS = 18,"), "기본 확대 1.3배");
+  assert.ok(T.includes("DK_PPS = 22,"), "기본 확대(18→22, 11/19 13:12 코드가 겹쳐서)");
   assert.ok(T.includes('const commitTap = async (d) => { if (!d.was) { if (alive()) Q("sgPb").onclick(); return; }'), "멈춘 파형 톡 = 재생");
   assert.ok(!T.includes("pinch"), "확대·축소 조작 없음");
 }
