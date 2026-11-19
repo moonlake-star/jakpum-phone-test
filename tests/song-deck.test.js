@@ -159,7 +159,7 @@ const mk = new Function(code + "; return stemEngine;")();
   assert(/const stopPlay = \(\) => \{ document\.querySelectorAll\("\.capoP"\)\.forEach\(\(e\) => e\.remove\(\)\); try \{ eng\.pause\(\); \}/.test(H), "프롬프터 stopPlay 없음");
   assert(/Brand\.layer\(\(\) => \{ stopPlay\(\);/.test(H), "뒤로가기/닫기 때 stopPlay 호출 없음");
   assert(/\{ close: \(\) => \{ stopPlay\(\);/.test(H), "대체 close에도 stopPlay 필요");
-  assert(/data-slt/.test(H) && /songLib\.auto = null; songDestroy\(\); songPaintList\(\);\s*\};/.test(H), "제목 탭: 자동재생 없이 열기");
+  assert(/data-slt/.test(H) && /songLib\.auto = null; songDestroy\(\); songPaintList\(\); if \(opening\) songOpenScroll\(x\.folder\); \};/.test(H), "제목 탭: 자동재생 없이 열기");
   for (const id of ["prKm", "prKp", "prSm", "prSp", "prKv", "prSv"]) assert(H.includes('id="' + id + '"'), id + " 없음");
   assert(/#dkPr \.prKg button\{[^}]*min-height:0/.test(H), "전역 button min-height 덮어쓰기 필요");
   console.log("song-deck: prompter close/title/keytempo ok");
@@ -230,7 +230,7 @@ const mk = new Function(code + "; return stemEngine;")();
     ev.length = 0; down(0, 0); L.pointermove({ clientX: 40, clientY: 0 }); flush(); L.pointerup(); assert.deepStrictEqual(ev, [], "스크롤하려고 움직이면 모두 취소");
     ev.length = 0; down(); L.pointercancel(); L.pointerup(); assert.deepStrictEqual(ev, []);
     global.setTimeout = realST; global.clearTimeout = realCT; }
-  for (const k of ['const showM = (M)', 'const keyLabel = (n)', 'const meas = () => showM(baseMeas())', 'const pdfPreview = (out, pw, ph, fname)', 'pdfPreview(out, 960, 600,', 'pdfPreview(out, 595, 842,', 'id="shSeek"', 'id="shSgs"', 'cellGesture(c, { tap: () => seekTo(m.t0), dbl: () => playFrom(m.t0), long: () => openShEdit(i) })', 'dbl: () => playFrom(m.t0), long: () => openEdit(i)', 'me.onCapo = () => { build(); sub(); paintPk(); }'])
+  for (const k of ['const showM = (M)', 'const keyLabel = (n)', 'const meas = () => showM(baseMeas())', 'const pdfPreview = (out, pw, ph, fname)', 'pdfPreview(out, 960, 600,', 'pdfPreview(out, 595, 842,', 'id="shSeek"', 'id="shSgs"', 'cellGesture(c, { tap: () => tapCell(m.t0), dbl: () => playFrom(m.t0), long: () => openShEdit(i) })', 'dbl: () => playFrom(m.t0), long: () => openEdit(i)', 'me.onCapo = () => { build(); sub(); paintPk(); }'])
     assert(H.includes(k), "없음: " + k);
   assert(!/songSave\(songPdf\(out, (595, 842|960, 600)/.test(H.replace(/const pdfPreview[\s\S]*?close\(\); \};/, "")), "PDF는 미리보기를 거쳐서만 저장");
   assert(/capoOf\(\) - keyN/.test(H), "카포 중 코드 고치기는 카포 번호만큼 되돌려 원곡 키로 저장");
@@ -266,4 +266,25 @@ const mk = new Function(code + "; return stemEngine;")();
 { // 처음 재생 대기 팝업 + A4/TV 버튼 순서
   assert.ok(T.includes('const pop = busyPop("곡 불러오는 중이에요"') && T.includes("finally { pop.close(); }"), "불러오는 동안 팝업·끝나면 닫힘");
   assert.ok(T.indexOf('id="dkSh0"') < T.indexOf('id="dkTv"'), "A4 악보 버튼이 TV 앞");
+}
+
+{ // 멈춰 있을 때 한 번 누르면 그 칸부터 재생
+  assert.ok(T.includes("const tapCell = (t) => { if (eng.isPlaying()) seekTo(t); else playFrom(t); };"));
+  assert.ok(T.includes("tap: () => tapCell(m.t0), dbl: () => playFrom(m.t0), long: () => openShEdit(i)") && T.includes("else tapCell(m.t0); }, dbl: () => playFrom(m.t0)"), "A4·프롬프터 둘 다");
+}
+
+{ // 긴 가사 줄은 여러 마디에 나눠 놓음
+  const src = T.slice(T.indexOf("const SG_NOTES"), T.indexOf("async function songPeaks(")), f = new Function(src + "; return { songMeasures };")();
+  const beats = Array.from({ length: 41 }, (_, i) => +(i * 0.5).toFixed(3));   // 120BPM · 한 마디 2초 · 10마디
+  const an = { beats, down: 0, chords: [[0, "C"]] };
+  const M = f.songMeasures(an, 0, [[0.2, "Our love is alive, and so we begin tonight"], [9.0, "다음 줄 가사입니다 여기 모두 같이"]]);
+  const withLy = M.filter((m) => m.lyrics.length).map((m) => m.no);
+  assert.ok(withLy.length >= 3, "한 줄이 3마디 이상에 나뉨: " + withLy);
+  assert.strictEqual(M.flatMap((m) => m.lyrics.map((l) => l.text)).join(" ").replace(/\s+/g, " "), "Our love is alive, and so we begin tonight 다음 줄 가사입니다 여기 모두 같이", "글자는 하나도 안 사라지고 순서 그대로");
+  assert.strictEqual(M[0].lyrics[0].b < 1, true, "첫 낱말은 줄이 시작한 자리");
+}
+
+{ // 곡을 열면 그 카드가 화면 맨 위에
+  assert.ok(T.includes("function songOpenScroll(folder)") && T.includes('block: "start"'));
+  assert.strictEqual((T.match(/if \(opening\) songOpenScroll\(x\.folder\)/g) || []).length, 2, "▶ 듣기와 제목 둘 다");
 }
