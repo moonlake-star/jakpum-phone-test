@@ -379,3 +379,18 @@ const mk = new Function(code + "; return stemEngine;")();
   assert.strictEqual(f.songPianoBest([], 0), null);
   assert.ok(T.includes("피아노 추천 키") && T.includes("songPianoBest(baseMeas(), keyN)"), "카포 창에 버튼");
 }
+
+// (11/19 사용자 '줄 끝 낱말 you가 다음 칸에') 마지막 낱말은 길게 끌어 부르므로 일찍 시작해야 함 · 낱말 시작은 음절 사이(소리 약한 곳)로 붙음
+{
+  const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  const src = T.slice(T.indexOf("const SG_NOTES"), T.indexOf("async function songPeaks(")), f = new Function(src + "; return { songVoiced, songWordTimes };")();
+  // 10.0~18.0초 노래(8초), 낱말 7개(음절 1개씩) · 같은 간격으로 하면 마지막 낱말은 10+8*6/7=16.86초
+  const voc = Array.from({ length: 300 }, (_, i) => String.fromCharCode(48 + (i >= 100 && i < 180 ? 40 : 1))).join(""), V = f.songVoiced(voc);
+  const w = ["a", "b", "c", "d", "e", "f", "g"], tw = f.songWordTimes(10.0, 25, w, V);
+  assert.ok(tw[6] < 16.5, "마지막 낱말은 균등 배분보다 일찍: " + tw[6]);
+  assert.ok(tw.every((x, i) => i === 0 || x > tw[i - 1]), "순서 유지");
+  // 음절 사이에 소리가 약해지는 곳(0.1초 골)이 있으면 낱말 시작이 그곳으로 붙음(균등 배분 자리 ±0.2초 안)
+  const am = Array.from({ length: 300 }, (_, i) => (i >= 100 && i < 180 ? 40 : 1)); am[114] = 8; am[132] = 7;
+  const V2 = f.songVoiced(am.map((x) => String.fromCharCode(48 + x)).join("")), t2 = f.songWordTimes(10.0, 25, ["a", "b", "c", "d", "e", "f"], V2);
+  assert.ok(t2.some((x) => Math.abs(x - 11.4) < 0.01) && t2.some((x) => Math.abs(x - 13.2) < 0.01), "골(11.4·13.2초)에 붙음: " + t2);
+}
