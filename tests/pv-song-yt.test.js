@@ -39,3 +39,12 @@ function env(vals, oembed) {
   assert(src.includes('id="pvSongH"') && src.includes('pvSongFromYt(me)'));
   console.log('pv-song-yt ok');
 })().catch(e => { console.error(e); process.exit(1); });
+// (11/20 사용자 '낭만에 대하여 - 최백호 (최백호의 낭만이즈백)') 뒤 칸이 '이름 (이름의 …)' 이면 뒤가 가수 — 서버 split_yt 와 같은 규칙
+{
+  const T = require('fs').readFileSync(__dirname + '/../teacher/index.html', 'utf8');
+  const s = T.slice(T.indexOf('function ytTitle('), T.indexOf('// (11/14 10:14 사용자) 추천 곡 칸'));
+  const yt = new Function(s + ';return ytTitle;')();
+  require('assert').deepStrictEqual(yt('낭만에 대하여 - 최백호 (최백호의 낭만이즈백)', ''), { title: '낭만에 대하여', artist: '최백호' });
+  require('assert').deepStrictEqual(yt('Artist - Levitating (Levitating Remix)', ''), { title: 'Levitating (Levitating Remix)', artist: 'Artist' });
+  require('assert').deepStrictEqual(yt('최백호 - 낭만에 대하여', ''), { title: '낭만에 대하여', artist: '최백호' });
+}
