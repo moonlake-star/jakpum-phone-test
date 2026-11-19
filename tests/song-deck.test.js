@@ -299,3 +299,10 @@ const mk = new Function(code + "; return stemEngine;")();
   assert.ok(T.includes("if (pop) songGlide(0);") && T.includes("const SONG_GLIDE_MS = 900;"), "접힌 뒤 맨 위로 · 애니 2배(0.9초)");
   assert.ok(/try \{ if \(songLy\) \{ const l = songLy; songLy = null; l\.close\(\); \} \} catch \{\} \}/.test(T), "다른 화면으로 가면 칸 정리");
 }
+
+// (11/19 사용자) 구간 A·B는 코드(금색 #ffd27a)와 다른 색(분홍) — 파형 표시·시작/끝 버튼·시간 글자 모두
+{
+  const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  assert.ok(T.includes('g.fillStyle = "#ff6fb5"; g.fillRect(x - 1, 0, 2, H)') && T.includes('rgba(255,111,181,.16)'), "파형의 A·B 선과 구간 색");
+  assert.ok(T.includes(".dk .dkRv #dkA,.dk .dkRv #dkB{border-color:#ff6fb5;color:#ff6fb5}") && T.includes(".dk .dkLab{color:#ff6fb5;") && T.includes("#dkLoop.on{border-color:#ff6fb5"), "버튼·글자 색");
+}
