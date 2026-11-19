@@ -402,3 +402,9 @@ const mk = new Function(code + "; return stemEngine;")();
   assert.ok(/ep\.querySelector\("#shOk"\)\.onclick = \(\) => closeShEdit\(true\)/.test(T));
   assert.ok(/st0 = scEl \? scEl\.scrollTop : 0/.test(T) && /scEl\.scrollTop = st0/.test(T) && /paper\.style\.minHeight = paper\.offsetHeight/.test(T), "다시 그리는 동안 높이·스크롤 위치 유지");
 }
+
+// (11/19 사용자) 카포 버튼은 '카포'만 쓰지 않고 현재 카포 위치를 보여줌: 카포0 · 카포2
+{
+  const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  assert.ok(/\$\("#prCp"\)\.textContent = "카포" \+ capoOf\(\)/.test(T) && /\$\("#shCp"\)\.textContent = "카포" \+ capoOf\(\)/.test(T), "프롬프터·A4 카포 버튼이 현재 카포를 표시");
+}
