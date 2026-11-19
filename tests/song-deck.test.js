@@ -85,7 +85,7 @@ const mk = new Function(code + "; return stemEngine;")();
   assert.ok(dk.includes("eng.setLoop(") && dk.includes("eng.setRate(") && dk.includes("cv.onpointerdown"), "구간 반복·속도·밀기 연결");
   assert.ok(T.includes("touch-action:pan-y"), "세로 스크롤은 허용");
   assert.ok(dk.includes("o.analysis && o.analysis.key") && dk.includes("eng.swap(") && dk.includes("o.onKeyReq"), "키 카드는 서버가 분석한 곡에만 · 파일 없으면 요청");
-  assert.ok(/songDeck\(pl, ids, \{[^]*analysis: tv\.an, tempoMul: tv\.mul, keys: x\.d\.keys, keyReq: x\.d\.key_req/.test(T), "곡 서랍이 분석·키 파일을 넘김");
+  assert.ok(/songDeck\(pl, ids, \{[^]*analysis: x\.d\.analysis, keys: x\.d\.keys, keyReq: x\.d\.key_req/.test(T), "곡 서랍이 분석·키 파일을 넘김");
   assert.ok(dk.includes("openPrompter") && dk.includes("Brand.layer") && dk.includes('id="shTv"') && dk.includes("o.analysis.chords.length"), "프롬프터는 코드가 있는 곡에만 · 뒤로 가기 한 칸");
   assert.ok(dk.includes('id="prPdf"') && dk.includes("songPdfName(o.name, o.artist, keyName(keyN) + shiftTag()"), "프롬프터 PDF 버튼·파일명 규칙");
   for (const k of ["prVol", "prSeek", "prSgs", "prEd", "prPv", "prNx", "prCi", "prLi", "prSi"]) assert.ok(dk.includes('id="' + k + '"'), "프롬프터 " + k);
@@ -501,16 +501,4 @@ const mk = new Function(code + "; return stemEngine;")();
 {
   const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
   assert.strictEqual((T.match(/tapCell\(i === 0 \? 0 : m\.t0\)/g) || []).length, 2); assert.strictEqual((T.match(/playFrom\(i === 0 \? 0 : m\.t0\)/g) || []).length, 2);
-}
-// (11/20 사용자 '둥지: 1마디에 2마디씩, 원곡 164') 템포 ×2 / ×½ 보기 — 박 사이에 중간 박, 첫 마디 위치 유지, 되돌리면 원래대로
-{
-  const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
-  const src = T.slice(T.indexOf("function songTempoView("), T.indexOf("function songMeasures("));
-  const tv = new Function(src + "; return songTempoView;")();
-  const beats = Array.from({ length: 41 }, (_, i) => 1 + i * 0.5), d = { bpm: 82, analysis: { beats, down: 2, bpm: 82, meter: 4, key: "F" }, sections: [[3, "벌스"]] };
-  const a = tv(d); assert.strictEqual(a.mul, 1); assert.strictEqual(a.an, d.analysis, "배수 없으면 그대로");
-  const b = tv({ ...d, tempo_mul: 2 }); assert.strictEqual(b.bpm, 164); assert.strictEqual(b.an.beats.length, 82); assert.strictEqual(b.an.down, 4);
-  assert.strictEqual(b.an.beats[b.an.down], beats[2], "첫 마디 시작 시각 유지"); assert.strictEqual(b.an.beats[1], 1.25, "중간 박"); assert.strictEqual(beats.length, 41, "원본 안 건드림");
-  const c = tv({ ...d, analysis: { ...b.an, bpm: 164 }, bpm: 164, tempo_mul: 0.5 }); assert.strictEqual(c.bpm, 82); assert.strictEqual(c.an.beats[c.an.down], beats[2]); assert.ok(c.an.beats.slice(0, 5).every((x, i) => Math.abs(x - beats[i]) < 1e-9) === false || true);
-  assert.ok(T.includes('id="shTm"') && T.includes("onTempo: (m)"), "버튼·저장 연결");
 }
