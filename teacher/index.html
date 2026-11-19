@@ -9621,8 +9621,11 @@ document.addEventListener("click", (e) => {
 // (11/09 사용자) 로그아웃 — 구글 로그인 정보(출입증·계정 기억)와 이 계정의 목록 임시 저장분만 지움. 녹음·메이크업·설정 같은 이 폰의 자료는 그대로 둠
 $("btnLogout").onclick = () => {
   if (!confirm("로그아웃할까요? 다시 들어오려면 구글 로그인이 필요해요. (이 폰에 저장된 녹음·설정은 지워지지 않아요)")) return;
-  for (const k of ["vn_tok", "vn_ctok", "vn_hint", "vn_cfg_id", "vn_cfg", "vn_list"]) LS.set(k, null);
+  for (const k of ["vn_tok", "vn_ctok", "vn_hint", "vn_cfg_id", "vn_cfg", "vn_list", "vn_jam"]) LS.set(k, null);
   abcClear();   // (11/16) 보관해 둔 오디오도 함께 지움
+  // (11/19 야간점검) 11/19에 생긴 저장분도 함께 지움: 곡 서랍 목록(localStorage) · 드라이브 JSON 저장본(레슨 확인·메이크업 요청 등) — 다른 계정으로 로그인해도 이전 계정 자료가 먼저 보이지 않게
+  try { clearTimeout(songCacheT); localStorage.removeItem(SONG_CACHE_KEY); } catch {}
+  try { if (abcOn()) caches.delete(JC); } catch {}
   try { const t = token; token = null; if (t && window.google?.accounts?.oauth2) google.accounts.oauth2.revoke(t, () => {}); } catch {}
   try { google.accounts.id.disableAutoSelect(); } catch {}
   location.reload();
