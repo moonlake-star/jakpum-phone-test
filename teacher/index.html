@@ -466,7 +466,7 @@
 #dkSh .shG{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-left:2px solid #222}
 #dkSh .shM{position:relative;border-top:2px solid #222;border-right:1px solid #999;border-bottom:0;padding:2px 4px 4px;cursor:pointer;min-height:calc(var(--f)*58px);box-sizing:border-box;display:flex;flex-direction:column;justify-content:space-between}#dkSh .shM:nth-child(4n){border-right:2px solid #222}#dkSh .shM.sh-last{border-bottom:2px solid #222}
 #dkSh .shM.on{background:#fff0a6}#dkSh .shN{font-size:max(9px,calc(var(--f)*10px));color:#888;line-height:1.2}#dkSh .shN b{color:#111;margin-left:.3em}
-#dkSh .shC{display:flex;justify-content:space-between;align-items:flex-start;gap:.3em;min-height:max(22px,calc(var(--f)*26px));overflow:hidden}#dkSh .shC span{flex:none;font-weight:900;color:#0b3d91;font-size:var(--cf,max(15px,calc(var(--f)*20px)));line-height:1.2;white-space:nowrap}#dkSh .shC span:only-child{margin-right:auto}
+#dkSh .shC{display:flex;justify-content:space-between;align-items:flex-start;gap:.3em;min-height:max(22px,calc(var(--f)*26px));overflow:hidden}#dkSh .shC span{flex:none;font-family:"Roboto Condensed","Arial Narrow","Helvetica Neue Condensed","Avenir Next Condensed",sans-serif-condensed,"Noto Sans KR",sans-serif;font-stretch:condensed;font-weight:900;color:#0b3d91;font-size:var(--cf,max(15px,calc(var(--f)*20px)));line-height:1.2;white-space:nowrap}#dkSh .shC span:only-child{margin-right:auto}
 #dkSh .shL{font-size:calc(var(--ly)*max(11px,calc(var(--f)*13px)));line-height:1.25;color:#111;word-break:keep-all;overflow-wrap:anywhere;min-height:1.25em}
 .pvW{position:fixed;inset:0;z-index:10040;background:#222;display:flex;flex-direction:column;font-family:inherit}.pvB{display:flex;align-items:center;gap:10px;padding:8px 12px;background:#111;color:#fff}.pvB b{flex:1;font-size:1rem}.pvB button{min-height:0;height:40px;padding:0 16px;margin:0;border-radius:10px;border:2px solid #b8b8b8;background:#000;color:#fff;font-weight:700}.pvB button.pvOk{background:#FFE066;border-color:#FFE066;color:#000}.pvS{flex:1;min-height:0;overflow:auto;padding:10px;display:flex;flex-direction:column;align-items:center;gap:12px}.pvS img{width:min(100%,900px);height:auto;background:#fff;box-shadow:0 2px 12px rgba(0,0,0,.7)}.pvB .pvNav{padding:0 12px;font-size:1.1rem}.pvB .pvPg{min-width:3.2em;text-align:center;font-size:.9rem;color:#FFE066;font-weight:700}
 .capoP .cr{cursor:pointer}.capoP .cr .go{float:right;font-size:.8rem;color:#FFE066;border:1px solid #FFE066;border-radius:8px;padding:2px 8px}
@@ -488,7 +488,7 @@
 #dkPr .prM.on{background:#1f1a00;border-top:3px solid #FFE066;border-bottom:3px solid #FFE066}#dkPr .prM.sel{border-top:3px solid #4DD0E1;border-bottom:3px solid #4DD0E1}
 #dkPr .prNo{position:absolute;left:.5em;top:.1em;font-size:calc(var(--u)*1.1);color:#8c8c8c;white-space:nowrap}#dkPr .prNo b{color:#fff;margin-left:.3em}#dkPr .prBt{position:absolute;top:calc(var(--u)*1.4);font-size:calc(var(--u)*1);font-weight:700;color:#8c8c8c;padding-left:.5em}#dkPr .prBt.p1{color:#e8e8e8}
 #dkPr .prLn{position:absolute;top:calc(var(--u)*2.8);bottom:.4em;width:0;border-left:2px dashed #444}
-#dkPr .prCh{position:absolute;top:calc(var(--u)*2.5);font-size:calc(var(--u)*3.3);font-weight:900;line-height:1.1;color:#FFE066;white-space:nowrap;z-index:1}#dkPr .prUl{position:absolute;top:calc(var(--u)*6.3);height:calc(var(--u)*.4);border-radius:4px;background:#FFE066;opacity:.85}
+#dkSh .shC .cq,#dkPr .prCh .cq{font-size:.62em;font-weight:800;margin-left:.04em}#dkPr .prCh{font-family:"Roboto Condensed","Arial Narrow","Helvetica Neue Condensed","Avenir Next Condensed",sans-serif-condensed,"Noto Sans KR",sans-serif;font-stretch:condensed}#dkPr .prCh{position:absolute;top:calc(var(--u)*2.5);font-size:calc(var(--u)*3.3);font-weight:900;line-height:1.1;color:#FFE066;white-space:nowrap;z-index:1}#dkPr .prUl{position:absolute;top:calc(var(--u)*6.3);height:calc(var(--u)*.4);border-radius:4px;background:#FFE066;opacity:.85}
 #dkPr .prLy{position:absolute;top:calc(var(--u)*7);font-size:calc(var(--u)*2);line-height:1.2;color:#fff;white-space:nowrap}
 #dkPr .prEg{position:absolute;right:.5em;top:.1em;font-size:calc(var(--u)*1);font-weight:700;color:#FF9F43}
 #dkPr .prHd{position:absolute;top:0;bottom:0;width:4px;margin-left:-2px;background:#fff;box-shadow:0 0 10px #fff;display:none;z-index:2}#dkPr .prM.on .prHd{display:block}
@@ -6815,6 +6815,10 @@ async function songFetchLyrics(title, artist, dur, F) {   // 찾으면 {lines,�
   return reached ? null : undefined;
 }
 // ── (11/19 사용자) A4 한 장 악보: 흰 바탕·검은 글자(인쇄용) · 한 줄 4마디 · 28줄까지 한 장에(넘으면 쪽을 나눔) · 1240×1754(A4 150dpi)
+// (11/19 사용자 '글꼴은 좌우폭 좁은 것 · sus4·add2 같은 뒤 글씨는 작게') 코드를 '뿌리+단조(m)'(크게)와 '뒤에 붙는 것'(7·maj7·sus4·add9·/베이스… 작게)로 나눔
+const SG_CHF = '"Roboto Condensed","Arial Narrow","Helvetica Neue Condensed","Avenir Next Condensed",sans-serif-condensed,"Noto Sans KR",sans-serif', SG_CQ = 0.62;
+function songChordParts(n) { const m = /^([A-G][#b♯♭]?)(m(?!aj))?(.*)$/.exec(String(n)); return m ? [m[1] + (m[2] || ""), m[3]] : [String(n), ""]; }
+function songChordFill(el, name) { const [a, b] = songChordParts(name); el.textContent = a; if (b) { const q = document.createElement("small"); q.className = "cq"; q.textContent = b; el.appendChild(q); } }
 function songSheetPages(total) { const rows = Math.max(1, Math.ceil(total / 4)), pg = Math.ceil(rows / 28), rpp = Math.ceil(rows / pg); return { pages: pg, rpp }; }
 function songSheetPage(M, page, rpp, meta) {
   const W = 1240, H = 1754, cv = document.createElement("canvas"); cv.width = W; cv.height = H; const g = cv.getContext("2d"), F = '"Noto Sans KR","Malgun Gothic","Apple SD Gothic Neo",sans-serif';
@@ -6825,7 +6829,8 @@ function songSheetPage(M, page, rpp, meta) {
     g.fillStyle = "#222"; g.fillRect(x, y, cw, 2); g.fillRect(x, y + rh - 2, cw, 2); g.fillRect(x, y, 3, rh); if (i % 4 === 3) g.fillRect(x + cw - 3, y, 3, rh);
     g.fillStyle = "#888"; g.font = `500 ${Math.max(13, rh * 0.13)}px ${F}`; g.fillText(String(m.no), x + 10, y + rh * 0.16 + 2); const sec = meta.sec && meta.sec[from + i]; if (sec) { g.fillStyle = "#111"; g.font = `700 ${Math.max(13, rh * 0.13)}px ${F}`; g.fillText(sec, x + 10 + g.measureText(String(m.no)).width + 10, y + rh * 0.16 + 2); }
     const bw = cw / 4, cf = Math.max(22, Math.min(46, rh * 0.34));
-    for (const c of m.chords) { let fs = cf, mw = c.len * bw - 14; g.font = `900 ${fs}px ${F}`; while (fs > 16 && g.measureText(c.name).width > mw) { fs -= 2; g.font = `900 ${fs}px ${F}`; } g.fillStyle = "#0b3d91"; g.fillText(c.name, x + c.b * bw + 10, y + rh * 0.58); }
+    for (const c of m.chords) { let fs = cf, mw = c.len * bw - 14; const [ra, rb] = songChordParts(c.name), CF = SG_CHF, wd = (z) => { g.font = `900 ${z}px ${CF}`; const w1 = g.measureText(ra).width; g.font = `900 ${z * SG_CQ}px ${CF}`; return w1 + (rb ? g.measureText(rb).width : 0); }; while (fs > 16 && wd(fs) > mw) fs -= 2;
+      g.fillStyle = "#0b3d91"; g.font = `900 ${fs}px ${CF}`; g.fillText(ra, x + c.b * bw + 10, y + rh * 0.58); if (rb) { const w1 = g.measureText(ra).width; g.font = `900 ${fs * SG_CQ}px ${CF}`; g.fillText(rb, x + c.b * bw + 10 + w1 + 1, y + rh * 0.58); } }
     const tx = m.lyrics.map((l) => l.text).join(" "); if (tx) { let fs = Math.max(14, Math.min(28, rh * 0.2)); g.font = `500 ${fs}px ${F}`; while (fs > 11 && g.measureText(tx).width > cw - 18) { fs -= 1; g.font = `500 ${fs}px ${F}`; } g.fillStyle = "#111"; g.fillText(tx, x + 10, y + rh * 0.88); } }
   g.fillStyle = "#999"; g.font = `500 22px ${F}`; g.textAlign = "center"; g.fillText("작품 보컬노트", W / 2, H - 40); g.textAlign = "left";
   return cv;
@@ -7059,7 +7064,7 @@ function songDeck(el, ids, o) {
         for (let k = 0; k < 4; k++) { const i = pg * SG_PER + r * 4 + k, m = M[i], c = document.createElement("div"); c.className = "prM"; if (!m) { c.classList.add("prE"); row.appendChild(c); continue; } c.dataset.i = i; if (edit && i === sel) c.classList.add("sel");
           const no = document.createElement("span"); no.className = "prNo"; no.textContent = m.no; if (secName[i]) { const sb = document.createElement("b"); sb.textContent = "[" + secName[i] + "]"; no.appendChild(sb); } c.appendChild(no);
           for (let b = 0; b < 4; b++) { const t = document.createElement("span"); t.className = "prBt" + (b === 0 ? " p1" : ""); t.style.left = b * 25 + "%"; t.textContent = b + 1; c.appendChild(t); if (b === 2) { const l = document.createElement("span"); l.className = "prLn"; l.style.left = "50%"; c.appendChild(l); } }
-          for (const ch of m.chords) { const e = document.createElement("span"); e.className = "prCh"; e.style.left = `calc(${ch.b * 25}% + .4em)`; e.textContent = ch.name; c.appendChild(e);
+          for (const ch of m.chords) { const e = document.createElement("span"); e.className = "prCh"; e.style.left = `calc(${ch.b * 25}% + .4em)`; songChordFill(e, ch.name); c.appendChild(e);
             const u = document.createElement("span"); u.className = "prUl"; u.style.left = `calc(${ch.b * 25}% + .4em)`; u.style.width = `calc(${ch.len * 25}% - .9em)`; c.appendChild(u); }
           for (const y of m.lyrics) { const e = document.createElement("span"); e.className = "prLy"; e.dataset.b = y.b; e.style.left = `calc(${y.b * 25}% + .4em)`; e.textContent = y.text; c.appendChild(e); }
           if (m.edited && edit) { const e = document.createElement("span"); e.className = "prEg"; e.textContent = "수정됨"; c.appendChild(e); }
@@ -7216,7 +7221,7 @@ function songDeck(el, ids, o) {
       const G = document.createElement("div"); G.className = "shG";
       M.forEach((m, i) => { const c = document.createElement("div"); c.className = "shM" + (i >= M.length - (M.length % 4 || 4) ? " sh-last" : ""); c.dataset.i = i;
         const n = document.createElement("div"); n.className = "shN"; n.textContent = m.no; if (nm[i]) { const b = document.createElement("b"); b.textContent = "[" + nm[i] + "]"; n.appendChild(b); }
-        const ch = document.createElement("div"); ch.className = "shC"; for (const x of m.chords) { const e = document.createElement("span"); e.textContent = x.name; ch.appendChild(e); }
+        const ch = document.createElement("div"); ch.className = "shC"; for (const x of m.chords) { const e = document.createElement("span"); songChordFill(e, x.name); ch.appendChild(e); }
         const ly = document.createElement("div"); ly.className = "shL"; ly.textContent = m.lyrics.map((y) => y.text).join(" ");
         c.append(n, ch, ly); if (i === sel) c.classList.add("sel"); cellGesture(c, { tap: () => tapCell(m.t0), dbl: () => playFrom(m.t0), long: () => openShEdit(i) }); G.appendChild(c); });
       paper.appendChild(G); fitChords(); paper.style.minHeight = ""; if (scEl) scEl.scrollTop = st0; on = -1; sub(); };
@@ -9588,7 +9593,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261119-1550";
+const BUILD = "20261119-1605";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
