@@ -437,11 +437,11 @@
 .sgC .sgDl{display:flex;gap:6px;margin-top:10px}.sgC .sgDl button{flex:1;background:var(--chip);color:var(--fg);border:0;border-radius:10px;padding:8px 0;font-size:.82rem;line-height:1.25}.sgC .sgDl small{display:block;font-size:.66rem;color:var(--muted)}
 .dk .dkWv{position:relative;height:124px;border-radius:12px;background:#15181c;border:1px solid var(--line);overflow:hidden;margin-top:8px;touch-action:pan-y;user-select:none;-webkit-user-select:none}.dk canvas{width:100%;height:100%;display:block;touch-action:pan-y}
 .dk .dkHead{position:absolute;left:50%;top:0;bottom:0;width:2px;margin-left:-1px;background:#fff;box-shadow:0 0 6px rgba(255,255,255,.55);pointer-events:none}.dk .dkEmpty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:.82rem;pointer-events:none}
-.dk .dkTm{display:flex;justify-content:space-between;gap:8px;font-size:.78rem;color:var(--muted);margin-top:4px;font-variant-numeric:tabular-nums}.dk .dkLab{color:#ffd27a;font-weight:700;text-align:center;flex:1}
+.dk .dkTm{display:flex;justify-content:space-between;gap:8px;font-size:.78rem;color:var(--muted);margin-top:4px;font-variant-numeric:tabular-nums}.dk .dkLab{color:#ff6fb5;font-weight:700;text-align:center;flex:1}
 .dk .dkTr{display:flex;gap:8px;margin-top:8px}.dk .dkTr button{flex:1;min-width:0;height:54px;border-radius:14px;border:1px solid var(--line);background:var(--chip);color:var(--fg);font-size:1.15rem;padding:0;line-height:1.1}.dk .dkTr small{display:block;font-size:.66rem;color:var(--muted)}
 .dk .dkTr .sgPb{flex:1.5;width:auto;height:60px;margin-top:-3px;border:0;border-radius:16px;background:#ffb86b;color:#1b1408;font-size:1.5rem}
 .dk .dkR2{display:flex;gap:8px;margin-top:8px}.dk .dkR2 button,.dk .dkRv button{flex:1;height:46px;border-radius:12px;border:1px solid var(--line);background:transparent;color:var(--fg);font-size:.92rem;padding:0}.dk .dkR2 button.on{border-color:#ffb86b;color:#ffb86b;box-shadow:0 0 10px rgba(255,184,107,.4)}
-.dk .dkRv{display:flex;gap:8px;overflow:hidden;max-height:0;opacity:0;transition:opacity .25s,max-height .25s,margin-top .25s}.dk .dkRv.open{max-height:56px;opacity:1;margin-top:8px}.dk .dkRv #dkA,.dk .dkRv #dkB{border-color:#ffd27a;color:#ffd27a}
+.dk .dkRv{display:flex;gap:8px;overflow:hidden;max-height:0;opacity:0;transition:opacity .25s,max-height .25s,margin-top .25s}.dk .dkRv.open{max-height:56px;opacity:1;margin-top:8px}.dk .dkRv #dkA,.dk .dkRv #dkB{border-color:#ff6fb5;color:#ff6fb5}.dk .dkR2 #dkLoop.on{border-color:#ff6fb5;color:#ff6fb5;box-shadow:0 0 10px rgba(255,111,181,.4)}
 .dk .dkR2 #dkTv{flex:.7}
 #dkPr{position:fixed;inset:0;z-index:10010;background:#000;color:#fff;display:flex;flex-direction:column;gap:1.2vh;padding:1.6vh 2.4vw;box-sizing:border-box;--u:min(1vw,1.6vh);font-family:inherit}
 #dkPr button,#dkPr input{font-family:inherit}
@@ -6882,7 +6882,7 @@ function songDeck(el, ids, o) {
     if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
     g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
     const pps = DK_PPS / rate, cx = W / 2, t0 = vp - cx / pps, t1 = vp + cx / pps, bw = Math.max(1, DK_STEP * pps - 0.6), top0 = CHORDS ? 26 : 0, lh = (H - top0) / 2, lanes = [["voc", top0 + lh * 0.5, "#ffb86b"], ["mr", top0 + lh * 1.5, "#9cc3ff"]], half = lh * 0.42;
-    if (A != null || B != null) { const xa = cx + ((A ?? B) - vp) * pps, xb = cx + ((B ?? A) - vp) * pps; if (A != null && B != null) { g.fillStyle = "rgba(255,184,107,.13)"; g.fillRect(Math.min(xa, xb), 0, Math.abs(xb - xa), H); } }
+    if (A != null || B != null) { const xa = cx + ((A ?? B) - vp) * pps, xb = cx + ((B ?? A) - vp) * pps; if (A != null && B != null) { g.fillStyle = "rgba(255,111,181,.16)"; g.fillRect(Math.min(xa, xb), 0, Math.abs(xb - xa), H); } }
     for (const [k, y, col] of lanes) {
       g.fillStyle = "#363c45"; g.fillRect(0, y, W, 1);
       const s = wave && wave[k]; if (!s) continue;
@@ -6898,7 +6898,7 @@ function songDeck(el, ids, o) {
         if (put.length && tx < put[put.length - 1].r + 3) continue;
         put.push({ nm, tx, r: tx + w, on, f: E.f }); }
       for (const q of put) { g.fillStyle = q.f === 1 ? (q.on ? "#8dffb0" : "#5fbf80") : q.f === 2 ? (q.on ? "#d9b8ff" : "#a287d0") : (q.on ? "#ffd27a" : "#9a8a5a"); g.fillText(q.nm, q.tx, 18); } }
-    for (const [v, lab] of [[A, "A"], [B, "B"]]) if (v != null) { const x = cx + (v - vp) * pps; if (x < -2 || x > W + 2) continue; g.fillStyle = "#ffd27a"; g.fillRect(x - 1, 0, 2, H); g.font = "700 13px system-ui"; g.fillText(lab, x + 4, 14); }
+    for (const [v, lab] of [[A, "A"], [B, "B"]]) if (v != null) { const x = cx + (v - vp) * pps; if (x < -2 || x > W + 2) continue; g.fillStyle = "#ff6fb5"; g.fillRect(x - 1, 0, 2, H); g.font = "700 13px system-ui"; g.fillText(lab, x + 4, 14); }
   };
   const frame = () => { raf = 0; if (!alive()) return;
     if (!drag && !glide) { const p = eng.pos(), n = performance.now(); if (p !== lastP) { lastP = p; lastT = n; } vp = eng.isPlaying() ? lastP + Math.min(0.3, (n - lastT) / 1000 * rate) : p; }
@@ -9486,7 +9486,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261119-1155";
+const BUILD = "20261119-1205";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
