@@ -317,7 +317,7 @@ const mk = new Function(code + "; return stemEngine;")();
   const M = f.songMeasures({ beats, down: 0, chords }, 0, []);
   assert.deepStrictEqual(M[2].chords.map((c) => c.name), ["G"], "다음 마디와 같은 끝 박 코드는 뺌: " + JSON.stringify(M[2].chords));
   assert.deepStrictEqual(M[4].chords.map((c) => c.name + c.b), ["Am70"], "같은 뿌리음 1박 겹침은 뒤 코드로 합침: " + JSON.stringify(M[4].chords));
-  assert.ok(T.includes("e.style.transform = `translateX(-${x.b * 25}%)`"), "코드 글자가 칸 밖으로 안 나가게");
+  assert.ok(T.includes("const fitChords = () =>") && !T.includes("e.style.transform = `translateX(-${x.b * 25}%)`"), "코드 글자가 칸 밖으로 안 나가게(11/19 순서대로 한 줄 + 칸 너비에 맞춰 글자 축소로 바뀜)");
   const L = f.songMeasures({ beats, down: 0, chords: [[0, "C"]] }, 0, [[3.9, "나는 사랑해요 너무나 오래전부터"]]);
   assert.ok(L[2].lyrics.length && L[2].lyrics[0].b < 1.0 && L[1].lyrics.length === 0, "마디 끝(3.9초) 가사는 다음 칸으로(0.4초 미룸): " + JSON.stringify(L.map((m) => m.lyrics)));
 }
@@ -421,4 +421,16 @@ const mk = new Function(code + "; return stemEngine;")();
   const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
   assert.strictEqual((T.match(/const ci0 = ci\.value, apply = \(\) =>/g) || []).length, 2, "프롬프터·악보 편집창 모두 처음 코드 글자를 기억");
   assert.strictEqual((T.match(/if \(ci\.value !== ci0\) \{ delete e\.auto; delete e\.g;/g) || []).length, 2, "코드 칸이 바뀐 때만 e.ch 저장");
+}
+
+// (11/19 사용자) 악보 화면: 가사 글자 크기 · 코드 겹침 방지 · 전체화면(+자동 위로 스크롤) · PDF 미리보기 좌우 넘기기
+{
+  const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  assert.ok(/#dkSh \.shL\{font-size:calc\(var\(--ly\)\*max\(11px/.test(T) && /--ly:1\.25/.test(T), "가사 글자는 기본 크게(1.25배) + 크기 변수");
+  assert.ok(/const LYS = \[1, 1\.25, 1\.5, 1\.8\]/.test(T) && /id="shFt"/.test(T) && /localStorage\.setItem\("sgShLy"/.test(T), "가사 글자 크기 버튼(기기에 기억)");
+  assert.ok(/#dkSh \.shC\{display:flex;justify-content:space-between/.test(T) && !/e\.style\.left = x\.b \* 25/.test(T), "코드는 순서대로 한 줄(절대 위치 겹침 제거)");
+  assert.ok(/const fitChords = \(\) =>/.test(T) && /scrollWidth > c\.clientWidth \+ 1/.test(T) && /fitChords\(\); paper\.style\.minHeight = ""/.test(T), "칸에 안 들어가면 코드 글자를 줄임");
+  assert.ok(/id="shFs"/.test(T) && /const setFs = \(on\) =>/.test(T) && /requestFullscreen/.test(T) && /#dkSh\.fs \.shBar,#dkSh\.fs \.shTl\{display:none\}/.test(T), "전체화면 버튼");
+  assert.ok(/classList\.contains\("fs"\)\) \{ if \(r\.top > sc\.top \+ sc\.height \* 0\.45/.test(T) && /scrollBy\(\{ top: r\.top - \(sc\.top \+ sc\.height \* 0\.12\)/.test(T), "전체화면 자동 위로 스크롤");
+  assert.ok(/id="pvPv"/.test(T) && /id="pvNx"/.test(T) && /Math\.abs\(dx\) > 50 && Math\.abs\(dx\) > 1\.5 \* Math\.abs\(dy\)/.test(T) && /ArrowRight/.test(T), "PDF 미리보기 좌우 넘기기");
 }
