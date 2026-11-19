@@ -6612,12 +6612,34 @@ const SG_NOTES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B
 function songChordName(nm, n) { if (!(+n)) return String(nm || ""); const T1 = (x) => { const m = /^([A-G][#b]?)(.*)$/.exec(x); if (!m) return x; const FLAT = { Db: "C#", Eb: "D#", Gb: "F#", Ab: "G#", Bb: "A#" }, r = SG_NOTES.indexOf(FLAT[m[1]] || m[1]); return r < 0 ? x : SG_NOTES[((r + (+n || 0)) % 12 + 12) % 12] + m[2]; }, sl = String(nm || "").split("/"); return sl.map(T1).join("/"); }
 // (11/14 사용자 시안 D) TV 프롬프터용: 서버가 읽은 박·코드를 마디로 나눔(4/4 가정) · 가사(d.lyrics=[[초,글]])는 있으면 박 자리에 얹음
 const SG_LY_DELAY = 0.4;   // 초
-function songMeasures(an, n, lyrics) {
-  const B = (an && an.beats) || [], dn = (an && an.down) || 0, ch = ((an && an.chords) || []).slice().sort((a, b) => a[0] - b[0]), ly = (lyrics || []).slice().sort((a, b) => a[0] - b[0]);
+// (11/19 사용자 '앞 칸 가사가 뒷 칸에 섞임') 음성 인식 없이 보컬 소리(파형)만으로 낱말 위치를 잡음: ① 줄 시작을 그 근처 첫 노래 소리에 맞추고 ② 줄 안의 쉬는 곳은 건너뛰며 ③ 노래 소리가 난 시간에만 낱말을 음절 수 비율로 나눔
+function songVoiced(voc) {   // 0.1초마다 노래 중이면 1(파형 값 6 이상 · 0.5초보다 짧은 쉼은 숨 쉬는 곳이라 메움)
+  const s = String(voc || ""), n = s.length, v = new Uint8Array(n);
+  for (let i = 0; i < n; i++) v[i] = s.charCodeAt(i) - 48 >= 6 ? 1 : 0;
+  for (let i = 0; i < n;) { if (v[i]) { i++; continue; } let j = i; while (j < n && !v[j]) j++; if (i > 0 && j < n && j - i < 5) for (let k = i; k < j; k++) v[k] = 1; i = j; }
+  return v;
+}
+function songSyll(w) { const k = (w.match(/[가-힣]/g) || []).length; return k || Math.max(1, (w.match(/[aeiouyAEIOUY]+/g) || []).length); }
+function songLineStart(t, V) {   // 가사 시간 근처(0.3초 앞~1.5초 뒤)의 첫 노래 소리 시각 · 못 찾으면 null
+  const n = V.length, a0 = Math.max(0, Math.round((t - 0.3) / 0.1)), a1 = Math.min(n, Math.round((t + 1.5) / 0.1));
+  for (let i = a0; i < a1; i++) if (V[i]) return i * 0.1; return null;
+}
+function songWordTimes(t, nxt, words, V) {   // 낱말마다 시작 시각 목록 · 믿을 수 없으면 null(옛 방식)
+  const n = V.length, st = songLineStart(t, V); if (!n || words.length < 2 || st == null) return null;
+  const sy = words.map(songSyll), W = sy.reduce((p, q) => p + q, 0), lim = Math.min(n, Math.round(Math.min(nxt - 0.1, st + W * 0.45 + 2) / 0.1)), fr = []; let gap = 0;
+  for (let i = Math.round(st / 0.1); i < lim; i++) { if (V[i]) { fr.push(i); gap = 0; } else if (++gap > 20 && fr.length) break; }   // 2초 넘게 조용하면 줄이 끝난 것
+  if (fr.length < 6) return null;
+  let acc = 0; return words.map((_, j) => { const f = fr[Math.min(fr.length - 1, Math.floor(fr.length * acc / W))]; acc += sy[j]; return f * 0.1; });
+}
+function songMeasures(an, n, lyrics, voc) {
+  const B = (an && an.beats) || [], dn = (an && an.down) || 0, ch = ((an && an.chords) || []).slice().sort((a, b) => a[0] - b[0]), ly = (lyrics || []).slice().sort((a, b) => a[0] - b[0]), V = voc ? songVoiced(voc) : null;
   if (B.length < dn + 4) return [];
   // (11/19 사용자 '가사가 한 칸에 몰려 있다') 긴 가사 줄(3낱말 이상)은 다음 줄이 시작되기 전까지의 시간에 낱말 길이 비율로 펼쳐서 마디마다 나눠 놓음(한 마디에 몰아 넣지 않음). 짧은 줄은 그대로.
-  const ev = []; ly.forEach((L, i) => { const tx = String(L[1]), w = tx.trim().split(/\s+/).filter(Boolean), gap = Math.max(0.5, (i + 1 < ly.length ? ly[i + 1][0] : L[0] + 6) - L[0]), L0 = L[0] + SG_LY_DELAY;   // (11/19 사용자 '가사가 앞칸에') 가사 시간표는 실제 노래보다 조금 먼저 찍혀 있어 뒤로 살짝 미룸
-    if (w.length < 3) { ev.push({ t: L0, x: tx, i }); return; }
+  const ev = []; ly.forEach((L, i) => { const tx = String(L[1]), w = tx.trim().split(/\s+/).filter(Boolean), nxt = i + 1 < ly.length ? ly[i + 1][0] : L[0] + 6, gap = Math.max(0.5, nxt - L[0]), L0 = L[0] + SG_LY_DELAY;   // (11/19 사용자 '가사가 앞칸에') 가사 시간표는 실제 노래보다 조금 먼저 찍혀 있어 뒤로 살짝 미룸
+    const tw = V && w.length >= 2 ? songWordTimes(L[0], nxt, w, V) : null;
+    if (tw) { w.forEach((x, j) => ev.push({ t: tw[j], x, i })); return; }   // 보컬 소리로 맞춘 낱말 시각
+    const st = V && w.length < 2 ? songLineStart(L[0], V) : null;
+    if (w.length < 3) { ev.push({ t: st != null ? st : L0, x: tx, i }); return; }
     const wt = w.map((x) => Math.max(2, x.length)), W = wt.reduce((p, q) => p + q, 0), span = Math.min(gap * 0.92, W * 0.17); let acc = 0;
     w.forEach((x, j) => { ev.push({ t: L0 + span * acc / W, x, i }); acc += wt[j]; }); });
   const out = []; let ci = -1, li = 0;
@@ -6929,7 +6951,7 @@ function songDeck(el, ids, o) {
     catch (e) { if (alive() && e.message !== "stale") { keyWant = keyN; toast("키를 바꾸지 못했어요: " + errMsg(e)); } } finally { keyBusy = false; if (alive()) paintKey(); } };
   const keyPoll = () => { clearTimeout(me.keyT); if (!alive() || keyN === keyWant || !o.fetchD) return; me.keyT = setTimeout(async () => { try { const d = await o.fetchD(); kd = d.keys || kd; if (kd[keyWant] || kd[String(keyWant)]) { applyKey(); return; } } catch {} keyPoll(); }, 12000); };
   // (11/19 사용자) 키를 바꾸면 그 키에서 코드 치기 가장 편한 카포 위치를 자동으로 골라 코드·키 표시를 바꿈. 선생님이 '카포 해제'를 눌렀으면(capoOff) 다시 직접 고를 때까지 자동은 쉼
-  const autoCapo = () => { if (!AN || me.capoOff) return; let k = 0; try { const R = songCapoBest(songApplyEdits(songMeasures(AN, keyN, o.lyrics), ED, keyN)); if (R) k = R.best[0].capo; } catch { return; }
+  const autoCapo = () => { if (!AN || me.capoOff) return; let k = 0; try { const R = songCapoBest(songApplyEdits(songMeasures(AN, keyN, o.lyrics, o.wave && o.wave.voc), ED, keyN)); if (R) k = R.best[0].capo; } catch { return; }
     if (k === (me.capo || 0)) return; me.capo = k; try { me.onCapo && me.onCapo(); } catch {} paintKey();
     try { toast(k ? `카포 ${k}프렛 자동 · ${songFlat(songChordName(keyName(keyWant), -k))} 폼` : "카포 없이 쳐도 편한 키예요"); } catch {} };
   const setKey = async (n) => { if (!AN) return; keyWant = Math.max(-6, Math.min(6, n)); paintKey();
@@ -7060,7 +7082,7 @@ function songDeck(el, ids, o) {
     raf2 = requestAnimationFrame(tickP);
   };
   // 카포: 추천 창에서 고르면 화면(프롬프터·A4 악보·PDF)의 코드가 그 카포의 '잡는 모양'으로 바뀌고 키 표시에 '카포 N'이 붙음 — 소리 키는 그대로
-  const capoOf = () => me.capo || 0, baseMeas = () => songApplyEdits(songMeasures(AN, keyN, o.lyrics), ED, keyN), autoSec = () => { try { return songAutoSections(baseMeas(), wave); } catch { return []; } };
+  const capoOf = () => me.capo || 0, baseMeas = () => songApplyEdits(songMeasures(AN, keyN, o.lyrics, o.wave && o.wave.voc), ED, keyN), autoSec = () => { try { return songAutoSections(baseMeas(), wave); } catch { return []; } };
   const showM = (M) => { const k = capoOf(); return k ? M.map((m) => Object.assign({}, m, { chords: m.chords.map((c) => Object.assign({}, c, { name: songFlat(songChordName(c.name, -k)) })) })) : M; };
   const keyLabel = (n) => { const k = capoOf(), kn = keyName(n === undefined ? keyWant : n); return k ? `${songFlat(songChordName(kn, -k))} 폼 · 카포 ${k} (소리 ${kn})` : kn; };
   const capoPanel = () => {
@@ -9494,7 +9516,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261119-1245";
+const BUILD = "20261119-1255";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {

@@ -116,7 +116,7 @@ const mk = new Function(code + "; return stemEngine;")();
     // 빈 자리 추가: 마디 0의 3박부터 Em
     const rg = f.songEditRange(ON, 2); assert.deepStrictEqual(rg, [2, 4]); const C2 = f.songRenameBeats(ON, rg[0], rg[1], "Em"); assert.deepStrictEqual(f.songChordsOfRow(C2, 0, 4), [[3, "Em"]]);
     assert.deepStrictEqual(f.songApplyEdits(M0, { 0: { ch: [[3, "Em"]] } }, 0)[0].chords.map((c) => [c.b, c.name]), [[2, "Em"]], "프롬프터도 같은 기록으로 그림"); }
-  assert.ok(dk.includes("baseMeas = () => songApplyEdits(songMeasures(AN, keyN, o.lyrics), ED, keyN)") && dk.includes("const meas = () => showM(baseMeas())"), "프롬프터(·PDF·코드 악보)도 같은 고침 기록을 그림");
+  assert.ok(dk.includes("baseMeas = () => songApplyEdits(songMeasures(AN, keyN, o.lyrics, o.wave && o.wave.voc), ED, keyN)") && dk.includes("const meas = () => showM(baseMeas())"), "프롬프터(·PDF·코드 악보)도 같은 고침 기록을 그림");
   { const pr = dk.slice(dk.indexOf("const openPrompter"), dk.indexOf("if (Q(\"dkTv\"))")); assert.ok(!/f === 2|d9b8ff|8dffb0|a287d0/.test(pr), "프롬프터에는 고침 색 구분 없음(사용자 11/14 22:16)"); }
   assert.ok(dk.includes("openChordEdit") && dk.includes('e.clientY - rc.top < 30') && dk.includes("navigator.vibrate(15)"), "코드 줄 길게 누르기");
   assert.ok(dk.includes("let tx = x + 3; if (tx < 2)") && dk.includes("put.pop()"), "코드 글자 겹침 방지");
@@ -239,7 +239,7 @@ const mk = new Function(code + "; return stemEngine;")();
 
 { // 키를 바꾸면 가장 편한 카포를 자동으로, 직접 해제하면 자동은 쉼
   assert.match(T, /const autoCapo = \(\) => \{ if \(!AN \|\| me\.capoOff\) return;/);
-  assert.match(T, /songCapoBest\(songApplyEdits\(songMeasures\(AN, keyN, o\.lyrics\), ED, keyN\)\)/);
+  assert.match(T, /songCapoBest\(songApplyEdits\(songMeasures\(AN, keyN, o\.lyrics, o\.wave && o\.wave\.voc\), ED, keyN\)\)/);
   assert.match(T, /keyN = keyWant; autoCapo\(\); paintKey\(\)/, "실시간 엔진 경로");
   assert.match(T, /keyN = n; autoCapo\(\); draw\(\)/, "키 파일 경로");
   assert.match(T, /me\.capo = k; me\.capoOff = !k;/);
@@ -328,4 +328,24 @@ const mk = new Function(code + "; return stemEngine;")();
   assert.ok(T.includes("DK_PPS = 18,"), "기본 확대 1.3배");
   assert.ok(T.includes('const commitTap = async (d) => { if (!d.was) { if (alive()) Q("sgPb").onclick(); return; }'), "멈춘 파형 톡 = 재생");
   assert.ok(!T.includes("pinch"), "확대·축소 조작 없음");
+}
+
+// (11/19 사용자) STT 없이 보컬 파형으로 낱말 위치 잡기: 줄 시작 맞춤 · 줄 안 쉼 건너뛰기 · 노래 소리 구간에만 음절 비율로 배치
+{
+  const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  const src = T.slice(T.indexOf("const SG_NOTES"), T.indexOf("async function songPeaks(")), f = new Function(src + "; return { songMeasures, songVoiced, songWordTimes };")();
+  const beats = Array.from({ length: 81 }, (_, i) => +(i * 0.5).toFixed(3));   // 한 마디 2초 · 20마디
+  const wave = (segs, n = 400) => Array.from({ length: n }, (_, i) => String.fromCharCode(48 + (segs.some(([a, b]) => i >= a * 10 && i < b * 10) ? 40 : 1))).join("");
+  // 노래: 4.3~6.0초 / 쉼 / 7.5~9.0 (가사 시간표는 4.0 — 소리보다 0.3초 앞)
+  const voc = wave([[4.3, 6.0], [7.5, 9.0]]), V = f.songVoiced(voc);
+  assert.strictEqual(V[40], 0); assert.strictEqual(V[44], 1);
+  const tw = f.songWordTimes(4.0, 12.0, ["하나", "둘둘", "셋셋셋", "넷"], V);
+  assert.ok(tw && Math.abs(tw[0] - 4.3) < 0.15, "줄 시작은 첫 노래 소리: " + tw);
+  assert.ok(tw[1] > tw[0] && tw[2] > tw[1] && tw[3] > tw[2], "순서대로");
+  assert.ok(tw.every((x) => x < 6.0 || x >= 7.5), "쉬는 구간(6.0~7.5)에는 낱말이 놓이지 않음: " + tw);
+  assert.strictEqual(f.songWordTimes(20.0, 30, ["가", "나"], V), null, "근처에 노래 소리가 없으면 옛 방식");
+  const M = f.songMeasures({ beats, down: 0, chords: [[0, "C"]] }, 0, [[4.0, "하나 둘둘 셋셋셋 넷"], [12, "다음 줄 가사"]], voc);
+  assert.strictEqual(M.flatMap((m) => m.lyrics.map((l) => l.text)).join(" "), "하나 둘둘 셋셋셋 넷 다음 줄 가사", "글자는 하나도 안 사라지고 순서 그대로");
+  assert.ok(M[2].lyrics.length > 0 && M[2].lyrics[0].b < 1.5, "첫 낱말은 4.3초(3번째 마디 앞쪽)");
+  assert.ok(T.includes("o.wave && o.wave.voc"), "보컬 파형을 넘겨 줌");
 }
