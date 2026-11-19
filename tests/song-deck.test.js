@@ -46,7 +46,7 @@ const mk = new Function(code + "; return stemEngine;")();
   { const src = T.slice(T.indexOf("const SG_NOTES"), T.indexOf("async function songPeaks(")), f = new Function(src + "; return { songMeasures, songBeatPos };")();
     const beats = Array.from({ length: 18 }, (_, i) => +(1 + i * 0.5).toFixed(3));   // 120BPM, 1초부터 · 첫 강박 = 두 번째 박(down=1)
     const an = { beats, down: 1, chords: [[0.5, "C"], [1.5, "C"], [2.5, "Am"], [3.5, "G"], [4.0, "F"]] };
-    const M = f.songMeasures(an, 0, [[1.6, "가"], [3.1, "나"]]);
+    const M = f.songMeasures(an, 0, [[1.6, "가"], [2.8, "나"]]);
     assert.strictEqual(M.length, 5, "17박 - 앞 1박 = 16박 → 4마디 + 마지막 1박(짧은 마디)");
     assert.deepStrictEqual(M[0].chords.map(c => [c.b, c.name, c.len]), [[0, "C", 2], [2, "Am", 2]], "한 마디 안에서 3박에 바뀜 + 유지 박 수");
     assert.deepStrictEqual(M[1].chords.map(c => [c.b, c.name, c.len]), [[0, "G", 1], [1, "F", 3]], "2박에 바뀌는 것도 표시");
@@ -271,7 +271,7 @@ const mk = new Function(code + "; return stemEngine;")();
 }
 
 { // 멈춰 있을 때 한 번 누르면 그 칸부터 재생
-  assert.ok(T.includes("const tapCell = (t) => { if (eng.isPlaying()) seekTo(t); else playFrom(t); };"));
+  assert.ok(T.includes("const tapCell = (t) => { if (eng.isPlaying()) Q(\"sgPb\").onclick(); else playFrom(t); };"), "재생 중 터치 = 일시정지 · 멈춰 있을 때 터치 = 그 칸부터 재생(11/19)");
   assert.ok(T.includes("tap: () => tapCell(m.t0), dbl: () => playFrom(m.t0), long: () => openShEdit(i)") && T.includes("else tapCell(m.t0); }, dbl: () => playFrom(m.t0)"), "A4·프롬프터 둘 다");
 }
 
@@ -283,7 +283,7 @@ const mk = new Function(code + "; return stemEngine;")();
   const withLy = M.filter((m) => m.lyrics.length).map((m) => m.no);
   assert.ok(withLy.length >= 3, "한 줄이 3마디 이상에 나뉨: " + withLy);
   assert.strictEqual(M.flatMap((m) => m.lyrics.map((l) => l.text)).join(" ").replace(/\s+/g, " "), "Our love is alive, and so we begin tonight 다음 줄 가사입니다 여기 모두 같이", "글자는 하나도 안 사라지고 순서 그대로");
-  assert.strictEqual(M[0].lyrics[0].b < 1, true, "첫 낱말은 줄이 시작한 자리");
+  assert.strictEqual(M[0].lyrics[0].b < 1.5, true, "첫 낱말은 줄이 시작한 자리(가사 시간표가 앞서 찍혀 0.4초 미룸)");
 }
 
 { // 곡을 열면 그 카드가 화면 맨 위에
@@ -305,4 +305,19 @@ const mk = new Function(code + "; return stemEngine;")();
   const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
   assert.ok(T.includes('g.fillStyle = "#ff6fb5"; g.fillRect(x - 1, 0, 2, H)') && T.includes('rgba(255,111,181,.16)'), "파형의 A·B 선과 구간 색");
   assert.ok(T.includes(".dk .dkRv #dkA,.dk .dkRv #dkB{border-color:#ff6fb5;color:#ff6fb5}") && T.includes(".dk .dkLab{color:#ff6fb5;") && T.includes("#dkLoop.on{border-color:#ff6fb5"), "버튼·글자 색");
+}
+
+// (11/19 사용자) A4 악보: 마디 끝에 걸친 중복 코드 정리 · 1박짜리 겹침 합침 · 코드 글자가 칸 밖으로 안 나감 · 가사 0.4초 미룸
+{
+  const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  const src = T.slice(T.indexOf("const SG_NOTES"), T.indexOf("async function songPeaks(")), f = new Function(src + "; return { songMeasures };")();
+  const beats = Array.from({ length: 33 }, (_, i) => +(i * 0.5).toFixed(3));   // 8마디
+  // 3마디: G(0)·Em(마지막 박) 다음 마디 첫 코드도 Em → 3마디의 Em은 뺌 · 5마디: Am → 1박 뒤 Am7 → 하나로
+  const chords = [[0, "C"], [4.0, "G"], [5.5, "Em"], [6.0, "Em"], [8.0, "Am"], [8.5, "Am7"], [9.0, "Am7"], [10, "D"]];
+  const M = f.songMeasures({ beats, down: 0, chords }, 0, []);
+  assert.deepStrictEqual(M[2].chords.map((c) => c.name), ["G"], "다음 마디와 같은 끝 박 코드는 뺌: " + JSON.stringify(M[2].chords));
+  assert.deepStrictEqual(M[4].chords.map((c) => c.name + c.b), ["Am70"], "같은 뿌리음 1박 겹침은 뒤 코드로 합침: " + JSON.stringify(M[4].chords));
+  assert.ok(T.includes("e.style.transform = `translateX(-${x.b * 25}%)`"), "코드 글자가 칸 밖으로 안 나가게");
+  const L = f.songMeasures({ beats, down: 0, chords: [[0, "C"]] }, 0, [[3.9, "나는 사랑해요 너무나 오래전부터"]]);
+  assert.ok(L[2].lyrics.length && L[2].lyrics[0].b < 1.0 && L[1].lyrics.length === 0, "마디 끝(3.9초) 가사는 다음 칸으로(0.4초 미룸): " + JSON.stringify(L.map((m) => m.lyrics)));
 }
