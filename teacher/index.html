@@ -3902,9 +3902,28 @@ async function clearSharedBatches(files) {   // 드라이브 저장까지 끝난
     if (m && done.has(m[1] || "")) await c.delete(k);
   }
 }
+// (11/19 사용자 '지금 듣는 유튜브를 곡 서랍에') 유튜브 앱 ‘공유 → 보컬노트’: 파일 없이 유튜브 주소만 온 묶음 → 곡 서랍에 바로 넣음
+function sharedYtUrl(metas) {   // 파일 없는 묶음의 글에서 유튜브 영상 주소(가장 최근 것) · 없으면 null
+  for (const m of [...(metas || [])].reverse()) {
+    if ((m.files || []).length) continue;
+    for (const w of String(m.text || "").split(/\s+/)) { const p = ytParse(w); if (p) return { url: p.url, batch: m.batch || "" }; }
+  }
+  return null;
+}
+async function sharedToSong(url) {
+  await openSongs();
+  const dup = songLib.list.find(x => (ytParse(x.d.youtube || "")?.url || "") === url);
+  if (dup) { songLib.open = dup.folder; songPaintList(); return toast(`‘${dup.d.title || "이 곡"}’은 이미 곡 서랍에 있어요`); }
+  $("slY").value = url; songLib.ytFor = url; $("slYh").textContent = "유튜브에서 곡 정보 가져오는 중…";
+  try { const i = await ytInfo(url); $("slT").value = i.title; $("slA").value = i.artist; } catch { /* 제목을 못 가져와도 주소로 넣음 — 서버가 받은 뒤 채움 */ }
+  $("slYh").textContent = "";
+  await songAdd();
+}
 async function openShared() {
-  show("vShared");
   const c = await caches.open("vn-shared-files"), metas = await sharedMetas(c);
+  const yt = !isStaffApp() && !metas.some(m => (m.files || []).length) ? sharedYtUrl(metas) : null;
+  if (yt) { await clearSharedBatches(metas.filter(m => !(m.files || []).length)); history.replaceState(null, "", location.pathname); return sharedToSong(yt.url); }
+  show("vShared");
   const meta = { text: metas.map(m => m.text).filter(Boolean).pop() || "" };
   sharedFiles = [];
   for (const m of metas) for (const f of m.files || []) {
