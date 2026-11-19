@@ -87,7 +87,7 @@ const mk = new Function(code + "; return stemEngine;")();
   assert.ok(dk.includes("o.analysis && o.analysis.key") && dk.includes("eng.swap(") && dk.includes("o.onKeyReq"), "키 카드는 서버가 분석한 곡에만 · 파일 없으면 요청");
   assert.ok(/songDeck\(pl, ids, \{[^]*analysis: x\.d\.analysis, keys: x\.d\.keys, keyReq: x\.d\.key_req/.test(T), "곡 서랍이 분석·키 파일을 넘김");
   assert.ok(dk.includes("openPrompter") && dk.includes("Brand.layer") && dk.includes('id="shTv"') && dk.includes("o.analysis.chords.length"), "프롬프터는 코드가 있는 곡에만 · 뒤로 가기 한 칸");
-  assert.ok(dk.includes('id="prPdf"') && dk.includes("songPdfName(o.name, o.artist, capoOf() ? keyName(keyN)"), "프롬프터 PDF 버튼·파일명 규칙");
+  assert.ok(dk.includes('id="prPdf"') && dk.includes("songPdfName(o.name, o.artist, keyName(keyN) + shiftTag()"), "프롬프터 PDF 버튼·파일명 규칙");
   for (const k of ["prVol", "prSeek", "prSgs", "prEd", "prPv", "prNx", "prCi", "prLi", "prSi"]) assert.ok(dk.includes('id="' + k + '"'), "프롬프터 " + k);
   assert.ok(!dk.includes('id="prNow"') && !dk.includes('id="prNext"'), "‘지금·다음 코드’는 뺌(사용자 11/14)");
   assert.ok(dk.includes("navigator.vibrate(20)") && dk.includes("buzz(si)"), "구간 경계를 지나면 짧은 진동");
@@ -238,12 +238,12 @@ const mk = new Function(code + "; return stemEngine;")();
 })().catch((e) => { console.error(e); process.exit(1); });
 
 { // 키를 바꾸면 가장 편한 카포를 자동으로, 직접 해제하면 자동은 쉼
-  assert.match(T, /const autoCapo = \(\) => \{ if \(!AN \|\| me\.capoOff\) return;/);
-  assert.match(T, /songCapoBest\(songApplyEdits\(songMeasures\(AN, keyN, o\.lyrics, o\.wave && o\.wave\.voc\), ED, keyN\)\)/);
+  assert.match(T, /const autoCapo = \(\) => \{ if \(!AN\) return; const P = modeP\(\); if \(P \? me\.tpOff : me\.capoOff\) return;/);
+  assert.match(T, /const M = songApplyEdits\(songMeasures\(AN, keyN, o\.lyrics, o\.wave && o\.wave\.voc\), ED, keyN\); if \(P\) \{ const R = songPianoShift\(M\)[\s\S]*songCapoBest\(M\)/);
   assert.match(T, /keyN = keyWant; autoCapo\(\); paintKey\(\)/, "실시간 엔진 경로");
   assert.match(T, /keyN = n; autoCapo\(\); draw\(\)/, "키 파일 경로");
   assert.match(T, /me\.capo = k; me\.capoOff = !k;/);
-  assert.match(T, /\(me\.capo \? ` · 카포 \$\{me\.capo\}` : ""\)/, "키 표시에 카포");
+  assert.match(T, /shiftNote = \(\) => \(modeP\(\) \? ` · 🎹 트랜스포즈/, "키 표시에 카포·트랜스포즈 값"); assert.match(T, /sgn\(n\)\}반음`\) \+ shiftNote\(\);/);
   assert.ok(!/const paintKey = \(\) => \{[^\n]*capoOf\(\)/.test(T), "paintKey 는 capoOf(TDZ) 대신 me.capo");
 }
 
@@ -364,21 +364,27 @@ const mk = new Function(code + "; return stemEngine;")();
   assert.strictEqual(two.flatMap((m) => m.lyrics.map((l) => l.text)).join(" "), "도 레 미 파", "글자는 그대로 · 순서 유지");
 }
 
-// (11/19 사용자) 피아노 추천 키: 검은건반이 적은 키 · 흰건반만이면 그대로 · 코드 이름은 그 키로 옮겨 계산
+// (11/19 사용자 '기타/피아노 모드') 피아노 모드: 소리 키는 그대로 · 화면은 검은건반 적은 '모양' · 키보드 트랜스포즈 값(t = 소리 − 모양)
 {
   const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
-  const src = T.slice(T.indexOf("const SG_NOTES"), T.indexOf("async function songPeaks(")), f = new Function(src + "; return { songPianoCost, songPianoBest };")();
+  const src = T.slice(T.indexOf("const SG_NOTES"), T.indexOf("async function songPeaks(")), f = new Function(src + "; return { songPianoCost, songPianoShift, songChordName };")();
   assert.strictEqual(f.songPianoCost("C"), 0); assert.strictEqual(f.songPianoCost("Am"), 0); assert.strictEqual(f.songPianoCost("G7"), 0);
   assert.ok(f.songPianoCost("F#m") > 0.4 && f.songPianoCost("Bb") > 0.4, "검은건반 코드는 어려움");
   assert.ok(f.songPianoCost("D/F#") > 0, "슬래시 베이스가 검은건반이면 감점");
   const M = (names) => [{ chords: names.map((n) => ({ name: n, len: 4 })) }];
-  const A = f.songPianoBest(M(["E", "C#m", "A", "B"]), 0);   // 검은건반 많은 키 → C·Am·F·G(-4)가 가장 쉬움
-  assert.strictEqual(A.key, -4); assert.strictEqual(A.white, 1);
-  const B = f.songPianoBest(M(["C", "Am", "F", "G"]), 0); assert.strictEqual(B.key, 0, "이미 흰건반이면 그대로");
-  const C = f.songPianoBest(M(["D", "Bm", "G", "A"]), 2);   // 지금 키가 +2(원래 키보다 2 높음)면 -2 옮기기 = 원래 키 기준 0 … 절대 키로 환산
-  assert.strictEqual(C.key, 0, "현재 키(+2)에서 D·Bm·G·A → 원래 키 C·Am·F·G = 절대 0");
-  assert.strictEqual(f.songPianoBest([], 0), null);
-  assert.ok(T.includes("피아노 추천 키") && T.includes("songPianoBest(baseMeas(), keyN)"), "카포 창에 버튼");
+  const A = f.songPianoShift(M(["E", "C#m", "A", "B"]));   // 소리 E 키 → C 모양으로 치고 키보드 +4
+  assert.strictEqual(A.best[0].t, 4, "E·C#m·A·B 소리 → C·Am·F·G 모양 = 트랜스포즈 +4"); assert.strictEqual(A.best[0].white, 1); assert.deepStrictEqual(A.best[0].forms.slice().sort(), ["Am", "C", "F", "G"]);
+  const B = f.songPianoShift(M(["C", "Am", "F", "G"])); assert.strictEqual(B.best[0].t, 0, "이미 흰건반이면 0"); assert.strictEqual(B.none.t, 0);
+  const C = f.songPianoShift(M(["D", "Bm", "G", "A"])); assert.strictEqual(C.best[0].t, 2, "D 소리 → C 모양 + 트랜스포즈 +2");
+  const D = f.songPianoShift(M(["Bb", "Gm", "Eb", "F"])); assert.strictEqual(D.best[0].t, -2, "Bb 소리 → C 모양, 키보드 -2(내림)");
+  assert.ok(A.all.length === 13 && A.all[0].t === -6 && A.all[12].t === 6, "-6~+6 전부 계산");
+  assert.strictEqual(f.songPianoShift([]), null);
+  // 화면 연결: 모드 선택 버튼 · 상단 버튼/부제에 값 · 키 ± 때 자동 재추천 · 옛 '피아노 추천 키(소리 키 바꾸기)' 버튼은 없앰
+  assert.ok(T.includes("🎸 기타 · 카포") && T.includes("🎹 피아노 · 트랜스포즈") && T.includes('localStorage.setItem("sgMode"'), "모드 선택 버튼·기억");
+  assert.ok(/shiftBtn = \(\) => \(modeP\(\) \? "🎹"/.test(T) && /\$\("#prCp"\)\.textContent = shiftBtn\(\)/.test(T) && /\$\("#shCp"\)\.textContent = shiftBtn\(\)/.test(T), "상단 버튼에 카포/트랜스포즈 값");
+  assert.ok(/트랜스포즈 \$\{k \? sgn\(k\) : "0"\} \(소리/.test(T), "부제(키 옆)에 트랜스포즈 값");
+  assert.ok(/songPianoShift\(M\)/.test(T) && /const autoCapo = \(\) => \{ if \(!AN\) return; const P = modeP\(\)/.test(T), "키를 바꾸면 모드에 맞게 자동 재추천");
+  assert.ok(!T.includes("피아노 추천 키") && !T.includes("songPianoBest"), "소리 키를 바꾸던 옛 버튼 제거");
 }
 
 // (11/19 사용자 '줄 끝 낱말 you가 다음 칸에') 마지막 낱말은 길게 끌어 부르므로 일찍 시작해야 함 · 낱말 시작은 음절 사이(소리 약한 곳)로 붙음
@@ -407,5 +413,5 @@ const mk = new Function(code + "; return stemEngine;")();
 // (11/19 사용자) 카포 버튼은 '카포'만 쓰지 않고 현재 카포 위치를 보여줌: 카포0 · 카포2
 {
   const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
-  assert.ok(/\$\("#prCp"\)\.textContent = "카포" \+ capoOf\(\)/.test(T) && /\$\("#shCp"\)\.textContent = "카포" \+ capoOf\(\)/.test(T), "프롬프터·A4 카포 버튼이 현재 카포를 표시");
+  assert.ok(/shiftBtn = \(\) => \(modeP\(\) \? "🎹" \+ \(shiftOf\(\) \? sgn\(shiftOf\(\)\) : "0"\) : "카포" \+ shiftOf\(\)\)/.test(T), "기타 모드 버튼은 카포0·카포2, 피아노 모드는 🎹+3");
 }
