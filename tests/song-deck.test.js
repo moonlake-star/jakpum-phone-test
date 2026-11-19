@@ -427,7 +427,9 @@ const mk = new Function(code + "; return stemEngine;")();
 {
   const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
   assert.ok(/#dkSh \.shL\{font-size:calc\(var\(--ly\)\*max\(11px/.test(T) && /--ly:1\.25/.test(T), "가사 글자는 기본 크게(1.25배) + 크기 변수");
-  assert.ok(/const LYS = \[1, 1\.25, 1\.5, 1\.8\]/.test(T) && /id="shFt"/.test(T) && /localStorage\.setItem\("sgShLy"/.test(T), "가사 글자 크기 버튼(기기에 기억)");
+  assert.ok(/const LYS = \[1, 1\.25, 1\.5, 1\.8\]/.test(T) && /id="shFtM"/.test(T) && /id="shFtP"/.test(T) && /localStorage\.setItem\("sgShLy"/.test(T), "가사 글자 크기 버튼(가− 가＋, 기기에 기억)");
+  assert.ok(/h\.append\(hb, hs\); paper\.appendChild\(h\); paper\.appendChild\(shTools\(\)\)/.test(T) && !/class="shBtn" id="(shFt|shFs|shPdf)"/.test(T), "글자 크기·전체화면·PDF 버튼은 제목 아래 줄로(위 조작줄에서 뺌 → 제목이 덜 잘림)");
+  assert.ok(/const makePdf = async \(pdfBtn\) =>/.test(T) && /pb\.onclick = \(\) => makePdf\(pb\)/.test(T) && /class="shPdfB" id="shPdf"/.test(T), "PDF 버튼도 같은 줄");
   assert.ok(/#dkSh \.shC\{display:flex;justify-content:space-between/.test(T) && !/e\.style\.left = x\.b \* 25/.test(T), "코드는 순서대로 한 줄(절대 위치 겹침 제거)");
   assert.ok(/const fitChords = \(\) =>/.test(T) && /scrollWidth > c\.clientWidth \+ 1/.test(T) && /fitChords\(\); paper\.style\.minHeight = ""/.test(T), "칸에 안 들어가면 코드 글자를 줄임");
   assert.ok(/id="shFs"/.test(T) && /const setFs = \(on\) =>/.test(T) && /requestFullscreen/.test(T) && /#dkSh\.fs \.shBar,#dkSh\.fs \.shTl\{display:none\}/.test(T), "전체화면 버튼");
@@ -443,4 +445,11 @@ const mk = new Function(code + "; return stemEngine;")();
   for (const [k, v] of Object.entries(cases)) assert.deepStrictEqual(P(k), v, k);
   assert.ok(/SG_CHF = '"Roboto Condensed","Arial Narrow"/.test(T) && /font-stretch:condensed/.test(T) && /sans-serif-condensed/.test(T), "좁은 글꼴 목록");
   assert.ok(/songChordFill\(e, x\.name\)/.test(T) && /songChordFill\(e, ch\.name\)/.test(T) && /songChordParts\(c\.name\)/.test(T), "악보·TV·PDF 모두 같은 규칙");
+}
+
+// (11/19 사용자 'TV 버튼도 악보 페이지로') 악보 위 조작줄에는 재생·카포·닫기만, 글자 크기·전체화면·TV·PDF는 제목 아래 줄
+{
+  const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  assert.ok(/class="shTvB" id="shTv"/.test(T) && !/class="shBtn" id="shTv"/.test(T) && !/\$\("#shTv"\)\.onclick/.test(T), "TV 버튼은 제목 아래 줄(만든 뒤 연결)");
+  assert.ok(/t\.querySelector\("#shTv"\)\.onclick = \(\) => \{ ly\.close\(\); setTimeout\(\(\) => \{ try \{ openPrompter\(\)/.test(T), "TV 버튼 동작 그대로");
 }
