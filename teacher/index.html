@@ -6586,6 +6586,11 @@ function songChordName(nm, n) { if (!(+n)) return String(nm || ""); const T1 = (
 function songMeasures(an, n, lyrics) {
   const B = (an && an.beats) || [], dn = (an && an.down) || 0, ch = ((an && an.chords) || []).slice().sort((a, b) => a[0] - b[0]), ly = (lyrics || []).slice().sort((a, b) => a[0] - b[0]);
   if (B.length < dn + 4) return [];
+  // (11/19 사용자 '가사가 한 칸에 몰려 있다') 긴 가사 줄(3낱말 이상)은 다음 줄이 시작되기 전까지의 시간에 낱말 길이 비율로 펼쳐서 마디마다 나눠 놓음(한 마디에 몰아 넣지 않음). 짧은 줄은 그대로.
+  const ev = []; ly.forEach((L, i) => { const tx = String(L[1]), w = tx.trim().split(/\s+/).filter(Boolean), gap = Math.max(0.5, (i + 1 < ly.length ? ly[i + 1][0] : L[0] + 6) - L[0]);
+    if (w.length < 3) { ev.push({ t: L[0], x: tx, i }); return; }
+    const wt = w.map((x) => Math.max(2, x.length)), W = wt.reduce((p, q) => p + q, 0), span = Math.min(gap * 0.92, W * 0.17); let acc = 0;
+    w.forEach((x, j) => { ev.push({ t: L[0] + span * acc / W, x, i }); acc += wt[j]; }); });
   const out = []; let ci = -1, li = 0;
   for (let s = dn, k = 0; s < B.length; s += 4, k++) {
     const last = B[B.length - 1] + (B[B.length - 1] - B[B.length - 2]), t0 = B[s], t1 = s + 4 < B.length ? B[s + 4] : last, m = { no: k + 1, t0, t1, chords: [], lyrics: [], beats: Math.min(4, B.length - s) };
@@ -6596,7 +6601,8 @@ function songMeasures(an, n, lyrics) {
       if (nm && (b === 0 || nm !== prev)) m.chords.push({ b, name: nm, len: 0 }); prev = nm || prev;
     }
     m.chords.forEach((c, i) => { c.len = (i + 1 < m.chords.length ? m.chords[i + 1].b : m.beats) - c.b; });
-    while (li < ly.length && ly[li][0] < t1) { const pos = Math.max(0, Math.min(3.9, (ly[li][0] - t0) / (t1 - t0) * 4)); m.lyrics.push({ b: pos, text: String(ly[li][1]) }); li++; }
+    let lastI = -1;   // 같은 줄에서 이어진 낱말은 한 덩어리로
+    while (li < ev.length && ev[li].t < t1) { const e = ev[li], pos = Math.max(0, Math.min(3.9, (e.t - t0) / (t1 - t0) * 4)), l = m.lyrics[m.lyrics.length - 1]; if (l && lastI === e.i) l.text += " " + e.x; else m.lyrics.push({ b: pos, text: e.x }); lastI = e.i; li++; }
     out.push(m);
   }
   return out;
@@ -6762,7 +6768,7 @@ function songChordCost(nm) {   // 0 = 열린 코드(쉬움) · 0.7~1 = 바레(�
   if (k === null) return 1; if ((CAPO_OPEN[k] || []).includes(r)) return m[3] ? 0.15 : 0; if (k === "" && r === "F") return 0.7; if (k === "m" && (r === "B" || r === "F#")) return 0.8; return 1;
 }
 function songFlat(n) { return String(n || "").replace(/^A#/, "Bb").replace(/^D#/, "Eb").replace(/^G#/, "Ab").replace(/\/A#/, "/Bb").replace(/\/D#/, "/Eb").replace(/\/G#/, "/Ab"); }   // 카포 화면은 연주자가 읽기 쉬운 이름으로
-function cellGesture(el, h) {   // (11/19 사용자) 한 번 누름=이동 · 두 번 누름=그 마디부터 재생 · 길게 누름=코드 고치기 · 스크롤하려고 움직이면 모두 취소
+function cellGesture(el, h) {   // (11/19 사용자) 한 번 누름=이동(멈춰 있으면 그 마디부터 재생) · 두 번 누름=그 마디부터 재생 · 길게 누름=코드 고치기 · 스크롤하려고 움직이면 모두 취소
   let t = 0, lp = false, mv = false, x0 = 0, y0 = 0, last = 0;
   el.addEventListener("pointerdown", (e) => { lp = false; mv = false; x0 = e.clientX; y0 = e.clientY; clearTimeout(t); t = setTimeout(() => { lp = true; try { navigator.vibrate && navigator.vibrate(25); } catch {} h.long && h.long(); }, 550); });
   el.addEventListener("pointermove", (e) => { if (!mv && Math.hypot(e.clientX - x0, e.clientY - y0) > 10) { mv = true; clearTimeout(t); } });
@@ -6960,7 +6966,7 @@ function songDeck(el, ids, o) {
             const u = document.createElement("span"); u.className = "prUl"; u.style.left = `calc(${ch.b * 25}% + .4em)`; u.style.width = `calc(${ch.len * 25}% - .9em)`; c.appendChild(u); }
           for (const y of m.lyrics) { const e = document.createElement("span"); e.className = "prLy"; e.dataset.b = y.b; e.style.left = `calc(${y.b * 25}% + .4em)`; e.textContent = y.text; c.appendChild(e); }
           if (m.edited && edit) { const e = document.createElement("span"); e.className = "prEg"; e.textContent = "수정됨"; c.appendChild(e); }
-          const hd = document.createElement("span"); hd.className = "prHd"; c.appendChild(hd); cellGesture(c, { tap: () => { if (edit) openEdit(i); else seekTo(m.t0); }, dbl: () => playFrom(m.t0), long: () => openEdit(i) }); row.appendChild(c); }
+          const hd = document.createElement("span"); hd.className = "prHd"; c.appendChild(hd); cellGesture(c, { tap: () => { if (edit) openEdit(i); else tapCell(m.t0); }, dbl: () => playFrom(m.t0), long: () => openEdit(i) }); row.appendChild(c); }
         G.appendChild(row); }
       on = -1; needFit = true; paintSegs(); };
     const fit = () => { needFit = false; d.querySelectorAll(".prM").forEach((c) => { const L = [...c.querySelectorAll(".prLy")]; if (!L.length) return; const W = c.clientWidth, gap = 10, pad = 8; L.forEach((e) => { e.style.fontSize = ""; });
@@ -7041,6 +7047,8 @@ function songDeck(el, ids, o) {
     const S = w.querySelector(".pvS"); out.forEach((pg, k) => { const u = URL.createObjectURL(new Blob([pg.jpg], { type: "image/jpeg" })); urls.push(u); const im = document.createElement("img"); im.src = u; im.alt = `${k + 1}쪽`; S.appendChild(im); });
     const close = () => { urls.forEach((u) => { try { URL.revokeObjectURL(u); } catch {} }); w.remove(); };
     w.querySelector("#pvX").onclick = close; w.querySelector("#pvOk").onclick = () => { songSave(songPdf(out, pw, ph), fname); toast("PDF를 받았어요(다운로드 폴더)"); close(); }; document.body.appendChild(w); };
+  // (11/19 사용자 '처음 열었을 땐 어느 칸이든 터치하면 그 칸에서 재생 시작') 멈춰 있을 땐 한 번 누르면 그 마디부터 재생 · 재생 중엔 그 마디로 이동만
+  const tapCell = (t) => { if (eng.isPlaying()) seekTo(t); else playFrom(t); };
   const playFrom = async (t) => { await seekTo(t); if (alive() && !eng.isPlaying()) Q("sgPb").onclick(); };
   // ── (11/19 사용자) 가사 자동 채우기: 가사가 비어 있으면 인터넷(LRCLIB)에서 시간표 달린 가사를 찾아 곡 파일에 저장 · 7일 안에 다시 안 찾음(수동 '가사 찾기'는 언제든)
   const needLy = () => !(Array.isArray(o.lyrics) && o.lyrics.length) && !(o.lyricsTry && Date.now() - Date.parse(o.lyricsTry) < 7 * 864e5);
@@ -7091,7 +7099,7 @@ function songDeck(el, ids, o) {
         const n = document.createElement("div"); n.className = "shN"; n.textContent = m.no; if (nm[i]) { const b = document.createElement("b"); b.textContent = "[" + nm[i] + "]"; n.appendChild(b); }
         const ch = document.createElement("div"); ch.className = "shC"; for (const x of m.chords) { const e = document.createElement("span"); e.style.left = x.b * 25 + "%"; e.textContent = x.name; ch.appendChild(e); }
         const ly = document.createElement("div"); ly.className = "shL"; ly.textContent = m.lyrics.map((y) => y.text).join(" ");
-        c.append(n, ch, ly); if (i === sel) c.classList.add("sel"); cellGesture(c, { tap: () => seekTo(m.t0), dbl: () => playFrom(m.t0), long: () => openShEdit(i) }); G.appendChild(c); });
+        c.append(n, ch, ly); if (i === sel) c.classList.add("sel"); cellGesture(c, { tap: () => tapCell(m.t0), dbl: () => playFrom(m.t0), long: () => openShEdit(i) }); G.appendChild(c); });
       paper.appendChild(G); on = -1; sub(); };
     const tick = () => { raf = 0; if (!d.isConnected || !alive()) return;
       if (mKey !== keyN || mLy !== o.lyrics) build();
@@ -9449,7 +9457,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261119-0840";
+const BUILD = "20261119-1040";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
