@@ -6590,7 +6590,7 @@ function songPlayer(el, ids, o) {
 }
 // (11/14 사용자 시안 B) 곡 서랍 전용 플레이어: 소리 파형(좌우로 밀기)·큰 재생 버튼·반복·구간 반복(A·B)·속도(80~120%)·보컬/반주 볼륨
 // 키 바꾸기·코드·악보는 서버가 파일을 만들어 줘야 해서 여기엔 아직 없음 · 파형은 곡당 한 번 만들어 song.json(wave)에 적어 둠
-const DK_STEP = 0.1, DK_PPS = 14, DK_RATES = [0.8, 0.85, 0.9, 0.95, 1, 1.05, 1.1, 1.15, 1.2];
+const DK_STEP = 0.1, DK_PPS = 18, DK_RATES = [0.8, 0.85, 0.9, 0.95, 1, 1.05, 1.1, 1.15, 1.2];
 // 더블탭(0.35초 안에 같은 칸을 두 번): 키·속도 칸을 원래 값으로. 버튼 위의 탭은 무시
 function dblTap(el, fn) {
   let last = 0; el.style.touchAction = "manipulation";
@@ -7221,7 +7221,8 @@ function songDeck(el, ids, o) {
     glide = { v: d.v * 0.5, was: d.was, last: performance.now() }; drag = null;   // (11/14 22:08 사용자 '관성 다시, 아까의 절반') 처음 빠르기 절반 = 미끄러지는 거리 절반
     const step = () => { if (!glide) return; const n = performance.now(), dt = Math.min(50, n - glide.last); glide.last = n; vp = Math.max(0, Math.min(dur(), vp - glide.v * dt / pps())); glide.v *= Math.pow(0.94, dt / 16); Q("sgT0").textContent = mmss(vp);
       if (Math.abs(glide.v) < 0.015 || vp <= 0 || vp >= dur()) return commit(); requestAnimationFrame(step); }; requestAnimationFrame(step); };
-  const commitTap = async (d) => { if (d.was && alive()) { try { await eng.play(); if (alive()) { Q("sgPb").textContent = "❚❚"; kick_(); } } catch {} } };
+  const commitTap = async (d) => { if (!d.was) { if (alive()) Q("sgPb").onclick(); return; }   // (11/19 사용자) 멈춰 있을 때 파형을 톡 누르면 재생 시작
+    if (alive()) { try { await eng.play(); if (alive()) { Q("sgPb").textContent = "❚❚"; kick_(); } } catch {} } };
   cv.onpointerup = up; cv.onpointercancel = up;
   el.querySelectorAll("[data-sgd]").forEach(b => b.onclick = async () => {
     const k = b.dataset.sgd, lab = { mr: "MR", voc: "보컬", orig: "원곡" }[k], t0 = b.innerHTML; b.disabled = true; b.innerHTML = "받는 중…";
@@ -9493,7 +9494,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261119-1235";
+const BUILD = "20261119-1245";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
