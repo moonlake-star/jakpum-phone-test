@@ -394,3 +394,11 @@ const mk = new Function(code + "; return stemEngine;")();
   const V2 = f.songVoiced(am.map((x) => String.fromCharCode(48 + x)).join("")), t2 = f.songWordTimes(10.0, 25, ["a", "b", "c", "d", "e", "f"], V2);
   assert.ok(t2.some((x) => Math.abs(x - 11.4) < 0.01) && t2.some((x) => Math.abs(x - 13.2) < 0.01), "골(11.4·13.2초)에 붙음: " + t2);
 }
+
+// (11/19 사용자 '가사 수정 후 완료하면 화면 위치가 너무 아래로') A4 악보 수정: 다시 그려도 스크롤 위치 유지 · 완료하면 고친 마디가 화면 위쪽에 오게
+{
+  const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  assert.ok(/const closeShEdit = \(back\) =>/.test(T) && /closeShEdit\(true\)/.test(T), "완료·Enter는 고친 마디로 되돌아감");
+  assert.ok(/ep\.querySelector\("#shOk"\)\.onclick = \(\) => closeShEdit\(true\)/.test(T));
+  assert.ok(/st0 = scEl \? scEl\.scrollTop : 0/.test(T) && /scEl\.scrollTop = st0/.test(T) && /paper\.style\.minHeight = paper\.offsetHeight/.test(T), "다시 그리는 동안 높이·스크롤 위치 유지");
+}

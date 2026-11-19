@@ -7162,7 +7162,8 @@ function songDeck(el, ids, o) {
     const paintSegs = (re) => { const R = $("#shSgs"), cur = songSecAt(SL, Math.max(0, on)); if (re || R.children.length !== SL.length) { R.textContent = ""; SL.forEach((x, k) => { const b = document.createElement("button"); b.type = "button"; b.textContent = x.name; b.onclick = () => { const c = d.querySelector(`.shM[data-i="${x.start}"]`); seekTo(M[x.start] ? M[x.start].t0 : 0); if (c) c.scrollIntoView({ block: "start", behavior: "smooth" }); fl = Date.now() + 2500; }; R.appendChild(b); }); }
       [...R.children].forEach((b, k) => { b.classList.toggle("on", k === cur); }); const on0 = R.children[cur]; if (on0 && cur !== paintSegs.last) { paintSegs.last = cur; try { on0.scrollIntoView({ block: "nearest", inline: "center" }); } catch {} } };
     const saveEd = () => { me.sec = secs(); clearTimeout(sv); sv = setTimeout(flushEd, 700); }, flushEd = () => { sv = 0; try { o.onEdits && o.onEdits(ED); } catch {} try { o.onSections && o.onSections(me.sec || secs()); } catch {} };
-    const closeShEdit = () => { sel = -1; if (ep) { ep.remove(); ep = null; } d.querySelectorAll(".shM.sel").forEach((e) => e.classList.remove("sel")); };
+    const closeShEdit = (back) => { const i0 = sel; sel = -1; if (ep) { ep.remove(); ep = null; } d.querySelectorAll(".shM.sel").forEach((e) => e.classList.remove("sel"));
+      if (back === true && i0 >= 0) requestAnimationFrame(() => { const c = d.querySelector(`.shM[data-i="${i0}"]`), sc = d.querySelector(".shScroll"); if (!c || !sc) return; const r = c.getBoundingClientRect(), s0 = sc.getBoundingClientRect(); if (r.top < s0.top + s0.height * 0.2 || r.bottom > s0.top + s0.height * 0.7) sc.scrollTop += (r.top + r.height / 2) - (s0.top + s0.height * 0.4); }); };   // (11/19 사용자 '완료하면 화면이 너무 아래로') 완료하면 고친 마디가 화면 위쪽 40% 자리에 오게
     const openShEdit = (i) => { const m = M[i]; if (!m) return; closeShEdit(); sel = i; const cell = d.querySelector(`.shM[data-i="${i}"]`); if (cell) cell.classList.add("sel");
       ep = document.createElement("div"); ep.className = "shEp"; ep.innerHTML = `<div class="eh"><b>${m.no}마디 수정</b><span>코드는 띄어쓰기로 · <u>D</u> = 한 마디 1코드 · <u>Bm Em</u> = 1·3박 · <u>G A@2</u> = 박 지정${capoOf() ? " · 카포 모양 기준" : ""}</span><div class="sp"><button type="button" id="shRs">되돌리기</button><button type="button" class="on" id="shOk">완료</button></div></div>
         <div class="er"><label for="shCi">코드</label><input type="text" id="shCi" autocomplete="off" autocapitalize="off" spellcheck="false"></div><div class="hint" id="shCh"></div>
@@ -7173,9 +7174,10 @@ function songDeck(el, ids, o) {
       const redo = () => { build(); const c2 = d.querySelector(`.shM[data-i="${i}"]`); if (c2) c2.classList.add("sel"); };
       const apply = () => { const e = Object.assign({}, ED[i] || {}), q = songParseChords(ci.value); delete e.auto; delete e.g; if (q.ch.length) e.ch = q.ch.map((c) => [c[0], songChordName(c[1], capoOf() - keyN)]); e.ly = li.value; ED[i] = e; saveEd(); redo(); };
       ci.oninput = () => { hintUp(); apply(); }; li.oninput = apply; si.oninput = () => { const a = secs().filter((x) => x[0] !== i); if (si.value.trim()) a.push([i, si.value.trim()]); me.sec = a; saveEd(); redo(); };
-      const k = (e) => { if (e.key === "Enter") closeShEdit(); }; ci.onkeydown = li.onkeydown = si.onkeydown = k; ep.querySelector("#shOk").onclick = closeShEdit;
+      const k = (e) => { if (e.key === "Enter") closeShEdit(true); }; ci.onkeydown = li.onkeydown = si.onkeydown = k; ep.querySelector("#shOk").onclick = () => closeShEdit(true);
       ep.querySelector("#shRs").onclick = () => { delete ED[i]; me.sec = secs().filter((x) => x[0] !== i); saveEd(); redo(); closeShEdit(); openShEdit(i); }; ci.focus(); };
     const build = () => { M = meas(); mKey = keyN; mLy = o.lyrics; SL = songSecList(M.length, secs()); const nm = {}; SL.forEach((x) => { nm[x.start] = x.name; }); paintSegs(true);
+      const scEl = d.querySelector(".shScroll"), st0 = scEl ? scEl.scrollTop : 0; paper.style.minHeight = paper.offsetHeight + "px";   // 다시 그리는 동안 높이를 붙잡아 두고 스크롤 위치를 되돌림(고칠 때마다 위치가 튀지 않게)
       paper.textContent = ""; const f = Math.max(0.45, Math.min(1.4, paper.clientWidth / 794)); paper.style.setProperty("--f", f.toFixed(3));
       const h = document.createElement("div"); h.className = "shH"; const hb = document.createElement("b"), hs = document.createElement("span"); hb.textContent = o.name || "곡"; hs.textContent = `${o.artist ? o.artist + " · " : ""}Key ${keyLabel(keyN)}${+o.bpm > 0 ? " · " + Math.round(+o.bpm) + " BPM" : ""} · 4/4박(추정)`; h.append(hb, hs); paper.appendChild(h);
       const G = document.createElement("div"); G.className = "shG";
@@ -7184,7 +7186,7 @@ function songDeck(el, ids, o) {
         const ch = document.createElement("div"); ch.className = "shC"; for (const x of m.chords) { const e = document.createElement("span"); e.style.left = x.b * 25 + "%"; e.style.transform = `translateX(-${x.b * 25}%)`; e.textContent = x.name; ch.appendChild(e); }
         const ly = document.createElement("div"); ly.className = "shL"; ly.textContent = m.lyrics.map((y) => y.text).join(" ");
         c.append(n, ch, ly); if (i === sel) c.classList.add("sel"); cellGesture(c, { tap: () => tapCell(m.t0), dbl: () => playFrom(m.t0), long: () => openShEdit(i) }); G.appendChild(c); });
-      paper.appendChild(G); on = -1; sub(); };
+      paper.appendChild(G); paper.style.minHeight = ""; if (scEl) scEl.scrollTop = st0; on = -1; sub(); };
     const tick = () => { raf = 0; if (!d.isConnected || !alive()) return;
       if (mKey !== keyN || mLy !== o.lyrics) build();
       { const kt = keyWant + "|" + keyN + "|" + rate; if (kt !== lastKt) { lastKt = kt; sub(); paintPk(); } }
@@ -9543,7 +9545,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261119-1320";
+const BUILD = "20261119-1335";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
