@@ -6233,7 +6233,9 @@ function songPaintList0() {
     const pl = row.querySelector(".slPl"); if (pl) { const ids = stemIds(x.d); if (!ids) { pl.innerHTML = `<p class="muted">파일 정보가 없어요</p>`; return; }
       if (keep && keep.folder === x.folder) { pl.appendChild(keep.el); return; }
       const auto = songLib.auto === x.folder; if (auto) songLib.auto = null;   // 한 번만(20초 갱신·다시 그리기로는 재시작 안 함)
-      songDeck(pl, ids, { folder: x.folder, autoplay: auto, dur: +x.d.dur || 0, bpm: +x.d.bpm || 0, wave: x.d.wave, lyrics: x.d.lyrics, artist: x.d.artist, analysis: x.d.analysis, keys: x.d.keys, keyReq: x.d.key_req, fileId: x.fileId, edits: x.d.edits, sections: x.d.sections,
+      const tv = songTempoView(x.d);
+      songDeck(pl, ids, { folder: x.folder, autoplay: auto, dur: +x.d.dur || 0, bpm: tv.bpm || +x.d.bpm || 0, wave: x.d.wave, lyrics: x.d.lyrics, artist: x.d.artist, analysis: tv.an, tempoMul: tv.mul, keys: x.d.keys, keyReq: x.d.key_req, fileId: x.fileId, edits: x.d.edits, sections: tv.sections,
+        onTempo: (m) => { const cx = songLib.list.find(y => y.folder === x.folder) || x; const f = m / (+cx.d.tempo_mul || 1); if (Array.isArray(cx.d.sections)) cx.d.sections = cx.d.sections.map((z) => [f >= 1 ? Math.round(+z[0] * f) : Math.floor(+z[0] * f), z[1]]); cx.d.tempo_mul = m === 1 ? undefined : m; quietSave(() => writeJSON(cx.folder, "song.json", cx.d, cx.fileId)); songDestroy(); songPaintList(); },
         lyricsTry: x.d.lyrics_try, onLyrics: (L, t) => { const cx = songLib.list.find(y => y.folder === x.folder) || x; if (L) cx.d.lyrics = L; cx.d.lyrics_try = t; quietSave(() => writeJSON(cx.folder, "song.json", cx.d, cx.fileId)); },
         fetchD: () => readJSON(x.fileId), onKeyReq: (l) => { const cx = songLib.list.find(y => y.folder === x.folder) || x; cx.d.key_req = l; quietSave(() => writeJSON(cx.folder, "song.json", cx.d, cx.fileId)); }, mrVol: Number.isFinite(+x.d.mr_vol) ? +x.d.mr_vol : 100, head: `<div class="muted" style="font-size:.85rem">보컬 볼륨을 움직여 MR·가이드·원곡으로 들어 보세요</div>`, vol: Number.isFinite(+x.d.voc_vol) ? +x.d.voc_vol : 30, name: x.d.title,
         onVol: (vv) => { const cx = songLib.list.find(y => y.folder === x.folder) || x; cx.d.voc_vol = vv; quietSave(() => writeJSON(cx.folder, "song.json", cx.d, cx.fileId)); },
@@ -6655,6 +6657,16 @@ function songLineSnap(ev, B, dn) {
   let phi = Math.atan2(sn, cs) * 2 / Math.PI; if (phi < 0) phi += 4; if (phi > 3.25 || phi < 0.75) phi = 0;   // 마디 첫 박 근처로 몰리면 첫 박으로 정리
   const sh = new Map(); lines.forEach((g, i) => { const m = Math.round((g.x - phi) / 4), d = m * 4 + phi - g.x; if (Math.abs(d) <= 1.75 && Math.abs(d) > 0.01) { const k = Math.max(0, Math.min(B.length - 2, Math.floor(bi(g.t)))); sh.set(i, d * (B[k + 1] - B[k])); } });
   return ev.map((e) => (sh.has(e.i) ? Object.assign({}, e, { t: e.t + sh.get(e.i) }) : e));
+}
+// (11/20 사용자 '둥지: 1마디에 2마디씩 — 원곡은 164') 박 격자가 절반 템포로 잡힌 곡을 ×2(박 사이 중간 박 끼워 넣기) / ×½(한 박 건너 하나) 로 바꿔 봄. 원본 분석은 그대로 두고 보기만 바꿈(되돌릴 수 있음)
+function songTempoView(d) {
+  const an = d && d.analysis, mul = d && (+d.tempo_mul === 2 || +d.tempo_mul === 0.5) ? +d.tempo_mul : 1;
+  const bpm = (d && +d.bpm) || 0, secs = d && Array.isArray(d.sections) ? d.sections : undefined;
+  if (mul === 1 || !an || !Array.isArray(an.beats) || an.beats.length < 4) return { an, bpm, sections: secs, mul: 1 };
+  const B = an.beats, dn = an.down || 0; let nb, nd;
+  if (mul === 2) { nb = []; for (let i = 0; i < B.length; i++) { nb.push(B[i]); const nx = i + 1 < B.length ? B[i + 1] : B[i] + (B[i] - B[i - 1]); nb.push((B[i] + nx) / 2); } nd = dn * 2; }
+  else { nb = []; for (let i = dn % 2; i < B.length; i += 2) nb.push(B[i]); nd = Math.floor(dn / 2); }
+  return { an: { ...an, beats: nb, down: nd, bpm: +(an.bpm || bpm) * mul }, bpm: bpm * mul, sections: secs, mul };   // 구간(섹션) 번호는 보이는 마디 기준으로 저장(바꿀 때 onTempo 가 옮김)
 }
 function songMeasures(an, n, lyrics, voc) {
   const B = (an && an.beats) || [], dn = (an && an.down) || 0, ch = ((an && an.chords) || []).slice().sort((a, b) => a[0] - b[0]), ly = (lyrics || []).slice().sort((a, b) => a[0] - b[0]), V = voc ? songVoiced(voc) : null;
@@ -7250,8 +7262,8 @@ function songDeck(el, ids, o) {
     const setLy = (i) => { lyI = Math.max(0, Math.min(LYS.length - 1, i)); try { localStorage.setItem("sgShLy", String(lyI)); } catch {} paintLy(); };
     const setFs = (on) => { d.classList.toggle("fs", on); if (on) { try { d.requestFullscreen && d.requestFullscreen().catch(() => {}); } catch {} } else { try { document.fullscreenElement && document.exitFullscreen(); } catch {} } };
     d.addEventListener("fullscreenchange", () => { if (!document.fullscreenElement && d.classList.contains("fs")) d.classList.remove("fs"); });
-    const shTools = () => { const t = document.createElement("div"); t.className = "shTools"; t.innerHTML = `<div class="shFg" role="group" aria-label="가사 글자 크기"><button type="button" id="shFtM" aria-label="가사 글자 작게">가−</button><span id="shFtL"></span><button type="button" id="shFtP" aria-label="가사 글자 크게">가＋</button></div><button type="button" class="shFsB" id="shFs" aria-label="전체화면으로 보기">⛶ 전체화면</button><button type="button" class="shTvB" id="shTv" aria-label="TV 악보로 보기">📺 TV</button><button type="button" class="shPdfB" id="shPdf" aria-label="PDF로 만들기">PDF</button>`;
-      t.querySelector("#shFtM").onclick = () => setLy(lyI - 1); t.querySelector("#shFtP").onclick = () => setLy(lyI + 1); t.querySelector("#shFs").onclick = () => setFs(true); const pb = t.querySelector("#shPdf"); pb.onclick = () => makePdf(pb);
+    const shTools = () => { const t = document.createElement("div"); t.className = "shTools"; t.innerHTML = `<div class="shFg" role="group" aria-label="가사 글자 크기"><button type="button" id="shFtM" aria-label="가사 글자 작게">가−</button><span id="shFtL"></span><button type="button" id="shFtP" aria-label="가사 글자 크게">가＋</button></div><button type="button" class="shFsB" id="shFs" aria-label="전체화면으로 보기">⛶ 전체화면</button><button type="button" class="shTvB" id="shTv" aria-label="TV 악보로 보기">📺 TV</button><button type="button" class="shPdfB" id="shPdf" aria-label="PDF로 만들기">PDF</button>${o.onTempo && AN ? `<button type="button" class="shTvB" id="shTm" aria-label="템포 배수 바꾸기">${(+o.tempoMul || 1) === 2 ? "🔁 템포 원래대로" : "🔁 템포 ×2 (한 마디를 둘로)"}</button>` : ""}`;
+      t.querySelector("#shFtM").onclick = () => setLy(lyI - 1); const tmB = t.querySelector("#shTm"); if (tmB) tmB.onclick = () => { if (Object.keys(ED).some((k) => ED[k] && Object.keys(ED[k]).length)) { toast("코드를 고친 곡은 템포를 바꾸면 고친 자리가 어긋나요 — 고침을 먼저 지워 주세요"); return; } try { o.onTempo((+o.tempoMul || 1) === 2 ? 1 : 2); } catch {} }; t.querySelector("#shFtP").onclick = () => setLy(lyI + 1); t.querySelector("#shFs").onclick = () => setFs(true); const pb = t.querySelector("#shPdf"); pb.onclick = () => makePdf(pb);
       t.querySelector("#shTv").onclick = () => { ly.close(); setTimeout(() => { try { openPrompter(); } catch {} }, 350); }; return t; };   // TV 버튼: 닫으면 뒤로 가기 기록이 정리된 뒤에 TV 화면을 엶
     // (11/19 사용자 '코드가 겹쳐 보여') 한 칸에 코드가 둘 이상이면 칸 너비에 맞을 때까지 글자를 줄임(겹치지 않게)
     // (11/20 사용자 '코드 배치가 이상' — 한 마디 두 코드가 양 끝으로 벌어져 박 위치와 안 맞음) 코드는 박 위치(b/박수)에 놓고, 겹칠 때만 오른쪽 코드부터 왼쪽으로 밀고, 그래도 모자라면 글자를 줄임
@@ -9635,7 +9647,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261120-0130";
+const BUILD = "20261120-0800";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
