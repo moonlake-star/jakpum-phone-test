@@ -5,6 +5,7 @@ for (const [n, src] of [["선생님", t], ["수강생", s]]) { assert.ok(src.inc
 const body = t.slice(t.indexOf('$("btnLogout").onclick'), t.indexOf('$("btnLogin").onclick = login;'));
 for (const k of ["vn_tok", "vn_ctok", "vn_hint"]) assert.ok(body.includes(k), "선생님: " + k + " 안 지움");
 assert.ok(!/indexedDB|localStorage\.clear|deleteDatabase/.test(body), "선생님: 녹음 저장소를 건드리면 안 됨");
+for (const k of ["vn_jam", "SONG_CACHE_KEY", "caches.delete(JC)"]) assert.ok(body.includes(k), "선생님: 11/19 저장분 " + k + " 로그아웃에서 안 지움");   // 야간점검 11/19
 const sb = s.slice(s.indexOf("function doLogout"), s.indexOf("function loginView"));
 assert.ok(sb.includes('"sn_tok", null') && !/localStorage\.clear|indexedDB/.test(sb), "수강생: 로그인 정보만 지워야 함");
 console.log("logout ok");
