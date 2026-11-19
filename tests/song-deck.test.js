@@ -472,3 +472,23 @@ const mk = new Function(code + "; return stemEngine;")();
   const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
   assert.ok(/#dkSh \.shTl\{display:flex;align-items:flex-end/.test(T) && /#dkSh \.shTl>span\{font-size:\.75rem;min-width:34px;height:18px;line-height:18px;align-self:flex-end\}/.test(T));
 }
+// (11/20 사용자 '가사의 칸 배치가 여전히 맘에 안 듦') 줄 시작 박이 줄마다 흔들려도 곡에서 가장 자주 놓이는 자리(마디 첫 박)로 맞춰 같은 노랫말이 같은 칸에 놓이게
+{
+  const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  const f = new Function(T.slice(T.indexOf("const SG_NOTES"), T.indexOf("async function songPeaks(")) + "; return { songMeasures, SG_LY_DELAY };")();
+  const beats = Array.from({ length: 121 }, (_, i) => i * 0.5), an = { beats, down: 0, chords: [[0, "C"]] };   // 120BPM, 마디 = 2초
+  const mk = (pos) => pos.map((p, k) => [(k * 2) * 2 + p * 0.5 - f.SG_LY_DELAY, "가" + k]);   // 두 마디(4초)마다 한 줄, p = 마디 안 박 위치
+  const firstB = (M) => M.map((m) => m.lyrics[0] ? +m.lyrics[0].b.toFixed(2) : null).filter((x) => x != null);
+  // 줄 시작이 대부분 첫 박 근처 → 1.75박 안쪽은 모두 첫 박으로 (3.8박은 다음 마디 첫 박으로)
+  const M = f.songMeasures(an, 0, mk([0.3, 1.2, 0.1, 3.8, 0.4, 0.9, 0.2, 1.5, 0.3, 3.9, 0.6, 0.1]));
+  const got = firstB(M); assert.strictEqual(got.length, 12, "줄 12개 모두 어딘가에 놓임");
+  assert.ok(got.every((b) => b < 0.05), "모든 줄이 마디 첫 박에 놓임: " + got.join(","));
+  // 멀리 벗어난 줄(2박)은 건드리지 않음
+  const M2 = f.songMeasures(an, 0, mk([0.1, 0.2, 2.0, 0.3, 0.1, 0.2, 0.3, 0.1])); const g2 = firstB(M2);
+  assert.ok(g2.some((b) => Math.abs(b - 2) < 0.05) && g2.filter((b) => b < 0.05).length === 7, "1.75박 넘게 벗어난 줄은 그대로: " + g2.join(","));
+  // 줄 시작이 고르게 흩어진 곡은 그대로
+  const M3 = f.songMeasures(an, 0, mk([0, 1, 2, 3, 0, 1, 2, 3])); assert.deepStrictEqual(firstB(M3).map((b) => Math.round(b)), [0, 1, 2, 3, 0, 1, 2, 3]);
+  // 줄 안 낱말의 간격은 유지
+  const M4 = f.songMeasures(an, 0, [[0.3 + 0.0, "가나다 라마바 사아자"], [4.3, "하하 호호 후후"], [8.3, "가나다 라마바 사아자"], [12.3, "하하 호호 후후"]]);
+  assert.ok(M4.length >= 8);
+}
