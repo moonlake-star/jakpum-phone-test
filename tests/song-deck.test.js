@@ -86,7 +86,7 @@ const mk = new Function(code + "; return stemEngine;")();
   assert.ok(T.includes("touch-action:pan-y"), "세로 스크롤은 허용");
   assert.ok(dk.includes("o.analysis && o.analysis.key") && dk.includes("eng.swap(") && dk.includes("o.onKeyReq"), "키 카드는 서버가 분석한 곡에만 · 파일 없으면 요청");
   assert.ok(/songDeck\(pl, ids, \{[^]*analysis: x\.d\.analysis, keys: x\.d\.keys, keyReq: x\.d\.key_req/.test(T), "곡 서랍이 분석·키 파일을 넘김");
-  assert.ok(dk.includes("openPrompter") && dk.includes("Brand.layer") && dk.includes('id="dkTv"') && dk.includes("o.analysis.chords.length"), "프롬프터는 코드가 있는 곡에만 · 뒤로 가기 한 칸");
+  assert.ok(dk.includes("openPrompter") && dk.includes("Brand.layer") && dk.includes('id="shTv"') && dk.includes("o.analysis.chords.length"), "프롬프터는 코드가 있는 곡에만 · 뒤로 가기 한 칸");
   assert.ok(dk.includes('id="prPdf"') && dk.includes("songPdfName(o.name, o.artist, capoOf() ? keyName(keyN)"), "프롬프터 PDF 버튼·파일명 규칙");
   for (const k of ["prVol", "prSeek", "prSgs", "prEd", "prPv", "prNx", "prCi", "prLi", "prSi"]) assert.ok(dk.includes('id="' + k + '"'), "프롬프터 " + k);
   assert.ok(!dk.includes('id="prNow"') && !dk.includes('id="prNext"'), "‘지금·다음 코드’는 뺌(사용자 11/14)");
@@ -265,7 +265,9 @@ const mk = new Function(code + "; return stemEngine;")();
 
 { // 처음 재생 대기 팝업 + A4/TV 버튼 순서
   assert.ok(T.includes('const pop = busyPop("곡 불러오는 중이에요"') && T.includes("finally { pop.close(); }"), "불러오는 동안 팝업·끝나면 닫힘");
-  assert.ok(T.indexOf('id="dkSh0"') < T.indexOf('id="dkTv"'), "A4 악보 버튼이 TV 앞");
+  assert.ok(T.indexOf('id="dkSh0"') < T.indexOf('id="dkRep"') && T.indexOf('id="dkRep"') < T.indexOf('id="dkLoop"'), "(11/19) 버튼 순서: A4 악보 · 반복 · 구간 반복");
+  assert.ok(!T.includes('<button type="button" id="dkTv">') && T.indexOf('id="shCp"') < T.indexOf('id="shTv"') && T.indexOf('id="shTv"') < T.indexOf('id="shPdf"'), "TV 버튼은 A4 악보 화면의 카포·PDF 사이");
+  assert.ok(/id="dkA">시작<\/button><button type="button" id="dkB">끝<\/button><button type="button" id="dkClr">해제/.test(T), "구간 반복: 시작·끝·해제");
 }
 
 { // 멈춰 있을 때 한 번 누르면 그 칸부터 재생

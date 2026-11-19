@@ -6855,8 +6855,8 @@ function songDeck(el, ids, o) {
     <div class="dkWv" id="dkWv"><canvas id="dkCv"></canvas><div class="dkHead"></div><div class="dkEmpty" id="dkWE">파형 만드는 중…</div></div>
     <div class="dkTm"><span id="sgT0">0:00</span><span id="dkAB" class="dkLab"></span><span id="sgT1">–:–</span></div>
     <div class="dkTr"><button type="button" id="dkHome" aria-label="처음으로">⏮<small>처음</small></button><button type="button" id="dkBk" aria-label="5초 뒤로">⏪<small>5초</small></button><button type="button" class="sgPb" id="sgPb" aria-label="재생">▶</button><button type="button" id="dkFw" aria-label="5초 앞으로">⏩<small>5초</small></button><button type="button" id="dkEnd" aria-label="맨 끝으로">⏭<small>끝</small></button></div>
-    <div class="dkR2"><button type="button" id="dkRep" aria-pressed="false">🔁 반복</button><button type="button" id="dkLoop" aria-pressed="false">구간 반복</button>${o.analysis && o.analysis.key && Array.isArray(o.analysis.chords) && o.analysis.chords.length && (o.analysis.beats || []).length > 8 ? `<button type="button" id="dkSh0">📄 A4 악보</button><button type="button" id="dkTv">📺 TV</button>` : ""}</div>
-    <div class="dkRv" id="dkRv"><button type="button" id="dkA">A 지점</button><button type="button" id="dkB">B 지점</button><button type="button" id="dkClr">해제</button></div>
+    <div class="dkR2">${o.analysis && o.analysis.key && Array.isArray(o.analysis.chords) && o.analysis.chords.length && (o.analysis.beats || []).length > 8 ? `<button type="button" id="dkSh0">📄 A4 악보</button>` : ""}<button type="button" id="dkRep" aria-pressed="false">🔁 반복</button><button type="button" id="dkLoop" aria-pressed="false">구간 반복</button></div>
+    <div class="dkRv" id="dkRv"><button type="button" id="dkA">시작</button><button type="button" id="dkB">끝</button><button type="button" id="dkClr">해제</button></div>
     <div class="sgVo"><div class="sgVl">보컬 볼륨<span id="sgVv">${v0}%</span></div><input type="range" id="sgVol" min="0" max="100" value="${v0}">
       <div class="sgPre">${[[0, "MR", "0%"], [30, "가이드", "30%"], [100, "원곡", "100%"]].map(([v, a, b]) => `<button type="button" data-sgv="${v}">${a}<small>${b}</small></button>`).join("")}</div>
       <div class="sgVl" style="margin-top:10px">반주 볼륨<span id="dkMv">${m0}%</span></div><input type="range" id="dkMr" min="0" max="100" value="${m0}"></div>
@@ -6933,7 +6933,7 @@ function songDeck(el, ids, o) {
     if (!kReq.includes(keyWant)) { kReq.push(keyWant); try { o.onKeyReq && o.onKeyReq(kReq); } catch {} }
     paintKey(); keyPoll(); };
   if (AN) { paintKey(); Q("dkKeyM").onclick = () => setKey(keyWant - 1); Q("dkKeyP").onclick = () => setKey(keyWant + 1); dblTap(Q("dkKeyV").parentElement, () => setKey(0)); }
-  const paintAB = () => { Q("dkAB").textContent = A != null && B != null ? `A ${mmss1(A)} – B ${mmss1(B)}` : A != null ? `A ${mmss1(A)} · B를 정해 주세요` : B != null ? `B ${mmss1(B)} · A를 정해 주세요` : ""; Q("dkA").textContent = A != null ? `A 지점 ${mmss(A)}` : "A 지점"; Q("dkB").textContent = B != null ? `B 지점 ${mmss(B)}` : "B 지점";
+  const paintAB = () => { Q("dkAB").textContent = A != null && B != null ? `${mmss1(A)} ~ ${mmss1(B)}` : A != null ? `시작 ${mmss1(A)} · 끝을 정해 주세요` : B != null ? `끝 ${mmss1(B)} · 시작을 정해 주세요` : ""; Q("dkA").textContent = A != null ? `시작 ${mmss(A)}` : "시작"; Q("dkB").textContent = B != null ? `끝 ${mmss(B)}` : "끝";
     const on = A != null && B != null; Q("dkLoop").classList.toggle("on", on); Q("dkLoop").setAttribute("aria-pressed", on); eng.setLoop(on ? A : NaN, on ? B : NaN); draw(); };
   let loadP = null;
   // (11/19 사용자 '처음 재생 누르면 대기가 걸리는데 팝업') 처음 재생에서 곡 불러오는 동안 가운데 팝업(0.25초 넘게 걸릴 때만 · 몇 초째인지 표시)
@@ -7093,7 +7093,7 @@ function songDeck(el, ids, o) {
     if (!CHORDS || document.getElementById("dkSh")) return;
     const d = document.createElement("div"); d.id = "dkSh"; d.setAttribute("role", "dialog"); d.setAttribute("aria-label", "A4 악보");
     d.innerHTML = `<div class="shBar"><button type="button" class="shPlay" id="shPlay" aria-label="재생 또는 일시정지">▶</button><div class="shT"><b id="shTitle"></b><span id="shSub"></span></div>
-      <button type="button" class="shBtn" id="shCp" aria-label="카포 추천">카포</button><button type="button" class="shBtn" id="shPdf">PDF</button><button type="button" class="shX" id="shX" aria-label="닫기">✕</button>
+      <button type="button" class="shBtn" id="shCp" aria-label="카포 추천">카포</button><button type="button" class="shBtn" id="shTv" aria-label="TV 악보">📺 TV</button><button type="button" class="shBtn" id="shPdf">PDF</button><button type="button" class="shX" id="shX" aria-label="닫기">✕</button>
       <div class="shCt"><div class="shVo"><small>보컬</small><input type="range" id="shVol" min="0" max="100" aria-label="보컬 소리"><b id="shVv"></b></div>
       <div class="shKt"><div class="shKg"><small>키</small><button type="button" id="shKm" aria-label="키 한 음 내리기">−</button><b id="shKv">–</b><button type="button" id="shKp" aria-label="키 한 음 올리기">＋</button></div><div class="shKg"><small>속도</small><button type="button" id="shSm" aria-label="속도 1 내리기">−</button><b id="shSv">–</b><button type="button" id="shSp" aria-label="속도 1 올리기">＋</button></div></div></div></div>
     <div class="shTl"><span id="shT0">0:00</span><div class="shSg"><div class="shSgs" id="shSgs"></div><input type="range" id="shSeek" min="0" max="1000" step="1" value="0" aria-label="곡 전체 위치"></div><span id="shT1">–:–</span></div>
@@ -7143,7 +7143,8 @@ function songDeck(el, ids, o) {
     dblTap($("#shKv"), () => setKey(0)); dblTap($("#shSv"), () => setRate(1)); $("#shPlay").onclick = () => Q("sgPb").onclick();
     const stopPlay = () => { document.querySelectorAll(".capoP").forEach((e) => e.remove()); try { eng.pause(); } catch {} try { Q("sgPb").textContent = "▶"; } catch {} };
     const ly = typeof Brand !== "undefined" && Brand.layer ? Brand.layer(() => { stopPlay(); cancelAnimationFrame(raf); if (sv) { clearTimeout(sv); flushEd(); } try { LE = songLaneEvents(AN, CHORDS, ED, M0); draw(); } catch {} me.onLyrics = null; me.onVol = null; me.onCapo = null; me.sh = null; d.remove(); }) : { close: () => { stopPlay(); cancelAnimationFrame(raf); if (sv) { clearTimeout(sv); flushEd(); } try { LE = songLaneEvents(AN, CHORDS, ED, M0); draw(); } catch {} me.onLyrics = null; me.onVol = null; me.onCapo = null; me.sh = null; d.remove(); } };   // 닫기·뒤로가기 = 재생도 멈춤
-    $("#shX").onclick = () => ly.close(); me.onLyrics = () => { build(); }; me.onCapo = () => { build(); sub(); paintPk(); };
+    $("#shX").onclick = () => ly.close(); $("#shTv").onclick = () => { ly.close(); setTimeout(() => { try { openPrompter(); } catch {} }, 350); };   // (11/19 사용자) TV 버튼은 A4 악보 화면 위쪽(카포·PDF 옆)으로 — 뒤로 가기 기록이 정리된 뒤에 엶
+    me.onLyrics = () => { build(); }; me.onCapo = () => { build(); sub(); paintPk(); };
     const pdfBtn = $("#shPdf"); pdfBtn.onclick = async () => { pdfBtn.disabled = true; const t0 = pdfBtn.textContent; pdfBtn.textContent = "만드는 중…";
       try { const MM = meas(), SL = songSecList(MM.length, secs()), sec = {}; SL.forEach((x) => { sec[x.start] = "[" + x.name + "]"; }); const { pages, rpp } = songSheetPages(MM.length), sb = `${o.artist ? o.artist + " · " : ""}Key ${keyLabel(keyN)} · ${+o.bpm > 0 ? Math.round(+o.bpm) + " BPM · " : ""}4/4박(추정)`, out = [];
         for (let p = 0; p < pages; p++) { const cv = songSheetPage(MM, p, rpp, { title: o.name, sub: sb, pages, sec }), jb = await new Promise((ok) => cv.toBlob(ok, "image/jpeg", 0.92)); out.push({ jpg: new Uint8Array(await jb.arrayBuffer()), w: cv.width, h: cv.height }); }
@@ -7157,7 +7158,7 @@ function songDeck(el, ids, o) {
   Q("dkRep").onclick = () => { rep = !rep; Q("dkRep").classList.toggle("on", rep); Q("dkRep").setAttribute("aria-pressed", rep); };
   Q("dkLoop").onclick = () => { const rv = Q("dkRv"), open = !rv.classList.contains("open"); rv.classList.toggle("open", open); };
   Q("dkA").onclick = () => { const t = cur(); if (B != null && t >= B - 0.5) { B = null; toast("A가 B보다 뒤라서 B를 지웠어요 · B를 다시 정해 주세요"); } A = t; paintAB(); };
-  Q("dkB").onclick = () => { const t = cur(); if (A != null && t <= A + 0.5) return toast("B 지점은 A 지점보다 0.5초 이상 뒤여야 해요"); B = t; paintAB(); };
+  Q("dkB").onclick = () => { const t = cur(); if (A != null && t <= A + 0.5) return toast("끝은 시작보다 0.5초 이상 뒤여야 해요"); B = t; paintAB(); };
   Q("dkClr").onclick = () => { A = B = null; paintAB(); Q("dkRv").classList.remove("open"); };
   Q("sgVol").oninput = () => setVol(+Q("sgVol").value); Q("sgVol").ondblclick = () => setVol(100);
   el.querySelectorAll("[data-sgv]").forEach(b => b.onclick = () => setVol(+b.dataset.sgv));
@@ -9485,7 +9486,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261119-1135";
+const BUILD = "20261119-1145";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
