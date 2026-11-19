@@ -415,3 +415,10 @@ const mk = new Function(code + "; return stemEngine;")();
   const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
   assert.ok(/shiftBtn = \(\) => \(modeP\(\) \? "🎹" \+ \(shiftOf\(\) \? sgn\(shiftOf\(\)\) : "0"\) : "카포" \+ shiftOf\(\)\)/.test(T), "기타 모드 버튼은 카포0·카포2, 피아노 모드는 🎹+3");
 }
+
+// (11/19 사용자 'Stumblin' In 코드는 안 바꿨는데 초록') 마디 편집창에서 가사만 고치면 코드는 '직접 수정'으로 저장하지 않는다
+{
+  const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  assert.strictEqual((T.match(/const ci0 = ci\.value, apply = \(\) =>/g) || []).length, 2, "프롬프터·악보 편집창 모두 처음 코드 글자를 기억");
+  assert.strictEqual((T.match(/if \(ci\.value !== ci0\) \{ delete e\.auto; delete e\.g;/g) || []).length, 2, "코드 칸이 바뀐 때만 e.ch 저장");
+}

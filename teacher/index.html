@@ -7081,7 +7081,7 @@ function songDeck(el, ids, o) {
       d.appendChild(ep); const ci = ep.querySelector("#prCi"), li = ep.querySelector("#prLi"), si = ep.querySelector("#prSi"), hint = ep.querySelector("#prCh");
       ci.value = songFmtChords(m.chords); li.value = m.lyrics.map((y) => y.text).join(" "); const cs = SEC.find((x) => x[0] === i); si.value = cs ? cs[1] : "";
       const hintUp = () => { const p = songParseChords(ci.value); hint.style.color = p.bad.length ? "#ff8a80" : "#b8b8b8"; hint.textContent = p.bad.length ? "알 수 없는 입력: " + p.bad.join(" ") : p.ch.length ? p.ch.map((c) => c[0] + "박 " + c[1]).join(" · ") : "코드를 입력하세요"; }; hintUp();
-      const apply = () => { const e = Object.assign({}, ED[i] || {}), p = songParseChords(ci.value); delete e.auto; delete e.g; if (p.ch.length) e.ch = p.ch.map((c) => [c[0], songChordName(c[1], capoOf() - keyN)]); e.ly = li.value; ED[i] = e; save(); refresh(); };
+      const ci0 = ci.value, apply = () => { const e = Object.assign({}, ED[i] || {}), p = songParseChords(ci.value); if (ci.value !== ci0) { delete e.auto; delete e.g; if (p.ch.length) e.ch = p.ch.map((c) => [c[0], songChordName(c[1], capoOf() - keyN)]); } e.ly = li.value; ED[i] = e; save(); refresh(); };
       ci.oninput = () => { hintUp(); apply(); }; li.oninput = apply;
       si.oninput = () => { SEC = SEC.filter((x) => x[0] !== i); if (si.value.trim()) SEC.push([i, si.value.trim()]); save(); refreshSec(); };
       const k = (e) => { if (e.key === "Enter") closeEdit(); }; ci.onkeydown = li.onkeydown = si.onkeydown = k;
@@ -7195,7 +7195,7 @@ function songDeck(el, ids, o) {
       ci.value = songFmtChords(m.chords); li.value = m.lyrics.map((y) => y.text).join(" "); { const cs = secs().find((x) => x[0] === i); si.value = cs ? cs[1] : ""; }
       const hintUp = () => { const q = songParseChords(ci.value); hint.style.color = q.bad.length ? "#ff8a80" : "#b8b8b8"; hint.textContent = q.bad.length ? "알 수 없는 입력: " + q.bad.join(" ") : q.ch.length ? q.ch.map((c) => c[0] + "박 " + c[1]).join(" · ") : "코드를 입력하세요"; }; hintUp();
       const redo = () => { build(); const c2 = d.querySelector(`.shM[data-i="${i}"]`); if (c2) c2.classList.add("sel"); };
-      const apply = () => { const e = Object.assign({}, ED[i] || {}), q = songParseChords(ci.value); delete e.auto; delete e.g; if (q.ch.length) e.ch = q.ch.map((c) => [c[0], songChordName(c[1], capoOf() - keyN)]); e.ly = li.value; ED[i] = e; saveEd(); redo(); };
+      const ci0 = ci.value, apply = () => { const e = Object.assign({}, ED[i] || {}), q = songParseChords(ci.value); if (ci.value !== ci0) { delete e.auto; delete e.g; if (q.ch.length) e.ch = q.ch.map((c) => [c[0], songChordName(c[1], capoOf() - keyN)]); } e.ly = li.value; ED[i] = e; saveEd(); redo(); };
       ci.oninput = () => { hintUp(); apply(); }; li.oninput = apply; si.oninput = () => { const a = secs().filter((x) => x[0] !== i); if (si.value.trim()) a.push([i, si.value.trim()]); me.sec = a; saveEd(); redo(); };
       const k = (e) => { if (e.key === "Enter") closeShEdit(true); }; ci.onkeydown = li.onkeydown = si.onkeydown = k; ep.querySelector("#shOk").onclick = () => closeShEdit(true);
       ep.querySelector("#shRs").onclick = () => { delete ED[i]; me.sec = secs().filter((x) => x[0] !== i); saveEd(); redo(); closeShEdit(); openShEdit(i); }; ci.focus(); };
@@ -9568,7 +9568,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261119-1520";
+const BUILD = "20261119-1435";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
