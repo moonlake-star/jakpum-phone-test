@@ -271,7 +271,7 @@ const mk = new Function(code + "; return stemEngine;")();
 }
 
 { // 멈춰 있을 때 한 번 누르면 그 칸부터 재생
-  assert.ok(T.includes("const tapCell = (t) => { if (eng.isPlaying()) Q(\"sgPb\").onclick(); else playFrom(t); };"), "재생 중 터치 = 일시정지 · 멈춰 있을 때 터치 = 그 칸부터 재생(11/19)");
+  assert.ok(T.includes("const tapCell = (t) => { if (eng.isPlaying()) { Q(\"sgPb\").onclick(); songTapFlash(false); } else { playFrom(t); songTapFlash(true); } };"), "재생 중 터치 = 일시정지 · 멈춰 있을 때 터치 = 그 칸부터 재생(11/19)");
   assert.ok(T.includes("tap: () => tapCell(i === 0 ? 0 : m.t0), dbl: () => playFrom(i === 0 ? 0 : m.t0), long: () => openShEdit(i)") && T.includes("else tapCell(i === 0 ? 0 : m.t0); }, dbl: () => playFrom(i === 0 ? 0 : m.t0)"), "A4·프롬프터 둘 다");
 }
 
@@ -598,4 +598,20 @@ const mk = new Function(code + "; return stemEngine;")();
   const M2 = f.songMeasures(an, 0, [[1.5, "You know these reckless thoughts"], [9.0, "of mine"]], null, [[1.0, 1.3, 4.1, 4.5, 6.2], [9.0, 9.4]]);
   assert.notStrictEqual(at(M2, "thoughts"), 4);
   assert.strictEqual(M.flatMap((m) => m.lyrics.map((l) => l.text)).join(" "), "You know these reckless thoughts of mine", "글자 그대로");
+}
+
+{ // (11/20 사용자 '터치했을 때 반투명 재생 버튼이 화면 중앙에 팝업, 일시정지 때도')
+  const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  assert.ok(T.includes('const tapCell = (t) => { if (eng.isPlaying()) { Q("sgPb").onclick(); songTapFlash(false); } else { playFrom(t); songTapFlash(true); } };'), "터치로 멈춤 = ❚❚ · 재생 = ▶");
+  const src = T.slice(T.indexOf("function songTapFlash("), T.indexOf("function songMeasures("));
+  const kids = [], body = { appendChild: (e) => kids.push(e) };
+  const mk = () => ({ style: {}, setAttribute() {}, remove() { kids.splice(kids.indexOf(this), 1); } });
+  const doc = { createElement: mk, body, querySelectorAll: () => kids.slice() };
+  const f = new Function("document", "setTimeout", src + "; return songTapFlash;")(doc, (fn) => fn());
+  f(true); assert.strictEqual(kids.length, 0, "애니 없는 환경에서도 사라짐");
+  const doc2 = { createElement: () => ({ ...mk(), animate: () => ({}) }), body, querySelectorAll: () => kids.slice() };
+  const g = new Function("document", "setTimeout", src + "; return songTapFlash;")(doc2, () => {});
+  g(false); assert.strictEqual(kids.length, 1); assert.strictEqual(kids[0].textContent, "\u275A\u275A", "일시정지 표시");
+  assert.ok(/pointer-events:none/.test(kids[0].style.cssText), "터치를 가로막지 않음");
+  g(true); assert.strictEqual(kids.length, 1, "연달아 누르면 이전 표시는 지움"); assert.strictEqual(kids[0].textContent, "\u25B6\uFE0E");
 }
