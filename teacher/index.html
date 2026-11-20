@@ -8681,15 +8681,22 @@ async function saidPlay(b, x) {
     await saidAud.play(); b.textContent = "❚❚ 멈춤";
   } catch (e) { b.textContent = b.dataset.lab; toast(typeof errMsg === "function" ? errMsg(e) : e.message); }
 }
+// (11/20 09:30 사용자 '확인해 달라는 게 너무 많이 나와서 징그럽다') 기본은 접어 둠: 한 줄 요약만 보이고, 눌러야 펼침 · 펼쳐도 3개만, 나머지는 '더 보기'
+const saidUI = { open: false, all: false };
 function saidBoxHTML(items, canPlay) {   // canPlay = 지금 열린 레슨에서 나온 말이면 ▶ 그 자리 듣기(아래 재생바, 2026-10-29 사용자)
   if (!items.length) return "";
-  return `<div class="card warnbox"><h3 style="margin:0 0 4px">🗣 수강생이 한 말 — 맞는지 봐 주세요 <span class="chip todo">확인 전 ${items.length}개</span></h3>
-    <p class="muted" style="margin:4px 0">AI가 녹음에서 뽑은 말이라 누가 한 말인지 틀릴 수 있어요. ‘맞아요’를 누른 말만 다음 레슨 브리핑과 AI 정리에 써요.</p>
-    ${items.map((x, n) => `<div class="saidItem" style="border-top:1px solid var(--line);padding:10px 0">
+  const SHOW = 3, more = items.length - SHOW, open = saidUI.open, all = saidUI.all || more <= 0;
+  return `<div class="card warnbox saidBox" style="padding:10px 14px">
+    <button class="ghost" data-saidtoggle style="width:100%;min-height:44px;display:flex;align-items:center;gap:8px;border:0;background:none;padding:0;text-align:left;color:inherit">
+      <span style="font-weight:600">🗣 수강생이 한 말 확인</span><span class="chip todo">${items.length}개</span><span class="muted" style="margin-left:auto">${open ? "접기 ▴" : "펼치기 ▾"}</span></button>
+    <div class="saidBody" ${open ? "" : "hidden"}>
+    <p class="muted" style="margin:4px 0;font-size:.85rem">AI가 뽑은 말이라 틀릴 수 있어요. ‘맞아요’만 브리핑·AI 정리에 써요.</p>
+    ${items.map((x, n) => `<div class="saidItem" ${!all && n >= SHOW ? "hidden" : ""} style="border-top:1px solid var(--line);padding:10px 0">
       <div class="row" style="gap:6px;flex-wrap:nowrap">${x.t != null && (canPlay || x.lesson) ? `<button class="small ghost" data-saidplay="${n}" style="min-height:34px;flex:none">▶ ${fmt(x.t)} 듣기</button>` : ""}<span class="row" style="gap:6px;margin-left:auto;flex-wrap:nowrap;justify-content:flex-end"><span class="chip todo">확인 전</span><span class="chip">${esc(SAID_KIND[x.kind] || x.kind)}</span><span class="muted" style="white-space:nowrap">${esc(String(x.date || "").slice(5).replace("-", "/"))}</span></span></div>
       <div style="font-size:1.08rem;margin:6px 0">“${esc(x.quote)}”</div>${x.meaning ? `<div class="muted">${esc(x.meaning)}</div>` : ""}
       <div class="row" style="margin-top:6px"><button data-said="${n}" data-v="yes" style="flex:1;min-height:40px">👍 맞아요</button>
-        <button class="ghost" data-said="${n}" data-v="no" style="flex:1;min-height:40px">✋ 아니에요</button></div></div>`).join("")}</div>`;
+        <button class="ghost" data-said="${n}" data-v="no" style="flex:1;min-height:40px">✋ 아니에요</button></div></div>`).join("")}
+    ${!all ? `<button class="ghost" data-saidmore style="width:100%;margin-top:6px;min-height:40px">나머지 ${more}개 더 보기</button>` : ""}</div></div>`;
 }
 // el에 확인 전 목록을 그린다. lesson(레슨 폴더 ID)을 주면 그 레슨에서 나온 말만. rec를 주면 다시 읽지 않음
 async function paintSaid(el, sid, lesson, rec) {
@@ -8698,6 +8705,11 @@ async function paintSaid(el, sid, lesson, rec) {
     rec ??= await rootFile(cfg.students[sid], SAID_REC);
     const items = saidPending(rec, lesson).filter(x => !saidQueued(x));   // 저장 줄에 있는 것은 이미 누른 것
     el.innerHTML = saidBoxHTML(items, !!lesson && cur?.folder?.id === lesson);
+    el.querySelector("[data-saidtoggle]")?.addEventListener("click", (e) => {   // 접기/펼치기(다시 그리지 않고 보이기만 바꿈)
+      saidUI.open = !saidUI.open; const body = el.querySelector(".saidBody"); if (body) body.hidden = !saidUI.open;
+      const lab = e.currentTarget.querySelector(".muted"); if (lab) lab.textContent = saidUI.open ? "접기 ▴" : "펼치기 ▾"; });
+    el.querySelector("[data-saidmore]")?.addEventListener("click", (e) => {
+      saidUI.all = true; el.querySelectorAll(".saidItem[hidden]").forEach(r => r.hidden = false); e.currentTarget.remove(); });
     const here = !!lesson && cur?.folder?.id === lesson;
     el.querySelectorAll("[data-saidplay]").forEach(b => b.onclick = () => { const x = items[+b.dataset.saidplay]; if (x?.t == null) return;
       if (here && x.lesson === lesson) playAt(Math.max(0, x.t - 2)).catch(e => toast(e.message)); else saidPlay(b, x); });
