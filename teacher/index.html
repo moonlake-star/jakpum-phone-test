@@ -4208,11 +4208,34 @@ async function openSubs(sid, box) {
   });
 }
 
-// ── 바로 처리: 요청하자마자 서버 작업 시작 (구글 Apps Script 중계, config.kick_url) ──
+// ── 바로 처리: 요청하자마자 서버 작업 시작 ──
+//#kick-begin
+// (11/20 사용자 '노트북 서버로 모두') 처리 서버 = 집 노트북. 노트북이 1분마다 고쳐 쓰는 일꾼상태.json이 3분 안이면 켜져 있음
+// → 같은 폴더의 서버깨우기.json을 고쳐 써서 노트북이 12초 안에 바로 확인(GitHub 안 거침). 상태 파일이 안 보이는 계정(강사)만 예전 연결(kick_url).
+const WAKE_NAME = "서버깨우기.json", WSTAT_NAME = "일꾼상태.json", WORKER_FRESH_MS = 3 * 60000;
+async function wakeLaptop(io, now = Date.now()) {
+  const st = await io.find(WSTAT_NAME);
+  if (!st || !st.parent) return { ok: false, why: "none" };
+  const fresh = now - Date.parse(st.modifiedTime || 0) < WORKER_FRESH_MS;
+  try { const w = await io.find(WAKE_NAME); await io.write(st.parent, WAKE_NAME, { at: new Date(now).toISOString() }, w?.id); }
+  catch { return { ok: false, why: fresh ? "write" : "off" }; }
+  return { ok: fresh, why: fresh ? "on" : "off" };
+}
+//#kick-end
+const KIO = {
+  find: async (name) => { const f = (await (await api(`${DRIVE}/files?q=${q(`name='${name}' and trashed=false`)}&fields=files(id,modifiedTime,parents)&orderBy=modifiedTime desc&pageSize=1`)).json()).files?.[0];
+    return f ? { id: f.id, modifiedTime: f.modifiedTime, parent: f.parents?.[0] } : null; },
+  write: (folder, name, obj, id) => writeJSON(folder, name, obj, id),
+};
+let kickWhy = "";
 async function kick1() {
-  if (!cfg?.kick_url) return false;
+  if (typeof isDemo === "function" && isDemo()) return true;
+  let w = { ok: false, why: "none" };
+  try { w = await wakeLaptop(KIO); } catch {}
+  kickWhy = w.why;
+  if (w.ok) return true;
+  if (w.why !== "none" || !cfg?.kick_url) return false;   // 노트북이 꺼져 있으면 GitHub를 깨워도 처리 못 함(결제 막힘) → 솔직하게 알림
   try {
-    if (typeof isDemo === "function" && isDemo()) return true;
     const r = await fetch(cfg.kick_url, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ token }) });
     const j = await r.json().catch(() => ({})); return !!j.ok;
   } catch { return false; }
@@ -4229,7 +4252,7 @@ function kickBar(show) {
   if (!show) { b?.remove(); return; }
   if (!b) { b = document.createElement("div"); b.id = "kickBar"; b.setAttribute("role", "alert");
     b.style.cssText = "position:fixed;left:12px;right:12px;bottom:84px;z-index:120;display:flex;gap:10px;align-items:center;padding:12px 14px;border-radius:14px;background:#3a2a14;border:1.5px solid #ffd27a;color:#ffe9b8;font-weight:700;box-shadow:0 6px 20px rgba(0,0,0,.5)";
-    b.innerHTML = `<span style="flex:1">⚠ 서버를 바로 깨우지 못했어요 · 요청은 저장돼 있어요</span><button type="button" class="small" style="flex:none">다시 시작</button><button type="button" class="small ghost" aria-label="닫기" style="flex:none">✕</button>`;
+    b.innerHTML = `<span style="flex:1">${kickWhy === "off" ? "⚠ 집 노트북 서버가 꺼져 있어요 · 요청은 저장돼 있고 노트북을 켜면 처리돼요" : "⚠ 서버를 바로 깨우지 못했어요 · 요청은 저장돼 있어요"}</span><button type="button" class="small" style="flex:none">다시 시작</button><button type="button" class="small ghost" aria-label="닫기" style="flex:none">✕</button>`;
     const [go, x] = b.querySelectorAll("button");
     go.onclick = async () => { go.disabled = true; go.textContent = "시작 중…"; const ok = await kick1(); if (ok) { kickBar(false); toast("서버 처리를 시작했어요 (보통 1~3분)"); } else { go.disabled = false; go.textContent = "다시 시작"; toast("아직 연결이 안 돼요 · 다음 자동 실행 때 처리돼요"); } };
     x.onclick = () => kickBar(false);
