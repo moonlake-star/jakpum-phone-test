@@ -717,3 +717,17 @@ const mk = new Function(code + "; return stemEngine;")();
   assert.ok(T.includes('ep.addEventListener("focusin", () => { ep.classList.add("up");') && T.includes("#dkSh .shEp.up{top:8px;bottom:auto}"), "입력 중 창 위로");
   assert.ok(T.includes("if (sgPtrDown) { const ins = [ci, li, si]; ins.forEach((x) => { x.readOnly = true;") && T.includes('document.addEventListener("pointerdown", () => { sgPtrDown = true; }, true);'), "길게 누름 뒤 선택 모드 막기");
 }
+
+// (11/21 사용자 '도저히 답이 안 나오는 칸 — 빨간 테두리·확인 필요' · 에이) 코드 확신 낮은 마디 · 정렬 안 된 가사 · 고친 마디 제외 · 25% 넘으면 상위 10칸
+{
+  const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  const f = new Function(T.slice(T.indexOf("const SG_NOTES"), T.indexOf("async function songPeaks(")) + "; return { songCheckBars };")();
+  const mk = (n, o = {}) => Array.from({ length: n }, (_, i) => Object.assign({ beats: 4, chords: [{ b: 0, name: "C" }], lyrics: [{ b: 0, text: "가", nf: false }] }, o[i] || {}));
+  const an = (conf) => ({ beats: conf.map((_, i) => i * 0.5), down: 0, beat_conf: conf });
+  let M = mk(20), c = Array(80).fill(0.95); c[9] = 0.4; c[44] = 0.65;
+  let K = f.songCheckBars(M, an(c)); assert.deepStrictEqual([...K.keys()].sort((a, b) => a - b), [2, 11], "확신 0.7 미만 마디만");
+  M = mk(20, { 2: { edited: true } }); K = f.songCheckBars(M, an(c)); assert.deepStrictEqual([...K.keys()], [11], "고친 마디는 표시 안 함");
+  M = mk(20, { 5: { lyrics: [{ b: 0, text: "나", nf: true }] } }); K = f.songCheckBars(M, an(Array(80).fill(0.95))); assert.deepStrictEqual([...K.keys()], [5]); assert.deepStrictEqual(K.get(5).why, ["가사 위치"]);
+  M = mk(40); K = f.songCheckBars(M, an(Array(160).fill(0.5))); assert.strictEqual(K.size, 10, "25% 넘으면 10칸만"); assert.strictEqual(K.capped, 40);
+  assert.ok(T.includes('t.textContent = "확인 필요"') && T.includes("#dkSh .shM.ck .shL{outline:2px solid #e53935"), "빨간 테두리·글자");
+}
