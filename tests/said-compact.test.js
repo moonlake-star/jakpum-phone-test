@@ -7,5 +7,7 @@ assert(/data-saidtoggle/.test(body) && /class="saidBody" \$\{open \? "" : "hidde
 assert(/SHOW = 3/.test(body) && /data-saidmore/.test(body) && /n >= SHOW/.test(body), "3개만 + 더 보기");
 assert(/data-said="\$\{n\}" data-v="yes"/.test(body) && /data-saidplay/.test(body), "맞아요/아니에요/듣기 유지");
 console.log("said-compact ok");
-assert(/data-saidall/.test(h) && /data-sure/.test(h), "전부 맞아요(두 번 눌러야 실행)");
+assert(/data-saidall/.test(h) && /dataset\.sure/.test(h), "전부 맞아요(두 번 눌러야 실행)");
 console.log("said-all ok");
+assert(/<div id="stuSaid"><\/div>`;/.test(h), "화자 확인 칸은 학생 탭 맨 아래");
+console.log("said-bottom ok");
