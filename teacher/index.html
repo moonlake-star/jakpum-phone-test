@@ -6696,6 +6696,17 @@ function songLineSnap(ev, B, dn) {
   const sh = new Map(); lines.forEach((g, i) => { const m = Math.round((g.x - phi) / 4), d = m * 4 + phi - g.x; if (Math.abs(d) <= 1.75 && Math.abs(d) > 0.01) { const k = Math.max(0, Math.min(B.length - 2, Math.floor(bi(g.t)))); sh.set(i, d * (B[k + 1] - B[k])); } });
   return ev.map((e) => (sh.has(e.i) ? Object.assign({}, e, { t: e.t + sh.get(e.i) }) : e));
 }
+function songTapFlash(play) {   // (11/20) 화면 가운데 반투명 원 + ▶(재생)/❚❚(일시정지) — 0.7초 동안 커지며 사라짐 · 터치를 가로막지 않음
+  try {
+    document.querySelectorAll(".sgTapFlash").forEach((x) => x.remove());
+    const el = document.createElement("div"); el.className = "sgTapFlash"; el.setAttribute("aria-hidden", "true");
+    el.style.cssText = "position:fixed;left:50%;top:50%;width:96px;height:96px;margin:-48px 0 0 -48px;border-radius:50%;background:rgba(0,0,0,.45);color:#fff;display:flex;align-items:center;justify-content:center;font-size:44px;line-height:1;pointer-events:none;z-index:2147483000";
+    el.textContent = play ? "▶︎" : "❚❚"; if (play) el.style.paddingLeft = "8px";
+    document.body.appendChild(el);
+    const a = el.animate ? el.animate([{ opacity: 0.95, transform: "scale(.85)" }, { opacity: 0.95, transform: "scale(1)", offset: 0.25 }, { opacity: 0, transform: "scale(1.25)" }], { duration: 700, easing: "ease-out" }) : null;
+    if (a) a.onfinish = () => el.remove(); else setTimeout(() => el.remove(), 700);
+  } catch {}
+}
 function songMeasures(an, n, lyrics, voc, lw) {   // lw: (11/20) 서버 강제 정렬이 준 줄마다 낱말 시작 시각(song.json lyrics_words) — 있으면 추측 대신 그대로 씀
   const B = (an && an.beats) || [], dn = (an && an.down) || 0, ch = ((an && an.chords) || []).slice().sort((a, b) => a[0] - b[0]), ly = (lyrics || []).map((x, i) => [x[0], x[1], Array.isArray(lw) ? lw[i] : null]).sort((a, b) => a[0] - b[0]), V = voc ? songVoiced(voc) : null;
   if (B.length < dn + 4) return [];
@@ -7267,7 +7278,7 @@ function songDeck(el, ids, o) {
     const close = () => { urls.forEach((u) => { try { URL.revokeObjectURL(u); } catch {} }); try { document.fullscreenElement && document.exitFullscreen(); } catch {} w.remove(); };
     w.querySelector("#pvX").onclick = close; w.querySelector("#pvOk").onclick = () => { songSave(songPdf(out, pw, ph), fname); toast("PDF를 받았어요(다운로드 폴더)"); close(); }; document.body.appendChild(w); };
   // (11/19 사용자 '처음 열었을 땐 어느 칸이든 터치하면 그 칸에서 재생 시작') 멈춰 있을 땐 한 번 누르면 그 마디부터 재생 · 재생 중엔 그 마디로 이동만
-  const tapCell = (t) => { if (eng.isPlaying()) Q("sgPb").onclick(); else playFrom(t); };   // (11/19 사용자) 재생 중 아무 칸이나 터치 = 일시정지 · 멈춰 있을 때 터치 = 그 칸부터 재생
+  const tapCell = (t) => { if (eng.isPlaying()) { Q("sgPb").onclick(); songTapFlash(false); } else { playFrom(t); songTapFlash(true); } };   // (11/20 사용자 '터치했을 때 반투명 재생 버튼이 화면 중앙에 팝업, 일시정지 때도') 터치로 재생·멈춤을 바꾸면 가운데에 ▶ / ❚❚ 가 잠깐 떴다 사라짐   // (11/19 사용자) 재생 중 아무 칸이나 터치 = 일시정지 · 멈춰 있을 때 터치 = 그 칸부터 재생
   const playFrom = async (t) => { await seekTo(t); if (alive() && !eng.isPlaying()) Q("sgPb").onclick(); };
   // ── (11/19 사용자) 가사 자동 채우기: 가사가 비어 있으면 인터넷(LRCLIB)에서 시간표 달린 가사를 찾아 곡 파일에 저장 · 7일 안에 다시 안 찾음(수동 '가사 찾기'는 언제든)
   const needLy = () => !(Array.isArray(o.lyrics) && o.lyrics.length) && !(o.lyricsTry && Date.now() - Date.parse(o.lyricsTry) < 7 * 864e5);

@@ -599,3 +599,19 @@ const mk = new Function(code + "; return stemEngine;")();
   assert.notStrictEqual(at(M2, "thoughts"), 4);
   assert.strictEqual(M.flatMap((m) => m.lyrics.map((l) => l.text)).join(" "), "You know these reckless thoughts of mine", "글자 그대로");
 }
+
+{ // (11/20 사용자 '터치했을 때 반투명 재생 버튼이 화면 중앙에 팝업, 일시정지 때도')
+  const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  assert.ok(T.includes('const tapCell = (t) => { if (eng.isPlaying()) { Q("sgPb").onclick(); songTapFlash(false); } else { playFrom(t); songTapFlash(true); } };'), "터치로 멈춤 = ❚❚ · 재생 = ▶");
+  const src = T.slice(T.indexOf("function songTapFlash("), T.indexOf("function songMeasures("));
+  const kids = [], body = { appendChild: (e) => kids.push(e) };
+  const mk = () => ({ style: {}, setAttribute() {}, remove() { kids.splice(kids.indexOf(this), 1); } });
+  const doc = { createElement: mk, body, querySelectorAll: () => kids.slice() };
+  const f = new Function("document", "setTimeout", src + "; return songTapFlash;")(doc, (fn) => fn());
+  f(true); assert.strictEqual(kids.length, 0, "애니 없는 환경에서도 사라짐");
+  const doc2 = { createElement: () => ({ ...mk(), animate: () => ({}) }), body, querySelectorAll: () => kids.slice() };
+  const g = new Function("document", "setTimeout", src + "; return songTapFlash;")(doc2, () => {});
+  g(false); assert.strictEqual(kids.length, 1); assert.strictEqual(kids[0].textContent, "\u275A\u275A", "일시정지 표시");
+  assert.ok(/pointer-events:none/.test(kids[0].style.cssText), "터치를 가로막지 않음");
+  g(true); assert.strictEqual(kids.length, 1, "연달아 누르면 이전 표시는 지움"); assert.strictEqual(kids[0].textContent, "\u25B6\uFE0E");
+}
