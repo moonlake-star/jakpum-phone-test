@@ -505,7 +505,7 @@ const mk = new Function(code + "; return stemEngine;")();
 // (11/20 사용자 '송폼 버튼을 아래 슬라이더에 녹여 넣을 수 있지 않을까') 악보 구간 버튼: 곡 시간 비례 폭으로 슬라이더 위에 · 좁으면 줄인 이름
 {
   const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
-  assert.ok(T.includes('b.style.flex = sp[k] + " 1 0"') && T.includes("#dkSh .shSgs{display:flex;gap:1px;height:30px;overflow:hidden}"), "구간 버튼이 시간 비례 폭");
+  assert.ok(T.includes("b.style.flex = sp[k] + \" 1 0\"") && T.includes("#dkSh .shTrk{position:relative;height:36px"), "구간이 슬라이더 막대 안에 시간 비례로");
   const m = T.match(/const segAbbr = [^\n]*\n/); assert.ok(m);
   const abbr = new Function(m[0] + "; return segAbbr;")();
   assert.strictEqual(abbr("코러스 1"), "코1"); assert.strictEqual(abbr("벌스 2"), "벌2"); assert.strictEqual(abbr("전주"), "전"); assert.strictEqual(abbr("브릿지"), "브"); assert.strictEqual(abbr("구간 3"), "구3");
@@ -514,8 +514,31 @@ const mk = new Function(code + "; return stemEngine;")();
 {
   const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
   assert.ok(T.includes('id="shDk"') && T.includes('localStorage.setItem("sgShDark"') && T.includes("#dkSh .shPaper.dk{background:#121316"), "다크 버튼·저장·스타일");
-  assert.ok(T.includes("@media print{#dkSh .shPaper.dk{background:#fff;"), "인쇄는 흰색");
+  assert.ok(T.includes("#dkSh .shPaper.dk{background:#fff;box-shadow:none}"), "인쇄는 흰색");
   assert.ok(T.includes("다크 모드는 화면에서만 보여요 · PDF·인쇄는 흰 종이로 나와요") && T.includes("PDF는 다크 모드와 상관없이 흰 종이로 만들어요"), "안내 메시지");
   const f = T.slice(T.indexOf("function songSheetPage("), T.indexOf("function songSheetPage(") + 1500);
   assert.ok(/fillStyle\s*=\s*"#fff(fff)?"/.test(f), "PDF 쪽 그림은 흰 바탕");
+}
+// (11/20 사용자 '송폼 구간 인식이 잘못되었어') 가사가 반복되는 곳=코러스 · 같은 이름이 이어져도 16마디 넘으면 나눔
+{
+  const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  const src = T.slice(T.indexOf("function songLyricChorus("), T.indexOf("async function songPeaks("));
+  const f = new Function(src + "; return { songLyricChorus, songAutoSections };")();
+  const M = Array.from({ length: 48 }, (_, i) => ({ t0: i * 4, t1: i * 4 + 4, chords: [{ name: i % 2 ? "G" : "C", len: 4 }], lyrics: [] }));
+  const vs = ["가나다라마바사", "아자차카타파하", "거너더러머버서", "어저처커터퍼허", "고노도로모보소", "오조초코토포호", "구누두루무부수", "우주추쿠투푸후"], ch = ["봄날의꽃잎처럼", "흩날려사라져가", "그대를사랑했던", "내마음은남아서"];
+  const L = []; vs.forEach((t, i) => L.push([8 + i * 2, t])); ch.forEach((t, i) => L.push([24 + i * 3, t])); ch.forEach((t, i) => L.push([60 + i * 3, t])); ["서로다른가사하나", "또다른가사둘이다"].forEach((t, i) => L.push([42 + i * 3, t])); ch.forEach((t, i) => L.push([120 + i * 3, t]));
+  const R = f.songLyricChorus(M, L.sort((a, b) => a[0] - b[0]));
+  assert.ok(R.length >= 2 && R[0][0] >= 5 && R[0][0] <= 7 && R[1][0] >= 14 && R[1][0] <= 16, "반복 가사 구간: " + JSON.stringify(R));
+  assert.deepStrictEqual(f.songLyricChorus(M, L.slice(0, 5)), [], "가사가 너무 적으면 판단 안 함");
+  const uniq = vs.map((t, i) => [4 + i * 4, t]); assert.deepStrictEqual(f.songLyricChorus(M, uniq), [], "반복 없으면 후렴 없음");
+}
+// (11/20 10:12) 위 바와 악보 머리말이 같은 제목·정보를 두 번 보여주던 것 — 화면에선 머리말 숨김, 인쇄에선 표시
+{
+  const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  assert.ok(T.includes("#dkSh .shH{display:none}@media print{#dkSh .shH{display:block}"), "화면에선 shH 숨김·인쇄엔 표시");
+}
+// (11/20 10:14 '보기 불편') 송폼 막대: 짧은 구간도 최소 폭(8.5%) · 위치↔시간은 구간 지도(t2f/f2t)로 변환
+{
+  const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  assert.ok(T.includes("Math.max(v, tot * 0.085)") && T.includes("const t2f = ") && T.includes("seekTo(f2t(+sk.value / 1000))") && T.includes("const pf = dur() ? t2f(p) : 0;"), "송폼 막대 최소 폭 지도");
 }
