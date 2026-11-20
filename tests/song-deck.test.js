@@ -571,3 +571,17 @@ const mk = new Function(code + "; return stemEngine;")();
   const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
   assert.ok(T.includes("touchK = -1;") && T.includes("(tc ? 3.6 : 3)") && T.includes("navigator.vibrate(12)") && T.includes("if (k !== touchK && sd) { touchK = k; buzz2(); paintSegs(); }") && T.includes("sk.onchange = endTouch;"), "누르는 구간 볼록·진동");
 }
+// (11/20 사용자 '여기 안 맞다고 얘기했냐') 줄 시작 = 노래 소리 덩어리 시작 · 받아쓰기 시각이 3~4초 빨라도 줄 글자 수에 맞는 덩어리로
+{
+  const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  const f = new Function(T.slice(T.indexOf("function songVoiced("), T.indexOf("function songWordTimes(")) + "; return { songVoiced, songLineStarts };")();
+  const amp = new Array(1000).fill(2), blk = (a, b) => { for (let i = Math.round(a * 10); i < Math.round(b * 10); i++) amp[i] = 45; };
+  [[10, 12], [14, 16], [20, 22], [25, 27], [30, 32], [36, 38], [42, 44], [50, 52], [58, 60], [66, 68]].forEach(([a, b]) => blk(a, b));
+  const V = f.songVoiced(amp.map((a) => String.fromCharCode(48 + a)).join(""));
+  const ly = [[10.3, "가나다라마바"], [14.2, "가나다라마바"], [18.0, "가나다라마바"], [22.0, "가나다라마바"], [26.5, "가나다라마바"], [32.0, "가나다라마바"], [37.0, "가나다라마바"], [40.5, "가나다라마바"], [46.0, "가나다라마바"], [55.0, "가나다라마바"]];   // 3번째 줄 18.0은 실제 20.0 · 마지막 줄 55.0은 실제 58.0 쯤
+  const S = f.songLineStarts(ly, V);
+  assert.ok(S && S.length === 10, "줄마다 시작 시각");
+  for (let i = 1; i < S.length; i++) assert.ok(S[i] > S[i - 1], "순서 유지");
+  assert.ok(Math.abs(S[2] - 20) < 0.3, "받아쓰기 18.0 → 실제 소리 시작 20.0: " + S[2]);
+  assert.ok(T.includes("const SS = V ? songLineStarts(ly, V) : null;"), "songMeasures 에서 사용");
+}

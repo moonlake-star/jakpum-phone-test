@@ -6646,6 +6646,23 @@ function songLineStart(t, V) {   // 가사 시간 근처(0.3초 앞~1.5초 뒤)�
   }
   for (let i = a0; i < a1; i++) if (V[i] && am[i] >= th) return i * 0.1; return null;
 }
+function songLineStarts(ly, V) {   // (11/20 사용자 '여기 안 맞다고 얘기했냐') 가사 줄 시작을 '노래가 실제로 시작하는 곳(소리 덩어리 시작)'에 한 번에 맞춤: 줄 순서대로 · 받아쓰기 시각과 가까이 · 줄 글자 수와 소리 길이가 맞게(동적 계획법)
+  const am = V && V.amp, n = V ? V.length : 0; if (!am || n < 50 || ly.length < 2) return null;
+  const vals = []; for (let i = 0; i < n; i++) if (V[i]) vals.push(am[i]); if (vals.length < 50) return null;
+  vals.sort((a, b) => a - b); const th = Math.max(8, 0.3 * vals[Math.floor(vals.length * 0.9)]);
+  const on = new Uint8Array(n), cum = new Float64Array(n + 1); for (let i = 0; i < n; i++) { on[i] = am[i] >= th ? 1 : 0; cum[i + 1] = cum[i] + on[i]; }
+  const vsec = (a, b) => { const i0 = Math.max(0, Math.min(n, Math.round(a / 0.1))), i1 = Math.max(0, Math.min(n, Math.round(b / 0.1))); return Math.max(0, cum[i1] - cum[i0]) * 0.1; };
+  const starts = []; for (let i = 0; i < n; i++) if (on[i]) { let q = true; for (let k = Math.max(0, i - 4); k < i; k++) if (on[k]) q = false; if (q) starts.push(i * 0.1); }   // 0.4초 넘게 조용했다가 시작한 곳
+  const sy = ly.map((x) => songSyll(String(x[1]))), N = ly.length, ts = ly.map((x) => +x[0]);
+  const rs = []; for (let i = 0; i + 1 < N; i++) { const v = vsec(ts[i], ts[i + 1]); if (v > 0.8 && sy[i] > 0) rs.push(sy[i] / v); } if (rs.length < 3) return null; rs.sort((a, b) => a - b); const rate = Math.max(1.2, Math.min(6, rs[Math.floor(rs.length / 2)]));
+  const cand = ly.map((_, i) => { const c = starts.filter((s) => s >= ts[i] - 6 && s <= ts[i] + 4).map((s) => ({ t: s, u: Math.min(Math.abs(s - ts[i]), 6) * 0.6 })); c.push({ t: ts[i], u: 2.5 }); return c; });
+  let prev = cand[0].map((c) => ({ c, cost: c.u, from: -1 })), back = [prev];
+  for (let i = 1; i < N; i++) { const cur = cand[i].map((c) => { let best = null; prev.forEach((p, pi) => { if (c.t < p.c.t + 0.6) return; const exp = sy[i - 1] / rate, dv = vsec(p.c.t, c.t), r = Math.abs(Math.log((dv + 0.3) / (exp + 0.3))), cost = p.cost + 1.2 * r + c.u; if (!best || cost < best.cost) best = { c, cost, from: pi }; }); return best; }).map((x, k) => x || { c: cand[i][k], cost: 1e9, from: 0 });
+    back.push(cur); prev = cur; }
+  let k = 0; prev.forEach((x, j) => { if (x.cost < prev[k].cost) k = j; });
+  const out = new Array(N); for (let i = N - 1; i >= 0; i--) { out[i] = back[i][k].c.t; k = Math.max(0, back[i][k].from); }
+  return out;
+}
 function songWordTimes(t, nxt, words, V) {   // 낱말마다 시작 시각 목록 · 믿을 수 없으면 null(옛 방식)
   const n = V.length, st = songLineStart(t, V); if (!n || words.length < 2 || st == null) return null;
   const nx = songLineStart(nxt, V), sy = words.map(songSyll), W = sy.reduce((p, q) => p + q, 0), lim = Math.min(n, Math.round(Math.min(nxt - 0.1, nx != null && nx > st + 0.8 ? nx - 0.1 : 1e9, st + W * 0.45 + 2) / 0.1)), fr = []; let gap = 0;   // (11/20 사용자 '가사 위치') 이 줄은 다음 줄이 '실제로 노래 시작하는 곳' 앞까지(받아쓰기 시각은 1초 넘게 늦을 수 있음)
@@ -6676,7 +6693,7 @@ function songMeasures(an, n, lyrics, voc) {
   const B = (an && an.beats) || [], dn = (an && an.down) || 0, ch = ((an && an.chords) || []).slice().sort((a, b) => a[0] - b[0]), ly = (lyrics || []).slice().sort((a, b) => a[0] - b[0]), V = voc ? songVoiced(voc) : null;
   if (B.length < dn + 4) return [];
   // (11/19 사용자 '가사가 한 칸에 몰려 있다') 긴 가사 줄(3낱말 이상)은 다음 줄이 시작되기 전까지의 시간에 낱말 길이 비율로 펼쳐서 마디마다 나눠 놓음(한 마디에 몰아 넣지 않음). 짧은 줄은 그대로.
-  let ev = []; ly.forEach((L, i) => { const tx = String(L[1]), w = tx.trim().split(/\s+/).filter(Boolean), nxt = i + 1 < ly.length ? ly[i + 1][0] : L[0] + 6, gap = Math.max(0.5, nxt - L[0]), L0 = L[0] + SG_LY_DELAY;   // (11/19 사용자 '가사가 앞칸에') 가사 시간표는 실제 노래보다 조금 먼저 찍혀 있어 뒤로 살짝 미룸
+  let ev = []; const SS = V ? songLineStarts(ly, V) : null; ly.forEach((L0_, i) => { const L = SS ? [SS[i], L0_[1]] : L0_, tx = String(L[1]), w = tx.trim().split(/\s+/).filter(Boolean), nxt = i + 1 < ly.length ? (SS ? SS[i + 1] : ly[i + 1][0]) : L[0] + 6, gap = Math.max(0.5, nxt - L[0]), L0 = L[0] + (SS ? 0 : SG_LY_DELAY);   // (11/19 사용자 '가사가 앞칸에') 가사 시간표는 실제 노래보다 조금 먼저 찍혀 있어 뒤로 살짝 미룸
     const tw = V && w.length >= 2 ? songWordTimes(L[0], nxt, w, V) : null;
     if (tw) { w.forEach((x, j) => ev.push({ t: tw[j], x, i })); return; }   // 보컬 소리로 맞춘 낱말 시각
     const st = V && w.length < 2 ? songLineStart(L[0], V) : null;
@@ -9710,7 +9727,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261120-1330";
+const BUILD = "20261120-1400";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
