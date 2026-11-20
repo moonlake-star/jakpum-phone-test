@@ -9,5 +9,5 @@ assert(/data-said="\$\{n\}" data-v="yes"/.test(body) && /data-saidplay/.test(bod
 console.log("said-compact ok");
 assert(/data-saidall/.test(h) && /dataset\.sure/.test(h), "전부 맞아요(두 번 눌러야 실행)");
 console.log("said-all ok");
-assert(/<div id="stuSaid"><\/div>`;/.test(h), "화자 확인 칸은 학생 탭 맨 아래");
+assert(/<div id="stuSaid"><\/div>`;/.test(h), "화자 확인 칸은 학생 탭 맨 아래");   // (11/20) 레슨 탭 칸 배치는 lessonsTabHTML(student-layout 시험)
 console.log("said-bottom ok");
