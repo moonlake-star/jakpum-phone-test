@@ -7,3 +7,5 @@ assert(/data-saidtoggle/.test(body) && /class="saidBody" \$\{open \? "" : "hidde
 assert(/SHOW = 3/.test(body) && /data-saidmore/.test(body) && /n >= SHOW/.test(body), "3개만 + 더 보기");
 assert(/data-said="\$\{n\}" data-v="yes"/.test(body) && /data-saidplay/.test(body), "맞아요/아니에요/듣기 유지");
 console.log("said-compact ok");
+assert(/data-saidall/.test(h) && /data-sure/.test(h), "전부 맞아요(두 번 눌러야 실행)");
+console.log("said-all ok");
