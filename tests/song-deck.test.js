@@ -625,3 +625,28 @@ const mk = new Function(code + "; return stemEngine;")();
   assert.ok(/o0\._ly \? o0\._ly\.close\(\) : o0\.remove\(\)/.test(body), "다시 열 때 옛 미리보기의 칸도 정리");
   assert.ok(/#pvX"\)\.onclick = close;/.test(body), "닫기 버튼");
 }
+
+// (11/20 사용자 '가사가 제 마디에 안 들어감') 다음 마디 첫 박 바로 앞에서 시작해 그 박을 넘어 길게 끄는 낱말(당겨 부르기)은 다음 마디 · 짧은 낱말은 그대로
+{
+  const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  const src = T.slice(T.indexOf("const SG_NOTES"), T.indexOf("async function songPeaks(")), f = new Function(src + "; return { songMeasures };")();
+  const an = { beats: Array.from({ length: 41 }, (_, i) => +(i * 0.5).toFixed(3)), down: 0, chords: [[0, "Am"], [2, "D"]] };   // 마디 = 2초
+  const where = (lw, words) => { const M = f.songMeasures(an, 0, [[lw[0], words]], null, [lw]); const o = {}; M.forEach((m) => m.lyrics.forEach((l) => l.text.split(" ").forEach((w) => { o[w] = m.no; }))); return o; };
+  let w = where([1.0, 1.25, 1.8, 3.6], "our love alive and");
+  assert.strictEqual(w.alive, 2, "0.4박 앞에서 시작해 3.6박 끄는 낱말 → 다음 마디(Stumblin' In 'a-live')");
+  assert.strictEqual(w.love, 1, "그 앞 낱말은 그대로");
+  w = where([1.0, 1.25, 1.8, 2.05], "our love quick and");
+  assert.strictEqual(w.quick, 1, "짧은 낱말(0.5박)은 소리가 시작한 마디 그대로");
+  w = where([1.0, 1.25, 1.4, 3.6], "our love early and");
+  assert.strictEqual(w.early, 1, "1.2박이나 앞선 낱말은 길어도 그대로");
+}
+
+// (11/20 검토 지적) 줄 끝 낱말은 다음 줄까지의 쉼을 길이로 치지 않음 — 보컬 파형 없으면 밀지 않음
+{
+  const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  const src = T.slice(T.indexOf("const SG_NOTES"), T.indexOf("async function songPeaks(")), f = new Function(src + "; return { songMeasures };")();
+  const an = { beats: Array.from({ length: 41 }, (_, i) => +(i * 0.5).toFixed(3)), down: 0, chords: [[0, "Am"]] };
+  const M = f.songMeasures(an, 0, [[1.0, "so we end"], [6.0, "next line here"]], null, [[1.0, 1.4, 1.8], [6.0, 6.3, 6.6]]);
+  const bar = {}; M.forEach((m) => m.lyrics.forEach((l) => l.text.split(" ").forEach((w) => { bar[w] = m.no; })));
+  assert.strictEqual(bar.end, 1, "줄 끝 짧은 낱말 + 긴 쉼 → 앞 마디 그대로");
+}
