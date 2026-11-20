@@ -471,7 +471,7 @@ const mk = new Function(code + "; return stemEngine;")();
 // (11/19 사용자 '시간 글씨가 슬라이더 줄과 겹쳐 가려져 → 아래로') 0:00·전체 시간은 슬라이더 바 양옆(맨 아래 정렬)
 {
   const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
-  assert.ok(/#dkSh \.shTl\{display:flex;align-items:flex-end/.test(T) && /#dkSh \.shTl>span\{font-size:\.75rem;min-width:34px;height:18px;line-height:18px;align-self:flex-end\}/.test(T));
+  assert.ok(/#dkSh \.shTl\{display:flex;align-items:center/.test(T) && /#dkSh \.shTl>span\{font-size:\.75rem;min-width:34px;height:36px;line-height:36px;align-self:center\}/.test(T))   // (11/20) 시간 글자는 막대와 상하 가운데;
 }
 // (11/20 사용자 '가사의 칸 배치가 여전히 맘에 안 듦') 줄 시작 박이 줄마다 흔들려도 곡에서 가장 자주 놓이는 자리(마디 첫 박)로 맞춰 같은 노랫말이 같은 칸에 놓이게
 {
@@ -541,7 +541,7 @@ const mk = new Function(code + "; return stemEngine;")();
 // (11/20 10:14 '보기 불편') 송폼 막대: 짧은 구간도 최소 폭(8.5%) · 위치↔시간은 구간 지도(t2f/f2t)로 변환
 {
   const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
-  assert.ok(T.includes("Math.max(v, tot * 0.05) * (k === fcs ? 3 :") && T.includes("const t2f = ") && T.includes("seekTo(f2t(+sk.value / 1000))") && T.includes("const pf = dur() ? t2f(p) : 0;"), "송폼 막대 최소 폭 지도");
+  assert.ok(T.includes("Math.max(v, tot * 0.05) * (k === fc ? (tc ? 3.6 : 3) :") && T.includes("const t2f = ") && T.includes("f2t(+sk.value / 1000, -99)") && T.includes("const pf = dur() ? t2f(p) : 0;"), "송폼 막대 최소 폭 지도");
 }
 // (11/20) 줄 시작은 반주가 새는 약한 소리(작은 값)가 아니라 이 줄의 큰 소리가 시작하는 곳
 {
@@ -564,4 +564,10 @@ const mk = new Function(code + "; return stemEngine;")();
   assert.strictEqual(R.length, 3, "4줄 후렴 3번만 후렴(2줄만 되풀이된 구절은 제외): " + JSON.stringify(R));
   assert.ok(R[0][0] <= 3 && R[1][0] > R[0][1], "후렴 시작 위치");
   assert.ok(T.includes("nx != null && nx > st + 0.8 ? nx - 0.1"), "줄 끝 = 다음 줄 실제 시작 앞");
+}
+
+// (11/20 사용자 '터치한 부분이 볼록하게 · 경계 진동') 누르는 구간 3.6배 볼록 · 경계 넘을 때 짧은 진동 · 끝나면 원래 확대로
+{
+  const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  assert.ok(T.includes("touchK = -1;") && T.includes("(tc ? 3.6 : 3)") && T.includes("navigator.vibrate(12)") && T.includes("if (k !== touchK && sd) { touchK = k; buzz2(); paintSegs(); }") && T.includes("sk.onchange = endTouch;"), "누르는 구간 볼록·진동");
 }
