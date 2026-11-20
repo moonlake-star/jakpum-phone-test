@@ -60,7 +60,15 @@ const mk = new Function(code + "; return stemEngine;")();
   { const src = T.slice(T.indexOf("const SG_NOTES"), T.indexOf("async function songPeaks(")), f = new Function(src + "; return { songParseChords, songFmtChords, songApplyEdits, songSecList, songSecAt, songChordName, SG_PER };")();
     assert.strictEqual(f.SG_PER, 20, "한 쪽 5줄 × 4마디");
     assert.deepStrictEqual(f.songParseChords("D").ch, [[1, "D"]]); assert.deepStrictEqual(f.songParseChords("Bm Em").ch, [[1, "Bm"], [3, "Em"]], "코드 2개 = 1·3박");
-    assert.deepStrictEqual(f.songParseChords("G A@2").ch, [[1, "G"], [2, "A"]], "박 지정"); assert.deepStrictEqual(f.songParseChords("a b c").ch.map(c => c[0]), [1, 2, 3]);
+    assert.deepStrictEqual(f.songParseChords("G A@2").ch, [[1, "G"], [2, "A"]], "박 지정"); assert.deepStrictEqual(f.songParseChords("a b c").ch.map(c => c[0]), [1, 3, 4], "(11/21 사용자) 코드 3개 = 1·3·4박(첫 코드 2박)");
+    assert.deepStrictEqual(f.songParseChords("Bm Em /D").ch, [[1, "Bm"], [3, "Em"], [4, "Em/D"]], "/D = 앞 코드 + 베이스");
+    assert.deepStrictEqual(f.songParseChords("/F#", "D/A").ch, [[1, "D/F#"]], "첫 토큰 /F# = 앞 마디 코드(베이스 바꿈)");
+    assert.deepStrictEqual(f.songParseChords("/F#").bad, ["/F#"], "앞 코드가 없으면 알 수 없는 입력");
+    assert.deepStrictEqual(f.songParseChords("Bm . Em Em/D").ch, [[1, "Bm"], [3, "Em"], [4, "Em/D"]], "'.' = 그 박 유지(토큰 자리 = 박)");
+    assert.deepStrictEqual(f.songParseChords("G - - D").ch, [[1, "G"], [4, "D"]]);
+    assert.deepStrictEqual(f.songParseChords("/D", "N1").bad, ["/D"], "앞 코드가 N이면 /D 안 됨");
+    { const r = f.songParseChords("Bm Em@1"); assert.deepStrictEqual(r.ch, [[1, "Bm"]]); assert.deepStrictEqual(r.bad, ["Em@1"], "같은 박 두 코드 → 알 수 없는 입력"); }
+    assert.strictEqual(f.songFmtChords([{ b: 0, name: "Bm" }, { b: 2, name: "Em" }, { b: 3, name: "Em/D" }]), "Bm Em Em/D", "1·3·4박은 @ 없이");
     { const r = f.songParseChords("bm7 x! F#m7/C#"); assert.deepStrictEqual(r.ch, [[1, "Bm7"], [3, "F#m7/C#"]], "소문자는 대문자로 · 분수 코드"); assert.deepStrictEqual(r.bad, ["x!"], "못 읽는 입력 알림"); }
     assert.deepStrictEqual(f.songParseChords("").ch, []);
     assert.strictEqual(f.songFmtChords([{ b: 0, name: "G" }, { b: 1, name: "A" }]), "G A@2", "기본 박이 아니면 @박 표시"); assert.strictEqual(f.songFmtChords([{ b: 0, name: "Bm" }, { b: 2, name: "Em" }]), "Bm Em");
@@ -682,5 +690,18 @@ const mk = new Function(code + "; return stemEngine;")();
 // (11/21 사용자 '수정 창에 앞 마디·뒷 마디로 이동하는 버튼') ◀ 앞 마디 · 뒷 마디 ▶ — 창을 닫지 않고 옆 마디 고치기
 {
   const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  assert.ok(/"코드를 입력하세요"; \}; hintUp\(\);/.test(T), "수정 창 열 때 박 안내가 바로 보임");
   assert.ok(T.includes('id="shPv" aria-label="앞 마디 고치기"') && T.includes('id="shNx" aria-label="뒷 마디 고치기"') && T.includes('ep.querySelector("#shPv").onclick = () => go(i - 1); ep.querySelector("#shNx").onclick = () => go(i + 1);') && T.includes("if (j < 0 || j >= M.length) return; closeShEdit(); openShEdit(j);"), "앞·뒷 마디 이동");
+}
+
+// (11/21 사용자 '시가 될 이야기' 직접 수정) 한국어 낱말은 음절에서 마디를 나눔(많|은) · 영어 낱말은 그대로 · 한 마디 코드 2개 이상이면 박 점
+{
+  const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  const src = T.slice(T.indexOf("const SG_NOTES"), T.indexOf("async function songPeaks(")), f = new Function(src + "; return { songMeasures };")();
+  const an = { beats: Array.from({ length: 41 }, (_, i) => +(i * 0.5).toFixed(3)), down: 0, chords: [[0, "G"]] };   // 마디 2초
+  const M = f.songMeasures(an, 0, [[1.2, "그리도 많은 약속들이"]], null, [[1.2, 1.6, 2.6]]);   // '많은'이 1.6초 시작(0.32초/음절) → '많'은 1마디, '은'은 2마디(1.6+0.32=1.92 → 첫 박 0.15박 안쪽이라 다음 마디)
+  const txt = M.map((m) => m.lyrics.map((l) => l.text).join(" "));
+  assert.strictEqual(txt[0], "그리도 많", "1마디: 음절까지"); assert.ok(txt[1].startsWith("은"), "2마디는 남은 음절부터: " + txt[1]);
+  assert.ok(!txt.join("|").includes("그 리"), "같은 낱말 음절은 붙여 씀");
+  assert.ok(T.includes('bd.className = "shBd"') && T.includes("if (m.chords.length > 1)"), "박 점");
 }
