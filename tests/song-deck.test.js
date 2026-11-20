@@ -571,7 +571,7 @@ const mk = new Function(code + "; return stemEngine;")();
 // (11/20 사용자 '터치한 부분이 볼록하게 · 경계 진동') 누르는 구간 3.6배 볼록 · 경계 넘을 때 짧은 진동 · 끝나면 원래 확대로
 {
   const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
-  assert.ok(T.includes("touchK = -1;") && T.includes("(tc ? 3.6 : 3)") && T.includes("navigator.vibrate(12)") && T.includes("if (k !== touchK && sd) { touchK = k; buzz2(); paintSegs(); }") && T.includes("sk.onchange = endTouch;"), "누르는 구간 볼록·진동");
+  assert.ok(T.includes("touchK = -1;") && T.includes("(tc ? 3.6 : 3)") && T.includes("navigator.vibrate(35)") && T.includes("if (k !== touchK) { if (touchK >= 0) buzz2(); touchK = k; sd = true; paintSegs(); }") && !T.includes("k !== touchK && sd") && T.includes("sk.onchange = endTouch;"), "누르는 구간 볼록·진동");
 }
 // (11/20 사용자 '여기 안 맞다고 얘기했냐') 줄 시작 = 노래 소리 덩어리 시작 · 받아쓰기 시각이 3~4초 빨라도 줄 글자 수에 맞는 덩어리로
 {
