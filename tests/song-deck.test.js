@@ -510,3 +510,12 @@ const mk = new Function(code + "; return stemEngine;")();
   const abbr = new Function(m[0] + "; return segAbbr;")();
   assert.strictEqual(abbr("코러스 1"), "코1"); assert.strictEqual(abbr("벌스 2"), "벌2"); assert.strictEqual(abbr("전주"), "전"); assert.strictEqual(abbr("브릿지"), "브"); assert.strictEqual(abbr("구간 3"), "구3");
 }
+// (11/20 사용자 '다크 모드 버튼 · 인쇄는 흰 종이 + 안내') 악보 화면 다크 모드: 화면 전용 · PDF(canvas)는 늘 흰 종이 · 인쇄 CSS는 흰색으로 되돌림
+{
+  const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  assert.ok(T.includes('id="shDk"') && T.includes('localStorage.setItem("sgShDark"') && T.includes("#dkSh .shPaper.dk{background:#121316"), "다크 버튼·저장·스타일");
+  assert.ok(T.includes("@media print{#dkSh .shPaper.dk{background:#fff;"), "인쇄는 흰색");
+  assert.ok(T.includes("다크 모드는 화면에서만 보여요 · PDF·인쇄는 흰 종이로 나와요") && T.includes("PDF는 다크 모드와 상관없이 흰 종이로 만들어요"), "안내 메시지");
+  const f = T.slice(T.indexOf("function songSheetPage("), T.indexOf("function songSheetPage(") + 1500);
+  assert.ok(/fillStyle\s*=\s*"#fff(fff)?"/.test(f), "PDF 쪽 그림은 흰 바탕");
+}
