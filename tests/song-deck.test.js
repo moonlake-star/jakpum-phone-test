@@ -626,19 +626,21 @@ const mk = new Function(code + "; return stemEngine;")();
   assert.ok(/#pvX"\)\.onclick = close;/.test(body), "닫기 버튼");
 }
 
-// (11/20 사용자 '가사가 제 마디에 안 들어감') 다음 마디 첫 박 바로 앞에서 시작해 그 박을 넘어 길게 끄는 낱말(당겨 부르기)은 다음 마디 · 짧은 낱말은 그대로
+// (11/21 사용자 Stumblin' In 직접 수정) 마디에 걸친 낱말은 앞 마디(길게 끌어도) · 다음 첫 박 0.15박 안쪽 앞은 정렬 오차로 다음 마디 · 강제 정렬 줄은 줄 시작 정리로 옮기지 않음
 {
   const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
   const src = T.slice(T.indexOf("const SG_NOTES"), T.indexOf("async function songPeaks(")), f = new Function(src + "; return { songMeasures };")();
-  const an = { beats: Array.from({ length: 41 }, (_, i) => +(i * 0.5).toFixed(3)), down: 0, chords: [[0, "Am"], [2, "D"]] };   // 마디 = 2초
+  const an = { beats: Array.from({ length: 81 }, (_, i) => +(i * 0.5).toFixed(3)), down: 0, chords: [[0, "Am"], [2, "D"]] };   // 마디 = 2초, 박 = 0.5초
   const where = (lw, words) => { const M = f.songMeasures(an, 0, [[lw[0], words]], null, [lw]); const o = {}; M.forEach((m) => m.lyrics.forEach((l) => l.text.split(" ").forEach((w) => { o[w] = m.no; }))); return o; };
   let w = where([1.0, 1.25, 1.8, 3.6], "our love alive and");
-  assert.strictEqual(w.alive, 2, "0.4박 앞에서 시작해 3.6박 끄는 낱말 → 다음 마디(Stumblin' In 'a-live')");
-  assert.strictEqual(w.love, 1, "그 앞 낱말은 그대로");
-  w = where([1.0, 1.25, 1.8, 2.05], "our love quick and");
-  assert.strictEqual(w.quick, 1, "짧은 낱말(0.5박)은 소리가 시작한 마디 그대로");
-  w = where([1.0, 1.25, 1.4, 3.6], "our love early and");
-  assert.strictEqual(w.early, 1, "1.2박이나 앞선 낱말은 길어도 그대로");
+  assert.strictEqual(w.alive, 1, "0.4박 앞에서 시작해 길게 끄는 낱말도 앞 마디(사용자 규칙)");
+  w = where([1.0, 1.25, 1.97, 3.6], "our love laying and");
+  assert.strictEqual(w.laying, 2, "첫 박 0.06박 앞(정렬 오차) → 다음 마디");
+  // 줄 시작 정리(songLineSnap)는 강제 정렬 줄을 옮기지 않음: 여러 줄이 모두 3박째에서 시작해도 그대로
+  const L = [], LW = []; for (let k = 0; k < 5; k++) { const t0 = 4 * k; L.push([t0, "a b c"]); LW.push([t0, t0 + 0.3, t0 + 0.6]); }   // 줄 다섯은 마디 첫 박에서
+  L.push([21.4, "x y z"]); LW.push([21.4, 21.7, 21.8]);   // 여섯째 줄만 11마디 3.8박째(다음 첫 박 1.2박 앞)
+  const M = f.songMeasures(an, 0, L, null, LW), bar = (w) => M.findIndex((m) => m.lyrics.some((l) => l.text.split(" ").includes(w))) + 1;
+  assert.strictEqual(bar("x"), 11, "강제 정렬 줄은 줄 시작 정리로 다음 마디에 끌려가지 않음(예전엔 12마디)");
 }
 
 // (11/20 검토 지적) 줄 끝 낱말은 다음 줄까지의 쉼을 길이로 치지 않음 — 보컬 파형 없으면 밀지 않음
