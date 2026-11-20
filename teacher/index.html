@@ -478,7 +478,7 @@
 #dkSh .shTl{display:flex;align-items:flex-end;gap:8px;padding:4px 10px 6px;background:#111;color:#fff}#dkSh .shTl>span{font-size:.75rem;min-width:34px;height:18px;line-height:18px;align-self:flex-end}   /* (11/19 사용자 '시간 글씨가 가려져 · 아래로') 시간 글자를 구간 버튼 줄이 아니라 진행 슬라이더 줄(바 양옆)로 내림 */#dkSh #shT0{color:#FFE066;text-align:right}#dkSh .shSg{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
 /* (11/20 사용자 '송폼 구간을 스크롤바(슬라이더)에 녹여 넣어줘') 구간이 슬라이더 막대 자체에 시간 비례로 칠해지고, 손잡이는 그 위를 움직임 · 탭=구간 처음으로 · 드래그=자유 이동 */
 #dkSh .shTrk{position:relative;height:36px;border-radius:9px;overflow:hidden;background:#232323;border:1px solid #444;box-sizing:border-box}
-#dkSh .shSgs{position:absolute;inset:0;display:flex;overflow:hidden}#dkSh .shSgs button{pointer-events:none;flex:1 1 0;min-width:0;min-height:0;height:100%;padding:0;margin:0;border:0;border-right:1px solid #0b0b0b;border-radius:0;background:#272727;color:#c9c9c9;font-size:.7rem;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:clip;line-height:36px}#dkSh .shSgs button:nth-child(even){background:#303030}#dkSh .shSgs button:last-child{border-right:0}#dkSh .shSgs button.on{background:#4a3f00;color:#FFE066}
+#dkSh .shSgs{position:absolute;inset:0;display:flex;overflow:hidden}#dkSh .shSgs button{transition:flex-grow .22s ease;pointer-events:none;flex:1 1 0;min-width:0;min-height:0;height:100%;padding:0;margin:0;border:0;border-right:1px solid #0b0b0b;border-radius:0;background:#272727;color:#c9c9c9;font-size:.7rem;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:clip;line-height:36px}#dkSh .shSgs button:nth-child(even){background:#303030}#dkSh .shSgs button:last-child{border-right:0}#dkSh .shSgs button.on{background:#4a3f00;color:#FFE066}
 #dkSh .shFill{position:absolute;left:0;top:0;bottom:0;width:0;background:rgba(255,224,102,.2);pointer-events:none;border-right:0}
 #dkSh .shTrk input{position:absolute;inset:0;width:100%;height:100%;margin:0;padding:0;background:transparent;-webkit-appearance:none;appearance:none;touch-action:pan-y;cursor:pointer}#dkSh .shTrk input::-webkit-slider-runnable-track{height:36px;background:transparent}#dkSh .shTrk input::-moz-range-track{height:36px;background:transparent}#dkSh .shTrk input::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:5px;height:36px;border-radius:2px;background:#FFE066;border:0;box-shadow:0 0 0 1px #000}#dkSh .shTrk input::-moz-range-thumb{width:5px;height:36px;border-radius:2px;background:#FFE066;border:0;box-shadow:0 0 0 1px #000}
 
@@ -6640,13 +6640,16 @@ function songLineStart(t, V) {   // 가사 시간 근처(0.3초 앞~1.5초 뒤)�
   const n = V.length, a0 = Math.max(0, Math.round((t - 0.3) / 0.1)), a1 = Math.min(n, Math.round((t + 1.5) / 0.1));
   const am = V.amp; if (!am) { for (let i = a0; i < a1; i++) if (V[i]) return i * 0.1; return null; }
   let pk = 0; for (let i = a0; i < Math.min(n, a0 + 28); i++) if (V[i] && am[i] > pk) pk = am[i];   // (11/20 사용자 '가사가 한 마디씩 앞서') 반주가 새는 약한 소리(값 7~13)를 노래 시작으로 잡지 않음 — 이 줄의 최대 소리의 45% 넘는 곳부터가 노래 시작
-  const th = Math.max(6, 0.45 * pk);
+  const th = Math.max(6, 0.45 * pk), i0 = Math.round(t / 0.1);
+  if (V[Math.min(n - 1, i0)] && am[Math.min(n - 1, i0)] >= th) {   // (11/20) 받아쓰기 시각은 1초 넘게 늦게 찍히는 일이 있어 — 시각이 소리 한가운데면 1.6초 안쪽의 '조용했다가 시작한' 자리로 되돌림
+    for (let i = i0; i >= Math.max(1, i0 - 16); i--) { let q = true; for (let k = Math.max(0, i - 4); k < i; k++) if (am[k] >= th * 0.5) q = false; if (q && V[i] && am[i] >= th) { let j = i; while (j > 0 && V[j - 1] && am[j - 1] >= th * 0.5) j--; return (j === i ? i : i) * 0.1; } }
+  }
   for (let i = a0; i < a1; i++) if (V[i] && am[i] >= th) return i * 0.1; return null;
 }
 function songWordTimes(t, nxt, words, V) {   // 낱말마다 시작 시각 목록 · 믿을 수 없으면 null(옛 방식)
   const n = V.length, st = songLineStart(t, V); if (!n || words.length < 2 || st == null) return null;
   const sy = words.map(songSyll), W = sy.reduce((p, q) => p + q, 0), lim = Math.min(n, Math.round(Math.min(nxt - 0.1, st + W * 0.45 + 2) / 0.1)), fr = []; let gap = 0;
-  for (let i = Math.round(st / 0.1); i < lim; i++) { if (V[i]) { fr.push(i); gap = 0; } else if (++gap > 20 && fr.length) break; }   // 2초 넘게 조용하면 줄이 끝난 것
+  for (let i = Math.round(st / 0.1); i < lim; i++) { if (V[i]) { fr.push(i); gap = 0; } else if (++gap > 8 && fr.length) break; }   // (11/20 사용자 '가사 위치 전혀 틀려') 0.8초 넘게 조용하면 줄이 끝난 것 — 예전엔 2초라 다음 줄 첫 소리까지 이 줄에 넣어 낱말이 한 줄 길이보다 길게 퍼졌음
   if (fr.length < 6) return null;
   // (11/19 사용자 '줄 끝 낱말이 다음 칸으로') 줄 마지막 낱말은 길게 끌어 부르는 일이 많아 두 배 길이로 치고(그래야 시작이 일찍 잡힘), 낱말 시작은 근처(±0.2초)에서 소리가 가장 약해지는 자리(음절 사이)로 붙임
   const ww = sy.map((x, j) => (j === sy.length - 1 && sy.length >= 3 ? x * 2 : x)), WW = ww.reduce((p, q) => p + q, 0), am = V.amp; let acc = 0, prev = -1;
@@ -6913,18 +6916,22 @@ function songCapoBest(M) {
 // (11/19 사용자 '전주·벌스·코러스·간주로 자동 구분') 구간 이름 자동 붙이기: 보컬 소리가 있는 마디/없는 마디 + 코드 반복 + 반주·보컬 크기.
 // 보컬 없는 처음=전주 · 끝=후주 · 가운데=간주, 보컬 있는 덩어리는 8마디씩 나눠 코드가 비슷한 것끼리 묶고 가장 큰 소리 묶음=코러스(없으면 큰 소리 쪽). 추정이라 선생님이 이름을 고치면 그게 우선.
 // (11/20 사용자 '송폼 구간 인식이 잘못되었어') 가사 줄이 곡 안에서 다시 나오면(후렴) 그 줄들이 놓인 마디를 코러스로 — 코드·소리 크기보다 믿을 만한 단서(소리 크기는 반주 잔향으로 늘 켜져 있어 구분이 약함)
-function songLyricChorus(M, lyrics) {
+function songLyricChorus(M, lyrics) {   // (11/20 사용자 '송폼 인식도 틀렸어') 후렴 = 줄이 '여러 줄 이어서' 되풀이되는 덩어리(한 줄만 비슷한 건 제외 · 가장 긴 되풀이의 60% 이상 길이만)
   const n = (M || []).length, L = (lyrics || []).filter((x) => x && x[1] != null).map((x) => [+x[0], String(x[1]).toLowerCase().replace(/[^0-9a-z가-힣]/g, "")]).filter((x) => x[1].length >= 4).sort((a, b) => a[0] - b[0]);
   if (n < 8 || L.length < 6) return [];
   const bg = (t) => { const o = new Set(); for (let i = 0; i + 1 < t.length; i++) o.add(t.slice(i, i + 2)); return o; }, B = L.map((x) => bg(x[1]));
   const dice = (a, b) => { let c = 0; for (const x of a) if (b.has(x)) c++; return a.size + b.size ? 2 * c / (a.size + b.size) : 0; };
-  const link = L.map((_, i) => { for (let j = 0; j < L.length; j++) if (Math.abs(i - j) >= 2 && dice(B[i], B[j]) >= 0.7) return true; return false; });
-  if (link.filter(Boolean).length > L.length * 0.8 || !link.some(Boolean)) return [];   // 거의 전부 반복되는 곡은 판단 안 함
+  const N = L.length, sim = (i, j) => dice(B[i], B[j]) >= 0.7, runs = [];
+  for (let d = 2; d < N; d++) for (let i = 0; i + d < N;) { if (!sim(i, i + d)) { i++; continue; } let k = i; while (k + 1 + d < N && sim(k + 1, k + 1 + d)) k++; runs.push([i, k, d]); i = k + 1; }
+  const mx = runs.reduce((p, r) => Math.max(p, r[1] - r[0] + 1), 0); if (mx < 2) return [];
+  const minLen = Math.max(2, Math.ceil(mx * 0.6)), mark = new Array(N).fill(false);
+  runs.forEach(([a, b, d]) => { if (b - a + 1 >= minLen) for (let k = a; k <= b; k++) { mark[k] = true; mark[k + d] = true; } });
+  if (mark.filter(Boolean).length > N * 0.8 || !mark.some(Boolean)) return [];   // 거의 전부 반복되는 곡은 판단 안 함
   const mOf = (t) => { let r = 0; for (let i = 0; i < n; i++) if (M[i].t0 <= t + 0.05) r = i; return r; };
   const out = []; let i = 0;
-  while (i < L.length) { if (!link[i]) { i++; continue; } let j = i; while (j + 1 < L.length && (link[j + 1] || (link[j + 2] && !link[j + 1]))) j++;
-    if (j - i + 1 >= 2) { const s0 = mOf(L[i][0]); let e0 = j + 1 < L.length ? mOf(L[j + 1][0]) : Math.min(n, mOf(L[j][0]) + 2); if (e0 <= mOf(L[j][0])) e0 = Math.min(n, mOf(L[j][0]) + 2); if (e0 - s0 >= 3) out.push([s0, e0]); }
-    i = j + 1; }
+  while (i < N) { if (!mark[i]) { i++; continue; } let j = i; while (j + 1 < N && mark[j + 1]) j++;
+    const s0 = mOf(L[i][0]); let e0 = j + 1 < N ? mOf(L[j + 1][0]) : Math.min(n, mOf(L[j][0]) + 2); if (e0 <= mOf(L[j][0])) e0 = Math.min(n, mOf(L[j][0]) + 2);
+    if (e0 - s0 >= 3) out.push([s0, e0]); i = j + 1; }
   return out;
 }
 function songAutoSections(M, wave, lyrics) {
@@ -7264,10 +7271,11 @@ function songDeck(el, ids, o) {
     // (11/20 사용자 '송폼 버튼을 아래 슬라이더에 녹여 넣을 수 있지 않을까') 구간 버튼을 슬라이더 바로 위에 '곡 시간 비례 폭'으로 붙임 → 슬라이더 손잡이가 놓인 곳 위가 그 구간 · 눌러서 구간 처음으로 · 폭이 좁으면 줄인 이름(코러스 1 → 코1)
     const segAbbr = (n) => { n = String(n || "").trim(); const m = n.match(/^(.*?)\s*(\d+)$/); return m ? ([...m[1].trim()][0] || "") + m[2] : ([...n][0] || ""); };
     const segSpan = (k) => { const st = M[SL[k].start], nx = SL[k + 1] ? M[SL[k + 1].start] : null, t0 = k === 0 ? 0 : (st ? st.t0 : 0), t1 = nx ? nx.t0 : (dur() || t0 + 1); return Math.max(1, t1 - t0); };
-    const segLay = () => { const sp = SL.map((_, k) => segSpan(k)), tot = sp.reduce((u, v) => u + v, 0) || 1, w = sp.map((v) => Math.max(v, tot * 0.085)), W = w.reduce((u, v) => u + v, 0) || 1, t0s = SL.map((x, k) => (k === 0 ? 0 : (M[x.start] ? M[x.start].t0 : 0))); return { sp, w, W, t0s }; };   // (11/20 사용자 '보기 불편') 짧은 구간도 글자가 보이게 최소 폭 8.5% · 막대 위치↔시간은 이 지도로 변환
+    let fcs = -1;   // (11/20 사용자 '송폼 버튼이 다닥다닥') 지금 구간은 3배·옆 구간은 1.6배로 넓게(끄는 동안엔 고정) — 막대 위치↔시간 변환도 같은 지도
+    const segLay = () => { const sp = SL.map((_, k) => segSpan(k)), tot = sp.reduce((u, v) => u + v, 0) || 1, w = sp.map((v, k) => Math.max(v, tot * 0.05) * (k === fcs ? 3 : Math.abs(k - fcs) === 1 ? 1.6 : 1)), W = w.reduce((u, v) => u + v, 0) || 1, t0s = SL.map((x, k) => (k === 0 ? 0 : (M[x.start] ? M[x.start].t0 : 0))); return { sp, w, W, t0s }; };   // (11/20 사용자 '보기 불편') 짧은 구간도 글자가 보이게 최소 폭 8.5% · 막대 위치↔시간은 이 지도로 변환
     const t2f = (t) => { const L = segLay(); let k = 0; for (let q = 0; q < L.t0s.length; q++) if (L.t0s[q] <= t + 0.001) k = q; let a = 0; for (let q = 0; q < k; q++) a += L.w[q]; return Math.max(0, Math.min(1, (a + Math.max(0, Math.min(1, (t - L.t0s[k]) / L.sp[k])) * L.w[k]) / L.W)); };
     const f2t = (f) => { const L = segLay(); let x = Math.max(0, Math.min(1, f)) * L.W, k = 0; while (k < L.w.length - 1 && x > L.w[k]) { x -= L.w[k]; k++; } return L.t0s[k] + Math.max(0, Math.min(1, x / L.w[k])) * L.sp[k]; };
-    const paintSegs = (re) => { const R = $("#shSgs"), cur = songSecAt(SL, Math.max(0, on)); if (re || R.children.length !== SL.length) { R.textContent = ""; SL.forEach((x, k) => { const b = document.createElement("button"); b.type = "button"; b.onclick = () => { const c = d.querySelector(`.shM[data-i="${x.start}"]`); seekTo(k === 0 ? 0 : (M[x.start] ? M[x.start].t0 : 0)); if (c) c.scrollIntoView({ block: "start", behavior: "smooth" }); fl = Date.now() + 2500; }; R.appendChild(b); }); }
+    const paintSegs = (re) => { const R = $("#shSgs"), cur = songSecAt(SL, Math.max(0, on)); if (!sd || fcs < 0) fcs = cur; if (re || R.children.length !== SL.length) { R.textContent = ""; SL.forEach((x, k) => { const b = document.createElement("button"); b.type = "button"; b.onclick = () => { const c = d.querySelector(`.shM[data-i="${x.start}"]`); seekTo(k === 0 ? 0 : (M[x.start] ? M[x.start].t0 : 0)); if (c) c.scrollIntoView({ block: "start", behavior: "smooth" }); fl = Date.now() + 2500; }; R.appendChild(b); }); }
       const LY = segLay(), sp = LY.w, tot = LY.W, W = R.clientWidth || 300;
       [...R.children].forEach((b, k) => { b.classList.toggle("on", k === cur); b.style.flex = sp[k] + " 1 0"; const t = W * sp[k] / tot >= 14 + 9 * [...SL[k].name].length * 0.9 ? SL[k].name : segAbbr(SL[k].name); if (b.textContent !== t) b.textContent = t; b.title = SL[k].name; });
     };
@@ -9701,7 +9709,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261120-1100";
+const BUILD = "20261120-1200";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {

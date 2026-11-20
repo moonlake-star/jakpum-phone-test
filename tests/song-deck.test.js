@@ -541,7 +541,7 @@ const mk = new Function(code + "; return stemEngine;")();
 // (11/20 10:14 '보기 불편') 송폼 막대: 짧은 구간도 최소 폭(8.5%) · 위치↔시간은 구간 지도(t2f/f2t)로 변환
 {
   const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
-  assert.ok(T.includes("Math.max(v, tot * 0.085)") && T.includes("const t2f = ") && T.includes("seekTo(f2t(+sk.value / 1000))") && T.includes("const pf = dur() ? t2f(p) : 0;"), "송폼 막대 최소 폭 지도");
+  assert.ok(T.includes("Math.max(v, tot * 0.05) * (k === fcs ? 3 :") && T.includes("const t2f = ") && T.includes("seekTo(f2t(+sk.value / 1000))") && T.includes("const pf = dur() ? t2f(p) : 0;"), "송폼 막대 최소 폭 지도");
 }
 // (11/20) 줄 시작은 반주가 새는 약한 소리(작은 값)가 아니라 이 줄의 큰 소리가 시작하는 곳
 {
@@ -550,4 +550,18 @@ const mk = new Function(code + "; return stemEngine;")();
   const amp = [...Array(10).fill(1), ...Array(6).fill(9), ...Array(10).fill(44)];   // 1.0~1.6초 약한 누설(9) · 1.6초부터 진짜 노래(44)
   const V = f.songVoiced(amp.map((a) => String.fromCharCode(48 + a)).join(""));
   assert.strictEqual(+f.songLineStart(1.2, V).toFixed(1), 1.6, "약한 누설 말고 큰 소리 시작");
+}
+
+// (11/20 사용자 '송폼 인식도 틀렸어' · '가사 위치 전혀 틀려') 후렴=여러 줄이 이어서 되풀이 · 한 줄 길이 줄의 끝은 0.8초 침묵
+{
+  const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  const f = new Function(T.slice(T.indexOf("function songLyricChorus("), T.indexOf("async function songPeaks(")) + "; return { songLyricChorus };")();
+  const M = Array.from({ length: 80 }, (_, i) => ({ t0: i * 2, t1: i * 2 + 2, chords: [], lyrics: [] }));
+  const ch = ["봄날의꽃잎처럼", "흩날려사라져가", "그대를사랑했던", "내마음은남아서"], vs = ["가나다라마바사", "아자차카타파하", "거너더러머버서", "어저처커터퍼허", "고노도로모보소", "오조초코토포호"], tag = ["꼭한번더말해줘", "다시는놓지않을게"];
+  const L = []; let t = 4; const add = (a) => a.forEach((x) => { L.push([t, x]); t += 4; });
+  add(ch); add(vs.slice(0, 2)); add(tag); add(vs.slice(2, 3)); add(ch); add(vs.slice(3, 4)); add(tag); add(vs.slice(4)); add(ch);
+  const R = f.songLyricChorus(M, L);
+  assert.strictEqual(R.length, 3, "4줄 후렴 3번만 후렴(2줄만 되풀이된 구절은 제외): " + JSON.stringify(R));
+  assert.ok(R[0][0] <= 3 && R[1][0] > R[0][1], "후렴 시작 위치");
+  assert.ok(T.includes("else if (++gap > 8 && fr.length) break;"), "줄 끝 침묵 0.8초");
 }
