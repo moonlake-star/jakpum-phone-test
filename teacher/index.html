@@ -6269,7 +6269,10 @@ function ytTitle(t, ch) {
   const multi = (x) => /,|\s&\s|\s\/\s|\bfeat\.?\s|\bft\.?\s/i.test(x);
   if (m.length === 2 && m[0] && m[1] && CV.test(m[1])) { const mm = m[1].match(/^(.*?)\s*\(([^)]*)\)\s*$/); if (mm && mm[1].trim() && CV.test(mm[2]) && multi(mm[1]) && !multi(m[0])) { const cb = cvName(mm[2]).replace(/\b(?:acoustic|piano|guitar|ver\.?|version)\b/gi, " ").replace(/\s+/g, " ").replace(/^[\s\-–—()·,]+|[\s\-–—()·,]+$/g, ""), o = { title: m[0].trim(), artist: mm[1].trim() }; if (cb) o.cover_by = cb; return o; } }
   if (m.length === 2 && m[0] && m[1]) { const nm = m[1].match(/^(.+?)\s*\(([^)]*)\)\s*$/); if (nm && new RegExp(nm[1].trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*의").test(nm[2])) return { title: m[0].trim(), artist: nm[1].trim() }; }   // (11/20 사용자 '낭만에 대하여 - 최백호 (최백호의 낭만이즈백)') 뒤 칸이 '이름 (이름의 …)' 꼴이면 뒤가 가수 — 서버 split_yt 와 같음
-  if (m.length >= 2 && m[0] && m[1]) return { title: m.slice(1).join(" - ").trim(), artist: m[0].trim() };
+  // (11/20 사용자 '이문세-빗속에서 Cover by Localhero (야!모하냐?라플람공연)') 곡 칸 끝 'Cover by 이름 (…)' → cover_by · 띄어쓰기 없는 '가수-곡'(한글 이름이거나 Cover by 있을 때만) — 서버 split_yt 와 같음
+  const cutBy = (o) => { const c = o.title.match(/^(.+?)\s+cover(?:ed)?\s+by\s+(.+)$/i); if (!c) return o; const cb = c[2].replace(/\([^)]*\)/g, " ").replace(/\s+/g, " ").replace(/^[\s\-–—()·,]+|[\s\-–—()·,]+$/g, ""), r = { ...o, title: c[1].trim() }; if (cb) r.cover_by = cb; return r; };
+  if (m.length >= 2 && m[0] && m[1]) return cutBy({ title: m.slice(1).join(" - ").trim(), artist: m[0].trim() });
+  if ((t.match(/[-–—]/g) || []).length === 1) { const n = t.match(/^\s*([^\s\-–—][^\-–—]{0,29}?)\s*[-–—]\s*(\S.*)$/); if (n && (/[가-힣]/.test(n[1]) || /cover(?:ed)?\s+by/i.test(n[2]))) return cutBy({ title: n[2].trim(), artist: n[1].trim() }); }
   return { title: t, artist: String(ch || "").replace(/\s*-\s*Topic$|VEVO$|\s*Official$|\s*공식$/i, "").trim() };
 }
 // (11/14 10:14 사용자) 추천 곡 칸: 유튜브 주소를 넣으면 제목·가수를 채우고, 이유가 비었으면 초안을 넣음.
