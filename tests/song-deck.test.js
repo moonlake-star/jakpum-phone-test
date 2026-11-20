@@ -357,7 +357,8 @@ const mk = new Function(code + "; return stemEngine;")();
   const an = { beats: Array.from({ length: 81 }, (_, i) => +(i * 0.5).toFixed(3)), down: 2, chords: [[1, "C"]] };   // 마디 = 2초, 첫 마디 시작 1.0초
   const L = (t, tx) => f.songMeasures(an, 0, [[t - 0.4, tx]]).filter((m) => m.lyrics.length).map((m) => [m.no, +m.lyrics[0].b.toFixed(2), m.lyrics[0].text])[0];   // 가사 시각은 0.4초 지연이 더해짐
   assert.deepStrictEqual(L(4.5, "하나"), [2, 3.0, "하나"], "3박(3.0)에서 시작 → 앞 마디(2번)");   // 3.0초 마디 2: 3.0~5.0 → 4.5 = 3박째
-  assert.deepStrictEqual(L(4.9, "하나"), [2, 3.8, "하나"], "마디 끝 직전에 시작해 다음 마디로 걸쳐도 → 앞 마디");
+  assert.deepStrictEqual(L(4.9, "하나"), [3, 0, "하나"], "(11/20) 줄의 첫 낱말이 다음 마디 첫 박 0.35박 안쪽 앞이면 → 다음 마디 첫 박");
+  assert.deepStrictEqual(L(4.6, "하나"), [2, 3.2, "하나"], "0.35박보다 더 앞(0.8박 전)이면 → 앞 마디 그대로(걸어 들어가는 음)");
   assert.ok(!T.includes("SG_PICK_SNAP"), "예외 규칙(줄 첫 낱말 밀기) 없음");
   assert.strictEqual(L(0.5, "먼저")[0], 1, "첫 박자 전 가사는 첫 마디");
   const two = f.songMeasures(an, 0, [[4.1, "도 레 미 파"]]);   // 4.5초부터: 3박째에서 시작해 다음 마디로 이어짐
@@ -541,4 +542,12 @@ const mk = new Function(code + "; return stemEngine;")();
 {
   const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
   assert.ok(T.includes("Math.max(v, tot * 0.085)") && T.includes("const t2f = ") && T.includes("seekTo(f2t(+sk.value / 1000))") && T.includes("const pf = dur() ? t2f(p) : 0;"), "송폼 막대 최소 폭 지도");
+}
+// (11/20) 줄 시작은 반주가 새는 약한 소리(작은 값)가 아니라 이 줄의 큰 소리가 시작하는 곳
+{
+  const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  const src = T.slice(T.indexOf("function songVoiced("), T.indexOf("function songWordTimes(")), f = new Function(src + "; return { songVoiced, songLineStart };")();
+  const amp = [...Array(10).fill(1), ...Array(6).fill(9), ...Array(10).fill(44)];   // 1.0~1.6초 약한 누설(9) · 1.6초부터 진짜 노래(44)
+  const V = f.songVoiced(amp.map((a) => String.fromCharCode(48 + a)).join(""));
+  assert.strictEqual(+f.songLineStart(1.2, V).toFixed(1), 1.6, "약한 누설 말고 큰 소리 시작");
 }

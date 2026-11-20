@@ -6638,7 +6638,10 @@ function songVoiced(voc) {   // 0.1초마다 노래 중이면 1(파형 값 6 이
 function songSyll(w) { const k = (w.match(/[가-힣]/g) || []).length; return k || Math.max(1, (w.match(/[aeiouyAEIOUY]+/g) || []).length); }
 function songLineStart(t, V) {   // 가사 시간 근처(0.3초 앞~1.5초 뒤)의 첫 노래 소리 시각 · 못 찾으면 null
   const n = V.length, a0 = Math.max(0, Math.round((t - 0.3) / 0.1)), a1 = Math.min(n, Math.round((t + 1.5) / 0.1));
-  for (let i = a0; i < a1; i++) if (V[i]) return i * 0.1; return null;
+  const am = V.amp; if (!am) { for (let i = a0; i < a1; i++) if (V[i]) return i * 0.1; return null; }
+  let pk = 0; for (let i = a0; i < Math.min(n, a0 + 28); i++) if (V[i] && am[i] > pk) pk = am[i];   // (11/20 사용자 '가사가 한 마디씩 앞서') 반주가 새는 약한 소리(값 7~13)를 노래 시작으로 잡지 않음 — 이 줄의 최대 소리의 45% 넘는 곳부터가 노래 시작
+  const th = Math.max(6, 0.45 * pk);
+  for (let i = a0; i < a1; i++) if (V[i] && am[i] >= th) return i * 0.1; return null;
 }
 function songWordTimes(t, nxt, words, V) {   // 낱말마다 시작 시각 목록 · 믿을 수 없으면 null(옛 방식)
   const n = V.length, st = songLineStart(t, V); if (!n || words.length < 2 || st == null) return null;
@@ -6690,7 +6693,8 @@ function songMeasures(an, n, lyrics, voc) {
     m.chords.forEach((c, i) => { c.len = (i + 1 < m.chords.length ? m.chords[i + 1].b : m.beats) - c.b; });
     songChordTidy(m);
     let lastI = -1;   // 같은 줄에서 이어진 낱말은 한 덩어리로
-    while (li < ev.length && ev[li].t < t1) { const e = ev[li], raw = (e.t - t0) / (t1 - t0) * 4, pos = Math.max(0, Math.min(3.9, raw)), l = m.lyrics[m.lyrics.length - 1];
+    const lead = s + 4 < B.length ? Math.min(0.4, 0.35 * (t1 - t0) / 4) : 0, firstOf = (q) => q === 0 || ev[q - 1].i !== ev[q].i;   // (11/20 사용자 '가사가 한 마디씩 앞서') 줄의 첫 낱말이 다음 마디 첫 박 0.35박 안쪽 앞에서 시작하면 노래가 첫 박에 걸어 들어가는 것 → 다음 마디에서 시작(줄 중간 낱말은 11/19 규칙 그대로 앞 마디)
+    while (li < ev.length && ev[li].t < t1 - (firstOf(li) ? lead : 0)) { const e = ev[li], raw = (e.t - t0) / (t1 - t0) * 4, pos = Math.max(0, Math.min(3.9, raw)), l = m.lyrics[m.lyrics.length - 1];
       // (11/19 사용자 '앞마디·뒷마디 사이에 걸친 낱말은 앞마디') 한 규칙: 낱말은 소리가 시작하는 마디에 둠 — 시작이 마디 끝 박 근처여도 뒤 마디로 밀지 않음
       if (l && lastI === e.i) l.text += " " + e.x; else m.lyrics.push({ b: pos, text: e.x }); lastI = e.i; li++; }
     out.push(m);
@@ -9697,7 +9701,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261120-1045";
+const BUILD = "20261120-1100";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
