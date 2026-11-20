@@ -500,7 +500,7 @@
 #dkPr .prM.on{background:#1f1a00;border-top:3px solid #FFE066;border-bottom:3px solid #FFE066}#dkPr .prM.sel{border-top:3px solid #4DD0E1;border-bottom:3px solid #4DD0E1}
 #dkPr .prNo{position:absolute;left:.5em;top:.1em;font-size:calc(var(--u)*1.1);color:#8c8c8c;white-space:nowrap}#dkPr .prNo b{color:#fff;margin-left:.3em}#dkPr .prBt{position:absolute;top:calc(var(--u)*1.4);font-size:calc(var(--u)*1);font-weight:700;color:#8c8c8c;padding-left:.5em}#dkPr .prBt.p1{color:#e8e8e8}
 #dkPr .prLn{position:absolute;top:calc(var(--u)*2.8);bottom:.4em;width:0;border-left:2px dashed #444}
-#dkSh .shC .cq,#dkPr .prCh .cq{font-size:.62em;font-weight:800;margin-left:.04em}#dkPr .prCh{font-family:"Roboto Condensed","Arial Narrow","Helvetica Neue Condensed","Avenir Next Condensed",sans-serif-condensed,"Noto Sans KR",sans-serif;font-stretch:condensed}#dkPr .prCh{position:absolute;top:calc(var(--u)*2.5);font-size:calc(var(--u)*3.3);font-weight:900;line-height:1.1;color:#FFE066;white-space:nowrap;z-index:1}#dkPr .prUl{position:absolute;top:calc(var(--u)*6.3);height:calc(var(--u)*.4);border-radius:4px;background:#FFE066;opacity:.85}
+#dkSh .shBd{position:relative;height:8px;margin:1px 3px 2px}#dkSh .shBd i{position:absolute;top:1px;width:6px;height:6px;border-radius:50%;border:1px solid #0b3d91;box-sizing:border-box;opacity:.45}#dkSh .shBd i.on{background:#0b3d91;opacity:1}#dkSh .shPaper.dk .shBd i{border-color:#8fb4ff}#dkSh .shPaper.dk .shBd i.on{background:#8fb4ff}#dkSh .shC .cq,#dkPr .prCh .cq{font-size:.62em;font-weight:800;margin-left:.04em}#dkPr .prCh{font-family:"Roboto Condensed","Arial Narrow","Helvetica Neue Condensed","Avenir Next Condensed",sans-serif-condensed,"Noto Sans KR",sans-serif;font-stretch:condensed}#dkPr .prCh{position:absolute;top:calc(var(--u)*2.5);font-size:calc(var(--u)*3.3);font-weight:900;line-height:1.1;color:#FFE066;white-space:nowrap;z-index:1}#dkPr .prUl{position:absolute;top:calc(var(--u)*6.3);height:calc(var(--u)*.4);border-radius:4px;background:#FFE066;opacity:.85}
 @media (orientation:landscape) and (min-width:640px){#dkSh .shBar{flex-wrap:nowrap;padding:4px 8px}#dkSh .shPlay{order:1}#dkSh .shT{order:2;flex:0 1 auto;max-width:28%}#dkSh .shCt{order:3;flex:1 1 0}#dkSh #shCp{order:4}#dkSh .shX{order:5}#dkSh .shCt .shVo b{min-width:0}}   /* (11/20 사용자 '가로 화면 상단 볼륨·버튼 한 줄로') 가로: 재생·제목·보컬·키·속도·카포·닫기 한 줄 */
 #dkPr .prLy{position:absolute;top:calc(var(--u)*7);font-size:calc(var(--u)*2);line-height:1.2;color:#fff;white-space:nowrap}
 #dkPr .prEg{position:absolute;right:.5em;top:.1em;font-size:calc(var(--u)*1);font-weight:700;color:#FF9F43}
@@ -6773,7 +6773,7 @@ function songMeasures(an, n, lyrics, voc, lw) {   // lw: (11/20) 서버 강제 �
   // (11/19 사용자 '가사가 한 칸에 몰려 있다') 긴 가사 줄(3낱말 이상)은 다음 줄이 시작되기 전까지의 시간에 낱말 길이 비율로 펼쳐서 마디마다 나눠 놓음(한 마디에 몰아 넣지 않음). 짧은 줄은 그대로.
   let ev = []; const SS = V ? songLineStarts(ly, V) : null; ly.forEach((L0_, i) => { const L = SS ? [SS[i], L0_[1]] : L0_, tx = String(L[1]), w = tx.trim().split(/\s+/).filter(Boolean), nxt = i + 1 < ly.length ? (SS ? SS[i + 1] : ly[i + 1][0]) : L[0] + 6, gap = Math.max(0.5, nxt - L[0]), L0 = L[0] + (SS ? 0 : SG_LY_DELAY);   // (11/19 사용자 '가사가 앞칸에') 가사 시간표는 실제 노래보다 조금 먼저 찍혀 있어 뒤로 살짝 미룸
     const fw = L0_[2];   // 강제 정렬 낱말 시각: 낱말 수가 같고 첫 낱말이 줄 시각과 같을 때만(가사가 나중에 바뀌었으면 안 씀)
-    if (Array.isArray(fw) && fw.length === w.length && Math.abs(fw[0] - L0_[0]) < 0.05 && fw.every((x, j) => typeof x === "number" && (j === 0 || x >= fw[j - 1]))) { w.forEach((x, j) => ev.push({ t: fw[j], x, i, fa: 1 })); return; }
+    if (Array.isArray(fw) && fw.length === w.length && Math.abs(fw[0] - L0_[0]) < 0.05 && fw.every((x, j) => typeof x === "number" && (j === 0 || x >= fw[j - 1]))) { w.forEach((x, j) => { const syl = [...x], n = syl.length; if (!/^[\uac00-\ud7a3]/.test(x) || n < 2) { ev.push({ t: fw[j], x, i, fa: 1 }); return; } const dd = (j + 1 < fw.length ? fw[j + 1] : fw[j] + 0.4 * n) - fw[j], step = Math.min(dd * 0.8 / n, 0.4); syl.forEach((c, q) => ev.push({ t: fw[j] + q * step, x: c, i, fa: 1, cont: q > 0 })); }); return; }   // (11/21 사용자 '시가 될 이야기' 직접 수정: 한국어는 마디에 걸친 낱말을 음절에서 나눔 — 많|은·무|거웠나요) 한글 낱말은 음절마다 시각을 나눠 놓음(낱말 길이의 80%를 고르게, 음절당 최대 0.4초)
     const tw = V && w.length >= 2 ? songWordTimes(L[0], nxt, w, V) : null;
     if (tw) { w.forEach((x, j) => ev.push({ t: tw[j], x, i })); return; }   // 보컬 소리로 맞춘 낱말 시각
     const st = V && w.length < 2 ? songLineStart(L[0], V) : null;
@@ -6797,7 +6797,7 @@ function songMeasures(an, n, lyrics, voc, lw) {   // lw: (11/20) 서버 강제 �
     const tol = s + 4 < B.length ? 0.15 * (t1 - t0) / 4 : 0;   // (11/21 사용자 Stumblin' In 직접 수정과 대조) 다음 마디 첫 박 0.15박 안쪽 앞은 강제 정렬 오차 → 다음 마디 · 그보다 앞서 시작한 낱말은 마디에 걸쳐도 앞 마디(사용자 규칙)
     while (li < ev.length && ev[li].t < t1 - Math.max(firstOf(li) ? lead : 0, tol)) { const e = ev[li], raw = (e.t - t0) / (t1 - t0) * 4, pos = Math.max(0, Math.min(3.9, raw)), l = m.lyrics[m.lyrics.length - 1];
       // (11/19 사용자 '앞마디·뒷마디 사이에 걸친 낱말은 앞마디') 한 규칙: 낱말은 소리가 시작하는 마디에 둠 — 시작이 마디 끝 박 근처여도 뒤 마디로 밀지 않음
-      if (l && lastI === e.i) l.text += " " + e.x; else m.lyrics.push({ b: pos, text: e.x }); lastI = e.i; li++; }
+      if (l && lastI === e.i) l.text += (e.cont ? "" : " ") + e.x; else m.lyrics.push({ b: pos, text: e.x }); lastI = e.i; li++; }
     out.push(m);
   }
   for (let k = 0; k + 1 < out.length; k++) { const a = out[k].chords, nx = out[k + 1].chords[0];   // 마디 끝 박(4박)에 걸친 코드가 다음 마디 첫 코드와 같으면 다음 마디의 코드(코드 바뀌는 시각이 박보다 살짝 앞서 찍힌 것) → 뺌
@@ -6815,16 +6815,24 @@ function songBeatPos(an, t) {   // 재생 시각 → {m: 마디 번호(0부터),
 }
 // (11/14 사용자 시안 D) 프롬프터 직접 수정: 코드는 글자로 입력('D' · 'Bm Em' = 1·3박 · 'G A@2' = 박 지정) · 수정은 원곡 키 기준으로 저장해서 키를 바꿔도 따라감
 const SG_PER = 20;   // 한 쪽 5줄 × 4마디
-function songParseChords(txt) {
-  const toks = String(txt || "").trim().split(/\s+/).filter(Boolean), out = [], bad = [];
-  toks.forEach((t) => { const mm = /^([A-Ga-g][#b]?[A-Za-z0-9#()+\-\/]*)(?:@([1-4]))?$/.exec(t); if (!mm) { bad.push(t); return; } out.push([mm[2] ? +mm[2] : 0, mm[1][0].toUpperCase() + mm[1].slice(1)]); });
-  const k = out.slice(0, 4), n = k.length, dflt = n === 1 ? [1] : n === 2 ? [1, 3] : n === 3 ? [1, 2, 3] : [1, 2, 3, 4];
+function songParseChords(txt, prev) {   // (11/21 사용자) '/D' = 앞 코드에 베이스만 · 코드 3개 = 1·3·4박(첫 코드 2박) · '.'/'-' = 그 박은 앞 코드 유지(토큰 자리 = 박) · '@박'은 그대로
+  const toks = String(txt || "").trim().split(/\s+/).filter(Boolean), out = [], bad = [], hold = toks.some((t) => /^[.\-%]$/.test(t));
+  let last = prev && /^[A-G]/.test(String(prev)) ? String(prev).split("/")[0] : "";
+  toks.forEach((t, ti) => {
+    if (/^[.\-%]$/.test(t)) return;
+    let mm = /^\/([A-Ga-g][#b]?)(?:@([1-4]))?$/.exec(t), name;
+    if (mm) { if (!last) { bad.push(t); return; } name = last + "/" + mm[1][0].toUpperCase() + mm[1].slice(1); }
+    else { mm = /^([A-Ga-g][#b]?[A-Za-z0-9#()+\-\/]*)(?:@([1-4]))?$/.exec(t); if (!mm) { bad.push(t); return; } name = mm[1][0].toUpperCase() + mm[1].slice(1); last = name.split("/")[0]; }
+    out.push([mm[2] ? +mm[2] : hold ? Math.min(4, ti + 1) : 0, name]);
+  });
+  const k = out.slice(0, 4), n = k.length, dflt = n === 1 ? [1] : n === 2 ? [1, 3] : n === 3 ? [1, 3, 4] : [1, 2, 3, 4];
+  out.slice(4).forEach((c) => bad.push(c[1]));
   k.forEach((c, i) => { if (!c[0]) c[0] = dflt[i]; });
-  const ch = k.sort((x, y) => x[0] - y[0]); if (ch.length) ch[0][0] = 1;
+  const seen = new Set(), ch = k.sort((x, y) => x[0] - y[0]).filter((c) => { if (seen.has(c[0])) { bad.push(c[1] + "@" + c[0]); return false; } seen.add(c[0]); return true; }); if (ch.length) ch[0][0] = 1;   // 같은 박에 두 코드면 뒤의 것은 알 수 없는 입력으로
   return { ch, bad };
 }
 function songFmtChords(chords) {   // 마디의 코드 목록 → 입력 글자
-  const n = chords.length, dflt = n === 1 ? [1] : n === 2 ? [1, 3] : n === 3 ? [1, 2, 3] : [1, 2, 3, 4];
+  const n = chords.length, dflt = n === 1 ? [1] : n === 2 ? [1, 3] : n === 3 ? [1, 3, 4] : [1, 2, 3, 4];
   return chords.map((c, i) => c.name + (c.b + 1 === dflt[i] ? "" : "@" + (c.b + 1))).join(" ");
 }
 function songApplyEdits(M, ED, n) {   // ED = { 마디번호(0부터): { ch: [[박(1~4), 원곡 키 코드]], ly: 글자 } }
@@ -7385,14 +7393,15 @@ function songDeck(el, ids, o) {
     const closeShEdit = (back) => { const i0 = sel; sel = -1; if (ep) { ep.remove(); ep = null; } d.querySelectorAll(".shM.sel").forEach((e) => e.classList.remove("sel"));
       if (back === true && i0 >= 0) requestAnimationFrame(() => { const c = d.querySelector(`.shM[data-i="${i0}"]`), sc = d.querySelector(".shScroll"); if (!c || !sc) return; const r = c.getBoundingClientRect(), s0 = sc.getBoundingClientRect(); if (r.top < s0.top + s0.height * 0.2 || r.bottom > s0.top + s0.height * 0.7) sc.scrollTop += (r.top + r.height / 2) - (s0.top + s0.height * 0.4); }); };   // (11/19 사용자 '완료하면 화면이 너무 아래로') 완료하면 고친 마디가 화면 위쪽 40% 자리에 오게
     const openShEdit = (i) => { const m = M[i]; if (!m) return; closeShEdit(); sel = i; const cell = d.querySelector(`.shM[data-i="${i}"]`); if (cell) cell.classList.add("sel");
-      ep = document.createElement("div"); ep.className = "shEp"; ep.innerHTML = `<div class="eh"><b>${m.no}마디 수정</b><span>코드는 띄어쓰기로 · <u>D</u> = 한 마디 1코드 · <u>Bm Em</u> = 1·3박 · <u>G A@2</u> = 박 지정${capoOf() || modeP() ? " · 화면에 보이는 코드 모양 기준" : ""}</span><div class="sp"><button type="button" class="nv" id="shPv" aria-label="앞 마디 고치기"${i > 0 ? "" : " disabled"}>◀ ${m.no - 1 || ""}</button><button type="button" class="nv" id="shNx" aria-label="뒷 마디 고치기"${i + 1 < M.length ? "" : " disabled"}>${i + 1 < M.length ? m.no + 1 : ""} ▶</button><button type="button" id="shRs">되돌리기</button><button type="button" class="on" id="shOk">완료</button></div></div>
+      ep = document.createElement("div"); ep.className = "shEp"; ep.innerHTML = `<div class="eh"><b>${m.no}마디 수정</b><span>코드는 띄어쓰기로 · <u>D</u> = 한 마디 · <u>Bm Em</u> = 1·3박 · <u>Bm Em Em/D</u> = 1·3·4박 · <u>/D</u> = 앞 코드에 베이스 · <u>.</u> = 한 박 유지 · <u>A@2</u> = 2박${capoOf() || modeP() ? " · 화면에 보이는 코드 모양 기준" : ""}</span><div class="sp"><button type="button" class="nv" id="shPv" aria-label="앞 마디 고치기"${i > 0 ? "" : " disabled"}>◀ ${m.no - 1 || ""}</button><button type="button" class="nv" id="shNx" aria-label="뒷 마디 고치기"${i + 1 < M.length ? "" : " disabled"}>${i + 1 < M.length ? m.no + 1 : ""} ▶</button><button type="button" id="shRs">되돌리기</button><button type="button" class="on" id="shOk">완료</button></div></div>
         <div class="er"><label for="shCi">코드</label><input type="text" id="shCi" autocomplete="off" autocapitalize="off" spellcheck="false"></div><div class="hint" id="shCh"></div>
         <div class="er"><label for="shLi">가사</label><input type="text" id="shLi" autocomplete="off"></div><div class="er"><label for="shSi">구간</label><input type="text" id="shSi" placeholder="예: 1절 · 비우면 해제" autocomplete="off"></div>`; d.appendChild(ep);
       const ci = ep.querySelector("#shCi"), li = ep.querySelector("#shLi"), si = ep.querySelector("#shSi"), hint = ep.querySelector("#shCh");
+      const pvCh = () => { const pm = M[i - 1]; return pm && pm.chords.length ? pm.chords[pm.chords.length - 1].name : ""; };   // '/D'를 첫 코드로 쓰면 앞 마디 마지막 코드에 베이스
       ci.value = songFmtChords(m.chords); li.value = m.lyrics.map((y) => y.text).join(" "); { const cs = secs().find((x) => x[0] === i); si.value = cs ? cs[1] : ""; }
-      const hintUp = () => { const q = songParseChords(ci.value); hint.style.color = q.bad.length ? "#ff8a80" : "#b8b8b8"; hint.textContent = q.bad.length ? "알 수 없는 입력: " + q.bad.join(" ") : q.ch.length ? q.ch.map((c) => c[0] + "박 " + c[1]).join(" · ") : "코드를 입력하세요"; }; hintUp();
+      const hintUp = () => { const q = songParseChords(ci.value, pvCh()); hint.style.color = q.bad.length ? "#ff8a80" : "#b8b8b8"; hint.textContent = q.bad.length ? "알 수 없는 입력: " + q.bad.join(" ") : q.ch.length ? [1, 2, 3, 4].map((b) => { const c = q.ch.find((x) => x[0] === b); return b + "박 " + (c ? c[1] : "·"); }).join("  |  ") : "코드를 입력하세요"; }; hintUp();   // (11/21) 박마다 한 칸: 1박 Bm | 2박 · | 3박 Em | 4박 Em/D
       const redo = () => { build(); const c2 = d.querySelector(`.shM[data-i="${i}"]`); if (c2) c2.classList.add("sel"); };
-      const ci0 = ci.value, apply = () => { const e = Object.assign({}, ED[i] || {}), q = songParseChords(ci.value); if (ci.value !== ci0) { delete e.auto; delete e.g; if (q.ch.length) e.ch = q.ch.map((c) => [c[0], songChordName(c[1], capoOf() - keyN)]); } e.ly = li.value; ED[i] = e; saveEd(); redo(); };
+      const ci0 = ci.value, apply = () => { const e = Object.assign({}, ED[i] || {}), q = songParseChords(ci.value, pvCh()); if (ci.value !== ci0) { delete e.auto; delete e.g; if (q.ch.length) e.ch = q.ch.map((c) => [c[0], songChordName(c[1], capoOf() - keyN)]); } e.ly = li.value; ED[i] = e; saveEd(); redo(); };
       ci.oninput = () => { hintUp(); apply(); }; li.oninput = apply; si.oninput = () => { const a = secs().filter((x) => x[0] !== i); if (si.value.trim()) a.push([i, si.value.trim()]); me.sec = a; saveEd(); redo(); };
       const k = (e) => { if (e.key === "Enter") closeShEdit(true); }; ci.onkeydown = li.onkeydown = si.onkeydown = k; ep.querySelector("#shOk").onclick = () => closeShEdit(true);
       const go = (j) => { if (j < 0 || j >= M.length) return; closeShEdit(); openShEdit(j); const c = d.querySelector(`.shM[data-i="${j}"]`), sc = d.querySelector(".shScroll"); if (c && sc && ep) { const r = c.getBoundingClientRect(), s0 = sc.getBoundingClientRect(), top = ep.getBoundingClientRect().top; if (r.top < s0.top + 8 || r.bottom > top - 8) sc.scrollTop += r.top - (s0.top + Math.max(8, (top - s0.top) * 0.3)); } };   // (11/21 사용자 '수정 창에서 앞 마디·뒷 마디로 이동하는 버튼') 창을 닫지 않고 옆 마디로 · 그 마디가 수정 창에 가리지 않게 스크롤
@@ -7422,9 +7431,9 @@ function songDeck(el, ids, o) {
       const G = document.createElement("div"); G.className = "shG";
       M.forEach((m, i) => { const c = document.createElement("div"); c.className = "shM" + (i >= M.length - (M.length % 4 || 4) ? " sh-last" : ""); c.dataset.i = i;
         const n = document.createElement("div"); n.className = "shN"; n.textContent = m.no; if (nm[i]) { const b = document.createElement("b"); b.textContent = "[" + nm[i] + "]"; n.appendChild(b); }
-        const ch = document.createElement("div"); ch.className = "shC"; for (const x of m.chords) { const e = document.createElement("span"); e.dataset.l = String(x.b / Math.max(1, m.beats) * 100); songChordFill(e, x.name); ch.appendChild(e); }
+        const ch = document.createElement("div"); ch.className = "shC"; for (const x of m.chords) { const e = document.createElement("span"); e.dataset.l = String(x.b / Math.max(1, m.beats) * 100); songChordFill(e, x.name); ch.appendChild(e); } if (m.chords.length > 1) { const bd = document.createElement("div"); bd.className = "shBd"; bd.setAttribute("aria-hidden", "true"); for (let q = 0; q < m.beats; q++) { const i = document.createElement("i"); if (m.chords.some((x) => Math.round(x.b) === q)) i.className = "on"; i.style.left = q / Math.max(1, m.beats) * 100 + "%"; bd.appendChild(i); } ch.__bd = bd; }   // (11/21 사용자 '어느 박의 코드인지 알 수 있게') 한 마디에 코드가 둘 이상이면 코드 줄 아래 박 점 ●○●● (코드가 바뀌는 박만 채움)
         const ly = document.createElement("div"); ly.className = "shL"; ly.textContent = m.lyrics.map((y) => y.text).join(" ");
-        c.append(n, ch, ly); if (i === sel) c.classList.add("sel"); cellGesture(c, { tap: () => tapCell(i === 0 ? 0 : m.t0), dbl: () => playFrom(i === 0 ? 0 : m.t0), long: () => openShEdit(i) }); G.appendChild(c); });
+        c.append(n, ch, ...(ch.__bd ? [ch.__bd] : []), ly); if (i === sel) c.classList.add("sel"); cellGesture(c, { tap: () => tapCell(i === 0 ? 0 : m.t0), dbl: () => playFrom(i === 0 ? 0 : m.t0), long: () => openShEdit(i) }); G.appendChild(c); });
       paper.appendChild(G); fitChords(); paper.style.minHeight = ""; if (scEl) scEl.scrollTop = st0; on = -1; sub(); };
     const tick = () => { raf = 0; if (!d.isConnected || !alive()) return;
       if (mKey !== keyN || mLy !== o.lyrics) build();
