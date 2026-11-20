@@ -7251,7 +7251,7 @@ function songDeck(el, ids, o) {
     document.body.appendChild(p); return p; };
   // PDF 미리보기(프롬프터·A4 공용): 쪽 그림을 먼저 보여 주고 'PDF로 저장'을 눌러야 파일이 내려가요
   const pdfPreview = (out, pw, ph, fname, opt = {}) => {
-    document.getElementById("pvW")?.remove(); const w = document.createElement("div"); w.id = "pvW"; w.className = "pvW"; w.setAttribute("role", "dialog"); w.setAttribute("aria-label", "PDF 미리보기"); let urls = [], li = opt.ly ?? 0, busy = false;
+    { const o0 = document.getElementById("pvW"); if (o0) { try { o0._ly ? o0._ly.close() : o0.remove(); } catch { o0.remove(); } } } const w = document.createElement("div"); w.id = "pvW"; w.className = "pvW"; w.setAttribute("role", "dialog"); w.setAttribute("aria-label", "PDF 미리보기"); let urls = [], li = opt.ly ?? 0, busy = false;
     const NM = opt.names || [], hasLy = typeof opt.regen === "function";
     // (11/20 사용자 '여기 한줄로 다이어트') 조작줄 한 줄: 쪽 넘김 · 가사 글자 크기 · 전체화면 · 저장 · 닫기 (제목 글자는 빼고 아이콘·짧은 글로 · 아주 좁은 폰에서만 줄바꿈)
     w.innerHTML = `<div class="pvB"><div class="pvNg" role="group" aria-label="쪽 넘기기"><button type="button" class="pvNav" id="pvPv" aria-label="이전 쪽">◀</button><span class="pvPg" id="pvPg"></span><button type="button" class="pvNav" id="pvNx" aria-label="다음 쪽">▶</button></div>${hasLy ? `<div class="pvFg" role="group" aria-label="가사 글자 크기"><button type="button" id="pvFm" aria-label="가사 글자 작게">가−</button><span id="pvFl"></span><button type="button" id="pvFp" aria-label="가사 글자 크게">가＋</button></div>` : ""}<i class="pvSp"></i><button type="button" class="pvFs" id="pvFs" aria-label="전체화면" title="전체화면">⛶</button><button type="button" class="pvOk" id="pvOk" aria-label="PDF로 저장">저장</button><button type="button" class="pvX" id="pvX" aria-label="닫기">✕</button></div><div class="pvS"></div><button type="button" class="pvFsX" id="pvFsX" aria-label="전체화면 닫기">✕</button>`;
@@ -7274,7 +7274,9 @@ function songDeck(el, ids, o) {
     const setFs = (on) => { w.classList.toggle("fs", on); if (on) { try { w.requestFullscreen && w.requestFullscreen().catch(() => {}); } catch {} } else { try { document.fullscreenElement && document.exitFullscreen(); } catch {} } };
     w.addEventListener("fullscreenchange", () => { if (!document.fullscreenElement && w.classList.contains("fs")) w.classList.remove("fs"); });
     w.querySelector("#pvFs").onclick = () => setFs(true); w.querySelector("#pvFsX").onclick = () => setFs(false);
-    const close = () => { urls.forEach((u) => { try { URL.revokeObjectURL(u); } catch {} }); try { document.fullscreenElement && document.exitFullscreen(); } catch {} w.remove(); };
+    // (11/20 사용자 'PDF 창 닫기 누르면 홈으로 감 → A4 악보 화면으로 돌아가야') 미리보기도 뒤로 가기 한 칸(Brand.layer): 닫기·저장·뒤로 스와이프 모두 미리보기만 닫히고 아래 악보(또는 TV) 화면이 남음
+    const shut = () => { urls.forEach((u) => { try { URL.revokeObjectURL(u); } catch {} }); try { document.fullscreenElement && document.exitFullscreen(); } catch {} w.remove(); };
+    const ly = typeof Brand !== "undefined" && Brand.layer ? Brand.layer(shut) : { close: shut }; w._ly = ly; const close = () => ly.close();
     w.querySelector("#pvX").onclick = close; w.querySelector("#pvOk").onclick = () => { songSave(songPdf(out, pw, ph), fname); toast("PDF를 받았어요(다운로드 폴더)"); close(); }; document.body.appendChild(w); };
   // (11/19 사용자 '처음 열었을 땐 어느 칸이든 터치하면 그 칸에서 재생 시작') 멈춰 있을 땐 한 번 누르면 그 마디부터 재생 · 재생 중엔 그 마디로 이동만
   const tapCell = (t) => { if (eng.isPlaying()) { Q("sgPb").onclick(); songTapFlash(false); } else { playFrom(t); songTapFlash(true); } };   // (11/20 사용자 '터치했을 때 반투명 재생 버튼이 화면 중앙에 팝업, 일시정지 때도') 터치로 재생·멈춤을 바꾸면 가운데에 ▶ / ❚❚ 가 잠깐 떴다 사라짐   // (11/19 사용자) 재생 중 아무 칸이나 터치 = 일시정지 · 멈춰 있을 때 터치 = 그 칸부터 재생

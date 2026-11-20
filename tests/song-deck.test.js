@@ -617,3 +617,11 @@ const mk = new Function(code + "; return stemEngine;")();
   assert.ok(/pointer-events:none/.test(kids[0].style.cssText), "터치를 가로막지 않음");
   g(true); assert.strictEqual(kids.length, 1, "연달아 누르면 이전 표시는 지움"); assert.strictEqual(kids[0].textContent, "\u25B6\uFE0E");
 }
+
+// (11/20 사용자 'PDF 창 닫기 누르면 홈으로 감 → A4 악보 화면으로') 미리보기는 Brand.layer 한 칸 — 닫기·저장·뒤로 가기는 미리보기만 닫음
+{
+  const i = T.indexOf("const pdfPreview = "), body = T.slice(i, T.indexOf("\n  // (11/19 사용자 '처음 열었을 땐", i));
+  assert.ok(/Brand\.layer\(shut\)/.test(body) && /w\._ly = ly; const close = \(\) => ly\.close\(\);/.test(body), "미리보기가 뒤로 가기 한 칸");
+  assert.ok(/o0\._ly \? o0\._ly\.close\(\) : o0\.remove\(\)/.test(body), "다시 열 때 옛 미리보기의 칸도 정리");
+  assert.ok(/#pvX"\)\.onclick = close;/.test(body), "닫기 버튼");
+}
