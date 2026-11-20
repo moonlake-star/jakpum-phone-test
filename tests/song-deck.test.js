@@ -239,7 +239,7 @@ const mk = new Function(code + "; return stemEngine;")();
 
 { // 키를 바꾸면 가장 편한 카포를 자동으로, 직접 해제하면 자동은 쉼
   assert.match(T, /const autoCapo = \(\) => \{ if \(!AN\) return; const P = modeP\(\); if \(P \? me\.tpOff : me\.capoOff\) return;/);
-  assert.match(T, /const M = songApplyEdits\(songMeasures\(AN, keyN, o\.lyrics, o\.wave && o\.wave\.voc\), ED, keyN\); if \(P\) \{ const R = songPianoShift\(M\)[\s\S]*songCapoBest\(M\)/);
+  assert.match(T, /const M = songApplyEdits\(songMeasures\(AN, keyN, o\.lyrics, o\.wave && o\.wave\.voc, o\.lyrics_words\), ED, keyN\); if \(P\) \{ const R = songPianoShift\(M\)[\s\S]*songCapoBest\(M\)/);
   assert.match(T, /keyN = keyWant; autoCapo\(\); paintKey\(\)/, "실시간 엔진 경로");
   assert.match(T, /keyN = n; autoCapo\(\); draw\(\)/, "키 파일 경로");
   assert.match(T, /me\.capo = k; me\.capoOff = !k;/);
