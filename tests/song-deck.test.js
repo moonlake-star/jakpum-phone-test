@@ -563,5 +563,5 @@ const mk = new Function(code + "; return stemEngine;")();
   const R = f.songLyricChorus(M, L);
   assert.strictEqual(R.length, 3, "4줄 후렴 3번만 후렴(2줄만 되풀이된 구절은 제외): " + JSON.stringify(R));
   assert.ok(R[0][0] <= 3 && R[1][0] > R[0][1], "후렴 시작 위치");
-  assert.ok(T.includes("else if (++gap > 8 && fr.length) break;"), "줄 끝 침묵 0.8초");
+  assert.ok(T.includes("nx != null && nx > st + 0.8 ? nx - 0.1"), "줄 끝 = 다음 줄 실제 시작 앞");
 }
