@@ -6979,12 +6979,15 @@ function songChordCost(nm) {   // 0 = 열린 코드(쉬움) · 0.7~1 = 바레(�
   if (k === null) return 1; if ((CAPO_OPEN[k] || []).includes(r)) return m[3] ? 0.15 : 0; if (k === "" && r === "F") return 0.7; if (k === "m" && (r === "B" || r === "F#")) return 0.8; return 1;
 }
 function songFlat(n) { return String(n || "").replace(/^A#/, "Bb").replace(/^D#/, "Eb").replace(/^G#/, "Ab").replace(/\/A#/, "/Bb").replace(/\/D#/, "/Eb").replace(/\/G#/, "/Ab"); }   // 카포 화면은 연주자가 읽기 쉬운 이름으로
+let sgMultiT = 0;   // (11/20) 두 손가락(핀치) 중·직후에는 칸 누름·길게 누름을 무시
+if (typeof document !== "undefined") document.addEventListener("touchstart", (e) => { if (e.touches && e.touches.length >= 2) sgMultiT = Date.now(); }, { passive: true, capture: true });
 function cellGesture(el, h) {   // (11/19 사용자) 한 번 누름=이동(멈춰 있으면 그 마디부터 재생) · 두 번 누름=그 마디부터 재생 · 길게 누름=코드 고치기 · 스크롤하려고 움직이면 모두 취소
   let t = 0, lp = false, mv = false, x0 = 0, y0 = 0, last = 0;
-  el.addEventListener("pointerdown", (e) => { lp = false; mv = false; x0 = e.clientX; y0 = e.clientY; clearTimeout(t); t = setTimeout(() => { lp = true; try { navigator.vibrate && navigator.vibrate(25); } catch {} h.long && h.long(); }, 550); });
+  const multi = () => Date.now() - sgMultiT < 800;
+  el.addEventListener("pointerdown", (e) => { lp = false; mv = e.isPrimary === false || multi(); x0 = e.clientX; y0 = e.clientY; clearTimeout(t); if (mv) return; t = setTimeout(() => { if (multi()) { mv = true; return; } lp = true; try { navigator.vibrate && navigator.vibrate(25); } catch {} h.long && h.long(); }, 550); });
   el.addEventListener("pointermove", (e) => { if (!mv && Math.hypot(e.clientX - x0, e.clientY - y0) > 10) { mv = true; clearTimeout(t); } });
   el.addEventListener("pointercancel", () => { mv = true; clearTimeout(t); });
-  el.addEventListener("pointerup", () => { clearTimeout(t); if (lp || mv) return; const n = Date.now(); if (n - last < 350) { last = 0; h.dbl && h.dbl(); } else { last = n; h.tap && h.tap(); } });
+  el.addEventListener("pointerup", () => { clearTimeout(t); if (lp || mv || multi()) return; const n = Date.now(); if (n - last < 350) { last = 0; h.dbl && h.dbl(); } else { last = n; h.tap && h.tap(); } });
   el.addEventListener("contextmenu", (e) => e.preventDefault());
 }
 // (11/19 사용자) 피아노용 추천 키: 코드를 -6~+6 반음으로 옮겨 보며 검은건반이 적게 들어가는 키를 고름(오래 나오는 코드일수록 비중 큼 · 근음이 검은건반이면 더 어렵게 · 많이 옮길수록 아주 조금 감점)
@@ -7440,6 +7443,12 @@ function songDeck(el, ids, o) {
         const x = SL[k]; if (!x) return; const c = d.querySelector(`.shM[data-i="${x.start}"]`); fl = Date.now() + 2500; seekTo(k === 0 ? 0 : (M[x.start] ? M[x.start].t0 : 0)); if (c) c.scrollIntoView({ block: "start", behavior: "smooth" }); };
       sk.onpointerup = sk.ontouchend = up; sk.onpointercancel = () => { endTouch(); dn = null; }; sk.oninput = () => { fl = Date.now() + 2500; const t = f2t(+sk.value / 1000, -99), k = segAtT(t); if (k !== touchK) { if (touchK >= 0) buzz2(); touchK = k; sd = true; paintSegs(); } seekTo(t); }; }   // (11/20 사용자 '경계 진동이 안 옴') 12ms는 갤럭시 모터에서 거의 안 느껴짐 → 35ms · 브라우저가 끌기 중 pointercancel을 보내면 sd가 꺼져 진동이 막히던 것 → input(사용자 끌기에서만 생김)만 보고 판단
     d.querySelector(".shScroll").addEventListener("touchmove", () => { fl = Date.now() + 2500; }, { passive: true });   // 손으로 넘기는 중엔 자동으로 따라가지 않음
+    { const sc = d.querySelector(".shScroll"); let pd0 = 0; const dist = (e) => Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);   // (11/20 사용자 '핀치 줌으로 가사 글꼴 확대·축소') 두 손가락 벌리면 한 칸 크게 · 오므리면 한 칸 작게(가−/가＋ 버튼과 같은 단계)
+      sc.addEventListener("touchstart", (e) => { pd0 = e.touches.length === 2 ? dist(e) : 0; }, { passive: true });
+      sc.addEventListener("touchmove", (e) => { if (e.touches.length !== 2 || !pd0) return; e.preventDefault(); const r = dist(e) / pd0;
+        if (r > 1.18 && lyI < LYS.length - 1) { setLy(lyI + 1); pd0 = dist(e); try { navigator.vibrate && navigator.vibrate(20); } catch {} }
+        else if (r < 0.85 && lyI > 0) { setLy(lyI - 1); pd0 = dist(e); try { navigator.vibrate && navigator.vibrate(20); } catch {} } }, { passive: false });
+      sc.addEventListener("touchend", (e) => { if (e.touches.length < 2) pd0 = 0; }, { passive: true }); }
     const vv = () => { const v = me.vol; $("#shVol").value = v; $("#shVv").textContent = v === 0 ? "끄기" : v <= 40 ? `가이드 ${v}%` : v + "%"; }; me.onVol = vv; vv(); $("#shVol").oninput = () => setVol(+$("#shVol").value); $("#shCp").onclick = () => capoPanel();
     $("#shKm").onclick = () => setKey(keyWant - 1); $("#shKp").onclick = () => setKey(keyWant + 1); holdRepeat($("#shSm"), () => setRate(rate - rStep())); holdRepeat($("#shSp"), () => setRate(rate + rStep()));
     dblTap($("#shKv"), () => setKey(0)); dblTap($("#shSv"), () => setRate(1)); $("#shPlay").onclick = () => Q("sgPb").onclick();
