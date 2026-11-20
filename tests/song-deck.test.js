@@ -703,7 +703,11 @@ const mk = new Function(code + "; return stemEngine;")();
   const txt = M.map((m) => m.lyrics.map((l) => l.text).join(" "));
   assert.strictEqual(txt[0], "그리도 많", "1마디: 음절까지"); assert.ok(txt[1].startsWith("은"), "2마디는 남은 음절부터: " + txt[1]);
   assert.ok(!txt.join("|").includes("그 리"), "같은 낱말 음절은 붙여 씀");
-  assert.ok(T.includes('bd.className = "shBd"') && T.includes("if (m.chords.length > 1)"), "박 점");
+  // (11/21 사용자·에이) 박 점 대신: 기본 배치(코드 1개·2개=1·3박)가 아니면 마디 번호 옆 동그라미 박 번호
+  const g = new Function(T.slice(T.indexOf("function songBeatMarks("), T.indexOf("function songParseChords(")) + "; return songBeatMarks;")();
+  assert.deepStrictEqual(g({ chords: [{ b: 0 }] }), []); assert.deepStrictEqual(g({ chords: [{ b: 0 }, { b: 2 }] }), [], "1·3박은 표시 없음");
+  assert.deepStrictEqual(g({ chords: [{ b: 0 }, { b: 1 }] }), [2], "G A@2 → ②"); assert.deepStrictEqual(g({ chords: [{ b: 0 }, { b: 2 }, { b: 3 }] }), [3, 4], "Bm Em Em/D → ③④");
+  assert.ok(!T.includes("shBd") && T.includes('q.className = "shBm"') && T.includes("// (11/21) PDF도 같은 박 표시"), "화면·PDF 같은 규칙");
 }
 
 // (11/21 사용자) 수정 창: ① 재생/일시정지 버튼 ② 입력 중엔 창을 위쪽으로(선택 손잡이가 키보드에 안 가림) ③ 길게 눌러 연 창은 손가락을 뗄 때까지 입력칸 읽기 전용(글자 선택 모드로 바로 안 들어감)
