@@ -353,6 +353,9 @@
   details > summary::before { content:"▶"; flex:none; width:24px; height:24px; border-radius:50%; background:#2a3446; color:var(--accent); font-size:.78rem;
     display:inline-flex; align-items:center; justify-content:center; transition:transform 250ms ease; }   /* 10/28 23:41 사용자: 삼각형이 작음 → 동그라미 안 큰 ▶, 열리면 ▼ 방향 */
   details[open] > summary::before { transform:rotate(90deg); }
+  .briefLine > summary { flex-wrap:nowrap; overflow:hidden; white-space:nowrap; } .briefLine > summary .briefNote { overflow:hidden; text-overflow:ellipsis; min-width:0; font-size:.9rem; }
+  .rpWrap > .card { margin:0; border:0; box-shadow:none; background:transparent; }
+  #stuTab { padding-bottom:72px; }
   details > summary:active { background:#262c36; }
   details > summary.muted { color:#c8d1dc; }
   /* ── V2 선생님 화면(2026-10-29 사용자 승인 시안, 다크 유지). body.v2 일 때만. V1 화면은 body에서 v2를 빼면 그대로 ── */
@@ -680,6 +683,18 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const fmt = (sec) => { sec = Math.max(0, Math.round(sec)); const m = Math.floor(sec/60), s = sec%60; return `${m}:${String(s).padStart(2,"0")}`; };
 const parseT = (t) => { const p = String(t).trim().split(":").map(Number); if (p.some(isNaN)) return null; return p.length === 2 ? p[0]*60+p[1] : p.length === 3 ? p[0]*3600+p[1]*60+p[2] : null; };
+//#tapguard-begin
+// (11/20 사용자 '수강생 페이지가 로딩되면서 자꾸 엉뚱한 걸 누르게 됨') 화면이 방금(0.6초 안) 저절로 움직였으면 그 톡은 무시 — 누르려던 줄이 밀려나 다른 줄이 눌리는 것 방지.
+// 사용자가 직접 연 것(펼치기·탭 바꾸기)으로 생긴 움직임은 브라우저가 hadRecentInput으로 빼 줌.
+const TAP_GUARD_MS = 600, tapGuard = { at: 0 };
+const noteShift = (now = Date.now()) => { tapGuard.at = now; };
+const tapBlocked = (now = Date.now()) => now - tapGuard.at < TAP_GUARD_MS;
+//#tapguard-end
+try { new PerformanceObserver((l) => { for (const e of l.getEntries()) if (!e.hadRecentInput && e.value > 0.005) noteShift(); }).observe({ type: "layout-shift" }); } catch {}
+if (typeof document !== "undefined") document.addEventListener("click", (e) => {
+  if (!tapBlocked() || !e.target?.closest?.("#vStu, #vList")) return;
+  e.preventDefault(); e.stopPropagation(); try { navigator.vibrate?.(15); } catch {}
+}, true);
 function toast(msg) { const t = $("toast"); t.textContent = msg; t.style.display = "block"; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = "none", 2500); }
 // 갤럭시 뒤로 가기(스와이프): 목록 밖 화면이면 기록을 한 칸 두어, 뒤로 가기가 앱 종료 대신 '← 뒤로'와 같게(2026-10-28 사용자)
 let backSkip = false;
@@ -1513,7 +1528,7 @@ async function openStudent(sid, tab) {
   // 뒤에서 새로 받아 갱신(화면 그대로면 다시 그림)
   studentData(sid).then(d => { attach(d); const c = LS.get("vn_list") || []; LS.set("vn_list", c.map(x => x.sid === sid ? d : x));
     if (stuCur?.sid === sid && stuCur.tab === tab && !$("vStu").classList.contains("hidden") && tab !== "subs" && !document.activeElement?.closest?.("#stuTab")) {
-      if (tab === "lesson") paintLessonsTab(sid); else if (tab === "mk") paintMakeupTab(sid); } }).catch(() => {});
+      if (tab === "lesson") { if (!refreshLessonRows(sid)) paintLessonsTab(sid); } else if (tab === "mk") paintMakeupTab(sid); } }).catch(() => {});
 }
 // 수강생 폴더 맨 위의 기록 파일(수강생기록.json·음정성향.json): 필요할 때만 읽고 수정 시각으로 캐시
 async function rootFile(st, name) {
@@ -1529,23 +1544,21 @@ async function paintBriefing(sid) {
   const st = cfg.students[sid];
   try {
     const rec = await rootFile(st, "수강생기록.json");
-    if (stuCur?.sid === sid && $("stuBrief")) {   // 확인 전 '수강생이 한 말'(맞아요/아니에요)을 브리핑 위에
-      if (!$("stuSaid")) $("stuTab").insertAdjacentHTML("beforeend", `<div id="stuSaid"></div>`);
-      paintSaid($("stuSaid"), sid, null, rec);
-    }
-    if (stuCur?.sid === sid && $("stuBrief")) {   // (11/14 사용자) 수강생 리포트 — '수강생이 한 말' 확인 칸 위
-      if (!$("stuReport")) $("stuBrief").insertAdjacentHTML("beforebegin", `<div id="stuReport"></div>`);
-      try { paintReport($("stuReport"), sid, rec, st); } catch {}
-    }
+    if (stuCur?.sid === sid && $("stuSaid")) paintSaid($("stuSaid"), sid, null, rec);   // 확인 전 '수강생이 한 말'(맞아요/아니에요) — 학생 탭 맨 아래(#858), 개수는 맨 위 한 줄에
+    if (stuCur?.sid === sid && $("stuReport")) { try { paintReport($("stuReport"), sid, rec, st); } catch {} }   // (11/14 사용자) 수강생 리포트
     if (stuCur?.sid === sid) paintGrowth4(rec, st);
+    if (stuCur?.sid === sid && $("stuBriefN")) {   // 맨 위 한 줄: 높이는 그대로, 글자만 바뀜
+      const n = saidPending(rec, null).filter(x => !saidQueued(x)).length;
+      $("stuBriefN").textContent = (rec?.briefing ? "있어요" : "아직 없어요") + (n ? ` · 💬 확인할 말 ${n}개 ↓` : "");
+    }
     if (!rec?.briefing || !$("stuBrief") || stuCur?.sid !== sid) return;
     const songs = Object.entries(rec.songs || {}).slice(-5);
-    $("stuBrief").innerHTML = `<div class="card"><h3 style="margin-top:0">📋 다음 레슨 브리핑 <span class="muted" style="font-size:.85rem;font-weight:400">지난 레슨에서 AI가 정리 · 오늘 레슨 날 아침 메일로도</span></h3>
+    $("stuBrief").innerHTML = `<div style="padding:0 12px 10px"><p class="muted" style="margin:4px 0 8px;font-size:.85rem">지난 레슨에서 AI가 정리 · 오늘 레슨 날 아침 메일로도</p>
       <div style="white-space:pre-wrap;line-height:1.55">${esc(rec.briefing)}</div>
       ${songs.length ? `<details style="margin-top:6px"><summary><b>선곡·키 메모</b></summary>${songs.map(([t, v]) => `<div style="margin:3px 0">🎵 ${esc(t)}${v.artist ? " · " + esc(v.artist) : ""}${v.key_notes?.length ? ` <span class="muted">🔑 ${esc(v.key_notes.at(-1))}</span>` : ""}</div>`).join("")}</details>` : ""}
       ${["goal", "taste", "worry"].some(k => (rec.profile?.[k] || []).some(saidUsed)) ? `<details style="margin-top:6px"><summary><b>수강생이 말한 목표·취향·고민</b></summary>${["goal", "taste", "worry"].flatMap(k => (rec.profile[k] || []).filter(saidUsed).slice(-4).map(x =>
         `<div style="margin:3px 0"><span class="chip">${{ goal: "목표", taste: "취향", worry: "고민" }[k]}</span> “${esc(x.quote)}” <span class="muted">${esc(x.date)}</span></div>`)).join("")}</details>` : ""}</div>`;
-  } catch {}
+  } catch { if (stuCur?.sid === sid && $("stuBriefN")?.textContent === "불러오는 중…") $("stuBriefN").textContent = "불러오지 못했어요 · 다시 열면 다시 시도"; }
 }
 // 최근 4회 레슨 돌아보기(#28, 선생님 확인용 초안): 기록된 사실(잘된 점·지도→변화·목표)만으로, 점수·'늘었다' 단정 없음
 function growth4(rec, name) {
@@ -3244,18 +3257,41 @@ function intakeCard(st) {
   const lines = intakeLine(it.a); if (!lines && !it.rules_ack && !it.photo_ok) return "";
   return `<details class="card" style="margin:8px 0"><summary><b>📝 입학 설문</b> <span class="muted">${esc((it.at || "").slice(0, 10))}</span></summary><div style="white-space:pre-wrap;line-height:1.55;margin-top:6px">${esc(lines)}</div><p class="muted" style="margin:6px 0 0">${it.rules_ack ? "수업 규정 안내 확인 ✓" : "수업 규정 안내: 기록 없음"} · ${it.photo_ok ? "사진 촬영 동의 ✓" : "사진 촬영: 동의 기록 없음"}</p></details>`;
 }
+//#stulayout-begin
+// (11/20 사용자 '수강생 페이지가 로딩되면서 엉뚱한 걸 누르게 됨' · 다른 AI 검토 반영) 레슨 목록 위에는 높이가 바뀌는 것을 두지 않는다:
+//   맨 위 = 높이가 고정된 한 줄(다음 레슨 브리핑, 누르면 펼침) → 레슨 목록 → 그 아래에 늦게 오는 것들(리포트·성장 한 줄·입학 설문·카톡 · 맨 아래 한 말 확인 #858).
+function lessonRowsHTML(rows) {
+  return rows.length ? rows.map((r, i) => r.err ? `<div class="lesson retry" data-i="${i}" title="${esc(r.err)}"><span>${esc(r.l.name)}</span><span class="chip todo">불러오기 실패(다시 시도)</span></div>`
+    : `<div class="lesson" data-i="${i}"><span>${esc(r.l.name)}</span><span class="row" style="gap:4px"><span class="chip ${r.fb ? "ok" : "todo"}">${r.fb ? "피드백 ✓" : "피드백 전"}</span>${cfg.practice_check ? `<span class="chip ${r.ck ? "ok" : ""}">${r.ck ? "점검 ✓" : "점검 –"}</span>` : ""}</span></div>`).join("")
+    : `<p class="muted">아직 레슨 녹음이 없어요. 녹음이 정리되면 여기에 날짜별로 생기고, 누르면 검수 화면이 열립니다.</p>`;
+}
+function lessonsTabHTML(st, rows) {
+  return `<details class="card briefLine" id="stuBriefD"><summary><b>📋 다음 레슨 브리핑</b><span class="muted briefNote" id="stuBriefN">불러오는 중…</span></summary><div id="stuBrief"></div></details>`
+    + `<div class="card" id="stuLessons">${lessonRowsHTML(rows)}</div>`
+    + `<div id="stuReport"></div><div id="grLine"></div>${intakeCard(st)}<div id="stuKakao"></div><div id="stuKakaoCand"></div><div id="stuSaid"></div>`;
+}
+//#stulayout-end
+function bindLessonRows(sid) {
+  const st = cfg.students[sid], rows = st._rows || [];
+  $("stuLessons")?.querySelectorAll(".lesson").forEach(el => el.onclick = () => rows[+el.dataset.i]?.err
+    ? (st._rows = null, openStudent(sid, "lesson")) : openLesson(sid, +el.dataset.i, () => openStudent(sid, "lesson")));
+}
 function paintLessonsTab(sid) {
   const st = cfg.students[sid], rows = st._rows || [];
-  $("stuTab").innerHTML = `<div id="grLine"></div>${intakeCard(cfg.students[sid])}<div id="stuBrief"></div><div id="stuKakao"></div><div id="stuKakaoCand"></div><div class="card">` + (rows.length ? rows.map((r, i) => r.err ? `<div class="lesson retry" data-i="${i}" title="${esc(r.err)}"><span>${esc(r.l.name)}</span><span class="chip todo">불러오기 실패(다시 시도)</span></div>`
-    : `<div class="lesson" data-i="${i}"><span>${esc(r.l.name)}</span><span class="row" style="gap:4px"><span class="chip ${r.fb ? "ok" : "todo"}">${r.fb ? "피드백 ✓" : "피드백 전"}</span>${cfg.practice_check ? `<span class="chip ${r.ck ? "ok" : ""}">${r.ck ? "점검 ✓" : "점검 –"}</span>` : ""}</span></div>`).join("")
-    : `<p class="muted">아직 레슨 녹음이 없어요. 녹음이 정리되면 여기에 날짜별로 생기고, 누르면 검수 화면이 열립니다.</p>`) + `</div><div id="stuSaid"></div>`;
-  $("stuTab").querySelectorAll(".lesson").forEach(el => el.onclick = () => rows[+el.dataset.i]?.err
-    ? (st._rows = null, openStudent(sid, "lesson")) : openLesson(sid, +el.dataset.i, () => openStudent(sid, "lesson")));
+  $("stuTab").innerHTML = lessonsTabHTML(st, rows);
+  bindLessonRows(sid);
   prefetchLessons([{ rows }]);
   paintBriefing(sid); paintGrowthLine(sid);
   paintKakaoImport(sid);
   { const k = kcS(sid); if (!k.busy) { k.loaded = null; k.draft = {}; k.msg = ""; } }   // 학생 화면을 열 때마다 최신 후보를 다시 읽는다
   paintKakaoCand(sid);
+}
+// 뒤에서 새로 받은 레슨 목록: 목록 칸만, 바뀌었을 때만 고침(펼친 칸·스크롤·입력 그대로)
+function refreshLessonRows(sid) {
+  const box = $("stuLessons"); if (!box) return false;
+  const html = lessonRowsHTML(cfg.students[sid]._rows || []);
+  if (box.innerHTML !== html) { box.innerHTML = html; bindLessonRows(sid); }
+  return true;
 }
 
 // ── 카톡 대화 가져오기 (#83): 붙여넣기/TXT → 요약 미리보기 → 수강생 폴더의 전용 파일에만 저장 ──
@@ -8727,7 +8763,10 @@ function reportHTML(rec, name) {
       <button type="button" class="small" id="rpSave" style="margin-top:8px">리포트 저장</button> <span class="muted" style="font-size:.8rem">고친 칸은 AI가 다시 바꾸지 않아요</span></details></div>`;
 }
 function paintReport(box, sid, rec, st) {
-  if (!box) return; box.innerHTML = reportHTML(rec, st?.name);
+  if (!box) return;
+  const html = reportHTML(rec, st?.name), wasOpen = !!box.querySelector("details.rpWrap")?.open;
+  // (11/20) 레슨 탭에서는 접어서(한 줄) 레슨 목록 아래에 — 펼친 상태는 다시 그려도 유지
+  box.innerHTML = html && box.id === "stuReport" ? `<details class="card rpWrap"${wasOpen ? " open" : ""}><summary><b>🧾 수강생 리포트</b><span class="muted">나이·취향·하고 싶은 것·고민</span></summary>${html}</details>` : html;
   const save = async (edits, msg) => { try { const after = await setReportTeacher(sid, edits); if (stuCur?.sid === sid) paintReport(box, sid, after, st); toast(msg); } catch (e) { toast(errMsg(e)); } };
   box.querySelectorAll("[data-rpok]").forEach(b => b.onclick = () => { const k = b.dataset.rpok, t = reportView(rec)[k]?.text; if (t) { b.disabled = true; save({ [k]: t }, "선생님 확인으로 바꿨어요"); } });
   const sb = box.querySelector("#rpSave"); if (sb) sb.onclick = () => { const v = reportView(rec), edits = {};

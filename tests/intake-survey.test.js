@@ -14,5 +14,5 @@ assert.strictEqual(ctx.intakeCard(null), ""); assert.strictEqual(ctx.intakeCard(
 const h = ctx.intakeCard({ intake: { a: { path: "<b>x" }, rules_ack: true, at: "2026-11-16T01:00:00Z" } });
 assert.ok(h.includes("&lt;b&gt;x") && h.includes("수업 규정 안내 확인 ✓") && h.includes("사진 촬영: 동의 기록 없음") && h.includes("2026-11-16"), "이스케이프·동의 표시");
 assert.ok(!/연락처|생년월일|성별/.test(T.slice(a, e)), "개인정보 항목은 묻지 않음");
-assert.ok(T.includes('id="nsIn"') && T.includes("x.intake = { a: intake") && T.includes("${intakeCard(cfg.students[sid])}"), "시트·저장·화면 연결");
+assert.ok(T.includes('id="nsIn"') && T.includes("x.intake = { a: intake") && T.includes("${intakeCard(st)}"), "시트·저장·화면 연결");
 console.log("intake-survey OK");
