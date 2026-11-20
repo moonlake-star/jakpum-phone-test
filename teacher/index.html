@@ -1521,11 +1521,11 @@ async function paintBriefing(sid) {
   try {
     const rec = await rootFile(st, "수강생기록.json");
     if (stuCur?.sid === sid && $("stuBrief")) {   // 확인 전 '수강생이 한 말'(맞아요/아니에요)을 브리핑 위에
-      if (!$("stuSaid")) $("stuBrief").insertAdjacentHTML("beforebegin", `<div id="stuSaid"></div>`);
+      if (!$("stuSaid")) $("stuTab").insertAdjacentHTML("beforeend", `<div id="stuSaid"></div>`);
       paintSaid($("stuSaid"), sid, null, rec);
     }
     if (stuCur?.sid === sid && $("stuBrief")) {   // (11/14 사용자) 수강생 리포트 — '수강생이 한 말' 확인 칸 위
-      if (!$("stuReport")) ($("stuSaid") || $("stuBrief")).insertAdjacentHTML("beforebegin", `<div id="stuReport"></div>`);
+      if (!$("stuReport")) $("stuBrief").insertAdjacentHTML("beforebegin", `<div id="stuReport"></div>`);
       try { paintReport($("stuReport"), sid, rec, st); } catch {}
     }
     if (stuCur?.sid === sid) paintGrowth4(rec, st);
@@ -3239,7 +3239,7 @@ function paintLessonsTab(sid) {
   const st = cfg.students[sid], rows = st._rows || [];
   $("stuTab").innerHTML = `<div id="grLine"></div>${intakeCard(cfg.students[sid])}<div id="stuBrief"></div><div id="stuKakao"></div><div id="stuKakaoCand"></div><div class="card">` + (rows.length ? rows.map((r, i) => r.err ? `<div class="lesson retry" data-i="${i}" title="${esc(r.err)}"><span>${esc(r.l.name)}</span><span class="chip todo">불러오기 실패(다시 시도)</span></div>`
     : `<div class="lesson" data-i="${i}"><span>${esc(r.l.name)}</span><span class="row" style="gap:4px"><span class="chip ${r.fb ? "ok" : "todo"}">${r.fb ? "피드백 ✓" : "피드백 전"}</span>${cfg.practice_check ? `<span class="chip ${r.ck ? "ok" : ""}">${r.ck ? "점검 ✓" : "점검 –"}</span>` : ""}</span></div>`).join("")
-    : `<p class="muted">아직 레슨 녹음이 없어요. 녹음이 정리되면 여기에 날짜별로 생기고, 누르면 검수 화면이 열립니다.</p>`) + `</div>`;
+    : `<p class="muted">아직 레슨 녹음이 없어요. 녹음이 정리되면 여기에 날짜별로 생기고, 누르면 검수 화면이 열립니다.</p>`) + `</div><div id="stuSaid"></div>`;
   $("stuTab").querySelectorAll(".lesson").forEach(el => el.onclick = () => rows[+el.dataset.i]?.err
     ? (st._rows = null, openStudent(sid, "lesson")) : openLesson(sid, +el.dataset.i, () => openStudent(sid, "lesson")));
   prefetchLessons([{ rows }]);
