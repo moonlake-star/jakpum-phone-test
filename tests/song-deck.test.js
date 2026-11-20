@@ -657,3 +657,9 @@ const mk = new Function(code + "; return stemEngine;")();
   const m = T.match(/#dkSh \.shM\{[^}]*\}/)[0];
   assert.ok(/justify-content:flex-start/.test(m) && !/space-between/.test(m), "마디 칸: 코드가 항상 위쪽");
 }
+
+// (11/20 사용자 '가로 화면에서 상단 볼륨 슬라이더·버튼 한 줄로') 가로 화면: 재생·제목·보컬·키·속도·카포·닫기 한 줄
+{
+  const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  assert.ok(/@media \(orientation:landscape\) and \(min-width:640px\)\{#dkSh \.shBar\{flex-wrap:nowrap/.test(T) && T.includes("#dkSh .shCt{order:3;flex:1 1 0}") && T.includes("#dkSh #shCp{order:4}"), "가로 한 줄");
+}
