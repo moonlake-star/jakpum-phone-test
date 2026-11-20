@@ -537,3 +537,8 @@ const mk = new Function(code + "; return stemEngine;")();
   const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
   assert.ok(T.includes("#dkSh .shH{display:none}@media print{#dkSh .shH{display:block}"), "화면에선 shH 숨김·인쇄엔 표시");
 }
+// (11/20 10:14 '보기 불편') 송폼 막대: 짧은 구간도 최소 폭(8.5%) · 위치↔시간은 구간 지도(t2f/f2t)로 변환
+{
+  const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  assert.ok(T.includes("Math.max(v, tot * 0.085)") && T.includes("const t2f = ") && T.includes("seekTo(f2t(+sk.value / 1000))") && T.includes("const pf = dur() ? t2f(p) : 0;"), "송폼 막대 최소 폭 지도");
+}
