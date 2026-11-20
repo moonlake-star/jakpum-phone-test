@@ -6696,11 +6696,13 @@ function songLineSnap(ev, B, dn) {
   const sh = new Map(); lines.forEach((g, i) => { const m = Math.round((g.x - phi) / 4), d = m * 4 + phi - g.x; if (Math.abs(d) <= 1.75 && Math.abs(d) > 0.01) { const k = Math.max(0, Math.min(B.length - 2, Math.floor(bi(g.t)))); sh.set(i, d * (B[k + 1] - B[k])); } });
   return ev.map((e) => (sh.has(e.i) ? Object.assign({}, e, { t: e.t + sh.get(e.i) }) : e));
 }
-function songMeasures(an, n, lyrics, voc) {
-  const B = (an && an.beats) || [], dn = (an && an.down) || 0, ch = ((an && an.chords) || []).slice().sort((a, b) => a[0] - b[0]), ly = (lyrics || []).slice().sort((a, b) => a[0] - b[0]), V = voc ? songVoiced(voc) : null;
+function songMeasures(an, n, lyrics, voc, lw) {   // lw: (11/20) 서버 강제 정렬이 준 줄마다 낱말 시작 시각(song.json lyrics_words) — 있으면 추측 대신 그대로 씀
+  const B = (an && an.beats) || [], dn = (an && an.down) || 0, ch = ((an && an.chords) || []).slice().sort((a, b) => a[0] - b[0]), ly = (lyrics || []).map((x, i) => [x[0], x[1], Array.isArray(lw) ? lw[i] : null]).sort((a, b) => a[0] - b[0]), V = voc ? songVoiced(voc) : null;
   if (B.length < dn + 4) return [];
   // (11/19 사용자 '가사가 한 칸에 몰려 있다') 긴 가사 줄(3낱말 이상)은 다음 줄이 시작되기 전까지의 시간에 낱말 길이 비율로 펼쳐서 마디마다 나눠 놓음(한 마디에 몰아 넣지 않음). 짧은 줄은 그대로.
   let ev = []; const SS = V ? songLineStarts(ly, V) : null; ly.forEach((L0_, i) => { const L = SS ? [SS[i], L0_[1]] : L0_, tx = String(L[1]), w = tx.trim().split(/\s+/).filter(Boolean), nxt = i + 1 < ly.length ? (SS ? SS[i + 1] : ly[i + 1][0]) : L[0] + 6, gap = Math.max(0.5, nxt - L[0]), L0 = L[0] + (SS ? 0 : SG_LY_DELAY);   // (11/19 사용자 '가사가 앞칸에') 가사 시간표는 실제 노래보다 조금 먼저 찍혀 있어 뒤로 살짝 미룸
+    const fw = L0_[2];   // 강제 정렬 낱말 시각: 낱말 수가 같고 첫 낱말이 줄 시각과 같을 때만(가사가 나중에 바뀌었으면 안 씀)
+    if (Array.isArray(fw) && fw.length === w.length && Math.abs(fw[0] - L0_[0]) < 0.05 && fw.every((x, j) => typeof x === "number" && (j === 0 || x >= fw[j - 1]))) { w.forEach((x, j) => ev.push({ t: fw[j], x, i })); return; }
     const tw = V && w.length >= 2 ? songWordTimes(L[0], nxt, w, V) : null;
     if (tw) { w.forEach((x, j) => ev.push({ t: tw[j], x, i })); return; }   // 보컬 소리로 맞춘 낱말 시각
     const st = V && w.length < 2 ? songLineStart(L[0], V) : null;
@@ -7080,7 +7082,7 @@ function songDeck(el, ids, o) {
   const keyPoll = () => { clearTimeout(me.keyT); if (!alive() || keyN === keyWant || !o.fetchD) return; me.keyT = setTimeout(async () => { try { const d = await o.fetchD(); kd = d.keys || kd; if (kd[keyWant] || kd[String(keyWant)]) { applyKey(); return; } } catch {} keyPoll(); }, 12000); };
   // (11/19 사용자) 키를 바꾸면 그 키에서 코드 치기 가장 편한 카포 위치를 자동으로 골라 코드·키 표시를 바꿈. 선생님이 '카포 해제'를 눌렀으면(capoOff) 다시 직접 고를 때까지 자동은 쉼
   const autoCapo = () => { if (!AN) return; const P = modeP(); if (P ? me.tpOff : me.capoOff) return; let k = 0;
-    try { const M = songApplyEdits(songMeasures(AN, keyN, o.lyrics, o.wave && o.wave.voc), ED, keyN); if (P) { const R = songPianoShift(M); if (R) k = R.best[0].t; } else { const R = songCapoBest(M); if (R) k = R.best[0].capo; } } catch { return; }
+    try { const M = songApplyEdits(songMeasures(AN, keyN, o.lyrics, o.wave && o.wave.voc, o.lyrics_words), ED, keyN); if (P) { const R = songPianoShift(M); if (R) k = R.best[0].t; } else { const R = songCapoBest(M); if (R) k = R.best[0].capo; } } catch { return; }
     if (k === shiftOf()) return; if (P) me.tp = k; else me.capo = k; try { me.onCapo && me.onCapo(); } catch {} paintKey();
     try { toast(P ? `🎹 트랜스포즈 ${k ? sgn(k) : "0"} 자동 · ${songFlat(songChordName(keyName(keyWant), -k))} 모양` : k ? `카포 ${k}프렛 자동 · ${songFlat(songChordName(keyName(keyWant), -k))} 폼` : "카포 없이 쳐도 편한 키예요"); } catch {} };
   const setKey = async (n) => { if (!AN) return; keyWant = Math.max(-6, Math.min(6, n)); paintKey();
@@ -7211,7 +7213,7 @@ function songDeck(el, ids, o) {
     raf2 = requestAnimationFrame(tickP);
   };
   // 카포: 추천 창에서 고르면 화면(프롬프터·A4 악보·PDF)의 코드가 그 카포의 '잡는 모양'으로 바뀌고 키 표시에 '카포 N'이 붙음 — 소리 키는 그대로
-  const capoOf = () => shiftOf(), baseMeas = () => songApplyEdits(songMeasures(AN, keyN, o.lyrics, o.wave && o.wave.voc), ED, keyN), autoSec = () => { try { return songAutoSections(baseMeas(), wave, o.lyrics); } catch { return []; } };
+  const capoOf = () => shiftOf(), baseMeas = () => songApplyEdits(songMeasures(AN, keyN, o.lyrics, o.wave && o.wave.voc, o.lyrics_words), ED, keyN), autoSec = () => { try { return songAutoSections(baseMeas(), wave, o.lyrics); } catch { return []; } };
   const showM = (M) => { const k = capoOf(); return k ? M.map((m) => Object.assign({}, m, { chords: m.chords.map((c) => Object.assign({}, c, { name: songFlat(songChordName(c.name, -k)) })) })) : M; };
   const keyLabel = (n) => { const k = capoOf(), kn = keyName(n === undefined ? keyWant : n); return modeP() ? `${songFlat(songChordName(kn, -k))} 모양 · 트랜스포즈 ${k ? sgn(k) : "0"} (소리 ${kn})` : k ? `${songFlat(songChordName(kn, -k))} 폼 · 카포 ${k} (소리 ${kn})` : kn; };
   const capoPanel = () => {

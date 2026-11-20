@@ -116,7 +116,7 @@ const mk = new Function(code + "; return stemEngine;")();
     // 빈 자리 추가: 마디 0의 3박부터 Em
     const rg = f.songEditRange(ON, 2); assert.deepStrictEqual(rg, [2, 4]); const C2 = f.songRenameBeats(ON, rg[0], rg[1], "Em"); assert.deepStrictEqual(f.songChordsOfRow(C2, 0, 4), [[3, "Em"]]);
     assert.deepStrictEqual(f.songApplyEdits(M0, { 0: { ch: [[3, "Em"]] } }, 0)[0].chords.map((c) => [c.b, c.name]), [[2, "Em"]], "프롬프터도 같은 기록으로 그림"); }
-  assert.ok(dk.includes("baseMeas = () => songApplyEdits(songMeasures(AN, keyN, o.lyrics, o.wave && o.wave.voc), ED, keyN)") && dk.includes("const meas = () => showM(baseMeas())"), "프롬프터(·PDF·코드 악보)도 같은 고침 기록을 그림");
+  assert.ok(dk.includes("baseMeas = () => songApplyEdits(songMeasures(AN, keyN, o.lyrics, o.wave && o.wave.voc, o.lyrics_words), ED, keyN)") && dk.includes("const meas = () => showM(baseMeas())"), "프롬프터(·PDF·코드 악보)도 같은 고침 기록을 그림");
   { const pr = dk.slice(dk.indexOf("const openPrompter"), dk.indexOf("if (Q(\"dkTv\"))")); assert.ok(!/f === 2|d9b8ff|8dffb0|a287d0/.test(pr), "프롬프터에는 고침 색 구분 없음(사용자 11/14 22:16)"); }
   assert.ok(dk.includes("openChordEdit") && dk.includes('e.clientY - rc.top < 30') && dk.includes("navigator.vibrate(15)"), "코드 줄 길게 누르기");
   assert.ok(dk.includes("let tx = x + 3; if (tx < 2)") && dk.includes("put.pop()"), "코드 글자 겹침 방지");
@@ -584,4 +584,18 @@ const mk = new Function(code + "; return stemEngine;")();
   for (let i = 1; i < S.length; i++) assert.ok(S[i] > S[i - 1], "순서 유지");
   assert.ok(Math.abs(S[2] - 20) < 0.3, "받아쓰기 18.0 → 실제 소리 시작 20.0: " + S[2]);
   assert.ok(T.includes("const SS = V ? songLineStarts(ly, V) : null;"), "songMeasures 에서 사용");
+}
+
+{ // (11/20 사용자 'Stumblin' In 가사 배치가 틀렸어') 서버 강제 정렬 낱말 시각(lyrics_words)이 있으면 그대로 마디에 놓음
+  const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  const src = T.slice(T.indexOf("const SG_NOTES"), T.indexOf("async function songPeaks(")), f = new Function(src + "; return { songMeasures };")();
+  const beats = Array.from({ length: 41 }, (_, i) => +(i * 0.5).toFixed(3));   // 120BPM · 한 마디 2초
+  const an = { beats, down: 0, chords: [[0, "C"]] }, ly = [[1.0, "You know these reckless thoughts"], [9.0, "of mine"]];
+  const at = (M, w) => M.find((m) => m.lyrics.some((l) => l.text.split(" ").includes(w))).no;
+  const M = f.songMeasures(an, 0, ly, null, [[1.0, 1.3, 4.1, 4.5, 6.2], [9.0, 9.4]]);
+  assert.strictEqual(at(M, "You"), 1); assert.strictEqual(at(M, "reckless"), 3, "낱말 시각 4.5초 → 3마디"); assert.strictEqual(at(M, "thoughts"), 4); assert.strictEqual(at(M, "mine"), 5);
+  // 가사가 나중에 바뀌어 낱말 수·첫 시각이 안 맞으면 쓰지 않음(옛 방식)
+  const M2 = f.songMeasures(an, 0, [[1.5, "You know these reckless thoughts"], [9.0, "of mine"]], null, [[1.0, 1.3, 4.1, 4.5, 6.2], [9.0, 9.4]]);
+  assert.notStrictEqual(at(M2, "thoughts"), 4);
+  assert.strictEqual(M.flatMap((m) => m.lyrics.map((l) => l.text)).join(" "), "You know these reckless thoughts of mine", "글자 그대로");
 }
