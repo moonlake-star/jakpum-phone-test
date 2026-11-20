@@ -678,7 +678,7 @@ const mk = new Function(code + "; return stemEngine;")();
 {
   const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
   assert.ok(T.includes('if (r > 1.18 && lyI < LYS.length - 1) { setLy(lyI + 1);') && T.includes('else if (r < 0.85 && lyI > 0) { setLy(lyI - 1);') && T.includes("{ passive: false }"), "핀치 → 가사 크기 단계");
-  const f = new Function(T.slice(T.indexOf("let sgMultiT = 0;"), T.indexOf("// (11/19 사용자) 피아노용 추천 키")) + "; return { cellGesture };")();
+  const f = new Function(T.slice(T.indexOf("let sgMultiT = 0"), T.indexOf("// (11/19 사용자) 피아노용 추천 키")) + "; return { cellGesture };")();
   const L = {}, el = { addEventListener: (n, fn) => { L[n] = fn; } }, ev = [], timers = [], rST = global.setTimeout, rCT = global.clearTimeout;
   global.setTimeout = (fn) => { timers.push(fn); return timers.length; }; global.clearTimeout = (id) => { timers[id - 1] = null; };
   f.cellGesture(el, { tap: () => ev.push("tap"), long: () => ev.push("long") });
@@ -704,4 +704,12 @@ const mk = new Function(code + "; return stemEngine;")();
   assert.strictEqual(txt[0], "그리도 많", "1마디: 음절까지"); assert.ok(txt[1].startsWith("은"), "2마디는 남은 음절부터: " + txt[1]);
   assert.ok(!txt.join("|").includes("그 리"), "같은 낱말 음절은 붙여 씀");
   assert.ok(T.includes('bd.className = "shBd"') && T.includes("if (m.chords.length > 1)"), "박 점");
+}
+
+// (11/21 사용자) 수정 창: ① 재생/일시정지 버튼 ② 입력 중엔 창을 위쪽으로(선택 손잡이가 키보드에 안 가림) ③ 길게 눌러 연 창은 손가락을 뗄 때까지 입력칸 읽기 전용(글자 선택 모드로 바로 안 들어감)
+{
+  const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  assert.ok(T.includes('id="shEpP" aria-label="재생 또는 일시정지"') && T.includes('ep.querySelector("#shEpP").onclick = () => Q("sgPb").onclick();') && T.includes('const ep2 = d.querySelector("#shEpP"); if (ep2) ep2.textContent'), "수정 창 재생 버튼");
+  assert.ok(T.includes('ep.addEventListener("focusin", () => { ep.classList.add("up");') && T.includes("#dkSh .shEp.up{top:8px;bottom:auto}"), "입력 중 창 위로");
+  assert.ok(T.includes("if (sgPtrDown) { const ins = [ci, li, si]; ins.forEach((x) => { x.readOnly = true;") && T.includes('document.addEventListener("pointerdown", () => { sgPtrDown = true; }, true);'), "길게 누름 뒤 선택 모드 막기");
 }
