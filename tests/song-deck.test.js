@@ -650,3 +650,10 @@ const mk = new Function(code + "; return stemEngine;")();
   const bar = {}; M.forEach((m) => m.lyrics.forEach((l) => l.text.split(" ").forEach((w) => { bar[w] = m.no; })));
   assert.strictEqual(bar.end, 1, "줄 끝 짧은 낱말 + 긴 쉼 → 앞 마디 그대로");
 }
+
+// (11/20 사용자 '코드 위치는 가사가 몇 줄이든 박스 안 위쪽에 붙게') 마디 칸은 위에서부터 쌓음(가운데·아래로 흩어지지 않게)
+{
+  const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  const m = T.match(/#dkSh \.shM\{[^}]*\}/)[0];
+  assert.ok(/justify-content:flex-start/.test(m) && !/space-between/.test(m), "마디 칸: 코드가 항상 위쪽");
+}
