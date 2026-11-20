@@ -678,3 +678,9 @@ const mk = new Function(code + "; return stemEngine;")();
   assert.deepStrictEqual(ev, [], "두 번째 손가락은 누름·길게 누름 아님");
   global.setTimeout = rST; global.clearTimeout = rCT;
 }
+
+// (11/21 사용자 '수정 창에 앞 마디·뒷 마디로 이동하는 버튼') ◀ 앞 마디 · 뒷 마디 ▶ — 창을 닫지 않고 옆 마디 고치기
+{
+  const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  assert.ok(T.includes('id="shPv" aria-label="앞 마디 고치기"') && T.includes('id="shNx" aria-label="뒷 마디 고치기"') && T.includes('ep.querySelector("#shPv").onclick = () => go(i - 1); ep.querySelector("#shNx").onclick = () => go(i + 1);') && T.includes("if (j < 0 || j >= M.length) return; closeShEdit(); openShEdit(j);"), "앞·뒷 마디 이동");
+}
