@@ -6744,6 +6744,8 @@ function songMeasures(an, n, lyrics, voc, lw) {   // lw: (11/20) 서버 강제 �
     const wt = w.map((x) => Math.max(2, x.length)), W = wt.reduce((p, q) => p + q, 0), span = Math.min(gap * 0.92, W * 0.17); let acc = 0;
     w.forEach((x, j) => { ev.push({ t: L0 + span * acc / W, x, i }); acc += wt[j]; }); });
   ev = songLineSnap(ev, B, dn); ev.sort((x, y) => x.t - y.t);
+  const vrun = (t) => { if (!V) return 0; let i = Math.round(t * 10); while (i < V.length && !V[i] && i < Math.round(t * 10) + 3) i++; const a = i; while (i < V.length && V[i]) i++; return (i - a) / 10; };
+  ev.forEach((e, q) => { const n = ev[q + 1], gap = n ? n.t - e.t : 0; e.d = n && n.i === e.i ? gap : Math.min(gap, vrun(e.t)); });   // (11/20) 낱말 길이 = 같은 줄 다음 낱말까지 · 줄 끝 낱말은 다음 줄까지의 쉼을 빼고 보컬 소리가 이어지는 만큼만(없으면 0 = 안 밂)
   const out = []; let ci = -1, li = 0;
   for (let s = dn, k = 0; s < B.length; s += 4, k++) {
     const last = B[B.length - 1] + (B[B.length - 1] - B[B.length - 2]), t0 = B[s], t1 = s + 4 < B.length ? B[s + 4] : last, m = { no: k + 1, t0, t1, chords: [], lyrics: [], beats: Math.min(4, B.length - s) };
@@ -6757,7 +6759,8 @@ function songMeasures(an, n, lyrics, voc, lw) {   // lw: (11/20) 서버 강제 �
     songChordTidy(m);
     let lastI = -1;   // 같은 줄에서 이어진 낱말은 한 덩어리로
     const lead = s + 4 < B.length ? Math.min(0.4, 0.35 * (t1 - t0) / 4) : 0, firstOf = (q) => q === 0 || ev[q - 1].i !== ev[q].i;   // (11/20 사용자 '가사가 한 마디씩 앞서') 줄의 첫 낱말이 다음 마디 첫 박 0.35박 안쪽 앞에서 시작하면 노래가 첫 박에 걸어 들어가는 것 → 다음 마디에서 시작(줄 중간 낱말은 11/19 규칙 그대로 앞 마디)
-    while (li < ev.length && ev[li].t < t1 - (firstOf(li) ? lead : 0)) { const e = ev[li], raw = (e.t - t0) / (t1 - t0) * 4, pos = Math.max(0, Math.min(3.9, raw)), l = m.lyrics[m.lyrics.length - 1];
+    const bl = (t1 - t0) / 4, pushed = (e) => s + 4 < B.length && e.d >= bl && t1 - e.t < (e.d >= 2 * bl ? 0.95 : 0.65) * bl;   // (11/20 사용자 '가사가 제 마디에 안 들어감') 다음 마디 첫 박 바로 앞에서 시작해 그 박을 넘어 길게 끄는 낱말(당겨 부르기: a-live·lay-ing·go)은 악보 관례대로 다음 마디
+    while (li < ev.length && ev[li].t < t1 - (firstOf(li) ? lead : 0) && !pushed(ev[li])) { const e = ev[li], raw = (e.t - t0) / (t1 - t0) * 4, pos = Math.max(0, Math.min(3.9, raw)), l = m.lyrics[m.lyrics.length - 1];
       // (11/19 사용자 '앞마디·뒷마디 사이에 걸친 낱말은 앞마디') 한 규칙: 낱말은 소리가 시작하는 마디에 둠 — 시작이 마디 끝 박 근처여도 뒤 마디로 밀지 않음
       if (l && lastI === e.i) l.text += " " + e.x; else m.lyrics.push({ b: pos, text: e.x }); lastI = e.i; li++; }
     out.push(m);
