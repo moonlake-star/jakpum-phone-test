@@ -502,3 +502,11 @@ const mk = new Function(code + "; return stemEngine;")();
   const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
   assert.strictEqual((T.match(/tapCell\(i === 0 \? 0 : m\.t0\)/g) || []).length, 2); assert.strictEqual((T.match(/playFrom\(i === 0 \? 0 : m\.t0\)/g) || []).length, 2);
 }
+// (11/20 사용자 '송폼 버튼을 아래 슬라이더에 녹여 넣을 수 있지 않을까') 악보 구간 버튼: 곡 시간 비례 폭으로 슬라이더 위에 · 좁으면 줄인 이름
+{
+  const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  assert.ok(T.includes('b.style.flex = sp[k] + " 1 0"') && T.includes("#dkSh .shSgs{display:flex;gap:1px;height:30px;overflow:hidden}"), "구간 버튼이 시간 비례 폭");
+  const m = T.match(/const segAbbr = [^\n]*\n/); assert.ok(m);
+  const abbr = new Function(m[0] + "; return segAbbr;")();
+  assert.strictEqual(abbr("코러스 1"), "코1"); assert.strictEqual(abbr("벌스 2"), "벌2"); assert.strictEqual(abbr("전주"), "전"); assert.strictEqual(abbr("브릿지"), "브"); assert.strictEqual(abbr("구간 3"), "구3");
+}
