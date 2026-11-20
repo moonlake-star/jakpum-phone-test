@@ -271,7 +271,7 @@ const mk = new Function(code + "; return stemEngine;")();
 }
 
 { // 멈춰 있을 때 한 번 누르면 그 칸부터 재생
-  assert.ok(T.includes("const tapCell = (t) => { if (eng.isPlaying()) Q(\"sgPb\").onclick(); else playFrom(t); };"), "재생 중 터치 = 일시정지 · 멈춰 있을 때 터치 = 그 칸부터 재생(11/19)");
+  assert.ok(T.includes("const tapCell = (t) => { if (eng.isPlaying()) { Q(\"sgPb\").onclick(); songTapFlash(false); } else { playFrom(t); songTapFlash(true); } };"), "재생 중 터치 = 일시정지 · 멈춰 있을 때 터치 = 그 칸부터 재생(11/19)");
   assert.ok(T.includes("tap: () => tapCell(i === 0 ? 0 : m.t0), dbl: () => playFrom(i === 0 ? 0 : m.t0), long: () => openShEdit(i)") && T.includes("else tapCell(i === 0 ? 0 : m.t0); }, dbl: () => playFrom(i === 0 ? 0 : m.t0)"), "A4·프롬프터 둘 다");
 }
 
