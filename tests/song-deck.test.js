@@ -663,3 +663,16 @@ const mk = new Function(code + "; return stemEngine;")();
   const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
   assert.ok(/@media \(orientation:landscape\) and \(min-width:640px\)\{#dkSh \.shBar\{flex-wrap:nowrap/.test(T) && T.includes("#dkSh .shCt{order:3;flex:1 1 0}") && T.includes("#dkSh #shCp{order:4}"), "가로 한 줄");
 }
+
+// (11/20 사용자 '핀치 줌으로 가사 글꼴 확대·축소') 두 손가락 벌리기/오므리기 = 가사 크기 한 칸 · 핀치 중엔 칸 누름·길게 누름(고치기 창) 안 생김
+{
+  const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  assert.ok(T.includes('if (r > 1.18 && lyI < LYS.length - 1) { setLy(lyI + 1);') && T.includes('else if (r < 0.85 && lyI > 0) { setLy(lyI - 1);') && T.includes("{ passive: false }"), "핀치 → 가사 크기 단계");
+  const f = new Function(T.slice(T.indexOf("let sgMultiT = 0;"), T.indexOf("// (11/19 사용자) 피아노용 추천 키")) + "; return { cellGesture };")();
+  const L = {}, el = { addEventListener: (n, fn) => { L[n] = fn; } }, ev = [], timers = [], rST = global.setTimeout, rCT = global.clearTimeout;
+  global.setTimeout = (fn) => { timers.push(fn); return timers.length; }; global.clearTimeout = (id) => { timers[id - 1] = null; };
+  f.cellGesture(el, { tap: () => ev.push("tap"), long: () => ev.push("long") });
+  L.pointerdown({ clientX: 0, clientY: 0, isPrimary: false }); timers.splice(0).forEach((fn) => fn && fn()); L.pointerup();
+  assert.deepStrictEqual(ev, [], "두 번째 손가락은 누름·길게 누름 아님");
+  global.setTimeout = rST; global.clearTimeout = rCT;
+}
