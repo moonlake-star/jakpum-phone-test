@@ -465,7 +465,9 @@ const mk = new Function(code + "; return stemEngine;")();
   assert.ok(/meta\.ly \|\| 1/.test(T) && /songSheetPage\(MM, p, rpp, \{ title: o\.name, sub: sb, pages, sec, ly: ls \}\)/.test(T) && /songSheetPages\(MM\.length, ls\)/.test(T), "PDF 쪽을 가사 배율로 만듦");
   assert.ok(/regen: pdfPages/.test(T) && /out = await opt\.regen\(li\)/.test(T) && /onLy: \(i\) => setLy\(i\)/.test(T), "미리보기에서 크기를 바꾸면 그 크기로 다시 만들고 저장은 보이는 그대로");
   assert.ok(/id="pvFm"/.test(T) && /id="pvFs"/.test(T) && /\.pvW\.fs \.pvB\{display:none\}/.test(T), "미리보기 가사 크기·전체화면");
-  assert.ok(/\.pvB\{flex-wrap:wrap\}/.test(T) && /\.pvB b\{flex:1 1 auto;font-size:1rem;white-space:nowrap\}/.test(T) && /white-space:nowrap;font-family:inherit\}\.pvB2/.test(T), "미리보기 윗줄이 좁은 폰에서 세로로 깨지지 않게 줄바꿈·nowrap");
+  assert.ok(/\.pvB\{flex-wrap:wrap\}/.test(T) && /white-space:nowrap;font-family:inherit\}/.test(T) && !/pvB2/.test(T), "미리보기 조작줄 nowrap·아주 좁을 때만 줄바꿈");
+  // (11/20 사용자 '여기 한줄로 다이어트') 쪽 넘김·글자 크기·전체화면·저장·닫기가 한 줄(.pvB 하나) · 제목 글자 없음
+  { const m = T.match(/w\.innerHTML = `<div class="pvB">([\s\S]*?)<\/div><div class="pvS">/); assert.ok(m && /id="pvPv"/.test(m[1]) && /id="pvFm"/.test(m[1]) && /id="pvFs"/.test(m[1]) && /id="pvOk"/.test(m[1]) && /id="pvX"/.test(m[1]) && !/PDF 미리보기<\/b>/.test(m[1]), "PDF 미리보기 조작줄 한 줄"); }
 }
 
 // (11/19 사용자 '시간 글씨가 슬라이더 줄과 겹쳐 가려져 → 아래로') 0:00·전체 시간은 슬라이더 바 양옆(맨 아래 정렬)
