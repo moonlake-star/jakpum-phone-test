@@ -3915,7 +3915,11 @@ async function clearSharedBatches(files) {   // 드라이브 저장까지 끝난
 function sharedYtUrl(metas) {   // 파일 없는 묶음의 글에서 유튜브 영상 주소(가장 최근 것) · 없으면 null
   for (const m of [...(metas || [])].reverse()) {
     if ((m.files || []).length) continue;
-    for (const w of String(m.text || "").split(/\s+/)) { const p = ytParse(w); if (p) return { url: p.url, batch: m.batch || "" }; }
+    // (11/20) 괄호·따옴표·「」 안의 주소, 끝에 붙은 마침표·느낌표, '링크:https://…'처럼 글자에 붙은 주소도 잡음
+    for (const w0 of String(m.text || "").split(/[\s<>()\[\]{}"'「」『』]+/)) {
+      const k = w0.search(/https?:\/\//i), w = (k > 0 ? w0.slice(k) : w0).replace(/[.,!?;:…。、]+$/, "");
+      const p = ytParse(w); if (p) return { url: p.url, batch: m.batch || "" };
+    }
   }
   return null;
 }
