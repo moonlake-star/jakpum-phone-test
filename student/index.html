@@ -1080,6 +1080,9 @@ function lessonHtml(l, prev, mode = "normal") {
   for (const [a, b, w] of [ptsIn ? [bP.i, bP.j, "P"] : null, bM ? [bM.i, bM.j, "M"] : null].filter(Boolean).sort((x, y) => x[0] - y[0])) {
     if (a < at) continue; letter += txt(fbL.slice(at, a)); if (w === "P") letter += `<div class="sub">오늘 중요한 포인트</div>${ptsHtml(ptsIn)}`; at = b; }
   letter += txt(fbL.slice(at));
+  // (11/21 3단계) 새 형식(fb_v 2): 포인트는 칸에만 있으니 편지 끝에 번호 포인트로(예전 형식은 글 속 제목 자리에)
+  const ptsTail = !ptsIn && points.length > 0 && +l.fb_v >= 2;
+  if (ptsTail) letter += `<div class="sub">오늘 중요한 포인트</div>${ptsHtml(points)}`;
   const seen = new Set([...clips.map(c => c.file_id), ...pairs.map(x => x.file_id)]);
   const moreC = full ? (Array.isArray(l.more_clips) ? l.more_clips : []).filter(c => c && typeof c.file_id === "string" && c.file_id && !seen.has(c.file_id) && seen.add(c.file_id)) : [];
   const restC = [...restClips.filter(c => !inl.has(c.file_id)), ...moreC].slice(0, MAX_CLIPS);   // (10/29 13:35) 선생님이 고른 것 + 추천 클립으로 3~5개
@@ -1094,7 +1097,7 @@ function lessonHtml(l, prev, mode = "normal") {
     ${has(l.feedback) ? `<div class="card letter"><h2>💬 ${l.teacher_name ? esc(l.teacher_name) + " " : ""}선생님 한마디</h2>${letter}${bestBlock}</div>` : bestBlock ? `<div class="card">${bestBlock}</div>` : ""}
     ${typeof stemsHtml === "function" ? stemsHtml(l.makeup) : ""}
     ${full && moment && !clips.some(c => (c.note || "").trim() === moment) && !points.some(t => t.trim() === moment) ? `<div class="card moment" role="region" aria-label="선생님이 발견한 오늘의 순간"><div class="muted">🔎 선생님이 발견한 오늘의 순간</div><p class="big">${esc(moment)}</p></div>` : ""}
-    ${!ptsIn && points.length ? `<div class="card"><h2>⭐ 오늘의 핵심 포인트</h2>${ptsHtml(points)}</div>` : ""}
+    ${!ptsIn && !ptsTail && points.length ? `<div class="card"><h2>⭐ 오늘의 핵심 포인트</h2>${ptsHtml(points)}</div>` : ""}
     ${typeof gcHtml === "function" ? gcHtml(l.compare) : ""}
     ${full && (restC.length || restPairs.length) ? `<div class="card listen"><h2>🎧 더 들어 보기</h2>${restC.map(c => `<div class="clip">${has(c.note) ? `<div>${esc(c.note)}</div>` : ""}${pill(c.file_id, "좋았던 순간 듣기", c.peaks)}</div>`).join("")}${restPairs.map(x => `<div class="clip"><div>${esc(x.label)}</div>${pill(x.file_id + "#p", "🔁 지도 전 → 후 듣기", x.peaks)}</div>`).join("")}</div>` : ""}
     ${full && !l.best?.file_id && makeupOk(l.makeup, l.best) ? `<div class="card makeup"><div class="cardHead"><span class="badge mk">메이크업본</span><b>간단 음정보정 예시</b>${l.makeup.len ? `<span class="muted">${l.makeup.len}초</span>` : ""}</div><p class="muted" style="margin:4px 0 6px">음원 발매용으로 정식 보정하면 더 자연스럽고 좋아져요</p>${has(l.makeup.msg) ? `<p style="margin:0 0 8px">${esc(l.makeup.msg.trim())}</p>` : ""}${(sidOk(l.makeup.before_id) || sidOk(l.makeup.curve_id)) ? mkBoxHtml(l.makeup) : pill(l.makeup.file_id + "#m", "메이크업 듣기", l.makeup.peaks, "mk")}</div>` : ""}
