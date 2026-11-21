@@ -2386,11 +2386,17 @@ function fmtVisible(iso) {   // → {kst:'10/27(화) 18:00 KST', utc:'10/27 09:0
 }
 function fnv(s) { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; } return h.toString(16).padStart(8, "0"); }
 // 수강생에게 보이는 내용의 지문(published_at 제외). 승인 뒤 한 글자라도 바뀌면 달라져서 '재승인'이 필요해진다
-function contentSig(note) {
+// (11/21 코덱스 검토) v2: 포인트에 붙인 소리(point_snd)·'그때와 지금'(compare)도 승인 범위 — 승인 뒤 소리만 바꿔도 다시 확인.
+// 예전 승인(approved_sig_v 없음)은 v1으로 비교해 이미 공개된 노트가 '이후 수정됨'으로 잘못 보이지 않게.
+const SIG_V = 2;
+function contentSig(note, v = SIG_V) {
   const n = note || {}, id = (x) => x ? x.file_id || null : null;
-  return fnv(JSON.stringify([n.lesson_id, n.feedback, n.points, n.practice, !!n.no_mission, id(n.best), id(n.makeup), (n.extra_best || []).map(id), n.cheer || "", n.song || null, n.makeup?.msg || "",
-    (n.clips || []).map(c => [c.file_id, c.label, c.note]), ...(n.full?.file_id ? [n.full.file_id] : []), ...(n.pairs || []).map(x => x.file_id)]));
+  const base = [n.lesson_id, n.feedback, n.points, n.practice, !!n.no_mission, id(n.best), id(n.makeup), (n.extra_best || []).map(id), n.cheer || "", n.song || null, n.makeup?.msg || "",
+    (n.clips || []).map(c => [c.file_id, c.label, c.note]), ...(n.full?.file_id ? [n.full.file_id] : []), ...(n.pairs || []).map(x => x.file_id)];
+  if (v >= 2) base.push(["v2", (n.point_snd || []).map(x => [x?.p, x?.kind, x?.file_id]), n.compare ? [id(n.compare.then), id(n.compare.now), n.compare.label || ""] : null]);
+  return fnv(JSON.stringify(base));
 }
+const approvedSigOf = (rv, note) => contentSig(note, rv?.approved_sig_v || 1);   // 저장된 승인과 비교할 때는 그 승인 때의 방식으로
 const missionState = (rv) => rv?.no_mission === true ? "none" : (rv?.practice || []).some(Boolean) ? "set" : "unset";
 // 피드백 문구 속 '이번 주 연습'과 미션 칸이 서로 같은지(학생에게 두 곳이 다르게 보이면 안 됨)
 // (11/12 20:47 사용자 '이것 때문에 전달이 안 됐어? 자동처리 해줘') 공개 전에 저절로 맞춤: 문구에 '이번 주 연습' 목록이 있으면 미션 칸 = 그 목록(문구가 기준),
@@ -2459,7 +2465,7 @@ async function refreshSched(me) {   // 서버의 실제 상태를 다시 조회(
 async function markHeldLocal(me) {
   const rv = me.review;
   rv.prev_approved_sig = rv.approved_sig || rv.prev_approved_sig || null; rv.prev_approved_at = rv.approved_at || rv.prev_approved_at || null;
-  rv.approved_sig = null; rv.approved_at = null; rv.scheduled_for = null; rv.published_at = null; rv.held_at = new Date().toISOString();
+  rv.approved_sig = null; rv.approved_sig_v = null; rv.approved_at = null; rv.scheduled_for = null; rv.published_at = null; rv.held_at = new Date().toISOString();
   try { me.reviewId = await writeJSON(me.folder.id, REVIEW, rv, me.reviewId); return ""; }
   catch { return "(서버는 보류됐지만 앱 안 상태 저장은 실패했어요. 알림 메일이 잠시 예전 상태로 보일 수 있어요) "; }
 }
@@ -2489,14 +2495,24 @@ async function schedAct(kind, pick) {
   } else if (kind !== "now") throw new Error("알 수 없는 동작");
   const want = kind === "now" ? "published" : "scheduled", ids = noteFileIds(note);
   const body = { ...key, approved: true, visible_after: va, note, date: note.date, published_at: note.published_at };
-  if (kind === "now") { for (const id of ids) await openLink(id); }
-  const r = await portal("t_schedule", body);
-  if (r.state !== want) throw new Error(`서버 응답(${r.state || "없음"})이 예상(${want})과 달라요 — 상태를 다시 확인했어요`);
+  // (11/21 코덱스 검토) '지금 공개'는 수강생이 열자마자 소리가 나오게 링크를 먼저 열지만, 서버 공개가 실패하면 열었던 링크를 다시 닫는다
+  //   (예전: 실패해도 공개 안 된 녹음 링크가 열린 채 남을 수 있었음)
+  const opened = [];
+  const closeOpened = async () => { const left = []; for (const id of opened) { try { await revokeLink(id); } catch { left.push(id); } } return left; };
+  let r;
+  try {
+    if (kind === "now") { for (const id of ids) { await openLink(id); opened.push(id); } }
+    r = await portal("t_schedule", body);
+    if (r.state !== want) throw new Error(`서버 응답(${r.state || "없음"})이 예상(${want})과 달라요 — 상태를 다시 확인했어요`);
+  } catch (e) {
+    if (kind === "now" && opened.length) { const left = await closeOpened(); if (left.length) e.message += ` · 녹음 ${left.length}개 링크를 못 닫았어요(드라이브에서 직접 확인)`; }
+    throw e;
+  }
   if (kind === "schedule") {
     try { for (const id of ids) await openLink(id); }
     catch (e) { let held = false; try { await portal("t_unschedule", key); held = true; } catch {} if (held) await markHeldLocal(me); throw new Error("녹음 공유 권한을 열지 못해 예약을 취소(보류)했어요: " + e.message); }
   }
-  rv.approved_sig = sig; rv.approved_at = note.published_at; rv.scheduled_for = va || null; me.note = note;
+  rv.approved_sig = sig; rv.approved_sig_v = SIG_V; rv.approved_at = note.published_at; rv.scheduled_for = va || null; me.note = note;
   let warn = "";
   try { const ex = me.files.find(f => f.name === NOTE), id = await writeJSON(me.folder.id, NOTE, note, ex?.id); if (!ex) me.files.push({ id, name: NOTE }); rv.published_at = kind === "now" ? note.published_at : rv.published_at; await saveReview(true); }
   catch { warn = " (서버에는 반영됐지만 앱 안 사본 저장은 실패 — 새로고침하면 ‘이후 수정됨’으로 보일 수 있어요)"; }
@@ -3175,7 +3191,7 @@ function paintDeliver() {
     el.innerHTML = `<p class="muted">공개 상태 확인 중…</p>`; if (sendBtnsEl && !sendBtnsEl.isConnected) el.after(sendBtnsEl); return;
   }
   if (typeof practiceFromText === "function" && !me.review.no_mission) { const pr = practiceFromText(me.review.feedback); if (pr && pr.length && JSON.stringify(pr) !== JSON.stringify((me.review.practice || []).filter(Boolean))) me.review.practice = pr; }
-  const rv = me.review, note = buildNote(), sig = contentSig(note), st = schedStatus({ caps: s.caps, srv: s.entry, sigNow: sig, approvedSig: rv.approved_sig });
+  const rv = me.review, note = buildNote(), sig = contentSig(note), st = schedStatus({ caps: s.caps, srv: s.entry, sigNow: approvedSigOf(rv, note), approvedSig: rv.approved_sig });
   const chipCls = { published: "ok", scheduled: "ok" }[st] || (st === "draft" || st === "unknown" || st === "unsupported" ? "todo" : "");
   const sentAt = rv.kakao_sent_at, dis = s.busy ? " disabled" : "";
   const filled = [["한마디", !!String(note.feedback || "").trim()], ["포인트", (note.points || []).length], ["미션", rv.no_mission ? "없음" : (note.practice || []).length], ["추천 곡", note.song ? 1 : 0], ["응원", note.cheer ? 1 : 0]]
@@ -9974,7 +9990,7 @@ async function publishOnSave(me) {
   if (s.caps !== true) return " · 수강생 노트 서버를 확인 못 해 공개는 못 했어요";
   const note = buildNote(), sig = contentSig(note), bl = approvalBlockers(note, me.review, me.ai).filter(b => b.level === "block");
   if (bl.length) return " · 공개는 보류: " + bl[0].msg;
-  if (s.entry?.state === "published" && me.review.approved_sig === sig) return " · 공개 그대로";
+  if (s.entry?.state === "published" && me.review.approved_sig === approvedSigOf(me.review, note)) return " · 공개 그대로";
   s.busy = true;
   try { await schedAct("now", { okSig: sig }); return s.entry?.state === "published" ? " · 수강생 노트에도 반영" : " · 수강생 노트에 공개됨"; }
   catch (e) { return " · 공개 실패: " + e.message; }
@@ -10203,7 +10219,7 @@ function v2Count(me) {
   return { done, total: tg.length };
 }
 function v2State(me) {
-  try { const s = me.sched || {}; return schedStatus({ caps: s.caps, srv: s.entry, sigNow: contentSig(buildNote()), approvedSig: me.review.approved_sig }); } catch { return ""; }
+  try { const s = me.sched || {}; return schedStatus({ caps: s.caps, srv: s.entry, sigNow: approvedSigOf(me.review, buildNote()), approvedSig: me.review.approved_sig }); } catch { return ""; }
 }
 function v2DockPaint(me, done, total) {
   const all = done >= total, rv = me.review || {}, st = v2State(me), msg = $("v2DockMsg"), b = $("v2Send"); if (!msg || !b) return;

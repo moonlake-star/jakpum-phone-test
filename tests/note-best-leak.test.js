@@ -6,7 +6,7 @@ const src = fs.readFileSync(__dirname + "/../teacher/index.html", "utf8");
 const grab = (re) => { const m = src.match(re); assert.ok(m, "못 찾음 " + re); return m[0]; };
 const body = [grab(/function bestOptions\(\) \{[\s\S]*?\n\}\n/), grab(/function bestPicked\(\)[^\n]*\n/), grab(/function bestMakeupAudio\(o\) \{[\s\S]*?\n\}\n/),
   grab(/const inclOk = [^\n]*\n/), grab(/function bestForNote\(\)[^\n]*\n/), grab(/function makeupForNote\(\)[^\n]*\n/),
-  grab(/function buildNote\(\) \{[\s\S]*?\n\}\n/), grab(/const noteFileIds = [^\n]*\n/), grab(/function contentSig\(note\) \{[\s\S]*?\n\}\n/),
+  grab(/function buildNote\(\) \{[\s\S]*?\n\}\n/), grab(/const noteFileIds = [^\n]*\n/), grab(/const SIG_V = 2;\nfunction contentSig\(note, v = SIG_V\) \{[\s\S]*?\n\}\n/),
   grab(/function fnv\(s\)[^\n]*\n/), grab(/function bestMakeupJob\(o\) \{[\s\S]*?\n\}\n/)].join("\n");
 const COMP = { status: "ok", file_id: "C1", len: 32, lines: [1] };
 const B = (c = COMP) => ({ status: "ok", best: { file_id: "B1", len: 30 }, alternatives: [{ file_id: "B2", len: 20 }], composite: c });
