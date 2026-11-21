@@ -725,7 +725,8 @@ window.addEventListener("popstate", (e) => {
     homeBackAt = Date.now(); toast("한 번 더 뒤로 밀면 앱이 닫혀요"); try { Brand.backToBase(); } catch {}
   }
 });
-function show(view) { syncBackHistory(view); try { Brand.bar(); } catch {} for (const v of VIEWS) $(v).classList.toggle("hidden", v !== view); try { $("v2Dock")?.classList.add("hidden"); document.body.classList.remove("v2send"); document.getElementById("v2Ai")?.remove(); } catch {} $("btnBack").classList.toggle("hidden", ["vLogin","vList"].includes(view)); if (view !== "vMkJob") { mkStop?.(); stopProg?.(); } if (view !== "vSongs" && view !== "vMkJob") { try { songDestroy(); } catch {} try { if (songLy) { const l = songLy; songLy = null; l.close(); } } catch {} } if (view !== "vJam") { try { jamStop(); clearTimeout(jam.poll); } catch {} } window.scrollTo(0,0); }
+function show(view) { syncBackHistory(view); try { if (document.getElementById("v3")) v3Close(true); document.querySelectorAll(".v3sheet").forEach(x => x.remove()); } catch {}   // (코덱스 P1) 화면이 바뀌면 새 검수 화면·고치기 창도 닫음(이전 레슨 글이 다른 레슨에 들어가지 않게)
+  try { Brand.bar(); } catch {} for (const v of VIEWS) $(v).classList.toggle("hidden", v !== view); try { $("v2Dock")?.classList.add("hidden"); document.body.classList.remove("v2send"); document.getElementById("v2Ai")?.remove(); } catch {} $("btnBack").classList.toggle("hidden", ["vLogin","vList"].includes(view)); if (view !== "vMkJob") { mkStop?.(); stopProg?.(); } if (view !== "vSongs" && view !== "vMkJob") { try { songDestroy(); } catch {} try { if (songLy) { const l = songLy; songLy = null; l.close(); } } catch {} } if (view !== "vJam") { try { jamStop(); clearTimeout(jam.poll); } catch {} } window.scrollTo(0,0); }
 
 // ── 구글 로그인 · 드라이브 ───────────────────────────────
 // 로그인 유지: 구글이 주는 출입증(1시간짜리)을 이 폰에만 보관해, 새로고침·앱 다시 열기에도 다시 묻지 않는다.
@@ -2431,8 +2432,8 @@ function autoMission(me) { const rv = me?.review; if (!rv) return false;
   try { if (typeof renderPoints === "function") renderPoints(); } catch {}
   let ok = false; try { ok = missionConsistent(buildNote()); } catch {} return ok; }
 function missionConsistent(note) {
-  const fb = String(note?.feedback || ""), pr = (note?.practice || []).filter(Boolean), has = /(^|\n)[ \t]*이번 ?주 연습[ \t]*[:：]?[ \t]*(\n|$)/.test(fb);   // (11/12) 제목 줄만 — 인사말 속 '이번 주 연습할 것까지…'는 미션 표시가 아님
-  if (+note?.fb_v >= 2) return !has;   // (11/21 4단계에서 발견한 3단계 버그) 새 형식은 미션이 칸에만 있어 글에 없는 게 정상 — 글에 목록 제목이 남아 있을 때만 불일치
+  const fb = String(note?.feedback || ""), pr = (note?.practice || []).filter(Boolean), has = /(^|\n)[ \t]*(이번 ?주 연습|다음 미션)[ \t]*[:：]?[ \t]*(\n|$)/.test(fb);   // (11/12) 제목 줄만 — 인사말 속 '이번 주 연습할 것까지…'는 미션 표시가 아님
+  if (+note?.fb_v >= 2) return !has && !/(^|\n)[ \t]*(오늘 중요한 포인트|오늘의 핵심 포인트)[ \t]*[:：]?[ \t]*(\n|$)/.test(fb);   // (코덱스 P1) 새 형식은 글에 목록 제목(미션·포인트)이 남으면 불일치   // (11/21 4단계에서 발견한 3단계 버그) 새 형식은 미션이 칸에만 있어 글에 없는 게 정상 — 글에 목록 제목이 남아 있을 때만 불일치
   if (note?.no_mission) return !has;
   return pr.every(t => fb.includes(t)) && (pr.length > 0 || !has);
 }
@@ -2496,6 +2497,10 @@ async function markHeldLocal(me) {
 // 승인·예약·즉시 공개·취소 한 동작. 서버가 요청을 받았다고 확인한 뒤에만 성공으로 본다
 async function schedAct(kind, pick) {
   const me = cur, rv = me.review, s = (me.sched ??= { busy: false, pick: {} });
+  const ownLock = !pubLock; if (ownLock) pubLockOn(me);   // (코덱스 P0) 예약·즉시 공개·취소 모두 끝날 때까지 레슨 고정
+  try { return await schedActInner(kind, pick, me, rv, s); } finally { if (ownLock) pubLockOff(me); }
+}
+async function schedActInner(kind, pick, me, rv, s) {
   if (me.st.consent_withdrawn) throw new Error("동의 철회된 수강생이라 아무것도 하지 않았어요");
   await refreshSched(me);
   if (s.caps !== true) throw new Error(s.caps === false ? "이 서버는 예약 기능을 지원하지 않아 아무것도 하지 않았어요(수강생 노트 서버 업데이트 필요)" : "서버 상태를 확인하지 못해 아무것도 하지 않았어요: " + (s.err || ""));
@@ -8202,6 +8207,7 @@ function revMerge(a, b) { const empty = (v) => v == null || v === "" || (Array.i
   return out; }
 async function openLesson(...a) { try { miniMarks([]); } catch {} busy(true, "레슨 불러오는 중…"); try { return await openLessonInner(...a); } finally { busy(false); } }
 async function openLessonInner(sid, i, backTo) {
+  if (pubLock && Date.now() - pubLock.at < 120000) { toast("공개하는 중이에요 · 끝난 뒤 다시 눌러 주세요"); return; }   // (코덱스 P0) 공개 중엔 레슨을 바꾸지 않음(2분 넘으면 풀림)
   goBack = backTo || (() => openStudent(sid, "lesson"));
   const st = cfg.students[sid];
   if (!st._rows?.[i] || st._rows[i].err) { st._rows = null; return openStudent(sid, "lesson"); }
@@ -10115,7 +10121,12 @@ $("btnCkShare").onclick = async () => {
 // (2026-10-27 23:46 사용자 결정) 예약 공개 대신: '검수 저장' = 바로 수강생 노트에 공개. 카톡은 선생님이 직접 보내고,
 // 안 보냈으면 정해 둔 시간에 앱·메일 알림으로 다시 알려 줌(기존 피드백 알림 규칙). 예약 기능은 코드에 남기고 화면에서만 뺌.
 const SAVE_PUBLISH = true;
+// (11/21 코덱스 P0) 공개하는 동안 다른 레슨을 열면 buildNote·schedAct가 바뀐 레슨(cur)을 공개할 수 있었음 → 공개가 끝날 때까지 레슨 바꾸기를 막음
+let pubLock = null;
+const pubLockOn = (me) => { pubLock = { me, at: Date.now() }; };
+const pubLockOff = (me) => { if (!me || pubLock?.me === me) pubLock = null; };
 async function publishOnSave(me) {
+  if (cur !== me) return " · 다른 레슨으로 바뀌어 공개는 안 했어요";
   if (!SAVE_PUBLISH || me.st?.consent_withdrawn || isTeacher(me.st || {}) || typeof schedAct !== "function") return "";
   const s = (me.sched ??= { busy: false, pick: {} });
   if (s.caps === undefined) await refreshSched(me);
@@ -10123,10 +10134,10 @@ async function publishOnSave(me) {
   const note = buildNote(), sig = contentSig(note), bl = approvalBlockers(note, me.review, me.ai).filter(b => b.level === "block");
   if (bl.length) return " · 공개는 보류: " + bl[0].msg;
   if (s.entry?.state === "published" && me.review.approved_sig === approvedSigOf(me.review, note)) return " · 공개 그대로";
-  s.busy = true;
+  s.busy = true; const own = !pubLock; if (own) pubLockOn(me);
   try { await schedAct("now", { okSig: sig }); return s.entry?.state === "published" ? " · 수강생 노트에도 반영" : " · 수강생 노트에 공개됨"; }
   catch (e) { return " · 공개 실패: " + e.message; }
-  finally { s.busy = false; await refreshSched(me); if (cur === me && typeof paintDeliver === "function") paintDeliver(); }
+  finally { s.busy = false; await refreshSched(me); if (own) pubLockOff(me); if (cur === me && typeof paintDeliver === "function") paintDeliver(); }
 }
 async function saveReview(quiet = false) {
   const me = cur, fbNow = $("fb").value, rv = me.review;
@@ -10383,16 +10394,22 @@ function v3Paint(me) {
       <div class="v3ev">하이라이트·다음 레슨에 할 것·레슨 분석·전사본은 옛 화면에 그대로 있어요</div></section>
     <div id="v3After"></div></div>`;
   d.scrollTop = y;
+  if (me._v3Busy) d.querySelectorAll("button").forEach(x => { x.disabled = true; });   // (코덱스 P1) 공개 요청 중엔 고치기·이동 막음
   $("v3Old").onclick = () => v3Close(); $("v3Old2").onclick = () => v3Close();
   d.querySelectorAll("[data-v3go]").forEach(b => b.onclick = () => { v3Close(); document.getElementById(b.dataset.v3go)?.scrollIntoView({ block: "start" }); });
   d.querySelectorAll("[data-v3t]").forEach(b => b.onclick = () => { try { jumpPlay(b, +b.dataset.v3t); } catch (e) { toast(e.message); } });
   d.querySelectorAll("[data-v3a]").forEach(b => b.onclick = () => { sentQuickAct(me, b.dataset.v3a, b.closest("[data-sk]")?.dataset.sk); markDirty(); v3Paint(me); });
   d.querySelectorAll("[data-v3m]").forEach(b => b.onclick = () => { const c = b.dataset.v3m;
-    if (c) { rv.practice = [c]; rv.no_mission = false; } else { rv.practice = []; rv.no_mission = true; }
-    v3Changed(me); });
+    v3SetList(me, "practice", c ? [c] : []); v3Changed(me); });
   d.querySelectorAll("[data-v3c]").forEach(b => b.onclick = () => { let t = ""; try { t = lessonCheer(+b.dataset.v3c, rv.cheer, cheerFacts(me)); } catch {} if (!t) return toast("이 레슨 내용으로 만들 문장이 없어요 · ✎ 고치기로 써 주세요"); rv.cheer = t; v3Changed(me); });
   d.querySelectorAll("[data-v3e]").forEach(b => b.onclick = () => v3Edit(me, b.dataset.v3e));
   $("v3Pub").onclick = () => v3Publish(me);
+}
+function v3SetList(me, k, items) {   // (코덱스 P1) 옛 형식(fb_v 2 아님)은 옛 화면 PV_EDS처럼 한마디 글 속 목록도 같이 바꿈
+  const rv = me.review, head = k === "points" ? "오늘 중요한 포인트" : "이번 주 연습";
+  if (k === "points") { rv.points = items.slice(0, 3); me.teacherPts = rv.points.length > 0; }
+  else { rv.practice = items.slice(0, 2); rv.no_mission = !items.length; }
+  if (rv.fb_v !== 2) updateFeedbackDraft(setBlock(rv.feedback, head, k === "points" ? rv.points : rv.practice));
 }
 function v3Changed(me) {   // 칸을 바꾸면: 승인 초기화(updateFeedbackDraft) · 옛 화면 카드도 맞춤 · 저장 필요 표시
   updateFeedbackDraft(me.review.feedback); try { renderPoints(); } catch {} markDirty(); v3Paint(me);
@@ -10405,16 +10422,18 @@ function v3Edit(me, k) {   // 아래에서 올라오는 고치기 창
   document.body.appendChild(sh);
   const ly = typeof Brand !== "undefined" && Brand.layer ? Brand.layer(() => sh.remove()) : { close: () => sh.remove() }, close = () => ly.close();
   $("v3No").onclick = close; sh.addEventListener("click", (e) => { if (e.target === sh) close(); }); setTimeout(() => $("v3Ta")?.focus(), 50);
-  $("v3Ok").onclick = () => { const v = $("v3Ta").value, lines = v.split("\n").map(x => x.replace(/^[ \t]*[·•\-]\s*/, "").trim()).filter(Boolean);
+  $("v3Ok").onclick = () => { if (cur !== me || !document.getElementById("v3")) { close(); return toast("다른 레슨으로 바뀌어서 적용하지 않았어요"); }   // (코덱스 P1)
+    const v = $("v3Ta").value, lines = v.split("\n").map(x => x.replace(/^[ \t]*[·•\-]\s*/, "").trim()).filter(Boolean);
     if (k === "fb") { updateFeedbackDraft(v); if (rv.fb_v === 2 && fbMoveBlocks(rv)) updateFeedbackDraft(rv.feedback); }
-    else if (k === "points") { rv.points = lines.slice(0, 3); me.teacherPts = rv.points.length > 0; }
-    else if (k === "mission") { rv.practice = lines.slice(0, 2); rv.no_mission = false; }
+    else if (k === "points") v3SetList(me, "points", lines);
+    else if (k === "mission") { if (!lines.length) { close(); return toast("미션이 비었어요 · 없으면 ‘미션 없음’ 칩을 눌러 주세요"); } v3SetList(me, "practice", lines); }
     else rv.cheer = v.trim();
     close(); v3Changed(me); };
 }
 async function v3Publish(me) {
   const b = $("v3Pub"); if (!b || b.disabled) return; b.disabled = true; b.textContent = "공개하는 중…";
-  const ok = await saveReview(false);
+  pubLockOn(me); me._v3Busy = true; v3Paint(me);
+  let ok = false; try { ok = await saveReview(false); } finally { me._v3Busy = false; pubLockOff(me); }
   if (cur !== me) return;
   const st = v2State(me);
   if (ok && (st === "published")) { v3Paint(me); v3Kakao(me); }
@@ -10428,10 +10447,19 @@ function v3Kakao(me) {   // 공개 뒤: 문구 복사 + 카톡 열기를 한 번
     <button type="button" class="v3pub" id="v3Kk" style="margin-top:10px">${rv.kakao_sent_at ? "문구 다시 복사하고 카카오톡 열기" : "문구 복사하고 카카오톡 열기"}</button>
     <div id="v3KkMark" class="v3ev" style="margin-top:6px">${rv.kakao_sent_at ? `✓ 카톡 보냄으로 표시됨 · <button type="button" class="small ghost" id="v3KkUndo">되돌리기</button>` : "누르는 순간 '카톡 보냄'으로 표시돼요 · 안 보냈으면 되돌리기"}</div>
     ${nx ? `<button type="button" class="ghost full" id="v3Next" style="margin-top:10px">다음 검토: ${esc(nx.name)} · ${esc(nx.date.slice(5).replace("-", "/"))} 레슨 ›</button>` : `<p class="muted" style="margin:10px 0 0">검토 대기 레슨이 더 없어요 👏</p>`}</section>`;
-  const mark = async (on) => { if (on) { rv.kakao_sent_at = new Date().toISOString(); (rv.sent ??= {}).feedback ??= rv.kakao_sent_at; rv.work_sec_at_sent ??= +rv.work_sec || 0; } else { delete rv.kakao_sent_at; if (rv.sent) delete rv.sent.feedback; }
-    try { await saveReview(true); } catch (e) { toast(e.message); } if (cur === me) v3Kakao(me); };
-  $("v3Kk").onclick = async () => { try { await navigator.clipboard.writeText(txt); } catch { toast("복사가 안 되면 문구를 길게 눌러 복사해 주세요"); }
-    await mark(true); location.href = /Android/i.test(navigator.userAgent) ? "intent://#Intent;scheme=kakaotalk;package=com.kakao.talk;end" : "kakaotalk://"; };
+  // (코덱스 P1) 복사가 된 뒤에만 표시 · 되돌리기는 이 버튼이 넣은 값만 원래대로 · 저장 실패면 표시도 되돌림
+  const mark = async (on) => {
+    const snap = { k: rv.kakao_sent_at, f: rv.sent?.feedback, w: rv.work_sec_at_sent };
+    if (on) { const now = new Date().toISOString(); me._v3KkPrev = snap; rv.kakao_sent_at = now; (rv.sent ??= {}).feedback ??= now; rv.work_sec_at_sent ??= +rv.work_sec || 0; }
+    else { const pv = me._v3KkPrev || {}; const put = (o, key, v) => { if (v === undefined) delete o[key]; else o[key] = v; };
+      put(rv, "kakao_sent_at", pv.k); if (rv.sent) put(rv.sent, "feedback", pv.f); put(rv, "work_sec_at_sent", pv.w); me._v3KkPrev = null; }
+    let ok = false; try { ok = await saveReview(true); } catch (e) { toast(e.message); }
+    if (!ok) { const put = (o, key, v) => { if (v === undefined) delete o[key]; else o[key] = v; }; put(rv, "kakao_sent_at", snap.k); if (rv.sent) put(rv.sent, "feedback", snap.f); put(rv, "work_sec_at_sent", snap.w); toast("저장하지 못해서 표시를 바꾸지 않았어요"); }
+    if (cur === me) v3Kakao(me); return ok; };
+  $("v3Kk").onclick = async () => { let copied = false; try { await navigator.clipboard.writeText(txt); copied = true; } catch {}
+    if (!copied) { toast("복사가 안 됐어요 · 위 문구를 길게 눌러 복사해 주세요(보냄 표시는 하지 않았어요)"); return; }
+    if (!rv.kakao_sent_at) await mark(true);
+    location.href = /Android/i.test(navigator.userAgent) ? "intent://#Intent;scheme=kakaotalk;package=com.kakao.talk;end" : "kakaotalk://"; };
   if ($("v3KkUndo")) $("v3KkUndo").onclick = () => mark(false);
   if ($("v3Next")) $("v3Next").onclick = () => { window._v3Once = true; v3Close(); openLesson(nx.sid, nx.i); };
   box.scrollIntoView({ block: "start", behavior: "smooth" });
@@ -10534,7 +10562,7 @@ function v2PubPaint(me) {   // 전달하기 시트 맨 위 ① 공개 — 공개
   el.querySelectorAll("[data-sq]").forEach(b => b.onclick = () => { if (cur !== me) return; sentQuickAct(me, b.dataset.sq, b.closest("[data-sk]")?.dataset.sk); });
   $("v2PubBtn").onclick = async () => {
     const b = $("v2PubBtn"); if (!b || b.disabled) return; b.disabled = true; b.textContent = "공개하는 중…";
-    const ok = await saveReview(false);
+    pubLockOn(me); let ok = false; try { ok = await saveReview(false); } finally { pubLockOff(me); }
     if (cur !== me) return;
     toast(ok ? ($("saveMsg")?.textContent || "저장했어요").replace(/\s+$/, "") : "저장하지 못했어요. 다시 눌러 주세요");
     paintDeliver();

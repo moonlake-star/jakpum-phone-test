@@ -16,7 +16,7 @@ assert.equal(M.approvedSigOf({ approved_sig: "x", approved_sig_v: 2 }, withSnd),
 assert.ok(/rv\.approved_sig = sig; rv\.approved_sig_v = SIG_V;/.test(src), "새 승인은 v2로 기록");
 assert.ok(/rv\.approved_sig = null; rv\.approved_sig_v = null;/.test(src), "보류하면 버전도 지움");
 // ② schedAct: 서버 공개 실패 시 링크 닫기
-const sa = grab(/async function schedAct\(kind, pick\) \{[\s\S]*?\n}\n/);
+const sa = grab(/async function schedActInner\(kind, pick, me, rv, s\) \{[\s\S]*?\n}\n/);
 const iOpen = sa.indexOf("await openLink(id); opened.push(id);"), iTry = sa.lastIndexOf("try {", iOpen), iCatch = sa.indexOf("} catch (e) {", iOpen);
 assert.ok(iOpen > 0 && iTry > 0 && iCatch > iOpen, "링크 열기·서버 공개가 같은 try 안");
 assert.ok(sa.slice(iTry, iCatch).includes('portal("t_schedule", body)'), "서버 공개도 try 안");
