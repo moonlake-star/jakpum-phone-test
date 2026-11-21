@@ -10,7 +10,11 @@ const c = f({ prev: P("x", 60, "a"), last: P("2026-10-31", 50, "a"), first: P(""
 assert.ok(/62%|40%/.test(c) && !/꾸준히 부르는 중/.test(c), "최고·첫 기록 사실로 격려, '꾸준히 부르는 중' 안 씀");
 const h = new Function("esc", g(s, /function growthHtml\([\s\S]*?\n\}\n/) + "return growthHtml;")((x) => String(x));
 const out = h({ kind: "growth", n: 5, first: P("2026-10-22", 45), last: P("2026-10-30", 58), best: P("2026-10-29", 62), pts: [P("2026-10-22", 45), P("2026-10-29", 62), P("2026-10-30", 58)], same: [{ title: "사랑으로", n: 2, first: P("2026-10-22", 44), last: P("2026-10-29", 61) }], tip: "중간 음 위에서 찍기", cheer: "" });
-assert.ok(out.includes("▲ 13%p") && out.includes("최고 62%") && out.includes("사랑으로") && out.includes("선생님의 한 마디"));
+// (11/21) %p 대신 10음 기준 말 · 같은 곡 처음 vs 지금이 맨 위
+assert.ok(out.includes("10음 중 5음 → 6음") && out.includes("10음 중 4음 → 6음") && out.includes("최고 62%") && out.includes("사랑으로") && out.includes("선생님의 한 마디"));
+assert.ok(!/%p/.test(out), "%p 없음");
+assert.ok(out.indexOf("사랑으로") < out.indexOf("모든 레슨 노래"), "같은 곡 비교가 위");
+assert.ok(out.includes("처음 5음") && out.includes("지금 6음"), "그래프 첫·끝 점에 처음/지금");
 assert.ok(!/센트|낮게 \d|플랫/.test(out), "수강생에겐 센트·낮게 % 없음");
 assert.ok(h({ kind: "growth", n: 1, first: P("", 40), last: P("", 40) }).includes("기록이 쌓이는 중"));
 assert.ok(t.includes('lesson_id: "_growth"') && s.includes('l.id !== "_growth"'));
