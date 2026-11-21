@@ -735,3 +735,11 @@ const mk = new Function(code + "; return stemEngine;")();
   M = mk(40); K = f.songCheckBars(M, an(Array(160).fill(0.5))); assert.strictEqual(K.size, 10, "25% 넘으면 10칸만"); assert.strictEqual(K.capped, 40);
   assert.ok(T.includes('t.textContent = "확인 필요"') && T.includes("#dkSh .shM.ck .shL{outline:2px solid #e53935"), "빨간 테두리·글자");
 }
+
+// (11/21 사용자) TV 악보: 줄 높이가 모자라면 글자 크기를 줄여 가사가 안 잘림 · PDF 만드는 중 창 · 가로 고정은 폰만 + 처음 한 번 안내
+{
+  const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  assert.ok(T.includes('if (H && H < u * 9.9) G.style.setProperty("--u", (H / 9.9).toFixed(2) + "px");') && T.includes("const fit = () => { needFit = false; fitU();"), "TV 가사 안 잘림");
+  assert.ok(T.includes('b.id = "pvBusy"') && (T.match(/pdfBusy\(true\)/g) || []).length >= 3 && (T.match(/pdfBusy\(false\)/g) || []).length >= 3 && /#pvBusy\{position:fixed;inset:0;z-index:10060/.test(T), "PDF 만드는 중 창(악보 화면들보다 위)");
+  assert.ok(T.includes('matchMedia("(pointer: coarse)").matches && Math.min(screen.width, screen.height) < 600; if (phone) { try { await screen.orientation?.lock?.("landscape");') && T.includes("sgTvRotNote"), "가로 고정은 폰만");
+}
