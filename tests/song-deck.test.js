@@ -741,5 +741,6 @@ const mk = new Function(code + "; return stemEngine;")();
   const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
   assert.ok(T.includes('if (H && H < u * 9.9) G.style.setProperty("--u", (H / 9.9).toFixed(2) + "px");') && T.includes("const fit = () => { needFit = false; fitU();"), "TV 가사 안 잘림");
   assert.ok(T.includes('b.id = "pvBusy"') && (T.match(/pdfBusy\(true\)/g) || []).length >= 3 && (T.match(/pdfBusy\(false\)/g) || []).length >= 3 && /#pvBusy\{position:fixed;inset:0;z-index:10060/.test(T), "PDF 만드는 중 창(악보 화면들보다 위)");
-  assert.ok(T.includes('matchMedia("(pointer: coarse)").matches && Math.min(screen.width, screen.height) < 600; if (phone) { try { await screen.orientation?.lock?.("landscape");') && T.includes("sgTvRotNote"), "가로 고정은 폰만");
+  assert.ok(!T.includes('screen.orientation?.lock?.("landscape")') && T.includes("화면 방향을 고정하지 않음"), "(11/21) TV는 방향 고정 없음(기본 세로·돌리면 가로)");
+  assert.ok(T.includes("const fsHost = () => document.fullscreenElement") && T.includes("fsHost().appendChild(b); };") && T.includes("close(); }; fsHost().appendChild(w); };"), "전체화면(TV) 안에서도 PDF 창·만드는 중 창이 보임");
 }

@@ -7317,7 +7317,7 @@ function songDeck(el, ids, o) {
       catch (e) { toast("PDF 만들기 실패: " + errMsg(e)); } finally { pdfBusy(false); pdfBtn.disabled = false; pdfBtn.textContent = t0; } };
     $("#prX").onclick = () => ly.close(); $("#prPlay").onclick = () => Q("sgPb").onclick();
     document.body.appendChild(d); me.pr = d;
-    (async () => { try { wl = await navigator.wakeLock?.request("screen"); } catch {} try { await d.requestFullscreen?.({ navigationUI: "hide" }); } catch {} const phone = window.matchMedia && matchMedia("(pointer: coarse)").matches && Math.min(screen.width, screen.height) < 600; if (phone) { try { await screen.orientation?.lock?.("landscape"); } catch {} try { if (!localStorage.getItem("sgTvRotNote")) { localStorage.setItem("sgTvRotNote", "1"); toast("📺 TV 악보는 폰에서는 가로 화면으로 열려요(PC·태블릿은 그대로)"); } } catch {} } })();   // (11/21 사용자 'PC·태블릿은 돌려야 해서 불편') 가로 고정은 폰만 · 처음 한 번 안내
+    (async () => { try { wl = await navigator.wakeLock?.request("screen"); } catch {} try { await d.requestFullscreen?.({ navigationUI: "hide" }); } catch {} })();   // (11/21 사용자 'TV 화면은 기본 세로(PDF처럼), 가로도 가능') 화면 방향을 고정하지 않음 — 폰을 돌리면 가로로도 보임
     raf2 = requestAnimationFrame(tickP);
   };
   // 카포: 추천 창에서 고르면 화면(프롬프터·A4 악보·PDF)의 코드가 그 카포의 '잡는 모양'으로 바뀌고 키 표시에 '카포 N'이 붙음 — 소리 키는 그대로
@@ -7347,7 +7347,8 @@ function songDeck(el, ids, o) {
     if (capoOf()) { const b2 = document.createElement("button"); b2.type = "button"; b2.textContent = P ? "트랜스포즈 0으로" : "카포 해제"; b2.style.marginLeft = "8px"; b2.onclick = () => pick(0); p.appendChild(b2); }
     document.body.appendChild(p); return p; };
   // (11/21 사용자 'PDF 만들기 누르고 한참 뒤에 나옴 — 기다려야 함을 알 수 있게') 악보 화면들 위에 뜨는 'PDF 만드는 중' 창(모래시계)
-  const pdfBusy = (on) => { let b = document.getElementById("pvBusy"); if (!on) { if (b) b.remove(); return; } if (b) return; b = document.createElement("div"); b.id = "pvBusy"; b.setAttribute("role", "status"); b.innerHTML = '<div class="pvBusyBox"><div class="pvHg">⏳</div><b>PDF 만드는 중…</b><span>쪽 수에 따라 몇 초~십여 초 걸려요</span></div>'; document.body.appendChild(b); };
+  const fsHost = () => document.fullscreenElement || document.webkitFullscreenElement || document.body;   // (11/21 사용자 'TV에서 PDF 누르면 만드는 중 뜨고 다시 TV로') 전체화면 중엔 그 안에 띄워야 보임(바깥은 전체화면 뒤에 가려짐)
+  const pdfBusy = (on) => { let b = document.getElementById("pvBusy"); if (!on) { if (b) b.remove(); return; } if (b) return; b = document.createElement("div"); b.id = "pvBusy"; b.setAttribute("role", "status"); b.innerHTML = '<div class="pvBusyBox"><div class="pvHg">⏳</div><b>PDF 만드는 중…</b><span>쪽 수에 따라 몇 초~십여 초 걸려요</span></div>'; fsHost().appendChild(b); };
   // PDF 미리보기(프롬프터·A4 공용): 쪽 그림을 먼저 보여 주고 'PDF로 저장'을 눌러야 파일이 내려가요
   const pdfPreview = (out, pw, ph, fname, opt = {}) => {
     { const o0 = document.getElementById("pvW"); if (o0) { try { o0._ly ? o0._ly.close() : o0.remove(); } catch { o0.remove(); } } } const w = document.createElement("div"); w.id = "pvW"; w.className = "pvW"; w.setAttribute("role", "dialog"); w.setAttribute("aria-label", "PDF 미리보기"); let urls = [], li = opt.ly ?? 0, busy = false;
@@ -7376,7 +7377,7 @@ function songDeck(el, ids, o) {
     // (11/20 사용자 'PDF 창 닫기 누르면 홈으로 감 → A4 악보 화면으로 돌아가야') 미리보기도 뒤로 가기 한 칸(Brand.layer): 닫기·저장·뒤로 스와이프 모두 미리보기만 닫히고 아래 악보(또는 TV) 화면이 남음
     const shut = () => { urls.forEach((u) => { try { URL.revokeObjectURL(u); } catch {} }); try { document.fullscreenElement && document.exitFullscreen(); } catch {} w.remove(); };
     const ly = typeof Brand !== "undefined" && Brand.layer ? Brand.layer(shut) : { close: shut }; w._ly = ly; const close = () => ly.close();
-    w.querySelector("#pvX").onclick = close; w.querySelector("#pvOk").onclick = () => { songSave(songPdf(out, pw, ph), fname); toast("PDF를 받았어요(다운로드 폴더)"); close(); }; document.body.appendChild(w); };
+    w.querySelector("#pvX").onclick = close; w.querySelector("#pvOk").onclick = () => { songSave(songPdf(out, pw, ph), fname); toast("PDF를 받았어요(다운로드 폴더)"); close(); }; fsHost().appendChild(w); };
   // (11/19 사용자 '처음 열었을 땐 어느 칸이든 터치하면 그 칸에서 재생 시작') 멈춰 있을 땐 한 번 누르면 그 마디부터 재생 · 재생 중엔 그 마디로 이동만
   const tapCell = (t) => { if (eng.isPlaying()) { Q("sgPb").onclick(); songTapFlash(false); } else { playFrom(t); songTapFlash(true); } };   // (11/20 사용자 '터치했을 때 반투명 재생 버튼이 화면 중앙에 팝업, 일시정지 때도') 터치로 재생·멈춤을 바꾸면 가운데에 ▶ / ❚❚ 가 잠깐 떴다 사라짐   // (11/19 사용자) 재생 중 아무 칸이나 터치 = 일시정지 · 멈춰 있을 때 터치 = 그 칸부터 재생
   const playFrom = async (t) => { await seekTo(t); if (alive() && !eng.isPlaying()) Q("sgPb").onclick(); };
