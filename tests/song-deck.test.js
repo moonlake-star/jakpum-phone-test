@@ -441,6 +441,7 @@ const mk = new Function(code + "; return stemEngine;")();
   assert.ok(/const makePdf = async \(pdfBtn\) =>/.test(T) && /pb\.onclick = \(\) => makePdf\(pb\)/.test(T) && /class="shPdfB" id="shPdf"/.test(T), "PDF 버튼도 같은 줄");
   assert.ok(/#dkSh \.shC\{position:relative;/.test(T) && /e\.dataset\.l = String\(x\.b \/ Math\.max\(1, m\.beats\) \* 100\)/.test(T) && !/justify-content:space-between;align-items:flex-start;gap:\.3em/.test(T), "코드는 박 위치에 놓고 겹칠 때만 밀거나 줄임");
   assert.ok(/lyrics_words: x\.d\.lyrics_words, web_chart: x\.d\.web_chart/.test(T), "곡서랍 → 악보: 강제 정렬 낱말 시각·인터넷 악보 대조 결과를 넘김(11/22 빠져 있던 것)");
+  assert.ok(/web_user: x\.d\.web_user,/.test(T) && /onWebUser: async \(v\) =>/.test(T) && /uploadFile\(cx\.folder, `악보_/.test(T) && /const openWebAdd = \(\) =>/.test(T) && /id="shWaT"/.test(T) && /if \(AN\) G0\.push\(webBanner\(\)\)/.test(T), "찾은 악보 넣기(주소·사진/PDF·코드 글) · 상태 줄은 항상");
   assert.ok(/const WEBM = /.test(T) && /className = "shWb"/.test(T) && /id="shWi">넣기/.test(T) && /m\.edited\) return \[\]/.test(T), "인터넷 악보와 다른 마디 🌐 표시 · 수정 창 넣기 · 선생님이 고친 마디는 표시 안 함");
   assert.ok(/const fitChords = \(\) =>/.test(T) && /x\[0\] >= 0 || fs <= 9/.test(T) && /fitChords\(\); paper\.style\.minHeight = ""/.test(T), "칸에 안 들어가면 코드 글자를 줄임");
   assert.ok(/id="shFs"/.test(T) && /const setFs = \(on\) =>/.test(T) && /requestFullscreen/.test(T) && /#dkSh\.fs \.shBar,#dkSh\.fs \.shTl\{display:none\}/.test(T), "전체화면 버튼");
