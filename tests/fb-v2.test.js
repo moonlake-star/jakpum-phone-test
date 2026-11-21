@@ -2,7 +2,8 @@
 const fs = require("fs"), assert = require("assert");
 const T = fs.readFileSync(__dirname + "/../teacher/index.html", "utf8"), S = fs.readFileSync(__dirname + "/../student/index.html", "utf8");
 const fbCode = T.match(/\/\/#fbv2-begin\n([\s\S]*?)\/\/#fbv2-end/)[1];
-const F = new Function(fbCode + "return { fbSplit, fbMoveBlocks, fbAdoptV2, fbCheckText };")();
+const sentKey = (x) => String(x).replace(/\s+/g, " ").trim();
+const F = new Function("sentKey", fbCode + "return { fbSplit, fbMoveBlocks, fbAdoptV2, fbCheckText, fbDropField, fbFieldOf };")(sentKey);
 // ① 이동
 const AI = "홍길동님, 오늘 레슨 수고 많으셨어요!\n\n좋았던 부분\n· 4:00 고음이 편해졌어요\n\n오늘 중요한 포인트\n· 턱 힘 빼기\n· 끝음 숨 남기기\n\n이번 주 연습\n· 립트릴 3분\n\n다음에 또 봬요.";
 const sp = F.fbSplit(AI);
@@ -18,12 +19,26 @@ const noBlk = { feedback: "글만 있어요", points: ["칸 포인트"], practic
 assert.deepEqual(noBlk.points, ["칸 포인트"], "글에 목록이 없으면 칸 유지"); assert.equal(noBlk.feedback, "글만 있어요");
 // ② 승인·공개된 적 있는 노트는 그대로(바꾸면 '이후 수정됨'·다시 공개)
 for (const k of ["approved_sig", "published_at", "prev_approved_sig"]) { const r = { feedback: AI, [k]: "x" }; assert.equal(F.fbAdoptV2(r), false, k); assert.equal(r.feedback, AI); assert.equal(r.fb_v, undefined); }
+// (코덱스 P1) 칸에 다 못 담으면 옮기지 않음 · 레슨 폴더에 노트 파일이 있거나 카톡 보낸 기록이 있으면 옛 형식 유지
+const many = { feedback: "인사\n오늘 중요한 포인트\n· a\n· b\n· c\n· d", points: [] };
+assert.equal(F.fbMoveBlocks(many), false); assert.ok(many.feedback.includes("· d"), "4번째 포인트 손실 없음");
+const mm = { feedback: "인사\n이번 주 연습\n· a\n· b\n· c" }; assert.equal(F.fbMoveBlocks(mm), false);
+for (const [r, has] of [[{ feedback: AI }, true], [{ feedback: AI, kakao_sent_at: "x" }, false], [{ feedback: AI, sent: { feedback: "x" } }, false]]) { assert.equal(F.fbAdoptV2(r, has), false); assert.equal(r.feedback, AI); }
+assert.ok(/fbAdoptV2\(review, !!d\.note \|\| files\.some\(f => f\.name === NOTE\)\)/.test(T), "노트 파일 여부를 넘김");
+// (코덱스 P1) 저장·AI 원문 되돌리기 때도 목록을 칸으로 · 빠른 점검 '빼기'·상세 '고치기'가 칸 문장을 다룸
+assert.ok(/me\.review\.feedback = fbNow;\n  if \(rv\.fb_v === 2 && fbMoveBlocks\(rv\)\)/.test(T), "saveReview(조용한·일반) 서명 전 이동");
+assert.ok(/updateFeedbackDraft\(ai\.feedback_text\); if \(rv\.fb_v === 2 && fbMoveBlocks\(rv\)\)/.test(T), "AI 원문 되돌리기 후 이동");
+const dr = { fb_v: 2, points: ["고음이 안정됐어요", "끝음"], practice: ["립트릴"] };
+assert.equal(F.fbDropField(dr, "고음이 안정됐어요"), "points"); assert.deepEqual(dr.points, ["끝음"]);
+assert.equal(F.fbFieldOf(dr, "립트릴"), "practice"); assert.equal(F.fbDropField({ points: ["x"] }, "x"), null, "옛 형식은 칸을 안 건드림");
+assert.ok(/if \(j < 0 && fbDropField\(rv, key\)\) \{ delete rv\.sent_ok\[key\];/.test(T), "빠른 점검 빼기");
+assert.ok(/if \(act === "fix" && fbFieldOf\(rv, key\)\)/.test(T), "상세 점검 고치기 → 카드");
 // ③ 근거 확인 대상
 const ct = F.fbCheckText({ fb_v: 2, feedback: "글", points: ["고음 음정이 안정됐어요"], practice: ["립트릴"], no_mission: false });
 assert.ok(ct.includes("· 고음 음정이 안정됐어요") && ct.includes("· 립트릴"), "칸으로 옮긴 문장도 확인 대상");
 assert.equal(F.fbCheckText({ feedback: "옛 글" }), "옛 글", "옛 형식은 글 그대로");
 // 연결 확인
-assert.ok(/try \{ fbAdoptV2\(review\); \}/.test(T), "레슨 열 때 새 형식 적용");
+assert.ok(/try \{ fbAdoptV2\(review, /.test(T), "레슨 열 때 새 형식 적용");
 assert.ok(/\.\.\.\(rv\.fb_v === 2 \? \{ fb_v: 2 \} : \{\}\)/.test(T), "노트에 fb_v 실음");
 assert.ok(/if \(rv\.fb_v === 2\) \{ const mv = fbMoveBlocks\(rv\);/.test(T), "전달 전 자동 맞춤도 새 형식은 칸으로");
 assert.ok(/me\.review\.fb_v === 2 \? me\.review\.feedback : setBlock\(me\.review\.feedback, "이번 주 연습", a\)/.test(T), "미션 카드 저장은 글을 안 건드림");

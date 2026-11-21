@@ -2349,12 +2349,15 @@ function sentWire(me) {
     if (act === "all") { rv.sent_ok ??= {}; for (const x of sentList(fbCheckText(rv), me.ai?.feedback_text, rv.sent_ok, sentEvTimes(me))) if (x.kind === "ev") rv.sent_ok[x.key] = true; return redraw(); }
     if (!key) return;
     if (act === "ok") { rv.sent_ok ??= {}; if (rv.sent_ok[key]) delete rv.sent_ok[key]; else rv.sent_ok[key] = true; return redraw(); }
+    if (act === "fix" && fbFieldOf(rv, key)) {   // (코덱스 P1) 포인트·미션 칸 문장은 그 카드로 가서 고침
+      const card = document.querySelector(`[data-v2="${fbFieldOf(rv, key) === "points" ? "points" : "mission"}"]`);
+      if (card) { card.classList.remove("fold"); card.scrollIntoView({ behavior: "smooth", block: "center" }); }
+      toast(fbFieldOf(rv, key) === "points" ? "‘오늘의 핵심 포인트’ 카드에서 고쳐 주세요" : "‘다음 미션’ 카드에서 고쳐 주세요"); return; }
     if (act === "fix" && field) { const i = field.value.indexOf(row.querySelector(".sentTxt").textContent.replace(/^⚠ /, "").replace(/ · (🤖 AI 초안|✍ 선생님 글)$/, "").trim().slice(0, 20)); field.focus(); if (i >= 0) { try { field.setSelectionRange(i, i); } catch {} } return; }
     if (act === "drop" && field) {
       const lines = field.value.split("\n"), j = lines.findIndex(l => sentKey(l.replace(/^[ \t]*[·•\-]\s*/, "")) === key);
-      if (j < 0 && rv.fb_v === 2) {   // (11/21) 칸으로 옮긴 포인트·미션 문장이면 그 칸에서 뺌
-        for (const k of ["points", "practice"]) { const a = (rv[k] || []).filter(Boolean), q = a.findIndex(t => sentKey(t) === key);
-          if (q >= 0) { a.splice(q, 1); rv[k] = a; if (rv.sent_ok) delete rv.sent_ok[key]; updateFeedbackDraft(rv.feedback, true); try { if (typeof renderPoints === "function") renderPoints(); } catch {} return redraw(); } }
+      if (j < 0 && fbDropField(rv, key)) {   // (11/21) 칸으로 옮긴 포인트·미션 문장이면 그 칸에서 뺌
+        if (rv.sent_ok) delete rv.sent_ok[key]; updateFeedbackDraft(rv.feedback, true); try { if (typeof renderPoints === "function") renderPoints(); } catch {} return redraw();
       }
       let v; if (j >= 0) { lines.splice(j, 1); v = lines.join("\n"); } else { const at = field.value.indexOf(key); if (at < 0) { toast("글에서 이 문장을 찾지 못했어요 · 글 전체로 고쳐 주세요"); return; } v = field.value.slice(0, at) + field.value.slice(at + key.length).replace(/^[ \t]+/, ""); }
       field.value = v; updateFeedbackDraft(v, true); if (rv.sent_ok) delete rv.sent_ok[key]; return redraw();
@@ -2646,19 +2649,27 @@ function fbMoveBlocks(rv) {   // 글 속 목록 → 칸(글이 기준), 글에�
   if (!rv) return false;
   const sp = fbSplit(rv.feedback);
   if (sp.text === String(rv.feedback || "").trim() && !sp.points && !sp.practice) return false;
+  if ((sp.points || []).length > 3 || (sp.practice || []).length > 2) return false;   // (코덱스 P1) 칸에 다 못 담으면 옮기지 않음(뒷항목 손실 방지) — 그대로 두고 선생님이 줄이게
   if (sp.points && sp.points.length) rv.points = sp.points.slice(0, 3);
   if (sp.practice && sp.practice.length) { rv.practice = sp.practice.slice(0, 2); rv.no_mission = false; }
   rv.feedback = sp.text;
   return true;
 }
 const fbPublished = (rv) => !!(rv && (rv.approved_sig || rv.published_at || rv.prev_approved_sig));
-function fbAdoptV2(rv) {   // 레슨을 열 때: 아직 공개·승인된 적 없는 노트만 새 형식으로
-  if (!rv || rv.fb_v === 2 || fbPublished(rv)) return false;
+function fbAdoptV2(rv, hasNote) {   // 레슨을 열 때: 아직 공개·승인된 적 없는 노트만 새 형식으로
+  if (!rv || rv.fb_v === 2 || fbPublished(rv) || rv.kakao_sent_at || rv.sent?.feedback) return false;
+  if (hasNote) return false;   // (코덱스 P1) 레슨 폴더에 수강생노트.json이 있으면 서버 공개 이력이 있을 수 있음(공개 뒤 앱 사본 저장 실패 포함) → 옛 형식 유지
   fbMoveBlocks(rv); rv.fb_v = 2; return true;
 }
 // 근거 확인(AI 판단 문장)은 칸으로 옮긴 포인트·미션 문장도 계속 대상(코덱스: 옮긴 판단이 확인에서 빠지면 안 됨)
 const fbCheckText = (rv, fb) => { const t = String(fb ?? rv?.feedback ?? ""); if (rv?.fb_v !== 2) return t;
   const ex = [...(rv.points || []), ...(rv.no_mission ? [] : rv.practice || [])].filter(Boolean).map(x => "· " + x); return ex.length ? t + "\n" + ex.join("\n") : t; };
+function fbDropField(rv, key) {   // 근거 확인의 '빼기'가 칸으로 옮긴 포인트·미션 문장을 가리키면 그 칸에서 뺌. 뺐으면 'points'|'practice'
+  if (rv?.fb_v !== 2) return null;
+  for (const k of ["points", "practice"]) { const a = (rv[k] || []).filter(Boolean), q = a.findIndex(t => sentKey(t) === key); if (q >= 0) { a.splice(q, 1); rv[k] = a; return k; } }
+  return null;
+}
+const fbFieldOf = (rv, key) => rv?.fb_v !== 2 ? null : ["points", "practice"].find(k => (rv[k] || []).some(t => t && sentKey(t) === key)) || null;
 //#fbv2-end
 // 카톡 문구 속 한 덩어리(머리줄 + '· ' 줄들)를 새 목록으로 바꿈(없으면 끝에 붙임, 목록이 비면 덩어리를 뺌)
 function setBlock(text, head, items) {
@@ -8163,7 +8174,7 @@ async function openLessonInner(sid, i, backTo) {
     if (!(review.practice || []).some(Boolean)) review.practice = (ai.practice || []).slice(0, 2);
     if (!review.reviewed_at && !review.feedback && ai.feedback_text) review.feedback = ai.feedback_text;
   }
-  try { fbAdoptV2(review); } catch (e) { console.warn("fb v2", e); }   // (11/21) 공개 전 노트는 포인트·미션을 칸에만
+  try { fbAdoptV2(review, !!d.note || files.some(f => f.name === NOTE)); } catch (e) { console.warn("fb v2", e); }   // (11/21) 공개 전 노트는 포인트·미션을 칸에만
   if (!("song" in review) && !review.reviewed_at) { const sp = songPick(d.ana); if (sp) review.song = { ...sp.pick, ai_draft: true }; }   // (11/14 사용자) 추천 곡 AI 초안 — 저장 전까지 'AI 초안' 표시
   cur = { sid, st, folder: l, files, summary, segs, cands, clips, samples, sampleFiles, review, reviewId: reviewF?.id, clipUrls: {}, ai, rowIndex: i, back: goBack, spkSaved, teacherPts, ana: d.ana, voice, best: d.best, note: d.note, trial: d.trial, growth: d.growth };
   if (cur.review && cur.review.cheer == null && typeof lessonCheer === "function") { try { const f = cheerFacts(cur), c0 = lessonCheer(2, "", f) || lessonCheer(0, "", f); if (c0) cur.review.cheer = c0; } catch {} }   // (10/29 11:06 사용자) 응원이 비면 그날 레슨으로 기본 문장(선생님이 고침·지움)
@@ -10051,6 +10062,7 @@ async function saveReview(quiet = false) {
   if (fbNow && fbNow !== (rv.edits || []).slice(-1)[0]?.text && fbNow !== rv.ai_feedback)
     rv.edits = [...(rv.edits || []), { at: new Date().toISOString(), text: fbNow }].slice(-10);
   me.review.feedback = fbNow;
+  if (rv.fb_v === 2 && fbMoveBlocks(rv)) { $("fb").value = rv.feedback; try { const pf = $("previewFeedback"); if (pf) pf.value = rv.feedback; } catch {} try { if (typeof renderPoints === "function") renderPoints(); } catch {} }   // (코덱스 P1) 조용한 저장·일반 저장 모두: 서명·공개 검사 전에 글 속 목록을 칸으로
   me.review.check_text = $("ck").value;
   me.review.reviewed_at = new Date().toISOString();
   try {
@@ -10323,7 +10335,8 @@ function sentQuickAct(me, act, key) {
   else if (act === "drop" && key) {
     const field = $("previewFeedback"); let v = field ? field.value : String(rv.feedback || "");
     const lines = v.split("\n"), j = lines.findIndex(l => sentKey(l.replace(/^[ \t]*[·•\-]\s*/, "")) === key);
-    if (j >= 0) { lines.splice(j, 1); v = lines.join("\n"); } else { const at = v.indexOf(key); if (at < 0) { toast("글에서 이 문장을 찾지 못했어요 · ‘선생님 한마디’에서 고쳐 주세요"); return; } v = v.slice(0, at) + v.slice(at + key.length).replace(/^[ \t]+/, ""); }
+    if (j < 0 && fbDropField(rv, key)) { delete rv.sent_ok[key]; updateFeedbackDraft(rv.feedback, true); try { renderPoints(); } catch {} }   // (코덱스 P1) 칸으로 옮긴 포인트·미션 문장
+    else if (j >= 0) { lines.splice(j, 1); v = lines.join("\n"); } else { const at = v.indexOf(key); if (at < 0) { toast("글에서 이 문장을 찾지 못했어요 · ‘선생님 한마디’에서 고쳐 주세요"); return; } v = v.slice(0, at) + v.slice(at + key.length).replace(/^[ \t]+/, ""); }
     if (field) field.value = v; updateFeedbackDraft(v, true); delete rv.sent_ok[key];
   } else return;
   try { sentRepaint(); } catch {}
@@ -10344,7 +10357,7 @@ function v2AiOpen(me) {
   d.onclick = (e) => {
     if (e.target === d || e.target.closest("[data-x]")) return d.remove();
     if (e.target.closest("[data-revert]")) { if (!confirm("선생님 한마디를 AI 원문으로 되돌릴까요? (지금 글은 사라져요 · 저장 전까지는 수강생에게 안 보여요)")) return;
-      updateFeedbackDraft(ai.feedback_text); markDirty(); paintDeliver(); d.remove(); toast("AI 원문으로 되돌렸어요 · 임시저장을 눌러 주세요"); }
+      updateFeedbackDraft(ai.feedback_text); if (rv.fb_v === 2 && fbMoveBlocks(rv)) { updateFeedbackDraft(rv.feedback); try { renderPoints(); } catch {} } markDirty(); paintDeliver(); d.remove(); toast("AI 원문으로 되돌렸어요 · 임시저장을 눌러 주세요"); }
   };
 }
 function v2SheetOpen() {
