@@ -1444,10 +1444,11 @@ function paintList(data, stale) {
     `<div class="pane" data-p="today"><div class="row" style="gap:6px;margin:0 0 4px;flex-wrap:nowrap;justify-content:flex-end"><button class="ghost topBtn" id="calBtn" style="max-width:190px">${IC_CAL} 레슨 캘린더</button></div>` + oneLine + segHtml + todoHtml + `<div id="careBox"></div></div>` +
     `<div class="pane" data-p="stu">` + segHtml + blocks.join("") + (isStaffApp() ? "" : `<button class="ghost" id="nsBtn" style="width:100%;margin:4px 0 8px">＋ 신규 수강생 등록</button>`) + `<div id="joinReq">${lastJoinHtml}</div><div id="retBox"></div></div>` +
     `<div class="pane" data-p="songs">${songRows ? `<h3 class="tabH">곡 서랍 · 합주</h3>` + songRows : ""}<h3 class="tabH">연습 도구 <span class="muted" style="font-weight:400;font-size:.85rem">수강생 연습용</span></h3><details class="card" id="practiceBox" open><summary><b>🎤 연습·발성 도구</b> <span class="muted">연습 천재 · 연습 기록</span></summary>${pitchLinkHtml()}<div id="pitchAll"></div><div id="pitchRec"></div></details></div>` +
-    `<div class="pane" data-p="more"><div class="card tabRow" id="calBtn2" role="button"><div><b>${IC_CAL} 레슨 캘린더</b><small class="muted" style="display:block">‘오늘’ 화면에서도 바로 열려요</small></div><span>›</span></div><div id="prefsBox"></div><div id="advPermBox"></div><div id="laBox"></div>` +
+    `<div class="pane" data-p="more"><div class="card tabRow" id="calBtn2" role="button"><div><b>${IC_CAL} 레슨 캘린더</b><small class="muted" style="display:block">‘오늘’ 화면에서도 바로 열려요</small></div><span>›</span></div>${payCanEdit() ? `<div class="card tabRow" id="trashBtn" role="button"><div><b>🗑 휴지통</b><small class="muted" style="display:block">지운 커버·메이크업 곡과 연습용 수강생 되살리기(30일 안)</small></div><span>›</span></div>` : ""}<div id="prefsBox"></div><div id="advPermBox"></div><div id="laBox"></div>` +
     `<p class="muted">${stale ? "최신 내용 확인 중…" : "최신 상태"} · <a href="#" id="reload">새로고침</a> · 앱 버전 ${typeof BUILD === "string" ? BUILD : ""}</p></div>`;
   ensureBotNav(tabNow, bells);
   $("reload").onclick = (e) => { e.preventDefault(); renderList(); };
+  if ($("trashBtn")) $("trashBtn").onclick = () => trashSheet();
   $("calBtn").onclick = () => openCal(); if ($("calBtn2")) $("calBtn2").onclick = () => openCal(); if ($("songBtn")) $("songBtn").onclick = () => openSongs(); if ($("jamBtn")) $("jamBtn").onclick = () => openJam();
   if ($("nsBtn")) $("nsBtn").onclick = () => newStudentSheet();
   if ($("oneLine")) $("oneLine").onclick = () => $("todoCard")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -4657,6 +4658,69 @@ function payNewer(st, ls, lessonName) {   // 이 레슨 처리 뒤에 새로 넣
 }
 //#pay-end
 const payCanEdit = () => !(typeof cfg !== "undefined" && cfg?.role === "teacher") && !(typeof isDemo === "function" && isDemo());
+//#trash-begin
+// (11/22 사용자 '지운 걸 휴지통에서 다시 가져올 수 있는 방법') 앱 안 휴지통: 지울 때 남긴 기록(config.trash_log) + 드라이브 휴지통 직접 찾기(기록 전에 지운 것도).
+//   되살리기 = 드라이브 폴더 trashed:false(안의 파일도 같이) + 연습용 수강생은 설정에 다시 넣음(기록이 있으면 그대로, 없으면 폴더 이름·하위 폴더로 다시 만듦). 드라이브는 30일 뒤 자동으로 완전히 지움.
+const TRASH_DAYS = 30;
+function trashDaysLeft(at, now = Date.now()) { const t = Date.parse(at || ""); return isNaN(t) ? null : Math.max(0, TRASH_DAYS - Math.floor((now - t) / 864e5)); }
+function trashParseStudent(folderName) { const m = String(folderName || "").match(/^(.+)_([A-Z]{2,5}_\d{3,6})$/); return m ? { name: m[1], sid: m[2] } : null; }
+function trashMerge(found, log, f7Owner, roots) {   // 드라이브에서 찾은 휴지통 폴더 + 기록 → 보여 줄 목록(곡·연습용 수강생만)
+  const byId = new Map((log || []).map(x => [x.id, x])), out = [];
+  for (const f of found || []) {
+    const par = (f.parents || [])[0], lg = byId.get(f.id);
+    if (f7Owner[par]) out.push({ kind: "mk", id: f.id, sid: f7Owner[par], name: lg?.name || f.name, at: lg?.at || null });
+    else if (roots.has(par)) { const ps = trashParseStudent(f.name); if (ps || lg?.snap) out.push({ kind: "student", id: f.id, sid: lg?.sid || ps?.sid, name: lg?.name || ps?.name || f.name, at: lg?.at || null, snap: lg?.snap || null }); }
+  }
+  return out.sort((a, b) => String(b.at || "").localeCompare(String(a.at || "")));
+}
+//#trash-end
+async function trashLogAdd(items) { if (!items?.length) return; await cfgUpdate(l => { l.trash_log = [...(l.trash_log || []), ...items.map(x => ({ ...x, at: new Date().toISOString() }))].slice(-80); }); }
+async function trashFind() {   // 드라이브 휴지통에서 수강생 폴더(수강생 폴더들의 상위)와 곡 폴더(각 수강생 07_커버제작 안) 찾기
+  const f7Owner = {}, roots = new Set();
+  for (const [sid, st] of Object.entries(cfg.students || {})) { const f7 = st?.sub?.["07_커버제작"]; if (f7) f7Owner[f7] = sid; }
+  for (const t of Object.values(cfg.staff || {})) if (t?.students_root) roots.add(t.students_root);
+  const sample = Object.values(cfg.students || {}).find(s => s?.folder && s.status !== "teacher");
+  if (sample) { try { const pp = await (await api(`${DRIVE}/files/${sample.folder}?fields=parents`)).json(); if (pp.parents?.[0]) roots.add(pp.parents[0]); } catch {} }
+  const ids = [...Object.keys(f7Owner), ...roots], found = [];
+  for (let i = 0; i < ids.length; i += 15) {
+    const qs = `trashed = true and mimeType = 'application/vnd.google-apps.folder' and (${ids.slice(i, i + 15).map(id => `'${id}' in parents`).join(" or ")})`;
+    const r = await (await api(`${DRIVE}/files?q=${encodeURIComponent(qs)}&fields=files(id,name,parents)&pageSize=200`)).json();
+    found.push(...(r.files || []));
+  }
+  return trashMerge(found, cfg.trash_log || [], f7Owner, roots);
+}
+async function trashRestore(x) {
+  await api(`${DRIVE}/files/${x.id}?fields=id`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trashed: false }) });
+  if (x.kind === "student") {
+    let snap = x.snap ? JSON.parse(JSON.stringify(x.snap)) : null;
+    if (!snap) { const sub = {}; try { for (const f of await list(x.id)) if (f.mimeType?.endsWith("folder") && /^0\d_/.test(f.name)) sub[f.name] = f.id; } catch {}
+      snap = { name: x.name, aliases: [], status: "test", folder: x.id, sub, payments: [] }; }
+    let clash = false;
+    await cfgUpdate(l => { l.students ??= {}; if (l.students[x.sid]) { clash = true; return; } l.students[x.sid] = snap; l.trash_log = (l.trash_log || []).filter(y => y.id !== x.id); });
+    if (clash) throw new Error(`폴더는 되살렸지만 같은 번호(${x.sid})의 수강생이 이미 있어서 목록엔 넣지 못했어요`);
+  } else {
+    await cfgUpdate(l => { l.trash_log = (l.trash_log || []).filter(y => y.id !== x.id); }).catch(() => {});
+    const st = cfg.students[x.sid]; if (st) st._jobs = null;   // 다음에 열 때 곡 목록을 새로 받음
+  }
+}
+function trashSheet() {
+  document.getElementById("trashSh")?.remove();
+  const d = document.createElement("div"); d.id = "trashSh"; d.className = "attSheet";
+  d.innerHTML = `<div class="attBox"><h3 style="margin:0 0 4px">🗑 휴지통</h3><p class="muted" style="margin:0 0 8px;font-size:.88rem">지운 커버·메이크업 곡과 연습용 수강생이에요. 구글 드라이브는 지운 지 30일이 지나면 완전히 지워요.</p>
+    <div id="trashList"><p class="muted">드라이브 휴지통 찾는 중…</p></div><button type="button" class="ghost full" id="trashNo" style="margin-top:10px">닫기</button></div>`;
+  document.body.appendChild(d);
+  const ly = typeof Brand !== "undefined" && Brand.layer ? Brand.layer(() => d.remove()) : { close: () => d.remove() }, close = () => ly.close();
+  $("trashNo").onclick = close; d.addEventListener("click", (e) => { if (e.target === d) close(); });
+  const paint = (items) => { const box = $("trashList"); if (!box) return;
+    box.innerHTML = items.length ? items.map((x, k) => { const left = trashDaysLeft(x.at), who = cfg.students[x.sid]?.name || "";
+      return `<div class="row" style="justify-content:space-between;gap:8px;padding:8px 0;border-top:1px solid var(--line)"><span style="min-width:0">${x.kind === "mk" ? "🎵" : "👤"} <b>${esc(x.name)}</b><br><span class="muted" style="font-size:.85rem">${x.kind === "mk" ? `커버·메이크업 곡${who ? " · " + esc(who) : ""}` : "연습용 수강생"}${left != null ? ` · ${left}일 남음` : ""}</span></span><button type="button" class="small" data-tr="${k}">되살리기</button></div>`; }).join("")
+      : `<p class="muted">휴지통이 비어 있어요</p>`;
+    box.querySelectorAll("[data-tr]").forEach(b => b.onclick = async () => { const x = items[+b.dataset.tr]; b.disabled = true; b.textContent = "되살리는 중…";
+      try { await trashRestore(x); items.splice(+b.dataset.tr, 1); paint(items); toast(`‘${x.name}’을(를) 되살렸어요`);
+        try { if (x.kind === "student") renderList(); } catch {} }
+      catch (e) { b.disabled = false; b.textContent = "되살리기"; toast(errMsg(e)); } }); };
+  trashFind().then(paint).catch(e => { const box = $("trashList"); if (box) box.innerHTML = `<p class="muted">휴지통을 읽지 못했어요: ${esc(errMsg(e))}</p>`; });
+}
 // (11/21 사용자 '테스트 수강생 삭제') 연습용(status test) 수강생만 지움: 설정(config)에서 빼고, 드라이브 폴더는 휴지통(30일 복구).
 //   실제 수강생은 버튼 자체가 없음(실수 방지 — 그만둔 수강생은 '수강 상태 → 그만둠').
 const stuCanDelete = (st) => st?.status === "test";
@@ -4664,7 +4728,9 @@ async function deleteTestStudent(sid) {
   const st = cfg.students[sid]; if (!stuCanDelete(st)) return toast("연습용 수강생만 지울 수 있어요");
   if (!confirm(`연습용 수강생 ‘${st.name}’을(를) 지울까요?\n\n· 수강생 목록에서 빠져요\n· 드라이브 폴더(녹음·노트)는 휴지통으로 가고 30일 안에는 복구할 수 있어요`)) return;
   try {
-    await cfgUpdate(l => { if (l.students?.[sid]?.status === "test") delete l.students[sid]; });   // 최신 설정에서도 연습용일 때만
+    await cfgUpdate(l => { const x = l.students?.[sid]; if (x?.status !== "test") return;   // 최신 설정에서도 연습용일 때만
+      l.trash_log = [...(l.trash_log || []), { kind: "student", id: x.folder, sid, name: x.name, at: new Date().toISOString(), snap: JSON.parse(JSON.stringify(x)) }].slice(-80);   // 휴지통에서 되살릴 때 그대로
+      delete l.students[sid]; });
     let trashed = true; if (st.folder) { try { await api(`${DRIVE}/files/${st.folder}?fields=id`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trashed: true }) }); } catch { trashed = false; } }
     try { const c = LS.get("vn_list") || []; LS.set("vn_list", c.filter(x => x.sid !== sid)); } catch {}
     if (st.teacher_id && typeof staffSync === "function") staffSync(st.teacher_id).catch(() => {});
@@ -5102,7 +5168,7 @@ function paintMakeupTab(sid) {
       <span class="row" style="gap:6px;flex-wrap:nowrap"><span class="chip ${j.req.status === "done" ? "ok" : j.req.status === "error" ? "todo" : ""}">${MK_BUSY.slice(0, 2).includes(j.req.status) ? (j.req.progress?.pct ?? 0) + "% " : ""}${stTxt[j.req.status] || j.req.status}${j.req.sent_at ? " · 보냄" : ""}</span><button type="button" class="small ghost mkMore" data-mkm="${i}" aria-label="${esc(j.req.title || j.folder.name)} 정리(숨기기·삭제)">⋯</button></span></div>`;
   $("stuTab").innerHTML = (jobs.length ? `<div class="card jobs"><h3 style="margin-top:0">🎵 커버·메이크업한 곡 <span class="muted" style="font-size:.85rem;font-weight:400">${showHidden ? `숨긴 곡 ${hid.length}곡` : `${vis.length}곡`}</span></h3>`
       + (list.length ? list.map(row).join("") : `<p class="muted">${showHidden ? "숨긴 곡이 없어요" : "보이는 곡이 없어요"}</p>`)
-      + `<p class="muted" style="margin:8px 0 0;font-size:.85rem">곡을 왼쪽으로 밀거나 ⋯를 누르면 숨기기·삭제 · 길게 누르면 여러 곡 고르기${hid.length || showHidden ? ` · <a href="#" id="mkHidT">${showHidden ? "보이는 곡으로" : `숨긴 곡 ${hid.length}개 보기`}</a>` : ""}</p></div>` : "") +
+      + `<p class="muted" style="margin:8px 0 0;font-size:.85rem">곡을 왼쪽으로 밀거나 ⋯를 누르면 숨기기·삭제 · 길게 누르면 여러 곡 고르기 · 지운 곡은 더보기 → 🗑 휴지통${hid.length || showHidden ? ` · <a href="#" id="mkHidT">${showHidden ? "보이는 곡으로" : `숨긴 곡 ${hid.length}개 보기`}</a>` : ""}</p></div>` : "") +
     `<div id="mkHabit"></div><div id="mkRun"></div><div id="mkQ"></div>`;   // (11/15 사용자 시안) 여러 곡 담기 대기열 + 이번에 맡긴 곡 상태
   paintHabit(sid); mkQPaint(sid); mkRunPaint(sid);
   mkSelBar(sid);
@@ -5159,6 +5225,7 @@ async function mkBatch(sid, act, done) {
       good++;
     } catch (e) { fail.push(j.req.title || j.folder.name); }
   }
+  if (act === "trash") trashLogAdd(ok.filter(j => !fail.includes(j.req.title || j.folder.name)).map(j => ({ kind: "mk", id: j.folder.id, sid, name: j.req.title || j.folder.name }))).catch(() => {});
   if (act === "trash") try { const gone = new Set(ok.map(j => j.folder.id)); const c = LS.get("vn_list") || []; LS.set("vn_list", c.map(x => x.sid === sid ? { ...x, jobs: (x.jobs || []).filter(y => !gone.has(y.folder?.id)) } : x)); } catch {}
   const what = { trash: "휴지통으로 보냈어요(30일 안엔 드라이브에서 복구 가능)", hide: "목록에서 숨겼어요", show: "다시 보이게 했어요" }[act];
   toast(`${good}곡 ${what}` + (fail.length ? ` · ${fail.length}곡 실패: ${fail.slice(0, 2).join(", ")}` : "") + (busy.length ? ` · 만드는 중 ${busy.length}곡은 그대로` : ""));
@@ -5188,6 +5255,7 @@ function mkDelSheet(sid, j) {
     const b = $("mkTrash"); b.disabled = true; b.textContent = "지우는 중…";
     try { await api(`${DRIVE}/files/${j.folder.id}?fields=id`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trashed: true }) });
       const st = cfg.students[sid]; st._jobs = (st._jobs || []).filter(x => x !== j && x.folder?.id !== j.folder.id);
+      trashLogAdd([{ kind: "mk", id: j.folder.id, sid, name: title }]).catch(() => {});
       try { const c = LS.get("vn_list") || []; LS.set("vn_list", c.map(x => x.sid === sid ? { ...x, jobs: (x.jobs || []).filter(y => y.folder?.id !== j.folder.id) } : x)); } catch {}
       after("모든 파일을 휴지통으로 보냈어요 · 30일 안엔 드라이브에서 복구 가능"); }
     catch (e) { b.disabled = false; b.textContent = "모든 파일 삭제"; toast(errMsg(e)); } };
