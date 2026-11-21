@@ -381,6 +381,18 @@
   /* 심플 보기: 수강생 심플 화면에 안 나오는 칸은 흐리게(숨기면 포함 체크를 못 봄 — 보통 보기에선 수강생에게 보임) */
   body.v2lv-simple .pvCard[data-v2="makeup"], body.v2lv-simple .pvCard[data-v2="cheer"], body.v2lv-simple .pvSong, body.v2lv-simple #todayCard [data-abrow="mk"] { opacity:.45; }
   .bestTag { font-size:.78rem; font-weight:700; color:var(--muted); background:#2a2f37; border-radius:10px; padding:1px 8px; margin-left:6px; vertical-align:2px; }
+  #v3 { position:fixed; inset:0; z-index:60; background:var(--bg); overflow-y:auto; -webkit-overflow-scrolling:touch; } body.v3On { overflow:hidden; } body.v3On.miniOn #v3 { bottom:calc(128px + env(safe-area-inset-bottom)); }
+  #v3 .v3in { max-width:760px; margin:0 auto; padding:10px 14px 40px; } #v3 .v3top { display:flex; align-items:center; gap:8px; margin:2px 0 10px; } #v3 .v3top b { font-size:1.05rem; }
+  #v3 .tg { display:inline-flex; align-items:center; font-size:.8rem; font-weight:700; border-radius:12px; padding:2px 9px; background:var(--chip); color:#cfd5dc; white-space:nowrap; } #v3 .tg.on { background:#1d3a2a; color:var(--ok); }
+  #v3 .v3stick { position:sticky; top:0; z-index:2; background:#11141a; border:1px solid var(--line); border-radius:14px; padding:10px; margin:0 0 10px; } #v3 .v3stick.warn { border-color:#ffd27a88; } #v3 .v3stick.ok { border-color:#6fd98e66; }
+  #v3 .v3msg { font-size:.92rem; margin-bottom:8px; } #v3 .v3pub { width:100%; min-height:48px; border-radius:24px; border:0; background:var(--accent); color:var(--on-accent); font-weight:800; font-size:1rem; } #v3 .v3pub:disabled { background:#2a3446; color:#8a96a8; }
+  #v3 .v3c { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:12px; margin:0 0 10px; } #v3 .v3c.pale { background:#1c2026; } #v3 .v3c.v3done { border-color:#6fd98e88; }
+  #v3 .v3h { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; } #v3 .v3letter { line-height:1.7; } #v3 mark.v3w { background:#3d321a; color:#ffe3a8; outline:1.5px solid #ffd27a88; border-radius:6px; padding:0 2px; }
+  #v3 .v3wr { border:1px solid #ffd27a66; background:rgba(255,210,122,.06); border-radius:12px; padding:8px 10px; margin-top:8px; } #v3 .v3ev { font-size:.82rem; color:#8e98a5; margin-top:6px; }
+  #v3 .v3np { display:flex; gap:8px; align-items:center; margin:6px 0; } #v3 .v3n { flex:none; width:24px; height:24px; border-radius:50%; background:#1f3050; color:#a9c7ff; font-size:.8rem; font-weight:800; display:grid; place-items:center; }
+  #v3 .v3chips { display:flex; flex-wrap:wrap; gap:6px; } #v3 .v3chip { min-height:40px; border:1.5px solid var(--line); background:transparent; color:#cfd5dc; border-radius:20px; padding:4px 12px; font-size:.92rem; } #v3 .v3chip.sel { border-color:var(--accent); background:#1f3050; color:#d9e7ff; font-weight:700; }
+  #v3 .v3kk { background:#1c2026; border-radius:10px; padding:8px 10px; font-size:.92rem; }
+  .v3sheet { position:fixed; inset:0; z-index:70; background:rgba(0,0,0,.6); display:flex; align-items:flex-end; justify-content:center; } .v3sbox { width:min(760px,100%); background:var(--card); border-top:1.5px solid var(--accent); border-radius:18px 18px 0 0; padding:14px 14px calc(14px + env(safe-area-inset-bottom)); } .v3sbox textarea { width:100%; margin-top:8px; font-size:16px; }
   #v2Dock { position:fixed; left:0; right:0; bottom:0; z-index:45; background:var(--card); border-top:1px solid var(--line); box-shadow:0 -4px 14px rgba(0,0,0,.35); padding:8px 16px calc(10px + env(safe-area-inset-bottom)); }
   body.miniOn #v2Dock { bottom:calc(128px + env(safe-area-inset-bottom)); } #v2Dock .in { max-width:760px; margin:0 auto; } #v2Dock #v2DockMsg { display:block; font-size:.8rem; text-align:center; margin-bottom:4px; min-height:1em; }
   #v2Dock .btns { display:flex; gap:6px; } #v2Dock .btns button { min-height:50px; padding:0 12px; white-space:nowrap; } #v2Dock #v2Send { min-width:0; overflow:hidden; text-overflow:ellipsis; }
@@ -2420,6 +2432,7 @@ function autoMission(me) { const rv = me?.review; if (!rv) return false;
   let ok = false; try { ok = missionConsistent(buildNote()); } catch {} return ok; }
 function missionConsistent(note) {
   const fb = String(note?.feedback || ""), pr = (note?.practice || []).filter(Boolean), has = /(^|\n)[ \t]*이번 ?주 연습[ \t]*[:：]?[ \t]*(\n|$)/.test(fb);   // (11/12) 제목 줄만 — 인사말 속 '이번 주 연습할 것까지…'는 미션 표시가 아님
+  if (+note?.fb_v >= 2) return !has;   // (11/21 4단계에서 발견한 3단계 버그) 새 형식은 미션이 칸에만 있어 글에 없는 게 정상 — 글에 목록 제목이 남아 있을 때만 불일치
   if (note?.no_mission) return !has;
   return pr.every(t => fb.includes(t)) && (pr.length > 0 || !has);
 }
@@ -10286,6 +10299,147 @@ $("btnPlayAll").onclick = () => {
 // 카톡 '복사'·'클립 보내기'는 보낸 걸로 치지 않음(③ 전송 완료 표시만) / AI 새 호출 없음(비용 0).
 // V1과 다른 점 1가지: V1의 '검수 저장' = 저장+바로 공개. V2에서는 '임시저장' = 저장만(수강생 화면 그대로), 공개는 '수강생에게 전달하기' 안의 ①에서.
 const V2_KEY = "vn_ui", V2_LV = "vn_v2lv";
+//#v3-begin
+// (11/21 화면 개편 4단계 · 시안 ①②) 새 검수 화면: 수강생이 볼 레슨 노트 한 장 · 노란 문장만 확인 · 미션·응원은 칩 · 공개하고 카톡까지 한 흐름.
+//   옛 화면은 뒤에 그대로 열려 있음('옛 화면'을 누르면 닫힘). 저장·공개·문장 확인·카톡은 옛 화면과 같은 함수(saveReview·publishOnSave·sentQuickAct·kakaoCopyText).
+//   원장님이 1~2주 써 본 뒤 기본으로 바꿀지 정함 — 켜 두면(vn_v3) 레슨을 열 때마다 새 화면.
+function v3Status(m) {   // 위쪽 고정 줄: 문구·버튼 글자·누를 수 있는지
+  if (m.off) return { msg: "이 수강생은 공개하지 않아요(동의 철회 또는 선생님 본인)", btn: "공개 안 함", can: false, tone: "" };
+  if (m.warn.length) return { msg: `확인할 곳 ${m.warn.length}개 · 노란 문장만 들어 보고 눌러 주세요`, btn: `공개하기 (확인 ${m.warn.length}개 남음)`, can: false, tone: "warn" };
+  if (m.other.length) return { msg: m.other[0].msg, btn: "공개하기 (위 내용 먼저)", can: false, tone: "warn" };
+  if (m.st === "published") return { msg: "공개 중이에요 · 고친 내용이 없어요", btn: "✓ 공개 중", can: false, tone: "ok" };
+  if (m.st === "published_stale") return { msg: "공개한 뒤 고친 내용이 있어요", btn: "고친 내용으로 다시 공개", can: true, tone: "warn" };
+  return { msg: "나머지는 AI 초안 그대로예요 · 바로 공개할 수 있어요", btn: "공개하기", can: true, tone: "ok" };
+}
+function v3Mark(text, warn, esc_) {   // 글을 안전하게 바꾸고 확인할 문장만 노랗게
+  let h = esc_(String(text || ""));
+  for (const w of warn || []) { const t = esc_(w.text || ""); if (t && h.includes(t)) h = h.replace(t, `<mark class="v3w">${t}</mark>`); }
+  return h.replace(/\n/g, "<br>");
+}
+function v3MissionChoices(pr, aiPr, wm) {   // 지금 미션 + AI 미션 후보(중복 없이 4개까지)
+  const out = []; for (const x of [...(pr || []), ...(aiPr || []), wm]) { const t = String(x || "").trim(); if (t && !out.includes(t)) out.push(t); }
+  return out.slice(0, 4);
+}
+function v3NextTarget(students, cur_, days) {   // '다음 검토': 같은 수강생 먼저, 그다음 다른 수강생 · 홈 '검토 대기'와 같은 기준
+  const cand = [];
+  for (const [sid, st] of Object.entries(students || {})) (st?._rows || []).forEach((r, i) => {
+    if (!r || r.err || r.fb || r.pub || !r.ai || (cur_ && sid === cur_.sid && i === cur_.i) || st.status === "teacher") return;
+    if (days(r.l?.name) > 14) return;
+    cand.push({ sid, i, name: st.name, date: String(r.l?.name || "").slice(0, 10), same: !!cur_ && sid === cur_.sid });
+  });
+  cand.sort((a, b) => (b.same - a.same) || a.date.localeCompare(b.date));
+  return cand[0] || null;
+}
+//#v3-end
+const V3_KEY = "vn_v3", V3_CHEER = [["격려", 0], ["성장", 1], ["지속", 2]];
+function v3Model(me) {
+  const rv = me.review || {}; let note = {}; try { note = buildNote(); } catch {}
+  let warn = []; try { warn = sentList(fbCheckText(rv), me.ai?.feedback_text, rv.sent_ok, sentEvTimes(me)).filter(x => x.kind === "warn" && !x.ok); } catch {}
+  let bl = []; try { bl = approvalBlockers(note, rv, me.ai).filter(b => b.level === "block"); } catch {}
+  const pr = rv.no_mission ? [] : (rv.practice || []).filter(Boolean);
+  return { rv, note, warn, other: bl.filter(b => !/근거 확인이 필요한 AI 판단 문장/.test(b.msg)), st: v2State(me),
+    off: !!(me.st?.consent_withdrawn || isTeacher(me.st || {})), pts: (rv.points || []).filter(Boolean), pr,
+    choices: v3MissionChoices(pr, me.ai?.practice, me.ana?.weekly_mission?.action || me.ai?.weekly_mission?.action), sess: +me.summary?.lesson?.session_number || 0 };
+}
+function v3Open(me) {
+  if (!me || document.getElementById("v3")) return;
+  const d = document.createElement("div"); d.id = "v3"; d.setAttribute("role", "dialog"); d.setAttribute("aria-label", "새 검수 화면");
+  document.body.appendChild(d); document.body.classList.add("v3On");
+  const ly = typeof Brand !== "undefined" && Brand.layer ? Brand.layer(() => v3Close(true)) : null; d._ly = ly;
+  v3Paint(me);
+}
+function v3Close(fromBack) { const d = document.getElementById("v3"); if (!d) return; const ly = d._ly; d.remove(); document.body.classList.remove("v3On"); if (!fromBack && ly) ly.close(); try { paintDeliver(); } catch {} }
+function v3Paint(me) {
+  const d = document.getElementById("v3"); if (!d || cur !== me) return;
+  const m = v3Model(me), S = v3Status(m), rv = m.rv, note = m.note, y = d.scrollTop;
+  const warnRow = (w) => `<div class="v3wr" data-sk="${esc(w.key)}"><div>“${esc(w.text)}”</div><div class="row" style="gap:6px;margin-top:6px">${w.t != null ? `<button type="button" class="small ghost" data-v3t="${+w.t}">▶ ${fmt(+w.t)} 듣기</button>` : ""}<button type="button" class="small" data-v3a="ok">맞아요</button><button type="button" class="small ghost" data-v3a="drop">빼기</button></div></div>`;
+  const inPts = (w) => m.pts.some(t => sentKey(t) === w.key) || m.pr.some(t => sentKey(t) === w.key);
+  const wLetter = m.warn.filter(w => !inPts(w)), wFields = m.warn.filter(inPts);
+  const snd = (i) => (note.point_snd || []).some(x => x.p === i) ? `<span class="tg">🔁 소리 붙음</span>` : "";
+  const date = String(me.folder?.name || "").slice(0, 10);
+  d.innerHTML = `<div class="v3in">
+    <div class="v3top"><button type="button" class="small ghost" id="v3Old">← 옛 화면</button><b>${esc(me.st?.name || "")} · ${esc(date.slice(5).replace("-", "/"))} 레슨</b>${m.sess ? `<span class="tg">${m.sess}회차</span>` : ""}</div>
+    <div class="v3stick ${S.tone}"><div class="v3msg">${esc(S.msg)}</div>
+      ${m.warn.length > 1 ? `<button type="button" class="small ghost" data-v3a="allok" style="margin:0 0 6px">노란 문장 모두 맞아요</button>` : ""}
+      <button type="button" class="v3pub" id="v3Pub"${S.can && !me.sched?.busy ? "" : " disabled"}>${esc(S.btn)}</button></div>
+    <section class="v3c"><div class="v3h"><b>💬 선생님 한마디</b><button type="button" class="small ghost" data-v3e="fb">✎ 고치기</button></div>
+      <div class="v3letter">${String(rv.feedback || "").trim() ? v3Mark(rv.feedback, wLetter, esc) : `<span class="muted">아직 비어 있어요 · ✎ 고치기로 써 주세요</span>`}</div>
+      ${wLetter.map(warnRow).join("")}
+      <div class="v3ev">🔒 선생님만 · 노란 문장은 AI가 소리로 판단한 것이라 직접 들어 보고 확인해요</div></section>
+    ${m.pts.length ? `<section class="v3c"><div class="v3h"><b>📌 오늘의 포인트</b><button type="button" class="small ghost" data-v3e="points">✎ 고치기</button></div>
+      ${m.pts.map((t, i) => `<div class="v3np"><span class="v3n">${i + 1}</span><span>${wFields.some(w => w.key === sentKey(t)) ? `<mark class="v3w">${esc(t)}</mark>` : esc(t)}</span>${snd(i)}</div>`).join("")}
+      ${wFields.filter(w => m.pts.some(t => sentKey(t) === w.key)).map(warnRow).join("")}</section>`
+      : `<section class="v3c pale"><div class="v3h"><b>📌 오늘의 포인트</b><button type="button" class="small ghost" data-v3e="points">＋ 넣기</button></div></section>`}
+    <section class="v3c"><div class="v3h"><b>🎵 오늘의 베스트</b><span class="tg${note.best ? " on" : ""}">${note.best ? `포함${note.best.len ? " · " + note.best.len + "초" : ""}` : "이번 노트엔 없음"}</span></div>
+      <button type="button" class="small ghost" data-v3go="todayCard">옛 화면에서 듣고 바꾸기 ›</button>
+      ${(note.clips || []).length ? `<div class="v3ev">좋았던 순간 소리 ${(note.clips || []).length}개도 함께 가요</div>` : ""}</section>
+    <section class="v3c"><div class="v3h"><b>📋 이번 주 미션</b><button type="button" class="small ghost" data-v3e="mission">✎ 직접</button></div>
+      <div class="v3chips">${m.choices.map(c => `<button type="button" class="v3chip${m.pr.includes(c) ? " sel" : ""}" data-v3m="${esc(c)}">${m.pr.includes(c) ? "✓ " : ""}${esc(c)}</button>`).join("")}<button type="button" class="v3chip${rv.no_mission ? " sel" : ""}" data-v3m="">${rv.no_mission ? "✓ " : ""}미션 없음</button></div>
+      ${wFields.filter(w => m.pr.some(t => sentKey(t) === w.key)).map(warnRow).join("")}</section>
+    <section class="v3c"><div class="v3h"><b>💌 응원</b><button type="button" class="small ghost" data-v3e="cheer">✎ 고치기</button></div>
+      <div class="v3chips">${V3_CHEER.map(([n, k]) => `<button type="button" class="v3chip" data-v3c="${k}">🎲 ${n}</button>`).join("")}</div>
+      <p style="margin:8px 0 0">${String(rv.cheer || "").trim() ? esc(rv.cheer) : `<span class="muted">비어 있어요 · 위 칩을 눌러 고르세요</span>`}</p></section>
+    <section class="v3c pale"><div class="v3h"><b>🔍 근거·자세히</b><button type="button" class="small ghost" id="v3Old2">옛 화면에서 보기 ›</button></div>
+      <div class="v3ev">하이라이트·다음 레슨에 할 것·레슨 분석·전사본은 옛 화면에 그대로 있어요</div></section>
+    <div id="v3After"></div></div>`;
+  d.scrollTop = y;
+  $("v3Old").onclick = () => v3Close(); $("v3Old2").onclick = () => v3Close();
+  d.querySelectorAll("[data-v3go]").forEach(b => b.onclick = () => { v3Close(); document.getElementById(b.dataset.v3go)?.scrollIntoView({ block: "start" }); });
+  d.querySelectorAll("[data-v3t]").forEach(b => b.onclick = () => { try { jumpPlay(b, +b.dataset.v3t); } catch (e) { toast(e.message); } });
+  d.querySelectorAll("[data-v3a]").forEach(b => b.onclick = () => { sentQuickAct(me, b.dataset.v3a, b.closest("[data-sk]")?.dataset.sk); markDirty(); v3Paint(me); });
+  d.querySelectorAll("[data-v3m]").forEach(b => b.onclick = () => { const c = b.dataset.v3m;
+    if (c) { rv.practice = [c]; rv.no_mission = false; } else { rv.practice = []; rv.no_mission = true; }
+    v3Changed(me); });
+  d.querySelectorAll("[data-v3c]").forEach(b => b.onclick = () => { let t = ""; try { t = lessonCheer(+b.dataset.v3c, rv.cheer, cheerFacts(me)); } catch {} if (!t) return toast("이 레슨 내용으로 만들 문장이 없어요 · ✎ 고치기로 써 주세요"); rv.cheer = t; v3Changed(me); });
+  d.querySelectorAll("[data-v3e]").forEach(b => b.onclick = () => v3Edit(me, b.dataset.v3e));
+  $("v3Pub").onclick = () => v3Publish(me);
+}
+function v3Changed(me) {   // 칸을 바꾸면: 승인 초기화(updateFeedbackDraft) · 옛 화면 카드도 맞춤 · 저장 필요 표시
+  updateFeedbackDraft(me.review.feedback); try { renderPoints(); } catch {} markDirty(); v3Paint(me);
+}
+function v3Edit(me, k) {   // 아래에서 올라오는 고치기 창
+  const rv = me.review, lab = { fb: "선생님 한마디", points: "오늘의 포인트 (한 줄에 하나, 최대 3개)", mission: "이번 주 미션 (한 줄에 하나, 최대 2개)", cheer: "응원" }[k];
+  const val = k === "fb" ? rv.feedback || "" : k === "points" ? (rv.points || []).filter(Boolean).join("\n") : k === "mission" ? (rv.practice || []).filter(Boolean).join("\n") : rv.cheer || "";
+  const sh = document.createElement("div"); sh.className = "v3sheet"; sh.innerHTML = `<div class="v3sbox"><b>✎ ${esc(lab)}</b><textarea id="v3Ta" rows="${k === "fb" ? 12 : 5}">${esc(val)}</textarea>
+    <div class="row" style="gap:8px;margin-top:8px"><button type="button" class="full" id="v3Ok">이대로 바꾸기</button><button type="button" class="ghost" id="v3No">취소</button></div></div>`;
+  document.body.appendChild(sh);
+  const ly = typeof Brand !== "undefined" && Brand.layer ? Brand.layer(() => sh.remove()) : { close: () => sh.remove() }, close = () => ly.close();
+  $("v3No").onclick = close; sh.addEventListener("click", (e) => { if (e.target === sh) close(); }); setTimeout(() => $("v3Ta")?.focus(), 50);
+  $("v3Ok").onclick = () => { const v = $("v3Ta").value, lines = v.split("\n").map(x => x.replace(/^[ \t]*[·•\-]\s*/, "").trim()).filter(Boolean);
+    if (k === "fb") { updateFeedbackDraft(v); if (rv.fb_v === 2 && fbMoveBlocks(rv)) updateFeedbackDraft(rv.feedback); }
+    else if (k === "points") { rv.points = lines.slice(0, 3); me.teacherPts = rv.points.length > 0; }
+    else if (k === "mission") { rv.practice = lines.slice(0, 2); rv.no_mission = false; }
+    else rv.cheer = v.trim();
+    close(); v3Changed(me); };
+}
+async function v3Publish(me) {
+  const b = $("v3Pub"); if (!b || b.disabled) return; b.disabled = true; b.textContent = "공개하는 중…";
+  const ok = await saveReview(false);
+  if (cur !== me) return;
+  const st = v2State(me);
+  if (ok && (st === "published")) { v3Paint(me); v3Kakao(me); }
+  else { toast(ok ? ($("saveMsg")?.textContent || "저장했어요").replace(/\s+$/, "") : "저장하지 못했어요. 다시 눌러 주세요"); v3Paint(me); }
+}
+function v3Kakao(me) {   // 공개 뒤: 문구 복사 + 카톡 열기를 한 번에, 그 순간 '카톡 보냄'으로 표시(돌아와서 묻지 않음 · 되돌리기 가능)
+  const box = $("v3After"); if (!box) return; const rv = me.review, nx = v3NextTarget(cfg.students, { sid: me.sid, i: me.rowIndex }, (n) => daysAgo(n));
+  const txt = kakaoCopyText();
+  box.innerHTML = `<section class="v3c v3done"><div class="v3h"><b>✓ ${esc(me.st?.name || "")}님 노트를 공개했어요</b></div>
+    <div class="v3ev" style="margin-bottom:6px">카톡에 붙여넣을 문구</div><div class="v3kk">${esc(txt).replace(/\n/g, "<br>")}</div>
+    <button type="button" class="v3pub" id="v3Kk" style="margin-top:10px">${rv.kakao_sent_at ? "문구 다시 복사하고 카카오톡 열기" : "문구 복사하고 카카오톡 열기"}</button>
+    <div id="v3KkMark" class="v3ev" style="margin-top:6px">${rv.kakao_sent_at ? `✓ 카톡 보냄으로 표시됨 · <button type="button" class="small ghost" id="v3KkUndo">되돌리기</button>` : "누르는 순간 '카톡 보냄'으로 표시돼요 · 안 보냈으면 되돌리기"}</div>
+    ${nx ? `<button type="button" class="ghost full" id="v3Next" style="margin-top:10px">다음 검토: ${esc(nx.name)} · ${esc(nx.date.slice(5).replace("-", "/"))} 레슨 ›</button>` : `<p class="muted" style="margin:10px 0 0">검토 대기 레슨이 더 없어요 👏</p>`}</section>`;
+  const mark = async (on) => { if (on) { rv.kakao_sent_at = new Date().toISOString(); (rv.sent ??= {}).feedback ??= rv.kakao_sent_at; rv.work_sec_at_sent ??= +rv.work_sec || 0; } else { delete rv.kakao_sent_at; if (rv.sent) delete rv.sent.feedback; }
+    try { await saveReview(true); } catch (e) { toast(e.message); } if (cur === me) v3Kakao(me); };
+  $("v3Kk").onclick = async () => { try { await navigator.clipboard.writeText(txt); } catch { toast("복사가 안 되면 문구를 길게 눌러 복사해 주세요"); }
+    await mark(true); location.href = /Android/i.test(navigator.userAgent) ? "intent://#Intent;scheme=kakaotalk;package=com.kakao.talk;end" : "kakaotalk://"; };
+  if ($("v3KkUndo")) $("v3KkUndo").onclick = () => mark(false);
+  if ($("v3Next")) $("v3Next").onclick = () => { window._v3Once = true; v3Close(); openLesson(nx.sid, nx.i); };
+  box.scrollIntoView({ block: "start", behavior: "smooth" });
+}
+function v3Auto(me) {   // 레슨이 그려진 뒤: 켜 두었거나 '다음 검토'로 왔으면 새 화면
+  if (!me || me._v3Auto) return; me._v3Auto = true;
+  if (LS.get(V3_KEY) === 1 || window._v3Once) { window._v3Once = false; setTimeout(() => { if (cur === me) v3Open(me); }, 0); }
+}
 function v2On() { return true; }   // (10/30 17:55 사용자) V1 화면 버튼 없앰 — 항상 V2
 function v2Lv() { return "normal"; }   // 10/29 사용자: 수강생 화면이 '보통' 고정이라 검토 화면도 보통 고정(심플/보통/자세히 버튼 없앰)
 function v2Apply() {
@@ -10355,9 +10509,13 @@ function v2Paint() {
   $("v2Bar").innerHTML = `<div class="v2t"><b>강사 검토 화면</b><button type="button" class="small" id="v2Pv">👀 수강생 화면 미리보기</button></div>
     <div class="v2stat"><b>${share == null ? "🤖 AI 초안 없음" : `🤖 AI 작성 ${share}%`}</b><span class="muted" id="v2Seen"></span><div class="v2meter"><i id="v2Meter"></i></div></div>
     ${emph.length ? `<div class="v2emph">선생님이 반복 강조: ${emph.slice(0, 6).map(e => `<span class="${e.prev ? "prev" : ""}">${esc(e.term)} ×${+e.count || 0}${e.prev ? " · 지난 레슨부터" : ""}</span>`).join("")}</div>` : ""}
-    <div class="row" style="margin-top:6px;gap:6px"><button type="button" class="small ghost" id="v2AiBtn"${me.ai ? "" : " disabled"}>👁 AI 원문 다시 보기</button></div>`;
+    <div class="row" style="margin-top:6px;gap:6px"><button type="button" class="small ghost" id="v2AiBtn"${me.ai ? "" : " disabled"}>👁 AI 원문 다시 보기</button><button type="button" class="small" id="v3Btn">✨ 새 검수 화면(시험)</button></div>
+    <label class="muted" style="display:block;margin-top:6px;font-size:.85rem"><input type="checkbox" id="v3Def"${LS.get(V3_KEY) === 1 ? " checked" : ""}> 레슨을 열 때 새 검수 화면으로 바로</label>`;
   $("v2Pv").onclick = () => openStudentView(lv);
   $("v2AiBtn").onclick = () => v2AiOpen(me);
+  $("v3Btn").onclick = () => v3Open(me);
+  $("v3Def").onchange = (e) => { LS.set(V3_KEY, e.target.checked ? 1 : 0); if (e.target.checked) v3Open(me); };
+  v3Auto(me);
   v2Count(me); v2Watch(me); v2PubPaint(me);
 }
 function v2PubPaint(me) {   // 전달하기 시트 맨 위 ① 공개 — 공개 규칙은 V1의 publishOnSave(승인 전 확인 목록·동의 철회 제외) 그대로
