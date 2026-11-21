@@ -707,7 +707,7 @@ const mk = new Function(code + "; return stemEngine;")();
   const g = new Function(T.slice(T.indexOf("function songBeatMarks("), T.indexOf("function songParseChords(")) + "; return songBeatMarks;")();
   assert.deepStrictEqual(g({ chords: [{ b: 0 }] }), []); assert.deepStrictEqual(g({ chords: [{ b: 0 }, { b: 2 }] }), [], "1·3박은 표시 없음");
   assert.deepStrictEqual(g({ chords: [{ b: 0 }, { b: 1 }] }), [2], "G A@2 → ②"); assert.deepStrictEqual(g({ chords: [{ b: 0 }, { b: 2 }, { b: 3 }] }), [3, 4], "Bm Em Em/D → ③④");
-  assert.ok(!T.includes("shBd") && T.includes('q.className = "shBm"') && T.includes("// (11/21) PDF도 같은 박 표시"), "화면·PDF 같은 규칙");
+  assert.ok(!T.includes("shBd") && T.includes('q.className = "shBm"') && T.includes("// (11/21) PDF도 박 동그라미를 그 코드 위에") && T.includes("e.dataset.k = k + 1") && T.includes('cell.querySelectorAll(".shBm i")'), "화면·PDF: 동그라미는 그 코드 위");
 }
 
 // (11/21 사용자) 수정 창: ① 재생/일시정지 버튼 ② 입력 중엔 창을 위쪽으로(선택 손잡이가 키보드에 안 가림) ③ 길게 눌러 연 창은 손가락을 뗄 때까지 입력칸 읽기 전용(글자 선택 모드로 바로 안 들어감)
