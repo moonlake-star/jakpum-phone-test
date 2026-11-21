@@ -1349,6 +1349,8 @@ function attach(d) {  // 캐시 데이터를 수강생 객체에 붙이기
   st._rows = d.rows; st._subs = d.subs; st._jobs = (d.jobs || []).map(j => ({ ...j, sid: d.sid, st }));
 }
 const isTeacher = (st) => st.status === "teacher";
+// (11/21 사용자 '레슨 후 이틀 넘게 피드백 안 보내면 알림') 홈 할 일 줄에 '⏰ N일째'(서버는 매일 10:30 메일로도 모아 알림)
+const fbLate = (r) => { const n = Math.floor(daysAgo(r?.l?.name)); return n >= 2 && n < 99 ? ` · ⏰ ${n}일째` : ""; };
 const daysAgo = (name) => { const d = Date.parse((name || "").slice(0, 10)); return isNaN(d) ? 99 : (Date.now() - d) / 864e5; };
 // (11/05 사용자) 선생님도 발성 연습 화면으로 들어갈 수 있게 목록 맨 위에 입구 — 선생님 계정으로 열면 기록은 저장하지 않고 연습 도구로만 써요
 const pitchLinkHtml = () => `<a class="card pitchGo" href="../pitch/" data-pitch-open="teacher" aria-label="연습 천재 열기">${typeof PitchEmbed !== "undefined" && PitchEmbed.cardInner ? PitchEmbed.cardInner("teacher") : "연습 천재"}</a>`;
@@ -1373,8 +1375,8 @@ function paintList(data, stale) {
   for (const d of data) {
     const st = cfg.students[d.sid]; if (!st) continue;
     d.rows.forEach((r, i) => { if (!r.err && !r.fb && daysAgo(r.l.name) <= 14 && !isTeacher(st))
-      todo.push(r.ai && !r.pub ? { k: "lesson", sid: d.sid, i, bell: true, t: `🔔 ${st.name} · ${r.l.name.slice(5, 10).replace("-", "/")} AI 피드백 초안 도착`, c: "검토 대기" }
-        : { k: "lesson", sid: d.sid, i, t: `📝 ${st.name} · ${r.l.name.slice(5, 10).replace("-", "/")} 레슨 피드백`, c: r.pub ? "게시됨 · 카톡 전" : "피드백 전" }); });
+      todo.push(r.ai && !r.pub ? { k: "lesson", sid: d.sid, i, bell: true, t: `🔔 ${st.name} · ${r.l.name.slice(5, 10).replace("-", "/")} AI 피드백 초안 도착`, c: "검토 대기" + fbLate(r) }
+        : { k: "lesson", sid: d.sid, i, t: `📝 ${st.name} · ${r.l.name.slice(5, 10).replace("-", "/")} 레슨 피드백`, c: (r.pub ? "게시됨 · 카톡 전" : "피드백 전") + (r.pub ? "" : fbLate(r)) }); });
     const pend = (d.subs || []).filter(x => !x.replied_at).length;
     if (pend) todo.push({ k: "subs", sid: d.sid, t: `🎙 ${st.name} · 과제 답장`, c: `${pend}개` });
     (d.jobs || []).forEach(j => {
@@ -8203,7 +8205,8 @@ function busy(on, msg = "불러오는 중…") {
 // ⚠ 기능을 바꾸거나 없애면 문구도 같이 — need = 그 기능 코드 조각(tests/app-tips.test.js가 팁 목록 밖 코드에 있는지 확인)
 const APP_TIPS = [
   { v: ["vList"], text: "‘오늘 할 일’ 🔔 검토 대기 = 확인을 기다리는 AI 초안·보정이에요", need: '<span class="chip todo">🔔 검토 대기 ${bN}</span>' },
-  { v: ["vList"], text: "‘게시됨 · 카톡 전’ = 피드백은 올렸고 카톡으로는 아직 안 보낸 레슨", need: 'c: r.pub ? "게시됨 · 카톡 전" : "피드백 전"' },
+  { v: ["vList"], text: "‘게시됨 · 카톡 전’ = 피드백은 올렸고 카톡으로는 아직 안 보낸 레슨", need: '(r.pub ? "게시됨 · 카톡 전" : "피드백 전")' },
+  { v: ["vList"], text: "‘⏰ N일째’ = 레슨 후 이틀 넘게 피드백 전 · 아침 10:30 메일도", need: '` · ⏰ ${n}일째`' },
   { v: ["vList", "vShared"], text: "카톡에서 녹음 파일을 길게 눌러 ‘공유 → 보컬노트’로 보내면 바로 받아져요", need: "‘공유 → 보컬노트’로 보내 주세요" },
   { v: ["vCal"], text: "달력을 좌우로 밀면 지난달·다음 달로 넘어가요", need: "slide = (x, ms) =>" },
   { v: ["vCal"], text: "레슨 있는 날짜 칸을 길게 눌러 다른 날짜로 끌어 놓으면 옮길 수 있어요", need: 'const mov = (k) => (by[k] || []).filter(x => x.event_id' },
