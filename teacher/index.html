@@ -6331,13 +6331,22 @@ async function songHomePaint() {
 }
 // ── (11/14 18:03 사용자 '2안') 🎸 합주 베스트: 녹음함의 '합주'·'연습' 녹음 → 서버(jam_run.py)가 곡별로 가장 잘 부른 구절을 짜깁기 + 보컬·반주 분리
 //   _시스템/db_backup/합주베스트/index.json(진행·결과) · 곡 폴더(mix·vocal·mr mp3, best.json, take_*.mp3)
-const jam = { idx: null, open: null, poll: null, ctx: null, play: null };
+const jam = { idx: null, open: null, poll: null, ctx: null, play: null, root: null, ctrlId: null, ctrl: null, showHid: false };
 const JAM_COL = ["#ffb86b", "#7fd9ff", "#a8e6a1", "#ff9ec0", "#c9a7ff", "#ffe066", "#8fb3ff", "#ffa98f"];
 async function jamIndex() {
   const db = cfg?.system?.db_backup; if (!db) throw new Error("저장 위치(_시스템/db_backup)를 찾지 못했어요");
   const root = (await list(db)).find(x => x.name === "합주베스트" && x.mimeType === "application/vnd.google-apps.folder"); if (!root) return { sessions: [] };
-  const f = (await list(root.id)).find(x => x.name === "index.json"); if (!f) return { sessions: [] };
+  const L = await list(root.id); jam.root = root.id; const c = L.find(x => x.name === "control.json"); jam.ctrlId = c ? c.id : null;
+  if (c) { try { const v = await (await api(`${DRIVE}/files/${c.id}?alt=media&_=${Date.now()}`, { cache: "no-store" })).json(); jam.ctrl = { hide: Array.isArray(v.hide) ? v.hide : [], del: Array.isArray(v.del) ? v.del : [] }; LS.set("vn_jam_ctrl", jam.ctrl); } catch {} }
+  const f = L.find(x => x.name === "index.json"); if (!f) return { sessions: [] };
   return (await api(`${DRIVE}/files/${f.id}?alt=media&_=${Date.now()}`, { cache: "no-store" })).json();
+}
+// (11/22 사용자 '합주 베스트도 전체 자료 삭제 또는 가리기') 앱만 쓰는 control.json {hide, del} — 서버 index.json은 서버만 씀(동시에 써서 꼬이지 않게)
+async function jamCtrlSave(fn) {
+  if (!jam.root) await jamIndex();
+  let cur = { hide: [], del: [] };
+  if (jam.ctrlId) { try { const v = await (await api(`${DRIVE}/files/${jam.ctrlId}?alt=media&_=${Date.now()}`, { cache: "no-store" })).json(); cur = { hide: Array.isArray(v.hide) ? v.hide : [], del: Array.isArray(v.del) ? v.del : [] }; } catch {} }
+  fn(cur); jam.ctrlId = await writeJSON(jam.root, "control.json", cur, jam.ctrlId); jam.ctrl = cur; LS.set("vn_jam_ctrl", cur);
 }
 async function openJam() {
   goBack = () => { jamStop(); renderList(); }; show("vJam"); const v = $("vJam");
@@ -6352,18 +6361,32 @@ function jamPollArm() { clearTimeout(jam.poll); if (!(jam.idx?.sessions || []).s
   jam.poll = setTimeout(async () => { if ($("vJam").classList.contains("hidden")) return; try { const nx = await jamIndex(); if (JSON.stringify(nx) !== JSON.stringify(jam.idx)) { jam.idx = nx; if (!jam.play) jamPaint(); } } catch {} jamPollArm(); }, 30000); }
 function jamWhen(s) { const m = String(s.name || "").match(/(\d{4})-(\d{2})-(\d{2})/); return m ? `${+m[2]}/${+m[3]}` : ""; }
 function jamPaint() {
-  const S = jam.idx?.sessions || [], el = $("jamList"); if (!el) return;
+  if (!jam.ctrl) jam.ctrl = LS.get("vn_jam_ctrl") || { hide: [], del: [] };
+  const C = jam.ctrl, all = (jam.idx?.sessions || []).filter(s => !C.del.includes(s.src_id)), nHid = all.filter(s => C.hide.includes(s.src_id)).length;
+  const S = all.filter(s => jam.showHid || !C.hide.includes(s.src_id)), el = $("jamList"); if (!el) return;
+  if (!S.length && nHid) { el.innerHTML = `<p class="muted">모두 가려 두었어요</p><button type="button" class="ghost small" id="jamShowHid">가린 합주 ${nHid}개 보기</button>`; $("jamShowHid").onclick = () => { jam.showHid = true; jamPaint(); }; return; }
   if (!S.length) { el.innerHTML = `<div class="card"><p class="muted" style="margin:0">아직 합주 녹음이 없어요 · 녹음 이름에 '합주' 또는 '연습'을 넣어 녹음함에 올리면 다음 처리 때(서버가 켜져 있을 때) 시작해요</p></div>`; return; }
-  el.innerHTML = S.map((s, si) => { const done = s.status === "done", fail = s.status === "failed", songs = (s.songs || []);
+  el.innerHTML = S.map((s) => { const si = jam.idx.sessions.indexOf(s), done = s.status === "done", fail = s.status === "failed", songs = (s.songs || []);
     const st = done ? `✅ 완료 · 곡 ${songs.filter(x => x.files).length}개` : fail ? `⚠️ ${esc(s.stage || "실패")}` : `⏳ ${esc(s.stage || "대기")}`;
     const body = songs.map((g, gi) => g.files ? `<div class="jamSong" data-si="${si}" data-gi="${gi}" style="border-top:1px solid #2c3340;padding:10px 0 4px">
         <div class="row" style="justify-content:space-between;gap:6px"><b>${esc(g.title)}</b><span class="muted" style="font-size:.8rem">테이크 ${g.takes.length}개 · ${g.phrases ? `${g.switched}/${g.phrases} 구절 교체` : "한 테이크"} · ${fmt(g.dur || 0)}</span></div>
         <div class="jamBody" id="jam_${si}_${gi}"><button type="button" class="small" data-jamopen="${si}_${gi}" style="margin-top:6px">▶ 들어 보기</button></div></div>`
       : `<div style="border-top:1px solid #2c3340;padding:8px 0" class="muted">${esc(g.title)} · 테이크 ${g.takes.length}개 · ${esc(g.status || "대기")}</div>`).join("");
-    return `<div class="card" style="padding:12px 14px"><div class="row" style="justify-content:space-between;gap:6px"><b>${esc(s.name)}</b><span class="muted" style="font-size:.8rem">${jamWhen(s)}</span></div>
+    const hid = C.hide.includes(s.src_id);
+    return `<div class="card" style="padding:12px 14px${hid ? ";opacity:.6" : ""}"><div class="row" style="justify-content:space-between;gap:6px;flex-wrap:nowrap"><b style="flex:1;min-width:0">${esc(s.name)}</b><span class="muted" style="font-size:.8rem;white-space:nowrap">${jamWhen(s)}</span><button type="button" class="ghost small" data-jamhide="${esc(s.src_id)}" style="flex:none" aria-label="${hid ? "다시 보이기" : "가리기"}">${hid ? "보이기" : "가리기"}</button><button type="button" class="ghost small" data-jamdel="${esc(s.src_id)}" style="flex:none" aria-label="이 합주 결과 지우기">🗑</button></div>
       <p class="muted" style="margin:4px 0 6px;font-size:.85rem">${st}</p>${body}</div>`; }).join("")
+    + (nHid ? `<button type="button" class="ghost small" id="jamShowHid" style="margin:4px 0 8px">${jam.showHid ? "가린 합주 숨기기" : `가린 합주 ${nHid}개 보기`}</button>` : "")
     + `<p class="muted" style="font-size:.78rem;margin:6px 2px 20px">라이브 합주는 반주 트랙에 원래 보컬이 조금 남아서 작게 겹쳐 들릴 수 있어요 · 테이크를 바꾸는 이음매에서 악기가 살짝 끊겨 들릴 수 있어요 · 템포는 뼈대 테이크에 맞춰 늘이고 줄였어요</p>`;
   el.querySelectorAll("[data-jamopen]").forEach(b => b.onclick = () => { const [si, gi] = b.dataset.jamopen.split("_").map(Number); jamOpenSong(si, gi); });
+  { const b = $("jamShowHid"); if (b) b.onclick = () => { jam.showHid = !jam.showHid; jamPaint(); }; }
+  el.querySelectorAll("[data-jamhide]").forEach(b => b.onclick = async () => { const id = b.dataset.jamhide, on = !jam.ctrl.hide.includes(id); b.disabled = true; jamStop();
+    try { await jamCtrlSave((c) => { c.hide = c.hide.filter(x => x !== id); if (on) c.hide.push(id); }); jamPaint(); toast(on ? "가렸어요 · 아래 '가린 합주 보기'에서 다시 볼 수 있어요" : "다시 보여요"); } catch (e) { b.disabled = false; toast("실패: " + errMsg(e)); } });
+  el.querySelectorAll("[data-jamdel]").forEach(b => b.onclick = async () => { const id = b.dataset.jamdel, s = (jam.idx?.sessions || []).find(x => x.src_id === id); if (!s) return;
+    if (!confirm(`‘${s.name}’ 합주 결과를 지울까요?\n편집본·보컬·반주·테이크 파일을 드라이브 휴지통으로 보내요(30일 안엔 되살릴 수 있어요).\n녹음함의 원본 녹음은 그대로 두고, 다시 만들지 않아요.`)) return;
+    b.disabled = true; jamStop();
+    try { await jamCtrlSave((c) => { if (!c.del.includes(id)) c.del.push(id); c.hide = c.hide.filter(x => x !== id); });
+      for (const fid of [s.folder, ...(s.songs || []).map(g => g.folder)].filter(Boolean)) { try { await api(`${DRIVE}/files/${fid}?fields=id`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trashed: true }) }); } catch {} }
+      jamPaint(); toast("지웠어요(휴지통)"); } catch (e) { b.disabled = false; toast("지우기 실패: " + errMsg(e)); } });
 }
 function jamStop() { const p = jam.play; if (!p) return; try { p.srcs.forEach(s => s.stop()); } catch {} cancelAnimationFrame(p.raf); jam.play = null; }
 async function jamOpenSong(si, gi) {
