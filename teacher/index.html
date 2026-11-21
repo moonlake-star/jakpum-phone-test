@@ -2097,7 +2097,8 @@ function buildNote() {
   const bestNote = (o) => o && { file_id: o.file_id, kind_ko: o.kind_ko, len: Math.round(o.len), edited: !!o.isComposite, ...(o.isComposite && typeof bestJoined === "function" && bestJoined(o) !== undefined ? { joined: bestJoined(o) } : {}) };
   // practice(이번 주 미션)와 no_mission(‘미션 없음’ 의도적 선택)을 구분해 싣는다. 미설정(둘 다 없음)은 승인 단계에서 막힘
   const noMission = rv.no_mission === true;
-  return { lesson_id: cur.folder.id, date: cur.folder.name.slice(0, 10), title: cur.folder.name,
+  const sess = +cur.summary?.lesson?.session_number;   // (11/21 코덱스 검토) 회차는 선생님 앱과 같은 값을 노트에 실어 수강생 앱이 그대로 씀(예전: 공개 노트 순번으로 셈)
+  return { lesson_id: cur.folder.id, date: cur.folder.name.slice(0, 10), title: cur.folder.name, ...(Number.isInteger(sess) && sess > 0 ? { session: sess } : {}),
     feedback: typeof datedGreet === "function" ? datedGreet($("fb").value, cur.folder.name) : $("fb").value, points: (rv.points || []).filter(Boolean), practice: noMission ? [] : (rv.practice || []).filter(Boolean), no_mission: noMission,
     best: bestNote(bp), makeup: mk ? { file_id: mk.file_id, len: mk.len, source_file_id: mk.source_file_id, msg: (rv.makeup_msg || "").trim(), ...(typeof mkSideFiles === "function" ? mkSideFiles(bestPicked()) : {}) } : null, extra_best: [],
     cheer: (rv.cheer || "").trim(), song: rv.song?.title ? { title: rv.song.title, artist: rv.song.artist || "", why: rv.song.why || "", ...(rv.song.url ? { url: rv.song.url } : {}) } : null,   /* 고르지 않은 편집본을 '다른 버전'으로 몰래 싣지 않음 */
