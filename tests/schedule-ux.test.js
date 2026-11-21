@@ -5,7 +5,7 @@ const src = fs.readFileSync(__dirname + "/../teacher/index.html", "utf8");
 const pure = src.slice(src.indexOf("// <sched-pure>"), src.indexOf("// </sched-pure>"));
 const pick = (re) => { const m = src.match(re); assert.ok(m, "코드 조각 못 찾음: " + re); return m[0]; };
 assert.ok(pure.includes("function contentSig"));
-const body = [pure, pick(/async function revokeLink[\s\S]*?\n}\n/), pick(/async function refreshSched[\s\S]*?\n}\n/), pick(/async function markHeldLocal[\s\S]*?\n}\n/), pick(/async function schedAct[\s\S]*?\n}\n/),
+const body = [pure, pick(/async function revokeLink[\s\S]*?\n}\n/), pick(/async function refreshSched[\s\S]*?\n}\n/), pick(/async function markHeldLocal[\s\S]*?\n}\n/), pick(/let pubLock = null;\n[^\n]*\n[^\n]*\n/), pick(/async function schedAct\(kind[\s\S]*?\n}\n/), pick(/async function schedActInner[\s\S]*?\n}\n/),
   pick(/const noteFileIds[^\n]*\n/)].join("\n");
 const NOW = "2026-10-27T01:00:00.000Z";   // 서버 시계(KST 10:00)
 function server(opt = {}) {
