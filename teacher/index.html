@@ -7176,14 +7176,15 @@ function songChordBars(an) {   // (11/22 사용자 You Needed Me '인트로 리�
   const xs = []; let prev = null;
   CH.forEach(([t, nm]) => { const r = String(nm || "").split("/")[0]; if (!r || r === "N" || r === prev) return; prev = r; let lo = 0, hi = B.length; while (lo < hi) { const mid = (lo + hi) >> 1; if (B[mid] < t - 0.12) lo = mid + 1; else hi = mid; } if (lo < B.length && Math.abs(B[lo] - t) < 0.3 && lo >= dn) xs.push(lo); });
   if (xs.length < 16) return null;
+  // (11/22 사용자 '리타르단도도 잘 인식하고 마디 안 꼬이게') 첫 박 자리 0~3박 4가지 상태: 2박 밀림 벌점 2, 1·3박 밀림(늘임표·박 하나 빠짐 등) 벌점 3 → 짧은 마디(1~3박)를 끼움
   const sc = (k, o) => { const q = (((k - dn - o) % 4) + 4) % 4; return q === 0 ? 1 : q === 2 ? 0.35 : -0.3; };
-  let C = [0, -1]; const back = [];
-  xs.forEach((k, i) => { const nc = [0, 0], bk = [0, 0]; for (const st of [0, 1]) { const stay = C[st], sw = C[1 - st] - 2, from = i === 0 || stay >= sw ? st : 1 - st; bk[st] = from; nc[st] = (i === 0 ? C[st] : Math.max(stay, sw)) + sc(k, st * 2); } C = nc; back.push(bk); });
-  const stt = new Array(xs.length); stt[xs.length - 1] = C[1] > C[0] ? 1 : 0; for (let i = xs.length - 1; i > 0; i--) stt[i - 1] = back[i][stt[i]];
-  const chg = []; let pv = 0; xs.forEach((k, i) => { if (stt[i] !== pv) chg.push(k); pv = stt[i]; });
+  let C = [0, -1, -1.5, -1]; const back = [];
+  xs.forEach((k, i) => { const nc = [0, 0, 0, 0], bk = [0, 0, 0, 0]; for (let st = 0; st < 4; st++) { let best = C[st], from = st; if (i > 0) for (let t = 0; t < 4; t++) { if (t === st) continue; const v = C[t] - ((st - t + 4) % 4 === 2 ? 2 : 3); if (v > best) { best = v; from = t; } } nc[st] = best + sc(k, st); bk[st] = from; } C = nc; back.push(bk); });
+  const stt = new Array(xs.length); let e = 0; for (let st = 1; st < 4; st++) if (C[st] > C[e]) e = st; stt[xs.length - 1] = e; for (let i = xs.length - 1; i > 0; i--) stt[i - 1] = back[i][stt[i]];
+  const chg = []; let pv = 0; xs.forEach((k, i) => { if (stt[i] !== pv) chg.push([k, (stt[i] - pv + 4) % 4]); pv = stt[i]; });
   if (!chg.length) return null;
   const out = []; let s = dn, ci = 0, ins = 0;
-  while (s < B.length) { while (ci < chg.length && chg[ci] < s) ci++; if (ci < chg.length && chg[ci] < s + 4 && chg[ci] - s >= 1) { out.push(s); s += 2; ins++; ci++; continue; } out.push(s); s += 4; }
+  while (s < B.length) { while (ci < chg.length && chg[ci][0] < s) ci++; if (ci < chg.length && chg[ci][0] < s + 4 && chg[ci][0] - s >= chg[ci][1] - 1) { out.push(s); s += chg[ci][1]; ins++; ci++; continue; } out.push(s); s += 4; }
   return ins ? out : null;
 }
 function songMeasures(an, n, lyrics, voc, lw) {   // lw: (11/20) 서버 강제 정렬이 준 줄마다 낱말 시작 시각(song.json lyrics_words) — 있으면 추측 대신 그대로 씀
@@ -7945,7 +7946,7 @@ function songDeck(el, ids, o) {
         const ch = document.createElement("div"); ch.className = "shC"; for (const x of m.chords) { const e = document.createElement("span"); e.dataset.l = String(x.b / Math.max(1, m.beats) * 100); songChordFill(e, x.name); ch.appendChild(e); }
         const ly = document.createElement("div"); ly.className = "shL"; ly.textContent = m.lyrics.map((y) => y.text).join(" "); { const b0 = songLyStart(m); if (b0) ly.dataset.b = String(b0 / Math.max(1, m.beats || 4)); }   // 첫 가사를 부르기 시작하는 박 자리에서 시작(TV 화면과 같게) — 자리는 fitChords에서 잡음
         { const wn = webAt(m, i); if (wn.length) { const t = document.createElement("span"); t.className = "shWb"; t.textContent = "🌐 " + wn.join(" "); t.title = "인터넷 악보에는 " + wn.join(" ") + " — 참고용(길게 눌러 넣을 수 있어요)"; n.appendChild(t); } }
-        if (m.beats && m.beats !== 4 && i + 1 < M.length) { const t = document.createElement("span"); t.className = "shB2"; t.textContent = m.beats + "박"; t.title = "이 곡은 여기에 " + m.beats + "박짜리 마디가 끼어 있어요(코드 바뀌는 자리로 찾음)"; n.appendChild(t); }
+        if (m.beats && m.beats !== 4 && i + 1 < M.length) { const t = document.createElement("span"); t.className = "shB2"; t.textContent = m.beats + "박"; t.title = "이 곡은 여기에 " + m.beats + "박짜리 마디가 있어요(코드 바뀌는 자리로 찾음 — 리타르단도·늘임표 뒤 마디 첫 박 맞춤)"; n.appendChild(t); }
         if (CK.has(i)) { const k = CK.get(i); c.classList.add("ck"); const t = document.createElement("span"); t.className = "shCk"; t.textContent = "확인 필요"; t.title = k.why.join("·") + " 자동 인식이 불확실 — 길게 눌러 고치면 표시가 사라져요"; n.appendChild(t); }   // 가사 칸 빨간 테두리 + '확인 필요'
         c.append(n, ch, ly); if (i === sel) c.classList.add("sel"); cellGesture(c, { tap: () => tapCell(i === 0 ? 0 : m.t0), dbl: () => playFrom(i === 0 ? 0 : m.t0), long: () => openShEdit(i) }); G.appendChild(c); });
       G0.forEach((x) => paper.appendChild(x)); paper.appendChild(G); fitChords(); paper.style.minHeight = ""; if (!d._fitRs) { let tm = 0; d._fitRs = () => { if (!d.isConnected) { window.removeEventListener("resize", d._fitRs); return; } clearTimeout(tm); tm = setTimeout(fitChords, 200); }; window.addEventListener("resize", d._fitRs); } if (scEl) scEl.scrollTop = st0; on = -1; sub(); };

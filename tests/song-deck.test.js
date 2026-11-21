@@ -43,6 +43,13 @@ const mk = new Function(code + "; return stemEngine;")();
   { const nm = new Function(T.slice(T.indexOf("const SG_NOTES"), T.indexOf("async function songPeaks(")) + "; return songChordName;")();
     assert.strictEqual(nm("C", 2), "D"); assert.strictEqual(nm("Am", 3), "Cm"); assert.strictEqual(nm("F#m", -2), "Em"); assert.strictEqual(nm("A", -9), "C"); assert.strictEqual(nm("Bb", 1), "B"); assert.strictEqual(nm("G", 12), "G"); assert.strictEqual(nm("N", 3), "N"); }
   // 프롬프터: 마디·박·코드 유지 박 수·가사 자리
+  { const src = T.slice(T.indexOf("const SG_NOTES"), T.indexOf("async function songPeaks(")), f = new Function(src + "; return { songChordBars, songMeasures, songBeatPos, songBarStarts };")();   // (11/22) 마디 첫 박 밀림(2박·1박) 자동 맞춤
+    const beats = [...Array(200)].map((_, i) => i * 0.5), mk = (slip, at) => { const ch = []; for (let b = 0; b < 196; b++) { const k = b < at ? b : b + slip; if (k % 4 === 0) ch.push([beats[b], ["A", "D", "E", "F#m"][(Math.floor(k / 4)) % 4]]); } return { key: "A", beats, down: 0, chords: ch }; };
+    assert.strictEqual(f.songChordBars(mk(0, 0)), null, "밀림 없는 곡은 그대로");
+    const a2 = mk(2, 60), b2 = f.songChordBars(a2); assert.ok(b2 && b2.some((x, i) => i + 1 < b2.length && b2[i + 1] - x === 2), "2박 밀림 → 2박 마디");
+    const a1 = mk(3, 60), b1 = f.songChordBars(a1); assert.ok(b1 && b1.some((x, i) => i + 1 < b1.length && b1[i + 1] - x === 1), "1박 밀림(=3박 당겨짐) → 1박 마디");
+    const an2 = Object.assign({}, a2, { _bars: b2 }), M2 = f.songMeasures(an2, 0, null); assert.ok(M2.slice(20).every((m) => !m.chords.length || m.chords[0].b === 0), "밀림 뒤 코드가 다시 마디 첫 박");
+    assert.ok(f.songChordBars(Object.assign({}, a2, { grid: { unsure: true } })) === null, "박이 불확실한 곡은 손대지 않음"); }
   { const src = T.slice(T.indexOf("const SG_NOTES"), T.indexOf("async function songPeaks(")), f = new Function(src + "; return { songMeasures, songBeatPos };")();
     const beats = Array.from({ length: 18 }, (_, i) => +(1 + i * 0.5).toFixed(3));   // 120BPM, 1초부터 · 첫 강박 = 두 번째 박(down=1)
     const an = { beats, down: 1, chords: [[0.5, "C"], [1.5, "C"], [2.5, "Am"], [3.5, "G"], [4.0, "F"]] };
