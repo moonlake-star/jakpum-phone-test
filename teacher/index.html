@@ -1534,12 +1534,13 @@ async function openStudent(sid, tab) {
   const tabs = isTeacher(st) ? [["mk", "🪄 메이크업·커버"]] : [["lesson", "📋 레슨"], ["subs", "📝 과제"], ["growth", "📈 성장"], ["mk", "🪄 메이크업"]];   // (11/02 사용자 시안 승인) 성장 탭
   $("vStu").innerHTML = `<div class="card stuCard"><div class="stuHead"><h3>${esc(st.name)} <span class="muted">${esc(sid)}</span></h3>
       <div class="muted">${isTeacher(st) ? "선생님 본인 곡·작업" : pay ? `최근 결제 ${esc(pay.date)} · ${esc(pay.sessions)}회 묶음` : "결제 기록 없음"} · <a href="https://drive.google.com/drive/folders/${esc(st.folder)}" target="_blank" rel="noopener">드라이브 폴더</a></div></div></div>
-    ${isTeacher(st) ? "" : `<div class="row" style="margin:4px 0 0;gap:6px"><button type="button" class="small ghost" id="enrollBtn">${esc(enrollLabel(st))}</button>${payCanEdit() ? `<button type="button" class="small ghost" id="payBtn">💳 결제 기록</button>` : ""}</div>`}
+    ${isTeacher(st) ? "" : `<div class="row" style="margin:4px 0 0;gap:6px"><button type="button" class="small ghost" id="enrollBtn">${esc(enrollLabel(st))}</button>${payCanEdit() ? `<button type="button" class="small ghost" id="payBtn">💳 결제 기록</button>` : ""}${stuCanDelete(st) && payCanEdit() ? `<button type="button" class="small ghost" id="stuDelBtn" style="color:#ffb3a8;border-color:#ff8a7a">🗑 연습용 수강생 삭제</button>` : ""}</div>`}
     <div class="tabs">${tabs.map(([k, n]) => `<button class="small ${k === tab ? "on" : ""}" data-tab="${k}">${n}</button>`).join("")}</div>
     <div id="stuTab"><p class="muted">불러오는 중…</p></div>`;
   $("vStu").querySelectorAll("[data-tab]").forEach(b => b.onclick = () => openStudent(sid, b.dataset.tab));
   if ($("enrollBtn")) $("enrollBtn").onclick = () => enrollSheet(sid);
   if ($("payBtn")) $("payBtn").onclick = () => paySheet(sid, { after: () => openStudent(sid, stuCur?.tab) });
+  if ($("stuDelBtn")) $("stuDelBtn").onclick = () => deleteTestStudent(sid);
   if (!st._rows) {
     try { attach(await studentData(sid)); }
     catch (e) { $("stuTab").innerHTML = `<div class="card"><p class="muted">불러오기 실패: ${esc(errMsg(e))}</p><button class="small" id="stuRetry">다시 시도</button></div>`;
@@ -4656,6 +4657,21 @@ function payNewer(st, ls, lessonName) {   // 이 레슨 처리 뒤에 새로 넣
 }
 //#pay-end
 const payCanEdit = () => !(typeof cfg !== "undefined" && cfg?.role === "teacher") && !(typeof isDemo === "function" && isDemo());
+// (11/21 사용자 '테스트 수강생 삭제') 연습용(status test) 수강생만 지움: 설정(config)에서 빼고, 드라이브 폴더는 휴지통(30일 복구).
+//   실제 수강생은 버튼 자체가 없음(실수 방지 — 그만둔 수강생은 '수강 상태 → 그만둠').
+const stuCanDelete = (st) => st?.status === "test";
+async function deleteTestStudent(sid) {
+  const st = cfg.students[sid]; if (!stuCanDelete(st)) return toast("연습용 수강생만 지울 수 있어요");
+  if (!confirm(`연습용 수강생 ‘${st.name}’을(를) 지울까요?\n\n· 수강생 목록에서 빠져요\n· 드라이브 폴더(녹음·노트)는 휴지통으로 가고 30일 안에는 복구할 수 있어요`)) return;
+  try {
+    await cfgUpdate(l => { if (l.students?.[sid]?.status === "test") delete l.students[sid]; });   // 최신 설정에서도 연습용일 때만
+    let trashed = true; if (st.folder) { try { await api(`${DRIVE}/files/${st.folder}?fields=id`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trashed: true }) }); } catch { trashed = false; } }
+    try { const c = LS.get("vn_list") || []; LS.set("vn_list", c.filter(x => x.sid !== sid)); } catch {}
+    if (st.teacher_id && typeof staffSync === "function") staffSync(st.teacher_id).catch(() => {});
+    toast(`‘${st.name}’을(를) 지웠어요` + (trashed ? " · 폴더는 드라이브 휴지통(30일 복구)" : " · 폴더는 휴지통으로 못 보냈어요(드라이브에서 직접)"));
+    stuCur = null; renderList();
+  } catch (e) { toast(errMsg(e)); }
+}
 function paySheet(sid, opt = {}) {
   const st = cfg.students[sid]; if (!st) return;
   const today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10), d = document.createElement("div"); d.className = "attSheet";
