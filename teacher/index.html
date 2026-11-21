@@ -381,7 +381,9 @@
   /* 심플 보기: 수강생 심플 화면에 안 나오는 칸은 흐리게(숨기면 포함 체크를 못 봄 — 보통 보기에선 수강생에게 보임) */
   body.v2lv-simple .pvCard[data-v2="makeup"], body.v2lv-simple .pvCard[data-v2="cheer"], body.v2lv-simple .pvSong, body.v2lv-simple #todayCard [data-abrow="mk"] { opacity:.45; }
   .bestTag { font-size:.78rem; font-weight:700; color:var(--muted); background:#2a2f37; border-radius:10px; padding:1px 8px; margin-left:6px; vertical-align:2px; }
-  .mkrow { touch-action:pan-y; } .mkrow.mkHid { opacity:.6; } .mkMore { min-width:40px; }
+  .mkrow { touch-action:pan-y; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; } .mkrow.mkSel { background:#1f3050; border-radius:10px; } .mkChk { flex:none; font-size:1.2rem; margin-right:6px; color:var(--accent); } .mkChk + span { flex:1; min-width:0; text-align:left; }
+  #mkSelBar { position:fixed; left:0; right:0; bottom:0; z-index:46; background:var(--card); border-top:1.5px solid var(--accent); box-shadow:0 -4px 14px rgba(0,0,0,.4); padding:10px 14px calc(12px + env(safe-area-inset-bottom)); } #mkSelBar .in { max-width:760px; margin:0 auto; }
+  body:has(#mkSelBar) #brTipBar { display:none; } .mkrow.mkHid { opacity:.6; } .mkMore { min-width:40px; }
   #v3 { position:fixed; inset:0; z-index:60; background:var(--bg); overflow-y:auto; -webkit-overflow-scrolling:touch; } body.v3On { overflow:hidden; } body.v3On.miniOn #v3 { bottom:calc(128px + env(safe-area-inset-bottom)); }
   #v3 .v3in { max-width:760px; margin:0 auto; padding:10px 14px 40px; } #v3 .v3top { display:flex; align-items:center; gap:8px; margin:2px 0 10px; } #v3 .v3top b { font-size:1.05rem; }
   #v3 .tg { display:inline-flex; align-items:center; font-size:.8rem; font-weight:700; border-radius:12px; padding:2px 9px; background:var(--chip); color:#cfd5dc; white-space:nowrap; } #v3 .tg.on { background:#1d3a2a; color:var(--ok); }
@@ -727,7 +729,7 @@ window.addEventListener("popstate", (e) => {
     homeBackAt = Date.now(); toast("한 번 더 뒤로 밀면 앱이 닫혀요"); try { Brand.backToBase(); } catch {}
   }
 });
-function show(view) { syncBackHistory(view); try { if (document.getElementById("v3")) v3Close(true); document.querySelectorAll(".v3sheet").forEach(x => x.remove()); } catch {}   // (코덱스 P1) 화면이 바뀌면 새 검수 화면·고치기 창도 닫음(이전 레슨 글이 다른 레슨에 들어가지 않게)
+function show(view) { syncBackHistory(view); if (view !== "vStu") document.getElementById("mkSelBar")?.remove(); try { if (document.getElementById("v3")) v3Close(true); document.querySelectorAll(".v3sheet").forEach(x => x.remove()); } catch {}   // (코덱스 P1) 화면이 바뀌면 새 검수 화면·고치기 창도 닫음(이전 레슨 글이 다른 레슨에 들어가지 않게)
   try { Brand.bar(); } catch {} for (const v of VIEWS) $(v).classList.toggle("hidden", v !== view); try { $("v2Dock")?.classList.add("hidden"); document.body.classList.remove("v2send"); document.getElementById("v2Ai")?.remove(); } catch {} $("btnBack").classList.toggle("hidden", ["vLogin","vList"].includes(view)); if (view !== "vMkJob") { mkStop?.(); stopProg?.(); } if (view !== "vSongs" && view !== "vMkJob") { try { songDestroy(); } catch {} try { if (songLy) { const l = songLy; songLy = null; l.close(); } } catch {} } if (view !== "vJam") { try { jamStop(); clearTimeout(jam.poll); } catch {} } window.scrollTo(0,0); }
 
 // ── 구글 로그인 · 드라이브 ───────────────────────────────
@@ -1525,6 +1527,7 @@ let stuCur = null;
 async function openStudent(sid, tab) {
   const st = cfg.students[sid];
   tab = tab || (isTeacher(st) ? "mk" : (stuCur?.sid === sid ? stuCur.tab : "lesson"));
+  if (stuCur?.sid !== sid || tab !== "mk") { const o = stuCur && cfg.students[stuCur.sid]; if (o) o._mkSel = null; document.getElementById("mkSelBar")?.remove(); }   // (11/21) 다른 탭·수강생으로 가면 여러 곡 고르기 끝
   stuCur = { sid, tab }; goBack = () => renderList(); show("vStu");
   const pay = (st.payments || []).slice(-1)[0];
   const tabs = isTeacher(st) ? [["mk", "🪄 메이크업·커버"]] : [["lesson", "📋 레슨"], ["subs", "📝 과제"], ["growth", "📈 성장"], ["mk", "🪄 메이크업"]];   // (11/02 사용자 시안 승인) 성장 탭
@@ -5070,32 +5073,79 @@ function growthLine(st) {   // 레슨 탭 맨 위 한 줄 → 누르면 성장 �
 const MK_BUSY = ["queued", "working", "waiting_download"];
 const mkVisible = (jobs, showHidden) => (jobs || []).map((j, i) => ({ j, i })).filter(x => showHidden ? !!x.j.req?.hidden_at : !x.j.req?.hidden_at);
 const mkCanDelete = (j) => !MK_BUSY.includes(j?.req?.status);
+// (11/21 사용자 '길게 누르면 여러 개 선택, 일괄 숨김·삭제') 고른 곡 묶음 → 할 수 있는 것만(만드는 중 제외)
+function mkBatchPlan(jobs, selIds) { const pick = (jobs || []).filter(j => selIds.has(j.folder?.id)); return { ok: pick.filter(mkCanDelete), busy: pick.filter(j => !mkCanDelete(j)) }; }
 //#mkdel-end
 function paintMakeupTab(sid) {
   const st = cfg.students[sid], jobs = st._jobs || [], showHidden = !!st._mkShowHidden;
   const stTxt = { waiting_download: "서버가 받는 중 🔗", queued: "대기 중 ⏳", working: "만드는 중 ⚙️", done: "완료", error: "실패", canceled: "취소됨" };
   const vis = mkVisible(jobs, false), hid = mkVisible(jobs, true), list = showHidden ? hid : vis;
-  const row = ({ j, i }) => `<div class="lesson mkrow${showHidden ? " mkHid" : ""}" data-i="${i}"><span>${esc(j.req.title || j.folder.name)}${j.req.lesson_folder ? ` <span class="muted">(레슨 구간)</span>` : ""}</span>
+  const sel = st._mkSel instanceof Set ? st._mkSel : null;
+  const row = ({ j, i }) => `<div class="lesson mkrow${showHidden ? " mkHid" : ""}${sel?.has(j.folder.id) ? " mkSel" : ""}" data-i="${i}">${sel ? `<span class="mkChk" aria-hidden="true">${sel.has(j.folder.id) ? "☑" : "☐"}</span>` : ""}<span>${esc(j.req.title || j.folder.name)}${j.req.lesson_folder ? ` <span class="muted">(레슨 구간)</span>` : ""}</span>
       <span class="row" style="gap:6px;flex-wrap:nowrap"><span class="chip ${j.req.status === "done" ? "ok" : j.req.status === "error" ? "todo" : ""}">${MK_BUSY.slice(0, 2).includes(j.req.status) ? (j.req.progress?.pct ?? 0) + "% " : ""}${stTxt[j.req.status] || j.req.status}${j.req.sent_at ? " · 보냄" : ""}</span><button type="button" class="small ghost mkMore" data-mkm="${i}" aria-label="${esc(j.req.title || j.folder.name)} 정리(숨기기·삭제)">⋯</button></span></div>`;
   $("stuTab").innerHTML = (jobs.length ? `<div class="card jobs"><h3 style="margin-top:0">🎵 커버·메이크업한 곡 <span class="muted" style="font-size:.85rem;font-weight:400">${showHidden ? `숨긴 곡 ${hid.length}곡` : `${vis.length}곡`}</span></h3>`
       + (list.length ? list.map(row).join("") : `<p class="muted">${showHidden ? "숨긴 곡이 없어요" : "보이는 곡이 없어요"}</p>`)
-      + `<p class="muted" style="margin:8px 0 0;font-size:.85rem">곡을 왼쪽으로 밀거나 ⋯를 누르면 숨기기·삭제${hid.length || showHidden ? ` · <a href="#" id="mkHidT">${showHidden ? "보이는 곡으로" : `숨긴 곡 ${hid.length}개 보기`}</a>` : ""}</p></div>` : "") +
+      + `<p class="muted" style="margin:8px 0 0;font-size:.85rem">곡을 왼쪽으로 밀거나 ⋯를 누르면 숨기기·삭제 · 길게 누르면 여러 곡 고르기${hid.length || showHidden ? ` · <a href="#" id="mkHidT">${showHidden ? "보이는 곡으로" : `숨긴 곡 ${hid.length}개 보기`}</a>` : ""}</p></div>` : "") +
     `<div id="mkHabit"></div><div id="mkRun"></div><div id="mkQ"></div>`;   // (11/15 사용자 시안) 여러 곡 담기 대기열 + 이번에 맡긴 곡 상태
   paintHabit(sid); mkQPaint(sid); mkRunPaint(sid);
+  mkSelBar(sid);
   if ($("mkHidT")) $("mkHidT").onclick = (e) => { e.preventDefault(); st._mkShowHidden = !showHidden; paintMakeupTab(sid); };
+  const toggle = (j) => { if (!mkCanDelete(j)) return toast("만드는 중인 곡은 고를 수 없어요"); const S = st._mkSel; if (S.has(j.folder.id)) S.delete(j.folder.id); else S.add(j.folder.id); paintMakeupTab(sid); };
   $("stuTab").querySelectorAll(".mkrow").forEach(el => {
-    el.onclick = (e) => { if (e.target.closest(".mkMore") || el._swiped) { el._swiped = false; return; } openMkJob(jobs[+el.dataset.i], () => openStudent(sid, "mk")); };
-    let x0 = null, y0 = null;   // 왼쪽으로 밀기(60px 이상, 세로 스크롤보다 가로가 클 때)
-    el.addEventListener("touchstart", (e) => { const t = e.touches[0]; x0 = t.clientX; y0 = t.clientY; el.style.transition = ""; }, { passive: true });
-    el.addEventListener("touchmove", (e) => { if (x0 == null) return; const t = e.touches[0], dx = t.clientX - x0, dy = t.clientY - y0; if (dx < -10 && Math.abs(dx) > Math.abs(dy)) el.style.transform = `translateX(${Math.max(dx, -90)}px)`; }, { passive: true });
-    el.addEventListener("touchend", (e) => { if (x0 == null) return; const t = e.changedTouches[0], dx = t.clientX - x0, dy = t.clientY - y0; x0 = null;
+    const j = jobs[+el.dataset.i];
+    el.onclick = (e) => { if (e.target.closest(".mkMore") || el._swiped || el._long) { el._swiped = false; el._long = false; return; }
+      if (st._mkSel instanceof Set) return toggle(j);   // 고르기 중엔 누르면 선택/해제
+      openMkJob(j, () => openStudent(sid, "mk")); };
+    let x0 = null, y0 = null, lt = null;   // 왼쪽으로 밀기(60px 이상) · 길게 누르기(0.5초) = 여러 곡 고르기 시작
+    const cancelLong = () => { clearTimeout(lt); lt = null; };
+    el.addEventListener("touchstart", (e) => { const t = e.touches[0]; x0 = t.clientX; y0 = t.clientY; el.style.transition = "";
+      cancelLong(); lt = setTimeout(() => { lt = null; x0 = null; el._long = true; try { navigator.vibrate?.(25); } catch {}
+        if (!(st._mkSel instanceof Set)) st._mkSel = new Set(); if (mkCanDelete(j)) st._mkSel.add(j.folder.id); else toast("만드는 중인 곡은 고를 수 없어요"); paintMakeupTab(sid); }, 500); }, { passive: true });
+    el.addEventListener("touchmove", (e) => { if (x0 == null) return; const t = e.touches[0], dx = t.clientX - x0, dy = t.clientY - y0;
+      if (Math.hypot(dx, dy) > 8) cancelLong();
+      if (!(st._mkSel instanceof Set) && dx < -10 && Math.abs(dx) > Math.abs(dy)) el.style.transform = `translateX(${Math.max(dx, -90)}px)`; }, { passive: true });
+    el.addEventListener("touchend", (e) => { cancelLong(); if (x0 == null) return; const t = e.changedTouches[0], dx = t.clientX - x0, dy = t.clientY - y0; x0 = null;
       el.style.transition = "transform .18s"; el.style.transform = "";
-      if (dx < -60 && Math.abs(dx) > Math.abs(dy) * 1.5) { el._swiped = true; mkDelSheet(sid, jobs[+el.dataset.i]); } });
+      if (!(st._mkSel instanceof Set) && dx < -60 && Math.abs(dx) > Math.abs(dy) * 1.5) { el._swiped = true; mkDelSheet(sid, j); } });
+    el.addEventListener("touchcancel", cancelLong);
+    el.addEventListener("contextmenu", (e) => e.preventDefault());   // 길게 누를 때 폰 메뉴 안 뜨게
   });
   $("stuTab").querySelectorAll("[data-mkm]").forEach(b => b.onclick = (e) => { e.stopPropagation(); mkDelSheet(sid, jobs[+b.dataset.mkm]); });
   clearTimeout(window._mkPoll);
   if (jobs.some(j => MK_BUSY.includes(j.req.status)))
-    window._mkPoll = setTimeout(() => { if (stuCur?.sid === sid && stuCur.tab === "mk" && !$("vStu").classList.contains("hidden") && !mkQBusy && !document.getElementById("mkSh") && !document.getElementById("mkDel") && !document.activeElement?.closest?.("#stuTab")) openStudent(sid, "mk"); }, 15000);
+    window._mkPoll = setTimeout(() => { if (stuCur?.sid === sid && stuCur.tab === "mk" && !$("vStu").classList.contains("hidden") && !mkQBusy && !document.getElementById("mkSh") && !document.getElementById("mkDel") && !document.getElementById("mkSelBar") && !document.activeElement?.closest?.("#stuTab")) openStudent(sid, "mk"); }, 15000);
+}
+function mkSelBar(sid) {   // 고르기 중 화면 아래 막대: N곡 · 숨기기(또는 다시 보이기) · 삭제 · 취소
+  document.getElementById("mkSelBar")?.remove();
+  const st = cfg.students[sid]; if (!(st._mkSel instanceof Set) || stuCur?.sid !== sid || stuCur?.tab !== "mk") return;
+  const n = st._mkSel.size, hid = !!st._mkShowHidden, b = document.createElement("div"); b.id = "mkSelBar";
+  b.innerHTML = `<div class="in"><b>${n}곡 선택</b><span class="muted" style="font-size:.85rem"> · 곡을 누르면 고르기/빼기</span>
+    <div class="row" style="gap:6px;margin-top:6px"><button type="button" class="small" id="mkBHide"${n ? "" : " disabled"}>${hid ? "다시 보이기" : "숨기기"}</button><button type="button" class="small" id="mkBDel" style="background:#5a2323;color:#ffd6d6;border:1.5px solid #ff8a7a"${n ? "" : " disabled"}>모두 삭제</button><button type="button" class="small ghost" id="mkBAll">전부 고르기</button><button type="button" class="small ghost" id="mkBNo">취소</button></div></div>`;
+  document.body.appendChild(b);
+  const done = () => { st._mkSel = null; b.remove(); paintMakeupTab(sid); };
+  $("mkBNo").onclick = done;
+  $("mkBAll").onclick = () => { for (const { j } of mkVisible(st._jobs, hid)) if (mkCanDelete(j)) st._mkSel.add(j.folder.id); paintMakeupTab(sid); };
+  $("mkBHide").onclick = () => mkBatch(sid, hid ? "show" : "hide", done);
+  $("mkBDel").onclick = () => mkBatch(sid, "trash", done);
+}
+async function mkBatch(sid, act, done) {
+  const st = cfg.students[sid], { ok, busy } = mkBatchPlan(st._jobs, st._mkSel || new Set());
+  if (!ok.length) return toast(busy.length ? "만드는 중인 곡은 처리할 수 없어요" : "고른 곡이 없어요");
+  if (act === "trash" && !confirm(`고른 ${ok.length}곡의 모든 파일을 지울까요?\n\n곡 폴더째 구글 드라이브 휴지통으로 가고, 30일 안에는 드라이브 휴지통에서 복구할 수 있어요.`)) return;
+  document.querySelectorAll("#mkSelBar button").forEach(x => { x.disabled = true; });
+  let good = 0; const fail = [];
+  for (const j of ok) {
+    try {
+      if (act === "trash") { await api(`${DRIVE}/files/${j.folder.id}?fields=id`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trashed: true }) });
+        st._jobs = (st._jobs || []).filter(x => x.folder?.id !== j.folder.id); }
+      else { const r = { ...j.req }; if (act === "show") delete r.hidden_at; else r.hidden_at = new Date().toISOString(); await writeJSON(j.folder.id, MKREQ, r, j.reqId); j.req = r; }
+      good++;
+    } catch (e) { fail.push(j.req.title || j.folder.name); }
+  }
+  if (act === "trash") try { const gone = new Set(ok.map(j => j.folder.id)); const c = LS.get("vn_list") || []; LS.set("vn_list", c.map(x => x.sid === sid ? { ...x, jobs: (x.jobs || []).filter(y => !gone.has(y.folder?.id)) } : x)); } catch {}
+  const what = { trash: "휴지통으로 보냈어요(30일 안엔 드라이브에서 복구 가능)", hide: "목록에서 숨겼어요", show: "다시 보이게 했어요" }[act];
+  toast(`${good}곡 ${what}` + (fail.length ? ` · ${fail.length}곡 실패: ${fail.slice(0, 2).join(", ")}` : "") + (busy.length ? ` · 만드는 중 ${busy.length}곡은 그대로` : ""));
+  done();
 }
 function mkDelSheet(sid, j) {
   if (!j) return; document.getElementById("mkDel")?.remove();
