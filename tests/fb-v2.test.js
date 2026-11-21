@@ -33,6 +33,11 @@ assert.equal(F.fbDropField(dr, "고음이 안정됐어요"), "points"); assert.d
 assert.equal(F.fbFieldOf(dr, "립트릴"), "practice"); assert.equal(F.fbDropField({ points: ["x"] }, "x"), null, "옛 형식은 칸을 안 건드림");
 assert.ok(/if \(j < 0 && fbDropField\(rv, key\)\) \{ delete rv\.sent_ok\[key\];/.test(T), "빠른 점검 빼기");
 assert.ok(/if \(act === "fix" && fbFieldOf\(rv, key\)\)/.test(T), "상세 점검 고치기 → 카드");
+// (4단계에서 발견) 새 형식 노트는 미션이 글에 없어도 '서로 달라요'로 막히지 않음
+const mc = new Function(T.match(/function missionConsistent\(note\) \{[\s\S]*?\n\}\n/)[0] + "return missionConsistent;")();
+assert.equal(mc({ fb_v: 2, feedback: "글만", practice: ["립트릴 3분"] }), true, "새 형식: 미션은 칸에만 → 통과");
+assert.equal(mc({ fb_v: 2, feedback: "글\n이번 주 연습\n· x", practice: ["x"] }), false, "새 형식인데 글에 목록 제목이 남아 있으면 불일치");
+assert.equal(mc({ feedback: "글만", practice: ["립트릴 3분"] }), false, "옛 형식 규칙은 그대로");
 // ③ 근거 확인 대상
 const ct = F.fbCheckText({ fb_v: 2, feedback: "글", points: ["고음 음정이 안정됐어요"], practice: ["립트릴"], no_mission: false });
 assert.ok(ct.includes("· 고음 음정이 안정됐어요") && ct.includes("· 립트릴"), "칸으로 옮긴 문장도 확인 대상");
