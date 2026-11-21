@@ -515,6 +515,7 @@
 #dkPr .prM.on{background:#1f1a00;border-top:3px solid #FFE066;border-bottom:3px solid #FFE066}#dkPr .prM.sel{border-top:3px solid #4DD0E1;border-bottom:3px solid #4DD0E1}
 #dkPr .prNo{position:absolute;left:.5em;top:.1em;font-size:calc(var(--u)*1.1);color:#8c8c8c;white-space:nowrap}#dkPr .prNo b{color:#fff;margin-left:.3em}#dkPr .prBt{position:absolute;top:calc(var(--u)*1.4);font-size:calc(var(--u)*1);font-weight:700;color:#8c8c8c;padding-left:.5em}#dkPr .prBt.p1{color:#e8e8e8}
 #dkPr .prLn{position:absolute;top:calc(var(--u)*2.8);bottom:.4em;width:0;border-left:2px dashed #444}
+#dkSh .shB2{display:inline-block;margin-left:.4em;padding:0 .3em;border-radius:4px;border:1px solid #888;color:#666;font-size:.85em;font-weight:800;line-height:1.3}#dkSh .shPaper.dk .shB2{color:#bbb;border-color:#777}
 #dkSh .shWb{display:inline-block;margin-left:.4em;padding:0 .35em;border-radius:4px;background:#1565c0;color:#fff;font-size:max(11px,calc(var(--f)*13px));font-weight:800;line-height:1.35;vertical-align:1px;white-space:nowrap}#dkSh .shWbB .shWbAdd{margin:0 0 0 .5em;min-height:0;height:28px;padding:0 10px;border-radius:8px;border:2px solid #1565c0;background:#fff;color:#0d47a1;font-weight:800;font-size:.85rem;vertical-align:middle}#dkSh .shPaper.dk .shWbB{background:#0d2a4a;color:#cfe3ff}#dkSh .shPaper.dk .shWbB a{color:#cfe3ff}#dkSh .shWa{position:absolute;inset:0;z-index:7;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center}#dkSh .shWaB{width:100%;max-width:560px;max-height:90%;overflow:auto;box-sizing:border-box;background:#0b0b0b;color:#fff;border:3px solid #4DD0E1;border-radius:14px 14px 0 0;padding:12px 14px;display:flex;flex-direction:column;gap:8px}#dkSh .shWaB b{color:#4DD0E1;font-size:1.05rem}#dkSh .shWaB p{margin:0;font-size:.8rem;color:#b8b8b8}#dkSh .shWaB label{display:flex;flex-direction:column;gap:4px;font-size:.8rem;color:#b8b8b8}#dkSh .shWaB input,#dkSh .shWaB textarea{box-sizing:border-box;width:100%;border-radius:10px;border:2px solid #555;background:#111;color:#fff;font-size:1rem;padding:8px 10px;margin:0}#dkSh .shWaB textarea{font-family:ui-monospace,Menlo,Consolas,monospace}#dkSh .shWaR{display:flex;gap:6px;justify-content:flex-end}#dkSh .shWaR button{min-height:0;height:38px;padding:0 14px;margin:0;border-radius:10px;border:2px solid #b8b8b8;background:#000;color:#fff;font-weight:700}#dkSh .shWaR button.on{background:#4DD0E1;border-color:#4DD0E1;color:#000}
 #dkSh .shWbB{margin:0 0 8px;padding:6px 10px;border-radius:8px;background:#e3f2fd;color:#0d47a1;font-size:.85rem;font-weight:700}#dkSh .shWbB a{color:#0d47a1}#dkSh .shEp .shWh{color:#90caf9}#dkSh .shEp .shWh button{margin:0 0 0 .5em;min-height:0;height:28px;padding:0 10px;border-radius:8px;border:2px solid #90caf9;background:#000;color:#90caf9;font-weight:700}
 #dkSh .shM.ck .shL{outline:2px solid #e53935;outline-offset:1px;border-radius:4px;min-height:1.4em}#dkSh .shCk{display:inline-block;margin-left:.4em;padding:0 .35em;border-radius:4px;background:#e53935;color:#fff;font-size:.85em;font-weight:800;line-height:1.35;vertical-align:1px}#dkSh .shCkB{margin:0 0 8px;padding:6px 10px;border-radius:8px;background:#fdecea;color:#b71c1c;font-size:.85rem;font-weight:700}#dkSh .shN{position:relative}#dkSh .shBm{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none}#dkSh .shBm i{position:absolute;top:50%;transform:translateY(-50%);font-style:normal;display:inline-flex;align-items:center;justify-content:center;width:1.3em;height:1.3em;border-radius:50%;border:1px solid #666;color:#555;font-size:.85em;line-height:1;font-weight:700;background:inherit}#dkSh .shPaper.dk .shBm i{border-color:#9aa0a8;color:#c3c8cf}#dkSh .shC .cq,#dkPr .prCh .cq{font-size:.62em;font-weight:800;margin-left:.04em}#dkPr .prCh{font-family:"Roboto Condensed","Arial Narrow","Helvetica Neue Condensed","Avenir Next Condensed",sans-serif-condensed,"Noto Sans KR",sans-serif;font-stretch:condensed}#dkPr .prCh{position:absolute;top:calc(var(--u)*2.5);font-size:calc(var(--u)*3.3);font-weight:900;line-height:1.1;color:#FFE066;white-space:nowrap;z-index:1}#dkPr .prUl{position:absolute;top:calc(var(--u)*6.3);height:calc(var(--u)*.4);border-radius:4px;background:#FFE066;opacity:.85}
@@ -6694,7 +6695,7 @@ function songPaintList0() {
     const pl = row.querySelector(".slPl"); if (pl) { const ids = stemIds(x.d); if (!ids) { pl.innerHTML = `<p class="muted">파일 정보가 없어요</p>`; return; }
       if (keep && keep.folder === x.folder) { pl.appendChild(keep.el); return; }
       const auto = songLib.auto === x.folder; if (auto) songLib.auto = null;   // 한 번만(20초 갱신·다시 그리기로는 재시작 안 함)
-      songDeck(pl, ids, { folder: x.folder, autoplay: auto, dur: +x.d.dur || 0, bpm: +x.d.bpm || 0, wave: x.d.wave, lyrics: x.d.lyrics, artist: x.d.artist, analysis: x.d.analysis, keys: x.d.keys, keyReq: x.d.key_req, fileId: x.fileId, edits: x.d.edits, sections: x.d.sections, lyrics_words: x.d.lyrics_words, web_chart: x.d.web_chart, web_user: x.d.web_user,
+      songDeck(pl, ids, { folder: x.folder, autoplay: auto, dur: +x.d.dur || 0, bpm: +x.d.bpm || 0, wave: x.d.wave, lyrics: x.d.lyrics, artist: x.d.artist, analysis: x.d.analysis, keys: x.d.keys, keyReq: x.d.key_req, fileId: x.fileId, edits: x.d.edits, sections: x.d.sections, lyrics_words: x.d.lyrics_words, web_chart: x.d.web_chart, web_user: x.d.web_user, bars: x.d.bars, onBars: (v) => { const cx = songLib.list.find(y => y.folder === x.folder) || x; cx.d.bars = v || null; },
         onWebUser: async (v) => { const cx = songLib.list.find(y => y.folder === x.folder) || x; const ids = [];   // (11/22 사용자) 선생님이 찾은 악보 넣기: 그림·PDF는 곡 폴더에 올리고 song.json web_user에 기록 → 노트북이 읽어 대조
           for (const [k, f] of (v.files || []).entries()) { const ext = (/\.([a-z0-9]{2,5})$/i.exec(f.name || "") || [, f.type === "application/pdf" ? "pdf" : "jpg"])[1]; ids.push(await uploadFile(cx.folder, `악보_${Date.now()}_${k + 1}.${ext}`, f)); }
           const cur = await readJSON(cx.fileId).catch(() => null), base = cur && typeof cur === "object" ? cur : cx.d;
@@ -7115,7 +7116,8 @@ function songLineStarts(ly, V) {   // (11/20 사용자 '여기 안 맞다고 얘
   const starts = []; for (let i = 0; i < n; i++) if (on[i]) { let q = true; for (let k = Math.max(0, i - 4); k < i; k++) if (on[k]) q = false; if (q) starts.push(i * 0.1); }   // 0.4초 넘게 조용했다가 시작한 곳
   const sy = ly.map((x) => songSyll(String(x[1]))), N = ly.length, ts = ly.map((x) => +x[0]);
   const rs = []; for (let i = 0; i + 1 < N; i++) { const v = vsec(ts[i], ts[i + 1]); if (v > 0.8 && sy[i] > 0) rs.push(sy[i] / v); } if (rs.length < 3) return null; rs.sort((a, b) => a - b); const rate = Math.max(1.2, Math.min(6, rs[Math.floor(rs.length / 2)]));
-  const cand = ly.map((_, i) => { const c = starts.filter((s) => s >= ts[i] - 6 && s <= ts[i] + 4).map((s) => ({ t: s, u: Math.min(Math.abs(s - ts[i]), 6) * 0.6 })); c.push({ t: ts[i], u: 2.5 }); return c; });
+  const cand = ly.map((_, i) => { const quiet = vsec(ts[i] - 0.2, ts[i] + 1.2) < 0.2, hi = quiet ? Math.max(ts[i] + 4, Math.min(ts[i] + 12, i + 1 < N ? ts[i + 1] - 1 : ts[i] + 12)) : ts[i] + 4;   // (11/22 You Needed Me 첫 줄이 전주 11.5초에 찍혀 있고 노래는 17.4초부터) 줄 시각이 조용한 곳이면 다음 줄 앞까지 더 멀리 찾고, 조용한 원래 시각은 큰 감점
+    const c = starts.filter((s) => s >= ts[i] - 6 && s <= hi).map((s) => ({ t: s, u: Math.min(Math.abs(s - ts[i]), 6) * (quiet && s > ts[i] ? 0.25 : 0.6) })); c.push({ t: ts[i], u: quiet ? 6 : 2.5 }); return c; });
   let prev = cand[0].map((c) => ({ c, cost: c.u, from: -1 })), back = [prev];
   for (let i = 1; i < N; i++) { const cur = cand[i].map((c) => { let best = null; prev.forEach((p, pi) => { if (c.t < p.c.t + 0.6) return; const exp = sy[i - 1] / rate, dv = vsec(p.c.t, c.t), r = Math.abs(Math.log((dv + 0.3) / (exp + 0.3))), cost = p.cost + 1.2 * r + c.u; if (!best || cost < best.cost) best = { c, cost, from: pi }; }); return best; }).map((x, k) => x || { c: cand[i][k], cost: 1e9, from: 0 });
     back.push(cur); prev = cur; }
@@ -7160,6 +7162,30 @@ function songTapFlash(play) {   // (11/20) 화면 가운데 반투명 원 + ▶(
     if (a) a.onfinish = () => el.remove(); else setTimeout(() => el.remove(), 700);
   } catch {}
 }
+function songBarStarts(an) {   // 마디마다 시작 박 번호 — 보통은 첫 박부터 4박씩 · (11/22) 2박 마디가 끼인 곡은 an._bars
+  const B = (an && an.beats) || [], dn = (an && an.down) || 0;
+  if (an && Array.isArray(an._bars) && an._bars.length) return an._bars;
+  const out = []; for (let s = dn; s < B.length; s += 4) out.push(s); return out;
+}
+function songBarOfBeat(an, x) { const S = songBarStarts(an); let lo = 0, hi = S.length - 1; if (!S.length || x < S[0]) return 0; while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (S[mid] <= x) lo = mid; else hi = mid - 1; } return lo; }
+function songLyricBars(an, lyrics, lw) {   // (11/22 사용자 You Needed Me '가사 타이밍이 엉망') 4박으로만 자르면 2박 마디가 낀 곡은 후렴 가사가 통째로 마디 한가운데에서 시작함
+  // 곡마다 가사 줄이 시작하는 박 자리는 다름(Stumblin' In은 2박 근처 등) → 그 곡 자신의 기준 자리(처음 나오는 촘촘한 묶음)에서 정확히 2박(±0.4) 어긋난 촘촘한 줄 묶음(3줄 이상)이 나오면 그 앞에 2박 마디를 끼움.
+  // 박 자체가 불확실한 곡(grid.unsure)·강제 정렬 줄이 적은 곡은 손대지 않음. 고칠 게 없으면 null.
+  const B = (an && an.beats) || [], dn = (an && an.down) || 0; if (B.length < dn + 16 || !Array.isArray(lw) || !Array.isArray(lyrics) || (an.grid && an.grid.unsure)) return null;
+  const bi = (t) => { let lo = 0, hi = B.length - 1; while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (B[mid] <= t) lo = mid; else hi = mid - 1; } const k = Math.min(lo, B.length - 2), len = B[k + 1] - B[k] || 0.5; return k + (t - B[k]) / len; };
+  const xs = []; lyrics.forEach((L, i) => { const fw = lw[i], w = String(L[1] || "").trim().split(/\s+/).filter(Boolean); if (Array.isArray(fw) && fw.length === w.length && typeof fw[0] === "number" && Math.abs(fw[0] - L[0]) < 0.05) xs.push(bi(fw[0])); });
+  xs.sort((a, b) => a - b); if (xs.length < 8) return null;
+  const ph = (x) => (((x - dn) % 4) + 4) % 4, cd = (a, b) => { const d = (((a - b) % 4) + 4) % 4; return Math.min(d, 4 - d); }, cmean = (qs) => { let c = 0, z = 0; qs.forEach((q) => { c += Math.cos(q * Math.PI / 2); z += Math.sin(q * Math.PI / 2); }); let m = Math.atan2(z, c) * 2 / Math.PI; return m < 0 ? m + 4 : m; };
+  const runs = []; let cur = [];   // 촘촘한 묶음: 묶음 평균에서 0.45박 안
+  xs.forEach((x) => { const q = ph(x); if (cur.length && cd(q, cmean(cur.map(ph))) > 0.45) { runs.push(cur); cur = []; } cur.push(x); }); if (cur.length) runs.push(cur);
+  const kept = runs.filter((r) => r.length >= 3); if (kept.length < 2) return null;
+  const ref = cmean(kept[0].map(ph)), chg = []; let shift = 0;
+  kept.slice(1).forEach((r) => { const q = (((cmean(r.map(ph)) - shift) % 4) + 4) % 4, d = (((q - ref) % 4) + 4) % 4; if (d >= 1.6 && d <= 2.4) { chg.push(r[0]); shift += 2; } });
+  if (!chg.length) return null;
+  const out = []; let s = dn, ci = 0, ins = 0;
+  while (s < B.length) { while (ci < chg.length && chg[ci] < s) ci++; if (ci < chg.length && chg[ci] < s + 4) { const off = chg[ci] - s; ci++; if (off >= 1.25) { out.push(s); s += 2; ins++; continue; } } out.push(s); s += 4; }
+  return ins ? out : null;
+}
 function songMeasures(an, n, lyrics, voc, lw) {   // lw: (11/20) 서버 강제 정렬이 준 줄마다 낱말 시작 시각(song.json lyrics_words) — 있으면 추측 대신 그대로 씀
   const B = (an && an.beats) || [], dn = (an && an.down) || 0, ch = ((an && an.chords) || []).slice().sort((a, b) => a[0] - b[0]), ly = (lyrics || []).map((x, i) => [x[0], x[1], Array.isArray(lw) ? lw[i] : null]).sort((a, b) => a[0] - b[0]), V = voc ? songVoiced(voc) : null;
   if (B.length < dn + 4) return [];
@@ -7175,8 +7201,9 @@ function songMeasures(an, n, lyrics, voc, lw) {   // lw: (11/20) 서버 강제 �
     w.forEach((x, j) => { ev.push({ t: L0 + span * acc / W, x, i }); acc += wt[j]; }); });
   ev = songLineSnap(ev.filter((e) => !e.fa), B, dn).concat(ev.filter((e) => e.fa)); ev.sort((x, y) => x.t - y.t);   // (11/21) 강제 정렬 낱말 시각은 줄 시작 정리(최대 1.75박 이동)를 하지 않음 — Stumblin' In 대조: shown·things가 한 마디 밀리던 원인
   const out = []; let ci = -1, li = 0;
-  for (let s = dn, k = 0; s < B.length; s += 4, k++) {
-    const last = B[B.length - 1] + (B[B.length - 1] - B[B.length - 2]), t0 = B[s], t1 = s + 4 < B.length ? B[s + 4] : last, m = { no: k + 1, t0, t1, chords: [], lyrics: [], beats: Math.min(4, B.length - s) };
+  const BS = songBarStarts(an);
+  for (let k = 0; k < BS.length; k++) { const s = BS[k], se = k + 1 < BS.length ? BS[k + 1] : s + 4;
+    const last = B[B.length - 1] + (B[B.length - 1] - B[B.length - 2]), t0 = B[s], t1 = se < B.length ? B[se] : last, m = { no: k + 1, t0, t1, chords: [], lyrics: [], beats: Math.min(se - s, B.length - s) };
     let prev = null;
     for (let b = 0; b < m.beats; b++) {
       while (ci + 1 < ch.length && ch[ci + 1][0] <= B[s + b] + 0.01) ci++;
@@ -7186,9 +7213,9 @@ function songMeasures(an, n, lyrics, voc, lw) {   // lw: (11/20) 서버 강제 �
     m.chords.forEach((c, i) => { c.len = (i + 1 < m.chords.length ? m.chords[i + 1].b : m.beats) - c.b; });
     songChordTidy(m);
     let lastI = -1;   // 같은 줄에서 이어진 낱말은 한 덩어리로
-    const lead = s + 4 < B.length ? Math.min(0.4, 0.35 * (t1 - t0) / 4) : 0, firstOf = (q) => q === 0 || ev[q - 1].i !== ev[q].i;   // (11/20 사용자 '가사가 한 마디씩 앞서') 줄의 첫 낱말이 다음 마디 첫 박 0.35박 안쪽 앞에서 시작하면 노래가 첫 박에 걸어 들어가는 것 → 다음 마디에서 시작(줄 중간 낱말은 11/19 규칙 그대로 앞 마디)
-    const tol = s + 4 < B.length ? 0.15 * (t1 - t0) / 4 : 0;   // (11/21 사용자 Stumblin' In 직접 수정과 대조) 다음 마디 첫 박 0.15박 안쪽 앞은 강제 정렬 오차 → 다음 마디 · 그보다 앞서 시작한 낱말은 마디에 걸쳐도 앞 마디(사용자 규칙)
-    while (li < ev.length && ev[li].t < t1 - Math.max(firstOf(li) ? lead : 0, tol)) { const e = ev[li], raw = (e.t - t0) / (t1 - t0) * 4, pos = Math.max(0, Math.min(3.9, raw)), l = m.lyrics[m.lyrics.length - 1];
+    const lead = se < B.length ? Math.min(0.4, 0.35 * (t1 - t0) / m.beats) : 0, firstOf = (q) => q === 0 || ev[q - 1].i !== ev[q].i;   // (11/20 사용자 '가사가 한 마디씩 앞서') 줄의 첫 낱말이 다음 마디 첫 박 0.35박 안쪽 앞에서 시작하면 노래가 첫 박에 걸어 들어가는 것 → 다음 마디에서 시작(줄 중간 낱말은 11/19 규칙 그대로 앞 마디)
+    const tol = se < B.length ? 0.15 * (t1 - t0) / m.beats : 0;   // (11/21 사용자 Stumblin' In 직접 수정과 대조) 다음 마디 첫 박 0.15박 안쪽 앞은 강제 정렬 오차 → 다음 마디 · 그보다 앞서 시작한 낱말은 마디에 걸쳐도 앞 마디(사용자 규칙)
+    while (li < ev.length && ev[li].t < t1 - Math.max(firstOf(li) ? lead : 0, tol)) { const e = ev[li], raw = (e.t - t0) / (t1 - t0) * m.beats, pos = Math.max(0, Math.min(m.beats - 0.1, raw)), l = m.lyrics[m.lyrics.length - 1];
       // (11/19 사용자 '앞마디·뒷마디 사이에 걸친 낱말은 앞마디') 한 규칙: 낱말은 소리가 시작하는 마디에 둠 — 시작이 마디 끝 박 근처여도 뒤 마디로 밀지 않음
       if (l && lastI === e.i) l.text += (e.cont ? "" : " ") + e.x; else m.lyrics.push({ b: pos, text: e.x, nf: !e.fa }); lastI = e.i; li++; }
     out.push(m);
@@ -7204,7 +7231,9 @@ function songBeatPos(an, t) {   // 재생 시각 → {m: 마디 번호(0부터),
   const B = (an && an.beats) || [], dn = (an && an.down) || 0; if (B.length < 2) return { m: 0, b: 0 };
   let lo = 0, hi = B.length - 1; while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (B[mid] <= t) lo = mid; else hi = mid - 1; }
   const nx = B[Math.min(lo + 1, B.length - 1)], fr = nx > B[lo] ? Math.max(0, Math.min(1, (t - B[lo]) / (nx - B[lo]))) : 0, idx = lo + fr - dn;
-  return idx < 0 ? { m: 0, b: 0 } : { m: Math.floor(idx / 4), b: idx % 4 };
+  if (idx < 0) return { m: 0, b: 0 };
+  if (an && an._bars) { const k = songBarOfBeat(an, idx + dn); return { m: k, b: Math.max(0, idx + dn - an._bars[k]) }; }   // (11/22) 2박 마디가 낀 곡
+  return { m: Math.floor(idx / 4), b: idx % 4 };
 }
 // (11/14 사용자 시안 D) 프롬프터 직접 수정: 코드는 글자로 입력('D' · 'Bm Em' = 1·3박 · 'G A@2' = 박 지정) · 수정은 원곡 키 기준으로 저장해서 키를 바꿔도 따라감
 const SG_PER = 20;   // 한 쪽 5줄 × 4마디
@@ -7215,7 +7244,7 @@ const SG_CK_CONF = 0.7, SG_CK_MAX = 0.25, SG_CK_TOP = 10;
 function songCheckBars(M, an) {
   const B = (an && an.beats) || [], dn = (an && an.down) || 0, bc = (an && an.beat_conf) || [], out = new Map();
   const lyN = M.reduce((p, m) => p + m.lyrics.length, 0), lyF = M.reduce((p, m) => p + m.lyrics.filter((l) => !l.nf).length, 0), faOk = lyN > 0 && lyF / lyN >= 0.5;
-  M.forEach((m, i) => { if (m.edited) return; const s0 = dn + 4 * i, why = []; let sc = 0;
+  const BS = songBarStarts(an); M.forEach((m, i) => { if (m.edited) return; const s0 = BS[i] != null ? BS[i] : dn + 4 * i, why = []; let sc = 0;
     if (bc.length) { const cs = bc.slice(s0, s0 + Math.max(1, m.beats || 4)).filter((x) => typeof x === "number"); if (cs.length) { const mn = Math.min(...cs); if (mn < SG_CK_CONF) { why.push("코드"); sc += SG_CK_CONF - mn + 0.3; } } }
     if (faOk && m.lyrics.some((l) => l.nf)) { why.push("가사 위치"); sc += 0.2; }
     if (why.length) out.set(i, { why, sc }); });
@@ -7250,7 +7279,9 @@ function songFmtChords(chords) {   // 마디의 코드 목록 → 입력 글자
 }
 function songApplyEdits(M, ED, n) {   // ED = { 마디번호(0부터): { ch: [[박(1~4), 원곡 키 코드]], ly: 글자 } }
   return M.map((m, i) => { const e = ED && ED[i]; if (!e) return m; const r = Object.assign({}, m, { edited: true });
-    if (Array.isArray(e.ch) && e.ch.length) r.chords = e.ch.map((c, k, a) => ({ b: c[0] - 1, name: songChordName(c[1], n), len: (k + 1 < a.length ? a[k + 1][0] : 5) - c[0] }));
+    if (Array.isArray(e.ch) && e.ch.length) { const mb = m.beats || 4, sc = mb < 4 ? (b) => Math.min(mb - 1, Math.floor(b * mb / 4)) : (b) => b;   // (11/22 검토) 2박 마디: 1·3박 입력을 1·2박으로 줄임(칸 밖으로 안 나가게)
+      const cs = e.ch.map((c) => ({ b: sc(c[0] - 1), name: songChordName(c[1], n) })).filter((c, k, a) => k + 1 >= a.length || a[k + 1].b !== c.b);
+      cs.forEach((c, k) => { c.len = (k + 1 < cs.length ? cs[k + 1].b : mb) - c.b; }); r.chords = cs; }
     if (typeof e.ly === "string") r.lyrics = e.ly.trim() ? [{ b: 0, text: e.ly }] : [];
     return r; });
 }
@@ -7280,11 +7311,12 @@ function songChordsOfRow(CN, mi, beats) {   // 한 마디의 박별 이름 → [
   const ch = []; let prev = null; for (let b = 0; b < beats; b++) { const nm = CN[mi * 4 + b]; if (nm && (b === 0 || nm !== prev)) ch.push([b + 1, nm]); prev = nm; } return ch;
 }
 function songLaneEvents(AN, CHORDS, ED, M0) {   // 파형 위 코드 줄 목록 {t, name(원곡 키), f: 0 분석 · 1 직접 고침 · 2 자동으로 같이 고침}
+  const BS = songBarStarts(AN);   // (11/22 검토) 2박 마디가 낀 곡: 4칸 기준 번호 → 실제 박
   const has = (e) => e && Array.isArray(e.ch) && e.ch.length;
   if (!ED || !Object.keys(ED).some((k) => has(ED[k]))) return CHORDS.map((c) => ({ t: c[0], name: c[1], f: 0 }));
   const B = AN.beats, dn = AN.down || 0, t0 = B[dn], ev = CHORDS.filter((c) => c[0] < t0 - 0.01).map((c) => ({ t: c[0], name: c[1], f: 0 }));
   let prev; songBeatNames(songApplyEdits(M0, ED, 0)).forEach((nm, k) => { if (nm === undefined) return;
-    if (nm && nm !== prev) { const e = ED[k >> 2]; ev.push({ t: B[dn + k], name: nm, f: has(e) ? (e.auto ? 2 : 1) : 0 }); } prev = nm; });
+    if (nm && nm !== prev) { const e = ED[k >> 2], bk = BS[k >> 2] != null ? BS[k >> 2] + (k & 3) : dn + k; ev.push({ t: B[Math.min(B.length - 1, bk)], name: nm, f: has(e) ? (e.auto ? 2 : 1) : 0 }); } prev = nm; });
   return ev;
 }
 function songSecList(total, secs) {   // 구간 이름 목록 → [{name,start,len}] · 이름이 없으면 8마디씩 '구간 N'
@@ -7524,7 +7556,12 @@ function songDeck(el, ids, o) {
   const blob = (k) => (me.blob[k] ||= readBlob(ids[k], false, true).catch((e) => { delete me.blob[k]; throw e; }));
   const AN = o.analysis && o.analysis.key ? o.analysis : null, CHORDS = AN && Array.isArray(AN.chords) && AN.chords.length ? AN.chords : null; let keyN = 0, keyWant = 0, keyBusy = false, kd = o.keys || {}, kReq = Array.isArray(o.keyReq) ? o.keyReq.slice() : [];
   if (CHORDS) Q("dkWv").style.height = "152px";
-  let ED = JSON.parse(JSON.stringify(o.edits && typeof o.edits === "object" ? o.edits : {})); const M0 = AN ? songMeasures(AN, 0, null) : []; let LE = CHORDS ? songLaneEvents(AN, CHORDS, ED, M0) : [];   // 코드 고침은 프롬프터와 같은 기록(ED)
+  let ED = JSON.parse(JSON.stringify(o.edits && typeof o.edits === "object" ? o.edits : {}));
+  const bmark = (e) => { if (AN && AN._bars && e && typeof e === "object") e.bm = 1; return e; };   // (11/22) 2박 마디 기준으로 고친 마디 표시
+  if (AN) { delete AN._bars; const eds = Object.values(ED || {}).filter((e) => e && typeof e === "object"), hasSec = Array.isArray(o.sections) && o.sections.length;   // (11/22 검토) 마디 목록은 song.json bars에 저장 · 고친 뒤엔 그대로 고정(가사 정렬이 다시 만들어져도 마디 번호가 안 밀리게)
+    if (eds.length || hasSec) { if (Array.isArray(o.bars) && o.bars.length) AN._bars = o.bars; }   // 4박 기준으로 이미 고친 곡(bars 없음)은 4박 그대로
+    else { try { const bs = songLyricBars(AN, o.lyrics, o.lyrics_words); if (bs) AN._bars = bs; } catch {} } }
+  const M0 = AN ? songMeasures(AN, 0, null) : []; let LE = CHORDS ? songLaneEvents(AN, CHORDS, ED, M0) : [];   // 코드 고침은 프롬프터와 같은 기록(ED)
   const saveED = () => { clearTimeout(me.edT); me.edT = setTimeout(() => { me.edT = 0; try { o.onEdits && o.onEdits(ED); } catch {} }, 700); };
   let rate = 1, rep = false, A = null, B = null, vp = 0, lastP = 0, lastT = 0, raf = 0, drag = null, glide = null, wave = o.wave && o.wave.mr && o.wave.voc ? o.wave : null, mrV = m0;
   const eng = me.eng = stretchEngine({ vol: v0, boost: boostPref2(), html: true, focus: (on, lost) => Brand.focusHold?.("song", on, lost), onPause: () => { if (alive()) { Q("sgPb").textContent = "▶"; kick_(); } }, fetchBuf: async (k) => (await blob(k)).arrayBuffer(),
@@ -7677,7 +7714,7 @@ function songDeck(el, ids, o) {
       d.appendChild(ep); const ci = ep.querySelector("#prCi"), li = ep.querySelector("#prLi"), si = ep.querySelector("#prSi"), hint = ep.querySelector("#prCh");
       ci.value = songFmtChords(m.chords); li.value = m.lyrics.map((y) => y.text).join(" "); const cs = SEC.find((x) => x[0] === i); si.value = cs ? cs[1] : "";
       const hintUp = () => { const p = songParseChords(ci.value); hint.style.color = p.bad.length ? "#ff8a80" : "#b8b8b8"; hint.textContent = p.bad.length ? "알 수 없는 입력: " + p.bad.join(" ") : p.ch.length ? p.ch.map((c) => c[0] + "박 " + c[1]).join(" · ") : "코드를 입력하세요"; }; hintUp();
-      const ci0 = ci.value, apply = () => { const e = Object.assign({}, ED[i] || {}), p = songParseChords(ci.value); if (ci.value !== ci0) { delete e.auto; delete e.g; if (p.ch.length) e.ch = p.ch.map((c) => [c[0], songChordName(c[1], capoOf() - keyN)]); } e.ly = li.value; ED[i] = e; save(); refresh(); };
+      const ci0 = ci.value, apply = () => { const e = Object.assign({}, ED[i] || {}), p = songParseChords(ci.value); if (ci.value !== ci0) { delete e.auto; delete e.g; if (p.ch.length) e.ch = p.ch.map((c) => [c[0], songChordName(c[1], capoOf() - keyN)]); } e.ly = li.value; ED[i] = bmark(e); save(); refresh(); };
       ci.oninput = () => { hintUp(); apply(); }; li.oninput = apply;
       si.oninput = () => { SEC = SEC.filter((x) => x[0] !== i); if (si.value.trim()) SEC.push([i, si.value.trim()]); save(); refreshSec(); };
       const k = (e) => { if (e.key === "Enter") closeEdit(); }; ci.onkeydown = li.onkeydown = si.onkeydown = k;
@@ -7720,7 +7757,7 @@ function songDeck(el, ids, o) {
   };
   // 카포: 추천 창에서 고르면 화면(프롬프터·A4 악보·PDF)의 코드가 그 카포의 '잡는 모양'으로 바뀌고 키 표시에 '카포 N'이 붙음 — 소리 키는 그대로
   const capoOf = () => shiftOf(), baseMeas = () => songApplyEdits(songMeasures(AN, keyN, o.lyrics, o.wave && o.wave.voc, o.lyrics_words), ED, keyN), autoSec = () => { try { return songAutoSections(baseMeas(), wave, o.lyrics); } catch { return []; } };
-  const WEBM = (() => { const w = o.web_chart, mk = w && w.best && w.marks; if (!mk || !Array.isArray(mk.diff) || !AN) return null; const dn = AN.down || 0, by = new Map(); mk.diff.forEach(([k, n]) => { const i = Math.floor((+k - dn) / 4); if (i < 0) return; const a = by.get(i) || []; if (!a.includes(n)) a.push(n); by.set(i, a); }); return { by, url: w.best.url, title: w.best.title || "" }; })();   // (11/22 사용자 '인터넷 악보 참고 표시') 일꾼이 고른 인터넷 악보와 소리 결과가 다른 마디
+  const WEBM = (() => { const w = o.web_chart, mk = w && w.best && w.marks; if (!mk || !Array.isArray(mk.diff) || !AN) return null; const dn = AN.down || 0, by = new Map(); mk.diff.forEach(([k, n]) => { const i = AN._bars ? songBarOfBeat(AN, +k) : Math.floor((+k - dn) / 4); if (i < 0) return; const a = by.get(i) || []; if (!a.includes(n)) a.push(n); by.set(i, a); }); return { by, url: w.best.url, title: w.best.title || "" }; })();   // (11/22 사용자 '인터넷 악보 참고 표시') 일꾼이 고른 인터넷 악보와 소리 결과가 다른 마디
   const webShow = (n) => { const k = capoOf(), t = songChordName(n, keyN); return k ? songFlat(songChordName(t, -k)) : t; }, webRoot = (n) => { const m = /^([A-G][#b]?)/.exec(songChordName(n, 0) || ""); return m ? m[1] : ""; };
   const webAt = (m, i) => { if (!WEBM || !m || m.edited) return []; const a = WEBM.by.get(i) || [], have = new Set(m.chords.map((c) => webRoot(c.name))); return a.map(webShow).filter((n) => !have.has(webRoot(n))); };   // 선생님이 고친 마디·이미 같은 뿌리음이 있는 마디는 표시 안 함
   const showM = (M) => { const k = capoOf(); return k ? M.map((m) => Object.assign({}, m, { chords: m.chords.map((c) => Object.assign({}, c, { name: songFlat(songChordName(c.name, -k)) })) })) : M; };
@@ -7818,7 +7855,7 @@ function songDeck(el, ids, o) {
       const LY = segLay(), sp = LY.w, tot = LY.W, W = R.clientWidth || 300;
       [...R.children].forEach((b, k) => { b.classList.toggle("on", k === cur); b.style.flex = sp[k] + " 1 0"; const t = W * sp[k] / tot >= 14 + 9 * [...SL[k].name].length * 0.9 ? SL[k].name : segAbbr(SL[k].name); if (b.textContent !== t) b.textContent = t; b.title = SL[k].name; });
     };
-    const saveEd = () => { me.sec = secs(); clearTimeout(sv); sv = setTimeout(flushEd, 700); }, flushEd = () => { sv = 0; try { o.onEdits && o.onEdits(ED); } catch {} try { o.onSections && o.onSections(me.sec || secs()); } catch {} };
+    const saveEd = () => { me.sec = secs(); clearTimeout(sv); sv = setTimeout(flushEd, 700); }, flushEd = () => { sv = 0; try { o.onBars && o.onBars(AN && AN._bars ? AN._bars : null); } catch {} try { o.onEdits && o.onEdits(ED); } catch {} try { o.onSections && o.onSections(me.sec || secs()); } catch {} };
     const closeShEdit = (back) => { const i0 = sel; sel = -1; if (ep) { ep.remove(); ep = null; } d.querySelectorAll(".shM.sel").forEach((e) => e.classList.remove("sel"));
       if (back === true && i0 >= 0) requestAnimationFrame(() => { const c = d.querySelector(`.shM[data-i="${i0}"]`), sc = d.querySelector(".shScroll"); if (!c || !sc) return; const r = c.getBoundingClientRect(), s0 = sc.getBoundingClientRect(); if (r.top < s0.top + s0.height * 0.2 || r.bottom > s0.top + s0.height * 0.7) sc.scrollTop += (r.top + r.height / 2) - (s0.top + s0.height * 0.4); }); };   // (11/19 사용자 '완료하면 화면이 너무 아래로') 완료하면 고친 마디가 화면 위쪽 40% 자리에 오게
     let lastCK = null; const redo0 = () => { try { build(); } catch {} };
@@ -7854,9 +7891,9 @@ function songDeck(el, ids, o) {
       ci.value = songFmtChords(m.chords); li.value = m.lyrics.map((y) => y.text).join(" "); { const cs = secs().find((x) => x[0] === i); si.value = cs ? cs[1] : ""; }
       const hintUp = () => { const q = songParseChords(ci.value, pvCh()); hint.style.color = q.bad.length ? "#ff8a80" : "#b8b8b8"; hint.textContent = q.bad.length ? "알 수 없는 입력: " + q.bad.join(" ") : q.ch.length ? [1, 2, 3, 4].map((b) => { const c = q.ch.find((x) => x[0] === b); return b + "박 " + (c ? c[1] : "·"); }).join("  |  ") : "코드를 입력하세요"; }; hintUp();   // (11/21) 박마다 한 칸: 1박 Bm | 2박 · | 3박 Em | 4박 Em/D
       const redo = () => { build(); const c2 = d.querySelector(`.shM[data-i="${i}"]`); if (c2) c2.classList.add("sel"); };
-      const ci0 = ci.value, apply = () => { const e = Object.assign({}, ED[i] || {}), q = songParseChords(ci.value, pvCh()); if (ci.value !== ci0) { delete e.auto; delete e.g; if (q.ch.length) e.ch = q.ch.map((c) => [c[0], songChordName(c[1], capoOf() - keyN)]); } e.ly = li.value; ED[i] = e; saveEd(); redo(); };
+      const ci0 = ci.value, apply = () => { const e = Object.assign({}, ED[i] || {}), q = songParseChords(ci.value, pvCh()); if (ci.value !== ci0) { delete e.auto; delete e.g; if (q.ch.length) e.ch = q.ch.map((c) => [c[0], songChordName(c[1], capoOf() - keyN)]); } e.ly = li.value; ED[i] = bmark(e); saveEd(); redo(); };
       ci.oninput = () => { hintUp(); apply(); }; { const wb = ep.querySelector("#shWi"); if (wb) wb.onclick = () => { ci.value = webAt(m, i).join(" "); ci.oninput(); ci.focus(); }; } li.oninput = apply; si.oninput = () => { const a = secs().filter((x) => x[0] !== i); if (si.value.trim()) a.push([i, si.value.trim()]); me.sec = a; saveEd(); redo(); };
-      const done = () => { if (lastCK && lastCK.has(i) && !(ED[i] && (ED[i].ch || typeof ED[i].ly === "string" || ED[i].ok))) { ED[i] = Object.assign({}, ED[i] || {}, { ok: 1 }); saveEd(); } closeShEdit(true); if (lastCK && lastCK.has(i)) redo0(); };   // (11/21 사용자 '확인 필요 마디를 확인하고 완료를 눌러도 표시가 안 사라짐') 고칠 게 없어도 완료 = 선생님 확인(ok) → 표시 사라짐
+      const done = () => { if (lastCK && lastCK.has(i) && !(ED[i] && (ED[i].ch || typeof ED[i].ly === "string" || ED[i].ok))) { ED[i] = bmark(Object.assign({}, ED[i] || {}, { ok: 1 })); saveEd(); } closeShEdit(true); if (lastCK && lastCK.has(i)) redo0(); };   // (11/21 사용자 '확인 필요 마디를 확인하고 완료를 눌러도 표시가 안 사라짐') 고칠 게 없어도 완료 = 선생님 확인(ok) → 표시 사라짐
       const k = (e) => { if (e.key === "Enter") done(); }; ci.onkeydown = li.onkeydown = si.onkeydown = k; ep.querySelector("#shOk").onclick = done;
       const go = (j) => { if (j < 0 || j >= M.length) return; closeShEdit(); openShEdit(j); const c = d.querySelector(`.shM[data-i="${j}"]`), sc = d.querySelector(".shScroll"); if (c && sc && ep) { const r = c.getBoundingClientRect(), s0 = sc.getBoundingClientRect(), top = ep.getBoundingClientRect().top; if (r.top < s0.top + 8 || r.bottom > top - 8) sc.scrollTop += r.top - (s0.top + Math.max(8, (top - s0.top) * 0.3)); } };   // (11/21 사용자 '수정 창에서 앞 마디·뒷 마디로 이동하는 버튼') 창을 닫지 않고 옆 마디로 · 그 마디가 수정 창에 가리지 않게 스크롤
       const kb = () => { if (!ep) return; const vv = window.visualViewport, k0 = vv ? Math.max(0, window.innerHeight - vv.height - vv.offsetTop) : 0; ep.style.bottom = (8 + k0) + "px";   // (11/21 사용자 '수정 창을 위로 올리면 손이 멀어 불편') 창은 아래 그대로 · 키보드가 뜨면 키보드 바로 위로(선택 손잡이가 키보드에 안 가림)
@@ -7903,6 +7940,7 @@ function songDeck(el, ids, o) {
         const ch = document.createElement("div"); ch.className = "shC"; for (const x of m.chords) { const e = document.createElement("span"); e.dataset.l = String(x.b / Math.max(1, m.beats) * 100); songChordFill(e, x.name); ch.appendChild(e); }
         const ly = document.createElement("div"); ly.className = "shL"; ly.textContent = m.lyrics.map((y) => y.text).join(" "); { const b0 = songLyStart(m); if (b0) ly.dataset.b = String(b0 / Math.max(1, m.beats || 4)); }   // 첫 가사를 부르기 시작하는 박 자리에서 시작(TV 화면과 같게) — 자리는 fitChords에서 잡음
         { const wn = webAt(m, i); if (wn.length) { const t = document.createElement("span"); t.className = "shWb"; t.textContent = "🌐 " + wn.join(" "); t.title = "인터넷 악보에는 " + wn.join(" ") + " — 참고용(길게 눌러 넣을 수 있어요)"; n.appendChild(t); } }
+        if (m.beats && m.beats !== 4 && i + 1 < M.length) { const t = document.createElement("span"); t.className = "shB2"; t.textContent = m.beats + "박"; t.title = "이 곡은 여기에 " + m.beats + "박짜리 마디가 끼어 있어요(가사 줄 시작으로 찾음)"; n.appendChild(t); }
         if (CK.has(i)) { const k = CK.get(i); c.classList.add("ck"); const t = document.createElement("span"); t.className = "shCk"; t.textContent = "확인 필요"; t.title = k.why.join("·") + " 자동 인식이 불확실 — 길게 눌러 고치면 표시가 사라져요"; n.appendChild(t); }   // 가사 칸 빨간 테두리 + '확인 필요'
         c.append(n, ch, ly); if (i === sel) c.classList.add("sel"); cellGesture(c, { tap: () => tapCell(i === 0 ? 0 : m.t0), dbl: () => playFrom(i === 0 ? 0 : m.t0), long: () => openShEdit(i) }); G.appendChild(c); });
       G0.forEach((x) => paper.appendChild(x)); paper.appendChild(G); fitChords(); paper.style.minHeight = ""; if (!d._fitRs) { let tm = 0; d._fitRs = () => { if (!d.isConnected) { window.removeEventListener("resize", d._fitRs); return; } clearTimeout(tm); tm = setTimeout(fitChords, 200); }; window.addEventListener("resize", d._fitRs); } if (scEl) scEl.scrollTop = st0; on = -1; sub(); };
@@ -7984,7 +8022,7 @@ $("#shFsX").onclick = () => setFs(false); $("#shFsP").onclick = () => Q("sgPb").
       const manualBeat = (m1) => ED[m1] && ED[m1].ch && ED[m1].ch.length && !ED[m1].auto;
       const ranges = [[a, z, false]]; if (chk.checked && nm0) songSimilarRanges(ON, a, z, (s1, e1) => { for (let m1 = s1 >> 2; m1 <= (e1 - 1) >> 2; m1++) if (manualBeat(m1)) return true; return false; }).forEach((r) => ranges.push([r[0], r[1], true]));
       let CN2 = CN; const kind = new Map(); ranges.forEach(([s1, e1, au]) => { CN2 = songRenameBeats(CN2, s1, e1, nameO); for (let m1 = s1 >> 2; m1 <= (e1 - 1) >> 2; m1++) if (!(kind.get(m1) === false)) kind.set(m1, au); });
-      kind.forEach((au, m1) => { const ch = songChordsOfRow(CN2, m1, M0[m1] ? M0[m1].beats : 4); if (!ch.length) return; const e2 = Object.assign({}, ED[m1] || {}, { ch, g: g1 }); if (au) e2.auto = 1; else delete e2.auto; ED[m1] = e2; });
+      kind.forEach((au, m1) => { const ch = songChordsOfRow(CN2, m1, M0[m1] ? M0[m1].beats : 4); if (!ch.length) return; const e2 = Object.assign({}, ED[m1] || {}, { ch, g: g1 }); if (au) e2.auto = 1; else delete e2.auto; ED[m1] = bmark(e2); });
       saveED(); LE = songLaneEvents(AN, CHORDS, ED, M0); draw(); const n = ranges.length - 1; toast(`고쳤어요${n ? ` · 비슷한 ${n}곳도 같이 고침(보라색)` : ""}`); shut(); };
     $c("#ceOk").onclick = apply; ci.onkeydown = (e) => { if (e.key === "Enter") apply(); }; $c("#ceX").onclick = shut;
     $c("#ceUn").onclick = () => { Object.keys(ED).forEach((k) => { const e2 = ED[k]; if (gid && e2.g === gid) { delete e2.ch; delete e2.g; delete e2.auto; if (!Object.keys(e2).length) delete ED[k]; } }); saveED(); LE = songLaneEvents(AN, CHORDS, ED, M0); draw(); toast("이 고침을 되돌렸어요(같이 고친 곳 포함)"); shut(); };
