@@ -45,7 +45,7 @@ console.log("v3-review OK");
   assert.equal(mc({ feedback: "글\n다음 미션\n· 립트릴", practice: ["립트릴"] }), true, "옛 형식: 같은 내용이면 통과");
   assert.ok(/if \(!copied\) \{ toast\("복사가 안 됐어요/.test(T), "복사 실패면 보냄 표시 안 함");
   assert.ok(/me\._v3KkPrev = snap;/.test(T) && /if \(!ok\) \{ const put = /.test(T), "되돌리기는 원래 값으로 · 저장 실패면 표시 되돌림");
-  assert.ok(/function show\(view\) \{ syncBackHistory\(view\); try \{ if \(document\.getElementById\("v3"\)\) v3Close\(true\);/.test(T), "화면이 바뀌면 새 검수 화면 닫힘");
+  assert.ok(/function show\(view\) \{ syncBackHistory\(view\);[^\n]*try \{ if \(document\.getElementById\("v3"\)\) v3Close\(true\);/.test(T), "화면이 바뀌면 새 검수 화면 닫힘");
   assert.ok(/if \(cur !== me \|\| !document\.getElementById\("v3"\)\) \{ close\(\); return toast\("다른 레슨으로 바뀌어서/.test(T), "고치기 창은 다른 레슨이면 적용 안 함");
 }
 console.log("v3-review follow-up OK");
