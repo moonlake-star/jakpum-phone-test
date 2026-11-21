@@ -381,6 +381,7 @@
   /* 심플 보기: 수강생 심플 화면에 안 나오는 칸은 흐리게(숨기면 포함 체크를 못 봄 — 보통 보기에선 수강생에게 보임) */
   body.v2lv-simple .pvCard[data-v2="makeup"], body.v2lv-simple .pvCard[data-v2="cheer"], body.v2lv-simple .pvSong, body.v2lv-simple #todayCard [data-abrow="mk"] { opacity:.45; }
   .bestTag { font-size:.78rem; font-weight:700; color:var(--muted); background:#2a2f37; border-radius:10px; padding:1px 8px; margin-left:6px; vertical-align:2px; }
+  .mkrow { touch-action:pan-y; } .mkrow.mkHid { opacity:.6; } .mkMore { min-width:40px; }
   #v3 { position:fixed; inset:0; z-index:60; background:var(--bg); overflow-y:auto; -webkit-overflow-scrolling:touch; } body.v3On { overflow:hidden; } body.v3On.miniOn #v3 { bottom:calc(128px + env(safe-area-inset-bottom)); }
   #v3 .v3in { max-width:760px; margin:0 auto; padding:10px 14px 40px; } #v3 .v3top { display:flex; align-items:center; gap:8px; margin:2px 0 10px; } #v3 .v3top b { font-size:1.05rem; }
   #v3 .tg { display:inline-flex; align-items:center; font-size:.8rem; font-weight:700; border-radius:12px; padding:2px 9px; background:var(--chip); color:#cfd5dc; white-space:nowrap; } #v3 .tg.on { background:#1d3a2a; color:var(--ok); }
@@ -1381,7 +1382,8 @@ function paintList(data, stale) {
     const pend = (d.subs || []).filter(x => !x.replied_at).length;
     if (pend) todo.push({ k: "subs", sid: d.sid, t: `🎙 ${st.name} · 과제 답장`, c: `${pend}개` });
     (d.jobs || []).forEach(j => {
-      if (["queued", "working"].includes(j.req.status)) todo.push({ k: "job", sid: d.sid, reqId: j.reqId, t: `🪄 ${st.name} · ${j.req.title}`, c: `${j.req.progress?.pct ?? 0}% 만드는 중` });
+      if (j.req.hidden_at) { /* (11/21) 숨긴 곡은 할 일에 안 띄움 */ }
+      else if (["queued", "working"].includes(j.req.status)) todo.push({ k: "job", sid: d.sid, reqId: j.reqId, t: `🪄 ${st.name} · ${j.req.title}`, c: `${j.req.progress?.pct ?? 0}% 만드는 중` });
       else if (j.req.status === "done" && j.req.notify === "best_change" && !j.req.sent_at && daysAgo(j.req.done_at) <= 14) todo.push({ k: "job", sid: d.sid, reqId: j.reqId, bell: true, t: `🔔 ${st.name} · ${String(j.req.title || "").slice(0, 10)} 바꾼 베스트 보정 완료`, c: "확인하기" });   // (10/30 22:11 사용자) 새로 고른 베스트 보정이 끝나면 알림
       else if (j.req.status === "done" && !j.req.sent_at && daysAgo(j.req.done_at) <= 7) todo.push({ k: "job", sid: d.sid, reqId: j.reqId, t: `🪄 ${st.name} · ${j.req.title}`, c: "완성 · 들어보기" });
     });
@@ -5061,17 +5063,67 @@ function growthLine(st) {   // 레슨 탭 맨 위 한 줄 → 누르면 성장 �
   const hab = m ? (Math.abs(m.dev) < 3 ? "음정 중심 잘 맞음" : `살짝 ${m.dev < 0 ? "낮게" : "높게"}`) : "";
   return `<button type="button" class="card grLine" id="grGo">📈 정확도 <b>${Math.round(b * 100)}%</b>${S.length > 1 && d ? ` <span class="${d > 0 ? "up" : "down"}">${d > 0 ? "▲" : "▼"}${Math.abs(d)}%p</span>` : ""}${hab ? ` · 습관: ${esc(hab)}` : ""}<span class="muted" style="margin-left:auto">성장 ▸</span></button>`;
 }
+//#mkdel-begin
+// (11/21 사용자 '리스트에서만 삭제, 모든 파일 삭제 — 삭제 버튼 또는 옆으로 밀면 고르게') 커버·메이크업 곡 정리.
+//   목록에서만 숨기기 = 요청 파일(메이크업요청.json)에 hidden_at만 기록(파일은 그대로, '숨긴 곡'에서 다시 보이기).
+//   모든 파일 삭제 = 그 곡 폴더째 구글 드라이브 휴지통(30일 안에는 드라이브 휴지통에서 복구 가능). 만드는 중인 곡은 둘 다 막음.
+const MK_BUSY = ["queued", "working", "waiting_download"];
+const mkVisible = (jobs, showHidden) => (jobs || []).map((j, i) => ({ j, i })).filter(x => showHidden ? !!x.j.req?.hidden_at : !x.j.req?.hidden_at);
+const mkCanDelete = (j) => !MK_BUSY.includes(j?.req?.status);
+//#mkdel-end
 function paintMakeupTab(sid) {
-  const st = cfg.students[sid], jobs = st._jobs || [];
+  const st = cfg.students[sid], jobs = st._jobs || [], showHidden = !!st._mkShowHidden;
   const stTxt = { waiting_download: "서버가 받는 중 🔗", queued: "대기 중 ⏳", working: "만드는 중 ⚙️", done: "완료", error: "실패", canceled: "취소됨" };
-  $("stuTab").innerHTML = (jobs.length ? `<div class="card jobs"><h3 style="margin-top:0">🎵 커버·메이크업한 곡 <span class="muted" style="font-size:.85rem;font-weight:400">${jobs.length}곡</span></h3>` + jobs.map((j, i) => `<div class="lesson mkrow" data-i="${i}"><span>${esc(j.req.title || j.folder.name)}${j.req.lesson_folder ? ` <span class="muted">(레슨 구간)</span>` : ""}</span>
-      <span class="chip ${j.req.status === "done" ? "ok" : j.req.status === "error" ? "todo" : ""}">${["queued", "working"].includes(j.req.status) ? (j.req.progress?.pct ?? 0) + "% " : ""}${stTxt[j.req.status] || j.req.status}${j.req.sent_at ? " · 보냄" : ""}</span></div>`).join("") + `</div>` : "") +
+  const vis = mkVisible(jobs, false), hid = mkVisible(jobs, true), list = showHidden ? hid : vis;
+  const row = ({ j, i }) => `<div class="lesson mkrow${showHidden ? " mkHid" : ""}" data-i="${i}"><span>${esc(j.req.title || j.folder.name)}${j.req.lesson_folder ? ` <span class="muted">(레슨 구간)</span>` : ""}</span>
+      <span class="row" style="gap:6px;flex-wrap:nowrap"><span class="chip ${j.req.status === "done" ? "ok" : j.req.status === "error" ? "todo" : ""}">${MK_BUSY.slice(0, 2).includes(j.req.status) ? (j.req.progress?.pct ?? 0) + "% " : ""}${stTxt[j.req.status] || j.req.status}${j.req.sent_at ? " · 보냄" : ""}</span><button type="button" class="small ghost mkMore" data-mkm="${i}" aria-label="${esc(j.req.title || j.folder.name)} 정리(숨기기·삭제)">⋯</button></span></div>`;
+  $("stuTab").innerHTML = (jobs.length ? `<div class="card jobs"><h3 style="margin-top:0">🎵 커버·메이크업한 곡 <span class="muted" style="font-size:.85rem;font-weight:400">${showHidden ? `숨긴 곡 ${hid.length}곡` : `${vis.length}곡`}</span></h3>`
+      + (list.length ? list.map(row).join("") : `<p class="muted">${showHidden ? "숨긴 곡이 없어요" : "보이는 곡이 없어요"}</p>`)
+      + `<p class="muted" style="margin:8px 0 0;font-size:.85rem">곡을 왼쪽으로 밀거나 ⋯를 누르면 숨기기·삭제${hid.length || showHidden ? ` · <a href="#" id="mkHidT">${showHidden ? "보이는 곡으로" : `숨긴 곡 ${hid.length}개 보기`}</a>` : ""}</p></div>` : "") +
     `<div id="mkHabit"></div><div id="mkRun"></div><div id="mkQ"></div>`;   // (11/15 사용자 시안) 여러 곡 담기 대기열 + 이번에 맡긴 곡 상태
   paintHabit(sid); mkQPaint(sid); mkRunPaint(sid);
-  $("stuTab").querySelectorAll(".mkrow").forEach(el => el.onclick = () => openMkJob(jobs[+el.dataset.i], () => openStudent(sid, "mk")));
+  if ($("mkHidT")) $("mkHidT").onclick = (e) => { e.preventDefault(); st._mkShowHidden = !showHidden; paintMakeupTab(sid); };
+  $("stuTab").querySelectorAll(".mkrow").forEach(el => {
+    el.onclick = (e) => { if (e.target.closest(".mkMore") || el._swiped) { el._swiped = false; return; } openMkJob(jobs[+el.dataset.i], () => openStudent(sid, "mk")); };
+    let x0 = null, y0 = null;   // 왼쪽으로 밀기(60px 이상, 세로 스크롤보다 가로가 클 때)
+    el.addEventListener("touchstart", (e) => { const t = e.touches[0]; x0 = t.clientX; y0 = t.clientY; el.style.transition = ""; }, { passive: true });
+    el.addEventListener("touchmove", (e) => { if (x0 == null) return; const t = e.touches[0], dx = t.clientX - x0, dy = t.clientY - y0; if (dx < -10 && Math.abs(dx) > Math.abs(dy)) el.style.transform = `translateX(${Math.max(dx, -90)}px)`; }, { passive: true });
+    el.addEventListener("touchend", (e) => { if (x0 == null) return; const t = e.changedTouches[0], dx = t.clientX - x0, dy = t.clientY - y0; x0 = null;
+      el.style.transition = "transform .18s"; el.style.transform = "";
+      if (dx < -60 && Math.abs(dx) > Math.abs(dy) * 1.5) { el._swiped = true; mkDelSheet(sid, jobs[+el.dataset.i]); } });
+  });
+  $("stuTab").querySelectorAll("[data-mkm]").forEach(b => b.onclick = (e) => { e.stopPropagation(); mkDelSheet(sid, jobs[+b.dataset.mkm]); });
   clearTimeout(window._mkPoll);
-  if (jobs.some(j => ["queued", "working", "waiting_download"].includes(j.req.status)))
-    window._mkPoll = setTimeout(() => { if (stuCur?.sid === sid && stuCur.tab === "mk" && !$("vStu").classList.contains("hidden") && !mkQBusy && !document.getElementById("mkSh") && !document.activeElement?.closest?.("#stuTab")) openStudent(sid, "mk"); }, 15000);
+  if (jobs.some(j => MK_BUSY.includes(j.req.status)))
+    window._mkPoll = setTimeout(() => { if (stuCur?.sid === sid && stuCur.tab === "mk" && !$("vStu").classList.contains("hidden") && !mkQBusy && !document.getElementById("mkSh") && !document.getElementById("mkDel") && !document.activeElement?.closest?.("#stuTab")) openStudent(sid, "mk"); }, 15000);
+}
+function mkDelSheet(sid, j) {
+  if (!j) return; document.getElementById("mkDel")?.remove();
+  const title = j.req.title || j.folder.name, hidden = !!j.req.hidden_at, busy = !mkCanDelete(j);
+  const d = document.createElement("div"); d.id = "mkDel"; d.className = "attSheet";
+  d.innerHTML = `<div class="attBox"><h3 style="margin:0 0 4px">‘${esc(title)}’ 정리</h3>
+    ${busy ? `<p class="muted">지금 만드는 중이라 숨기거나 지울 수 없어요 · 끝난 뒤 다시 해 주세요</p>` : `
+    <button type="button" class="full" id="mkHide" style="margin-top:8px">${hidden ? "목록에 다시 보이기" : "목록에서만 숨기기"}</button>
+    <p class="muted" style="margin:4px 0 10px;font-size:.85rem">${hidden ? "숨긴 곡을 다시 목록에 보여요" : "파일은 그대로 두고 목록에서만 안 보여요 · ‘숨긴 곡 보기’에서 되돌릴 수 있어요"}</p>
+    <button type="button" class="full" id="mkTrash" style="background:#5a2323;color:#ffd6d6;border:1.5px solid #ff8a7a">모든 파일 삭제</button>
+    <p class="muted" style="margin:4px 0 0;font-size:.85rem">이 곡 폴더(원곡·완성본·요청 기록)를 통째로 구글 드라이브 휴지통으로 보내요 · 30일 안에는 드라이브 휴지통에서 복구할 수 있어요${j.req.lesson_folder ? " · 레슨 녹음 원본은 그대로 남아요" : ""}</p>`}
+    <button type="button" class="ghost full" id="mkDelNo" style="margin-top:10px">닫기</button></div>`;
+  document.body.appendChild(d);
+  const ly = typeof Brand !== "undefined" && Brand.layer ? Brand.layer(() => d.remove()) : { close: () => d.remove() }, close = () => ly.close();
+  $("mkDelNo").onclick = close; d.addEventListener("click", (e) => { if (e.target === d) close(); });
+  const after = (msg) => { close(); toast(msg); paintMakeupTab(sid); };
+  if ($("mkHide")) $("mkHide").onclick = async () => { const b = $("mkHide"); b.disabled = true;
+    try { const r = { ...j.req }; if (hidden) delete r.hidden_at; else r.hidden_at = new Date().toISOString();
+      await writeJSON(j.folder.id, MKREQ, r, j.reqId); j.req = r; after(hidden ? "다시 보이게 했어요" : "목록에서 숨겼어요 · 파일은 그대로예요"); }
+    catch (e) { b.disabled = false; toast(errMsg(e)); } };
+  if ($("mkTrash")) $("mkTrash").onclick = async () => {
+    if (!confirm(`‘${title}’의 모든 파일을 지울까요?\n\n구글 드라이브 휴지통으로 가고, 30일 안에는 드라이브 휴지통에서 복구할 수 있어요.`)) return;
+    const b = $("mkTrash"); b.disabled = true; b.textContent = "지우는 중…";
+    try { await api(`${DRIVE}/files/${j.folder.id}?fields=id`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trashed: true }) });
+      const st = cfg.students[sid]; st._jobs = (st._jobs || []).filter(x => x !== j && x.folder?.id !== j.folder.id);
+      try { const c = LS.get("vn_list") || []; LS.set("vn_list", c.map(x => x.sid === sid ? { ...x, jobs: (x.jobs || []).filter(y => y.folder?.id !== j.folder.id) } : x)); } catch {}
+      after("모든 파일을 휴지통으로 보냈어요 · 30일 안엔 드라이브에서 복구 가능"); }
+    catch (e) { b.disabled = false; b.textContent = "모든 파일 삭제"; toast(errMsg(e)); } };
 }
 // 음정 습관 카드: 메이크업한 곡들에서 서버가 찾은 습관(음정성향.json). 레슨 피드백 참고용 + 보정에 반영되는 값
 // ── 음정 습관 + 성장 기록(곡·레슨 노래마다 쌓인 음정 기록 비교) ──
