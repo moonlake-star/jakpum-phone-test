@@ -1329,7 +1329,7 @@ async function studentData(sid, prev) {
       const rf = files.find(f => f.name === REVIEW);
       const rv = rf ? await listGate(() => readJSONm(rf)).catch(() => ({})) : {};
       return { l, files, done: !!rf, fb: !!rv.sent?.feedback, ck: !!rv.sent?.check,
-               ai: files.some(f => f.name === "AI초안.json"), pub: files.some(f => f.name === NOTE), ...(rv.celeb?.full?.on && rv.celeb.full.title ? { full_song: String(rv.celeb.full.title).slice(0, 40) } : {}) };
+               ai: files.some(f => f.name === "AI초안.json"), pub: files.some(f => f.name === NOTE) && !noteHeld(rv), ...(rv.celeb?.full?.on && rv.celeb.full.title ? { full_song: String(rv.celeb.full.title).slice(0, 40) } : {}) };
     } catch (e) {   // 이 레슨만 실패: 지난번 값(있으면)으로 표시만 하고, 누르면 다시 불러옴
       const p = (prev?.rows || []).find(x => x.l?.id === l.id && !x.err) || {};
       return { l, files: [], done: !!p.done, fb: !!p.fb, ck: !!p.ck, ai: !!p.ai, pub: !!p.pub, err: errMsg(e) };
@@ -2487,6 +2487,28 @@ async function refreshSched(me) {   // 서버의 실제 상태를 다시 조회(
 }
 // 서버가 '보류'로 바꾼 뒤 검수.json의 승인·예약·공개 상태를 서버와 맞춘다(알림 메일이 이 값을 읽음). 피드백 내용·수정기록·AI 원문은 건드리지 않고 상태 값만 비운다.
 // 이전 승인 값은 prev_*로 남긴다. 저장이 실패하면 경고 문구만 돌려주고 서버 보류 결과는 그대로 둔다(saveReview는 오류를 삼키므로 writeJSON을 직접 쓴다)
+// (11/21 사용자 '공개했던 걸 다시 비공개·피드백 전으로 돌리는 버튼') 숨긴 노트: 앱 사본 파일은 남지만 수강생에겐 안 보임 → 목록에서 '공개'로 세지 않음
+const noteHeld = (rv) => !!(rv && rv.held_at && (!rv.published_at || String(rv.held_at) > String(rv.published_at)));
+const fbSentOrPub = (rv) => !!(rv && (rv.sent?.feedback || rv.kakao_sent_at || rv.published_at || rv.approved_sig || rv.scheduled_for));
+async function revertToDraft(me) {   // 피드백 전으로: ① 서버에서 공개 숨기기(녹음 링크도 닫음) ② 카톡 보냄·피드백 보냄 표시 지움 — 글·포인트·미션은 그대로(다시 공개 가능)
+  if (!me || cur !== me) return;
+  const date = String(me.folder?.name || "").slice(0, 10);
+  if (!confirm(`${me.st?.name || ""}님 ${date} 레슨을 '피드백 전'으로 돌릴까요?\n\n· 수강생 노트에서 숨기고 녹음 링크도 닫아요\n· 카톡 보냄·피드백 보냄 표시를 지워요\n· 고친 글·포인트·미션은 그대로 남아요(다시 공개할 수 있어요)`)) return;
+  let msg = "";
+  try {
+    await refreshSched(me);
+    if (me.sched?.caps === true && me.sched.entry && me.sched.entry.state !== "held") msg = await schedAct("cancel");
+    else if (me.sched?.caps !== true && (me.review.published_at || me.review.approved_sig)) throw new Error("수강생 노트 서버를 확인하지 못해 숨기지 못했어요 · 잠시 뒤 다시 눌러 주세요");
+  } catch (e) { toast(errMsg(e)); return; }
+  const rv = me.review; delete rv.kakao_sent_at; if (rv.sent) delete rv.sent.feedback; delete rv.work_sec_at_sent;
+  rv.reverted_at = new Date().toISOString();
+  const ok = await saveReview(true);
+  const r = me.st?._rows?.[me.rowIndex]; if (r) { r.fb = false; r.pub = false; }
+  try { const c = LS.get("vn_list") || []; LS.set("vn_list", c.map(d => d.sid === me.sid ? { ...d, rows: (d.rows || []).map((x, k) => k === me.rowIndex ? { ...x, fb: false, pub: false } : x) } : d)); } catch {}
+  toast((ok ? "피드백 전으로 돌렸어요" : "숨기기는 됐지만 앱 안 표시 저장은 실패했어요 · 다시 눌러 주세요") + (msg && !/보류했어요/.test(msg) ? " · " + msg : ""));
+  try { paintDeliver(); } catch {} try { if (document.getElementById("v3")) v3Paint(me); } catch {}
+  try { const b = $("btnRevert"); if (b) b.classList.add("hidden"); } catch {}
+}
 async function markHeldLocal(me) {
   const rv = me.review;
   rv.prev_approved_sig = rv.approved_sig || rv.prev_approved_sig || null; rv.prev_approved_at = rv.approved_at || rv.prev_approved_at || null;
@@ -8264,9 +8286,11 @@ async function openLessonInner(sid, i, backTo) {
       ${ls.package ? `<span class="chip">결제 ${esc(ls.package)}</span>` : ""}
       ${(() => { const nw = payNewer(st, ls, l.name); return nw ? `<span class="chip ok">새 결제 ${esc(nw.date.slice(5).replace("-", "/"))} · ${esc(nw.sessions)}회 등록됨</span>` : ls.payment_note ? `<span class="chip todo">${esc(ls.payment_note)}</span>` : ""; })()}
       ${payCanEdit() && !isTeacher(st) ? `<button class="small ghost" id="btnPayAdd" type="button">💳 결제 기록</button>` : ""}
+      ${!isTeacher(st) && fbSentOrPub(review) ? `<button class="small ghost" id="btnRevert" type="button">↩ 피드백 전으로</button>` : ""}
       <span>${summary.duration_sec ? fmt(summary.duration_sec) : ""}</span>
       <button class="small ghost" id="btnSpeakerEdit" type="button">화자 수정</button>
     </div>`;
+  if ($("btnRevert")) $("btnRevert").onclick = () => revertToDraft(cur);
   if ($("btnPayAdd")) $("btnPayAdd").onclick = () => paySheet(sid, { date: String(l.name || "").slice(0, 10), after: () => openLesson(sid, i, backTo) });
   renderSpeakers(); renderHighlights(); renderCands(); renderSegs();
   renderPoints();
@@ -10372,7 +10396,8 @@ function v3Paint(me) {
     <div class="v3top"><button type="button" class="small ghost" id="v3Old">← 옛 화면</button><b>${esc(me.st?.name || "")} · ${esc(date.slice(5).replace("-", "/"))} 레슨</b>${m.sess ? `<span class="tg">${m.sess}회차</span>` : ""}</div>
     <div class="v3stick ${S.tone}"><div class="v3msg">${esc(S.msg)}</div>
       ${m.warn.length > 1 ? `<button type="button" class="small ghost" data-v3a="allok" style="margin:0 0 6px">노란 문장 모두 맞아요</button>` : ""}
-      <button type="button" class="v3pub" id="v3Pub"${S.can && !me.sched?.busy ? "" : " disabled"}>${esc(S.btn)}</button></div>
+      <button type="button" class="v3pub" id="v3Pub"${S.can && !me.sched?.busy ? "" : " disabled"}>${esc(S.btn)}</button>
+      ${fbSentOrPub(rv) ? `<button type="button" class="small ghost" id="v3Revert" style="margin-top:8px">↩ 피드백 전으로(공개 숨기기)</button>` : ""}</div>
     <section class="v3c"><div class="v3h"><b>💬 선생님 한마디</b><button type="button" class="small ghost" data-v3e="fb">✎ 고치기</button></div>
       <div class="v3letter">${String(rv.feedback || "").trim() ? v3Mark(rv.feedback, wLetter, esc) : `<span class="muted">아직 비어 있어요 · ✎ 고치기로 써 주세요</span>`}</div>
       ${wLetter.map(warnRow).join("")}
@@ -10404,6 +10429,7 @@ function v3Paint(me) {
   d.querySelectorAll("[data-v3c]").forEach(b => b.onclick = () => { let t = ""; try { t = lessonCheer(+b.dataset.v3c, rv.cheer, cheerFacts(me)); } catch {} if (!t) return toast("이 레슨 내용으로 만들 문장이 없어요 · ✎ 고치기로 써 주세요"); rv.cheer = t; v3Changed(me); });
   d.querySelectorAll("[data-v3e]").forEach(b => b.onclick = () => v3Edit(me, b.dataset.v3e));
   $("v3Pub").onclick = () => v3Publish(me);
+  if ($("v3Revert")) $("v3Revert").onclick = () => revertToDraft(me);
 }
 function v3SetList(me, k, items) {   // (코덱스 P1) 옛 형식(fb_v 2 아님)은 옛 화면 PV_EDS처럼 한마디 글 속 목록도 같이 바꿈
   const rv = me.review, head = k === "points" ? "오늘 중요한 포인트" : "이번 주 연습";
