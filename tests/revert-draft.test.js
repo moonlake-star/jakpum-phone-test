@@ -14,5 +14,5 @@ assert.ok(/msg = await schedAct\("cancel"\)/.test(rd), "서버 공개 숨기기(
 assert.ok(/delete rv\.kakao_sent_at; if \(rv\.sent\) delete rv\.sent\.feedback;/.test(rd), "보냄 표시 지움");
 assert.ok(!/rv\.feedback\s*=|rv\.points\s*=|rv\.practice\s*=/.test(rd), "글·포인트·미션은 그대로");
 assert.ok(/if \(!confirm\(/.test(rd), "한 번 확인");
-assert.ok(/id="btnRevert" type="button">↩ 피드백 전으로/.test(T) && /id="v3Revert"/.test(T), "옛 화면 머리·새 화면 모두 버튼");
+assert.ok(/id="btnRevert" type="button">↩ 피드백 취소/.test(T) && /id="v3Revert"/.test(T), "옛 화면 머리·새 화면 모두 버튼");
 console.log("revert-draft OK");
