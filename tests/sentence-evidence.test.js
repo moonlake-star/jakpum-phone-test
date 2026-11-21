@@ -43,7 +43,7 @@ const edited = text.replace('고음이 안정적이에요', '고음이 많이 �
 assert.strictEqual(f.sentList(edited, ai, ok, [504]).find(x => x.text.includes('많이')).ok, false);
 assert.strictEqual(f.sentBlockers(edited, ai, {}, [504]).length, 0);
 // 6) 연결: 승인 목록·카드·전달 문구
-assert(/sentBlockers\(note\?\.feedback, ai\?\.feedback_text, rv\?\.sent_ok, /.test(src));
+assert(/sentBlockers\(fbCheckText\(rv, note\?\.feedback\), ai\?\.feedback_text, rv\?\.sent_ok, /.test(src));   // (11/21) 칸으로 옮긴 포인트·미션 문장도 확인 대상
 // 7) 전사 연결: 포함/허용오차(3초) 안일 때만, 순서 무관, 멀면 빈 문자열
 const segs = [{ start: 500, end: 508, text: '후렴이에요' }, { start: 3, end: 8, text: '안녕하세요' }, { start: 30, end: 35, text: '다음' }];   // 정렬 안 됨
 assert.strictEqual(f.sentSegPick(segs, 504), '후렴이에요');
@@ -54,7 +54,7 @@ assert.strictEqual(f.sentSegPick(null, 5), '');
 // 8) AI 근거 목록은 문장 카드 안으로 흡수
 assert.deepStrictEqual(f.sentEvList({ ai: { evidence: [{ t: 12, text: 'a' }, { t: null }, { evidence_start: 30 }] } }).map(e => e.t), [12, 30]);
 assert(/AI 초안 근거 \$\{evs\.length\}개 전체 보기/.test(src));
-assert(/sentCardsHTML\(cur\)/.test(src) && /sentWire\(me\)/.test(src) && /sentStat\(sentList\(rv\.feedback/.test(src));
+assert(/sentCardsHTML\(cur\)/.test(src) && /sentWire\(me\)/.test(src) && /sentStat\(sentList\(fbCheckText\(rv\)/.test(src));
 assert(/data-sa="ok"/.test(src) && /data-sa="drop"/.test(src) && /data-sa="fix"/.test(src) && /근거 있는 문장 모두 맞아요/.test(src));
 assert(/jumpPlay\(b, \+b\.dataset\.t\)/.test(src));   // 재생은 기존 단일 재생기(동시 1개)
 // 9) 근거 시각 연결이 없으면 시각 있는 음향 판단도 필수 확인(회피 불가)

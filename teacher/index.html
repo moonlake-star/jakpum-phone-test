@@ -2098,7 +2098,7 @@ function buildNote() {
   // practice(이번 주 미션)와 no_mission(‘미션 없음’ 의도적 선택)을 구분해 싣는다. 미설정(둘 다 없음)은 승인 단계에서 막힘
   const noMission = rv.no_mission === true;
   const sess = +cur.summary?.lesson?.session_number;   // (11/21 코덱스 검토) 회차는 선생님 앱과 같은 값을 노트에 실어 수강생 앱이 그대로 씀(예전: 공개 노트 순번으로 셈)
-  return { lesson_id: cur.folder.id, date: cur.folder.name.slice(0, 10), title: cur.folder.name, ...(Number.isInteger(sess) && sess > 0 ? { session: sess } : {}),
+  return { lesson_id: cur.folder.id, date: cur.folder.name.slice(0, 10), title: cur.folder.name, ...(Number.isInteger(sess) && sess > 0 ? { session: sess } : {}), ...(rv.fb_v === 2 ? { fb_v: 2 } : {}),
     feedback: typeof datedGreet === "function" ? datedGreet($("fb").value, cur.folder.name) : $("fb").value, points: (rv.points || []).filter(Boolean), practice: noMission ? [] : (rv.practice || []).filter(Boolean), no_mission: noMission,
     best: bestNote(bp), makeup: mk ? { file_id: mk.file_id, len: mk.len, source_file_id: mk.source_file_id, msg: (rv.makeup_msg || "").trim(), ...(typeof mkSideFiles === "function" ? mkSideFiles(bestPicked()) : {}) } : null, extra_best: [],
     cheer: (rv.cheer || "").trim(), song: rv.song?.title ? { title: rv.song.title, artist: rv.song.artist || "", why: rv.song.why || "", ...(rv.song.url ? { url: rv.song.url } : {}) } : null,   /* 고르지 않은 편집본을 '다른 버전'으로 몰래 싣지 않음 */
@@ -2314,7 +2314,7 @@ function sentSegPick(segs, t, tol = 3) {   // t를 포함하거나 허용 오차
 // 문장 카드 UI: 각 문장 옆에 ▶근거 시각 + 전사 한 줄 + [맞아요/고치기/빼기]. 시각은 레슨 녹음(재생바)의 절대 시각. 전사는 말한 내용 확인용이지 음정·비브라토 품질의 음향 증거가 아니다
 const sentSeg = (t) => sentSegPick(cur?.segs, t);
 function sentCardsHTML(me) {
-  const rv = me?.review || {}, list = sentList(rv.feedback, me?.ai?.feedback_text, rv.sent_ok, sentEvTimes(me)), evs = sentEvList(me);
+  const rv = me?.review || {}, list = sentList(fbCheckText(rv), me?.ai?.feedback_text, rv.sent_ok, sentEvTimes(me)), evs = sentEvList(me);
   if (!list.length && !evs.length) return "";
   const st = sentStat(list), evBatch = list.some(x => x.kind === "ev" && !x.ok);
   const rowOf = (x) => {
@@ -2346,12 +2346,19 @@ function sentWire(me) {
     if (b.classList.contains("sentPlay")) return jumpPlay(b, +b.dataset.t);
     const rv = me.review, field = $("previewFeedback"), act = b.dataset.sa, row = b.closest(".sentRow"), key = row?.dataset.sk;
     const redraw = () => { const n = document.createElement("div"); n.innerHTML = sentCardsHTML(me); const nx = n.firstElementChild; if (nx) { box.replaceWith(nx); sentWire(me); } else box.remove(); if (typeof v2Count === "function") v2Count(me); };
-    if (act === "all") { rv.sent_ok ??= {}; for (const x of sentList(rv.feedback, me.ai?.feedback_text, rv.sent_ok, sentEvTimes(me))) if (x.kind === "ev") rv.sent_ok[x.key] = true; return redraw(); }
+    if (act === "all") { rv.sent_ok ??= {}; for (const x of sentList(fbCheckText(rv), me.ai?.feedback_text, rv.sent_ok, sentEvTimes(me))) if (x.kind === "ev") rv.sent_ok[x.key] = true; return redraw(); }
     if (!key) return;
     if (act === "ok") { rv.sent_ok ??= {}; if (rv.sent_ok[key]) delete rv.sent_ok[key]; else rv.sent_ok[key] = true; return redraw(); }
+    if (act === "fix" && fbFieldOf(rv, key)) {   // (코덱스 P1) 포인트·미션 칸 문장은 그 카드로 가서 고침
+      const card = document.querySelector(`[data-v2="${fbFieldOf(rv, key) === "points" ? "points" : "mission"}"]`);
+      if (card) { card.classList.remove("fold"); card.scrollIntoView({ behavior: "smooth", block: "center" }); }
+      toast(fbFieldOf(rv, key) === "points" ? "‘오늘의 핵심 포인트’ 카드에서 고쳐 주세요" : "‘다음 미션’ 카드에서 고쳐 주세요"); return; }
     if (act === "fix" && field) { const i = field.value.indexOf(row.querySelector(".sentTxt").textContent.replace(/^⚠ /, "").replace(/ · (🤖 AI 초안|✍ 선생님 글)$/, "").trim().slice(0, 20)); field.focus(); if (i >= 0) { try { field.setSelectionRange(i, i); } catch {} } return; }
     if (act === "drop" && field) {
       const lines = field.value.split("\n"), j = lines.findIndex(l => sentKey(l.replace(/^[ \t]*[·•\-]\s*/, "")) === key);
+      if (j < 0 && fbDropField(rv, key)) {   // (11/21) 칸으로 옮긴 포인트·미션 문장이면 그 칸에서 뺌
+        if (rv.sent_ok) delete rv.sent_ok[key]; updateFeedbackDraft(rv.feedback, true); try { if (typeof renderPoints === "function") renderPoints(); } catch {} return redraw();
+      }
       let v; if (j >= 0) { lines.splice(j, 1); v = lines.join("\n"); } else { const at = field.value.indexOf(key); if (at < 0) { toast("글에서 이 문장을 찾지 못했어요 · 글 전체로 고쳐 주세요"); return; } v = field.value.slice(0, at) + field.value.slice(at + key.length).replace(/^[ \t]+/, ""); }
       field.value = v; updateFeedbackDraft(v, true); if (rv.sent_ok) delete rv.sent_ok[key]; return redraw();
     }
@@ -2394,7 +2401,7 @@ function contentSig(note, v = SIG_V) {
   const n = note || {}, id = (x) => x ? x.file_id || null : null;
   const base = [n.lesson_id, n.feedback, n.points, n.practice, !!n.no_mission, id(n.best), id(n.makeup), (n.extra_best || []).map(id), n.cheer || "", n.song || null, n.makeup?.msg || "",
     (n.clips || []).map(c => [c.file_id, c.label, c.note]), ...(n.full?.file_id ? [n.full.file_id] : []), ...(n.pairs || []).map(x => x.file_id)];
-  if (v >= 2) base.push(["v2", (n.point_snd || []).map(x => [x?.p, x?.kind, x?.file_id]), n.compare ? [id(n.compare.then), id(n.compare.now), n.compare.label || ""] : null]);
+  if (v >= 2) base.push(["v2", (n.point_snd || []).map(x => [x?.p, x?.kind, x?.file_id]), n.compare ? [id(n.compare.then), id(n.compare.now), n.compare.label || ""] : null, n.fb_v || 0]);
   return fnv(JSON.stringify(base));
 }
 const approvedSigOf = (rv, note) => contentSig(note, rv?.approved_sig_v || 1);   // 저장된 승인과 비교할 때는 그 승인 때의 방식으로
@@ -2402,7 +2409,9 @@ const missionState = (rv) => rv?.no_mission === true ? "none" : (rv?.practice ||
 // 피드백 문구 속 '이번 주 연습'과 미션 칸이 서로 같은지(학생에게 두 곳이 다르게 보이면 안 됨)
 // (11/12 20:47 사용자 '이것 때문에 전달이 안 됐어? 자동처리 해줘') 공개 전에 저절로 맞춤: 문구에 '이번 주 연습' 목록이 있으면 미션 칸 = 그 목록(문구가 기준),
 //   없으면 문구에 미션 칸 목록을 붙이거나(미션 없음이면 문구의 빈 제목 줄을 뺌). 맞췄으면 true
-function autoMission(me) { const rv = me?.review; if (!rv) return false; let n0; try { n0 = buildNote(); } catch { return false; } if (missionConsistent(n0)) return false;
+function autoMission(me) { const rv = me?.review; if (!rv) return false;
+  if (rv.fb_v === 2) { const mv = fbMoveBlocks(rv); if (mv) { updateFeedbackDraft(rv.feedback); try { if (typeof renderPoints === "function") renderPoints(); } catch {} } return mv; }   // 새 형식: 글 속 목록만 칸으로
+  let n0; try { n0 = buildNote(); } catch { return false; } if (missionConsistent(n0)) return false;
   const fb = String(rv.feedback || ""), pr = practiceFromText(fb);
   if (pr && pr.length) { rv.practice = pr.slice(0, 2); rv.no_mission = false; if (pr.length > 2) updateFeedbackDraft(setBlock(fb, "이번 주 연습", pr.slice(0, 2))); }
   else updateFeedbackDraft(setBlock(fb, "이번 주 연습", rv.no_mission ? [] : (rv.practice || []).filter(Boolean)));
@@ -2428,7 +2437,7 @@ function approvalBlockers(note, rv, ai) {
   if (ms === "unset") out.push({ level: "block", msg: "이번 주 미션이 ‘미설정’이에요. 연습을 적거나 ‘미션 없음’을 직접 선택해 주세요" });
   if (!missionConsistent(note)) out.push({ level: "block", msg: "피드백 문구 속 ‘이번 주 연습’과 미션 칸이 서로 달라요. 같게 맞춰 주세요" });
   if (rv?.mission_ack !== missionAckKey(rv)) for (const f of aiMissionFlags(ai)) out.push({ level: "block", ack: true, msg: f + " — 확인했다면 아래 확인 칸을 눌러 주세요" });
-  if (typeof sentBlockers === "function") out.push(...sentBlockers(note?.feedback, ai?.feedback_text, rv?.sent_ok, (ai?.evidence || []).map(e => +(e?.t ?? e?.evidence_start)).filter(Number.isFinite)));   // #207: 시각 근거 없는 AI 판단 문장은 확인 전 전달 불가
+  if (typeof sentBlockers === "function") out.push(...sentBlockers(fbCheckText(rv, note?.feedback), ai?.feedback_text, rv?.sent_ok, (ai?.evidence || []).map(e => +(e?.t ?? e?.evidence_start)).filter(Number.isFinite)));   // #207: 시각 근거 없는 AI 판단 문장은 확인 전 전달 불가
   return out;
 }
 // 서버 t_state 응답이 예약 기능을 지원하는지(없으면 구버전 → 꺼짐)
@@ -2531,7 +2540,7 @@ function datedGreet(text, d) { const m = String(d || "").match(/^\d{4}-(\d{2})-(
 function updateFeedbackDraft(value, fromPreview = false) {
   $("fb").value = value;
   cur.review.feedback = value;
-  const pr = cur.review.no_mission || typeof practiceFromText !== "function" ? null : practiceFromText(value);
+  const pr = cur.review.no_mission || cur.review.fb_v === 2 || typeof practiceFromText !== "function" ? null : practiceFromText(value);
   if (pr && pr.length && JSON.stringify(pr) !== JSON.stringify((cur.review.practice || []).filter(Boolean))) {
     cur.review.practice = pr;
     if (!document.activeElement?.closest?.("#points") && typeof renderPoints === "function") { try { renderPoints(); } catch {} }
@@ -2581,7 +2590,7 @@ function feedbackPreviewHTML(note, rv, disabled, open = false) {
   // (11/13 17:16 사용자 '처음 열면 확인할 게 너무 많아 부담') 카드는 한 줄 요약으로 접어 두고 누르면 펼침 · 확인할 게 남은 카드만 펼친 채로
   const pvOpenSet = (typeof cur !== "undefined" && cur) ? (cur.pvOpen ??= new Set()) : new Set();
   const first = (v, n = 44) => { const l = String(v || "").split("\n").map(x => x.replace(/^[ \t]*[·•\-]\s*/, "").trim()).find(Boolean) || ""; return l.length > n ? l.slice(0, n) + "…" : l; };
-  let warnN = 0; try { if (typeof sentList === "function") warnN = sentList(note.feedback, cur?.ai?.feedback_text, rv.sent_ok, sentEvTimes(cur)).filter(x => x.kind === "warn" && !x.ok).length; } catch {}
+  let warnN = 0; try { if (typeof sentList === "function") warnN = sentList(fbCheckText(rv, note.feedback), cur?.ai?.feedback_text, rv.sent_ok, sentEvTimes(cur)).filter(x => x.kind === "warn" && !x.ok).length; } catch {}
   const fold = (key, need) => (need || pvOpenSet.has(key)) ? "" : " fold";
   const sum = (txt, chip) => `<div class="pvSum">${chip || ""}${esc(txt || "비어 있음")}</div>`;
   const chev = `<span class="pvChev" aria-hidden="true"></span>`;
@@ -2619,6 +2628,49 @@ function feedbackPreviewHTML(note, rv, disabled, open = false) {
     </div>
     <p class="muted" id="previewSaveMsg" role="status" style="margin:4px 0">고친 문구는 선생님 글투를 익히는 데도 참고해요. 포인트·미션을 고치면 카톡 문구도 같이 바뀌어요.</p></div>`;
 }
+//#fbv2-begin
+// (11/21 화면 개편 3단계 · 코덱스 검토) 포인트·미션은 칸에만 저장(fb_v 2). 한마디 글 속 '오늘 중요한 포인트'·'이번 주 연습' 목록은
+//   칸으로 옮기고 글에서 뺀다 → '글 속 연습 ≠ 미션 칸'으로 공개가 막히는 일이 없어짐. 수강생 앱은 칸으로 편지 안에 그림.
+//   이미 승인·공개된 노트는 예전 형식 그대로 둠(바꾸면 '이후 수정됨'·다시 공개가 생김). 글이 기준(예전 autoMission 규칙과 같음).
+const FB_HEADS = { points: /^[ \t]*(오늘 중요한 포인트|오늘의 핵심 포인트)[ \t]*[:：]?[ \t]*$/, practice: /^[ \t]*(이번 ?주 연습|다음 미션)[ \t]*[:：]?[ \t]*$/ };
+function fbSplit(text) {   // → { text: 목록 덩어리를 뺀 글, points: [..]|null, practice: [..]|null } (제목 줄만 있고 목록이 비어도 그 제목 줄은 뺌)
+  const L = String(text || "").split("\n"), out = { points: null, practice: null }, keep = [];
+  for (let i = 0; i < L.length; i++) {
+    const k = Object.keys(FB_HEADS).find(h => FB_HEADS[h].test(L[i]));
+    if (!k) { keep.push(L[i]); continue; }
+    const items = []; let j = i + 1;
+    while (j < L.length && /^[ \t]*[·•\-]/.test(L[j])) { const t = L[j].replace(/^[ \t]*[·•\-]\s*/, "").trim(); if (t) items.push(t); j++; }
+    out[k] = (out[k] || []).concat(items); i = j - 1;
+  }
+  out.text = keep.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+  return out;
+}
+function fbMoveBlocks(rv) {   // 글 속 목록 → 칸(글이 기준), 글에서 뺌. 바뀌었으면 true
+  if (!rv) return false;
+  const sp = fbSplit(rv.feedback);
+  if (sp.text === String(rv.feedback || "").trim() && !sp.points && !sp.practice) return false;
+  if ((sp.points || []).length > 3 || (sp.practice || []).length > 2) return false;   // (코덱스 P1) 칸에 다 못 담으면 옮기지 않음(뒷항목 손실 방지) — 그대로 두고 선생님이 줄이게
+  if (sp.points && sp.points.length) rv.points = sp.points.slice(0, 3);
+  if (sp.practice && sp.practice.length) { rv.practice = sp.practice.slice(0, 2); rv.no_mission = false; }
+  rv.feedback = sp.text;
+  return true;
+}
+const fbPublished = (rv) => !!(rv && (rv.approved_sig || rv.published_at || rv.prev_approved_sig));
+function fbAdoptV2(rv, hasNote) {   // 레슨을 열 때: 아직 공개·승인된 적 없는 노트만 새 형식으로
+  if (!rv || rv.fb_v === 2 || fbPublished(rv) || rv.kakao_sent_at || rv.sent?.feedback) return false;
+  if (hasNote) return false;   // (코덱스 P1) 레슨 폴더에 수강생노트.json이 있으면 서버 공개 이력이 있을 수 있음(공개 뒤 앱 사본 저장 실패 포함) → 옛 형식 유지
+  fbMoveBlocks(rv); rv.fb_v = 2; return true;
+}
+// 근거 확인(AI 판단 문장)은 칸으로 옮긴 포인트·미션 문장도 계속 대상(코덱스: 옮긴 판단이 확인에서 빠지면 안 됨)
+const fbCheckText = (rv, fb) => { const t = String(fb ?? rv?.feedback ?? ""); if (rv?.fb_v !== 2) return t;
+  const ex = [...(rv.points || []), ...(rv.no_mission ? [] : rv.practice || [])].filter(Boolean).map(x => "· " + x); return ex.length ? t + "\n" + ex.join("\n") : t; };
+function fbDropField(rv, key) {   // 근거 확인의 '빼기'가 칸으로 옮긴 포인트·미션 문장을 가리키면 그 칸에서 뺌. 뺐으면 'points'|'practice'
+  if (rv?.fb_v !== 2) return null;
+  for (const k of ["points", "practice"]) { const a = (rv[k] || []).filter(Boolean), q = a.findIndex(t => sentKey(t) === key); if (q >= 0) { a.splice(q, 1); rv[k] = a; return k; } }
+  return null;
+}
+const fbFieldOf = (rv, key) => rv?.fb_v !== 2 ? null : ["points", "practice"].find(k => (rv[k] || []).some(t => t && sentKey(t) === key)) || null;
+//#fbv2-end
 // 카톡 문구 속 한 덩어리(머리줄 + '· ' 줄들)를 새 목록으로 바꿈(없으면 끝에 붙임, 목록이 비면 덩어리를 뺌)
 function setBlock(text, head, items) {
   const L = String(text || "").split("\n"), i = L.findIndex(x => x.trim().startsWith(head)), bul = items.map(x => "· " + x);
@@ -2631,9 +2683,10 @@ function setBlock(text, head, items) {
 const PV_EDS = {
   pvMakeup: { get: (rv) => rv.makeup_msg || "", set: (me, v) => { me.review.makeup_msg = v.trim(); } },
   pvPoints: { get: (rv) => (rv.points || []).filter(Boolean).join("\n"), set: (me, v) => { const a = pvLines(v).slice(0, 3); me.review.points = a; me.teacherPts = a.length > 0;
-    updateFeedbackDraft(setBlock(me.review.feedback, "오늘 중요한 포인트", a)); } },
+    updateFeedbackDraft(me.review.fb_v === 2 ? me.review.feedback : setBlock(me.review.feedback, "오늘 중요한 포인트", a)); } },
   pvMission: { get: (rv) => (rv.practice || []).filter(Boolean).join("\n"), set: (me, v) => { const a = pvLines(v).slice(0, 2); me.review.practice = a;
-    updateFeedbackDraft(setBlock(me.review.feedback, "이번 주 연습", a)); } },
+    if (a.length) me.review.no_mission = false;
+    updateFeedbackDraft(me.review.fb_v === 2 ? me.review.feedback : setBlock(me.review.feedback, "이번 주 연습", a)); } },
   pvCheer: { get: (rv) => rv.cheer || "", set: (me, v) => { me.review.cheer = v.trim(); } },
 };
 // 응원 문구(10/28 23:05 사용자: 종류마다 8가지, 누를 때마다 무작위). 선생님 카톡 글투 기준 — 따뜻한 존댓말, 가끔 이모지, 선생님 1인칭
@@ -2996,6 +3049,9 @@ function svLessonHtml(l, prev, mode = "normal") {
   for (const [a, b, w] of [ptsIn ? [bP.i, bP.j, "P"] : null, bM ? [bM.i, bM.j, "M"] : null].filter(Boolean).sort((x, y) => x[0] - y[0])) {
     if (a < at) continue; letter += txt(fbL.slice(at, a)); if (w === "P") letter += `<div class="sub">오늘 중요한 포인트</div>${ptsHtml(ptsIn)}`; at = b; }
   letter += txt(fbL.slice(at));
+  // (11/21 3단계) 새 형식(fb_v 2): 포인트는 칸에만 있으니 편지 끝에 번호 포인트로(예전 형식은 글 속 제목 자리에)
+  const ptsTail = !ptsIn && points.length > 0 && +l.fb_v >= 2;
+  if (ptsTail) letter += `<div class="sub">오늘 중요한 포인트</div>${ptsHtml(points)}`;
   const seen = new Set([...clips.map(c => c.file_id), ...pairs.map(x => x.file_id)]);
   const moreC = full ? (Array.isArray(l.more_clips) ? l.more_clips : []).filter(c => c && typeof c.file_id === "string" && c.file_id && !seen.has(c.file_id) && seen.add(c.file_id)) : [];
   const restC = [...restClips.filter(c => !inl.has(c.file_id)), ...moreC].slice(0, SV_MAX_CLIPS);   // (10/29 13:35) 선생님이 고른 것 + 추천 클립으로 3~5개
@@ -3007,7 +3063,7 @@ function svLessonHtml(l, prev, mode = "normal") {
   return `<h2 style="margin:14px 0 4px">${svMd(l.date)} 레슨</h2>
     ${has(l.feedback) ? `<div class="card letter"><h2>💬 ${l.teacher_name ? esc(l.teacher_name) + " " : ""}선생님 한마디</h2>${letter}${bestBlock}</div>` : bestBlock ? `<div class="card">${bestBlock}</div>` : ""}
     ${full && moment && !clips.some(c => (c.note || "").trim() === moment) && !points.some(t => t.trim() === moment) ? `<div class="card moment" role="region" aria-label="선생님이 발견한 오늘의 순간"><div class="muted">🔎 선생님이 발견한 오늘의 순간</div><p class="big">${esc(moment)}</p></div>` : ""}
-    ${!ptsIn && points.length ? `<div class="card"><h2>⭐ 오늘의 핵심 포인트</h2>${ptsHtml(points)}</div>` : ""}
+    ${!ptsIn && !ptsTail && points.length ? `<div class="card"><h2>⭐ 오늘의 핵심 포인트</h2>${ptsHtml(points)}</div>` : ""}
     ${full && (restC.length || restPairs.length) ? `<div class="card listen"><h2>🎧 더 들어 보기</h2>${restC.map(c => `<div class="clip">${has(c.note) ? `<div>${esc(c.note)}</div>` : ""}${svPill(c.file_id, "좋았던 순간 듣기", c.peaks)}</div>`).join("")}${restPairs.map(x => `<div class="clip"><div>${esc(x.label)}</div>${svPill(x.file_id + "#p", "🔁 지도 전 → 후 듣기", x.peaks)}</div>`).join("")}</div>` : ""}
     ${full && !l.best?.file_id && svMakeupOk(l.makeup, l.best) ? `<div class="card makeup"><div class="cardHead"><span class="badge mk">메이크업본</span><b>간단 음정보정 예시</b>${l.makeup.len ? `<span class="muted">${l.makeup.len}초</span>` : ""}</div><p class="muted" style="margin:4px 0 6px">음원 발매용으로 정식 보정하면 더 자연스럽고 좋아져요</p>${has(l.makeup.msg) ? `<p style="margin:0 0 8px">${esc(l.makeup.msg.trim())}</p>` : ""}${svPill(l.makeup.file_id + "#m", "메이크업 듣기", l.makeup.peaks, "mk")}</div>` : ""}
     ${(full && cheer) || mission.length || (full && song) ? `<div class="card cheer${mission.length || (full && song) ? " mission" : ""}">${full && cheer ? `<h2>💌 응원 메시지</h2><p class="pre" style="margin:0">${esc(cheer)}</p>` : ""}${mission.length || (full && song) ? `<h2${full && cheer ? ' class="mh"' : ""}>📋 다음 미션</h2>${mission.length ? svList(mission) : ""}${full && song ? `<div class="song"><div class="muted">🎵 추천 곡</div><b>${esc(song.title)}</b>${has(song.artist) ? ` <span class="muted">(${esc(song.artist)})</span>` : ""}${has(song.why) ? `<p style="margin:4px 0 0">${esc(song.why)}</p>` : ""}${yt(song.url) ? `<a class="yt" href="${esc(yt(song.url))}" target="_blank" rel="noopener noreferrer">▶ 유튜브에서 듣기</a>` : `<a class="yt find" href="https://www.youtube.com/results?search_query=${encodeURIComponent((song.title + " " + (song.artist || "")).trim())}" target="_blank" rel="noopener noreferrer">🔎 유튜브에서 찾아 듣기</a>`}</div>` : ""}` : ""}</div>` : ""}
@@ -8118,6 +8174,7 @@ async function openLessonInner(sid, i, backTo) {
     if (!(review.practice || []).some(Boolean)) review.practice = (ai.practice || []).slice(0, 2);
     if (!review.reviewed_at && !review.feedback && ai.feedback_text) review.feedback = ai.feedback_text;
   }
+  try { fbAdoptV2(review, !!d.note || files.some(f => f.name === NOTE)); } catch (e) { console.warn("fb v2", e); }   // (11/21) 공개 전 노트는 포인트·미션을 칸에만
   if (!("song" in review) && !review.reviewed_at) { const sp = songPick(d.ana); if (sp) review.song = { ...sp.pick, ai_draft: true }; }   // (11/14 사용자) 추천 곡 AI 초안 — 저장 전까지 'AI 초안' 표시
   cur = { sid, st, folder: l, files, summary, segs, cands, clips, samples, sampleFiles, review, reviewId: reviewF?.id, clipUrls: {}, ai, rowIndex: i, back: goBack, spkSaved, teacherPts, ana: d.ana, voice, best: d.best, note: d.note, trial: d.trial, growth: d.growth };
   if (cur.review && cur.review.cheer == null && typeof lessonCheer === "function") { try { const f = cheerFacts(cur), c0 = lessonCheer(2, "", f) || lessonCheer(0, "", f); if (c0) cur.review.cheer = c0; } catch {} }   // (10/29 11:06 사용자) 응원이 비면 그날 레슨으로 기본 문장(선생님이 고침·지움)
@@ -9777,6 +9834,7 @@ function draftFeedback() {
     lines.push("오늘 특히 좋았던 부분 보내드려요.", ...goodLines(sent));
     lines.push("");
   }
+  if (cur.review.fb_v === 2) return lines.join("\n").trim();   // (11/21) 새 형식: 포인트·미션은 칸에만(수강생 노트가 칸으로 그림)
   lines.push("오늘 중요한 포인트");
   (pts.length ? pts : [""]).forEach(t => lines.push(`· ${t}`));
   const pr = (cur.review.practice || []).filter(Boolean).slice(0, 2);
@@ -10004,6 +10062,7 @@ async function saveReview(quiet = false) {
   if (fbNow && fbNow !== (rv.edits || []).slice(-1)[0]?.text && fbNow !== rv.ai_feedback)
     rv.edits = [...(rv.edits || []), { at: new Date().toISOString(), text: fbNow }].slice(-10);
   me.review.feedback = fbNow;
+  if (rv.fb_v === 2 && fbMoveBlocks(rv)) { $("fb").value = rv.feedback; try { const pf = $("previewFeedback"); if (pf) pf.value = rv.feedback; } catch {} try { if (typeof renderPoints === "function") renderPoints(); } catch {} }   // (코덱스 P1) 조용한 저장·일반 저장 모두: 서명·공개 검사 전에 글 속 목록을 칸으로
   me.review.check_text = $("ck").value;
   me.review.reviewed_at = new Date().toISOString();
   try {
@@ -10225,7 +10284,7 @@ function v2State(me) {
 function v2DockPaint(me, done, total) {
   const all = done >= total, rv = me.review || {}, st = v2State(me), msg = $("v2DockMsg"), b = $("v2Send"); if (!msg || !b) return;
   const pub = st === "published" ? "✓ 수강생에게 공개 중" : st === "published_stale" ? "⚠ 고친 내용은 아직 수강생 화면에 반영 전 · 전달하기에서 다시 공개" : "아직 수강생에게 공개 전";
-  let ss = ""; try { ss = sentStat(sentList(rv.feedback, me.ai?.feedback_text, rv.sent_ok, sentEvTimes(me))).text; } catch {}
+  let ss = ""; try { ss = sentStat(sentList(fbCheckText(rv), me.ai?.feedback_text, rv.sent_ok, sentEvTimes(me))).text; } catch {}
   msg.textContent = (all ? "" : `카드를 끝까지 한 번 훑어봐 주세요 (${done}/${total}) · `) + (ss ? ss + " · " : "") + pub + (rv.kakao_sent_at ? " · 카톡 보냄 ✓" : "");
   b.textContent = all ? "✈ 전달하기" : `↓ 다음 카드 (${done}/${total})`; b.setAttribute("aria-label", all ? "수강생에게 전달하기" : "다음 카드 보기"); b.classList.toggle("todo", !all);
 }
@@ -10248,7 +10307,7 @@ function v2PubPaint(me) {   // 전달하기 시트 맨 위 ① 공개 — 공개
   try { bl = approvalBlockers(buildNote(), me.review, me.ai).filter(b => b.level === "block"); } catch {}
   const off = me.st?.consent_withdrawn || (typeof isTeacher === "function" && isTeacher(me.st || {}));
   // (11/13 17:08 사용자 '일일이 다시 수정하기 어렵다') 확인이 필요한 AI 문장은 여기서 바로 [맞아요]/[빼기] — 카드까지 찾아가지 않아도 됨
-  let sq = []; try { sq = sentList(me.review?.feedback, me.ai?.feedback_text, me.review?.sent_ok, sentEvTimes(me)).filter(x => x.kind === "warn" && !x.ok); } catch {}
+  let sq = []; try { sq = sentList(fbCheckText(me.review), me.ai?.feedback_text, me.review?.sent_ok, sentEvTimes(me)).filter(x => x.kind === "warn" && !x.ok); } catch {}
   const blo = bl.filter(b => !/근거 확인이 필요한 AI 판단 문장/.test(b.msg));
   const label = (typeof SCHED_LABEL !== "undefined" && SCHED_LABEL[st]) || "공개 상태 확인 중";
   el.innerHTML = `<p style="margin:8px 0 0"><b>① 수강생 노트에 공개</b><span class="chip ${st === "published" ? "ok" : "todo"}">${esc(label)}</span></p>
@@ -10271,12 +10330,13 @@ function sentQuickHTML(list) {
 }
 function sentQuickAct(me, act, key) {
   const rv = me.review; rv.sent_ok ??= {};
-  if (act === "allok") { for (const x of sentList(rv.feedback, me.ai?.feedback_text, rv.sent_ok, sentEvTimes(me))) if (x.kind === "warn") rv.sent_ok[x.key] = true; }
+  if (act === "allok") { for (const x of sentList(fbCheckText(rv), me.ai?.feedback_text, rv.sent_ok, sentEvTimes(me))) if (x.kind === "warn") rv.sent_ok[x.key] = true; }
   else if (act === "ok" && key) rv.sent_ok[key] = true;
   else if (act === "drop" && key) {
     const field = $("previewFeedback"); let v = field ? field.value : String(rv.feedback || "");
     const lines = v.split("\n"), j = lines.findIndex(l => sentKey(l.replace(/^[ \t]*[·•\-]\s*/, "")) === key);
-    if (j >= 0) { lines.splice(j, 1); v = lines.join("\n"); } else { const at = v.indexOf(key); if (at < 0) { toast("글에서 이 문장을 찾지 못했어요 · ‘선생님 한마디’에서 고쳐 주세요"); return; } v = v.slice(0, at) + v.slice(at + key.length).replace(/^[ \t]+/, ""); }
+    if (j < 0 && fbDropField(rv, key)) { delete rv.sent_ok[key]; updateFeedbackDraft(rv.feedback, true); try { renderPoints(); } catch {} }   // (코덱스 P1) 칸으로 옮긴 포인트·미션 문장
+    else if (j >= 0) { lines.splice(j, 1); v = lines.join("\n"); } else { const at = v.indexOf(key); if (at < 0) { toast("글에서 이 문장을 찾지 못했어요 · ‘선생님 한마디’에서 고쳐 주세요"); return; } v = v.slice(0, at) + v.slice(at + key.length).replace(/^[ \t]+/, ""); }
     if (field) field.value = v; updateFeedbackDraft(v, true); delete rv.sent_ok[key];
   } else return;
   try { sentRepaint(); } catch {}
@@ -10297,7 +10357,7 @@ function v2AiOpen(me) {
   d.onclick = (e) => {
     if (e.target === d || e.target.closest("[data-x]")) return d.remove();
     if (e.target.closest("[data-revert]")) { if (!confirm("선생님 한마디를 AI 원문으로 되돌릴까요? (지금 글은 사라져요 · 저장 전까지는 수강생에게 안 보여요)")) return;
-      updateFeedbackDraft(ai.feedback_text); markDirty(); paintDeliver(); d.remove(); toast("AI 원문으로 되돌렸어요 · 임시저장을 눌러 주세요"); }
+      updateFeedbackDraft(ai.feedback_text); if (rv.fb_v === 2 && fbMoveBlocks(rv)) { updateFeedbackDraft(rv.feedback); try { renderPoints(); } catch {} } markDirty(); paintDeliver(); d.remove(); toast("AI 원문으로 되돌렸어요 · 임시저장을 눌러 주세요"); }
   };
 }
 function v2SheetOpen() {
