@@ -415,7 +415,7 @@ const mk = new Function(code + "; return stemEngine;")();
 {
   const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
   assert.ok(/const closeShEdit = \(back\) =>/.test(T) && /closeShEdit\(true\)/.test(T), "완료·Enter는 고친 마디로 되돌아감");
-  assert.ok(/ep\.querySelector\("#shOk"\)\.onclick = \(\) => closeShEdit\(true\)/.test(T));
+  assert.ok(/ep\.querySelector\("#shOk"\)\.onclick = done;/.test(T) && T.includes("closeShEdit(true); if (lastCK"));
   assert.ok(/st0 = scEl \? scEl\.scrollTop : 0/.test(T) && /scEl\.scrollTop = st0/.test(T) && /paper\.style\.minHeight = paper\.offsetHeight/.test(T), "다시 그리는 동안 높이·스크롤 위치 유지");
 }
 
@@ -714,7 +714,11 @@ const mk = new Function(code + "; return stemEngine;")();
 {
   const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
   assert.ok(T.includes('id="shEpP" aria-label="재생 또는 일시정지"') && T.includes('ep.querySelector("#shEpP").onclick = () => Q("sgPb").onclick();') && T.includes('const ep2 = d.querySelector("#shEpP"); if (ep2) ep2.textContent'), "수정 창 재생 버튼");
-  assert.ok(T.includes('ep.addEventListener("focusin", () => { ep.classList.add("up");') && T.includes("#dkSh .shEp.up{top:8px;bottom:auto}"), "입력 중 창 위로");
+  assert.ok(T.includes('ep.addEventListener("focusin", () => { kb(); setTimeout(kb, 350); });') && T.includes('ep.style.bottom = (8 + k0) + "px"') && !T.includes(".shEp.up{"), "(11/21) 창은 아래 · 키보드 위로만");
+  assert.ok(T.includes("ED[i] = Object.assign({}, ED[i] || {}, { ok: 1 }); saveEd();") && T.includes('ep.querySelector("#shOk").onclick = done;'), "확인 필요 마디: 완료 = 선생님 확인");
+  { const f = new Function(T.slice(T.indexOf("const SG_NOTES"), T.indexOf("async function songPeaks(")) + "; return { songApplyEdits, songCheckBars };")();
+    const M = [{ beats: 4, chords: [{ b: 0, name: "C" }], lyrics: [{ b: 0, text: "가" }] }], an = { beats: [0, 0.5, 1, 1.5], down: 0, beat_conf: [0.3, 0.3, 0.3, 0.3] };
+    assert.strictEqual(f.songCheckBars(M, an).size, 1); const M2 = f.songApplyEdits(M, { 0: { ok: 1 } }, 0); assert.strictEqual(f.songCheckBars(M2, an).size, 0, "확인(ok)만 해도 표시 사라짐"); assert.strictEqual(M2[0].chords[0].name, "C", "코드·가사는 그대로"); }
   assert.ok(T.includes("if (sgPtrDown) { const ins = [ci, li, si]; ins.forEach((x) => { x.readOnly = true;") && T.includes('document.addEventListener("pointerdown", () => { sgPtrDown = true; }, true);'), "길게 누름 뒤 선택 모드 막기");
 }
 
