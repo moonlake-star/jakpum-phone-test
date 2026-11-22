@@ -245,7 +245,7 @@ const mk = new Function(code + "; return stemEngine;")();
     ev.length = 0; down(0, 0); L.pointermove({ clientX: 40, clientY: 0 }); flush(); L.pointerup(); assert.deepStrictEqual(ev, [], "스크롤하려고 움직이면 모두 취소");
     ev.length = 0; down(); L.pointercancel(); L.pointerup(); assert.deepStrictEqual(ev, []);
     global.setTimeout = realST; global.clearTimeout = realCT; }
-  for (const k of ['const showM = (M)', 'const keyLabel = (n)', 'const meas = () => showM(baseMeas())', 'const pdfPreview = (out, pw, ph, fname, opt = {})', 'pdfPreview(out, 960, 600,', 'pdfPreview(out, 595, 842,', 'id="shSeek"', 'id="shSgs"', 'cellGesture(c, { tap: () => tapCell(i === 0 ? 0 : m.t0), dbl: () => playFrom(i === 0 ? 0 : m.t0), long: () => openShEdit(i) })', 'dbl: () => playFrom(i === 0 ? 0 : m.t0), long: () => openEdit(i)', 'me.onCapo = () => { build(); sub(); paintPk(); }'])
+  for (const k of ['const showM = (M)', 'const keyLabel = (n)', 'const meas = () => showM(baseMeas())', 'const pdfPreview = (out, pw, ph, fname, opt = {})', 'pdfPreview(out, 960, 600,', 'pdfPreview(out, 595, 842,', 'id="shSeek"', 'id="shSgs"', 'cellGesture(c, { tap: () => tapCell(i === 0 ? 0 : m.t0), dbl: () => playFrom(i === 0 ? 0 : m.t0), long: () => openShEdit(i) })', 'dbl: () => { if (!(me.isLive && me.isLive())) playFrom(i === 0 ? 0 : m.t0); }, long: () => { if (!(me.isLive && me.isLive())) openEdit(i); }', 'me.onCapo = () => { build(); sub(); paintPk(); }'])
     assert(H.includes(k), "없음: " + k);
   assert(!/songSave\(songPdf\(out, (595, 842|960, 600)/.test(H.replace(/const pdfPreview[\s\S]*?close\(\); \};/, "")), "PDF는 미리보기를 거쳐서만 저장");
   assert(/capoOf\(\) - keyN/.test(H), "카포 중 코드 고치기는 카포 번호만큼 되돌려 원곡 키로 저장");
@@ -287,7 +287,7 @@ const mk = new Function(code + "; return stemEngine;")();
 
 { // 멈춰 있을 때 한 번 누르면 그 칸부터 재생
   assert.ok(T.includes("const tapCell = (t) => { if (eng.isPlaying()) { Q(\"sgPb\").onclick(); songTapFlash(false); } else { playFrom(t); songTapFlash(true); } };"), "재생 중 터치 = 일시정지 · 멈춰 있을 때 터치 = 그 칸부터 재생(11/19)");
-  assert.ok(T.includes("tap: () => tapCell(i === 0 ? 0 : m.t0), dbl: () => playFrom(i === 0 ? 0 : m.t0), long: () => openShEdit(i)") && T.includes("else tapCell(i === 0 ? 0 : m.t0); }, dbl: () => playFrom(i === 0 ? 0 : m.t0)"), "A4·프롬프터 둘 다");
+  assert.ok(T.includes("tap: () => tapCell(i === 0 ? 0 : m.t0), dbl: () => playFrom(i === 0 ? 0 : m.t0), long: () => openShEdit(i)") && T.includes("else tapCell(i === 0 ? 0 : m.t0); }, dbl: () => { if (!(me.isLive && me.isLive())) playFrom(i === 0 ? 0 : m.t0); }"), "A4·프롬프터 둘 다(라이브 중 TV 칸 터치 무시)");
 }
 
 { // 긴 가사 줄은 여러 마디에 나눠 놓음
@@ -723,7 +723,7 @@ const mk = new Function(code + "; return stemEngine;")();
 // (11/21 사용자) 수정 창: ① 재생/일시정지 버튼 ② 입력 중엔 창을 위쪽으로(선택 손잡이가 키보드에 안 가림) ③ 길게 눌러 연 창은 손가락을 뗄 때까지 입력칸 읽기 전용(글자 선택 모드로 바로 안 들어감)
 {
   const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
-  assert.ok(T.includes('id="shEpP" aria-label="재생 또는 일시정지"') && /ep\.querySelector\("#shEpP"\)\.onclick = \(\) => \{ if \(eng\.isPlaying\(\) \|\| !playSel\) \{ Q\("sgPb"\)\.onclick\(\); return; \} playSel = false; songFlash\(/.test(T) && /const saveEd = \(\) => \{ playSel = true;/.test(T) && /\$\("#prPlay"\)\.onclick = \(\) => \{ if \(eng\.isPlaying\(\) \|\| !playSelTV/.test(T) && T.includes('const ep2 = d.querySelector("#shEpP"); if (ep2) ep2.textContent'), "수정 창 재생 버튼");
+  assert.ok(T.includes('id="shEpP" aria-label="재생 또는 일시정지"') && /ep\.querySelector\("#shEpP"\)\.onclick = \(\) => \{ if \(eng\.isPlaying\(\) \|\| !playSel\) \{ Q\("sgPb"\)\.onclick\(\); return; \} playSel = false; songFlash\(/.test(T) && /const saveEd = \(\) => \{ playSel = true;/.test(T) && /\$\("#prPlay"\)\.onclick = \(\) => \{ if \(me\.isLive[^\n]*if \(eng\.isPlaying\(\) \|\| !playSelTV/.test(T) && T.includes('const ep2 = d.querySelector("#shEpP"); if (ep2) ep2.textContent'), "수정 창 재생 버튼");
   assert.ok(T.includes('ep.addEventListener("focusin", () => { kb(); setTimeout(kb, 350); });') && T.includes('ep.style.bottom = (8 + k0) + "px"') && !T.includes(".shEp.up{"), "(11/21) 창은 아래 · 키보드 위로만");
   assert.ok(T.includes("ED[i] = bmark(Object.assign({}, ED[i] || {}, { ok: 1 })); saveEd();") && T.includes('ep.querySelector("#shOk").onclick = done;'), "확인 필요 마디: 완료 = 선생님 확인");
   { const f = new Function(T.slice(T.indexOf("const SG_NOTES"), T.indexOf("async function songPeaks(")) + "; return { songApplyEdits, songCheckBars };")();
