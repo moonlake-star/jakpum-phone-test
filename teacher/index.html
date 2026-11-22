@@ -7727,13 +7727,13 @@ function songDeck(el, ids, o) {
     d.innerHTML = `<div class="prTop"><button type="button" class="prPlay" id="prPlay" aria-label="재생 또는 일시정지">▶</button><div class="prT"><b id="prTitle"></b><span id="prSub"></span></div>
       <div class="prVo"><small>보컬</small><input type="range" id="prVol" min="0" max="100" aria-label="보컬 소리"><b id="prVv"></b></div>
       <div class="prKt"><div class="prKg"><small>키</small><button type="button" id="prKm" aria-label="키 한 음 내리기">−</button><b id="prKv">–</b><button type="button" id="prKp" aria-label="키 한 음 올리기">＋</button></div><div class="prKg"><small>속도</small><button type="button" id="prSm" aria-label="속도 1 내리기">−</button><b id="prSv">–</b><button type="button" id="prSp" aria-label="속도 1 올리기">＋</button></div></div>
-      <button type="button" class="prBtn" id="prRows" aria-label="한 쪽 줄 수">5줄</button><button type="button" class="prBtn prLvB" id="prLv" aria-pressed="false" aria-label="라이브 모드(음원 없이 박만 셈)">🎤 라이브</button><button type="button" class="prBtn" id="prCp" aria-label="카포 추천">카포0</button><button type="button" class="prBtn prEd" id="prEd">✎ 수정</button><button type="button" class="prBtn" id="prPdf" aria-label="PDF로 저장">PDF</button><button type="button" class="prX" id="prX" aria-label="닫기">✕</button></div>
+      <button type="button" class="prBtn prLvB" id="prLv" aria-pressed="false" aria-label="라이브 모드(음원 없이 박만 셈)">🎤 라이브</button><button type="button" class="prBtn" id="prCp" aria-label="카포 추천">카포0</button><button type="button" class="prBtn prEd" id="prEd">✎ 수정</button><button type="button" class="prBtn" id="prPdf" aria-label="PDF로 저장">PDF</button><button type="button" class="prX" id="prX" aria-label="닫기">✕</button></div>
       <div class="prTl"><span id="prT0">0:00</span><div class="prSg"><div class="prSgs" id="prSgs"></div><input type="range" id="prSeek" min="0" max="1000" step="1" value="0" aria-label="곡 전체 위치"></div><span id="prT1">–:–</span><div class="prPg"><button type="button" id="prPv" aria-label="이전 쪽">◀</button><span id="prPn"></span><button type="button" id="prNx" aria-label="다음 쪽">▶</button></div></div>
       <div class="prGrid" id="prGrid"></div>
       <div class="prLvBar" id="prLvBar" hidden><button type="button" id="prLvPv" aria-label="앞 마디">◀ 마디</button><button type="button" id="prLvGo" aria-label="멈춤 또는 출발">▶ 출발</button><button type="button" class="big" id="prLvSn" aria-label="밴드 첫 박에 누르기">⤓ 첫 박</button><button type="button" id="prLvNx" aria-label="뒷 마디">마디 ▶</button><span id="prLvInfo">스페이스: 출발 · 연주 중 4번↑ 연타 = 템포 · 길게 = 멈춤 · →← 반 박 · ↓↑ 한 줄 · 마디 클릭 = 그 마디로</span></div>`;
     d.querySelector("#prTitle").textContent = o.name || "곡";
     let live = false, liveRun = false, liveT = 0, liveLast = 0, liveSnap = null, wakeL = null;   // (11/22 사용자 'TV에 바로 코드악보를 쏘고 조종맨은 템포감만') 라이브 모드: 음원 없이 가상 시계(녹음 시간축)로 진행 · 속도 버튼 = 라이브 템포
-    let ROWS = (() => { try { return +localStorage.getItem("sgTvRows") === 4 ? 4 : 5; } catch { return 5; } })(); const PER = () => ROWS * 4;   // (11/22 사용자 '4줄 보기로 가독성') 한 쪽 줄 수 4·5
+    const ROWS = 4; const PER = () => ROWS * 4;   // (11/22 사용자 'TV 화면은 4줄로 고정') 한 쪽 4줄
     let half = false;   // (11/22 사용자 'TV는 한 쪽씩 넘어가니…') 반 쪽 넘김: 재생이 아래 두 줄에 들어서면 이미 연주한 위 세 줄을 다음 쪽 첫 세 줄로 미리 바꿔 보여 줌
     let needFit = false, pg = 0, lastPg = -1, on = -1, raf2 = 0, wl = null, edit = false, sel = -1, sd = false, lastSi = -1, flT = 0, sv = 0, fl = -1;
     const pages = () => Math.max(1, Math.ceil(M.length / PER())), $ = (s) => d.querySelector(s);
@@ -7818,8 +7818,6 @@ function songDeck(el, ids, o) {
         if (liveSnap && liveRun) { const real = (now - liveSnap.real) / 1000, song = liveT - liveSnap.t; if (real > 1.5 && real < 25 && song > 0) { const r = song / real; if (r > 0.6 && r < 1.6) setRate(Math.max(0.7, Math.min(1.4, rate * 0.5 + r * 0.5))); } }   // 두 번 누른 사이 간격으로 템포 자동 보정(절반만 반영)
         liveSnap = { real: now, t: liveT }; if (!liveRun) { liveRun = true; paintGo(); } songFlash(d.querySelector(`.prM[data-i="${k}"]`)); };
       $("#prLv").onclick = () => goLive(!live);
-      { const rb = $("#prRows"), paintR = () => { rb.textContent = ROWS + "줄"; rb.title = ROWS === 4 ? "한 쪽 4줄(글씨 크게) — 누르면 5줄" : "한 쪽 5줄 — 누르면 4줄(글씨 크게)"; }; paintR();
-        rb.onclick = () => { ROWS = ROWS === 4 ? 5 : 4; try { localStorage.setItem("sgTvRows", String(ROWS)); } catch {} paintR(); half = false; pg = Math.floor(Math.max(0, on) / PER()); lastPg = -1; closeEdit(); build(); needFit = true; }; }
       $("#prLvSn").onclick = snap; $("#prLvPv").onclick = () => toBar(barNow().m - 1); $("#prLvNx").onclick = () => toBar(barNow().m + 1);
       $("#prLvGo").onclick = () => { liveRun = !liveRun; liveLast = performance.now(); liveSnap = null; paintGo(); };
       const beatLen = () => { const B = AN.beats || []; let lo = 0, hi = B.length - 1; while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (B[mid] <= liveT) lo = mid; else hi = mid - 1; } return { k: lo, len: Math.max(0.2, (B[Math.min(lo + 1, B.length - 1)] - B[lo]) || 0.5), B }; };
