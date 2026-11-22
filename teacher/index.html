@@ -7302,7 +7302,7 @@ function songApplyEdits(M, ED, n) {   // ED = { 마디번호(0부터): { ch: [[�
     if (Array.isArray(e.ch) && e.ch.length) { const mb = m.beats || 4, sc = mb < 4 ? (b) => Math.min(mb - 1, Math.floor(b * mb / 4)) : (b) => b;   // (11/22 검토) 2박 마디: 1·3박 입력을 1·2박으로 줄임(칸 밖으로 안 나가게)
       const cs = e.ch.map((c) => ({ b: sc(c[0] - 1), name: songChordName(c[1], n) })).filter((c, k, a) => k + 1 >= a.length || a[k + 1].b !== c.b);
       cs.forEach((c, k) => { c.len = (k + 1 < cs.length ? cs[k + 1].b : mb) - c.b; }); r.chords = cs; }
-    if (typeof e.ly === "string") { const o0 = m.lyrics[0], w0 = o0 ? String(o0.text).trim().split(/\s+/)[0] : "", b0 = o0 && w0 && e.ly.trim().startsWith(w0) ? o0.b : 0; r.lyrics = e.ly.trim() ? [{ b: b0, text: e.ly }] : []; }   // (11/22) 첫 낱말이 그대로면 박 자리 유지
+    if (typeof e.ly === "string") { const o0 = m.lyrics[0], w0 = o0 ? String(o0.text).trim().split(/\s+/)[0] : "", b0 = !e.lb && o0 && w0 && e.ly.trim().startsWith(w0) ? o0.b : 0; r.lyrics = e.ly.trim() ? [{ b: b0, text: e.ly }] : []; }   // (11/22) 첫 낱말이 그대로면 박 자리 유지
     if (typeof e.lj === "boolean") r.lj = e.lj;
     return r; });
 }
@@ -7751,7 +7751,7 @@ function songDeck(el, ids, o) {
           B.Ls.disabled = i === 0 || !c.trim(); B.Lg.disabled = i === 0 || !p.trim(); B.Rg.disabled = i + 1 >= M.length || !n.trim(); B.Rs.disabled = i + 1 >= M.length || !c.trim(); B.U.disabled = !undo.length; };
         const mv = (a, dir) => { const b = a + 1; if (a < 0 || b >= M.length) return; const r = songLyShift(txt(a), !!M[a].lj, txt(b), dir); if (!r) return;
           undo.push([[a, ED[a] ? JSON.parse(JSON.stringify(ED[a])) : null], [b, ED[b] ? JSON.parse(JSON.stringify(ED[b])) : null]]);
-          ED[a] = bmark(Object.assign({}, ED[a] || {}, { ly: r.A, lj: r.jA })); ED[b] = bmark(Object.assign({}, ED[b] || {}, { ly: r.B })); save(); refresh(); li.value = txt(i); paintMv(); try { navigator.vibrate && navigator.vibrate(15); } catch {} };
+          ED[a] = bmark(Object.assign({}, ED[a] || {}, { ly: r.A, lj: r.jA })); ED[b] = bmark(Object.assign({}, ED[b] || {}, { ly: r.B, lb: 1 })); /* (11/22 사용자 'for를 보냈는데 가운데에 붙음') 경계 이동으로 앞부분이 바뀐 뒷 마디는 맨 왼쪽부터 */ save(); refresh(); li.value = txt(i); paintMv(); try { navigator.vibrate && navigator.vibrate(15); } catch {} };
         B.Ls.onclick = () => mv(i - 1, "L"); B.Lg.onclick = () => mv(i - 1, "R"); B.Rg.onclick = () => mv(i, "L"); B.Rs.onclick = () => mv(i, "R");
         B.U.onclick = () => { const u = undo.pop(); if (!u) return; u.forEach(([k, e]) => { if (e) ED[k] = e; else delete ED[k]; }); save(); refresh(); li.value = txt(i); paintMv(); };
         ep._undoAll = () => { while (undo.length) undo.pop().forEach(([k, e]) => { if (e) ED[k] = e; else delete ED[k]; }); };
@@ -7949,7 +7949,7 @@ function songDeck(el, ids, o) {
           B.Ls.disabled = i === 0 || !c.trim(); B.Lg.disabled = i === 0 || !p.trim(); B.Rg.disabled = i + 1 >= M.length || !n.trim(); B.Rs.disabled = i + 1 >= M.length || !c.trim(); B.U.disabled = !undo.length; };
         const mv = (a, dir) => { const b = a + 1; if (a < 0 || b >= M.length) return; const r = songLyShift(txt(a), !!M[a].lj, txt(b), dir); if (!r) return;
           undo.push([[a, ED[a] ? JSON.parse(JSON.stringify(ED[a])) : null], [b, ED[b] ? JSON.parse(JSON.stringify(ED[b])) : null]]);
-          ED[a] = bmark(Object.assign({}, ED[a] || {}, { ly: r.A, lj: r.jA })); ED[b] = bmark(Object.assign({}, ED[b] || {}, { ly: r.B })); saveEd(); redo(); li.value = txt(i); paintMv(); try { navigator.vibrate && navigator.vibrate(15); } catch {} };
+          ED[a] = bmark(Object.assign({}, ED[a] || {}, { ly: r.A, lj: r.jA })); ED[b] = bmark(Object.assign({}, ED[b] || {}, { ly: r.B, lb: 1 })); /* (11/22 사용자 'for를 보냈는데 가운데에 붙음') 경계 이동으로 앞부분이 바뀐 뒷 마디는 맨 왼쪽부터 */ saveEd(); redo(); li.value = txt(i); paintMv(); try { navigator.vibrate && navigator.vibrate(15); } catch {} };
         B.Ls.onclick = () => mv(i - 1, "L"); B.Lg.onclick = () => mv(i - 1, "R"); B.Rg.onclick = () => mv(i, "L"); B.Rs.onclick = () => mv(i, "R");
         B.U.onclick = () => { const u = undo.pop(); if (!u) return; u.forEach(([k, e]) => { if (e) ED[k] = e; else delete ED[k]; }); saveEd(); redo(); li.value = txt(i); paintMv(); };
         ep._undoAll = () => { while (undo.length) undo.pop().forEach(([k, e]) => { if (e) ED[k] = e; else delete ED[k]; }); };   // (11/22) 되돌리기 = 이 창에서 옮긴 옆 마디 가사까지 함께
