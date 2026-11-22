@@ -26,5 +26,5 @@ console.log("care-todos ok");
 // (11/05) 쉬는 중·그만둠은 챙기기에서 뺌
 { const c2 = careTodos([{ sid: "a", rows: ["2026-10-01", "2026-10-15"].map(row) }], { ...ctx, students: { a: { name: "가", enroll: { state: "left", at: "2026-10-20" } } } });
   assert.strictEqual(c2.length, 0, "그만둔 수강생은 안 뜸");
-  assert.ok(t.includes("function enrollSheet(sid)") && t.includes('enrollOf(st) !== "active" ? ` <span class="chip">'), "목록에 상태 표시"); }
+  assert.ok(t.includes("function enrollSheet(sid, after)") && t.includes('enrollOf(st) !== "active" ? ` <span class="chip">'), "목록에 상태 표시"); }
 console.log("care-todos enroll ok");
