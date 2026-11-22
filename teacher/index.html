@@ -7334,7 +7334,7 @@ function songApplyEdits(M, ED, n) {   // ED = { 마디번호(0부터): { ch: [[�
     if (Array.isArray(e.ch) && e.ch.length) { const mb = m.beats || 4, sc = mb < 4 ? (b) => Math.min(mb - 1, Math.floor(b * mb / 4)) : (b) => b;   // (11/22 검토) 2박 마디: 1·3박 입력을 1·2박으로 줄임(칸 밖으로 안 나가게)
       const cs = e.ch.map((c) => ({ b: sc(c[0] - 1), name: songChordName(c[1], n) })).filter((c, k, a) => k + 1 >= a.length || a[k + 1].b !== c.b);
       cs.forEach((c, k) => { c.len = (k + 1 < cs.length ? cs[k + 1].b : mb) - c.b; }); r.chords = cs; }
-    if (typeof e.ly === "string") { const o0 = m.lyrics[0], w0 = o0 ? String(o0.text).trim().split(/\s+/)[0] : "", b0 = !e.lb && o0 && w0 && e.ly.trim().startsWith(w0) ? o0.b : 0; r.lyrics = e.ly.trim() ? [{ b: b0, text: e.ly }] : []; }   // (11/22) 첫 낱말이 그대로면 박 자리 유지
+    if (typeof e.ly === "string") { const o0 = m.lyrics[0], w0 = o0 ? String(o0.text).trim().split(/\s+/)[0] : "", fw = e.ly.trim().split(/\s+/)[0] || "", hit = m.lyrics.find((y) => String(y.text).trim().split(/\s+/)[0] === fw), b0 = typeof e.lbb === "number" ? e.lbb : (!e.lb && o0 && w0 && e.ly.trim().startsWith(w0) ? o0.b : (hit ? hit.b : 0)); r.lyrics = e.ly.trim() ? [{ b: b0, text: e.ly }] : []; }   // (11/22) 첫 낱말이 그대로면 박 자리 유지 · (11/23 사용자 'know를 보냈더니 I can\'t가 왼쪽에 붙음') 앞 낱말을 보내 첫 낱말이 바뀌어도 그 낱말의 원래 박 자리를 따라감 · 선생님이 정한 박(lbb)이 있으면 그 박
     if (typeof e.lj === "boolean") r.lj = e.lj;
     return r; });
 }
@@ -7976,7 +7976,7 @@ function songDeck(el, ids, o) {
     // → 수정 창에서 곡 전체 마디 줄을 1박씩 옮김(맨 앞은 짧은 마디로 채움) · 고친 마디·구간 이름은 같은 음악 자리의 새 마디로 옮겨 붙임 · song.json bars에 저장
     const shiftBars = (k, i) => { if (!AN || !(AN.beats || []).length) return; const nB = AN.beats.length, S0 = songBarStarts(AN).slice(), R0 = S0.length > 1 && S0[0] === 0 && S0[1] < 4 ? S0.slice(1) : S0; let S = R0.map((x) => x + k).filter((x) => x >= 0 && x < nB); if (!S.length) return; if (S[0] > 0) S.unshift(0);
       const at = (x) => { let r = 0; for (let q = 0; q < S.length; q++) if (S[q] <= x) r = q; return r; }, mapI = (j) => j === 0 ? 0 : at(((S0[j] ?? j * 4) + (j + 1 < S0.length ? S0[j + 1] : (S0[j] ?? j * 4) + 4)) / 2);
-      const NE = {}; let dropLy = 0; Object.keys(ED).forEach((key) => { const e0 = ED[key]; let e = e0; if (e0 && typeof e0 === "object" && ("ly" in e0 || "lj" in e0 || "lb" in e0)) { e = Object.assign({}, e0); delete e.ly; delete e.lj; delete e.lb; dropLy++; if (!Object.keys(e).filter((x) => x !== "bm").length) return; } const nk = mapI(+key); if (!(nk in NE)) NE[nk] = e; });   /* 가사 자리 고친 것은 옛 마디 줄 기준이라 새 줄에선 겹쳐 보임 → 새 마디 줄에 맞춰 다시 자동 배치 */ Object.keys(ED).forEach((key) => delete ED[key]); Object.assign(ED, NE);
+      const NE = {}; let dropLy = 0; Object.keys(ED).forEach((key) => { const e0 = ED[key]; let e = e0; if (e0 && typeof e0 === "object" && ("ly" in e0 || "lj" in e0 || "lb" in e0 || "lbb" in e0)) { e = Object.assign({}, e0); delete e.ly; delete e.lj; delete e.lb; delete e.lbb; dropLy++; if (!Object.keys(e).filter((x) => x !== "bm").length) return; } const nk = mapI(+key); if (!(nk in NE)) NE[nk] = e; });   /* 가사 자리 고친 것은 옛 마디 줄 기준이라 새 줄에선 겹쳐 보임 → 새 마디 줄에 맞춰 다시 자동 배치 */ Object.keys(ED).forEach((key) => delete ED[key]); Object.assign(ED, NE);
       const sc0 = secs(), seen = new Set(); me.sec = sc0.map(([j, nm]) => [mapI(j), nm]).filter(([j]) => !seen.has(j) && seen.add(j));
       AN._bars = S; try { M0 = songMeasures(AN, 0, null); } catch {} playSel = true; clearTimeout(sv); sv = setTimeout(flushEd, 700); build(); openShEdit(Math.min(M.length - 1, mapI(i))); toast((k > 0 ? "곡 전체 마디 줄을 1박 뒤로 옮겼어요" : "곡 전체 마디 줄을 1박 앞으로 옮겼어요") + (dropLy ? " · 가사 자리는 새 마디 줄에 맞춰 다시 배치" : "")); };
     const saveEd = () => { playSel = true; me.sec = secs(); clearTimeout(sv); sv = setTimeout(flushEd, 700); }, flushEd = () => { sv = 0; try { o.onBars && o.onBars(AN && AN._bars ? AN._bars : null); } catch {} try { o.onEdits && o.onEdits(ED); } catch {} try { o.onSections && o.onSections(me.sec || secs()); } catch {} };
@@ -8017,7 +8017,7 @@ function songDeck(el, ids, o) {
         <div class="er"><label for="shCi">코드</label><input type="text" id="shCi" autocomplete="off" autocapitalize="off" spellcheck="false"></div><div class="hint" id="shCh"></div>${webAt(m, i).length ? `<div class="hint shWh">🌐 인터넷 악보: <b>${esc(webAt(m, i).join(" "))}</b><button type="button" id="shWi">넣기</button></div>` : ""}
         <div class="er"><label for="shLi">가사</label><input type="text" id="shLi" autocomplete="off"></div>
         <div class="lyMv" aria-label="가사 마디 경계 옮기기"><span class="nb" id="shLp"></span><button type="button" id="shLs" title="이 마디 첫 글자(낱말)를 앞 마디 끝으로">⟵ 보내기</button><button type="button" id="shLg" title="앞 마디 끝 글자(낱말)를 이 마디 앞으로">가져오기 ⟶</button><i></i><button type="button" id="shRg" title="뒷 마디 첫 글자(낱말)를 이 마디 끝으로">⟵ 가져오기</button><button type="button" id="shRsd" title="이 마디 끝 글자(낱말)를 뒷 마디 앞으로">보내기 ⟶</button><span class="nb" id="shRn"></span></div>
-        <div class="lyMv2"><span>앞 마디 경계 · 뒷 마디 경계 — 한글·일본어는 한 글자씩, 영어 등은 한 낱말씩</span><button type="button" id="shLu" disabled>↶ 이동 취소</button></div><div class="lyMv2 bsMv"><span>곡 전체 마디 줄 — 가사·코드가 계속 마디 중간에서 시작하면</span><button type="button" id="shBl" aria-label="곡 전체 마디 줄을 1박 앞으로">◀ 1박</button><button type="button" id="shBr" aria-label="곡 전체 마디 줄을 1박 뒤로">1박 ▶</button></div>
+        <div class="lyMv2"><span>앞 마디 경계 · 뒷 마디 경계 — 한글·일본어는 한 글자씩, 영어 등은 한 낱말씩</span><button type="button" id="shLu" disabled>↶ 이동 취소</button></div><div class="lyMv2 bsMv lbB"><span>가사 시작 박</span><button type="button" data-lbb="-1" aria-label="가사 시작 박 자동">자동</button><button type="button" data-lbb="0">1박</button><button type="button" data-lbb="1">2박</button><button type="button" data-lbb="2">3박</button><button type="button" data-lbb="3">4박</button></div><div class="lyMv2 bsMv"><span>곡 전체 마디 줄 — 가사·코드가 계속 마디 중간에서 시작하면</span><button type="button" id="shBl" aria-label="곡 전체 마디 줄을 1박 앞으로">◀ 1박</button><button type="button" id="shBr" aria-label="곡 전체 마디 줄을 1박 뒤로">1박 ▶</button></div>
         <div class="er"><label for="shSi">구간</label><input type="text" id="shSi" placeholder="예: 1절 · 비우면 해제" autocomplete="off"></div>`; d.appendChild(ep);
       if (!follow) requestAnimationFrame(() => focusCell(i, true));   /* 재생 따라가기(follow)일 땐 스크롤은 재생 줄 따라가기가 맡음 */
       const ci = ep.querySelector("#shCi"), li = ep.querySelector("#shLi"), si = ep.querySelector("#shSi"), hint = ep.querySelector("#shCh");
@@ -8039,6 +8039,7 @@ function songDeck(el, ids, o) {
         B.U.onclick = () => { const u = undo.pop(); if (!u) return; u.forEach(([k, e]) => { if (e) ED[k] = e; else delete ED[k]; }); saveEd(); redo(); li.value = txt(i); paintMv(); };
         ep._undoAll = () => { while (undo.length) undo.pop().forEach(([k, e]) => { if (e) ED[k] = e; else delete ED[k]; }); };   // (11/22) 되돌리기 = 이 창에서 옮긴 옆 마디 가사까지 함께
         paintMv(); }
+      ep.querySelectorAll("[data-lbb]").forEach((bt) => { bt.onclick = () => { const v = +bt.dataset.lbb, e = Object.assign({}, ED[i] || {}); if (v < 0) { delete e.lbb; delete e.lb; } else e.lbb = v; if (typeof e.ly !== "string") e.ly = m.lyrics.map((y) => y.text).join(" "); ED[i] = bmark(e); saveEd(); redo(); try { navigator.vibrate && navigator.vibrate(10); } catch {} }; });   // (11/23 사용자) 마디별 가사 시작 박 직접 지정(자동=원래 박)
       const done = () => { if (lastCK && lastCK.has(i) && !(ED[i] && (ED[i].ch || typeof ED[i].ly === "string" || ED[i].ok))) { ED[i] = bmark(Object.assign({}, ED[i] || {}, { ok: 1 })); saveEd(); } closeShEdit(true); if (lastCK && lastCK.has(i)) redo0(); };   // (11/21 사용자 '확인 필요 마디를 확인하고 완료를 눌러도 표시가 안 사라짐') 고칠 게 없어도 완료 = 선생님 확인(ok) → 표시 사라짐
       const k = (e) => { if (e.key === "Enter") done(); }; ci.onkeydown = li.onkeydown = si.onkeydown = k; ep.querySelector("#shOk").onclick = done;
       const go = (j) => { if (j < 0 || j >= M.length) return; if (eng.isPlaying()) { Q("sgPb").onclick(); songTapFlash(false); playSel = true; } openShEdit(j); };   /* (11/22 사용자) 재생 중 ◀▶ = 멈추고 옆 마디로 · 그다음 ▶ = 그 마디 첫 박부터 */   // 창을 닫지 않고 옆 마디로 — 그 마디를 보이는 곳 가운데로 옮기는 건 openShEdit(focusCell)   // (11/21 사용자 '수정 창에서 앞 마디·뒷 마디로 이동하는 버튼') 창을 닫지 않고 옆 마디로 · 그 마디가 수정 창에 가리지 않게 스크롤
@@ -10497,7 +10498,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261123-0235";
+const BUILD = "20261123-0835";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {

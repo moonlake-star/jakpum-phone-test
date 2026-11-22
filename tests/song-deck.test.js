@@ -765,3 +765,9 @@ const mk = new Function(code + "; return stemEngine;")();
   assert2.ok(T2.includes("R0 = S0.length > 1 && S0[0] === 0 && S0[1] < 4 ? S0.slice(1) : S0") && T2.includes("if (S[0] > 0) S.unshift(0);") && T2.includes("AN._bars = S;"), "앞을 짧은 마디로 채우고, 여러 번 눌러도 짧은 마디가 쌓이지 않음");
   console.log("song-deck: bar shift ok");
 }
+// (11/23 사용자 'know를 앞 마디로 보냈더니 남은 I can't가 왼쪽에 붙음') 남은 첫 낱말의 원래 박 자리를 따라가고 · 마디별 가사 시작 박을 직접 고를 수 있음
+{
+  const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  assert.ok(T.includes("hit = m.lyrics.find((y) => String(y.text).trim().split(/\\s+/)[0] === fw)") && T.includes('typeof e.lbb === "number" ? e.lbb'), "원래 박 자리 따라가기 · 직접 지정");
+  assert.ok(T.includes('data-lbb="-1"') && T.includes('data-lbb="3"') && T.includes('delete e.lbb;'), "가사 시작 박 버튼(자동·1~4박)");
+}
