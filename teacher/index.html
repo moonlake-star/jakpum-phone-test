@@ -7756,7 +7756,7 @@ function songDeck(el, ids, o) {
         B.U.onclick = () => { const u = undo.pop(); if (!u) return; u.forEach(([k, e]) => { if (e) ED[k] = e; else delete ED[k]; }); save(); refresh(); li.value = txt(i); paintMv(); };
         paintMv(); }
       const k = (e) => { if (e.key === "Enter") closeEdit(); }; ci.onkeydown = li.onkeydown = si.onkeydown = k;
-      ep.querySelector("#prOk").onclick = closeEdit; ep.querySelector("#prRs").onclick = () => { delete ED[i]; SEC = SEC.filter((x) => x[0] !== i); save(); build(); closeEdit(); openEdit(i); }; ci.focus(); };
+      ep.querySelector("#prOk").onclick = closeEdit; ep.querySelector("#prRs").onclick = () => { delete ED[i]; SEC = SEC.filter((x) => x[0] !== i); save(); build(); closeEdit(); openEdit(i); }; };   // (11/22) 열 때 자동 커서 없음 — 키보드는 칸을 누를 때만
     const refresh = () => { const keep = sel; M = meas(); build(); if (keep >= 0) { const c2 = d.querySelector(`.prM[data-i="${keep}"]`); if (c2) c2.classList.add("sel"); } paintEd(); };
     me.onLyrics = () => { refresh(); }; me.onCapo = () => { refresh(); sub(); paintPk(); };   // 가사를 인터넷에서 찾아오면 바로 반영
     const refreshSec = () => { SL = songSecList(M.length, SEC.length ? SEC : autoSec()); build(); if (sel >= 0) { const c2 = d.querySelector(`.prM[data-i="${sel}"]`); if (c2) c2.classList.add("sel"); } };
@@ -7933,7 +7933,7 @@ function songDeck(el, ids, o) {
       const hintUp = () => { const q = songParseChords(ci.value, pvCh()); hint.style.color = q.bad.length ? "#ff8a80" : "#b8b8b8"; hint.textContent = q.bad.length ? "알 수 없는 입력: " + q.bad.join(" ") : q.ch.length ? [1, 2, 3, 4].map((b) => { const c = q.ch.find((x) => x[0] === b); return b + "박 " + (c ? c[1] : "·"); }).join("  |  ") : "코드를 입력하세요"; }; hintUp();   // (11/21) 박마다 한 칸: 1박 Bm | 2박 · | 3박 Em | 4박 Em/D
       const redo = () => { build(); const c2 = d.querySelector(`.shM[data-i="${i}"]`); if (c2) c2.classList.add("sel"); };
       const ci0 = ci.value, apply = () => { const e = Object.assign({}, ED[i] || {}), q = songParseChords(ci.value, pvCh()); if (ci.value !== ci0) { delete e.auto; delete e.g; if (q.ch.length) e.ch = q.ch.map((c) => [c[0], songChordName(c[1], capoOf() - keyN)]); } e.ly = li.value; ED[i] = bmark(e); saveEd(); redo(); };
-      ci.oninput = () => { hintUp(); apply(); }; { const wb = ep.querySelector("#shWi"); if (wb) wb.onclick = () => { ci.value = webAt(m, i).join(" "); ci.oninput(); ci.focus(); }; } li.oninput = apply; si.oninput = () => { const a = secs().filter((x) => x[0] !== i); if (si.value.trim()) a.push([i, si.value.trim()]); me.sec = a; saveEd(); redo(); };
+      ci.oninput = () => { hintUp(); apply(); }; { const wb = ep.querySelector("#shWi"); if (wb) wb.onclick = () => { ci.value = webAt(m, i).join(" "); ci.oninput(); }; } li.oninput = apply; si.oninput = () => { const a = secs().filter((x) => x[0] !== i); if (si.value.trim()) a.push([i, si.value.trim()]); me.sec = a; saveEd(); redo(); };
       { const txt = (k) => M[k] ? M[k].lyrics.map((y) => y.text).join(" ") : "", undo = [];   // (11/22 사용자 · 에이 검토) 가사 마디 경계 좌우 이동: 두 마디를 한 번에 저장 · 연타 · 이동 취소
         const B = { Ls: ep.querySelector("#shLs"), Lg: ep.querySelector("#shLg"), Rg: ep.querySelector("#shRg"), Rs: ep.querySelector("#shRs"), Lp: ep.querySelector("#shLp"), Rn: ep.querySelector("#shRn"), U: ep.querySelector("#shLu") };
         const paintMv = () => { const p = txt(i - 1), c = txt(i), n = txt(i + 1), pu = songLyUnits(p), nu = songLyUnits(n);
@@ -7956,9 +7956,8 @@ function songDeck(el, ids, o) {
       ep.querySelector("#shPv").onclick = () => go(i - 1); ep.querySelector("#shNx").onclick = () => go(i + 1);
       ep.querySelector("#shRs").onclick = () => { delete ED[i]; me.sec = secs().filter((x) => x[0] !== i); saveEd(); redo(); closeShEdit(); openShEdit(i); };
       // (11/21 사용자 '길게 눌러 수정 창을 띄우면 그 누름 때문에 글자 선택 모드로 바로 들어감') 손가락을 떼기 전까지는 입력칸을 읽기 전용(선택 안 됨) → 뗀 뒤에 코드 칸에 커서
-      if (sgPtrDown) { const ins = [ci, li, si]; ins.forEach((x) => { x.readOnly = true; x.style.userSelect = "none"; }); const rel = () => { document.removeEventListener("pointerup", rel, true); document.removeEventListener("touchend", rel, true); document.removeEventListener("pointercancel", rel, true); setTimeout(() => { ins.forEach((x) => { x.readOnly = false; x.style.userSelect = ""; }); if (ep && ep.contains(ci)) ci.focus({ preventScroll: true }); }, 120); };
-        document.addEventListener("pointerup", rel, true); document.addEventListener("touchend", rel, true); document.addEventListener("pointercancel", rel, true); }
-      else ci.focus(); };
+      if (sgPtrDown) { const ins = [ci, li, si]; ins.forEach((x) => { x.readOnly = true; x.style.userSelect = "none"; }); const rel = () => { document.removeEventListener("pointerup", rel, true); document.removeEventListener("touchend", rel, true); document.removeEventListener("pointercancel", rel, true); setTimeout(() => { ins.forEach((x) => { x.readOnly = false; x.style.userSelect = ""; }); }, 120); };   // (11/22 사용자 '키보드는 코드·가사 칸을 터치할 때만') 자동 커서 없음
+        document.addEventListener("pointerup", rel, true); document.addEventListener("touchend", rel, true); document.addEventListener("pointercancel", rel, true); } };
     // (11/19 사용자 '글꼴 조정·전체화면 버튼은 제목 아래 줄에, 잘 보이게') 가사 글자 크기(가− 가+, 기기에 기억) · 전체화면(조작줄·진행줄을 숨기고 악보만, 오른쪽 아래 ▶/✕ 만 남김, 재생 중 지금 줄이 아래로 내려가면 자동으로 위로)
     const LYS = [1, 1.25, 1.5, 1.8], LYN = ["보통", "크게", "더 크게", "최대"]; let lyI = 1; try { const v = parseInt(localStorage.getItem("sgShLy"), 10); if (v >= 0 && v < LYS.length) lyI = v; } catch {} let dark = false; try { dark = localStorage.getItem("sgShDark") === "1"; } catch {}
     const paintLy = () => { paper.style.setProperty("--ly", LYS[lyI]); const l = d.querySelector("#shFtL"); if (l) l.textContent = LYN[lyI]; const m = d.querySelector("#shFtM"), p = d.querySelector("#shFtP"); if (m) m.disabled = lyI === 0; if (p) p.disabled = lyI === LYS.length - 1; };
@@ -8078,7 +8077,7 @@ $("#shFsX").onclick = () => setFs(false); $("#shFsP").onclick = () => Q("sgPb").
       saveED(); LE = songLaneEvents(AN, CHORDS, ED, M0); draw(); const n = ranges.length - 1; toast(`고쳤어요${n ? ` · 비슷한 ${n}곳도 같이 고침(보라색)` : ""}`); shut(); };
     $c("#ceOk").onclick = apply; ci.onkeydown = (e) => { if (e.key === "Enter") apply(); }; $c("#ceX").onclick = shut;
     $c("#ceUn").onclick = () => { Object.keys(ED).forEach((k) => { const e2 = ED[k]; if (gid && e2.g === gid) { delete e2.ch; delete e2.g; delete e2.auto; if (!Object.keys(e2).length) delete ED[k]; } }); saveED(); LE = songLaneEvents(AN, CHORDS, ED, M0); draw(); toast("이 고침을 되돌렸어요(같이 고친 곳 포함)"); shut(); };
-    sh.onclick = (e) => { if (e.target === sh) shut(); }; setTimeout(() => { try { ci.focus(); ci.select(); } catch {} }, 60);
+    sh.onclick = (e) => { if (e.target === sh) shut(); }; ci.addEventListener("focus", () => { try { ci.select(); } catch {} }, { once: true });   // (11/22) 키보드는 칸을 누를 때만 · 누르면 글자 전체 선택
   };
   // (11/14 21:49 사용자 '스크롤 중에 터치하면 원래 위치로 돌아가 버림') 미끄러지는 중·옮기는 중 다시 터치하면 소리 위치(옛 자리)가 아니라 지금 보이는 자리(vp)에서 바로 이어서 잡는다
   let pend = false, pendWas = false;
