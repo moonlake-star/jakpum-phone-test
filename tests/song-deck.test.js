@@ -247,7 +247,7 @@ const mk = new Function(code + "; return stemEngine;")();
     ev.length = 0; down(0, 0); L.pointermove({ clientX: 40, clientY: 0 }); flush(); L.pointerup(); assert.deepStrictEqual(ev, [], "스크롤하려고 움직이면 모두 취소");
     ev.length = 0; down(); L.pointercancel(); L.pointerup(); assert.deepStrictEqual(ev, []);
     global.setTimeout = realST; global.clearTimeout = realCT; }
-  for (const k of ['const showM = (M)', 'const keyLabel = (n)', 'const meas = () => showM(baseMeas())', 'const pdfPreview = (out, pw, ph, fname, opt = {})', 'pdfPreview(out, 960, 600,', 'pdfPreview(out, 595, 842,', 'id="shSeek"', 'id="shSgs"', 'cellGesture(c, { tap: () => { if (ep) { if (i !== sel) openShEdit(i); return; } tapCell(i === 0 ? 0 : m.t0); }', 'dbl: () => { if (!(me.isLive && me.isLive())) playFrom(i === 0 ? 0 : m.t0); }, long: () => { if (!(me.isLive && me.isLive())) openEdit(i); }', 'me.onCapo = () => { build(); sub(); paintPk(); }'])
+  for (const k of ['const showM = (M)', 'const keyLabel = (n)', 'const meas = () => showM(baseMeas())', 'const pdfPreview = (out, pw, ph, fname, opt = {})', 'pdfPreview(out, 960, 600,', 'pdfPreview(out, 595, 842,', 'id="shSeek"', 'id="shSgs"', 'cellGesture(c, { tap: () => { if (ep) { if (eng.isPlaying()) { playFrom(i === 0 ? 0 : m.t0); songFlash(c); if (i !== sel) openShEdit(i, true); } else if (i !== sel) openShEdit(i); return; } tapCell(i === 0 ? 0 : m.t0); }', 'dbl: () => { if (!(me.isLive && me.isLive())) playFrom(i === 0 ? 0 : m.t0); }, long: () => { if (!(me.isLive && me.isLive())) openEdit(i); }', 'me.onCapo = () => { build(); sub(); paintPk(); }'])
     assert(H.includes(k), "없음: " + k);
   assert(!/songSave\(songPdf\(out, (595, 842|960, 600)/.test(H.replace(/const pdfPreview[\s\S]*?close\(\); \};/, "")), "PDF는 미리보기를 거쳐서만 저장");
   assert(/capoOf\(\) - keyN/.test(H), "카포 중 코드 고치기는 카포 번호만큼 되돌려 원곡 키로 저장");
@@ -289,7 +289,8 @@ const mk = new Function(code + "; return stemEngine;")();
 
 { // 멈춰 있을 때 한 번 누르면 그 칸부터 재생
   assert.ok(T.includes("const tapCell = (t) => { if (eng.isPlaying()) { Q(\"sgPb\").onclick(); songTapFlash(false); } else { playFrom(t); songTapFlash(true); } };"), "재생 중 터치 = 일시정지 · 멈춰 있을 때 터치 = 그 칸부터 재생(11/19)");
-  assert.ok(T.includes("tap: () => { if (ep) { if (i !== sel) openShEdit(i); return; } tapCell(i === 0 ? 0 : m.t0); }, dbl: () => { if (ep) { if (i !== sel) openShEdit(i); return; } playFrom(i === 0 ? 0 : m.t0); }, long: () => openShEdit(i)") && T.includes("songTapFlash(!was); return; } playSel = false; songTapFlash(true);") && T.includes("else tapCell(i === 0 ? 0 : m.t0); }, dbl: () => { if (!(me.isLive && me.isLive())) playFrom(i === 0 ? 0 : m.t0); }"), "A4·프롬프터 둘 다 · 수정 창이 떠 있으면 터치 = 그 마디 수정 · 수정 창 ▶도 반투명 아이콘");
+  assert.ok(T.includes("openShEdit(i, true); } else if (i !== sel) openShEdit(i); return; } tapCell(i === 0 ? 0 : m.t0); }, dbl: () => { if (ep) { if (i !== sel) openShEdit(i); return; } playFrom(i === 0 ? 0 : m.t0); }, long: () => openShEdit(i)") && T.includes("songTapFlash(!was); return; } playSel = false; songTapFlash(true);") && T.includes("else tapCell(i === 0 ? 0 : m.t0); }, dbl: () => { if (!(me.isLive && me.isLive())) playFrom(i === 0 ? 0 : m.t0); }"), "A4·프롬프터 둘 다 · 수정 창이 떠 있으면 터치 = 그 마디 수정(재생 중이면 그 마디부터 재생) · 수정 창 ▶도 반투명 아이콘");
+  assert.ok(T.includes("&& mi !== sel && !(document.activeElement && ep.contains(document.activeElement)") && T.includes('if (eng.isPlaying()) { Q("sgPb").onclick(); songTapFlash(false); playSel = true; } closeShEdit(); openShEdit(j);'), "재생 중 수정 창 따라가기·◀▶ = 멈춤 후 고른 마디부터");
 }
 
 { // 긴 가사 줄은 여러 마디에 나눠 놓음
@@ -523,7 +524,7 @@ const mk = new Function(code + "; return stemEngine;")();
 // (11/20 사용자 '첫 마디를 눌렀는데 5초부터 재생') 첫 마디는 0초부터 — 악보·프롬프터 둘 다
 {
   const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
-  assert.strictEqual((T.match(/tapCell\(i === 0 \? 0 : m\.t0\)/g) || []).length, 2); assert.strictEqual((T.match(/playFrom\(i === 0 \? 0 : m\.t0\)/g) || []).length, 2);
+  assert.strictEqual((T.match(/tapCell\(i === 0 \? 0 : m\.t0\)/g) || []).length, 2); assert.strictEqual((T.match(/playFrom\(i === 0 \? 0 : m\.t0\)/g) || []).length, 3);
 }
 // (11/20 사용자 '송폼 버튼을 아래 슬라이더에 녹여 넣을 수 있지 않을까') 악보 구간 버튼: 곡 시간 비례 폭으로 슬라이더 위에 · 좁으면 줄인 이름
 {
@@ -703,7 +704,7 @@ const mk = new Function(code + "; return stemEngine;")();
 {
   const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
   assert.ok(/"코드를 입력하세요"; \}; hintUp\(\);/.test(T), "수정 창 열 때 박 안내가 바로 보임");
-  assert.ok(T.includes('id="shPv" aria-label="앞 마디 고치기"') && T.includes('id="shNx" aria-label="뒷 마디 고치기"') && T.includes('ep.querySelector("#shPv").onclick = () => go(i - 1); ep.querySelector("#shNx").onclick = () => go(i + 1);') && T.includes("if (j < 0 || j >= M.length) return; closeShEdit(); openShEdit(j);"), "앞·뒷 마디 이동");
+  assert.ok(T.includes('id="shPv" aria-label="앞 마디 고치기"') && T.includes('id="shNx" aria-label="뒷 마디 고치기"') && T.includes('ep.querySelector("#shPv").onclick = () => go(i - 1); ep.querySelector("#shNx").onclick = () => go(i + 1);') && T.includes("if (j < 0 || j >= M.length) return; if (eng.isPlaying())"), "앞·뒷 마디 이동");
 }
 
 // (11/21 사용자 '시가 될 이야기' 직접 수정) 한국어 낱말은 음절에서 마디를 나눔(많|은) · 영어 낱말은 그대로 · 한 마디 코드 2개 이상이면 박 점
