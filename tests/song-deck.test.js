@@ -723,7 +723,7 @@ const mk = new Function(code + "; return stemEngine;")();
 // (11/21 사용자) 수정 창: ① 재생/일시정지 버튼 ② 입력 중엔 창을 위쪽으로(선택 손잡이가 키보드에 안 가림) ③ 길게 눌러 연 창은 손가락을 뗄 때까지 입력칸 읽기 전용(글자 선택 모드로 바로 안 들어감)
 {
   const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
-  assert.ok(T.includes('id="shEpP" aria-label="재생 또는 일시정지"') && T.includes('ep.querySelector("#shEpP").onclick = () => Q("sgPb").onclick();') && T.includes('const ep2 = d.querySelector("#shEpP"); if (ep2) ep2.textContent'), "수정 창 재생 버튼");
+  assert.ok(T.includes('id="shEpP" aria-label="재생 또는 일시정지"') && T.includes('ep.querySelector("#shEpP").onclick = () => { if (eng.isPlaying()) Q("sgPb").onclick(); else playFrom(i === 0 ? 0 : M[i].t0); };') && T.includes('const ep2 = d.querySelector("#shEpP"); if (ep2) ep2.textContent'), "수정 창 재생 버튼");
   assert.ok(T.includes('ep.addEventListener("focusin", () => { kb(); setTimeout(kb, 350); });') && T.includes('ep.style.bottom = (8 + k0) + "px"') && !T.includes(".shEp.up{"), "(11/21) 창은 아래 · 키보드 위로만");
   assert.ok(T.includes("ED[i] = bmark(Object.assign({}, ED[i] || {}, { ok: 1 })); saveEd();") && T.includes('ep.querySelector("#shOk").onclick = done;'), "확인 필요 마디: 완료 = 선생님 확인");
   { const f = new Function(T.slice(T.indexOf("const SG_NOTES"), T.indexOf("async function songPeaks(")) + "; return { songApplyEdits, songCheckBars };")();

@@ -7961,7 +7961,7 @@ function songDeck(el, ids, o) {
         requestAnimationFrame(() => focusCell(i)); };
       ep.addEventListener("focusin", () => { kb(); setTimeout(kb, 350); });
       if (window.visualViewport) { const onVV = () => { if (ep && ep.isConnected) kb(); else window.visualViewport.removeEventListener("resize", onVV); }; window.visualViewport.addEventListener("resize", onVV); }
-      ep.querySelector("#shEpP").onclick = () => Q("sgPb").onclick();   // (11/21 사용자) 수정 창에서 바로 재생·일시정지
+      ep.querySelector("#shEpP").onclick = () => { if (eng.isPlaying()) Q("sgPb").onclick(); else playFrom(i === 0 ? 0 : M[i].t0); };   // (11/21) 수정 창에서 바로 재생·일시정지 · (11/22 사용자) 재생은 고르고 있는 마디부터
       ep.querySelector("#shPv").onclick = () => go(i - 1); ep.querySelector("#shNx").onclick = () => go(i + 1);
       ep.querySelector("#shRs").onclick = () => { if (ep._undoAll) ep._undoAll(); delete ED[i]; me.sec = secs().filter((x) => x[0] !== i); saveEd(); redo(); closeShEdit(); openShEdit(i); };
       // (11/21 사용자 '길게 눌러 수정 창을 띄우면 그 누름 때문에 글자 선택 모드로 바로 들어감') 손가락을 떼기 전까지는 입력칸을 읽기 전용(선택 안 됨) → 뗀 뒤에 코드 칸에 커서
@@ -8010,7 +8010,8 @@ function songDeck(el, ids, o) {
       const p = eng.pos(), mi = Math.max(0, Math.min(M.length - 1, songBeatPos(AN, p).m)); $("#shPlay").textContent = $("#shFsP").textContent = eng.isPlaying() ? "❚❚" : "▶"; { const ep2 = d.querySelector("#shEpP"); if (ep2) ep2.textContent = eng.isPlaying() ? "❚❚" : "▶"; }
       const pf = dur() ? t2f(p) : 0; if (!sd) $("#shSeek").value = Math.round(pf * 1000); { const fe = $("#shFill"); if (fe) fe.style.width = pf * 100 + "%"; } $("#shT0").textContent = mmss(p); $("#shT1").textContent = dur() ? mmss(dur()) : "–:–";
       if (mi !== on) { d.querySelectorAll(".shM.on").forEach((e) => e.classList.remove("on")); const c = d.querySelector(`.shM[data-i="${mi}"]`); if (c) { c.classList.add("on"); if (eng.isPlaying() && Date.now() - fl > 1200) { const se = d.querySelector(".shScroll"), r = c.getBoundingClientRect(), sc = se.getBoundingClientRect();
-          if (d.classList.contains("fs")) { if (r.top > sc.top + sc.height * 0.45 || r.top < sc.top) se.scrollBy({ top: r.top - (sc.top + sc.height * 0.12), behavior: "smooth" }); }   // 전체화면: 지금 줄이 화면 가운데 아래로 내려가면 위쪽 12% 자리로 올림
+          if (ep) { const et = Math.min(sc.bottom, ep.getBoundingClientRect().top); if (r.top < sc.top + 8 || r.bottom > et - 8) se.scrollBy({ top: (r.top + r.height / 2) - (sc.top + Math.max(0, et - sc.top) / 2), behavior: "smooth" }); }   // (11/22 사용자) 수정 창이 열려 있어도 재생 중인 마디가 창 위 보이는 곳에
+          else if (d.classList.contains("fs")) { if (r.top > sc.top + sc.height * 0.45 || r.top < sc.top) se.scrollBy({ top: r.top - (sc.top + sc.height * 0.12), behavior: "smooth" }); }   // 전체화면: 지금 줄이 화면 가운데 아래로 내려가면 위쪽 12% 자리로 올림
           else if (r.top < sc.top + 20 || r.bottom > sc.bottom - 20) c.scrollIntoView({ block: "center", behavior: "smooth" }); } } on = mi; paintSegs(); }
       raf = requestAnimationFrame(tick); };
     { const sk = $("#shSeek"); let dn = null, mv = false;   // 탭(거의 안 움직임·짧게)=눌린 자리 구간의 처음으로 · 끌면 그 자리로 자유 이동
