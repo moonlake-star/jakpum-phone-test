@@ -7754,9 +7754,10 @@ function songDeck(el, ids, o) {
           ED[a] = bmark(Object.assign({}, ED[a] || {}, { ly: r.A, lj: r.jA })); ED[b] = bmark(Object.assign({}, ED[b] || {}, { ly: r.B })); save(); refresh(); li.value = txt(i); paintMv(); try { navigator.vibrate && navigator.vibrate(15); } catch {} };
         B.Ls.onclick = () => mv(i - 1, "L"); B.Lg.onclick = () => mv(i - 1, "R"); B.Rg.onclick = () => mv(i, "L"); B.Rs.onclick = () => mv(i, "R");
         B.U.onclick = () => { const u = undo.pop(); if (!u) return; u.forEach(([k, e]) => { if (e) ED[k] = e; else delete ED[k]; }); save(); refresh(); li.value = txt(i); paintMv(); };
+        ep._undoAll = () => { while (undo.length) undo.pop().forEach(([k, e]) => { if (e) ED[k] = e; else delete ED[k]; }); };
         paintMv(); }
       const k = (e) => { if (e.key === "Enter") closeEdit(); }; ci.onkeydown = li.onkeydown = si.onkeydown = k;
-      ep.querySelector("#prOk").onclick = closeEdit; ep.querySelector("#prRs").onclick = () => { delete ED[i]; SEC = SEC.filter((x) => x[0] !== i); save(); build(); closeEdit(); openEdit(i); }; };   // (11/22) 열 때 자동 커서 없음 — 키보드는 칸을 누를 때만
+      ep.querySelector("#prOk").onclick = closeEdit; ep.querySelector("#prRs").onclick = () => { if (ep._undoAll) ep._undoAll(); delete ED[i]; SEC = SEC.filter((x) => x[0] !== i); save(); build(); closeEdit(); openEdit(i); }; };   // (11/22) 열 때 자동 커서 없음 — 키보드는 칸을 누를 때만
     const refresh = () => { const keep = sel; M = meas(); build(); if (keep >= 0) { const c2 = d.querySelector(`.prM[data-i="${keep}"]`); if (c2) c2.classList.add("sel"); } paintEd(); };
     me.onLyrics = () => { refresh(); }; me.onCapo = () => { refresh(); sub(); paintPk(); };   // 가사를 인터넷에서 찾아오면 바로 반영
     const refreshSec = () => { SL = songSecList(M.length, SEC.length ? SEC : autoSec()); build(); if (sel >= 0) { const c2 = d.querySelector(`.prM[data-i="${sel}"]`); if (c2) c2.classList.add("sel"); } };
@@ -7930,7 +7931,7 @@ function songDeck(el, ids, o) {
       ep = document.createElement("div"); ep.className = "shEp"; ep.innerHTML = `<div class="eh"><b>${m.no}마디 수정</b><span>코드는 띄어쓰기로 · <u>D</u> = 한 마디 · <u>Bm Em</u> = 1·3박 · <u>Bm Em Em/D</u> = 1·3·4박 · <u>/D</u> = 앞 코드에 베이스 · <u>.</u> = 한 박 유지 · <u>A@2</u> = 2박${capoOf() || modeP() ? " · 화면에 보이는 코드 모양 기준" : ""}</span><div class="sp"><button type="button" class="nv pl" id="shEpP" aria-label="재생 또는 일시정지">${eng.isPlaying() ? "❚❚" : "▶"}</button><button type="button" class="nv" id="shPv" aria-label="앞 마디 고치기"${i > 0 ? "" : " disabled"}>◀ ${m.no - 1 || ""}</button><button type="button" class="nv" id="shNx" aria-label="뒷 마디 고치기"${i + 1 < M.length ? "" : " disabled"}>${i + 1 < M.length ? m.no + 1 : ""} ▶</button><button type="button" id="shRs">되돌리기</button><button type="button" class="on" id="shOk">완료</button></div></div>
         <div class="er"><label for="shCi">코드</label><input type="text" id="shCi" autocomplete="off" autocapitalize="off" spellcheck="false"></div><div class="hint" id="shCh"></div>${webAt(m, i).length ? `<div class="hint shWh">🌐 인터넷 악보: <b>${esc(webAt(m, i).join(" "))}</b><button type="button" id="shWi">넣기</button></div>` : ""}
         <div class="er"><label for="shLi">가사</label><input type="text" id="shLi" autocomplete="off"></div>
-        <div class="lyMv" aria-label="가사 마디 경계 옮기기"><span class="nb" id="shLp"></span><button type="button" id="shLs" title="이 마디 첫 글자(낱말)를 앞 마디 끝으로">⟵ 보내기</button><button type="button" id="shLg" title="앞 마디 끝 글자(낱말)를 이 마디 앞으로">가져오기 ⟶</button><i></i><button type="button" id="shRg" title="뒷 마디 첫 글자(낱말)를 이 마디 끝으로">⟵ 가져오기</button><button type="button" id="shRs" title="이 마디 끝 글자(낱말)를 뒷 마디 앞으로">보내기 ⟶</button><span class="nb" id="shRn"></span></div>
+        <div class="lyMv" aria-label="가사 마디 경계 옮기기"><span class="nb" id="shLp"></span><button type="button" id="shLs" title="이 마디 첫 글자(낱말)를 앞 마디 끝으로">⟵ 보내기</button><button type="button" id="shLg" title="앞 마디 끝 글자(낱말)를 이 마디 앞으로">가져오기 ⟶</button><i></i><button type="button" id="shRg" title="뒷 마디 첫 글자(낱말)를 이 마디 끝으로">⟵ 가져오기</button><button type="button" id="shRsd" title="이 마디 끝 글자(낱말)를 뒷 마디 앞으로">보내기 ⟶</button><span class="nb" id="shRn"></span></div>
         <div class="lyMv2"><span>앞 마디 경계 · 뒷 마디 경계 — 한글·일본어는 한 글자씩, 영어 등은 한 낱말씩</span><button type="button" id="shLu" disabled>↶ 이동 취소</button></div>
         <div class="er"><label for="shSi">구간</label><input type="text" id="shSi" placeholder="예: 1절 · 비우면 해제" autocomplete="off"></div>`; d.appendChild(ep);
       requestAnimationFrame(() => focusCell(i, true));
@@ -7942,7 +7943,7 @@ function songDeck(el, ids, o) {
       const ci0 = ci.value, apply = () => { const e = Object.assign({}, ED[i] || {}), q = songParseChords(ci.value, pvCh()); if (ci.value !== ci0) { delete e.auto; delete e.g; if (q.ch.length) e.ch = q.ch.map((c) => [c[0], songChordName(c[1], capoOf() - keyN)]); } e.ly = li.value; ED[i] = bmark(e); saveEd(); redo(); };
       ci.oninput = () => { hintUp(); apply(); }; { const wb = ep.querySelector("#shWi"); if (wb) wb.onclick = () => { ci.value = webAt(m, i).join(" "); ci.oninput(); }; } li.oninput = apply; si.oninput = () => { const a = secs().filter((x) => x[0] !== i); if (si.value.trim()) a.push([i, si.value.trim()]); me.sec = a; saveEd(); redo(); };
       { const txt = (k) => M[k] ? M[k].lyrics.map((y) => y.text).join(" ") : "", undo = [];   // (11/22 사용자 · 에이 검토) 가사 마디 경계 좌우 이동: 두 마디를 한 번에 저장 · 연타 · 이동 취소
-        const B = { Ls: ep.querySelector("#shLs"), Lg: ep.querySelector("#shLg"), Rg: ep.querySelector("#shRg"), Rs: ep.querySelector("#shRs"), Lp: ep.querySelector("#shLp"), Rn: ep.querySelector("#shRn"), U: ep.querySelector("#shLu") };
+        const B = { Ls: ep.querySelector("#shLs"), Lg: ep.querySelector("#shLg"), Rg: ep.querySelector("#shRg"), Rs: ep.querySelector("#shRsd"), Lp: ep.querySelector("#shLp"), Rn: ep.querySelector("#shRn"), U: ep.querySelector("#shLu") };
         const paintMv = () => { const p = txt(i - 1), c = txt(i), n = txt(i + 1), pu = songLyUnits(p), nu = songLyUnits(n);
           B.Lp.textContent = i > 0 ? (pu.length > 3 ? "…" : "") + songLyJoin(pu.slice(-3)) : ""; B.Rn.textContent = i + 1 < M.length ? songLyJoin(nu.slice(0, 3)) + (nu.length > 3 ? "…" : "") : "";
           B.Ls.disabled = i === 0 || !c.trim(); B.Lg.disabled = i === 0 || !p.trim(); B.Rg.disabled = i + 1 >= M.length || !n.trim(); B.Rs.disabled = i + 1 >= M.length || !c.trim(); B.U.disabled = !undo.length; };
@@ -7951,6 +7952,7 @@ function songDeck(el, ids, o) {
           ED[a] = bmark(Object.assign({}, ED[a] || {}, { ly: r.A, lj: r.jA })); ED[b] = bmark(Object.assign({}, ED[b] || {}, { ly: r.B })); saveEd(); redo(); li.value = txt(i); paintMv(); try { navigator.vibrate && navigator.vibrate(15); } catch {} };
         B.Ls.onclick = () => mv(i - 1, "L"); B.Lg.onclick = () => mv(i - 1, "R"); B.Rg.onclick = () => mv(i, "L"); B.Rs.onclick = () => mv(i, "R");
         B.U.onclick = () => { const u = undo.pop(); if (!u) return; u.forEach(([k, e]) => { if (e) ED[k] = e; else delete ED[k]; }); saveEd(); redo(); li.value = txt(i); paintMv(); };
+        ep._undoAll = () => { while (undo.length) undo.pop().forEach(([k, e]) => { if (e) ED[k] = e; else delete ED[k]; }); };   // (11/22) 되돌리기 = 이 창에서 옮긴 옆 마디 가사까지 함께
         paintMv(); }
       const done = () => { if (lastCK && lastCK.has(i) && !(ED[i] && (ED[i].ch || typeof ED[i].ly === "string" || ED[i].ok))) { ED[i] = bmark(Object.assign({}, ED[i] || {}, { ok: 1 })); saveEd(); } closeShEdit(true); if (lastCK && lastCK.has(i)) redo0(); };   // (11/21 사용자 '확인 필요 마디를 확인하고 완료를 눌러도 표시가 안 사라짐') 고칠 게 없어도 완료 = 선생님 확인(ok) → 표시 사라짐
       const k = (e) => { if (e.key === "Enter") done(); }; ci.onkeydown = li.onkeydown = si.onkeydown = k; ep.querySelector("#shOk").onclick = done;
@@ -7961,7 +7963,7 @@ function songDeck(el, ids, o) {
       if (window.visualViewport) { const onVV = () => { if (ep && ep.isConnected) kb(); else window.visualViewport.removeEventListener("resize", onVV); }; window.visualViewport.addEventListener("resize", onVV); }
       ep.querySelector("#shEpP").onclick = () => Q("sgPb").onclick();   // (11/21 사용자) 수정 창에서 바로 재생·일시정지
       ep.querySelector("#shPv").onclick = () => go(i - 1); ep.querySelector("#shNx").onclick = () => go(i + 1);
-      ep.querySelector("#shRs").onclick = () => { delete ED[i]; me.sec = secs().filter((x) => x[0] !== i); saveEd(); redo(); closeShEdit(); openShEdit(i); };
+      ep.querySelector("#shRs").onclick = () => { if (ep._undoAll) ep._undoAll(); delete ED[i]; me.sec = secs().filter((x) => x[0] !== i); saveEd(); redo(); closeShEdit(); openShEdit(i); };
       // (11/21 사용자 '길게 눌러 수정 창을 띄우면 그 누름 때문에 글자 선택 모드로 바로 들어감') 손가락을 떼기 전까지는 입력칸을 읽기 전용(선택 안 됨) → 뗀 뒤에 코드 칸에 커서
       if (sgPtrDown) { const ins = [ci, li, si]; ins.forEach((x) => { x.readOnly = true; x.style.userSelect = "none"; }); const rel = () => { document.removeEventListener("pointerup", rel, true); document.removeEventListener("touchend", rel, true); document.removeEventListener("pointercancel", rel, true); setTimeout(() => { ins.forEach((x) => { x.readOnly = false; x.style.userSelect = ""; }); }, 120); };   // (11/22 사용자 '키보드는 코드·가사 칸을 터치할 때만') 자동 커서 없음
         document.addEventListener("pointerup", rel, true); document.addEventListener("touchend", rel, true); document.addEventListener("pointercancel", rel, true); } };
