@@ -771,3 +771,21 @@ const mk = new Function(code + "; return stemEngine;")();
   assert.ok(T.includes("hit = m.lyrics.find((y) => String(y.text).trim().split(/\\s+/)[0] === fw)") && T.includes('typeof e.lbb === "number" ? e.lbb'), "원래 박 자리 따라가기 · 직접 지정");
   assert.ok(T.includes('data-lbb="-1"') && T.includes('data-lbb="3"') && T.includes('delete e.lbb;'), "가사 시작 박 버튼(자동·1~4박)");
 }
+// (11/23 사용자 'live는 마디 첫박, if는 마지막 박') 가사 칸의 | 로 마디 안 덩어리를 나눔: 앞은 왼쪽 · 뒤는 오른쪽 끝
+{
+  const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  const f = new Function(T.slice(T.indexOf("const SG_NOTES"), T.indexOf("async function songPeaks(")) + "; return { songApplyEdits, songLyEditText, songLyBar };")();
+  const M = [{ no: 1, beats: 4, chords: [{ b: 0, name: "C", len: 4 }], lyrics: [{ b: 2, text: "I live if" }] }];
+  const R = f.songApplyEdits(M, { 0: { ly: "live | if" } }, 0)[0];
+  assert.deepStrictEqual(R.lyChunks, ["live", "if"], "덩어리로 나뉨"); assert.strictEqual(R.lyrics[0].text, "live if", "다른 곳은 공백으로 이은 글자 그대로");
+  assert.strictEqual(f.songLyEditText(R), "live | if", "수정 창에는 | 가 그대로 보임");
+  const R2 = f.songApplyEdits(M, { 0: { ly: "live if" } }, 0)[0]; assert.ok(!R2.lyChunks, "| 없으면 덩어리 없음");
+  assert.strictEqual(f.songApplyEdits(M, { 0: { ly: " | " } }, 0)[0].lyrics.length, 0, "| 만 있으면 빈 칸");
+  assert.deepStrictEqual(f.songApplyEdits(M, { 0: { ly: "a | b | c" } }, 0)[0].lyChunks, ["a", "b", "c"], "3덩어리");
+  const inp = { value: "live if", selectionStart: 4, selectionEnd: 4, focus() {}, setSelectionRange() {}, dispatchEvent() {} }; global.Event = global.Event || class {};
+  f.songLyBar(inp); assert.strictEqual(inp.value, "live | if", "커서 자리에 | 넣기");
+  assert.ok(T.includes('ly.classList.add("shLk")') && T.includes(".shL.shLk{display:flex;justify-content:space-between"), "A4: 앞 왼쪽 · 뒤 오른쪽");
+  assert.ok(T.includes('e.dataset.ck = k === 0 ? "F" : k === a.length - 1 ? "L" : "M"') && T.includes('ck === "L" ? Math.max(W - pad - e.offsetWidth, x)'), "TV 화면: 마지막 덩어리는 오른쪽 끝");
+  assert.ok(T.includes("ckDone = true") && T.includes("k === a.length - 1 ? Math.max(cw - 18 - w, ex)"), "PDF·4K 화면도 같은 규칙");
+  assert.ok(T.includes('id="shLbar"') && T.includes('id="prLbar"'), "｜ 나누기 버튼(A4·TV 수정 창)");
+}
