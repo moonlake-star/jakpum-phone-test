@@ -759,3 +759,9 @@ const mk = new Function(code + "; return stemEngine;")();
   assert.ok(!T.includes('screen.orientation?.lock?.("landscape")') && T.includes("화면 방향을 고정하지 않음"), "(11/21) TV는 방향 고정 없음(기본 세로·돌리면 가로)");
   assert.ok(T.includes("const fsHost = () => document.fullscreenElement") && T.includes("fsHost().appendChild(b); };") && T.includes("close(); }; fsHost().appendChild(w); };"), "전체화면(TV) 안에서도 PDF 창·만드는 중 창이 보임");
 }
+{ // (11/22 사용자 '언젠가는 가사가 정박인데 마디 중간') 곡 전체 마디 줄 1박씩 옮기기
+  const T2 = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8"), assert2 = require("assert");
+  assert2.ok(T2.includes('id="shBl"') && T2.includes('id="shBr"') && T2.includes('ep.querySelector("#shBl").onclick = () => shiftBars(-1, i); ep.querySelector("#shBr").onclick = () => shiftBars(1, i);'), "수정 창에 마디 줄 옮기기 버튼");
+  assert2.ok(T2.includes("R0 = S0.length > 1 && S0[0] === 0 && S0[1] < 4 ? S0.slice(1) : S0") && T2.includes("if (S[0] > 0) S.unshift(0);") && T2.includes("AN._bars = S;"), "앞을 짧은 마디로 채우고, 여러 번 눌러도 짧은 마디가 쌓이지 않음");
+  console.log("song-deck: bar shift ok");
+}
