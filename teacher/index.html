@@ -381,6 +381,7 @@
   /* 심플 보기: 수강생 심플 화면에 안 나오는 칸은 흐리게(숨기면 포함 체크를 못 봄 — 보통 보기에선 수강생에게 보임) */
   body.v2lv-simple .pvCard[data-v2="makeup"], body.v2lv-simple .pvCard[data-v2="cheer"], body.v2lv-simple .pvSong, body.v2lv-simple #todayCard [data-abrow="mk"] { opacity:.45; }
   .bestTag { font-size:.78rem; font-weight:700; color:var(--muted); background:#2a2f37; border-radius:10px; padding:1px 8px; margin-left:6px; vertical-align:2px; }
+  .stuCard.tap { -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
   .mkrow { touch-action:pan-y; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; } .mkrow.mkSel { background:#1f3050; border-radius:10px; } .mkChk { flex:none; font-size:1.2rem; margin-right:6px; color:var(--accent); } .mkChk + span { flex:1; min-width:0; text-align:left; }
   #mkSelBar { position:fixed; left:0; right:0; bottom:0; z-index:46; background:var(--card); border-top:1.5px solid var(--accent); box-shadow:0 -4px 14px rgba(0,0,0,.4); padding:10px 14px calc(12px + env(safe-area-inset-bottom)); } #mkSelBar .in { max-width:760px; margin:0 auto; }
   body:has(#mkSelBar) #brTipBar { display:none; } .mkrow.mkHid { opacity:.6; } .mkMore { min-width:40px; }
@@ -1464,7 +1465,8 @@ function paintList(data, stale) {
   paintJoinRequests();
   try { paintPitchAll(data); paintRecMgr(); } catch {}
   try { paintCare(data); if (!isStaffApp() && portalUrl()) usageOf().then(() => paintCare(data)).catch(() => {}); } catch {}
-  $("vList").querySelectorAll(".stuCard.tap").forEach(el => el.onclick = () => openStudent(el.dataset.s));
+  $("vList").querySelectorAll(".stuCard.tap").forEach(el => { el.onclick = () => { if (el._long) { el._long = false; return; } openStudent(el.dataset.s); };
+    if (payCanEdit()) longPress(el, () => { el._long = true; stuMenu(el.dataset.s); }); });   // (11/22 사용자) 길게 누르면 수강 상태·삭제
   $("vList").querySelectorAll(".stuCard .retry").forEach(el => el.onclick = (e) => { e.stopPropagation(); renderList(); });
   const repaintTodo = () => { const c = $("todoCard"); if (!c) return; c.outerHTML = todoCardHtml(); wireTodo(); };   // 카드만 다시(전체 다시 그리기 아님 → 불러오기 없음)
   const wireTodo = () => {
@@ -4727,11 +4729,39 @@ function trashSheet() {
 // (11/21 사용자 '테스트 수강생 삭제') 연습용(status test) 수강생만 지움: 설정(config)에서 빼고, 드라이브 폴더는 휴지통(30일 복구).
 //   실제 수강생은 버튼 자체가 없음(실수 방지 — 그만둔 수강생은 '수강 상태 → 그만둠').
 const stuCanDelete = (st) => st?.status === "test";
-async function deleteTestStudent(sid) {
-  const st = cfg.students[sid]; if (!stuCanDelete(st)) return toast("연습용 수강생만 지울 수 있어요");
-  if (!confirm(`연습용 수강생 ‘${st.name}’을(를) 지울까요?\n\n· 수강생 목록에서 빠져요\n· 드라이브 폴더(녹음·노트)는 휴지통으로 가고 30일 안에는 복구할 수 있어요`)) return;
+// (11/22 사용자 '길게 누르면 수강생 삭제, 그만둠') 길게 누르기(0.5초, 움직이면 취소) → 메뉴
+function longPress(el, fn, ms = 500) {
+  let t = null, x0 = 0, y0 = 0; const stop = () => { clearTimeout(t); t = null; };
+  el.addEventListener("touchstart", (e) => { const p = e.touches[0]; x0 = p.clientX; y0 = p.clientY; stop(); t = setTimeout(() => { t = null; try { navigator.vibrate?.(25); } catch {} fn(); }, ms); }, { passive: true });
+  el.addEventListener("touchmove", (e) => { const p = e.touches[0]; if (Math.hypot(p.clientX - x0, p.clientY - y0) > 8) stop(); }, { passive: true });
+  el.addEventListener("touchend", stop); el.addEventListener("touchcancel", stop);
+  el.addEventListener("contextmenu", (e) => e.preventDefault());
+}
+function stuMenu(sid) {
+  const st = cfg.students[sid]; if (!st) return; document.getElementById("stuMenu")?.remove();
+  const self = isTeacher(st), d = document.createElement("div"); d.id = "stuMenu"; d.className = "attSheet";
+  d.innerHTML = `<div class="attBox"><h3 style="margin:0 0 8px">${esc(st.name)} <span class="muted" style="font-size:.85rem">${esc(sid)}</span></h3>
+    ${self ? `<p class="muted">선생님 본인 칸은 바꾸거나 지울 수 없어요</p>` : `
+    <button type="button" class="full" id="smEnroll">수강 상태 바꾸기 <span style="font-weight:400">(지금: ${esc(enrollLabel(st))})</span></button>
+    <p class="muted" style="margin:4px 0 10px;font-size:.85rem">다니는 중 · 쉬는 중 · 그만둠 — 그만둠·쉬는 중이면 챙기기·수강권 알림에서 빠지고 목록 아래로 가요(기록은 그대로)</p>
+    <button type="button" class="full" id="smDel" style="background:#5a2323;color:#ffd6d6;border:1.5px solid #ff8a7a">수강생 삭제</button>
+    <p class="muted" style="margin:4px 0 0;font-size:.85rem">목록에서 빼고 폴더(녹음·노트)는 드라이브 휴지통으로 · 30일 안엔 더보기 → 🗑 휴지통에서 되살릴 수 있어요${st.status === "test" ? "" : " · 실제 수강생은 이름을 한 번 더 입력해야 지워져요"}</p>`}
+    <button type="button" class="ghost full" id="smNo" style="margin-top:10px">닫기</button></div>`;
+  document.body.appendChild(d);
+  const ly = typeof Brand !== "undefined" && Brand.layer ? Brand.layer(() => d.remove()) : { close: () => d.remove() }, close = () => ly.close();
+  $("smNo").onclick = close; d.addEventListener("click", (e) => { if (e.target === d) close(); });
+  if ($("smEnroll")) $("smEnroll").onclick = () => { close(); enrollSheet(sid, () => renderList()); };
+  if ($("smDel")) $("smDel").onclick = () => { close(); deleteStudent(sid); };
+}
+const deleteTestStudent = (sid) => deleteStudent(sid);
+async function deleteStudent(sid) {
+  const st = cfg.students[sid]; if (!st || isTeacher(st)) return toast("선생님 본인 칸은 지울 수 없어요");
+  const test = st.status === "test";
+  if (test) { if (!confirm(`연습용 수강생 ‘${st.name}’을(를) 지울까요?\n\n· 수강생 목록에서 빠져요\n· 드라이브 폴더(녹음·노트)는 휴지통으로 가고 30일 안에는 복구할 수 있어요`)) return; }
+  else { const typed = prompt(`실제 수강생 ‘${st.name}’을(를) 지워요.\n목록에서 빠지고 폴더(녹음·노트·피드백)는 드라이브 휴지통으로 가요(30일 안엔 🗑 휴지통에서 되살릴 수 있어요).\n그만두신 거라면 '수강 상태 → 그만둠'을 권해요.\n\n지우려면 이름을 그대로 입력해 주세요: ${st.name}`);
+    if (typed == null) return; if (typed.trim() !== st.name) return toast("이름이 달라서 지우지 않았어요"); }
   try {
-    await cfgUpdate(l => { const x = l.students?.[sid]; if (x?.status !== "test") return;   // 최신 설정에서도 연습용일 때만
+    await cfgUpdate(l => { const x = l.students?.[sid]; if (!x || x.status === "teacher" || (test && x.status !== "test")) return;   // 최신 설정 기준으로 다시 확인
       l.trash_log = [...(l.trash_log || []), { kind: "student", id: x.folder, sid, name: x.name, at: new Date().toISOString(), snap: JSON.parse(JSON.stringify(x)) }].slice(-80);   // 휴지통에서 되살릴 때 그대로
       delete l.students[sid]; });
     let trashed = true; if (st.folder) { try { await api(`${DRIVE}/files/${st.folder}?fields=id`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trashed: true }) }); } catch { trashed = false; } }
@@ -4775,7 +4805,7 @@ function paySheet(sid, opt = {}) {
     try { await save(a => { const i = a.findIndex(p => p.date === dt && String(p.sessions) === k); if (i >= 0) a.splice(i, 1); return a; }, "지웠어요"); $("payList").innerHTML = list(); }
     catch (err) { b.disabled = false; toast(errMsg(err)); } });
 }
-function enrollSheet(sid) {
+function enrollSheet(sid, after) {
   const st = cfg.students[sid], e = st.enroll || {}, d = document.createElement("div"); d.className = "attSheet";
   const today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
   d.innerHTML = `<div class="attBox"><h3 style="margin:0 0 6px">${esc(st.name)} · 수강 상태</h3>
@@ -4796,7 +4826,7 @@ function enrollSheet(sid) {
     const v = k === "active" ? { state: "active", at: today, prev: e.state && e.state !== "active" ? { state: e.state, at: e.at || "", why_tag: e.why_tag || "", why: e.why || "" } : undefined }
       : { state: k, at: $("enAt").value || today, why_tag: tag, why: $("enWhy").value.trim().slice(0, 120) };
     try { await cfgUpdate(l => { const x = l.students?.[sid]; if (!x) return; const hist = (x.enroll_log || []).slice(-19); hist.push({ ...v, prev: undefined, saved_at: new Date().toISOString() }); x.enroll = JSON.parse(JSON.stringify(v)); x.enroll_log = hist; });
-      if (st.teacher_id) staffSync(st.teacher_id).catch(() => {}); close(); toast("저장했어요"); openStudent(sid, stuCur?.tab); }
+      if (st.teacher_id) staffSync(st.teacher_id).catch(() => {}); close(); toast("저장했어요"); if (after) after(); else openStudent(sid, stuCur?.tab); }
     catch (err) { b.disabled = false; toast(errMsg(err)); } };
 }
 // ── 🤝 챙기기(11/04 19:10 사용자 '오케이 고고' — 장기 수강생 프로젝트: 레슨 사이 소통) ──
