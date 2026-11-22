@@ -7697,15 +7697,16 @@ function songDeck(el, ids, o) {
     d.innerHTML = `<div class="prTop"><button type="button" class="prPlay" id="prPlay" aria-label="재생 또는 일시정지">▶</button><div class="prT"><b id="prTitle"></b><span id="prSub"></span></div>
       <div class="prVo"><small>보컬</small><input type="range" id="prVol" min="0" max="100" aria-label="보컬 소리"><b id="prVv"></b></div>
       <div class="prKt"><div class="prKg"><small>키</small><button type="button" id="prKm" aria-label="키 한 음 내리기">−</button><b id="prKv">–</b><button type="button" id="prKp" aria-label="키 한 음 올리기">＋</button></div><div class="prKg"><small>속도</small><button type="button" id="prSm" aria-label="속도 1 내리기">−</button><b id="prSv">–</b><button type="button" id="prSp" aria-label="속도 1 올리기">＋</button></div></div>
-      <button type="button" class="prBtn prLvB" id="prLv" aria-pressed="false" aria-label="라이브 모드(음원 없이 박만 셈)">🎤 라이브</button><button type="button" class="prBtn" id="prCp" aria-label="카포 추천">카포0</button><button type="button" class="prBtn prEd" id="prEd">✎ 수정</button><button type="button" class="prBtn" id="prPdf" aria-label="PDF로 저장">PDF</button><button type="button" class="prX" id="prX" aria-label="닫기">✕</button></div>
+      <button type="button" class="prBtn" id="prRows" aria-label="한 쪽 줄 수">5줄</button><button type="button" class="prBtn prLvB" id="prLv" aria-pressed="false" aria-label="라이브 모드(음원 없이 박만 셈)">🎤 라이브</button><button type="button" class="prBtn" id="prCp" aria-label="카포 추천">카포0</button><button type="button" class="prBtn prEd" id="prEd">✎ 수정</button><button type="button" class="prBtn" id="prPdf" aria-label="PDF로 저장">PDF</button><button type="button" class="prX" id="prX" aria-label="닫기">✕</button></div>
       <div class="prTl"><span id="prT0">0:00</span><div class="prSg"><div class="prSgs" id="prSgs"></div><input type="range" id="prSeek" min="0" max="1000" step="1" value="0" aria-label="곡 전체 위치"></div><span id="prT1">–:–</span><div class="prPg"><button type="button" id="prPv" aria-label="이전 쪽">◀</button><span id="prPn"></span><button type="button" id="prNx" aria-label="다음 쪽">▶</button></div></div>
       <div class="prGrid" id="prGrid"></div>
-      <div class="prLvBar" id="prLvBar" hidden><button type="button" id="prLvPv" aria-label="앞 마디">◀ 마디</button><button type="button" id="prLvGo" aria-label="멈춤 또는 출발">▶ 출발</button><button type="button" class="big" id="prLvSn" aria-label="밴드 첫 박에 누르기">⤓ 첫 박</button><button type="button" id="prLvNx" aria-label="뒷 마디">마디 ▶</button><span id="prLvInfo">Enter 출발·멈춤 · 스페이스 박자 탭 · →← 반 박 · ↓↑ 한 줄 · ⤓ 마디 첫 박 맞춤</span></div>`;
+      <div class="prLvBar" id="prLvBar" hidden><button type="button" id="prLvPv" aria-label="앞 마디">◀ 마디</button><button type="button" id="prLvGo" aria-label="멈춤 또는 출발">▶ 출발</button><button type="button" class="big" id="prLvSn" aria-label="밴드 첫 박에 누르기">⤓ 첫 박</button><button type="button" id="prLvNx" aria-label="뒷 마디">마디 ▶</button><span id="prLvInfo">스페이스: 출발 · 연주 중 4번↑ 연타 = 템포 · 길게 = 멈춤 · →← 반 박 · ↓↑ 한 줄 · 마디 클릭 = 그 마디로</span></div>`;
     d.querySelector("#prTitle").textContent = o.name || "곡";
     let live = false, liveRun = false, liveT = 0, liveLast = 0, liveSnap = null, wakeL = null;   // (11/22 사용자 'TV에 바로 코드악보를 쏘고 조종맨은 템포감만') 라이브 모드: 음원 없이 가상 시계(녹음 시간축)로 진행 · 속도 버튼 = 라이브 템포
+    let ROWS = (() => { try { return +localStorage.getItem("sgTvRows") === 4 ? 4 : 5; } catch { return 5; } })(); const PER = () => ROWS * 4;   // (11/22 사용자 '4줄 보기로 가독성') 한 쪽 줄 수 4·5
     let half = false;   // (11/22 사용자 'TV는 한 쪽씩 넘어가니…') 반 쪽 넘김: 재생이 아래 두 줄에 들어서면 이미 연주한 위 세 줄을 다음 쪽 첫 세 줄로 미리 바꿔 보여 줌
     let needFit = false, pg = 0, lastPg = -1, on = -1, raf2 = 0, wl = null, edit = false, sel = -1, sd = false, lastSi = -1, flT = 0, sv = 0, fl = -1;
-    const pages = () => Math.max(1, Math.ceil(M.length / SG_PER)), $ = (s) => d.querySelector(s);
+    const pages = () => Math.max(1, Math.ceil(M.length / PER())), $ = (s) => d.querySelector(s);
     let playSelTV = false;   // (11/22) TV도 같은 규칙: 수정 직후 한 번만 고른 마디 첫 박부터
     const save = () => { playSelTV = true; me.sec = SEC; clearTimeout(sv); sv = setTimeout(() => { try { o.onEdits && o.onEdits(ED); } catch {} try { o.onSections && o.onSections(SEC); } catch {} }, 700); };
     const flush = () => { if (sv) { clearTimeout(sv); sv = 0; try { o.onEdits && o.onEdits(ED); } catch {} try { o.onSections && o.onSections(SEC); } catch {} } };
@@ -7715,8 +7716,8 @@ function songDeck(el, ids, o) {
       SL.forEach((s, k) => { const b = R.children[k]; b.textContent = (fl === k ? "📳 " : "") + s.name; b.className = (k === cur ? "on " : "") + (fl === k ? "fl" : ""); }); };
     const build = () => { M = meas(); mKey = keyN; SL = songSecList(M.length, SEC.length ? SEC : autoSec()); pg = Math.max(0, Math.min(pg, pages() - 1)); const G = $("#prGrid"); G.textContent = ""; $("#prSgs").textContent = ""; $("#prPn").textContent = `${pg + 1}/${pages()}쪽`;
       const secName = {}; SL.forEach((s) => { secName[s.start] = s.name; });
-      for (let r = 0; r < 5; r++) { const row = document.createElement("div"); row.className = "prRow"; const pr = half && r < 3 && pg + 1 < pages() ? pg + 1 : pg; if (pr !== pg) { row.classList.add("prNx"); if (r === 2) row.classList.add("prNxEnd"); }
-        for (let k = 0; k < 4; k++) { const i = pr * SG_PER + r * 4 + k, m = M[i], c = document.createElement("div"); c.className = "prM"; if (!m) { c.classList.add("prE"); row.appendChild(c); continue; } c.dataset.i = i; if (edit && i === sel) c.classList.add("sel");
+      for (let r = 0; r < ROWS; r++) { const row = document.createElement("div"); row.className = "prRow"; const pr = half && r < ROWS - 2 && pg + 1 < pages() ? pg + 1 : pg; if (pr !== pg) { row.classList.add("prNx"); if (r === ROWS - 3) row.classList.add("prNxEnd"); }
+        for (let k = 0; k < 4; k++) { const i = pr * PER() + r * 4 + k, m = M[i], c = document.createElement("div"); c.className = "prM"; if (!m) { c.classList.add("prE"); row.appendChild(c); continue; } c.dataset.i = i; if (edit && i === sel) c.classList.add("sel");
           const no = document.createElement("span"); no.className = "prNo"; no.textContent = m.no; if (secName[i]) { const sb = document.createElement("b"); sb.textContent = "[" + secName[i] + "]"; no.appendChild(sb); } c.appendChild(no);
           const nb = Math.max(1, m.beats || 4), U = 100 / nb;   // (11/22) 2박 마디는 칸 안을 2박으로 나눔
           if (nb !== 4) { const t = document.createElement("b"); t.className = "prB2"; t.textContent = nb + "박"; no.appendChild(t); }
@@ -7725,10 +7726,10 @@ function songDeck(el, ids, o) {
             const u = document.createElement("span"); u.className = "prUl"; u.style.left = `calc(${ch.b * U}% + .4em)`; u.style.width = `calc(${ch.len * U}% - .9em)`; c.appendChild(u); }
           for (const y of m.lyrics) { const e = document.createElement("span"); e.className = "prLy"; e.dataset.b = y.b * 4 / nb; e.style.left = `calc(${y.b * U}% + .4em)`; e.textContent = y.text; c.appendChild(e); }
           if (m.edited && edit) { const e = document.createElement("span"); e.className = "prEg"; e.textContent = "수정됨"; c.appendChild(e); }
-          const hd = document.createElement("span"); hd.className = "prHd"; c.appendChild(hd); cellGesture(c, { tap: () => { if (me.isLive && me.isLive()) return; if (edit) openEdit(i); else tapCell(i === 0 ? 0 : m.t0); }, dbl: () => { if (!(me.isLive && me.isLive())) playFrom(i === 0 ? 0 : m.t0); }, long: () => { if (!(me.isLive && me.isLive())) openEdit(i); } });   /* 라이브 중 칸 터치는 무시(오터치 사고 방지) */ row.appendChild(c); }
+          const hd = document.createElement("span"); hd.className = "prHd"; c.appendChild(hd); cellGesture(c, { tap: () => { if (me.isLive && me.isLive()) { me.liveJump(i === 0 ? 0 : m.t0); return; } if (edit) openEdit(i); else tapCell(i === 0 ? 0 : m.t0); }, dbl: () => { if (!(me.isLive && me.isLive())) playFrom(i === 0 ? 0 : m.t0); }, long: () => { if (!(me.isLive && me.isLive())) openEdit(i); } });   /* 라이브 중 칸 터치는 무시(오터치 사고 방지) */ row.appendChild(c); }
         G.appendChild(row); }
       on = -1; needFit = true; paintSegs(); };
-    const fitU = () => { const G = d.querySelector("#prGrid"); if (!G) return; G.style.removeProperty("--u"); const c = G.querySelector(".prM:not(.prE)") || G.querySelector(".prM"); if (!c) return; const H = c.clientHeight, u = Math.min(window.innerWidth / 100, window.innerHeight * 0.016); if (H && H < u * 9.9) G.style.setProperty("--u", (H / 9.9).toFixed(2) + "px"); };   // (11/21 사용자 'TV 화면에서 가사가 가려짐') 줄 높이가 모자라면 코드·가사 크기를 줄 높이에 맞춰 줄임(가사 줄이 칸 아래로 잘리지 않게)
+    const fitU = () => { const G = d.querySelector("#prGrid"); if (!G) return; G.style.removeProperty("--u"); const c = G.querySelector(".prM:not(.prE)") || G.querySelector(".prM"); if (!c) return; const H = c.clientHeight, Wc = c.clientWidth, u = Math.min(window.innerWidth / 100, window.innerHeight * 0.016); if (H && H < u * 9.9) G.style.setProperty("--u", (H / 9.9).toFixed(2) + "px"); else if (H && Wc && ROWS < 5) G.style.setProperty("--u", Math.min(H / 9.9, Wc / 22).toFixed(2) + "px"); };   // 4줄 보기: 칸이 커진 만큼 글씨도 키움(가로 폭 한도)   // (11/21 사용자 'TV 화면에서 가사가 가려짐') 줄 높이가 모자라면 코드·가사 크기를 줄 높이에 맞춰 줄임(가사 줄이 칸 아래로 잘리지 않게)
     const fit = () => { needFit = false; fitU(); d.querySelectorAll(".prM").forEach((c) => { const L = [...c.querySelectorAll(".prLy")]; if (!L.length) return; const W = c.clientWidth, gap = 10, pad = 8; L.forEach((e) => { e.style.fontSize = ""; });
       const lay = (sh = 0) => { let x = 0; L.forEach((e) => { const l = Math.max(+e.dataset.b / 4 * W + pad - sh, x, pad); e.style.left = l + "px"; x = l + e.offsetWidth + gap; }); return x - gap; }; let end = lay();
       if (end > W - 4) end = lay(end - (W - 4));   // (11/22) 칸을 넘으면 글자를 줄이기 전에 먼저 시작 자리를 앞으로 당김(못갖춘마디 가사가 칸 밖으로 잘리던 것)
@@ -7738,8 +7739,8 @@ function songDeck(el, ids, o) {
     let ep = null;
     const closeEdit = () => { sel = -1; if (ep) { ep.remove(); ep = null; } d.querySelectorAll(".prM.sel").forEach((e) => e.classList.remove("sel")); };
     const openEdit = (i) => { const m = M[i]; if (!m) return; closeEdit(); sel = i; d.querySelectorAll(".prM.sel").forEach((e) => e.classList.remove("sel")); const cell = d.querySelector(`.prM[data-i="${i}"]`); if (cell) { cell.classList.add("sel"); if (!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches)) { cell.classList.remove("pop"); void cell.offsetWidth; cell.classList.add("pop"); setTimeout(() => cell.classList.remove("pop"), 650); } }   // (11/22) 고른 칸이 살짝 튀어오름
-      ep = document.createElement("div"); ep.className = "prEp"; const row = Math.floor((i % SG_PER) / 4), grid = $("#prGrid");
-      if (row >= 3) ep.style.top = grid.offsetTop + "px"; else ep.style.bottom = "1.6vh";
+      ep = document.createElement("div"); ep.className = "prEp"; const row = Math.floor((i % PER()) / 4), grid = $("#prGrid");
+      if (row >= ROWS - 2) ep.style.top = grid.offsetTop + "px"; else ep.style.bottom = "1.6vh";
       ep.innerHTML = `<div class="eh"><b>${m.no}마디 수정</b><span>코드는 띄어쓰기로 입력 · <u>D</u> = 한 마디 1코드 · <u>Bm Em</u> = 1·3박 · <u>G A@2</u> = 박 지정</span><div class="sp"><button type="button" class="prBtn" id="prRs">되돌리기</button><button type="button" class="prBtn on" id="prOk">완료</button></div></div>
         <div class="er"><label for="prCi">코드</label><input type="text" id="prCi" autocomplete="off" autocapitalize="off" spellcheck="false"><div class="hint" id="prCh"></div></div>
         <div class="er"><label for="prLi">가사</label><input type="text" id="prLi" autocomplete="off"><label for="prSi" style="min-width:0">구간 이름</label><input type="text" id="prSi" placeholder="예: 1절 · 비우면 해제" autocomplete="off"></div>
@@ -7780,34 +7781,38 @@ function songDeck(el, ids, o) {
       document.addEventListener("visibilitychange", () => { if (live && d.isConnected) wake(); liveLast = performance.now(); });
       const barNow = () => songBeatPos(AN, liveT), toBar = (k) => { k = Math.max(0, Math.min(M.length - 1, k)); liveT = k === 0 ? 0 : M[k].t0; liveLast = performance.now(); };
       const goLive = (on) => { live = on; const b = $("#prLv"); b.classList.toggle("on", on); b.setAttribute("aria-pressed", on ? "true" : "false"); bar().hidden = !on; d.classList.toggle("live", on); needFit = true;
-        if (on) { if (eng.isPlaying()) Q("sgPb").onclick(); liveT = eng.pos(); liveRun = false; liveSnap = null; wake(); info("Enter 출발·멈춤 · 스페이스 박자 탭 · →← 반 박 당기기·늦추기 · ↓↑ 한 줄 · ⤓ 마디 첫 박 맞춤"); toast("라이브 모드: 음원 없이 박만 세요 · 속도 −/+ = 라이브 템포"); }
+        if (on) { if (eng.isPlaying()) Q("sgPb").onclick(); liveT = eng.pos(); liveRun = false; liveSnap = null; wake(); info("스페이스: 출발 · 연주 중 4번↑ 연타 = 템포 · 길게 = 멈춤 · →← 반 박 · ↓↑ 한 줄 · 마디 클릭 = 그 마디로"); toast("라이브 모드: 음원 없이 박만 세요 · 속도 −/+ = 라이브 템포"); }
         else { try { wakeL && wakeL.release(); } catch {} wakeL = null; liveRun = false; seekTo(liveT); } paintGo(); };
       const paintGo = () => { const g = $("#prLvGo"); if (g) g.textContent = liveRun ? "❚❚ 멈춤" : "▶ 출발"; };
       const snap = () => { const q = barNow(), m = M[q.m]; if (!m) return; const k = liveRun && q.b >= Math.max(1, m.beats || 4) / 2 ? q.m + 1 : q.m, now = performance.now(); toBar(k);   // 밴드 첫 박에 누름: 화면이 마디 뒤쪽이면 다음 마디, 앞쪽이면 지금 마디 처음
         if (liveSnap && liveRun) { const real = (now - liveSnap.real) / 1000, song = liveT - liveSnap.t; if (real > 1.5 && real < 25 && song > 0) { const r = song / real; if (r > 0.6 && r < 1.6) setRate(Math.max(0.7, Math.min(1.4, rate * 0.5 + r * 0.5))); } }   // 두 번 누른 사이 간격으로 템포 자동 보정(절반만 반영)
         liveSnap = { real: now, t: liveT }; if (!liveRun) { liveRun = true; paintGo(); } songFlash(d.querySelector(`.prM[data-i="${k}"]`)); };
       $("#prLv").onclick = () => goLive(!live);
+      { const rb = $("#prRows"), paintR = () => { rb.textContent = ROWS + "줄"; rb.title = ROWS === 4 ? "한 쪽 4줄(글씨 크게) — 누르면 5줄" : "한 쪽 5줄 — 누르면 4줄(글씨 크게)"; }; paintR();
+        rb.onclick = () => { ROWS = ROWS === 4 ? 5 : 4; try { localStorage.setItem("sgTvRows", String(ROWS)); } catch {} paintR(); half = false; pg = Math.floor(Math.max(0, on) / PER()); lastPg = -1; closeEdit(); build(); needFit = true; }; }
       $("#prLvSn").onclick = snap; $("#prLvPv").onclick = () => toBar(barNow().m - 1); $("#prLvNx").onclick = () => toBar(barNow().m + 1);
       $("#prLvGo").onclick = () => { liveRun = !liveRun; liveLast = performance.now(); liveSnap = null; paintGo(); };
       const beatLen = () => { const B = AN.beats || []; let lo = 0, hi = B.length - 1; while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (B[mid] <= liveT) lo = mid; else hi = mid - 1; } return { k: lo, len: Math.max(0.2, (B[Math.min(lo + 1, B.length - 1)] - B[lo]) || 0.5), B }; };
       const nudge = (f) => { const b = beatLen(); liveT = Math.max(0, liveT + f * b.len); liveLast = performance.now(); };   // 반 박씩 당기기·늦추기
-      let taps = [];
+      let taps = [], spDown = 0, spLong = false, spT = 0;
       const tap = () => { const now = performance.now(); taps = taps.filter((t) => now - t < 2500 * 4).concat(now); if (taps.length > 1 && now - taps[taps.length - 2] > 2500) taps = [now]; taps = taps.slice(-6);   // (11/22 사용자) 스페이스 = 밴드 박자에 맞춘 박자 탭
-        if (!liveRun) { liveRun = true; liveLast = now; paintGo(); }
-        const b = beatLen(), fr = (liveT - b.B[b.k]) / b.len; if (fr < 0.35) liveT = b.B[b.k]; else if (fr > 0.65 && b.k + 1 < b.B.length) liveT = b.B[b.k + 1];   // 두드린 순간 = 박: 가까운 박에 맞춤(멀면 그대로)
-        if (taps.length >= 3) { let sum = 0; for (let k = 1; k < taps.length; k++) sum += taps[k] - taps[k - 1]; const per = sum / (taps.length - 1) / 1000, r = b.len / per; if (r > 0.6 && r < 1.6) setRate(Math.max(0.6, Math.min(1.6, r))); }
+        const b = beatLen(); if (taps.length >= 4) { const fr = (liveT - b.B[b.k]) / b.len; if (fr < 0.35) liveT = b.B[b.k]; else if (fr > 0.65 && b.k + 1 < b.B.length) liveT = b.B[b.k + 1]; }   // 4번 이상 연타부터: 두드린 순간 = 박(가까운 박에 맞춤) · 한두 번 실수는 무시
+        if (taps.length >= 4) { let sum = 0; for (let k = 1; k < taps.length; k++) sum += taps[k] - taps[k - 1]; const per = sum / (taps.length - 1) / 1000, r = b.len / per; if (r > 0.6 && r < 1.6) setRate(Math.max(0.6, Math.min(1.6, r))); }
         info(`박자 탭 ${taps.length}번 · 라이브 템포 ${Math.round((+o.bpm || 0) * rate) || "–"} BPM`); };
       const rowJump = (dir) => { const q = barNow(); toBar((Math.floor(q.m / 4) + dir) * 4); };
       const onKey = (e) => { if (!d.isConnected) { document.removeEventListener("keydown", onKey); return; } if (!live || /input|textarea/i.test((e.target && e.target.tagName) || "")) return;
-        const k = e.key; if (k === "Enter") { e.preventDefault(); liveRun = !liveRun; liveLast = performance.now(); liveSnap = null; paintGo(); }   // (11/22 사용자 키 배치) Enter = 재생 시작·멈춤
-        else if (k === " ") { e.preventDefault(); tap(); }                                   // 스페이스 = 박자 탭
+        const k = e.key; if (k === "Enter") { e.preventDefault(); liveRun = !liveRun; liveLast = performance.now(); liveSnap = null; paintGo(); }   // Enter = 재생 시작·멈춤
+        else if (k === " ") { e.preventDefault(); if (e.repeat || spDown) return; spDown = performance.now(); spLong = false; clearTimeout(spT); spT = setTimeout(() => { if (spDown) { spLong = true; liveRun = false; paintGo(); info("멈춤(스페이스 길게) · 스페이스를 짧게 누르면 출발"); } }, 600); }   // (11/22 사용자) 스페이스: 길게 = 멈춤
         else if (k === "ArrowRight") { e.preventDefault(); nudge(0.5); }                     // → = 악보 조금 당기기(반 박)
         else if (k === "ArrowLeft") { e.preventDefault(); nudge(-0.5); }                     // ← = 조금 늦추기
         else if (k === "ArrowDown" || k === "PageDown") { e.preventDefault(); rowJump(1); }  // ↓ = 한 줄 앞으로
         else if (k === "ArrowUp" || k === "PageUp") { e.preventDefault(); rowJump(-1); }     // ↑ = 한 줄 뒤로
         else if (k === "f" || k === "F") { e.preventDefault(); snap(); } };
       document.addEventListener("keydown", onKey);
-      me.liveTap = (t) => { liveT = t; liveLast = performance.now(); }; me.isLive = () => live; me.liveRunning = () => liveRun; me.livePlay = () => { liveRun = !liveRun; liveLast = performance.now(); liveSnap = null; paintGo(); }; }
+      const onKeyUp = (e) => { if (!d.isConnected) { document.removeEventListener("keyup", onKeyUp); return; } if (!live || e.key !== " ") return; e.preventDefault(); clearTimeout(spT); const was = spDown; spDown = 0; if (!was || spLong) return;
+        if (!liveRun) { liveRun = true; liveLast = performance.now(); taps = []; liveSnap = null; paintGo(); info("출발 · 재생 중 스페이스 4번 이상 연타 = 템포 맞춤 · 길게 = 멈춤"); } else tap(); };   // 짧게: 멈춤이면 출발, 재생 중이면 박자 탭
+      document.addEventListener("keyup", onKeyUp);
+      me.liveTap = (t) => { liveT = t; liveLast = performance.now(); }; me.liveJump = (t) => { liveT = t; liveLast = performance.now(); liveSnap = null; taps = []; if (!liveRun) { liveRun = true; paintGo(); } songFlash(d.querySelector(`.prM[data-i="${M.findIndex((x) => x.t0 >= t - 0.01)}"]`)); };   /* (11/22 사용자) 라이브 중 마디 클릭 = 그 마디로 점프해 이어 재생 */ me.isLive = () => live; me.liveRunning = () => liveRun; me.livePlay = () => { liveRun = !liveRun; liveLast = performance.now(); liveSnap = null; paintGo(); }; }
     $("#prCp").onclick = () => capoPanel(); $("#prKm").onclick = () => setKey(keyWant - 1); $("#prKp").onclick = () => setKey(keyWant + 1); holdRepeat($("#prSm"), () => setRate(rate - rStep())); holdRepeat($("#prSp"), () => setRate(rate + rStep()));
     dblTap($("#prKv"), () => setKey(0)); dblTap($("#prSv"), () => setRate(1)); paintPk();
     build(); sub(); paintEd();
@@ -7820,8 +7825,8 @@ function songDeck(el, ids, o) {
       $("#prPlay").textContent = going ? "❚❚" : "▶";
       if (!sd) { sk.value = dur() ? Math.round(Math.max(0, Math.min(1, tt / dur())) * 1000) : 0; lastSi = songSecAt(SL, mi); }
       $("#prT0").textContent = mmss(tt); $("#prT1").textContent = dur() ? mmss(dur()) : "–:–";
-      const mp = Math.floor(mi / SG_PER); if (mp !== lastPg) { lastPg = mp; if (mp !== pg) { pg = mp; half = false; closeEdit(); build(); } }
-      { const wantHalf = !edit && going && pg === mp && mi % SG_PER >= 12 && pg + 1 < pages(); if (wantHalf !== half) { half = wantHalf; build(); } }   // 반 쪽 넘김(4·5번째 줄 재생 중)
+      const mp = Math.floor(mi / PER()); if (mp !== lastPg) { lastPg = mp; if (mp !== pg) { pg = mp; half = false; closeEdit(); build(); } }
+      { const wantHalf = !edit && going && pg === mp && mi % PER() >= (ROWS - 2) * 4 && pg + 1 < pages(); if (wantHalf !== half) { half = wantHalf; build(); } }   // 반 쪽 넘김(4·5번째 줄 재생 중)
       if (mi !== on) { d.querySelectorAll(".prM.on").forEach((e) => e.classList.remove("on")); const cur = d.querySelector(`.prM[data-i="${mi}"]`); if (cur) cur.classList.add("on"); on = mi; paintSegs(); }
       const cur = d.querySelector(".prM.on .prHd"); if (cur) cur.style.left = Math.min(100, q.b / Math.max(1, (M[mi] && M[mi].beats) || 4) * 100) + "%"; raf2 = requestAnimationFrame(tickP); };
     const stopPlay = () => { document.querySelectorAll(".capoP").forEach((e) => e.remove()); try { eng.pause(); } catch {} try { Q("sgPb").textContent = "▶"; } catch {} };   // 사용자 11/19: 프롬프터 닫기 = 재생도 멈춤

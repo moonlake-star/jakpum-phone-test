@@ -107,7 +107,9 @@ const mk = new Function(code + "; return stemEngine;")();
   assert.ok(!dk.includes('id="prNow"') && !dk.includes('id="prNext"'), "‘지금·다음 코드’는 뺌(사용자 11/14)");
   assert.ok(dk.includes("navigator.vibrate(20)") && dk.includes("buzz(si)"), "구간 경계를 지나면 짧은 진동");
   assert.ok(dk.includes("songSecList(M.length, SEC.length ? SEC : autoSec())") && dk.includes("o.onEdits") && dk.includes("o.onSections") && /onEdits: \(e\)[^]*onSections: \(v\)/.test(T), "수정·구간 이름이 song.json에 저장됨");
-  assert.ok(dk.includes("for (let r = 0; r < 5; r++)"), "한 쪽 5줄");
+  assert.ok(dk.includes("for (let r = 0; r < ROWS; r++)") && dk.includes('localStorage.getItem("sgTvRows") === 4 ? 4 : 5'), "한 쪽 5줄(기본)·4줄 보기 선택");
+  assert.ok(dk.includes('document.addEventListener("keyup", onKeyUp)') && dk.includes("spLong = true; liveRun = false") && dk.includes("taps.length >= 4"), "라이브: 스페이스 짧게 출발·4번↑ 연타 템포·길게 멈춤");
+  assert.ok(dk.includes("me.liveJump(i === 0 ? 0 : m.t0)"), "라이브: 마디 클릭 = 점프해 이어 재생");
   { const pp = T.slice(T.indexOf("function songPdfPage("), T.indexOf("async function songPeaks(")); assert.ok(!/prVol|prSeek|슬라이더|타임라인/.test(pp) && pp.includes("(H - gy - 40 - 4 * gap) / 5"), "PDF는 5줄 악보만(조작 부품 없음)"); }
   assert.ok(dk.includes("me.onVol") && /me\.onVol && me\.onVol\(\)/.test(T), "곡 서랍 보컬 볼륨과 프롬프터 슬라이더가 같이 움직임");
   // (11/14 22:12 사용자) 코드 줄 길게 눌러 고치기·빈 자리 추가·비슷한 구간 자동 수정(보라)
