@@ -103,11 +103,11 @@ const mk = new Function(code + "; return stemEngine;")();
   assert.ok(/songDeck\(pl, ids, \{[^]*analysis: x\.d\.analysis, keys: x\.d\.keys, keyReq: x\.d\.key_req/.test(T), "곡 서랍이 분석·키 파일을 넘김");
   assert.ok(dk.includes("openPrompter") && dk.includes("Brand.layer") && dk.includes('id="shTv"') && dk.includes("o.analysis.chords.length"), "프롬프터는 코드가 있는 곡에만 · 뒤로 가기 한 칸");
   assert.ok(dk.includes('id="prPdf"') && dk.includes("songPdfName(o.name, o.artist, keyName(keyN) + shiftTag()"), "프롬프터 PDF 버튼·파일명 규칙");
-  for (const k of ["prVol", "prSeek", "prSgs", "prEd", "prPv", "prNx", "prCi", "prLi", "prSi"]) assert.ok(dk.includes('id="' + k + '"'), "프롬프터 " + k);
+  for (const k of ["prVol", "prSeek", "prSgs", "prPv", "prNx", "prCi", "prLi", "prSi"]) assert.ok(dk.includes('id="' + k + '"'), "프롬프터 " + k);
   assert.ok(!dk.includes('id="prNow"') && !dk.includes('id="prNext"'), "‘지금·다음 코드’는 뺌(사용자 11/14)");
   assert.ok(dk.includes("navigator.vibrate(20)") && dk.includes("buzz(si)"), "구간 경계를 지나면 짧은 진동");
   assert.ok(dk.includes("songSecList(M.length, SEC.length ? SEC : autoSec())") && dk.includes("o.onEdits") && dk.includes("o.onSections") && /onEdits: \(e\)[^]*onSections: \(v\)/.test(T), "수정·구간 이름이 song.json에 저장됨");
-  assert.ok(dk.includes("for (let r = 0; r < ROWS; r++)") && dk.includes("const ROWS = 4;") && !dk.includes("prRows"), "TV 한 쪽 4줄 고정");
+  assert.ok(dk.includes("for (let r = 0; r < ROWS; r++)") && dk.includes("let ROWS = 4;") && dk.includes("Math.max(4, Math.min(12, Math.floor(H / (W * 0.13))))") && !dk.includes("prRows"), "TV 가로 4줄 · 세로는 PDF 칸 비율로 줄 수 늘림");
   assert.ok(dk.includes('document.addEventListener("keyup", onKeyUp)') && dk.includes("spLong = true; liveRun = false") && dk.includes("taps.length >= 4"), "라이브: 스페이스 짧게 출발·4번↑ 연타 템포·길게 멈춤");
   assert.ok(dk.includes("me.liveJump(i === 0 ? 0 : m.t0)"), "라이브: 마디 클릭 = 점프해 이어 재생");
   { const pp = T.slice(T.indexOf("function songPdfPage("), T.indexOf("async function songPeaks(")); assert.ok(!/prVol|prSeek|슬라이더|타임라인/.test(pp) && pp.includes("(H - gy - 40 - 4 * gap) / 5"), "PDF는 5줄 악보만(조작 부품 없음)"); }
@@ -289,8 +289,10 @@ const mk = new Function(code + "; return stemEngine;")();
 
 { // 멈춰 있을 때 한 번 누르면 그 칸부터 재생
   assert.ok(T.includes("const tapCell = (t) => { if (eng.isPlaying()) { Q(\"sgPb\").onclick(); songTapFlash(false); } else { playFrom(t); songTapFlash(true); } };"), "재생 중 터치 = 일시정지 · 멈춰 있을 때 터치 = 그 칸부터 재생(11/19)");
-  assert.ok(T.includes("openShEdit(i, true); } else if (i !== sel) openShEdit(i); return; } tapCell(i === 0 ? 0 : m.t0); }, dbl: () => { if (ep) { if (i !== sel) openShEdit(i); return; } playFrom(i === 0 ? 0 : m.t0); }, long: () => openShEdit(i)") && T.includes("songTapFlash(!was); return; } playSel = false; songTapFlash(true);") && T.includes("else tapCell(i === 0 ? 0 : m.t0); }, dbl: () => { if (!(me.isLive && me.isLive())) playFrom(i === 0 ? 0 : m.t0); }"), "A4·프롬프터 둘 다 · 수정 창이 떠 있으면 터치 = 그 마디 수정(재생 중이면 그 마디부터 재생) · 수정 창 ▶도 반투명 아이콘");
-  assert.ok(T.includes("&& mi !== sel && !(document.activeElement && ep.contains(document.activeElement)") && T.includes('if (eng.isPlaying()) { Q("sgPb").onclick(); songTapFlash(false); playSel = true; } closeShEdit(); openShEdit(j);'), "재생 중 수정 창 따라가기·◀▶ = 멈춤 후 고른 마디부터");
+  assert.ok(T.includes("openShEdit(i, true); } else if (i !== sel) openShEdit(i); return; } tapCell(i === 0 ? 0 : m.t0); }, dbl: () => { if (ep) { if (i !== sel) openShEdit(i); return; } playFrom(i === 0 ? 0 : m.t0); }, long: () => openShEdit(i)") && T.includes("songTapFlash(!was); return; } playSel = false; songTapFlash(true);") && T.includes("if (ep) { if (i !== sel) openEdit(i); return; } tapCell(i === 0 ? 0 : m.t0); }, dbl: () => { if (!(me.isLive && me.isLive())) playFrom(i === 0 ? 0 : m.t0); }"), "A4·프롬프터 둘 다 · 수정 창이 떠 있으면 터치 = 그 마디 수정(재생 중이면 그 마디부터 재생) · 수정 창 ▶도 반투명 아이콘");
+  assert.ok(T.includes("&& mi !== sel && !(document.activeElement && ep.contains(document.activeElement)") && T.includes('if (eng.isPlaying()) { Q("sgPb").onclick(); songTapFlash(false); playSel = true; } openShEdit(j);'), "재생 중 수정 창 따라가기·◀▶ = 멈춤 후 고른 마디부터");
+  assert.ok(T.includes("if (!keep && epLy) { const l = epLy; epLy = null; l.close(); }") && T.includes("epLy = Brand.layer((pop) => { epLy = null; if (pop) closeShEdit(); });") && T.includes("closeShEdit(false, true);"), "수정 창 = 뒤로 가기 한 칸(뒤로 = 수정 창만 닫힘)");
+  assert.ok(T.includes('if (alive() && el.isConnected && !document.querySelector("#dkSh")) openSheet();') && T.includes('if (!document.fullscreenElement) ly.close(); }; document.addEventListener("fullscreenchange", fsH);'), "TV에서 뒤로 = A4 악보로(전체화면 풀림도 같은 뒤로)");
 }
 
 { // 긴 가사 줄은 여러 마디에 나눠 놓음
@@ -424,7 +426,7 @@ const mk = new Function(code + "; return stemEngine;")();
 // (11/19 사용자 '가사 수정 후 완료하면 화면 위치가 너무 아래로') A4 악보 수정: 다시 그려도 스크롤 위치 유지 · 완료하면 고친 마디가 화면 위쪽에 오게
 {
   const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
-  assert.ok(/const closeShEdit = \(back\) =>/.test(T) && /closeShEdit\(true\)/.test(T), "완료·Enter는 고친 마디로 되돌아감");
+  assert.ok(/const closeShEdit = \(back, keep\) =>/.test(T) && /closeShEdit\(true\)/.test(T), "완료·Enter는 고친 마디로 되돌아감");
   assert.ok(/ep\.querySelector\("#shOk"\)\.onclick = done;/.test(T) && T.includes("closeShEdit(true); if (lastCK"));
   assert.ok(/st0 = scEl \? scEl\.scrollTop : 0/.test(T) && /scEl\.scrollTop = st0/.test(T) && /paper\.style\.minHeight = paper\.offsetHeight/.test(T), "다시 그리는 동안 높이·스크롤 위치 유지");
 }
@@ -473,7 +475,7 @@ const mk = new Function(code + "; return stemEngine;")();
 {
   const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
   assert.ok(/class="shTvB" id="shTv"/.test(T) && !/class="shBtn" id="shTv"/.test(T) && !/\$\("#shTv"\)\.onclick/.test(T), "TV 버튼은 제목 아래 줄(만든 뒤 연결)");
-  assert.ok(/t\.querySelector\("#shTv"\)\.onclick = \(\) => \{ ly\.close\(\); setTimeout\(\(\) => \{ try \{ openPrompter\(\)/.test(T), "TV 버튼 동작 그대로");
+  assert.ok(/t\.querySelector\("#shTv"\)\.onclick = \(\) => \{ const had = !!epLy;[^\n]*openPrompter\(\)/.test(T), "TV 버튼 동작 그대로");
 }
 
 // (11/19 사용자) PDF: 가사 글자 크기가 그대로 들어가고(미리보기에서도 조절·전체화면) · 제목이 세로로 깨지지 않음
