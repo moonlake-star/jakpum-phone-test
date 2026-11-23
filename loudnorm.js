@@ -9,7 +9,6 @@
    (검토: 다른 모델 독립 검토 반영 — 교차항·모노 ×2·봉우리 상한 항상·메이크업 보정·슬라이더 시정수 통일·백그라운드에서 느려지지 않는 양보) */
 (function (G) {
   const SUB = 0.1, TARGET = -14,   // (11/24 노트북 폰 재현: 유튜브 앱은 큰 곡을 정확히 −14로 틀었음 · 앞서 −16은 크기 맞춤이 꺼진 소리와 비교해 잘못 정한 값) −16 → −14
-      // (11/23 23시 사용자 '여전히 유튜브 뮤직보다 큼') −14 → −16
     CEIL = 10 ** (-1 / 20), STRIDE = 16, PK_MARGIN = 10 ** (1.5 / 20);
   const MAKEUP_DB = -0.6 * (-1 + 1 / 20);   // Web Audio DynamicsCompressor: 메이크업 = (1/fullRangeGain)^0.6, fullRange = 문턱 + (0−문턱)/비율 → +0.57 dB
   // BS.1770 K 가중(고역 선반 + 고역 통과) — 표본율에 맞춰 계수 계산(libebur128 방식). 48 kHz에서 표준 표 값과 같음
@@ -107,7 +106,7 @@
   function kNodes(ctx) { const hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 38; hp.Q.value = 0.5; const hs = ctx.createBiquadFilter(); hs.type = "highshelf"; hs.frequency.value = 1500; hs.gain.value = 4; hp.connect(hs); return { input: hp, output: hs }; }
   const api = { kCoefs, analyze, cross, lufs, peak, gain, gainTo, kNodes, TARGET, CEIL, MAKEUP_DB };
   /* (11/24 사용자 '레슨 녹음·메이크업·수강생 앱 등 전체를 곡 서랍처럼, 맥시마이저 겹치지 않게' · 노트북 전수조사: <audio> 직결 재생이 −9~−11 LUFS 그대로
-     → 유튜브보다 3~5 dB 크고, 폰 스피커 보호 처리가 저음을 더 누름) 앱의 모든 <audio> 재생을 같은 기준(−16 LUFS, 제한기 하나)으로:
+     → 유튜브보다 3~5 dB 크고, 폰 스피커 보호 처리가 저음을 더 누름) 앱의 모든 <audio> 재생을 같은 기준(−14 LUFS, 제한기 하나)으로:
      · 재생이 시작되면(play() 또는 재생 버튼) 같은 출처(blob:·data:) 소리만 웹오디오로 보냄 — 다른 도메인은 소리가 사라질 수 있어 건드리지 않음
      · 파일이 작으면(약 12 MB 이하) 한 번 디코드해 정확히 잼(곡마다 한 번) — 재는 동안(보통 1초 안)은 소리를 0에서 시작해 크게 튀지 않음
      · 큰 파일(긴 레슨 녹음)은 재생하며 K 가중 크기를 재서 천천히 맞춤(−12~+12 dB, 처음은 0 dB)
