@@ -120,8 +120,10 @@
   // '잠깐 나는 소리'로 보고 다른 앱 음악을 줄이기만 함(겹침). 재생 중에는 소리 없는 오디오 태그를 같이 돌려 '음악 재생 앱'으로 인식시킴 → 다른 앱은 멈추고,
   // 다른 앱이 소리를 시작하면(이 태그가 멈추면) 이 앱 재생도 멈춤. 쓰는 쪽은 토큰별로 켜고 끔(focusHold(토큰, 켬/끔, 뺏겼을 때 할 일)).
   const FH = { el: null, users: new Map(), ownAt: 0 };
+  // (11/23 사용자 '블루투스로 유튜브 소리가 계속 아주 작게 남') 안드로이드 크롬은 5초보다 짧은 소리를 '잠깐 나는 알림음'으로 보고 다른 앱을 멈추지 않고 줄이기만 함
+  //   → 무음 길이를 1초에서 10초로(반복 재생은 그대로). 이제 '음악 재생'으로 인식돼 다른 앱이 멈춤
   function silentWav() {
-    const n = 8000, b = new Uint8Array(44 + n), v = new DataView(b.buffer), w = (o, t) => { for (let i = 0; i < t.length; i++) b[o + i] = t.charCodeAt(i); };
+    const n = 8000 * 10, b = new Uint8Array(44 + n), v = new DataView(b.buffer), w = (o, t) => { for (let i = 0; i < t.length; i++) b[o + i] = t.charCodeAt(i); };
     w(0, "RIFF"); v.setUint32(4, 36 + n, true); w(8, "WAVEfmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, 8000, true); v.setUint32(28, 8000, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true);
     w(36, "data"); v.setUint32(40, n, true); b.fill(128, 44); return URL.createObjectURL(new Blob([b], { type: "audio/wav" }));
   }
