@@ -8,7 +8,8 @@
    반주·보컬을 트랙 하나씩 분석(메모리에 두 트랙 동시 보유 없음). 둘이 섞일 때의 교차항은 성기게 뽑은 원 표본(16칸마다)의 0.1초 칸별 상관으로 추정.
    (검토: 다른 모델 독립 검토 반영 — 교차항·모노 ×2·봉우리 상한 항상·메이크업 보정·슬라이더 시정수 통일·백그라운드에서 느려지지 않는 양보) */
 (function (G) {
-  const SUB = 0.1, TARGET = -16,   // (11/23 23시 사용자 '여전히 유튜브 뮤직보다 큼') −14 → −16
+  const SUB = 0.1, TARGET = -14,   // (11/24 노트북 폰 재현: 유튜브 앱은 큰 곡을 정확히 −14로 틀었음 · 앞서 −16은 크기 맞춤이 꺼진 소리와 비교해 잘못 정한 값) −16 → −14
+      // (11/23 23시 사용자 '여전히 유튜브 뮤직보다 큼') −14 → −16
     CEIL = 10 ** (-1 / 20), STRIDE = 16, PK_MARGIN = 10 ** (1.5 / 20);
   const MAKEUP_DB = -0.6 * (-1 + 1 / 20);   // Web Audio DynamicsCompressor: 메이크업 = (1/fullRangeGain)^0.6, fullRange = 문턱 + (0−문턱)/비율 → +0.57 dB
   // BS.1770 K 가중(고역 선반 + 고역 통과) — 표본율에 맞춰 계수 계산(libebur128 방식). 48 kHz에서 표준 표 값과 같음
@@ -105,5 +106,60 @@
   // 실시간(분석기 값) 크기 추정용: K 가중 필터 두 개(브라우저 BiquadFilter 근사) — 레슨 재생처럼 미리 디코드하지 않는 소리
   function kNodes(ctx) { const hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 38; hp.Q.value = 0.5; const hs = ctx.createBiquadFilter(); hs.type = "highshelf"; hs.frequency.value = 1500; hs.gain.value = 4; hp.connect(hs); return { input: hp, output: hs }; }
   const api = { kCoefs, analyze, cross, lufs, peak, gain, gainTo, kNodes, TARGET, CEIL, MAKEUP_DB };
+  /* (11/24 사용자 '레슨 녹음·메이크업·수강생 앱 등 전체를 곡 서랍처럼, 맥시마이저 겹치지 않게' · 노트북 전수조사: <audio> 직결 재생이 −9~−11 LUFS 그대로
+     → 유튜브보다 3~5 dB 크고, 폰 스피커 보호 처리가 저음을 더 누름) 앱의 모든 <audio> 재생을 같은 기준(−16 LUFS, 제한기 하나)으로:
+     · 재생이 시작되면(play() 또는 재생 버튼) 같은 출처(blob:·data:) 소리만 웹오디오로 보냄 — 다른 도메인은 소리가 사라질 수 있어 건드리지 않음
+     · 파일이 작으면(약 12 MB 이하) 한 번 디코드해 정확히 잼(곡마다 한 번) — 재는 동안(보통 1초 안)은 소리를 0에서 시작해 크게 튀지 않음
+     · 큰 파일(긴 레슨 녹음)은 재생하며 K 가중 크기를 재서 천천히 맞춤(−12~+12 dB, 처음은 0 dB)
+     · 이미 크기 맞춤이 있는 곳(곡 서랍 엔진·선생님 레슨 재생기·무음 잠금 해제)은 el._noLoud로 제외 → 제한기 겹침 없음 */
+  const EL = { ctx: null, lim: null, map: new WeakMap(), list: new Set(), cache: new Map() }, MAXB = 12 << 20;
+  const okSrc = (a) => /^(blob|data):/.test(a.currentSrc || a.src || "");
+  function elCtx() {
+    if (EL.ctx && EL.ctx.state !== "closed") return EL.ctx;
+    const AC = G.AudioContext || G.webkitAudioContext; try { EL.ctx = new AC({ latencyHint: "playback" }); } catch { EL.ctx = new AC(); }
+    const l = EL.ctx.createDynamicsCompressor(); l.threshold.value = -1; l.knee.value = 0; l.ratio.value = 20; l.attack.value = 0.003; l.release.value = 0.12; l.connect(EL.ctx.destination); EL.lim = l;
+    try { G.Brand && G.Brand.audioKeep && G.Brand.audioKeep((c) => c === EL.ctx && [...EL.list].some((x) => !x.paused)); } catch {}
+    return EL.ctx;
+  }
+  const mk = () => 10 ** (-MAKEUP_DB / 20);
+  const setG = (r, db, tc) => { const g = r.g.gain, n = EL.ctx.currentTime, v = 10 ** (db / 20) * mk(); try { g.cancelScheduledValues(n); g.setTargetAtTime(v, n, tc); } catch { g.value = v; } };
+  async function measure(a, r) {
+    const u = a.currentSrc || a.src; if (r.u === u) return; r.u = u; r.live = false;
+    if (EL.cache.has(u)) { setG(r, EL.cache.get(u), 0.02); return; }
+    r.g.gain.value = 0; const fb = setTimeout(() => { if (r.u === u && !EL.cache.has(u)) { r.live = true; setG(r, 0, 0.05); } }, 1500);   // 오래 걸리면 0 dB로 시작하고 재생하며 맞춤
+    try {
+      const ab = await (await fetch(u)).arrayBuffer(); if (r.u !== u) return;
+      if (ab.byteLength > MAXB) { clearTimeout(fb); r.live = true; setG(r, 0, 0.05); return; }
+      const OAC = G.OfflineAudioContext || G.webkitOfflineAudioContext, oc = new OAC(2, 1, 44100);
+      const buf = await new Promise((ok, no) => { try { const p = oc.decodeAudioData(ab, ok, no); if (p && p.then) p.then(ok, no); } catch (e) { no(e); } });
+      const st = await analyze(buf); if (r.u !== u) return;
+      const db = 20 * Math.log10(gainTo(st, null, 0, { maxUp: 12, over: 0 }) / mk()); EL.cache.set(u, db); clearTimeout(fb); r.live = false; setG(r, db, 0.03);
+    } catch { clearTimeout(fb); if (r.u === u) { r.live = true; setG(r, 0, 0.05); } }
+  }
+  function liveTick() {   // 큰 파일: 재생 중 K 가중 크기(약 6초 평균)로 천천히
+    for (const a of EL.list) { const r = EL.map.get(a); if (!r || !r.live || a.paused || !r.an) continue;
+      const x = r.buf || (r.buf = new Float32Array(r.an.fftSize)); r.an.getFloatTimeDomainData(x); let s2 = 0; for (let i = 0; i < x.length; i++) s2 += x[i] * x[i];
+      const L = -0.691 + 10 * Math.log10(s2 / x.length + 1e-12) + 3.01; if (L < -47) continue;
+      r.lv = r.lv == null ? L : r.lv + (L - r.lv) * (r.n = (r.n || 0) + 1, r.n < 15 ? 0.15 : 0.03);   // 처음 3초는 빨리, 그 뒤는 천천히
+      setG(r, Math.max(-12, Math.min(12, TARGET - r.lv)), 0.8); }
+  }
+  function route(a) {
+    try {
+      if (!a || a._noLoud || !okSrc(a) || typeof G.AudioContext === "undefined" && typeof G.webkitAudioContext === "undefined") return;
+      const ctx = elCtx(); if (ctx.state !== "running") { const p = ctx.resume(); if (p && p.catch) p.catch(() => {}); }
+      let r = EL.map.get(a);
+      if (!r) { const g = ctx.createGain(); g.gain.value = 0; const s = ctx.createMediaElementSource(a); s.connect(g); g.connect(EL.lim);
+        r = { g }; try { const k = kNodes(ctx); const an = ctx.createAnalyser(); an.fftSize = 4096; s.connect(k.input); k.output.connect(an); r.an = an; } catch {}
+        EL.map.set(a, r); EL.list.add(a); if (!EL.t) EL.t = setInterval(liveTick, 200); }
+      measure(a, r);
+    } catch {}
+  }
+  if (G.HTMLMediaElement && G.document && !G.HTMLMediaElement.prototype.__loudWrapped) {
+    const P0 = G.HTMLMediaElement.prototype.play;
+    G.HTMLMediaElement.prototype.play = function () { if (G.HTMLAudioElement && this instanceof G.HTMLAudioElement) route(this); return P0.apply(this, arguments); };
+    G.HTMLMediaElement.prototype.__loudWrapped = true;
+    G.document.addEventListener("play", (e) => { if (G.HTMLAudioElement && e.target instanceof G.HTMLAudioElement) route(e.target); }, true);   // 재생 버튼(controls)으로 튼 것
+  }
+  api.route = route; api._el = EL;
   if (typeof module !== "undefined" && module.exports) module.exports = api; else G.Loud = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

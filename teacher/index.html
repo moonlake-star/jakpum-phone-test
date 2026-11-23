@@ -548,8 +548,8 @@
 </head>
 <body>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@700&display=swap">
-<script src="../brand.js?v=20261113-1350"></script>
-<script src="../loudnorm.js?v=20261123-2200"></script>
+<script src="../brand.js?v=20261124-0040"></script>
+<script src="../loudnorm.js?v=20261124-0110"></script>
 <script>try { Brand.splash("teacher"); } catch {}</script>
 <main>
   <header><button id="btnBack" class="ghost small hidden">← 뒤로</button><h1><span class="brMark" aria-hidden="true"></span>작품 보컬노트</h1><button id="btnUi" class="ghost small hidden" style="display:none" type="button" title="화면 방식 바꾸기">V1 화면</button></header>
@@ -6666,7 +6666,8 @@ async function jamOpenSong(si, gi) {
       <div class="muted" style="font-size:.78rem;line-height:1.7">${legend}<br>진한 칸 = 다른 테이크에서 가져온 구절 · 칸을 누르면 그 자리로</div>
       <details style="margin-top:6px"><summary class="muted" style="font-size:.85rem">테이크 원본 듣기</summary><div style="margin-top:6px">${(js.takes || []).map(t => `<div class="row" style="gap:8px;margin:4px 0;flex-wrap:nowrap"><span style="min-width:62px">${t.id.replace("t", "테이크 ")}</span><span class="muted" style="font-size:.78rem;min-width:70px">${fmt(t.start)}부터 · ${fmt(t.dur)}</span><button type="button" class="ghost small" data-take="${t.id}">▶ 원본</button></div>`).join("")}<audio id="jamTake" controls style="width:100%;margin-top:4px;display:none"></audio></div></details>
       <div class="row" style="gap:6px;margin-top:8px"><a class="ghost small" id="jamDl" style="text-decoration:none;padding:6px 10px;border-radius:8px">⬇ 편집본 mp3</a></div>`;
-    const p = jam.play = { V, M, dur, at: 0, t0: 0, on: false, mode: "all", srcs: [], raf: 0 }, gV = jam.ctx.createGain(), gM = jam.ctx.createGain(); gV.connect(jam.ctx.destination); gM.connect(jam.ctx.destination);
+    const p = jam.play = { V, M, dur, at: 0, t0: 0, on: false, mode: "all", srcs: [], raf: 0 }, gV = jam.ctx.createGain(), gM = jam.ctx.createGain(); const jLim = jam.lim || (jam.lim = (() => { const l = jam.ctx.createDynamicsCompressor(); l.threshold.value = -1; l.knee.value = 0; l.ratio.value = 20; l.attack.value = 0.003; l.release.value = 0.12; l.connect(jam.ctx.destination); return l; })()); const jG = jam.ctx.createGain(); jG.connect(jLim); gV.connect(jG); gM.connect(jG);
+    (async () => { try { if (!window.Loud) return; jG.gain.value = Loud.gainTo(await Loud.analyze(M), await Loud.analyze(V), 1, { maxUp: 12, over: 0 }); } catch {} })();   // 곡 서랍과 같은 −16 LUFS   // (11/24 전수조사) 합주: 합산이 0 dBFS를 넘지 않게 안전 제한기 하나
     const gains = () => { gV.gain.value = p.mode === "m" ? 0 : 1; gM.gain.value = p.mode === "v" ? 0 : 1; };
     const now = () => p.on ? Math.min(dur, p.at + jam.ctx.currentTime - p.t0) : p.at;
     const stop = () => { p.srcs.forEach(s_ => { try { s_.stop(); } catch {} }); p.srcs = []; };
@@ -6881,7 +6882,7 @@ function stemEngine(d) {
   // (11/23 사용자 '유튜브 뮤직 원본보다 크고 찌그러짐, 에이') 유튜브와 같은 기준(BS.1770, −14 LUFS·원곡보다 크게 안 함)으로 맞춤 — loudnorm.js
   //   보컬을 줄이면 원곡 크기로 되돌림(올릴 때는 봉우리 상한까지만). 예전 lift×comp(최대 +16.5 dB → 찌그러짐) 폐기
   let EN = null;   // { m, v }: 반주·보컬 크기 분석(Loud.analyze)
-  const boostGain = (on) => { try { return on && EN && G.Loud ? G.Loud.gain(EN.m, EN.v, vol / 100) : 1; } catch { return 1; } };
+  const boostGain = (on) => { try { if (!EN || !G.Loud) return 1; const x = G.Loud.gain(EN.m, EN.v, vol / 100); return on ? x : Math.min(1, x); } catch { return 1; } };   // (11/24 노트북 폰 재현: 원래 크기로 나옴) '크게 듣기'를 꺼도 큰 곡은 항상 줄임 — 스위치는 작은 곡을 키울지만
   const energy = async (m, v) => (G.Loud ? { m: await G.Loud.analyze(m, { dead: () => dead }), v: await G.Loud.analyze(v, { dead: () => dead }) } : null);
   const setMaster = (tc) => { if (!master) return; const g = master.gain, n = ctx.currentTime, v = boostGain(boostOn); try { g.cancelScheduledValues(n); g.setTargetAtTime(v, n, tc); } catch { g.value = v; } };   // (11/09 사용자 '다른 앱보다 작음') 최종단 +4 dB → 리미터. 켜짐이 기본
   let vol = clamp(d.vol ?? 30), boostOn = d.boost !== false, master = null, dead = false, loading = null, ctx = null, gain = null, buf = null, au = null, urls = [], srcs = [], t0 = 0, off = 0, playing = false, starting = false, timer = 0, mode = "", gen = 0, driftAt = 0, rate = 1, loop = null, loopT = 0, mrVol = 100, swapping = false;
@@ -6908,7 +6909,7 @@ function stemEngine(d) {
   })().catch((e) => { loading = null; throw e; });
   const html = async (a, b) => {
     const U = d.URL || G.URL; urls = [a, b].map(x => U.createObjectURL(new G.Blob([x], { type: "audio/mpeg" })));
-    au = { mr: MkAudio(), voc: MkAudio() }; au.mr.preload = au.voc.preload = "auto"; au.mr.src = urls[0]; au.voc.src = urls[1]; au.voc.volume = vol / 100; mode = "html"; applyRate();
+    au = { mr: MkAudio(), voc: MkAudio() }; au.mr._noLoud = au.voc._noLoud = true; au.mr.preload = au.voc.preload = "auto"; au.mr.src = urls[0]; au.voc.src = urls[1]; au.voc.volume = vol / 100; mode = "html"; applyRate();
     // (11/23 노트북 Codex 검토 P1 · 노트북 실측: 이 경로는 원곡 −9~−10 LUFS가 그대로 나가 목표보다 약 6 dB 큼) 오디오 태그 재생도 같은 기준으로:
     //   한 트랙씩 디코드해 크기만 재고 버림(긴 곡은 메모리 때문에 건너뜀) → 태그 볼륨(1 이하)으로 줄임. 키울 수는 없음(태그 볼륨 최대 1)
     try { const OAC = G.OfflineAudioContext || G.webkitOfflineAudioContext, est = Math.max(a.byteLength, b.byteLength) / (d.bytesPerSec || 20000);
@@ -7024,7 +7025,7 @@ function stretchEngine(d) {
   let ctx = null, nm = null, nv = null, gv = null, gm = null, master = null, loading = null, dead = false, ss = false, why = "", EN = null;
   let vol = clamp(d.vol ?? 30), mrVol = 100, boostOn = d.boost !== false, rate = 1, semis = 0, off = 0, t0 = 0, playing = false, starting = false, dur0 = 0, loop = null, timer = 0, idleT = null;
   const LEAD = 0.05;
-  const boostGain = (on) => { try { return on && EN && G.Loud ? G.Loud.gain(EN.m, EN.v, vol / 100) : 1; } catch { return 1; } };   // (11/23) 유튜브 기준 크기(loudnorm.js)
+  const boostGain = (on) => { try { if (!EN || !G.Loud) return 1; const x = G.Loud.gain(EN.m, EN.v, vol / 100); return on ? x : Math.min(1, x); } catch { return 1; } };   // (11/24 노트북 폰 재현: 원래 크기로 나옴) '크게 듣기'를 꺼도 큰 곡은 항상 줄임 — 스위치는 작은 곡을 키울지만
   const setMaster = (tc) => { if (!master) return; const g = master.gain, n = ctx.currentTime, v = boostGain(boostOn); try { g.cancelScheduledValues(n); g.setTargetAtTime(v, n, tc); } catch { g.value = v; } };
   const decode = (ab) => new Promise((ok, no) => { try { const p = ctx.decodeAudioData(ab, ok, no); if (p && p.then) p.then(ok, no); } catch (e) { no(e); } });
   const posAt = (T) => { let p = off + (T - t0) * rate; if (loop && p >= loop.b) p = loop.a + ((p - loop.a) % (loop.b - loop.a)); return Math.max(0, Math.min(p, dur0)); };
@@ -9787,7 +9788,7 @@ async function sendPitchReview(sid, folderId, songId, body, label) {
   } catch (e) { toast(e.message); }
 }
 
-const player = new Audio(); let playingBtn = null, playSharedSeq = 0;
+const player = new Audio(); player._noLoud = true; let playingBtn = null, playSharedSeq = 0;   // 크기 맞춤은 아래 loudRoute가 따로(앱 전체 자동 맞춤에서 제외)
 // (11/09 사용자 '레슨 녹음도 크게') 크게 듣기 — 직접 켠 때만 오디오 태그를 WebAudio(+6 dB·리미터)로 보냄. 기본 꺼짐.
 // 주의: 한 번 보낸 태그는 되돌릴 수 없어 '꺼짐'은 증폭만 1배로. 같은 출처(blob:)만 보냄(다른 도메인은 소리가 사라질 수 있음).
 // 화면이 꺼지면 소리 장치를 놓는 규칙(Brand.audioRelease) 때문에, 켠 채로 재생 중일 때만 예외로 둠(아래 audioKeep).
@@ -9796,13 +9797,13 @@ const player = new Audio(); let playingBtn = null, playSharedSeq = 0;
 // (11/23 사용자 '레슨 녹음·연습 천재·메이크업도 곡 서랍처럼 볼륨 비슷하게, 맥시마이저 겹치지 않게') 기준을 곡 서랍과 같은 −14 LUFS로:
 //   분석기 앞에 K 가중 필터(Loud.kNodes)를 달아 dBFS가 아니라 LUFS(모노 녹음은 양쪽 스피커 +3 dB)로 재고, 큰 녹음은 줄이기도 함(−10~+15 dB)
 //   마지막 단은 안전 제한기(−1 dBFS) 하나뿐 · 그 제한기가 자동으로 더하는 +0.57 dB는 미리 뺌
-const LOUD_TARGET = -16, LOUD_MAX = 15, LOUD_MIN = -10; let loudLv = null, loudAn = null, loudT = 0;
+const LOUD_TARGET = -14, LOUD_MAX = 15, LOUD_MIN = -10; let loudLv = null, loudAn = null, loudT = 0;
 const loudMk = () => (typeof Loud !== "undefined" && Loud ? 10 ** (-Loud.MAKEUP_DB / 20) : 1);
-const loudGain = (on) => (on ? loudMk() * 10 ** (Math.max(LOUD_MIN, Math.min(LOUD_MAX, loudLv == null ? 6 : LOUD_TARGET - loudLv)) / 20) : 1);
+const loudGain = (on) => (on ? loudMk() * 10 ** (Math.max(LOUD_MIN, Math.min(LOUD_MAX, loudLv == null ? 0 : LOUD_TARGET - loudLv)) / 20) : 1);
 function loudTick() {
   try { if (!loudAn || !loudMaster) return; const a = loudAn, x = loudTick.buf || (loudTick.buf = new Float32Array(a.fftSize)); a.getFloatTimeDomainData(x);
     let s = 0; for (let i = 0; i < x.length; i++) s += x[i] * x[i]; const db = -0.691 + 10 * Math.log10(s / x.length + 1e-12) + 3.01; if (db < -47) return;   // LUFS 근사(조용한 틈은 안 잼)
-    loudLv = loudLv == null ? db : loudLv + (db - loudLv) * 0.025;   // 0.2초마다 2.5% ≈ 8초 평균
+    loudTick.n = (loudTick.n || 0) + 1; loudLv = loudLv == null ? db : loudLv + (db - loudLv) * (loudTick.n < 15 ? 0.15 : 0.025);   // (11/24 Codex P1) 처음 +6 dB로 시작하던 것 → 0 dB에서 처음 3초 빨리 맞춤   // 0.2초마다 2.5% ≈ 8초 평균
     const g = loudMaster.gain, n = loudCtx.currentTime; try { g.cancelScheduledValues(n); g.setTargetAtTime(loudGain(loudOn), n, 1); } catch { g.value = loudGain(loudOn); } } catch {}
 }
 let loudCtx = null, loudMaster = null, loudOn = (() => { try { return localStorage.getItem("jk_lessonLoud") !== "0"; } catch { return true; } })(); const loudRouted = new WeakSet();   // (11/09 11:42) 크게 듣기 기본 켜짐(끈 사람만 0)
@@ -10074,7 +10075,7 @@ function renderSegs() {
 // 듣기용.mp3는 고정 비트레이트(40kbps = 초당 5,000바이트)라 시각 → 파일 위치를 바로 계산할 수 있다.
 // 2분 조각씩 받아 재생하고, 끝나기 20초 전에 다음 조각을 미리 받아 이어 붙인다.
 const BPS = 5000, CHUNK = 120;
-const full = new Audio(); full.addEventListener("play", () => loudRoute(full)); for (const ev of ["pause", "ended"]) full.addEventListener(ev, () => { try { audioIdle(); } catch {} }); let nowIdx = -1, chunkStart = 0, nextChunk = null, listenFile = null;
+const full = new Audio(); full._noLoud = true; full.addEventListener("play", () => loudRoute(full)); for (const ev of ["pause", "ended"]) full.addEventListener(ev, () => { try { audioIdle(); } catch {} }); let nowIdx = -1, chunkStart = 0, nextChunk = null, listenFile = null;
 ["timeupdate", "play", "pause"].forEach(ev => full.addEventListener(ev, () => tsTick()));   // 글 속 시각 막대 재생기 표시 맞춤
 // 연타 대비: 재생 요청마다 번호를 매겨, 늦게 도착한 예전 요청의 조각은 버림(blob URL도 해제)
 let playSeq = 0;

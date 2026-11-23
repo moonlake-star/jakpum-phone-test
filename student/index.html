@@ -161,8 +161,8 @@
 </head>
 <body>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@700&display=swap">
-<script src="../brand.js?v=20261113-1350"></script>
-<script src="../loudnorm.js?v=20261123-2200"></script>
+<script src="../brand.js?v=20261124-0040"></script>
+<script src="../loudnorm.js?v=20261124-0110"></script>
 <script>try { Brand.splash("student"); } catch {}</script>
 <main>
   <h1><button type="button" class="fzBtn" id="fzBtn" aria-label="글씨 크기 바꾸기"><small>가</small><b>가</b></button><span class="brMark" aria-hidden="true"></span>내 보컬 노트 <span class="muted" style="font-size:.85rem">뮤직스튜디오 작품</span></h1>
@@ -884,7 +884,7 @@ function stemEngine(d) {
   // (11/23 사용자 '유튜브 뮤직 원본보다 크고 찌그러짐, 에이') 유튜브와 같은 기준(BS.1770, −14 LUFS·원곡보다 크게 안 함)으로 맞춤 — loudnorm.js
   //   보컬을 줄이면 원곡 크기로 되돌림(올릴 때는 봉우리 상한까지만). 예전 lift×comp(최대 +16.5 dB → 찌그러짐) 폐기
   let EN = null;   // { m, v }: 반주·보컬 크기 분석(Loud.analyze)
-  const boostGain = (on) => { try { return on && EN && G.Loud ? G.Loud.gain(EN.m, EN.v, vol / 100) : 1; } catch { return 1; } };
+  const boostGain = (on) => { try { if (!EN || !G.Loud) return 1; const x = G.Loud.gain(EN.m, EN.v, vol / 100); return on ? x : Math.min(1, x); } catch { return 1; } };   // (11/24 노트북 폰 재현: 원래 크기로 나옴) '크게 듣기'를 꺼도 큰 곡은 항상 줄임 — 스위치는 작은 곡을 키울지만
   const energy = async (m, v) => (G.Loud ? { m: await G.Loud.analyze(m, { dead: () => dead }), v: await G.Loud.analyze(v, { dead: () => dead }) } : null);
   const setMaster = (tc) => { if (!master) return; const g = master.gain, n = ctx.currentTime, v = boostGain(boostOn); try { g.cancelScheduledValues(n); g.setTargetAtTime(v, n, tc); } catch { g.value = v; } };   // (11/09 사용자 '다른 앱보다 작음') 최종단 +4 dB → 리미터. 켜짐이 기본
   let vol = clamp(d.vol ?? 30), boostOn = d.boost !== false, master = null, dead = false, loading = null, ctx = null, gain = null, buf = null, au = null, urls = [], srcs = [], t0 = 0, off = 0, playing = false, starting = false, timer = 0, mode = "", gen = 0, driftAt = 0, rate = 1, loop = null, loopT = 0, mrVol = 100, swapping = false;
@@ -911,7 +911,7 @@ function stemEngine(d) {
   })().catch((e) => { loading = null; throw e; });
   const html = async (a, b) => {
     const U = d.URL || G.URL; urls = [a, b].map(x => U.createObjectURL(new G.Blob([x], { type: "audio/mpeg" })));
-    au = { mr: MkAudio(), voc: MkAudio() }; au.mr.preload = au.voc.preload = "auto"; au.mr.src = urls[0]; au.voc.src = urls[1]; au.voc.volume = vol / 100; mode = "html"; applyRate();
+    au = { mr: MkAudio(), voc: MkAudio() }; au.mr._noLoud = au.voc._noLoud = true; au.mr.preload = au.voc.preload = "auto"; au.mr.src = urls[0]; au.voc.src = urls[1]; au.voc.volume = vol / 100; mode = "html"; applyRate();
     // (11/23 노트북 Codex 검토 P1 · 노트북 실측: 이 경로는 원곡 −9~−10 LUFS가 그대로 나가 목표보다 약 6 dB 큼) 오디오 태그 재생도 같은 기준으로:
     //   한 트랙씩 디코드해 크기만 재고 버림(긴 곡은 메모리 때문에 건너뜀) → 태그 볼륨(1 이하)으로 줄임. 키울 수는 없음(태그 볼륨 최대 1)
     try { const OAC = G.OfflineAudioContext || G.webkitOfflineAudioContext, est = Math.max(a.byteLength, b.byteLength) / (d.bytesPerSec || 20000);
