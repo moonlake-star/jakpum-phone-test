@@ -30,3 +30,7 @@
 - 앱 실시간: `stretchEngine` — 보컬 노드 `formantCompensation: true`, 반주 노드 `false` (시험 `tests/stretch-engine.test.js`).
 - 실시간이 안 되는 기기·긴 곡: 노트북이 만드는 키 파일(vocalnote `song_deck.render_key`, rubberband `formant=preserved`).
 - 새 키 기능을 만들 때 이 두 경로 중 하나를 그대로 쓰고, 새 변환기를 따로 만들지 않는다.
+
+## 공용 스크립트를 고치면 (사용자 11/24 '새로고침 알림을 절대 빠뜨리지 마')
+- `tune.js`·`adv.js`·`brand.js`·`loudnorm.js`·`pitch-embed.js`를 고치면 **반드시 `node scripts/bump-versions.js`** 를 실행해 화면의 `?v=`를 내용 지문으로 맞춘다.
+- 안 맞으면 `tests/asset-versions.test.js`가 실패한다(CI). 선생님 서비스 워커는 `?v=`가 같으면 폰에 저장된 옛 스크립트를 계속 쓰기 때문(11/23 보정창 수정이 폰에 안 간 원인).
