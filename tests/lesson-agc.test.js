@@ -8,8 +8,8 @@ const mk = vm.runInContext("(function(){" + code + "; return { gain: (lv) => { l
 const dB = (g) => 20 * Math.log10(g);
 assert.ok(Math.abs(dB(mk.gain(null)) - 6) < 1e-9, "재기 전 +6");
 assert.ok(Math.abs(dB(mk.gain(-35)) - 15) < 1e-9, "아주 작은 녹음 → 최대 +15");
-assert.ok(Math.abs(dB(mk.gain(-23)) - 9) < 1e-9, "−23 LUFS → +9");
-assert.ok(Math.abs(dB(mk.gain(-8)) + 6) < 1e-9, "큰 녹음은 −14로 줄임");
+assert.ok(Math.abs(dB(mk.gain(-23)) - 7) < 1e-9, "−23 LUFS → +7(기준 −16)");
+assert.ok(Math.abs(dB(mk.gain(-8)) + 8) < 1e-9, "큰 녹음은 −16으로 줄임");
 assert.ok(Math.abs(dB(mk.gain(10)) + 10) < 1e-9, "줄이는 건 최대 −10");
 const M = { gain: { value: 1, cancelScheduledValues() {}, setTargetAtTime(v) { this.value = v; } } };
 const A = (amp) => ({ fftSize: 1024, getFloatTimeDomainData(x) { for (let i = 0; i < x.length; i++) x[i] = amp * Math.sin(i * 0.3); } });
