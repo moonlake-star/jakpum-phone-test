@@ -1759,7 +1759,7 @@
       if (st.sel && st.v4) return R;   // (11/18 16:10 사용자 '이거 이제 필요할까?') V4 팝업 손잡이에 다 있으니 음 고른 동안 손짓 띠 없음
       if (st.sel) {
         if (adv) { R.push(["↕", "음표 잡고 위아래", "반음씩"], ["✊", "꾹 0.5초 → 위아래", "미세"]);
-          if (typeof st.onBarDragX === "function") R.push(["‹›", "아래 ‹ › 꾹 0.5초 → 좌우", "길이"]);
+          if (typeof st.onBarDragX === "function") R.push(["‹›", "아래 ‹ › 꾹 0.5초 → 좌우", "길이"]); R.push(["✋", "빈 곳 톡", "선택 해제"]);
           }
         else R.push(["👆", "다른 음표 톡", "그 음으로"], ["✋", "빈 곳 톡", "창 닫기"]);
         return R; }
@@ -2016,7 +2016,7 @@
         const le = loc(d.cx ?? e.clientX, d.cy ?? e.clientY, cvEl.getBoundingClientRect()), hb = hitT(le) || hitBar(le);   // (11/03 10:31 아이패드) 누른 자리(뗀 자리 아님) + 손가락 크기만큼 넉넉하게
         if (hb) { fixSheet(wrap, cv, hb, o.onFix, getT, st); return; } }
       if (editGo && !d.mode && e.type === "pointerup" && isPaused() && st.tbars) { const le = loc(d.cx ?? e.clientX, d.cy ?? e.clientY, cvEl.getBoundingClientRect()); if (hitT(le) || hitBar(le)) { editGo(); return; } }   // 멈춘 채 초록 막대 톡 = 음표 고치기 화면으로
-      if (!d.mode && e.type === "pointerup" && !st.advOn && wrap.querySelector(".tfFix") && sheetClose && sheetClose._fix) {   // (11/03 02:02 사용자) 고치기 창이 떠 있으면 빈 곳 톡 = 창 닫기(재생/멈춤 아님) · 다른 막대는 위에서 바로 바뀜
+      if (!d.mode && e.type === "pointerup" && wrap.querySelector(".tfFix:not(.tfDock)") && sheetClose && sheetClose._fix) {   // (11/23 사용자 '2') 고급 모드도 음표 고른 채 빈 곳 톡 = 선택 해제만(재생은 다음 톡부터) — 11/09 '다시 재생' 되돌림   // (11/03 02:02 사용자) 고치기 창이 떠 있으면 빈 곳 톡 = 창 닫기(재생/멈춤 아님) · 다른 막대는 위에서 바로 바뀜
         const le = loc(d.cx ?? e.clientX, d.cy ?? e.clientY, cvEl.getBoundingClientRect()), onBar = hitT(le) || hitBar(le);
         if (!onBar) { sheetClose(); lastTap = 0; return; } }
       if (!d.mode && e.type === "pointerup" && st.popNH && st.popNH.length) { const le = loc(e.clientX, e.clientY, cvEl.getBoundingClientRect()), h = st.popNH.find(q => Math.hypot(le.x - q.x, le.y - q.y) <= 16);   // 번호 톡 = 그 말풍선(고급은 고치기·지우기 버튼)
@@ -2038,8 +2038,7 @@
         if (now - lastTap < 320) { toggle(); lastTap = 0;   // 첫 톡의 재생/멈춤은 되돌리고
           const r0 = cvEl.getBoundingClientRect(), le = loc(e.clientX, e.clientY, r0), L = (st.kb && st.kb.L) || 44, hx = L + HEAD * ((rot ? r0.height : r0.width) - L);
           const j = le.x < hx ? -DT_JUMP : DT_JUMP, nt = Math.max(0, Math.min(endT(), (+getT() || 0) + j)); st.panAt = 0; try { seek(nt, isPaused()); } catch {} showMid(j < 0 ? "back" : "fwd"); }
-        // (11/09 01:36 사용자) 음표를 고른 채 빈 곳 톡 = 다시 재생(선택 해제 안 함) — 00:40 '선택 해제만'은 되돌림
-        else { toggle(); lastTap = now; } }   // (11/06 17:37 사용자) 빈 곳 톡으로 재생이 시작되면 고른 음표는 선택 해제(고친 건 닫을 때 저장됨)
+        else { toggle(); lastTap = now; } }   // 빈 곳 톡 = 재생/멈춤(음표를 고른 상태면 위에서 선택 해제만)
     };
     // ── (11/06 사용자 '고급 보정 ③ 마우스 모드') 블루투스 마우스·트랙패드: 따로 켜지 않고 마우스를 쓰면 바로 ──
     let mouseHi = false;
