@@ -9787,7 +9787,7 @@ const player = new Audio(); let playingBtn = null, playSharedSeq = 0;
 // (11/23 사용자 '레슨 녹음·연습 천재·메이크업도 곡 서랍처럼 볼륨 비슷하게, 맥시마이저 겹치지 않게') 기준을 곡 서랍과 같은 −14 LUFS로:
 //   분석기 앞에 K 가중 필터(Loud.kNodes)를 달아 dBFS가 아니라 LUFS(모노 녹음은 양쪽 스피커 +3 dB)로 재고, 큰 녹음은 줄이기도 함(−10~+15 dB)
 //   마지막 단은 안전 제한기(−1 dBFS) 하나뿐 · 그 제한기가 자동으로 더하는 +0.57 dB는 미리 뺌
-const LOUD_TARGET = -14, LOUD_MAX = 15, LOUD_MIN = -10; let loudLv = null, loudAn = null, loudT = 0;
+const LOUD_TARGET = -16, LOUD_MAX = 15, LOUD_MIN = -10; let loudLv = null, loudAn = null, loudT = 0;
 const loudMk = () => (typeof Loud !== "undefined" && Loud ? 10 ** (-Loud.MAKEUP_DB / 20) : 1);
 const loudGain = (on) => (on ? loudMk() * 10 ** (Math.max(LOUD_MIN, Math.min(LOUD_MAX, loudLv == null ? 6 : LOUD_TARGET - loudLv)) / 20) : 1);
 function loudTick() {

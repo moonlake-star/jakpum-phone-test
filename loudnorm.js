@@ -8,7 +8,8 @@
    반주·보컬을 트랙 하나씩 분석(메모리에 두 트랙 동시 보유 없음). 둘이 섞일 때의 교차항은 성기게 뽑은 원 표본(16칸마다)의 0.1초 칸별 상관으로 추정.
    (검토: 다른 모델 독립 검토 반영 — 교차항·모노 ×2·봉우리 상한 항상·메이크업 보정·슬라이더 시정수 통일·백그라운드에서 느려지지 않는 양보) */
 (function (G) {
-  const SUB = 0.1, TARGET = -14, CEIL = 10 ** (-1 / 20), STRIDE = 16, PK_MARGIN = 10 ** (1.5 / 20);
+  const SUB = 0.1, TARGET = -16,   // (11/23 23시 사용자 '여전히 유튜브 뮤직보다 큼') −14 → −16
+    CEIL = 10 ** (-1 / 20), STRIDE = 16, PK_MARGIN = 10 ** (1.5 / 20);
   const MAKEUP_DB = -0.6 * (-1 + 1 / 20);   // Web Audio DynamicsCompressor: 메이크업 = (1/fullRangeGain)^0.6, fullRange = 문턱 + (0−문턱)/비율 → +0.57 dB
   // BS.1770 K 가중(고역 선반 + 고역 통과) — 표본율에 맞춰 계수 계산(libebur128 방식). 48 kHz에서 표준 표 값과 같음
   function kCoefs(fs) {

@@ -12,7 +12,7 @@ const T = fs.readFileSync(path.join(__dirname, "..", "teacher", "index.html"), "
   const m0 = await L.analyze(sine(997, 1, 1)); assert.ok(Math.abs(L.lufs(m0, z, 1) - 0) < 0.02, "0 dBFS 997 Hz 모노 = 표준 −3.01 LUFS + 3.01(양쪽 스피커로 나감) = 0");
   const st0 = await L.analyze(sine(997, 1, 2)); assert.ok(Math.abs(L.lufs(st0, z, 1) - 0) < 0.02, "0 dBFS 997 Hz 스테레오 = 0 LUFS(표준)");
   const loud = await L.analyze(sine(997, 0.5, 2)); const gl = 20 * Math.log10(L.gain(loud, z, 1));
-  assert.ok(Math.abs(gl + 7.98 + L.MAKEUP_DB) < 0.05 && Math.abs(L.MAKEUP_DB - 0.57) < 0.01, "−6 LUFS 곡 → −14로 줄임(압축기 메이크업 +0.57 dB 미리 뺌): " + gl);
+  assert.ok(Math.abs(gl + 9.98 + L.MAKEUP_DB) < 0.05 && L.TARGET === -16 && Math.abs(L.MAKEUP_DB - 0.57) < 0.01, "−6 LUFS 곡 → −14로 줄임(압축기 메이크업 +0.57 dB 미리 뺌): " + gl);
   const quiet = await L.analyze(sine(997, 0.05, 2)); assert.ok(Math.abs(20 * Math.log10(L.gain(quiet, z, 1)) + L.MAKEUP_DB) < 1e-9, "작은 곡은 원곡 그대로(유튜브처럼 키우지 않음)");
   const voc = await L.analyze(sine(440, 0.05, 2));   // 원곡(반주+보컬)이 −14보다 작은 곡
   const gq = L.gain(quiet, voc, 0.3); assert.ok(gq > 1 && Math.abs(L.lufs(quiet, voc, 0.3) + 20 * Math.log10(gq) + L.MAKEUP_DB - L.lufs(quiet, voc, 1)) < 0.05, "보컬 30%: 원곡 크기로 되돌림");

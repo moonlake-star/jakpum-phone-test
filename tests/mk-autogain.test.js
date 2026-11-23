@@ -10,7 +10,7 @@ const run = async (mr, voc) => { const mkPv = {}, mkTracks = { mr: { buf: buf(mr
 (async () => {
   const mk = Loud.MAKEUP_DB;
   { const r = await run(0.01, 0.0); assert.ok(Math.abs(r.mkPv.autoDb + mk - 12) < 0.2, "아주 작은 완성본 → 최대 +12 dB " + r.mkPv.autoDb); }
-  { const r = await run(0.05, 0.05); const L = Loud.lufs(await Loud.analyze(buf(0.05)), await Loud.analyze(buf(0.05)), 1); assert.ok(Math.abs(r.mkPv.autoDb + mk - (-14 - L)) < 0.2, "−14 LUFS로 올림 " + r.mkPv.autoDb + " / " + L); assert.strictEqual(mkCtx.lim.threshold.value, -1); }
+  { const r = await run(0.05, 0.05); const L = Loud.lufs(await Loud.analyze(buf(0.05)), await Loud.analyze(buf(0.05)), 1); assert.ok(Math.abs(r.mkPv.autoDb + mk - (Loud.TARGET - L)) < 0.2, "−14 LUFS로 올림 " + r.mkPv.autoDb + " / " + L); assert.strictEqual(mkCtx.lim.threshold.value, -1); }
   { const r = await run(0.6, 0.6); assert.ok(r.mkPv.autoDb < 0, "이미 크면 줄임 " + r.mkPv.autoDb); }
   assert.ok(T.includes("g.connect(mkBus());") && T.includes("mkDurS = Math.max(mkDurS, t.buf.duration); mkAutoGain();") && T.includes("if (my !== mkAutoGain.seq) return;"));
   console.log("mk-autogain ok");
