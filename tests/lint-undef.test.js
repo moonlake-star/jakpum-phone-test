@@ -14,7 +14,7 @@ for (const f of ["tune.js", "adv.js", "brand.js", "pitch-embed.js", "lesson-repl
   const eslint = new ESLint({ cwd: tmp, overrideConfigFile: true, overrideConfig: [{ files: ["**/*.js"],
     languageOptions: { ecmaVersion: 2023, sourceType: "script", globals: { ...globals.browser, ...globals.es2021,
       // 따로 불러오는 스크립트가 만드는 전역(없으면 거짓 경고)
-      Brand: "readonly", Tune: "readonly", TuneAdv: "readonly", google: "readonly", PraatCore: "readonly", PraatModule: "readonly", ExportCore: "readonly", Pitch: "readonly", PitchEmbed: "readonly", LessonReplies: "readonly" } },
+      Brand: "readonly", Tune: "readonly", TuneAdv: "readonly", google: "readonly", PraatCore: "readonly", PraatModule: "readonly", ExportCore: "readonly", Pitch: "readonly", PitchEmbed: "readonly", Loud: "readonly", LessonReplies: "readonly" } },
     rules: { "no-undef": "error", "no-dupe-keys": "error", "no-dupe-args": "error", "no-const-assign": "error", "no-func-assign": "error", "no-dupe-else-if": "error", "no-duplicate-case": "error", "use-isnan": "error", "valid-typeof": "error", "no-unsafe-finally": "error", "getter-return": "error", "no-setter-return": "error" } }] });
   const res = await eslint.lintFiles(files);
   const skipped = res.filter(r => r.messages.some(m => /ignored/i.test(m.message)));

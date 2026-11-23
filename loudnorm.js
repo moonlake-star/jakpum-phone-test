@@ -92,6 +92,17 @@
     const pk = peak(m, v, g); if (pk > 0) x = Math.min(x, CEIL / pk);
     return x * mk;
   }
-  const api = { kCoefs, analyze, cross, lufs, peak, gain, TARGET, CEIL, MAKEUP_DB };
+  // 녹음(레슨·메이크업)용: 원곡이 없으니 −14 LUFS까지 올리는 것도 허용(최대 maxUp dB) · 봉우리는 −1 dBFS를 over dB까지만 넘게(넘는 순간은 마지막 안전 제한기 하나가 잡음)
+  function gainTo(m, v, g, opt) {
+    opt = opt || {}; const mk = 10 ** (-MAKEUP_DB / 20), maxUp = opt.maxUp ?? 12, over = opt.over ?? 3;
+    if (!m) return mk; const z = v || { e: new Float64Array(m.e.length), p: new Float32Array(m.p.length), s: m.s.map((x) => new Float32Array(x.length)), step: m.step, fs: m.fs };
+    const Lg = lufs(m, z, v ? g : 0); if (Lg <= -69) return mk;
+    let x = 10 ** (Math.max(-20, Math.min(maxUp, TARGET - Lg)) / 20);
+    const pk = peak(m, z, v ? g : 0); if (x > 1 && pk > 0) x = Math.min(x, Math.max(1, CEIL * 10 ** (over / 20) / pk));
+    return x * mk;
+  }
+  // 실시간(분석기 값) 크기 추정용: K 가중 필터 두 개(브라우저 BiquadFilter 근사) — 레슨 재생처럼 미리 디코드하지 않는 소리
+  function kNodes(ctx) { const hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 38; hp.Q.value = 0.5; const hs = ctx.createBiquadFilter(); hs.type = "highshelf"; hs.frequency.value = 1500; hs.gain.value = 4; hp.connect(hs); return { input: hp, output: hs }; }
+  const api = { kCoefs, analyze, cross, lufs, peak, gain, gainTo, kNodes, TARGET, CEIL, MAKEUP_DB };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else G.Loud = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

@@ -782,8 +782,10 @@ function draw(now) {
    (the ear still hears the right pitch). Everything goes through a master gain + compressor so it is louder without clipping. */
 function pianoOut(ctx) {
   if (P.out && P.outCtx === ctx) return P.out;
-  const pre = ctx.createGain(); pre.gain.value = 1.8;
-  const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -12; comp.knee.value = 8; comp.ratio.value = 12; comp.attack.value = .003; comp.release.value = .2;
+  // (11/23 사용자 '곡 서랍처럼 볼륨 비슷하게, 맥시마이저 겹치지 않게') 예전: ×1.8(+5 dB) → 압축기(−12 dBFS부터 12:1) = 건반 한 음이 순간 −6 LUFS(곡 서랍 −14보다 8 dB 큼)
+  //   지금: ×0.65 → 안전 제한기(−1 dBFS, 20:1) 하나 = 건반 한 음 순간 약 −11 LUFS, 3화음도 제한기에 거의 안 걸림(실측)
+  const pre = ctx.createGain(); pre.gain.value = .65;
+  const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -1; comp.knee.value = 0; comp.ratio.value = 20; comp.attack.value = .002; comp.release.value = .1;
   pre.connect(comp); comp.connect(ctx.destination); P.out = pre; P.outCtx = ctx;
   try { const ra = ctx.createAnalyser(); ra.fftSize = 2048; comp.connect(ra); P.refAn = ra; P.refBuf = new Float32Array(ra.fftSize); P.refH = []; } catch (e) { P.refAn = null; }
   return pre;

@@ -6356,7 +6356,7 @@ function mkPlay(at) {
 }
 // (11/09 11:42 사용자 '앱 출력 볼륨이 작은 편 — 전체 맥시마이징') 메이크업 재생 최종단: 자동 크기 맞춤(+0~12 dB) → 리미터(천장 −1 dBFS) → 출력
 //   완성본 크기가 곡마다 달라서(예전 완성본 = 원본 녹음 크기) 반주+보컬 실효값을 재서 약 −14 dBFS(시판 음원·스트리밍 수준)가 되게 올림. 이미 크면 그대로
-let mkMaster = null; const MK_TARGET_DB = -11;   // (11/09 12:10 사용자) 기준 −11
+let mkMaster = null;   // (11/23 사용자 '곡 서랍처럼 볼륨 비슷하게') 기준 −11 dBFS(실효값) → 곡 서랍과 같은 −14 LUFS(loudnorm.js), 제한기 하나만
 function mkBus() {
   if (mkMaster && mkMaster.context === mkCtx) return mkMaster;
   mkMaster = mkCtx.createGain(); mkMaster.gain.value = 1; let tail = mkCtx.destination;
@@ -6364,10 +6364,14 @@ function mkBus() {
   mkMaster.connect(tail); return mkMaster;
 }
 function mkRmsDb(b) { if (!b) return null; let s = 0, c = 0; for (let ch = 0; ch < b.numberOfChannels; ch++) { const x = b.getChannelData(ch); for (let i = 0; i < x.length; i += 41) { s += x[i] * x[i]; c++; } } return c ? s / c : null; }
-function mkAutoGain() {
-  try { const em = mkRmsDb(mkTracks.mr?.buf), ev = mkRmsDb((mkTracks.p0 || mkTracks.p3)?.buf); if (em == null && ev == null) return;
-    const lv = 10 * Math.log10((em || 0) + (ev || 0) + 1e-12), g = Math.max(0, Math.min(12, MK_TARGET_DB - lv)), m = mkBus(), n = mkCtx.currentTime;
-    try { m.gain.cancelScheduledValues(n); m.gain.setTargetAtTime(10 ** (g / 20), n, 0.05); } catch { m.gain.value = 10 ** (g / 20); } mkPv.autoDb = Math.round(g * 10) / 10; } catch {}
+const MK_AN = new WeakMap();   // AudioBuffer → Loud.analyze 결과(한 번만 잼)
+async function mkAutoGain() {
+  const my = mkAutoGain.seq = (mkAutoGain.seq || 0) + 1;   // 트랙이 연달아 오면 마지막 호출만 적용
+  try { if (typeof Loud === "undefined" || !Loud) return; const bm = mkTracks.mr?.buf, bv = (mkTracks.p0 || mkTracks.p3)?.buf; if (!bm && !bv) return;
+    const an = async (b) => { if (!b) return null; let r = MK_AN.get(b); if (!r) { r = await Loud.analyze(b); MK_AN.set(b, r); } return r; };
+    const m = await an(bm || bv), v = bm && bv ? await an(bv) : null; if (my !== mkAutoGain.seq) return;
+    const x = Loud.gainTo(m, v, 1, { maxUp: 12, over: 3 }), bus = mkBus(), n = mkCtx.currentTime;
+    try { bus.gain.cancelScheduledValues(n); bus.gain.setTargetAtTime(x, n, 0.05); } catch { bus.gain.value = x; } mkPv.autoDb = Math.round(20 * Math.log10(x) * 10) / 10; } catch {}
 }
 // (11/09 15:25 사용자 '리버브를 앱에서 실시간으로') 서버가 준 울림 IR(reverb_ir.wav)이 있으면: 보정본(p·q) 소리 → 울림 보내기(크기 = 울림 %) → 합성곱(IR) → 출력
 //   폰에서 음을 고쳐도 울림이 고친 소리로 바로 따라옴(예전엔 서버 울림 파일을 간이 방식으로 옮겨 드르륵) · 울림 파일(w·x·wet)은 안 받음(데이터 절약)
@@ -9780,11 +9784,15 @@ const player = new Audio(); let playingBtn = null, playSharedSeq = 0;
 // 화면이 꺼지면 소리 장치를 놓는 규칙(Brand.audioRelease) 때문에, 켠 채로 재생 중일 때만 예외로 둠(아래 audioKeep).
 // (11/09 12:10 사용자 '레슨 녹음 등은 잘 파악해서 기준 −11') 고정 +6 dB 대신 자동: 소리 나는 동안의 평균 크기를 천천히(약 8초) 재서 −11 dBFS가 되게 0~+15 dB
 //   조용한 틈(−50 dBFS 아래)은 재지 않음(잡음을 키우려 따라가지 않게) · 한 번에 확 바뀌지 않게 1초에 걸쳐 · 봉우리는 리미터(−1 dBFS)
-const LOUD_TARGET = -11, LOUD_MAX = 15; let loudLv = null, loudAn = null, loudT = 0;
-const loudGain = (on) => (on ? 10 ** (Math.max(0, Math.min(LOUD_MAX, loudLv == null ? 6 : LOUD_TARGET - loudLv)) / 20) : 1);
+// (11/23 사용자 '레슨 녹음·연습 천재·메이크업도 곡 서랍처럼 볼륨 비슷하게, 맥시마이저 겹치지 않게') 기준을 곡 서랍과 같은 −14 LUFS로:
+//   분석기 앞에 K 가중 필터(Loud.kNodes)를 달아 dBFS가 아니라 LUFS(모노 녹음은 양쪽 스피커 +3 dB)로 재고, 큰 녹음은 줄이기도 함(−10~+15 dB)
+//   마지막 단은 안전 제한기(−1 dBFS) 하나뿐 · 그 제한기가 자동으로 더하는 +0.57 dB는 미리 뺌
+const LOUD_TARGET = -14, LOUD_MAX = 15, LOUD_MIN = -10; let loudLv = null, loudAn = null, loudT = 0;
+const loudMk = () => (typeof Loud !== "undefined" && Loud ? 10 ** (-Loud.MAKEUP_DB / 20) : 1);
+const loudGain = (on) => (on ? loudMk() * 10 ** (Math.max(LOUD_MIN, Math.min(LOUD_MAX, loudLv == null ? 6 : LOUD_TARGET - loudLv)) / 20) : 1);
 function loudTick() {
   try { if (!loudAn || !loudMaster) return; const a = loudAn, x = loudTick.buf || (loudTick.buf = new Float32Array(a.fftSize)); a.getFloatTimeDomainData(x);
-    let s = 0; for (let i = 0; i < x.length; i++) s += x[i] * x[i]; const db = 10 * Math.log10(s / x.length + 1e-12); if (db < -50) return;
+    let s = 0; for (let i = 0; i < x.length; i++) s += x[i] * x[i]; const db = -0.691 + 10 * Math.log10(s / x.length + 1e-12) + 3.01; if (db < -47) return;   // LUFS 근사(조용한 틈은 안 잼)
     loudLv = loudLv == null ? db : loudLv + (db - loudLv) * 0.025;   // 0.2초마다 2.5% ≈ 8초 평균
     const g = loudMaster.gain, n = loudCtx.currentTime; try { g.cancelScheduledValues(n); g.setTargetAtTime(loudGain(loudOn), n, 1); } catch { g.value = loudGain(loudOn); } } catch {}
 }
@@ -9800,7 +9808,7 @@ function loudRoute(a) {
       try { loudAn = loudCtx.createAnalyser(); loudAn.fftSize = 4096; if (!loudT) loudT = setInterval(loudTick, 200); } catch { loudAn = null; }
     }
     if (loudCtx.state !== "running") loudCtx.resume();
-    { const s = loudCtx.createMediaElementSource(a); s.connect(loudMaster); if (loudAn) s.connect(loudAn); } loudRouted.add(a);   // 크기 재기는 키우기 전 소리로
+    { const s = loudCtx.createMediaElementSource(a); s.connect(loudMaster); if (loudAn) { let k = null; try { k = typeof Loud !== "undefined" && Loud ? Loud.kNodes(loudCtx) : null; } catch {} if (k) { s.connect(k.input); k.output.connect(loudAn); } else s.connect(loudAn); } } loudRouted.add(a);   // 크기 재기는 키우기 전 소리로
   } catch {}
 }
 function loudActive() { return !!loudCtx && ((player && !player.paused) || (typeof full !== "undefined" && full && !full.paused)); }
