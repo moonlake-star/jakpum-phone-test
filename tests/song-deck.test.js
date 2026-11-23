@@ -789,3 +789,11 @@ const mk = new Function(code + "; return stemEngine;")();
   assert.ok(T.includes("ckDone = true") && T.includes("k === a.length - 1 ? Math.max(cw - 18 - w, ex)"), "PDF·4K 화면도 같은 규칙");
   assert.ok(T.includes('id="shLbar"') && T.includes('id="prLbar"'), "｜ 나누기 버튼(A4·TV 수정 창)");
 }
+// (11/23 사용자 '수정 박스 높이 다이어트') A4 수정 창: 한 줄 머리 · 설명/마디 줄은 '더보기' 안 · 이동 취소는 가사 줄로
+{
+  const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8"), a = T.indexOf('ep.className = "shEp"; ep.innerHTML = `'), tpl = T.slice(a, T.indexOf("`; d.appendChild(ep);", a));
+  assert.ok(tpl.includes('<div class="eh"><b>${m.no}마디</b><div class="sp">') && !tpl.includes("마디 수정</b>"), "머리: 제목+버튼 한 줄");
+  assert.ok(tpl.includes('id="shMoB" hidden') && tpl.includes('id="shMo"') && tpl.indexOf('id="shMoB"') < tpl.indexOf('id="shBl"') && tpl.indexOf('id="shMoB"') < tpl.indexOf("코드는 띄어쓰기로"), "설명·곡 전체 마디 줄은 더보기 안");
+  assert.ok(tpl.includes('id="shLu"') && tpl.includes('data-lbb="3">4<') && !tpl.includes("앞 마디 경계 · 뒷 마디 경계"), "이동 취소 버튼 유지 · 설명줄 제거");
+  for (const id of ["shCi", "shLi", "shSi", "shLs", "shLg", "shRg", "shRsd", "shBl", "shBr", "shOk", "shRs", "shEpP", "shPv", "shNx", "shLp", "shRn"]) assert.ok(tpl.includes('id="' + id + '"'), id + " 남아 있어야 함");
+}
