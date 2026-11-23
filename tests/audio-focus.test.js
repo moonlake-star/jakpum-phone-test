@@ -23,12 +23,13 @@ const wait = () => new Promise(r => setTimeout(r, 850));
   made[0].paused = true; made[0].emit("pause"); assert.strictEqual(lost, 1, "한 번만");
   // (4) 멈췄다 바로 다시 켠 경우(이벤트가 늦게 옴) 오작동 없음
   api.focusHold("mk", true, () => lost++); api.focusHold("mk", false); api.focusHold("mk", true, () => lost++); made[0].paused = false; made[0].emit("pause"); assert.strictEqual(lost, 1);
-  // (5) 무음 파일: 8000Hz 8비트 모노 1초, 값 128(무음)
+  // (5) 무음 파일: 8000Hz 8비트 모노 10초(11/23: 5초보다 길어야 다른 앱이 멈춤), 값 128(무음)
   const w = new Function("URL", "Blob", "Uint8Array", "DataView", B.slice(a, b).replace("return { focusHold, silentWav };", "") + "; let cap; const O = URL.createObjectURL; URL.createObjectURL = (x) => { cap = x; return 'b'; }; silentWav(); return cap;")(URLm, Blobm, Uint8Array, DataView);
-  const bytes = w.p[0]; assert.strictEqual(bytes.length, 44 + 8000); assert.strictEqual(String.fromCharCode(...bytes.slice(0, 4)), "RIFF"); assert.ok(bytes.slice(44).every(x => x === 128), "무음");
+  const bytes = w.p[0]; assert.strictEqual(bytes.length, 44 + 80000); assert.strictEqual(String.fromCharCode(...bytes.slice(0, 4)), "RIFF"); assert.ok(bytes.slice(44).every(x => x === 128), "무음");
   // (6) 연결 확인
   const T = fs.readFileSync(__dirname + "/../teacher/index.html", "utf8"), S = fs.readFileSync(__dirname + "/../student/index.html", "utf8");
   assert.ok(/focusHold,/.test(B) && T.includes('Brand.focusHold?.("mk", true') && T.includes('Brand.focusHold?.("mk", false)'));
   for (const src of [T, S]) { assert.ok(src.includes('Brand.focusHold?.("song", on, lost)')); assert.ok(src.includes("fh(true)") && src.includes("fh(false)")); }
   console.log("audio-focus ok");
 })();
+{ const B2 = fs.readFileSync(require("path").join(__dirname, "..", "brand.js"), "utf8"); assert.ok(B2.includes("const n = 8000 * 10,"), "(11/23) 무음은 5초보다 길게 — 다른 앱을 줄이지 않고 멈추게"); }
