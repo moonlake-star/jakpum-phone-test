@@ -31,3 +31,7 @@ const T = fs.readFileSync(path.join(__dirname, "..", "teacher", "index.html"), "
   assert.ok(T.includes("let st = null; try { st = G.Loud ? await G.Loud.analyze(buf, { dead: () => dead }) : null; }") && T.includes("EN = m.st && v.st ? { m: m.st, v: v.st } : null;"), "키·속도 엔진도 같은 기준");
   console.log("stem-loud ok");
 })().catch((e) => { console.error(e); process.exit(1); });
+// (11/23 사용자 '저음이 적고 날카로움') 음악 재생 장치는 일반 재생 경로(latencyHint: playback)로 엶 — 곡 서랍·레슨 재생·메이크업
+{ const fs2 = require("fs"), T2 = fs2.readFileSync(__dirname + "/../teacher/index.html", "utf8"), S2 = fs2.readFileSync(__dirname + "/../student/index.html", "utf8");
+  for (const src of [T2, S2]) require("assert").ok(src.includes('function musicCtx(AC) {') && src.includes('latencyHint: "playback"') && src.includes("ctx ||= musicCtx(AC);"));
+  require("assert").ok(T2.includes("mkCtx ??= musicCtx()") && T2.includes('loudCtx = new AC({ latencyHint: "playback" })') && !/mkCtx \?\?= new AudioContext\(\)/.test(T2)); }

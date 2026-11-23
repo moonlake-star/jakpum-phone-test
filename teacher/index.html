@@ -6337,7 +6337,7 @@ function mkSwapTracks(only) {
 // 아이패드·아이폰(사파리): 소리 장치(AudioContext)는 손으로 누른 바로 그 순간에만 깨울 수 있음. 예전엔 트랙을 받은(await) 뒤나 0.25초 기다린 뒤에 깨워서
 //   사파리가 막음 → 장치가 잠든 채라 재생 시각이 안 흘러 '노래 불러오는 중'만 뜨고 시작 안 됨. → 누르자마자 깨우고, 아무 소리 없는 아주 짧은 소리를 한 번 틀어 잠금 해제
 function mkUnlock() {
-  try { mkCtx ??= new AudioContext(); if (mkCtx.state !== "running") mkCtx.resume().catch(() => {});
+  try { mkCtx ??= musicCtx(); if (mkCtx.state !== "running") mkCtx.resume().catch(() => {});
     if (!mkUnlock._done) { const b = mkCtx.createBuffer(1, 1, mkCtx.sampleRate), s = mkCtx.createBufferSource(); s.buffer = b; s.connect(mkCtx.destination); s.start(0); mkUnlock._done = mkCtx; }
     if (mkUnlock._done !== mkCtx) mkUnlock._done = null; } catch {}
 }
@@ -6377,7 +6377,7 @@ async function mkAutoGain() {
 //   폰에서 음을 고쳐도 울림이 고친 소리로 바로 따라옴(예전엔 서버 울림 파일을 간이 방식으로 옮겨 드르륵) · 울림 파일(w·x·wet)은 안 받음(데이터 절약)
 let mkRev = null;
 async function mkIrLoad(fileId) {
-  mkCtx ??= new AudioContext(); if (mkRev && mkRev.ctx === mkCtx) return mkRev.p;
+  mkCtx ??= musicCtx(); if (mkRev && mkRev.ctx === mkCtx) return mkRev.p;
   const R = mkRev = { ctx: mkCtx, send: mkCtx.createGain(), conv: mkCtx.createConvolver(), buf: null };
   R.send.gain.value = 0; R.conv.normalize = false; R.send.connect(R.conv); R.conv.connect(mkBus());
   R.p = (async () => { R.buf = await mkCtx.decodeAudioData(await (await readBlob(fileId, true)).arrayBuffer()); R.conv.buffer = R.buf;
@@ -6399,7 +6399,7 @@ function mkDecode(name, ab) {
 }
 async function mkLoad(name, fileId) {
   if (mkTracks[name]?.buf || mkTracks[name]?.loading) return mkTracks[name]?.loading;
-  mkCtx ??= new AudioContext();
+  mkCtx ??= musicCtx();
   const g = mkCtx.createGain(); g.gain.value = 0; g.connect(mkBus()); if (/^[pq][0-3]$/.test(name) && mkRev && mkRev.ctx === mkCtx) g.connect(mkRev.send);
   const t = mkTracks[name] = { gain: g, buf: null, src: null };
   t.loading = (async () => { t.buf = await mkDecode(name, await (await readBlob(fileId, true)).arrayBuffer());
@@ -6871,6 +6871,9 @@ function songPaint(j, r, by) {
 // <stem-engine> (11/08 사용자 재현 버그: 보컬 0%→켜면 끊기고 MR보다 뒤처짐) — 선생님 앱·수강생 앱 똑같은 코드(tests/stem-engine.test.js가 두 파일이 같은지 검사)
 // 하나의 AudioContext 시계에서 MR·보컬 두 AudioBufferSourceNode를 같은 시각·같은 위치로 시작 → 볼륨은 GainNode만 움직임(재탐색·재요청·재시작 없음)
 // 메모리가 걱정되는 긴 곡·디코드 실패·WebAudio 없음 → 오디오 태그 2개 폴백(어긋남 보정은 0.25초 넘을 때만·2초에 한 번)
+// (11/23 사용자 '곡 서랍·레슨 소리가 유튜브 뮤직보다 저음이 적고 날카로움 — 폰 EQ 꺼도 같음') 안드로이드 크롬은 기본(interactive)으로 웹 오디오를
+//   '저지연 경로'로 내보내는데, 기기에 따라 이 경로는 일반 음악 앱이 받는 기본 음향 처리(스피커·블루투스 보정)를 건너뜀 → 음악 재생용은 'playback'(일반 경로)으로 엶
+function musicCtx(AC) { AC = AC || window.AudioContext || window.webkitAudioContext; try { return new AC({ latencyHint: "playback" }); } catch { return new AC(); } }
 // d = { vol, fetchBuf(k:"mr"|"voc") → Promise<ArrayBuffer>, onTick(E), onEnd(), AC?, Audio?, timers?, maxDecodeSec? }
 function stemEngine(d) {
   const G = typeof globalThis !== "undefined" ? globalThis : window, AC = "AC" in d ? d.AC : (G.AudioContext || G.webkitAudioContext), MkAudio = d.Audio || ((...a) => new G.Audio(...a));
@@ -6893,7 +6896,7 @@ function stemEngine(d) {
     const est = Math.max(a.byteLength, b.byteLength) / (d.bytesPerSec || 20000);   // 160kbps MP3 ≈ 20000바이트/초
     if (AC && !d.html && est <= (d.maxDecodeSec || 480)) {   // 4분 스테레오 ≈ 한 트랙 약 90MB → 8분 넘을 듯하면 디코드하지 않고 폴백
       const ra = a.slice(0), rb = b.slice(0);   // decodeAudioData가 원본을 비우므로 폴백용 사본
-      try { ctx ||= new AC(); const m = await decode(a), v = await decode(b); if (dead) throw stale();
+      try { ctx ||= musicCtx(AC); const m = await decode(a), v = await decode(b); if (dead) throw stale();
         let tail = ctx.destination; try { const lim = ctx.createDynamicsCompressor(); lim.threshold.value = -1; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.003; lim.release.value = 0.12; lim.connect(ctx.destination); tail = lim; } catch {}   // 최종단 리미터(없는 기기는 그대로)
         try { EN = await energy(m, v); } catch (e) { if (e && e.message === "stale") throw e; EN = null; }
         master = ctx.createGain(); master.gain.value = boostGain(boostOn); master.connect(tail);
@@ -6941,7 +6944,7 @@ function stemEngine(d) {
     load, pos, dur, mode: () => mode, isPlaying: () => playing, isDead: () => dead, vol: () => vol, fallbackReason: () => d.fallback || "",
     unlock() {   // 사용자 터치 안에서 동기로 부르기: 소리 장치를 미리 만들고 깨움(모바일 자동재생 정책). 못 해도 조용히 넘어감
       if (dead || ctx || mode || !AC || d.html) { try { if (ctx && ctx.state !== "running") ctx.resume(); } catch {} return; }
-      try { ctx = new AC(); const p = ctx.resume(); if (p && p.catch) p.catch(() => {}); } catch { ctx = null; }
+      try { ctx = musicCtx(AC); const p = ctx.resume(); if (p && p.catch) p.catch(() => {}); } catch { ctx = null; }
     },
     async play() {
       await load(); if (dead) throw stale(); if (playing || starting) return; starting = true; tm.clear(idleT); idleT = null;
@@ -7034,7 +7037,7 @@ function stretchEngine(d) {
   const closeAll = () => { for (const n of [nm, nv, gv, gm, master]) { try { n && n.disconnect(); } catch {} } nm = nv = gv = gm = master = null; try { ctx && ctx.close && ctx.close(); } catch {} ctx = null; };
   const ssLoad = async () => {
     if (!AC) throw new Error("WebAudio 없음");
-    ctx ||= new AC(); if (!ctx.audioWorklet) throw new Error("AudioWorklet 없음");
+    ctx ||= musicCtx(AC); if (!ctx.audioWorklet) throw new Error("AudioWorklet 없음");
     const lib = await stretchLib(d); if (dead) throw stale();
     const a = await d.fetchBuf("mr"), b = await d.fetchBuf("voc"); if (dead) throw stale();
     if (Math.max(a.byteLength, b.byteLength) / (d.bytesPerSec || 20000) > (d.maxDecodeSec || 480)) throw new Error("곡이 너무 길어요(메모리)");   // 160kbps MP3 ≈ 20000바이트/초 · 8분 넘으면 폴백
@@ -7060,7 +7063,7 @@ function stretchEngine(d) {
     vol: () => vol, rate: () => rate, mrVol: () => mrVol, loop: () => (ss ? loop : base.loop()), fallbackReason: () => why || base.fallbackReason(), boost: () => boostOn,
     canKey: () => ss, key: () => semis,   // 키를 앱에서 바로 바꿀 수 있나(엔진이 실시간 변환 방식일 때만)
     unlock() {   // 사용자 터치 안에서 동기로: 소리 장치를 미리 만들고 깨움(모바일 자동재생 정책)
-      if (dead) return; try { if (!ctx && !ss && !loading && AC) ctx = new AC(); if (ctx && ctx.state !== "running") { const p = ctx.resume(); if (p && p.catch) p.catch(() => {}); } } catch { if (!ss) ctx = null; }
+      if (dead) return; try { if (!ctx && !ss && !loading && AC) ctx = musicCtx(AC); if (ctx && ctx.state !== "running") { const p = ctx.resume(); if (p && p.catch) p.catch(() => {}); } } catch { if (!ss) ctx = null; }
     },
     async play() {
       await load(); if (dead) throw stale(); if (!ss) return base.play(); if (playing || starting) return; starting = true; tm.clear(idleT); idleT = null;
@@ -9802,7 +9805,7 @@ function loudRoute(a) {
     if (!loudOn || !a || loudRouted.has(a)) { if (loudOn && loudCtx && loudCtx.state !== "running") loudCtx.resume(); return; }
     const AC = window.AudioContext || window.webkitAudioContext; if (!AC || !/^(blob|data):/.test(a.currentSrc || a.src || "")) return;
     if (!loudCtx) {
-      loudCtx = new AC(); let tail = loudCtx.destination;
+      try { loudCtx = new AC({ latencyHint: "playback" }); } catch { loudCtx = new AC(); } let tail = loudCtx.destination;
       try { const lim = loudCtx.createDynamicsCompressor(); lim.threshold.value = -1; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.003; lim.release.value = 0.12; lim.connect(loudCtx.destination); tail = lim; } catch {}
       loudMaster = loudCtx.createGain(); loudMaster.gain.value = loudGain(true); loudMaster.connect(tail);
       try { loudAn = loudCtx.createAnalyser(); loudAn.fftSize = 4096; if (!loudT) loudT = setInterval(loudTick, 200); } catch { loudAn = null; }
