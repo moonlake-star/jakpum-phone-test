@@ -162,6 +162,7 @@
 <body>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@700&display=swap">
 <script src="../brand.js?v=20261113-1350"></script>
+<script src="../loudnorm.js?v=20261123-2200"></script>
 <script>try { Brand.splash("student"); } catch {}</script>
 <main>
   <h1><button type="button" class="fzBtn" id="fzBtn" aria-label="글씨 크기 바꾸기"><small>가</small><b>가</b></button><span class="brMark" aria-hidden="true"></span>내 보컬 노트 <span class="muted" style="font-size:.85rem">뮤직스튜디오 작품</span></h1>
@@ -877,14 +878,11 @@ function stemsHtml(mk) {
 function stemEngine(d) {
   const G = typeof globalThis !== "undefined" ? globalThis : window, AC = "AC" in d ? d.AC : (G.AudioContext || G.webkitAudioContext), MkAudio = d.Audio || ((...a) => new G.Audio(...a));
   const tm = d.timers || { set: (f, ms) => G.setInterval(f, ms), clear: (t) => G.clearInterval(t) }, stale = () => new Error("stale"), clamp = (v) => Math.max(0, Math.min(100, Math.round(+v) || 0));
-  // (11/09 11:46 사용자 '곡 서랍·메이크업 음원은 이미 마스터링된 파일일 가능성이 높음') 고정 +4 dB 대신: 원곡(반주+보컬) 실효값이 BOOST_TARGET보다 작을 때만 그만큼 올림(최대 +6 dB)
-  //   → 이미 크게 마스터링된 곡은 더 키우지 않아 리미터로 찌그러지지 않음 · 보컬을 줄이면 comp가 원곡 크기로 되돌림
-  const BOOST_TARGET = -10, boostGain = (on) => (on ? lift() * comp() : 1);
-  const lift = () => { if (!EN || !EN.n) return 1; const lv = 10 * Math.log10((EN.mm + 2 * EN.mv + EN.vv) / EN.n + 1e-12); return Math.max(1, Math.min(10 ** (7.5 / 20), 10 ** ((BOOST_TARGET - lv) / 20))); };
-  let EN = null;   // 반주·보컬 에너지(원곡 크기 맞춤용): mm, vv, mv
-  const comp = () => { if (!EN) return 1; const g = vol / 100, e = EN.mm + 2 * g * EN.mv + g * g * EN.vv, eo = EN.mm + 2 * EN.mv + EN.vv; return e > 1e-12 ? Math.max(1, Math.min(10 ** (9 / 20), Math.sqrt(eo / e))) : 1; };
-  const energy = (m, v) => { const a = m.getChannelData(0), b = v.getChannelData(0), a2 = m.numberOfChannels > 1 ? m.getChannelData(1) : a, b2 = v.numberOfChannels > 1 ? v.getChannelData(1) : b, n = Math.min(a.length, b.length);
-    let mm = 0, vv = 0, mv = 0; for (let i = 0; i < n; i += 37) { const x = (a[i] + a2[i]) / 2, y = (b[i] + b2[i]) / 2; mm += x * x; vv += y * y; mv += x * y; } return { mm, vv, mv, n: Math.ceil(n / 37) }; };
+  // (11/23 사용자 '유튜브 뮤직 원본보다 크고 찌그러짐, 에이') 유튜브와 같은 기준(BS.1770, −14 LUFS·원곡보다 크게 안 함)으로 맞춤 — loudnorm.js
+  //   보컬을 줄이면 원곡 크기로 되돌림(올릴 때는 봉우리 상한까지만). 예전 lift×comp(최대 +16.5 dB → 찌그러짐) 폐기
+  let EN = null;   // { m, v }: 반주·보컬 크기 분석(Loud.analyze)
+  const boostGain = (on) => { try { return on && EN && G.Loud ? G.Loud.gain(EN.m, EN.v, vol / 100) : 1; } catch { return 1; } };
+  const energy = async (m, v) => (G.Loud ? { m: await G.Loud.analyze(m, { dead: () => dead }), v: await G.Loud.analyze(v, { dead: () => dead }) } : null);
   const setMaster = (tc) => { if (!master) return; const g = master.gain, n = ctx.currentTime, v = boostGain(boostOn); try { g.cancelScheduledValues(n); g.setTargetAtTime(v, n, tc); } catch { g.value = v; } };   // (11/09 사용자 '다른 앱보다 작음') 최종단 +4 dB → 리미터. 켜짐이 기본
   let vol = clamp(d.vol ?? 30), boostOn = d.boost !== false, master = null, dead = false, loading = null, ctx = null, gain = null, buf = null, au = null, urls = [], srcs = [], t0 = 0, off = 0, playing = false, starting = false, timer = 0, mode = "", gen = 0, driftAt = 0, rate = 1, loop = null, loopT = 0, mrVol = 100, swapping = false;
   const dur = () => (mode === "web" ? buf.mr.duration : mode === "html" ? (au.mr.duration || 0) : 0);
@@ -900,7 +898,7 @@ function stemEngine(d) {
       const ra = a.slice(0), rb = b.slice(0);   // decodeAudioData가 원본을 비우므로 폴백용 사본
       try { ctx ||= new AC(); const m = await decode(a), v = await decode(b); if (dead) throw stale();
         let tail = ctx.destination; try { const lim = ctx.createDynamicsCompressor(); lim.threshold.value = -1; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.003; lim.release.value = 0.12; lim.connect(ctx.destination); tail = lim; } catch {}   // 최종단 리미터(없는 기기는 그대로)
-        try { EN = energy(m, v); } catch { EN = null; }
+        try { EN = await energy(m, v); } catch (e) { if (e && e.message === "stale") throw e; EN = null; }
         master = ctx.createGain(); master.gain.value = boostGain(boostOn); master.connect(tail);
         gain = ctx.createGain(); gain.gain.value = vol / 100; gain.connect(master); buf = { mr: m, voc: v }; mode = "web"; return E; }
       catch (e) { closeCtx(); buf = null; if (e && e.message === "stale") throw e; if (dead) throw stale(); d.fallback = String(e && e.message || e); }
@@ -965,7 +963,7 @@ function stemEngine(d) {
     setVol(v) {   // 보컬 소리 크기만: 재생·재탐색·네트워크 없음
       vol = clamp(v);
       if (gain) { const g = gain.gain, n = ctx.currentTime; try { g.cancelScheduledValues(n); g.setTargetAtTime(vol / 100, n, 0.015); } catch { g.value = vol / 100; } }
-      setMaster(0.05);   // 보컬을 줄이면 전체를 그만큼 올려 원곡과 같은 크기(최대 +9 dB · 리미터가 봉우리를 잡음)
+      setMaster(0.015);   // 보컬을 줄이면 원곡 크기로 되돌림(loudnorm.js) · (11/23 검토) 보컬과 같은 속도로 움직여야 순간 과대 출력이 없음
       if (au) { const was0 = au.voc.volume === 0; au.voc.volume = vol / 100;
         if (was0 && vol > 0 && playing && mode === "html") { try { au.voc.currentTime = au.mr.currentTime; } catch {} } }   // (11/14) 0%였다가 올리면 보컬 위치를 바로 반주에 맞춤
     },

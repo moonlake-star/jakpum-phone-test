@@ -549,6 +549,7 @@
 <body>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@700&display=swap">
 <script src="../brand.js?v=20261113-1350"></script>
+<script src="../loudnorm.js?v=20261123-2200"></script>
 <script>try { Brand.splash("teacher"); } catch {}</script>
 <main>
   <header><button id="btnBack" class="ghost small hidden">← 뒤로</button><h1><span class="brMark" aria-hidden="true"></span>작품 보컬노트</h1><button id="btnUi" class="ghost small hidden" style="display:none" type="button" title="화면 방식 바꾸기">V1 화면</button></header>
@@ -6870,14 +6871,11 @@ function songPaint(j, r, by) {
 function stemEngine(d) {
   const G = typeof globalThis !== "undefined" ? globalThis : window, AC = "AC" in d ? d.AC : (G.AudioContext || G.webkitAudioContext), MkAudio = d.Audio || ((...a) => new G.Audio(...a));
   const tm = d.timers || { set: (f, ms) => G.setInterval(f, ms), clear: (t) => G.clearInterval(t) }, stale = () => new Error("stale"), clamp = (v) => Math.max(0, Math.min(100, Math.round(+v) || 0));
-  // (11/09 11:46 사용자 '곡 서랍·메이크업 음원은 이미 마스터링된 파일일 가능성이 높음') 고정 +4 dB 대신: 원곡(반주+보컬) 실효값이 BOOST_TARGET보다 작을 때만 그만큼 올림(최대 +6 dB)
-  //   → 이미 크게 마스터링된 곡은 더 키우지 않아 리미터로 찌그러지지 않음 · 보컬을 줄이면 comp가 원곡 크기로 되돌림
-  const BOOST_TARGET = -10, boostGain = (on) => (on ? lift() * comp() : 1);
-  const lift = () => { if (!EN || !EN.n) return 1; const lv = 10 * Math.log10((EN.mm + 2 * EN.mv + EN.vv) / EN.n + 1e-12); return Math.max(1, Math.min(10 ** (7.5 / 20), 10 ** ((BOOST_TARGET - lv) / 20))); };
-  let EN = null;   // 반주·보컬 에너지(원곡 크기 맞춤용): mm, vv, mv
-  const comp = () => { if (!EN) return 1; const g = vol / 100, e = EN.mm + 2 * g * EN.mv + g * g * EN.vv, eo = EN.mm + 2 * EN.mv + EN.vv; return e > 1e-12 ? Math.max(1, Math.min(10 ** (9 / 20), Math.sqrt(eo / e))) : 1; };
-  const energy = (m, v) => { const a = m.getChannelData(0), b = v.getChannelData(0), a2 = m.numberOfChannels > 1 ? m.getChannelData(1) : a, b2 = v.numberOfChannels > 1 ? v.getChannelData(1) : b, n = Math.min(a.length, b.length);
-    let mm = 0, vv = 0, mv = 0; for (let i = 0; i < n; i += 37) { const x = (a[i] + a2[i]) / 2, y = (b[i] + b2[i]) / 2; mm += x * x; vv += y * y; mv += x * y; } return { mm, vv, mv, n: Math.ceil(n / 37) }; };
+  // (11/23 사용자 '유튜브 뮤직 원본보다 크고 찌그러짐, 에이') 유튜브와 같은 기준(BS.1770, −14 LUFS·원곡보다 크게 안 함)으로 맞춤 — loudnorm.js
+  //   보컬을 줄이면 원곡 크기로 되돌림(올릴 때는 봉우리 상한까지만). 예전 lift×comp(최대 +16.5 dB → 찌그러짐) 폐기
+  let EN = null;   // { m, v }: 반주·보컬 크기 분석(Loud.analyze)
+  const boostGain = (on) => { try { return on && EN && G.Loud ? G.Loud.gain(EN.m, EN.v, vol / 100) : 1; } catch { return 1; } };
+  const energy = async (m, v) => (G.Loud ? { m: await G.Loud.analyze(m, { dead: () => dead }), v: await G.Loud.analyze(v, { dead: () => dead }) } : null);
   const setMaster = (tc) => { if (!master) return; const g = master.gain, n = ctx.currentTime, v = boostGain(boostOn); try { g.cancelScheduledValues(n); g.setTargetAtTime(v, n, tc); } catch { g.value = v; } };   // (11/09 사용자 '다른 앱보다 작음') 최종단 +4 dB → 리미터. 켜짐이 기본
   let vol = clamp(d.vol ?? 30), boostOn = d.boost !== false, master = null, dead = false, loading = null, ctx = null, gain = null, buf = null, au = null, urls = [], srcs = [], t0 = 0, off = 0, playing = false, starting = false, timer = 0, mode = "", gen = 0, driftAt = 0, rate = 1, loop = null, loopT = 0, mrVol = 100, swapping = false;
   const dur = () => (mode === "web" ? buf.mr.duration : mode === "html" ? (au.mr.duration || 0) : 0);
@@ -6893,7 +6891,7 @@ function stemEngine(d) {
       const ra = a.slice(0), rb = b.slice(0);   // decodeAudioData가 원본을 비우므로 폴백용 사본
       try { ctx ||= new AC(); const m = await decode(a), v = await decode(b); if (dead) throw stale();
         let tail = ctx.destination; try { const lim = ctx.createDynamicsCompressor(); lim.threshold.value = -1; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.003; lim.release.value = 0.12; lim.connect(ctx.destination); tail = lim; } catch {}   // 최종단 리미터(없는 기기는 그대로)
-        try { EN = energy(m, v); } catch { EN = null; }
+        try { EN = await energy(m, v); } catch (e) { if (e && e.message === "stale") throw e; EN = null; }
         master = ctx.createGain(); master.gain.value = boostGain(boostOn); master.connect(tail);
         gain = ctx.createGain(); gain.gain.value = vol / 100; gain.connect(master); buf = { mr: m, voc: v }; mode = "web"; return E; }
       catch (e) { closeCtx(); buf = null; if (e && e.message === "stale") throw e; if (dead) throw stale(); d.fallback = String(e && e.message || e); }
@@ -6958,7 +6956,7 @@ function stemEngine(d) {
     setVol(v) {   // 보컬 소리 크기만: 재생·재탐색·네트워크 없음
       vol = clamp(v);
       if (gain) { const g = gain.gain, n = ctx.currentTime; try { g.cancelScheduledValues(n); g.setTargetAtTime(vol / 100, n, 0.015); } catch { g.value = vol / 100; } }
-      setMaster(0.05);   // 보컬을 줄이면 전체를 그만큼 올려 원곡과 같은 크기(최대 +9 dB · 리미터가 봉우리를 잡음)
+      setMaster(0.015);   // 보컬을 줄이면 원곡 크기로 되돌림(loudnorm.js) · (11/23 검토) 보컬과 같은 속도로 움직여야 순간 과대 출력이 없음
       if (au) { const was0 = au.voc.volume === 0; au.voc.volume = vol / 100;
         if (was0 && vol > 0 && playing && mode === "html") { try { au.voc.currentTime = au.mr.currentTime; } catch {} } }   // (11/14) 0%였다가 올리면 보컬 위치를 바로 반주에 맞춤
     },
@@ -7012,12 +7010,9 @@ function stretchEngine(d) {
   const base = stemEngine(Object.assign({}, d, { html: true }));   // 폴백(오디오 태그 방식)
   let ctx = null, nm = null, nv = null, gv = null, gm = null, master = null, loading = null, dead = false, ss = false, why = "", EN = null;
   let vol = clamp(d.vol ?? 30), mrVol = 100, boostOn = d.boost !== false, rate = 1, semis = 0, off = 0, t0 = 0, playing = false, starting = false, dur0 = 0, loop = null, timer = 0, idleT = null;
-  const LEAD = 0.05, BOOST_TARGET = -10;
-  const lift = () => { if (!EN || !EN.n) return 1; const lv = 10 * Math.log10((EN.mm + 2 * EN.mv + EN.vv) / EN.n + 1e-12); return Math.max(1, Math.min(10 ** (7.5 / 20), 10 ** ((BOOST_TARGET - lv) / 20))); };
-  const comp = () => { if (!EN) return 1; const g = vol / 100, e = EN.mm + 2 * g * EN.mv + g * g * EN.vv, eo = EN.mm + 2 * EN.mv + EN.vv; return e > 1e-12 ? Math.max(1, Math.min(10 ** (9 / 20), Math.sqrt(eo / e))) : 1; };
-  const boostGain = (on) => (on ? lift() * comp() : 1);
+  const LEAD = 0.05;
+  const boostGain = (on) => { try { return on && EN && G.Loud ? G.Loud.gain(EN.m, EN.v, vol / 100) : 1; } catch { return 1; } };   // (11/23) 유튜브 기준 크기(loudnorm.js)
   const setMaster = (tc) => { if (!master) return; const g = master.gain, n = ctx.currentTime, v = boostGain(boostOn); try { g.cancelScheduledValues(n); g.setTargetAtTime(v, n, tc); } catch { g.value = v; } };
-  const strided = (b) => { const n = b.length, a = b.getChannelData(0), a2 = b.numberOfChannels > 1 ? b.getChannelData(1) : a, o = new Float32Array(Math.ceil(n / 37)); for (let i = 0, k = 0; i < n; i += 37, k++) o[k] = (a[i] + a2[i]) / 2; return o; };
   const decode = (ab) => new Promise((ok, no) => { try { const p = ctx.decodeAudioData(ab, ok, no); if (p && p.then) p.then(ok, no); } catch (e) { no(e); } });
   const posAt = (T) => { let p = off + (T - t0) * rate; if (loop && p >= loop.b) p = loop.a + ((p - loop.a) % (loop.b - loop.a)); return Math.max(0, Math.min(p, dur0)); };
   const pos = () => (!ss ? base.pos() : playing ? posAt(ctx.currentTime) : off);
@@ -7041,12 +7036,12 @@ function stretchEngine(d) {
     if (Math.max(a.byteLength, b.byteLength) / (d.bytesPerSec || 20000) > (d.maxDecodeSec || 480)) throw new Error("곡이 너무 길어요(메모리)");   // 160kbps MP3 ≈ 20000바이트/초 · 8분 넘으면 폴백
     const opt = { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2] };
     const mk = async (ab) => {   // 한 트랙씩 디코드 → 채널 복사 → 처리기로 넘김(복사본은 넘기며 비움): 순간 메모리를 한 트랙 분으로
-      const buf = await decode(ab); if (dead) throw stale(); const node = await lib(ctx, opt); if (dead) throw stale();
+      const buf = await decode(ab); if (dead) throw stale(); let st = null; try { st = G.Loud ? await G.Loud.analyze(buf, { dead: () => dead }) : null; } catch (e) { if (dead) throw stale(); } const node = await lib(ctx, opt); if (dead) throw stale();
       const ch = []; for (let c = 0; c < buf.numberOfChannels; c++) ch.push(buf.getChannelData(c).slice());
-      const s = strided(buf), dur = buf.duration; await node.addBuffers(ch, ch.map((x) => x.buffer)); return { node, s, dur };
+      const dur = buf.duration; await node.addBuffers(ch, ch.map((x) => x.buffer)); return { node, st, dur };
     };
     const m = await mk(a), v = await mk(b); if (dead) throw stale();
-    const n = Math.min(m.s.length, v.s.length); let mm = 0, vv = 0, mv = 0; for (let i = 0; i < n; i++) { mm += m.s[i] * m.s[i]; vv += v.s[i] * v.s[i]; mv += m.s[i] * v.s[i]; } EN = { mm, vv, mv, n };
+    EN = m.st && v.st ? { m: m.st, v: v.st } : null;
     let tail = ctx.destination; try { const lim = ctx.createDynamicsCompressor(); lim.threshold.value = -1; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.003; lim.release.value = 0.12; lim.connect(ctx.destination); tail = lim; } catch {}
     master = ctx.createGain(); master.gain.value = boostGain(boostOn); master.connect(tail);
     gv = ctx.createGain(); gv.gain.value = vol / 100; gv.connect(master); gm = ctx.createGain(); gm.gain.value = mrVol / 100; gm.connect(master);
@@ -7076,7 +7071,7 @@ function stretchEngine(d) {
     setVol(v) {
       vol = clamp(v); if (!ss) return base.setVol(v);
       if (gv) { const g = gv.gain, n = ctx.currentTime; try { g.cancelScheduledValues(n); g.setTargetAtTime(vol / 100, n, 0.015); } catch { g.value = vol / 100; } }
-      setMaster(0.05);
+      setMaster(0.015);   // (11/23) 보컬 이득과 같은 시정수
     },
     setBoost(on) { boostOn = !!on; if (!ss) return base.setBoost(on); setMaster(0.03); },
     setRate(r) { rate = Math.max(0.5, Math.min(2, +r || 1)); if (!ss) { base.setRate(rate); return; } if (playing) rebase(); },
