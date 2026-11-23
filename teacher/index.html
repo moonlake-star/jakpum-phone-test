@@ -6909,6 +6909,11 @@ function stemEngine(d) {
   const html = async (a, b) => {
     const U = d.URL || G.URL; urls = [a, b].map(x => U.createObjectURL(new G.Blob([x], { type: "audio/mpeg" })));
     au = { mr: MkAudio(), voc: MkAudio() }; au.mr.preload = au.voc.preload = "auto"; au.mr.src = urls[0]; au.voc.src = urls[1]; au.voc.volume = vol / 100; mode = "html"; applyRate();
+    // (11/23 노트북 Codex 검토 P1 · 노트북 실측: 이 경로는 원곡 −9~−10 LUFS가 그대로 나가 목표보다 약 6 dB 큼) 오디오 태그 재생도 같은 기준으로:
+    //   한 트랙씩 디코드해 크기만 재고 버림(긴 곡은 메모리 때문에 건너뜀) → 태그 볼륨(1 이하)으로 줄임. 키울 수는 없음(태그 볼륨 최대 1)
+    try { const OAC = G.OfflineAudioContext || G.webkitOfflineAudioContext, est = Math.max(a.byteLength, b.byteLength) / (d.bytesPerSec || 20000);
+      if (G.Loud && OAC && est <= (d.maxDecodeSec || 480)) { const oc = new OAC(2, 1, 44100), dec = (ab) => new Promise((ok, no) => { try { const p = oc.decodeAudioData(ab, ok, no); if (p && p.then) p.then(ok, no); } catch (e) { no(e); } });
+        const sm = await G.Loud.analyze(await dec(a), { dead: () => dead }); const sv = await G.Loud.analyze(await dec(b), { dead: () => dead }); EN = { m: sm, v: sv }; hv(); } } catch (e) { if (dead) throw stale(); }
     await new Promise(res => { if (au.mr.readyState >= 1) return res(); au.mr.onloadedmetadata = res; setTimeout(res, 4000); }); if (dead) throw stale();
     au.mr.onended = () => { if (playing) end(); };
     // (11/10 사용자 B) 일반 오디오 태그로 재생하면 삼성 인터넷이 다른 앱 음악을 멈춰 줌 → 반대로 다른 앱이 소리를 시작해 이 태그가 멈추면 화면도 '멈춤'으로
@@ -6918,6 +6923,7 @@ function stemEngine(d) {
   const end = () => { off = 0; if (mode === "web") killSrcs(); else if (au) { au.mr.pause(); au.voc.pause(); try { au.mr.currentTime = au.voc.currentTime = 0; } catch {} } playing = false; stopTimer(); sleepSoon(); fh(false); try { d.onEnd && d.onEnd(); } catch {} };
   // (11/09 사용자 '블루투스 이어폰 볼륨 조절 안 됨 또 발생') 멈춘 뒤에도 소리 장치를 열어 두면 이어폰이 이 앱 소리 연결을 붙잡음 → 멈추고 1.5초 뒤 쉬게 함(재생 때 자동 깨움)
   let idleT = null;
+  const hv = () => { if (mode !== "html" || !au) return; const x = Math.min(1, boostGain(boostOn) * (G.Loud ? 10 ** (G.Loud.MAKEUP_DB / 20) : 1)); au.mr.volume = Math.max(0, Math.min(1, x * mrVol / 100)); au.voc.volume = Math.max(0, Math.min(1, x * vol / 100)); };   // 태그 경로엔 제한기가 없으니 그 몫(+0.57 dB) 보정은 되돌림
   const fh = (on) => { try { if (mode === "html") return; d.focus && d.focus(on, () => { if (playing) { E.pause(); try { d.onPause && d.onPause(); } catch {} } }); } catch {} };   // 다른 앱과 소리 겹침 방지(Brand.focusHold)
   const sleepSoon = () => { tm.clear(idleT); idleT = tm.set(() => { try { if (!playing && !starting && ctx && ctx.state === "running") ctx.suspend(); } catch {} }, 1500); };
   const begin = () => {
@@ -6964,16 +6970,16 @@ function stemEngine(d) {
       vol = clamp(v);
       if (gain) { const g = gain.gain, n = ctx.currentTime; try { g.cancelScheduledValues(n); g.setTargetAtTime(vol / 100, n, 0.015); } catch { g.value = vol / 100; } }
       setMaster(0.015);   // 보컬을 줄이면 원곡 크기로 되돌림(loudnorm.js) · (11/23 검토) 보컬과 같은 속도로 움직여야 순간 과대 출력이 없음
-      if (au) { const was0 = au.voc.volume === 0; au.voc.volume = vol / 100;
+      if (au) { const was0 = au.voc.volume === 0; au.voc.volume = vol / 100; hv();
         if (was0 && vol > 0 && playing && mode === "html") { try { au.voc.currentTime = au.mr.currentTime; } catch {} } }   // (11/14) 0%였다가 올리면 보컬 위치를 바로 반주에 맞춤
     },
     setBoost(on) {   // 크게 듣기(작은 곡만 −14 dBFS까지·리미터) 켜고 끄기: 재생 끊김 없음. 오디오 태그 폴백(아주 긴 곡)은 해당 없음
-      boostOn = !!on; setMaster(0.03);
+      boostOn = !!on; setMaster(0.03); hv();
     },
     boost: () => boostOn,
     setRate(r) { rate = Math.max(0.5, Math.min(2, +r || 1)); applyRate(); },   // 속도만(음 높이 유지): 오디오 태그 방식에서만
     rate: () => rate,
-    setMrVol(v) { mrVol = clamp(v); if (au) au.mr.volume = mrVol / 100; if (gain && mode === "web") { /* 웹오디오 방식은 반주 따로 볼륨 없음 */ } },
+    setMrVol(v) { mrVol = clamp(v); if (au) { au.mr.volume = mrVol / 100; hv(); } if (gain && mode === "web") { /* 웹오디오 방식은 반주 따로 볼륨 없음 */ } },
     mrVol: () => mrVol,
     setLoop(a, b) {   // 구간 반복: a~b초(없으면 해제). 오디오 태그 방식에서 40ms마다 확인
       stopLoopT(); loop = (Number.isFinite(a) && Number.isFinite(b) && b - a >= 0.5) ? { a: +a, b: +b } : null;
@@ -6985,7 +6991,7 @@ function stemEngine(d) {
       const nu = [bufMr, bufVoc].map(x => U.createObjectURL(new G.Blob([x], { type: "audio/mpeg" })));
       const { mr, voc } = au; swapping = true; mr.pause(); voc.pause(); const old = urls; urls = nu; mr.src = nu[0]; voc.src = nu[1];
       await new Promise(res => { if (mr.readyState >= 1) return res(); mr.onloadedmetadata = res; setTimeout(res, 4000); }); if (dead) throw stale();
-      voc.volume = vol / 100; mr.volume = mrVol / 100; applyRate(); off = t; try { mr.currentTime = voc.currentTime = t; } catch {}
+      voc.volume = vol / 100; mr.volume = mrVol / 100; hv(); applyRate(); off = t; try { mr.currentTime = voc.currentTime = t; } catch {}
       for (const u of old) { try { U.revokeObjectURL(u); } catch {} }
       try { if (was) { await Promise.all([mr.play(), voc.play()]); } } finally { swapping = false; }
     },

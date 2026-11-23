@@ -35,3 +35,6 @@ const T = fs.readFileSync(path.join(__dirname, "..", "teacher", "index.html"), "
 { const fs2 = require("fs"), T2 = fs2.readFileSync(__dirname + "/../teacher/index.html", "utf8"), S2 = fs2.readFileSync(__dirname + "/../student/index.html", "utf8");
   for (const src of [T2, S2]) require("assert").ok(src.includes('function musicCtx(AC) {') && src.includes('latencyHint: "playback"') && src.includes("ctx ||= musicCtx(AC);"));
   require("assert").ok(T2.includes("mkCtx ??= musicCtx()") && T2.includes('loudCtx = new AC({ latencyHint: "playback" })') && !/mkCtx \?\?= new AudioContext\(\)/.test(T2)); }
+// (11/23 노트북 Codex P1) 오디오 태그 재생 경로도 같은 기준: 디코드해 크기만 재고 태그 볼륨(1 이하)으로 줄임
+{ const T3 = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8"), S3 = require("fs").readFileSync(__dirname + "/../student/index.html", "utf8");
+  for (const src of [T3, S3]) require("assert").ok(src.includes("const hv = () => { if (mode !== \"html\" || !au) return;") && src.includes("EN = { m: sm, v: sv }; hv();") && src.includes("setMrVol(v) { mrVol = clamp(v); if (au) { au.mr.volume = mrVol / 100; hv(); }")); }
