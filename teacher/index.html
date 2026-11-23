@@ -549,7 +549,7 @@
 <body>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@700&display=swap">
 <script src="../brand.js?v=20261124-0040"></script>
-<script src="../loudnorm.js?v=20261124-0040"></script>
+<script src="../loudnorm.js?v=20261124-0110"></script>
 <script>try { Brand.splash("teacher"); } catch {}</script>
 <main>
   <header><button id="btnBack" class="ghost small hidden">← 뒤로</button><h1><span class="brMark" aria-hidden="true"></span>작품 보컬노트</h1><button id="btnUi" class="ghost small hidden" style="display:none" type="button" title="화면 방식 바꾸기">V1 화면</button></header>
@@ -6882,7 +6882,7 @@ function stemEngine(d) {
   // (11/23 사용자 '유튜브 뮤직 원본보다 크고 찌그러짐, 에이') 유튜브와 같은 기준(BS.1770, −14 LUFS·원곡보다 크게 안 함)으로 맞춤 — loudnorm.js
   //   보컬을 줄이면 원곡 크기로 되돌림(올릴 때는 봉우리 상한까지만). 예전 lift×comp(최대 +16.5 dB → 찌그러짐) 폐기
   let EN = null;   // { m, v }: 반주·보컬 크기 분석(Loud.analyze)
-  const boostGain = (on) => { try { return on && EN && G.Loud ? G.Loud.gain(EN.m, EN.v, vol / 100) : 1; } catch { return 1; } };
+  const boostGain = (on) => { try { if (!EN || !G.Loud) return 1; const x = G.Loud.gain(EN.m, EN.v, vol / 100); return on ? x : Math.min(1, x); } catch { return 1; } };   // (11/24 노트북 폰 재현: 원래 크기로 나옴) '크게 듣기'를 꺼도 큰 곡은 항상 줄임 — 스위치는 작은 곡을 키울지만
   const energy = async (m, v) => (G.Loud ? { m: await G.Loud.analyze(m, { dead: () => dead }), v: await G.Loud.analyze(v, { dead: () => dead }) } : null);
   const setMaster = (tc) => { if (!master) return; const g = master.gain, n = ctx.currentTime, v = boostGain(boostOn); try { g.cancelScheduledValues(n); g.setTargetAtTime(v, n, tc); } catch { g.value = v; } };   // (11/09 사용자 '다른 앱보다 작음') 최종단 +4 dB → 리미터. 켜짐이 기본
   let vol = clamp(d.vol ?? 30), boostOn = d.boost !== false, master = null, dead = false, loading = null, ctx = null, gain = null, buf = null, au = null, urls = [], srcs = [], t0 = 0, off = 0, playing = false, starting = false, timer = 0, mode = "", gen = 0, driftAt = 0, rate = 1, loop = null, loopT = 0, mrVol = 100, swapping = false;
@@ -7025,7 +7025,7 @@ function stretchEngine(d) {
   let ctx = null, nm = null, nv = null, gv = null, gm = null, master = null, loading = null, dead = false, ss = false, why = "", EN = null;
   let vol = clamp(d.vol ?? 30), mrVol = 100, boostOn = d.boost !== false, rate = 1, semis = 0, off = 0, t0 = 0, playing = false, starting = false, dur0 = 0, loop = null, timer = 0, idleT = null;
   const LEAD = 0.05;
-  const boostGain = (on) => { try { return on && EN && G.Loud ? G.Loud.gain(EN.m, EN.v, vol / 100) : 1; } catch { return 1; } };   // (11/23) 유튜브 기준 크기(loudnorm.js)
+  const boostGain = (on) => { try { if (!EN || !G.Loud) return 1; const x = G.Loud.gain(EN.m, EN.v, vol / 100); return on ? x : Math.min(1, x); } catch { return 1; } };   // (11/24 노트북 폰 재현: 원래 크기로 나옴) '크게 듣기'를 꺼도 큰 곡은 항상 줄임 — 스위치는 작은 곡을 키울지만
   const setMaster = (tc) => { if (!master) return; const g = master.gain, n = ctx.currentTime, v = boostGain(boostOn); try { g.cancelScheduledValues(n); g.setTargetAtTime(v, n, tc); } catch { g.value = v; } };
   const decode = (ab) => new Promise((ok, no) => { try { const p = ctx.decodeAudioData(ab, ok, no); if (p && p.then) p.then(ok, no); } catch (e) { no(e); } });
   const posAt = (T) => { let p = off + (T - t0) * rate; if (loop && p >= loop.b) p = loop.a + ((p - loop.a) % (loop.b - loop.a)); return Math.max(0, Math.min(p, dur0)); };
@@ -9797,7 +9797,7 @@ const player = new Audio(); player._noLoud = true; let playingBtn = null, playSh
 // (11/23 사용자 '레슨 녹음·연습 천재·메이크업도 곡 서랍처럼 볼륨 비슷하게, 맥시마이저 겹치지 않게') 기준을 곡 서랍과 같은 −14 LUFS로:
 //   분석기 앞에 K 가중 필터(Loud.kNodes)를 달아 dBFS가 아니라 LUFS(모노 녹음은 양쪽 스피커 +3 dB)로 재고, 큰 녹음은 줄이기도 함(−10~+15 dB)
 //   마지막 단은 안전 제한기(−1 dBFS) 하나뿐 · 그 제한기가 자동으로 더하는 +0.57 dB는 미리 뺌
-const LOUD_TARGET = -16, LOUD_MAX = 15, LOUD_MIN = -10; let loudLv = null, loudAn = null, loudT = 0;
+const LOUD_TARGET = -14, LOUD_MAX = 15, LOUD_MIN = -10; let loudLv = null, loudAn = null, loudT = 0;
 const loudMk = () => (typeof Loud !== "undefined" && Loud ? 10 ** (-Loud.MAKEUP_DB / 20) : 1);
 const loudGain = (on) => (on ? loudMk() * 10 ** (Math.max(LOUD_MIN, Math.min(LOUD_MAX, loudLv == null ? 0 : LOUD_TARGET - loudLv)) / 20) : 1);
 function loudTick() {
