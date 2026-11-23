@@ -874,6 +874,9 @@ function stemsHtml(mk) {
 // <stem-engine> (11/08 사용자 재현 버그: 보컬 0%→켜면 끊기고 MR보다 뒤처짐) — 선생님 앱·수강생 앱 똑같은 코드(tests/stem-engine.test.js가 두 파일이 같은지 검사)
 // 하나의 AudioContext 시계에서 MR·보컬 두 AudioBufferSourceNode를 같은 시각·같은 위치로 시작 → 볼륨은 GainNode만 움직임(재탐색·재요청·재시작 없음)
 // 메모리가 걱정되는 긴 곡·디코드 실패·WebAudio 없음 → 오디오 태그 2개 폴백(어긋남 보정은 0.25초 넘을 때만·2초에 한 번)
+// (11/23 사용자 '곡 서랍·레슨 소리가 유튜브 뮤직보다 저음이 적고 날카로움 — 폰 EQ 꺼도 같음') 안드로이드 크롬은 기본(interactive)으로 웹 오디오를
+//   '저지연 경로'로 내보내는데, 기기에 따라 이 경로는 일반 음악 앱이 받는 기본 음향 처리(스피커·블루투스 보정)를 건너뜀 → 음악 재생용은 'playback'(일반 경로)으로 엶
+function musicCtx(AC) { AC = AC || window.AudioContext || window.webkitAudioContext; try { return new AC({ latencyHint: "playback" }); } catch { return new AC(); } }
 // d = { vol, fetchBuf(k:"mr"|"voc") → Promise<ArrayBuffer>, onTick(E), onEnd(), AC?, Audio?, timers?, maxDecodeSec? }
 function stemEngine(d) {
   const G = typeof globalThis !== "undefined" ? globalThis : window, AC = "AC" in d ? d.AC : (G.AudioContext || G.webkitAudioContext), MkAudio = d.Audio || ((...a) => new G.Audio(...a));
@@ -896,7 +899,7 @@ function stemEngine(d) {
     const est = Math.max(a.byteLength, b.byteLength) / (d.bytesPerSec || 20000);   // 160kbps MP3 ≈ 20000바이트/초
     if (AC && !d.html && est <= (d.maxDecodeSec || 480)) {   // 4분 스테레오 ≈ 한 트랙 약 90MB → 8분 넘을 듯하면 디코드하지 않고 폴백
       const ra = a.slice(0), rb = b.slice(0);   // decodeAudioData가 원본을 비우므로 폴백용 사본
-      try { ctx ||= new AC(); const m = await decode(a), v = await decode(b); if (dead) throw stale();
+      try { ctx ||= musicCtx(AC); const m = await decode(a), v = await decode(b); if (dead) throw stale();
         let tail = ctx.destination; try { const lim = ctx.createDynamicsCompressor(); lim.threshold.value = -1; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.003; lim.release.value = 0.12; lim.connect(ctx.destination); tail = lim; } catch {}   // 최종단 리미터(없는 기기는 그대로)
         try { EN = await energy(m, v); } catch (e) { if (e && e.message === "stale") throw e; EN = null; }
         master = ctx.createGain(); master.gain.value = boostGain(boostOn); master.connect(tail);
@@ -944,7 +947,7 @@ function stemEngine(d) {
     load, pos, dur, mode: () => mode, isPlaying: () => playing, isDead: () => dead, vol: () => vol, fallbackReason: () => d.fallback || "",
     unlock() {   // 사용자 터치 안에서 동기로 부르기: 소리 장치를 미리 만들고 깨움(모바일 자동재생 정책). 못 해도 조용히 넘어감
       if (dead || ctx || mode || !AC || d.html) { try { if (ctx && ctx.state !== "running") ctx.resume(); } catch {} return; }
-      try { ctx = new AC(); const p = ctx.resume(); if (p && p.catch) p.catch(() => {}); } catch { ctx = null; }
+      try { ctx = musicCtx(AC); const p = ctx.resume(); if (p && p.catch) p.catch(() => {}); } catch { ctx = null; }
     },
     async play() {
       await load(); if (dead) throw stale(); if (playing || starting) return; starting = true; tm.clear(idleT); idleT = null;
