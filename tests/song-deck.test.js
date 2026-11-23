@@ -797,3 +797,12 @@ const mk = new Function(code + "; return stemEngine;")();
   assert.ok(tpl.includes('id="shLu"') && tpl.includes('data-lbb="3">4<') && !tpl.includes("앞 마디 경계 · 뒷 마디 경계"), "이동 취소 버튼 유지 · 설명줄 제거");
   for (const id of ["shCi", "shLi", "shSi", "shLs", "shLg", "shRg", "shRsd", "shBl", "shBr", "shOk", "shRs", "shEpP", "shPv", "shNx", "shLp", "shRn"]) assert.ok(tpl.includes('id="' + id + '"'), id + " 남아 있어야 함");
 }
+// (11/23 사용자 '전체 화면 안내문 한 번만') 진짜 전체화면은 기기에서 처음 한 번만 · 이후엔 앱 안 확대(CSS)만
+{
+  const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8"), a = T.indexOf("function fsReal("), src = T.slice(a, T.indexOf("const CAPO_OPEN =", a));
+  const mk = (full) => { const st = {}, calls = []; const g = { document: { fullscreenElement: full }, localStorage: { getItem: (k) => st[k] || null, setItem: (k, v) => { st[k] = v; } } }; const f = new Function("document", "localStorage", src + "; return fsReal;")(g.document, g.localStorage); return { f, calls, st, g }; };
+  const el = (c) => ({ requestFullscreen: () => { c.push(1); return Promise.resolve(); } });
+  (async () => { const { f, calls } = mk(null), e = el(calls); await f(e); await f(e); await f(e); assert.strictEqual(calls.length, 1, "처음 한 번만 진짜 전체화면");
+    const m2 = mk({}), e2 = el(m2.calls); await m2.f(e2); await m2.f(e2); assert.strictEqual(m2.calls.length, 2, "이미 전체화면 중이면 그대로 이어감(안내 새로 안 뜸)"); })().catch((e) => { console.error(e); process.exit(1); });
+  assert.ok(!/\bd\.requestFullscreen/.test(T.replace(/function fsReal[^\n]*\n/, "")) && !/\bw\.requestFullscreen/.test(T), "전체화면 요청은 모두 fsReal 거침");
+}
