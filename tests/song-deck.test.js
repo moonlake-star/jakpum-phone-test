@@ -806,3 +806,18 @@ const mk = new Function(code + "; return stemEngine;")();
     const m2 = mk({}), e2 = el(m2.calls); await m2.f(e2); await m2.f(e2); assert.strictEqual(m2.calls.length, 2, "이미 전체화면 중이면 그대로 이어감(안내 새로 안 뜸)"); })().catch((e) => { console.error(e); process.exit(1); });
   assert.ok(!/\bd\.requestFullscreen/.test(T.replace(/function fsReal[^\n]*\n/, "")) && !/\bw\.requestFullscreen/.test(T), "전체화면 요청은 모두 fsReal 거침");
 }
+// (11/23 사용자 'E7은 6마디 첫박부터인데 · 참고했다는 악보와 다름') 인터넷 악보의 '코드 위 가사 낱말' 시각으로 소리 코드의 바뀐 때·종류를 바로잡음
+{
+  const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
+  const f = new Function(T.slice(T.indexOf("const SG_NOTES"), T.indexOf("async function songPeaks(")) + "; return { songWebRetime, songWebApply, songMeasures };")();
+  const beats = Array.from({ length: 80 }, (_, i) => i), an = () => ({ beats, down: 0, key: "C", chords: [[0, "C"], [8, "Dm"], [14, "G7"], [16, "Am"], [20, "Gm7"], [24, "F"], [28, "C"], [32, "G"], [36, "Am"], [40, "C"]] });   // 박 길이 1초 · 마디 = 4박
+  const wa = [[0.5, "C"], [8.5, "Dm"], [11, "G7"], [16.2, "Am"], [20.2, "G7"], [24.2, "F"], [28.2, "C"], [32.2, "G"]];
+  const r = f.songWebRetime(an().chords, wa, an());
+  assert.deepStrictEqual(r.ch.find((c) => c[1] === "G7" && c[0] < 16), [12, "G7"], "낱말(11초) 뒤 첫 마디 첫 박(12초)으로 — 소리는 14초로 2박 늦게 잡혔음");
+  assert.ok(r.ch.some((c) => c[1] === "G7" && c[0] === 20), "Gm7(소리) → 악보의 G7로 종류 고침");
+  assert.ok(!r.ch.some((c) => c[1] === "Gm7"), "고친 코드는 이름이 바뀜"); assert.strictEqual(r.moved, 1);
+  const a2 = an(); f.songWebApply(a2, { web_chart: { anchors: wa } }); assert.deepStrictEqual(a2.chords.find((c) => c[1] === "G7"), [12, "G7"], "곡 열 때 한 번 적용"); f.songWebApply(a2, { web_chart: { anchors: wa } }); assert.strictEqual(a2.chords.filter((c) => c[1] === "G7").length, 2, "두 번 적용해도 그대로");
+  assert.strictEqual(f.songWebRetime(an().chords, wa.slice(0, 5), an()).moved, 0, "낱말 위치가 6개 미만이면 안 씀");
+  assert.strictEqual(f.songWebRetime(an().chords, [[1, "B"], [5, "E"], [9, "A"], [13, "D"], [17, "F#"], [21, "G#"]], an()).moved, 0, "악보와 소리가 안 맞으면(뿌리음 거의 없음) 건드리지 않음");
+  assert.ok(T.includes("(mk.diff.concat(Array.isArray(mk.qdiff) ? mk.qdiff : []))") && T.includes('? "m" : "") : ""; };'), "서버가 알린 코드 종류 차이(qdiff)도 🌐 표시");
+}

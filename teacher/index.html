@@ -7213,6 +7213,27 @@ function songLyShift(A, jA, B, dir) {   // 이웃 두 마디(A 왼쪽, B 오른�
   if (dir === "R") { if (!a.length) return null; const u = a.pop(), nj = a.length ? !a[a.length - 1].sp : false; if (a.length) a[a.length - 1].sp = false; u.sp = b.length ? !jA : false; return { A: songLyJoin(a), jA: nj, B: songLyJoin([u].concat(b)) }; }
   if (!b.length) return null; const u = b.shift(), nj = b.length ? !u.sp : false; if (a.length) a[a.length - 1].sp = !jA; u.sp = false; a.push(u); return { A: songLyJoin(a), jA: nj, B: songLyJoin(b) };
 }
+// (11/23 사용자 'E7은 6마디 첫박부터인데 박자 중간에 들어감 · 참고했다는 악보와 다름') 인터넷 글 악보에서 코드가 얹힌 가사 낱말의 시각(wa=[[초, 코드]], 서버가 기록)으로 소리 코드의 바뀐 때·종류를 바로잡음
+// 소리 엔진 둘이 같은 곳에서 2박 늦게 틀리는 일이 있어(Without You: E7이 6·31마디 1박이 아니라 3박에 잡힘) 독립된 근거로 씀 · 노래 낱말은 코드보다 먼저 시작하는 일이 흔해서 '낱말 뒤 첫 마디 첫 박'으로 옮김
+function songWebRetime(ch, wa, an) {
+  const B = (an && an.beats) || [], dn = (an && an.down) || 0;
+  if (!Array.isArray(ch) || !ch.length || !Array.isArray(wa) || wa.length < 6 || B.length < dn + 8) return { ch, moved: 0, renamed: 0 };
+  const nb = Math.min(8, B.length - 1 - dn), bd = (B[dn + nb] - B[dn]) / nb, DT = songBarStarts(an).map((x) => B[x]).filter((x) => x != null);
+  const R = (n) => { const m = /^([A-G][#b]?)/.exec(String(n || "")); return m ? m[1] : ""; }, fam = (n) => { const q = (/^[A-G][#b]?([^/]*)/.exec(String(n || "")) || [0, ""])[1]; return /^(dim|°|m7b5|ø)/.test(q) ? "d" : (/^m/.test(q) && !/^maj/.test(q)) || /^min/.test(q) ? "m" : "M"; };
+  const out = ch.map((c) => [c[0], c[1]]).sort((x, y) => x[0] - y[0]); let moved = 0, renamed = 0, seen = 0, hit = 0; const plan = [];
+  for (const a of wa) { const ta = +a[0], nm = String(a[1] || ""), r = R(nm); if (!Number.isFinite(ta) || !r) continue; seen++;
+    let k = -1, bs = 1e9; out.forEach((e, i) => { if (R(e[1]) === r && e[0] >= ta - 0.5 * bd && e[0] <= ta + 3.6 * bd) { const dd = Math.abs(e[0] - ta); if (dd < bs) { bs = dd; k = i; } } });
+    if (k < 0) continue; hit++; plan.push([k, ta, nm]); }
+  if (!seen || hit / seen < 0.5) return { ch, moved: 0, renamed: 0 };   // 악보와 소리가 대체로 안 맞는 곡이면 건드리지 않음
+  const drop = new Set(); const tgt = new Map();
+  for (const [k, ta, nm] of plan) { const e = out[k];
+    if (fam(nm) !== fam(e[1])) { e[1] = nm; renamed++; }
+    if (e[0] - ta > 1.4 * bd) { const T = DT.find((x) => x >= ta - 0.6 * bd); if (T != null && T < e[0] - 0.5 * bd) { tgt.set(k, T); } } }
+  for (const [k, T] of tgt) { const e0 = out[k][0]; out.forEach((e, i) => { if (i !== k && e[0] >= T - 0.05 && e[0] < e0 && !tgt.has(i)) drop.add(i); }); out[k][0] = T; moved++; }
+  const res = out.filter((_, i) => !drop.has(i)).sort((x, y) => x[0] - y[0]);
+  return { ch: res, moved, renamed, dropped: drop.size };
+}
+function songWebApply(an, o) { try { if (!an || an._wr) return an; an._wr = 1; const wa = o && o.web_chart && o.web_chart.anchors; if (!Array.isArray(wa) || !Array.isArray(an.chords)) return an; const r = songWebRetime(an.chords, wa, an); if (r.moved || r.renamed || r.dropped) { an._wrs = [r.moved, r.renamed, r.dropped || 0]; an.chords = r.ch; } } catch {} return an; }
 function songBarStarts(an) {   // 마디마다 시작 박 번호 — 보통은 첫 박부터 4박씩 · (11/22) 2박 마디가 끼인 곡은 an._bars
   const B = (an && an.beats) || [], dn = (an && an.down) || 0;
   if (an && Array.isArray(an._bars) && an._bars.length) return an._bars;
@@ -7616,7 +7637,7 @@ function songDeck(el, ids, o) {
     <p class="muted" style="margin:6px 0 0;font-size:.78rem">파형을 좌우로 밀면 위치가 옮겨져요 · 슬라이더를 움직이면 재생 중에도 바로 바뀌어요</p></div>`;
   const me = sgCur = { eng: null, el, folder: o.folder || null, vol: v0, blob: {}, svT: 0, mrT: 0 }, alive = () => sgCur === me && !me.eng.isDead();
   const blob = (k) => (me.blob[k] ||= readBlob(ids[k], false, true).catch((e) => { delete me.blob[k]; throw e; }));
-  const AN = o.analysis && o.analysis.key ? o.analysis : null, CHORDS = AN && Array.isArray(AN.chords) && AN.chords.length ? AN.chords : null; let keyN = 0, keyWant = 0, keyBusy = false, kd = o.keys || {}, kReq = Array.isArray(o.keyReq) ? o.keyReq.slice() : [];
+  const AN = songWebApply(o.analysis && o.analysis.key ? o.analysis : null, o), CHORDS = AN && Array.isArray(AN.chords) && AN.chords.length ? AN.chords : null; let keyN = 0, keyWant = 0, keyBusy = false, kd = o.keys || {}, kReq = Array.isArray(o.keyReq) ? o.keyReq.slice() : [];
   if (CHORDS) Q("dkWv").style.height = "152px";
   let ED = JSON.parse(JSON.stringify(o.edits && typeof o.edits === "object" ? o.edits : {}));
   const bmark = (e) => { if (AN && AN._bars && e && typeof e === "object") e.bm = 1; return e; };   // (11/22) 2박 마디 기준으로 고친 마디 표시
@@ -7882,8 +7903,8 @@ function songDeck(el, ids, o) {
   };
   // 카포: 추천 창에서 고르면 화면(프롬프터·A4 악보·PDF)의 코드가 그 카포의 '잡는 모양'으로 바뀌고 키 표시에 '카포 N'이 붙음 — 소리 키는 그대로
   const capoOf = () => shiftOf(), baseMeas = () => songApplyEdits(songMeasures(AN, keyN, o.lyrics, o.wave && o.wave.voc, o.lyrics_words), ED, keyN), autoSec = () => { try { return songAutoSections(baseMeas(), wave, o.lyrics); } catch { return []; } };
-  const WEBM = (() => { const w = o.web_chart, mk = w && w.best && w.marks; if (!mk || !Array.isArray(mk.diff) || !AN) return null; const dn = AN.down || 0, by = new Map(); mk.diff.forEach(([k, n]) => { const i = AN._bars ? songBarOfBeat(AN, +k) : Math.floor((+k - dn) / 4); if (i < 0) return; const a = by.get(i) || []; if (!a.includes(n)) a.push(n); by.set(i, a); }); return { by, url: w.best.url, title: w.best.title || "" }; })();   // (11/22 사용자 '인터넷 악보 참고 표시') 일꾼이 고른 인터넷 악보와 소리 결과가 다른 마디
-  const webShow = (n) => { const k = capoOf(), t = songChordName(n, keyN); return k ? songFlat(songChordName(t, -k)) : t; }, webRoot = (n) => { const m = /^([A-G][#b]?)/.exec(songChordName(n, 0) || ""); return m ? m[1] : ""; };
+  const WEBM = (() => { const w = o.web_chart, mk = w && w.best && w.marks; if (!mk || !Array.isArray(mk.diff) || !AN) return null; const dn = AN.down || 0, by = new Map(); (mk.diff.concat(Array.isArray(mk.qdiff) ? mk.qdiff : [])).forEach(([k, n]) => { const i = AN._bars ? songBarOfBeat(AN, +k) : Math.floor((+k - dn) / 4); if (i < 0) return; const a = by.get(i) || []; if (!a.includes(n)) a.push(n); by.set(i, a); }); return { by, url: w.best.url, title: w.best.title || "" }; })();   // (11/22 사용자 '인터넷 악보 참고 표시') 일꾼이 고른 인터넷 악보와 소리 결과가 다른 마디
+  const webShow = (n) => { const k = capoOf(), t = songChordName(n, keyN); return k ? songFlat(songChordName(t, -k)) : t; }, webRoot = (n) => { const q = songChordName(n, 0) || "", m = /^([A-G][#b]?)([^/]*)/.exec(q); return m ? m[1] + ((/^m/.test(m[2]) && !/^maj/.test(m[2])) || /^min/.test(m[2]) ? "m" : "") : ""; };   /* (11/23) 뿌리음만이 아니라 단조/장조 종류까지 — Gm7과 G7이 '같다'로 보이던 것 */
   const webAt = (m, i) => { if (!WEBM || !m || m.edited) return []; const a = WEBM.by.get(i) || [], have = new Set(m.chords.map((c) => webRoot(c.name))); return a.map(webShow).filter((n) => !have.has(webRoot(n))); };   // 선생님이 고친 마디·이미 같은 뿌리음이 있는 마디는 표시 안 함
   const showM = (M) => { const k = capoOf(); return k ? M.map((m) => Object.assign({}, m, { chords: m.chords.map((c) => Object.assign({}, c, { name: songFlat(songChordName(c.name, -k)) })) })) : M; };
   const keyLabel = (n) => { const k = capoOf(), kn = keyName(n === undefined ? keyWant : n); return modeP() ? `${songFlat(songChordName(kn, -k))} 모양 · 트랜스포즈 ${k ? sgn(k) : "0"} (소리 ${kn})` : k ? `${songFlat(songChordName(kn, -k))} 폼 · 카포 ${k} (소리 ${kn})` : kn; };
@@ -10507,7 +10528,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261123-1120";
+const BUILD = "20261123-1143";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
