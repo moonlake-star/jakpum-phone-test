@@ -260,7 +260,7 @@ const mk = new Function(code + "; return stemEngine;")();
   assert.match(T, /keyN = keyWant; autoCapo\(\); paintKey\(\)/, "실시간 엔진 경로");
   assert.match(T, /keyN = n; autoCapo\(\); draw\(\)/, "키 파일 경로");
   assert.match(T, /me\.capo = k; me\.capoOff = !k;/);
-  assert.match(T, /shiftNote = \(\) => \(modeP\(\) \? ` · 🎹 트랜스포즈/, "키 표시에 카포·트랜스포즈 값"); assert.match(T, /sgn\(n\)\}반음`\) \+ shiftNote\(\);/);
+  assert.match(T, /shiftNote = \(\) => \{ const k = shiftOf\(\), sh = k \? songFlat\(songChordName\(keyName\(keyWant\), -k\)\)[^\n]*` · 카포 \$\{k\} \(\$\{sh\} 폼\)`/, "키 표시에 카포 값과 카포 끼고 칠 폼"); assert.match(T, /sgn\(n\)\}반음`\) \+ shiftNote\(\);/);
   assert.ok(!/const paintKey = \(\) => \{[^\n]*capoOf\(\)/.test(T), "paintKey 는 capoOf(TDZ) 대신 me.capo");
 }
 

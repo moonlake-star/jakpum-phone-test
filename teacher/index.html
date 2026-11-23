@@ -7727,7 +7727,7 @@ function songDeck(el, ids, o) {
     // (11/19 사용자) 기타 모드(카포) / 피아노 모드(트랜스포즈): 둘 다 '소리 키 − 화면 코드 모양'의 반음 값 · 모드는 기기에 기억
     modeP = () => (me.mode ||= (() => { try { return localStorage.getItem("sgMode") === "p" ? "p" : "g"; } catch { return "g"; } })()) === "p",
     shiftOf = () => (modeP() ? me.tp || 0 : me.capo || 0),
-    shiftNote = () => (modeP() ? ` · 🎹 트랜스포즈 ${shiftOf() ? sgn(shiftOf()) : "0"}` : ` · 카포 ${shiftOf()}`),
+    shiftNote = () => { const k = shiftOf(), sh = k ? songFlat(songChordName(keyName(keyWant), -k)) : ""; return modeP() ? ` · 🎹 트랜스포즈 ${k ? sgn(k) + " (" + sh + " 모양)" : "0"}` : k ? ` · 카포 ${k} (${sh} 폼)` : ` · 카포 0`; },   /* (11/23 사용자) 카포 번호와 함께 카포 끼고 칠 코드 키(폼)도 */
     shiftBtn = () => (modeP() ? "🎹" + (shiftOf() ? sgn(shiftOf()) : "0") : "카포" + shiftOf()),
     shiftTag = () => (shiftOf() ? (modeP() ? "_트랜스" + sgn(shiftOf()) : "_카포" + shiftOf()) : ""),
     keyName = (n) => songChordName(AN.key + (AN.mode === "minor" ? "m" : ""), n);
