@@ -132,7 +132,7 @@
       if (on) {
         FH.users.set(token, typeof onLost === "function" ? onLost : null);
         if (!FH.el) {
-          const a = new Audio(); a.loop = true; a.src = silentWav(); a.setAttribute("aria-hidden", "true"); FH.el = a;
+          const a = new Audio(); a.loop = true; a.src = silentWav(); a.setAttribute("aria-hidden", "true"); a._noLoud = true; FH.el = a;
           a.addEventListener("pause", () => { if (!FH.users.size || !a.paused || Date.now() - FH.ownAt < 800) return;   // 우리가 멈춘 게 아니라 다른 앱이 소리를 시작함
             const cbs = [...FH.users.values()]; FH.users.clear(); for (const cb of cbs) { try { cb && cb(); } catch {} } });
         }
@@ -143,7 +143,8 @@
       }
     } catch {}
   }
-  const audioKeep = (fn) => { keepFn = typeof fn === "function" ? fn : null; };
+  const keepFns = new Set();   // (11/24) 재생 중인 건 두라는 화면이 여럿일 수 있음(곡·레슨·앱 전체 오디오 크기 맞춤)
+  const audioKeep = (fn) => { if (typeof fn === "function") keepFns.add(fn); keepFn = (c) => { for (const f of keepFns) { try { if (f(c)) return true; } catch {} } return false; }; };
   // (11/09 12:59 사용자 '블루투스 이어폰이면 화면이 먼저 가고 소리가 늦음') 소리가 귀에 닿기까지의 지연(초): 수동 설정(jk_outLat = ms) > 브라우저가 알려 주는 값
   //   (AudioContext.outputLatency + baseLatency, 블루투스면 보통 0.15~0.3초) > 마지막으로 잰 값. 그래프·막대는 이만큼 늦춰 그림(Tune.wire)
   let olAuto = (() => { try { return +localStorage.getItem("jk_outLatAuto") || 0; } catch { return 0; } })(), olSaveAt = 0;

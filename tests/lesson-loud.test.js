@@ -23,7 +23,7 @@ function world(on) {
 // (2) 켜면: blob만 보냄 → 마스터(+6 dB) → 리미터 → 출력, 같은 태그는 한 번만
 { const { w, mk, player } = world(false); player.currentSrc = "blob:x"; player.paused = false; mk.loudSet(true);
   assert.strictEqual(w.routed.length, 1, "재생 중이던 태그도 바로 보냄"); const c = w.ctxs[0], m = c.gains[0];
-  assert.ok(Math.abs(m.gain.value - 10 ** (6 / 20)) < 1e-9); assert.strictEqual(w.routed[0].to, m); assert.strictEqual(m.to, c.comp); assert.strictEqual(c.comp.to, c.destination);
+  assert.ok(Math.abs(m.gain.value - 1) < 1e-9, "(11/24) 재기 전 0 dB"); assert.strictEqual(w.routed[0].to, m); assert.strictEqual(m.to, c.comp); assert.strictEqual(c.comp.to, c.destination);
   mk.loudRoute(player); assert.strictEqual(w.routed.length, 1, "한 번만"); assert.strictEqual(w.store.jk_lessonLoud, "1"); assert.ok(mk.loudActive(), "재생 중이면 화면 꺼도 유지");
   player.paused = true; assert.ok(!mk.loudActive());
   mk.loudSet(false); assert.strictEqual(m.gain.value, 1, "끄면 증폭만 1배"); assert.strictEqual(w.store.jk_lessonLoud, "0"); }

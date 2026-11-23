@@ -6,7 +6,7 @@ const ctx = { window: {}, localStorage: { getItem: () => null, setItem() {} }, d
 vm.createContext(ctx);
 const mk = vm.runInContext("(function(){" + code + "; return { gain: (lv) => { loudLv = lv; return loudGain(true); }, tick: (rms, M, A) => { loudMaster = M; loudAn = A; loudCtx = { currentTime: 0 }; loudTick(); return loudLv; } }; })()", ctx);
 const dB = (g) => 20 * Math.log10(g);
-assert.ok(Math.abs(dB(mk.gain(null)) - 6) < 1e-9, "재기 전 +6");
+assert.ok(Math.abs(dB(mk.gain(null)) - 0) < 1e-9, "(11/24 Codex P1) 재기 전 0 dB(예전 +6)");
 assert.ok(Math.abs(dB(mk.gain(-35)) - 15) < 1e-9, "아주 작은 녹음 → 최대 +15");
 assert.ok(Math.abs(dB(mk.gain(-23)) - 7) < 1e-9, "−23 LUFS → +7(기준 −16)");
 assert.ok(Math.abs(dB(mk.gain(-8)) + 8) < 1e-9, "큰 녹음은 −16으로 줄임");
