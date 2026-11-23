@@ -35,7 +35,8 @@ now += 100; h.o.onTime({ t0: 5 }); now += 100; h.o.onAdv(); assert.strictEqual(h
   assert.ok(T.includes(".tfBox:not(.port):has(.tfFix.inBot.tfUni){display:grid") && T.includes(".tfBox:not(.port) .tfFix.inBot.tfUni{grid-column:2;grid-row:2/4"), "가로 고급 창 = 오른쪽 패널");
   // (11/05 사용자 시안 승인) 보정 모드 = 탭 없는 한 창(음정·타이밍·고급) · 빈 곳·다른 음을 눌러도 안 닫힘 · 안 골랐을 때는 안내 창
   assert.ok(T.includes("const uni = !!(tOn && st.advOn && st.onAdv && G.TuneAdv && G.TuneAdv.panel)") && T.includes('d.classList.add("tfUni")') && T.includes('class="tfUniAdv"'), "한 창(tfUni)");
-  assert.ok(T.includes('!st.advOn && wrap.querySelector(".tfFix") && sheetClose && sheetClose._fix'), "보정 모드는 빈 곳 톡으로 창을 안 닫음");
+  // (11/23 사용자) 고급 모드도 음표 고른 채 빈 곳 톡 = 선택 해제만(재생 안 함) · 해제 뒤 안내 창(tfDock)만 있을 땐 빈 곳 톡 = 재생
+  assert.ok(T.includes('e.type === "pointerup" && wrap.querySelector(".tfFix:not(.tfDock)") && sheetClose && sheetClose._fix') && !T.includes('!st.advOn && wrap.querySelector(".tfFix") && sheetClose'), "고급 모드 빈 곳 톡 = 선택 해제");
   assert.ok(T.includes("st.dock = () =>") && T.includes('"tfFix inBot tfUni tfDock"') && T.includes("if (st && st.dock) st.dock();"), "창이 닫히면 안내 창으로 다시 붙음");
   assert.ok(T.includes("G.TuneAdv.resetNote(st, cv, b)"), "↺ 원본 = 고급 고침도 같이");
   assert.ok(T.includes('d.className = "tfFix tfMulti" + (st.advOn ? " tfUni" : " tfMGr")'), "여러 음 고르기 창도 같은 자리·크기(끌 때 그래프가 안 들썩임)");
