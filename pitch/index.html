@@ -708,7 +708,10 @@ function draw(now) {
   }
   // time grid
   g2.fillStyle = 'rgba(255,255,255,.05)';
-  for (let s = 0; s <= HIST_S; s++) { const x = nowX - ((now / 1000 + s) % 1 + Math.floor(s)) * pps; if (x > PIANO_W) g2.fillRect(x, 0, 1, H); }
+  { const B = beatGrid();   // (11/23 사용자 '박자 세로선이 음표 길이와 따로 놀지 않게') 발성은 음표 박자에 맞춘 선, 그 밖은 1초 선
+    if (B) { const k0 = Math.ceil((C.t - HIST_S - B.t0) / B.step), k1 = Math.floor((C.t + (W - nowX) / pps - B.t0) / B.step);
+      for (let k = k0; k <= k1; k++) { const x = Math.round(nowX + (B.t0 + k * B.step - C.t) * pps); if (x > PIANO_W) g2.fillRect(x, 0, 1, H); } }
+    else for (let s = 0; s <= HIST_S; s++) { const x = nowX - ((now / 1000 + s) % 1 + Math.floor(s)) * pps; if (x > PIANO_W) g2.fillRect(x, 0, 1, H); } }
   // target
   if (P.target != null) {
     g2.strokeStyle = '#5cc8ff'; g2.fillStyle = 'rgba(92,200,255,.10)'; g2.lineWidth = 1.5; g2.setLineDash([5, 4]);
@@ -807,14 +810,19 @@ function pianoVoice(ctx, f, t0, o) {
   if (o.dur) v.stop(t0 + o.dur);
   return v;
 }
+const KEY_MIN = .6;
 function pressKey(m) {
   const ctx = actx(), f = mFreq(m);
   if (P.osc) P.osc.stop(ctx.currentTime);                                   // a new key replaces the old one
-  P.osc = pianoVoice(ctx, f, ctx.currentTime, { vol: .7, hold: true });
+  if (P.tail) { P.tail.stop(ctx.currentTime); P.tail = null; }
+  P.osc = pianoVoice(ctx, f, ctx.currentTime, { vol: .7, hold: true }); P.pressAt = ctx.currentTime;
   P.pressed = m; P.target = m; updateTargetChip();
 }
 function releaseKey() {
-  if (P.osc) { P.osc.stop(P.ctx.currentTime + .05); P.osc = null; P.g = null; if (!P.earphone) P.toneUntil = performance.now() + 350; }
+  if (P.osc) {   // (11/23 사용자 '짧게 눌러도 지금의 4배쯤 길게') 짧게 톡 쳐도 누른 때부터 최소 KEY_MIN초는 울림
+    const now = P.ctx.currentTime, at = Math.max(now + .05, (P.pressAt || now) + KEY_MIN);
+    P.osc.stop(at); P.tail = at > now + .06 ? P.osc : null; P.osc = null; P.g = null;
+    if (!P.earphone) P.toneUntil = performance.now() + (at - now) * 1000 + 350; }
   P.pressed = null; P.pid = null;
 }
 const yToMidi = y => clamp(Math.floor(P.lowF + (P.H - y) / rowH()), 12, 108);
@@ -1036,18 +1044,19 @@ const scaleSig = sc => { const c = scaleCfg(sc), sp = spdNow(); return [c.k, c.g
 /* 박자: 코드 '짠' → 2박 쉬고 첫 음 → 1박(0.465초×속도) 간격으로 한 음씩 → 마지막 음은 길게 → 마지막 음 2박 뒤 다음 키(+1반음)의 코드
    (11/11 사용자) 코드 들은 뒤 바로 첫 음이 나와 성급했음 → 코드~첫 음, 마지막 음~다음 코드를 모두 박자(2박)에 맞춰 뒤로 미룸 */
 const PING = .14, PING_MUTE = .2;   // 스케일 음마다 나는 피아노 길이 / 그동안 마이크 쉬는 시간(초)
-const SC_STEP = .465, SC_LAST = .8, SC_PRE_BEATS = 2, SC_NEXT_BEATS = 2, SC_PRE = SC_STEP * SC_PRE_BEATS, SC_NEXT = SC_STEP * SC_NEXT_BEATS;
-const SC_CHORD_BEATS = .8;   // (11/11 사용자) 박자(코드→2박→첫 음)는 그대로, 코드 길이만 · (11:57 '더 짧게': .9 → .4) · (11/12 17:45 '길이만 2배': .4 → .8, 첫 음까지 1.2박 빈틈)
+const SC_STEP = .465, SC_LAST = SC_STEP * 2, SC_PRE_BEATS = 2, SC_NEXT_BEATS = 2, SC_PRE = SC_STEP * SC_PRE_BEATS, SC_NEXT = SC_STEP * SC_NEXT_BEATS;
+const SC_CHORD_BEATS = 1;   // (11/23 사용자 '4분음표 길이만큼': .8 → 1박, 다음 박 세로선에서 딱 끝남) · (11/11 사용자) 박자(코드→2박→첫 음)는 그대로, 코드 길이만 · (11:57 '더 짧게': .9 → .4) · (11/12 17:45 '길이만 2배': .4 → .8, 첫 음까지 1.2박 빈틈)
+const beatGrid = () => { const L = typeof C !== 'undefined' && C.mode === 'course' && C.line; return L && L.scale && L.step ? { t0: L.notes[0].t0, step: L.step } : null; };
 function genScaleLine(sc, diff) {
   const c = scaleCfg(sc), V = VOICE[c.g], S = SCALES.find(x => x.k === c.k), top = Math.max(...S.iv), base = V.start + c.off;
   const reps = clamp(c.ze + 2 - top - base + 1, 1, 24), n = S.iv.length, F = 1 / spdNow(), PRE = SC_PRE * F, STEP = SC_STEP * F, LAST = SC_LAST * F, NEXT = SC_NEXT * F;
   let t = .35 + PRE, end = 0; const notes = [];
   for (let r = 0; r < reps; r++) {
-    S.iv.forEach((d, i) => { const last = i === n - 1; notes.push({ m: base + r + d, t0: t + i * STEP, d: last ? LAST : STEP - .045, rep: r, pre: i === 0 ? PRE : 0, cd: i === 0 ? STEP * SC_CHORD_BEATS : 0, gr: 0 }); });
+    S.iv.forEach((d, i) => { const last = i === n - 1; notes.push({ m: base + r + d, t0: t + i * STEP, d: (last ? LAST : STEP) - .045, rep: r, pre: i === 0 ? PRE : 0, cd: i === 0 ? STEP * SC_CHORD_BEATS : 0, gr: 0 }); });
     end = t + (n - 1) * STEP + LAST + .1; t += (n - 1) * STEP + NEXT + PRE;
   }
   const ms = notes.map(x => x.m), mn = Math.min(...ms), mx = Math.max(...ms);
-  return { notes, end, minM: mn, maxM: mx, center: (mn + mx) / 2, minor: false, stage: 3, seed: scaleSig(sc), scale: true, reps, zs: c.zs, ze: c.ze, base, k: c.k, g: c.g };
+  return { notes, end, minM: mn, maxM: mx, center: (mn + mx) / 2, minor: false, stage: 3, seed: scaleSig(sc), scale: true, step: STEP, reps, zs: c.zs, ze: c.ze, base, k: c.k, g: c.g };
 }
 
 /* ============ course state + UI ============ */
