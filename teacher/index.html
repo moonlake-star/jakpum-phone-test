@@ -2582,6 +2582,11 @@ async function schedActInner(kind, pick, me, rv, s) {
     catch (e) { let held = false; try { await portal("t_unschedule", key); held = true; } catch {} if (held) await markHeldLocal(me); throw new Error("녹음 공유 권한을 열지 못해 예약을 취소(보류)했어요: " + e.message); }
   }
   rv.approved_sig = sig; rv.approved_sig_v = SIG_V; rv.approved_at = note.published_at; rv.scheduled_for = va || null; me.note = note;
+  (rv.sent ??= {}).feedback ??= new Date().toISOString();   // (11/23 사용자) 공개·예약하면 목록의 '피드백 전'이 바로 '피드백 ✓'
+  try {
+    const r = me.st?._rows?.[me.rowIndex]; if (r) { r.fb = true; r.pub = true; }
+    const c = LS.get("vn_list") || []; LS.set("vn_list", c.map(d => d.sid === me.sid ? { ...d, rows: (d.rows || []).map((x, k) => k === me.rowIndex ? { ...x, fb: true, pub: true } : x) } : d));
+  } catch {}
   let warn = "";
   try { const ex = me.files.find(f => f.name === NOTE), id = await writeJSON(me.folder.id, NOTE, note, ex?.id); if (!ex) me.files.push({ id, name: NOTE }); rv.published_at = kind === "now" ? note.published_at : rv.published_at; await saveReview(true); }
   catch { warn = " (서버에는 반영됐지만 앱 안 사본 저장은 실패 — 새로고침하면 ‘이후 수정됨’으로 보일 수 있어요)"; }
