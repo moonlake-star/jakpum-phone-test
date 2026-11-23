@@ -142,7 +142,7 @@ console.log("pitch-page ok");
 
 // 영상 박자 스케일(코드 1회 → 0.465초 간격 1-3-5-8-8-8-8-5-3-1 → 약 5.6초마다 +1반음) + 스케일 전용 화면
 {
-  assert.ok(src.includes("const SC_STEP = .465, SC_LAST = .8, SC_PRE_BEATS = 2, SC_NEXT_BEATS = 2, SC_PRE = SC_STEP * SC_PRE_BEATS, SC_NEXT = SC_STEP * SC_NEXT_BEATS;"), "박자 상수: 코드 뒤 2박, 마지막 음 뒤 2박(11/11 사용자)");
+  assert.ok(src.includes("const SC_STEP = .465, SC_LAST = SC_STEP * 2, SC_PRE_BEATS = 2, SC_NEXT_BEATS = 2, SC_PRE = SC_STEP * SC_PRE_BEATS, SC_NEXT = SC_STEP * SC_NEXT_BEATS;"), "박자 상수: 코드 뒤 2박, 마지막 음 뒤 2박(11/11 사용자)");
   assert.ok(src.includes("iv: [0, 4, 7, 12, 12, 12, 12, 7, 4, 0]") && src.includes("? o.k : 'tri'"), "기본 스케일 = 3음(11/05 사용자)");
   assert.ok(src.includes("n.gr != null ? n.gr : D().grace") && src.includes("Math.max(n.gr != null ? .12 : .25"), "음별 여유 시간");
   assert.ok(src.includes("#v-practice.scaleView #segMode{order:-1}") && src.includes("id=\"scHead\"") && src.includes("classList.toggle('scaleView', sv)"), "스케일 전용 화면");
@@ -311,14 +311,14 @@ console.log("pitch-page ok");
 { const sE = fs.readFileSync(__dirname + "/../pitch/index.html", "utf8");
   assert.ok(sE.includes("function applyOut()") && sE.includes("seg('segOut', [['auto', '자동'], ['ear', '이어폰'], ['spk', '스피커']]") && sE.includes('id="segOut"'), "듣는 기기 직접 선택");
   assert.ok(sE.includes("$('#earOk').onclick = () => { P.earSess = 'ear';") && sE.includes("P.earSess = 'spk'"), "팝업에서 이어폰/스피커 선택");
-  assert.ok(sE.includes("if (!P.earphone) P.toneUntil = Math.max(P.toneUntil, now0 + (n.pre + PING_MUTE) * 1000);") && sE.includes("if (!P.earphone) P.toneUntil = performance.now() + 350;"), "이어폰이면 마이크 쉬지 않음");
+  assert.ok(sE.includes("if (!P.earphone) P.toneUntil = Math.max(P.toneUntil, now0 + (n.pre + PING_MUTE) * 1000);") && sE.includes("if (!P.earphone) P.toneUntil = performance.now() + (at - now) * 1000 + 350;"), "이어폰이면 마이크 쉬지 않음");
   assert.ok(sE.includes("if (P.k == null) P.toneUntil = Math.max(P.toneUntil, performance.now() + dur * 1000 + 120);") && sE.includes("if (!P.chordM) P.chordM = { t: performance.now(), mic: 0, ref: 0 };"), "스피커: k를 알면 분리 감지로 바로 측정");
   assert.ok(sE.includes("n.mute = P.earphone ? 0 : dur + .12;"), "이어폰이면 안내음 구간도 점수에 포함");
   console.log("pitch-page: 이어폰 계속 측정·스피커 빠른 복귀 ok"); }
 
 /* (11/11 사용자) 박자 그대로, 코드는 1박만 울려 첫 음과 떨어지게 */
 { const gs = genScale({ k: 'tri', g: 'm' }, 'normal'), n0 = gs.notes[0], step = gs.notes[1].t0 - n0.t0;
-  assert.ok(Math.abs(n0.pre - 2 * step) < 1e-9 && n0.cd > 0 && Math.abs(n0.cd - step * .8) < 1e-9 && n0.pre - n0.cd >= step * 1.1, "(11/12 17:45 길이 2배) 코드 0.8박, 첫 음까지 1.2박 빈틈");
+  assert.ok(Math.abs(n0.pre - 2 * step) < 1e-9 && Math.abs(n0.cd - step) < 1e-9 && n0.pre - n0.cd >= step * .99, "(11/23 사용자 4분음표) 코드 1박, 첫 음까지 1박 빈틈");
   console.log("pitch-page: 코드-첫 음 간격 ok"); }
 
 /* (11/11 사용자 'B로 바꿔') 연습 피아노 = 실제 피아노 녹음(없으면 합성으로) */
