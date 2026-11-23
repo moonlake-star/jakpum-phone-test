@@ -1338,11 +1338,11 @@ async function studentData(sid, prev) {
       const files = await gList(l.id);
       const rf = files.find(f => f.name === REVIEW);
       const rv = rf ? await listGate(() => readJSONm(rf)).catch(() => ({})) : {};
-      return { l, files, done: !!rf, fb: !!rv.sent?.feedback, ck: !!rv.sent?.check,
+      return { l, files, done: !!rf, fb: !!rv.sent?.feedback, skip: !!rv.skipped_at, ck: !!rv.sent?.check,
                ai: files.some(f => f.name === "AI초안.json"), pub: files.some(f => f.name === NOTE) && !noteHeld(rv), ...(rv.celeb?.full?.on && rv.celeb.full.title ? { full_song: String(rv.celeb.full.title).slice(0, 40) } : {}) };
     } catch (e) {   // 이 레슨만 실패: 지난번 값(있으면)으로 표시만 하고, 누르면 다시 불러옴
       const p = (prev?.rows || []).find(x => x.l?.id === l.id && !x.err) || {};
-      return { l, files: [], done: !!p.done, fb: !!p.fb, ck: !!p.ck, ai: !!p.ai, pub: !!p.pub, err: errMsg(e) };
+      return { l, files: [], done: !!p.done, fb: !!p.fb, skip: !!p.skip, ck: !!p.ck, ai: !!p.ai, pub: !!p.pub, err: errMsg(e) };
     }
   }));
   return { sid, rows, subs: subs.recs.map(r => ({ received_on: r.received_on, replied_at: r.replied_at, memo: r.memo })),
@@ -1384,7 +1384,7 @@ function paintList(data, stale) {
   const todo = [];
   for (const d of data) {
     const st = cfg.students[d.sid]; if (!st) continue;
-    d.rows.forEach((r, i) => { if (!r.err && !r.fb && daysAgo(r.l.name) <= 14 && !isTeacher(st))
+    d.rows.forEach((r, i) => { if (!r.err && !r.fb && !r.skip && daysAgo(r.l.name) <= 14 && !isTeacher(st))
       todo.push(r.ai && !r.pub ? { k: "lesson", sid: d.sid, i, bell: true, t: `🔔 ${st.name} · ${r.l.name.slice(5, 10).replace("-", "/")} AI 피드백 초안 도착`, c: "검토 대기" + fbLate(r) }
         : { k: "lesson", sid: d.sid, i, t: `📝 ${st.name} · ${r.l.name.slice(5, 10).replace("-", "/")} 레슨 피드백`, c: (r.pub ? "게시됨 · 카톡 전" : "피드백 전") + (r.pub ? "" : fbLate(r)) }); });
     const pend = (d.subs || []).filter(x => !x.replied_at).length;
@@ -1420,7 +1420,7 @@ function paintList(data, stale) {
   const order = data.slice().sort((a, b) => (isTeacher(cfg.students[a.sid] || {}) - isTeacher(cfg.students[b.sid] || {})) || ((enrollOf(cfg.students[a.sid]) !== "active") - (enrollOf(cfg.students[b.sid]) !== "active")));   // 쉬는 중·그만둠은 아래로
   const blocks = order.map((d) => {
     const st = cfg.students[d.sid]; if (!st) return "";
-    const fbN = d.rows.filter(r => !r.fb && !r.err).length, errN = d.rows.filter(r => r.err).length, pend = (d.subs || []).filter(x => !x.replied_at).length;
+    const fbN = d.rows.filter(r => !r.fb && !r.skip && !r.err).length, errN = d.rows.filter(r => r.err).length, pend = (d.subs || []).filter(x => !x.replied_at).length;
     const act = (d.jobs || []).filter(j => ["queued", "working"].includes(j.req.status)).length;
     const pay = (st.payments || []).slice(-1)[0];
     const a = attOf(d.sid);
@@ -3400,7 +3400,7 @@ function intakeCard(st) {
 //   맨 위 = 높이가 고정된 한 줄(다음 레슨 브리핑, 누르면 펼침) → 레슨 목록 → 그 아래에 늦게 오는 것들(리포트·성장 한 줄·입학 설문·카톡 · 맨 아래 한 말 확인 #858).
 function lessonRowsHTML(rows) {
   return rows.length ? rows.map((r, i) => r.err ? `<div class="lesson retry" data-i="${i}" title="${esc(r.err)}"><span>${esc(r.l.name)}</span><span class="chip todo">불러오기 실패(다시 시도)</span></div>`
-    : `<div class="lesson" data-i="${i}"><span>${esc(r.l.name)}</span><span class="row" style="gap:4px"><span class="chip ${r.fb ? "ok" : "todo"}">${r.fb ? "피드백 ✓" : "피드백 전"}</span>${cfg.practice_check ? `<span class="chip ${r.ck ? "ok" : ""}">${r.ck ? "점검 ✓" : "점검 –"}</span>` : ""}</span></div>`).join("")
+    : `<div class="lesson" data-i="${i}"><span>${esc(r.l.name)}</span><span class="row" style="gap:4px"><span class="chip ${r.fb ? "ok" : r.skip ? "" : "todo"}">${r.fb ? "피드백 ✓" : r.skip ? "⏭ 건너뜀" : "피드백 전"}</span>${cfg.practice_check ? `<span class="chip ${r.ck ? "ok" : ""}">${r.ck ? "점검 ✓" : "점검 –"}</span>` : ""}</span></div>`).join("")
     : `<p class="muted">아직 레슨 녹음이 없어요. 녹음이 정리되면 여기에 날짜별로 생기고, 누르면 검수 화면이 열립니다.</p>`;
 }
 function lessonsTabHTML(st, rows) {
@@ -3411,8 +3411,9 @@ function lessonsTabHTML(st, rows) {
 //#stulayout-end
 function bindLessonRows(sid) {
   const st = cfg.students[sid], rows = st._rows || [];
-  $("stuLessons")?.querySelectorAll(".lesson").forEach(el => el.onclick = () => rows[+el.dataset.i]?.err
-    ? (st._rows = null, openStudent(sid, "lesson")) : openLesson(sid, +el.dataset.i, () => openStudent(sid, "lesson")));
+  $("stuLessons")?.querySelectorAll(".lesson").forEach(el => { el.onclick = () => { if (el._long) { el._long = false; return; } rows[+el.dataset.i]?.err
+    ? (st._rows = null, openStudent(sid, "lesson")) : openLesson(sid, +el.dataset.i, () => openStudent(sid, "lesson")); };
+    if (!rows[+el.dataset.i]?.err && !isTeacher(st)) longPress(el, () => { el._long = true; lessonMenu(sid, +el.dataset.i); }); });   // (11/23 사용자) 길게 누르면 피드백 건너뛰기
 }
 function paintLessonsTab(sid) {
   const st = cfg.students[sid], rows = st._rows || [];
@@ -4760,6 +4761,34 @@ function stuMenu(sid) {
   if ($("smDel")) $("smDel").onclick = () => { close(); deleteStudent(sid); };
 }
 const deleteTestStudent = (sid) => deleteStudent(sid);
+// (11/23 사용자 '피드백 않고 넘어갈 회차 처리 방법') 레슨을 '⏭ 건너뜀'으로: 검수.json에 skipped_at만 기록 → '피드백 전'·오늘 할 일·밀린 피드백 알림(서버)에서 빠짐. 되돌리기 가능, 공개된 노트는 건드리지 않음
+async function setLessonSkip(sid, i, on) {
+  const st = cfg.students[sid], r = st?._rows?.[i]; if (!r || r.err) return false;
+  let files = r.files || []; try { files = await list(r.l.id); } catch {}
+  const rf = files.find(f => f.name === REVIEW);
+  const rv = rf ? await readJSON(rf.id).catch(() => ({})) : { speakers: {}, decisions: {}, manual: [], feedback: "" };
+  if (on) rv.skipped_at = new Date().toISOString(); else delete rv.skipped_at;
+  await writeJSON(r.l.id, REVIEW, rv, rf?.id);
+  r.skip = !!on;
+  try { const c = LS.get("vn_list") || []; LS.set("vn_list", c.map(d => d.sid === sid ? { ...d, rows: (d.rows || []).map((x, k) => k === i ? { ...x, skip: !!on } : x) } : d)); } catch {}
+  if (cur && cur.sid === sid && cur.rowIndex === i && cur.review) { if (on) cur.review.skipped_at = rv.skipped_at; else delete cur.review.skipped_at; }
+  return true;
+}
+function lessonMenu(sid, i) {
+  const st = cfg.students[sid], r = st?._rows?.[i]; if (!r) return; document.getElementById("lsMenu")?.remove();
+  const d = document.createElement("div"); d.id = "lsMenu"; d.className = "attSheet";
+  d.innerHTML = `<div class="attBox"><h3 style="margin:0 0 8px">${esc(st.name)} · ${esc(r.l.name)}</h3>
+    ${r.fb ? `<p class="muted">이미 피드백을 보낸 레슨이에요. 되돌리려면 레슨을 열어 ‘↩ 피드백 취소’를 눌러 주세요</p>`
+      : `<button type="button" class="full" id="lmSkip">${r.skip ? "건너뛰기 취소(다시 ‘피드백 전’으로)" : "⏭ 이 레슨은 피드백 없이 넘어가기"}</button>
+    <p class="muted" style="margin:4px 0 0;font-size:.85rem">${r.skip ? "할 일·알림에 다시 나와요" : "‘피드백 전’과 오늘 할 일, 아침 밀린 피드백 알림에서 빠져요 · 녹음·분석은 그대로 · 언제든 되돌릴 수 있어요"}</p>`}
+    <button type="button" class="ghost full" id="lmNo" style="margin-top:10px">닫기</button></div>`;
+  document.body.appendChild(d);
+  const ly = typeof Brand !== "undefined" && Brand.layer ? Brand.layer(() => d.remove()) : { close: () => d.remove() }, close = () => ly.close();
+  $("lmNo").onclick = close; d.addEventListener("click", (e) => { if (e.target === d) close(); });
+  if ($("lmSkip")) $("lmSkip").onclick = async () => { const b = $("lmSkip"); b.disabled = true;
+    try { await setLessonSkip(sid, i, !r.skip); close(); toast(r.skip ? "⏭ 피드백 없이 넘어가기로 했어요" : "다시 ‘피드백 전’으로 돌렸어요"); if (stuCur?.sid === sid) refreshLessonRows(sid); }
+    catch (e) { b.disabled = false; toast(errMsg(e)); } };
+}
 async function deleteStudent(sid) {
   const st = cfg.students[sid]; if (!st || isTeacher(st)) return toast("선생님 본인 칸은 지울 수 없어요");
   const test = st.status === "test";
@@ -8769,10 +8798,14 @@ async function openLessonInner(sid, i, backTo) {
       ${(() => { const nw = payNewer(st, ls, l.name); return nw ? `<span class="chip ok">새 결제 ${esc(nw.date.slice(5).replace("-", "/"))} · ${esc(nw.sessions)}회 등록됨</span>` : ls.payment_note ? `<span class="chip todo">${esc(ls.payment_note)}</span>` : ""; })()}
       ${payCanEdit() && !isTeacher(st) ? `<button class="small ghost" id="btnPayAdd" type="button">💳 결제 기록</button>` : ""}
       ${!isTeacher(st) && fbSentOrPub(review) ? `<button class="small ghost" id="btnRevert" type="button">↩ 피드백 취소</button>` : ""}
+      ${!isTeacher(st) && !fbSentOrPub(review) ? `<button class="small ghost" id="btnSkip" type="button">${review.skipped_at ? "↩ 건너뛰기 취소" : "⏭ 피드백 건너뛰기"}</button>` : ""}
       <span>${summary.duration_sec ? fmt(summary.duration_sec) : ""}</span>
       <button class="small ghost" id="btnSpeakerEdit" type="button">화자 수정</button>
     </div>`;
   if ($("btnRevert")) $("btnRevert").onclick = () => revertToDraft(cur);
+  if ($("btnSkip")) $("btnSkip").onclick = async () => { const on = !cur.review.skipped_at, b = $("btnSkip"); b.disabled = true;
+    try { if (on) await saveReview(true); await setLessonSkip(sid, i, on); b.textContent = on ? "↩ 건너뛰기 취소" : "⏭ 피드백 건너뛰기"; toast(on ? "⏭ 피드백 없이 넘어가기로 했어요 · 목록·알림에서 빠져요" : "다시 ‘피드백 전’으로 돌렸어요"); }
+    catch (e) { toast(errMsg(e)); } finally { b.disabled = false; } };
   if ($("btnPayAdd")) $("btnPayAdd").onclick = () => paySheet(sid, { date: String(l.name || "").slice(0, 10), after: () => openLesson(sid, i, backTo) });
   renderSpeakers(); renderHighlights(); renderCands(); renderSegs();
   renderPoints();
@@ -10851,7 +10884,7 @@ function v3MissionChoices(pr, aiPr, wm) {   // 지금 미션 + AI 미션 후보(
 function v3NextTarget(students, cur_, days) {   // '다음 검토': 같은 수강생 먼저, 그다음 다른 수강생 · 홈 '검토 대기'와 같은 기준
   const cand = [];
   for (const [sid, st] of Object.entries(students || {})) (st?._rows || []).forEach((r, i) => {
-    if (!r || r.err || r.fb || r.pub || !r.ai || (cur_ && sid === cur_.sid && i === cur_.i) || st.status === "teacher") return;
+    if (!r || r.err || r.fb || r.skip || r.pub || !r.ai || (cur_ && sid === cur_.sid && i === cur_.i) || st.status === "teacher") return;
     if (days(r.l?.name) > 14) return;
     cand.push({ sid, i, name: st.name, date: String(r.l?.name || "").slice(0, 10), same: !!cur_ && sid === cur_.sid });
   });
