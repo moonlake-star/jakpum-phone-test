@@ -7487,6 +7487,8 @@ function songSheetPage(M, page, rpp, meta) {
   return cv;
 }
 // ── (11/19 사용자) 카포 추천: 지금 키의 코드를 카포 0~7프렛으로 내려 열린 코드(C·D·E·G·A·Am·Em·Dm 등) 비율이 가장 높은 자리를 골라 알려줌(오래 나오는 코드일수록 비중 큼)
+// (11/23 사용자 '전체 화면 안내문 한 번만') 브라우저가 전체화면에 들어갈 때마다 띄우는 "전체 화면을 종료하려면…" 안내(웹에서 끌 수 없음) — 이 기기에서 처음 한 번만 진짜 전체화면, 그 뒤로는 안내가 안 뜨게 앱 안 화면 확대(CSS)만. 이미 전체화면 중이면 그대로 이어감
+function fsReal(el, opt) { try { if (!el || !el.requestFullscreen) return Promise.resolve(); if (!document.fullscreenElement) { if (localStorage.getItem("jk_fsOnce")) return Promise.resolve(); localStorage.setItem("jk_fsOnce", "1"); } return Promise.resolve(el.requestFullscreen(opt)).catch(() => {}); } catch { return Promise.resolve(); } }
 const CAPO_OPEN = { "": ["C", "D", "E", "G", "A"], m: ["A", "D", "E"], "7": ["C", "D", "E", "G", "A", "B"], m7: ["A", "D", "E"], maj7: ["C", "D", "F", "A", "G"], sus: ["A", "D", "E"], add9: ["C", "G", "D"] };
 function songChordCost(nm) {   // 0 = 열린 코드(쉬움) · 0.7~1 = 바레(어려움)
   const m = /^([A-G]#?)([^/]*)(?:\/([A-G]#?))?$/.exec(String(nm || "")); if (!m) return 1;
@@ -7875,7 +7877,7 @@ function songDeck(el, ids, o) {
       catch (e) { toast("PDF 만들기 실패: " + errMsg(e)); } finally { pdfBusy(false); pdfBtn.disabled = false; pdfBtn.textContent = t0; } };
     $("#prX").onclick = () => ly.close(); $("#prPlay").onclick = () => { if (me.isLive && me.isLive()) { me.livePlay(); return; } if (eng.isPlaying() || !playSelTV || sel < 0 || !M[sel]) { Q("sgPb").onclick(); return; } playSelTV = false; songFlash(d.querySelector(`.prM[data-i="${sel}"]`)); playFrom(sel === 0 ? 0 : M[sel].t0); };
     document.body.appendChild(d); me.pr = d;
-    (async () => { try { wl = await navigator.wakeLock?.request("screen"); } catch {} try { await d.requestFullscreen?.({ navigationUI: "hide" }); } catch {} const fsH = () => { if (!d.isConnected) { document.removeEventListener("fullscreenchange", fsH); return; } if (!document.fullscreenElement) ly.close(); }; document.addEventListener("fullscreenchange", fsH); })();   /* (11/22 사용자) 전체화면에서 뒤로 스와이프 = 전체화면만 풀리던 것 → TV 닫고 A4로 */   // (11/21 사용자 'TV 화면은 기본 세로(PDF처럼), 가로도 가능') 화면 방향을 고정하지 않음 — 폰을 돌리면 가로로도 보임
+    (async () => { try { wl = await navigator.wakeLock?.request("screen"); } catch {} try { await fsReal(d, { navigationUI: "hide" }); } catch {} const fsH = () => { if (!d.isConnected) { document.removeEventListener("fullscreenchange", fsH); return; } if (!document.fullscreenElement) ly.close(); }; document.addEventListener("fullscreenchange", fsH); })();   /* (11/22 사용자) 전체화면에서 뒤로 스와이프 = 전체화면만 풀리던 것 → TV 닫고 A4로 */   // (11/21 사용자 'TV 화면은 기본 세로(PDF처럼), 가로도 가능') 화면 방향을 고정하지 않음 — 폰을 돌리면 가로로도 보임
     raf2 = requestAnimationFrame(tickP);
   };
   // 카포: 추천 창에서 고르면 화면(프롬프터·A4 악보·PDF)의 코드가 그 카포의 '잡는 모양'으로 바뀌고 키 표시에 '카포 N'이 붙음 — 소리 키는 그대로
@@ -7932,7 +7934,7 @@ function songDeck(el, ids, o) {
     const setLy = async (i) => { if (!hasLy || busy || i < 0 || i >= (opt.steps || 1) || i === li) return; busy = true; li = i; paintLy(); pdfBusy(true); const keep = curPg(); try { out = await opt.regen(li); try { opt.onLy && opt.onLy(li); } catch {} fill(); ims[Math.min(keep, ims.length - 1)]?.scrollIntoView({ block: "start" }); } catch (e) { toast("다시 만들기 실패: " + errMsg(e)); } finally { busy = false; pdfBusy(false); paintLy(); } };
     if (hasLy) { w.querySelector("#pvFm").onclick = () => setLy(li - 1); w.querySelector("#pvFp").onclick = () => setLy(li + 1); } paintLy();
     // 전체화면: 위 조작줄을 숨기고 쪽만 크게(오른쪽 아래 ✕로 되돌림)
-    const setFs = (on) => { w.classList.toggle("fs", on); if (on) { try { w.requestFullscreen && w.requestFullscreen().catch(() => {}); } catch {} } else { try { document.fullscreenElement && document.exitFullscreen(); } catch {} } };
+    const setFs = (on) => { w.classList.toggle("fs", on); if (on) { try { fsReal(w); } catch {} } else { try { document.fullscreenElement && document.exitFullscreen(); } catch {} } };
     w.addEventListener("fullscreenchange", () => { if (!document.fullscreenElement && w.classList.contains("fs")) w.classList.remove("fs"); });
     w.querySelector("#pvFs").onclick = () => setFs(true); w.querySelector("#pvFsX").onclick = () => setFs(false);
     // (11/20 사용자 'PDF 창 닫기 누르면 홈으로 감 → A4 악보 화면으로 돌아가야') 미리보기도 뒤로 가기 한 칸(Brand.layer): 닫기·저장·뒤로 스와이프 모두 미리보기만 닫히고 아래 악보(또는 TV) 화면이 남음
@@ -8065,7 +8067,7 @@ function songDeck(el, ids, o) {
     const LYS = [1, 1.25, 1.5, 1.8], LYN = ["보통", "크게", "더 크게", "최대"]; let lyI = 1; try { const v = parseInt(localStorage.getItem("sgShLy"), 10); if (v >= 0 && v < LYS.length) lyI = v; } catch {} let dark = false; try { dark = localStorage.getItem("sgShDark") === "1"; } catch {}
     const paintLy = () => { paper.style.setProperty("--ly", LYS[lyI]); const l = d.querySelector("#shFtL"); if (l) l.textContent = LYN[lyI]; const m = d.querySelector("#shFtM"), p = d.querySelector("#shFtP"); if (m) m.disabled = lyI === 0; if (p) p.disabled = lyI === LYS.length - 1; };
     const setLy = (i) => { lyI = Math.max(0, Math.min(LYS.length - 1, i)); try { localStorage.setItem("sgShLy", String(lyI)); } catch {} paintLy(); requestAnimationFrame(() => { if (typeof fitChords === "function") fitChords(); }); };   // 글자 크기가 바뀌면 가사 시작 박 자리를 다시 잡음
-    const setFs = (on) => { d.classList.toggle("fs", on); if (on) { try { d.requestFullscreen && d.requestFullscreen().catch(() => {}); } catch {} } else { try { document.fullscreenElement && document.exitFullscreen(); } catch {} } };
+    const setFs = (on) => { d.classList.toggle("fs", on); if (on) { try { fsReal(d); } catch {} } else { try { document.fullscreenElement && document.exitFullscreen(); } catch {} } };
     d.addEventListener("fullscreenchange", () => { if (!document.fullscreenElement && d.classList.contains("fs")) d.classList.remove("fs"); });
     const shTools = () => { const t = document.createElement("div"); t.className = "shTools"; t.innerHTML = `<div class="shFg" role="group" aria-label="가사 글자 크기"><button type="button" id="shFtM" aria-label="가사 글자 작게">가−</button><span id="shFtL"></span><button type="button" id="shFtP" aria-label="가사 글자 크게">가＋</button></div><button type="button" class="shFsB" id="shFs" aria-label="전체화면으로 보기">⛶ 전체</button><button type="button" class="shTvB" id="shTv" aria-label="TV 악보로 보기">📺 TV</button><button type="button" class="shPdfB" id="shPdf" aria-label="PDF로 만들기">PDF</button><button type="button" class="shTvB" id="shDk" aria-label="악보 화면 다크 모드"></button>`;
       const dkB = t.querySelector("#shDk"); const dkPaint = () => { paper.classList.toggle("dk", dark); d.classList.toggle("shDark", dark); dkB.textContent = dark ? "☀" : "🌙"; dkB.title = dark ? "밝은 화면으로" : "다크 모드"; dkB.setAttribute("aria-pressed", dark ? "true" : "false"); }; dkPaint();
@@ -10505,7 +10507,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261123-1055";
+const BUILD = "20261123-1120";
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
