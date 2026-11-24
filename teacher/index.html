@@ -889,6 +889,24 @@ async function list(folder) {
   } while (page);
   return out;
 }
+// (11/24 로딩 감사 2단계) 여러 폴더의 파일 목록을 한 번에: "('a' in parents or 'b' in parents …)" 묶음(20개씩) → 폴더별로 나눠 돌려줌.
+//   홈 목록이 레슨마다 폴더를 하나씩 열던 것(수강생 15명 × 레슨 10개 = 약 150번)을 약 8번으로. 묶음이 실패하면 그 묶음만 하나씩 다시(list)
+async function listMany(ids, gate) {
+  const out = new Map(ids.map(id => [id, []])), CH = 20, run = gate || ((f) => f());
+  const chunks = []; for (let i = 0; i < ids.length; i += CH) chunks.push(ids.slice(i, i + CH));
+  await Promise.all(chunks.map(ch => run(async () => {
+    try {
+      let page = "";
+      do {
+        const qq = `(${ch.map(id => `'${id}' in parents`).join(" or ")}) and trashed=false`;
+        const r = await (await api(`${DRIVE}/files?q=${q(qq)}&pageSize=1000&fields=nextPageToken,files(id,name,mimeType,modifiedTime,size,parents)${page ? "&pageToken=" + page : ""}`)).json();
+        for (const f of r.files || []) for (const p_ of f.parents || []) if (out.has(p_)) { const { parents, ...rest } = f; out.get(p_).push(rest); }
+        page = r.nextPageToken || "";
+      } while (page);
+    } catch (e) { for (const id of ch) { try { out.set(id, await list(id)); } catch (e2) { out.set(id, e2); } } }
+  })));
+  return out;   // 값이 Error면 그 폴더만 실패
+}
 const readJSON = (id) => autoBusy((async () => (await api(`${DRIVE}/files/${id}?alt=media`)).json())(), true);
 // (11/19 사용자 '목록 파일 대조해서 같으면 바로') 파일 목록에서 이미 알고 있는 '수정 시각'이 같으면 내용을 다시 받지 않고 이 폰에 저장해 둔 것을 씀(드라이브 요청 1번 절약).
 //   수정 시각이 다르면 새로 받아 바꿔 저장. 저장소를 못 쓰면 그냥 예전처럼 받음. 최대 JC_MAX개(오래된 것부터 지움)
@@ -1324,8 +1342,10 @@ async function loadMkJobs(sid) {
   const st = cfg.students[sid], f7 = st.sub?.["07_커버제작"]; if (!f7) return [];
   const all = await gList(f7), folders = all.filter(x => x.mimeType.endsWith("folder"));
   const hb = all.find(x => x.name === "음정성향.json"); if (hb && hb.modifiedTime !== st._habitAt) { st._habitId = hb.id; st._habitAt = hb.modifiedTime; st._habit = null; }
+  const fm = typeof listMany === "function" && folders.length > 1 ? await listMany(folders.map(f => f.id), listGate) : null;   // (11/24) 곡 폴더 목록을 묶어서 한 번에
   const jobs = await Promise.all(folders.map(async (f) => {
-    const files = await gList(f.id), rq = files.find(x => x.name === MKREQ);
+    const fl = fm ? fm.get(f.id) : null; if (fl instanceof Error) return null;
+    const files = fl || await gList(f.id), rq = files.find(x => x.name === MKREQ);
     return rq ? { sid, st, folder: f, files, reqId: rq.id, req: await listGate(() => readJSONm(rq)).catch(() => ({})) } : null;
   }));
   return jobs.filter(Boolean).sort((a, b) => (b.req.requested_at || "").localeCompare(a.req.requested_at || ""));
@@ -1335,9 +1355,11 @@ async function studentData(sid, prev) {
   const [lessons, subs, jobs] = await Promise.all([
     root ? gList(root).then(fs => fs.filter(f => f.mimeType.endsWith("folder")).sort((a, b) => b.name.localeCompare(a.name))) : [],
     listGate(() => loadSubs(st)).catch(() => ({ recs: [] })), loadMkJobs(sid).catch(() => [])]);
+  const fm = typeof listMany === "function" && lessons.length > 1 ? await listMany(lessons.map(l => l.id), listGate) : null;   // (11/24) 레슨 폴더 목록을 묶어서 한 번에
   const rows = await Promise.all(lessons.map(async (l) => {
     try {
-      const files = await gList(l.id);
+      const fl = fm ? fm.get(l.id) : null; if (fl instanceof Error) throw fl;
+      const files = fl || await gList(l.id);
       const rf = files.find(f => f.name === REVIEW);
       const rv = rf ? await listGate(() => readJSONm(rf)).catch(() => ({})) : {};
       return { l, files, done: !!rf, fb: !!rv.sent?.feedback, skip: !!rv.skipped_at, ck: !!rv.sent?.check,
@@ -10694,7 +10716,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261124-2215";   // (11/24 낮) 공용 스크립트 ?v= = 내용 지문(scripts/bump-versions.js) — 11/23 보정창·소리 수정이 서비스 워커 캐시에 막혀 폰에 안 가던 것 · (11/24) 11/23 17:20 뒤 소리 크기 수정(#950~#959)이 '새 버전 알림'에 안 잡혀 폰이 옛 코드로 돌 수 있던 것
+const BUILD = "20261124-2225";   // (11/24 낮) 공용 스크립트 ?v= = 내용 지문(scripts/bump-versions.js) — 11/23 보정창·소리 수정이 서비스 워커 캐시에 막혀 폰에 안 가던 것 · (11/24) 11/23 17:20 뒤 소리 크기 수정(#950~#959)이 '새 버전 알림'에 안 잡혀 폰이 옛 코드로 돌 수 있던 것
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
