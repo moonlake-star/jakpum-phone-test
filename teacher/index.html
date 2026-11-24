@@ -548,7 +548,7 @@
 </head>
 <body>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@700&display=swap">
-<script src="../brand.js?v=28c345a501"></script>
+<script src="../brand.js?v=082bd775c3"></script>
 <script src="../loudnorm.js?v=4c2ec6dcbf"></script>
 <script>try { Brand.splash("teacher"); } catch {}</script>
 <main>
@@ -7782,10 +7782,10 @@ function songDeck(el, ids, o) {
     const on = A != null && B != null; Q("dkLoop").classList.toggle("on", on); Q("dkLoop").setAttribute("aria-pressed", on); eng.setLoop(on ? A : NaN, on ? B : NaN); draw(); };
   let loadP = null;
   // (11/19 사용자 '처음 재생 누르면 대기가 걸리는데 팝업') 처음 재생에서 곡 불러오는 동안 가운데 팝업(0.25초 넘게 걸릴 때만 · 몇 초째인지 표시)
-  const busyPop = (title, sub) => { let box = null, t0 = Date.now(), iv = 0; const tm = setTimeout(() => { box = document.createElement("div"); box.className = "dkBusy"; box.setAttribute("role", "status"); box.setAttribute("aria-live", "polite");
+  const busyPop = (title, sub) => { let box = null, t0 = Date.now(), iv = 0; globalThis.__quiet = (globalThis.__quiet || 0) + 1; let qd = false; const tm = setTimeout(() => {   // (11/24 사용자 '로딩 팝업 연달아 2번') 이 창이 떠 있는 동안 공통 '불러오는 중'은 안 띄움 box = document.createElement("div"); box.className = "dkBusy"; box.setAttribute("role", "status"); box.setAttribute("aria-live", "polite");
       box.innerHTML = `<div class="dkBusyC"><div class="dkSpin" aria-hidden="true"></div><b></b><span></span><small></small></div>`; box.querySelector("b").textContent = title; box.querySelector("span").textContent = sub; document.body.appendChild(box);
       const up = () => { const q = box && box.querySelector("small"); if (q) q.textContent = Math.floor((Date.now() - t0) / 1000) + "초째"; }; up(); iv = setInterval(up, 1000); }, 250);
-    return { close: () => { clearTimeout(tm); clearInterval(iv); if (box) box.remove(); box = null; } }; };
+    return { close: () => { clearTimeout(tm); clearInterval(iv); if (box) box.remove(); box = null; if (!qd) { qd = true; globalThis.__quiet = Math.max(0, (globalThis.__quiet || 1) - 1); } } }; };
   const load = () => loadP ||= (async () => { Q("sgPb").textContent = "…"; Q("sgT1").textContent = "준비 중…"; const pop = busyPop("곡 불러오는 중이에요", "처음 재생할 때만 걸려요 · 잠시만요");
     try { await eng.load(); } catch (e) { loadP = null; if (alive()) { Q("sgPb").textContent = "▶"; Q("sgT1").textContent = dur() ? mmss(dur()) : "–:–"; } throw e; } finally { pop.close(); }
     if (alive()) { Q("sgT1").textContent = mmss(eng.dur()); eng.setRate(rate); eng.setMrVol(mrV); draw(); wavePrep(); } })();
@@ -10616,7 +10616,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261124-1645";   // (11/24 낮) 공용 스크립트 ?v= = 내용 지문(scripts/bump-versions.js) — 11/23 보정창·소리 수정이 서비스 워커 캐시에 막혀 폰에 안 가던 것 · (11/24) 11/23 17:20 뒤 소리 크기 수정(#950~#959)이 '새 버전 알림'에 안 잡혀 폰이 옛 코드로 돌 수 있던 것
+const BUILD = "20261124-1715";   // (11/24 낮) 공용 스크립트 ?v= = 내용 지문(scripts/bump-versions.js) — 11/23 보정창·소리 수정이 서비스 워커 캐시에 막혀 폰에 안 가던 것 · (11/24) 11/23 17:20 뒤 소리 크기 수정(#950~#959)이 '새 버전 알림'에 안 잡혀 폰이 옛 코드로 돌 수 있던 것
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {

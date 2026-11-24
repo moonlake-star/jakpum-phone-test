@@ -41,7 +41,7 @@
     else { i.style.transition = "width .2s ease-out"; i.style.width = "100%"; } }
   // (11/03 13:39 사용자) 화면 하나 여는 데 드라이브 읽기가 여러 번 차례로 이어지면 '바 다 참 → 사라짐 → 또 뜸'이 3~4번 반복됐음
   // → 끝나도 0.5초 기다려 보고, 그 사이 다음 읽기가 시작되면 같은 창·같은 바로 이어서(한 번만 차고 한 번만 사라짐)
-  const GRACE = 500;
+  const GRACE = 1200, QUIET = 2500;   // (11/24 사용자 '로딩중 팝업이 연달아 2번씩 — 한 번 길게, 다른 화면도 전수') 끝난 뒤 1.2초 안에 다음 읽기가 오면 같은 창으로 이어감(예전 0.5초 — 화면 그리는 사이가 더 길어 두 번 떴음) · 막 사라진 뒤 2.5초 동안은 새 창을 늦게 띄움(짧은 읽기는 안 뜸)
   let tipFn = null, tipI = -1;
   function setTips(fn) { tipFn = typeof fn === "function" ? fn : null; }   // (11/03 13:39 사용자) 불러오는 동안 지금 화면에서 쓸 수 있는 기능 팁
   // (11/03 22:33 사용자) 불러오는 중 팁 박스는 없애고 원래 팝업으로 — 팁은 화면 맨 아래 '💡 Tip' 칸·목록에서만
@@ -52,12 +52,12 @@
     if (on) { el.querySelector(".tx").textContent = text || "불러오는 중...";
       if (el.classList.contains("on")) {   // 사라지기 직전에 다음 읽기 → 같은 창·같은 바로 이어서(한 번만 뜨고 한 번만 사라짐)
         if (loading.hide || loading.hide2) { const done = !!loading.hide2; clearTimeout(loading.hide); clearTimeout(loading.hide2); loading.hide = loading.hide2 = null; if (done) { pt0 = performance.now() - 4000; prog(el, true, true); } } }
-      else { clearTimeout(lt); lt = setTimeout(() => { if (ln > 0 && !el.classList.contains("on")) { el.classList.add("on"); prog(el, true); } }, delay == null ? 600 : delay); }
+      else { clearTimeout(lt); const d0 = delay == null ? 600 : delay, quiet = performance.now() - (loading.lastOff || -1e9) < QUIET; lt = setTimeout(() => { if (ln > 0 && !el.classList.contains("on")) { el.classList.add("on"); prog(el, true); } }, quiet ? Math.max(d0, 2000) : d0); }
       clearTimeout(loading.cap); loading.cap = setTimeout(() => { ln = 0; cancelAnimationFrame(praf); el.classList.remove("on"); }, 20000); }
     if (ln === 0) { clearTimeout(lt);
       if (el.classList.contains("on")) { clearTimeout(loading.hide); clearTimeout(loading.hide2);
         loading.hide = setTimeout(() => { loading.hide = null; if (ln !== 0) return; prog(el, false);   // 다 불러오면 꽉 채우고 사라짐
-          loading.hide2 = setTimeout(() => { loading.hide2 = null; if (ln === 0) { cancelAnimationFrame(praf); el.classList.remove("on"); } }, 260); }, GRACE); }
+          loading.hide2 = setTimeout(() => { loading.hide2 = null; if (ln === 0) { cancelAnimationFrame(praf); el.classList.remove("on"); loading.lastOff = performance.now(); } }, 260); }, GRACE); }
       else el.classList.remove("on"); }
   }
   // (11/03 17:28 사용자) 화면 맨 아래 늘 붙어 있는 팁 칸(스크롤해도 그대로) · 누르면 그 팁이 맨 위, 나머지 팁이 이어지는 목록 창
