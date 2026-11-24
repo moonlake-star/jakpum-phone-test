@@ -41,3 +41,8 @@ const T = fs.readFileSync(path.join(__dirname, "..", "teacher", "index.html"), "
 // (11/24 노트북 폰 재현: 앱이 원래 크기로 나옴 → '크게 듣기'(jk_stemBoost=0)가 크기 맞춤을 통째로 끄고 있었음) 꺼도 큰 곡은 항상 줄임
 { const T4 = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
   require("assert").ok(!T4.includes("return on && EN && G.Loud ? G.Loud.gain") && (T4.match(/return on \? x : Math\.min\(1, x\);/g) || []).length === 2); }
+// (11/24 Codex P1) 봉우리 계산은 보컬 배율별로 기억(슬라이더마다 곡 전체 다시 훑지 않음) · 메이크업 작업 바꾸면 앞 계산 버림
+{ const L2 = require(require("path").join(__dirname, "..", "loudnorm.js")); const A = require("assert");
+  const mk = (amp) => ({ e: new Float64Array(10).fill(1), p: new Float32Array(10).fill(amp), s: [new Float32Array(10).fill(amp)], step: 4410, fs: 44100 });
+  const m = mk(0.5), v = mk(0.3); const a1 = L2.peak(m, v, 0.3); A.strictEqual(L2.peak(m, v, 0.3), a1); A.ok(Math.abs(L2.peak(m, v, 1) - 0.8) < 1e-6 || L2.peak(m, v, 1) <= 0.8 + 1e-6);
+  const T5 = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8"); A.ok(T5.includes("mkTracks = {}; mkAutoGain.seq = (mkAutoGain.seq || 0) + 1;")); }
