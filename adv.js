@@ -362,7 +362,7 @@
   // ── 기타 설정(11/11 01:07 사용자 고 · ⋯ 곡 메뉴로 옮김): MIDI · 소리 지연 · 손짓 안내 · 진동 시험 ──
   function toolsBox(st, cv, closeFn) {
     const w = document.createElement("div"); w.className = "advTools";
-    w.innerHTML = `<div class="advGBtns"><button type="button" data-g="midi">🎹 MIDI 내보내기</button><button type="button" data-g="lat">🎧 소리 지연</button>${typeof st.advGuide === "function" ? `<button type="button" data-g="guide">👆 손짓 안내 다시 보기</button>` : ""}<button type="button" data-g="vib">📳 진동 시험</button></div><p class="advVibR" aria-live="polite"></p>`;
+    w.innerHTML = `<div class="advGBtns"><button type="button" data-g="midi">🎹 MIDI 내보내기</button><button type="button" data-g="lat">🎧 소리 지연</button></div><p class="advVibR" aria-live="polite"></p>`;
     const latLab = (x) => { try { const B = G.Brand || {}, m = B.outLatMode ? B.outLatMode() : "auto"; x.textContent = m === "auto" ? `🎧 소리 지연: 자동 ${(B.outLatAuto ? B.outLatAuto() : 0).toFixed(2)}초` : m === 0 ? "🎧 소리 지연: 끔" : `🎧 소리 지연: ${(m / 1000).toFixed(2)}초`; } catch {} };
     w.querySelectorAll('[data-g="lat"]').forEach(latLab);
     w.querySelectorAll("[data-g]").forEach(x => { x.addEventListener("pointerdown", (e) => e.stopPropagation()); x.onclick = (e) => { e.stopPropagation();
@@ -379,21 +379,18 @@
   function resetDetail(st, cv) { const A = state(st); change(A, st, cv, () => { A.ne = { notes: [], global: {} }; }); }
 
   // ── 전체 보정(아래 줄 '🎛 보정 설정') — 곡 전체 소리 값만(11/11 사용자 고: 엔진·도구·초기화는 ⋯ 곡 메뉴로) ──
-  function globalSheet(host, st, cv) {
+  function globalSheet(host, st, cv, more) {   // (11/24 사용자 '두 창 통합') more(box, close) = 완성본·작업 기록·사용법·기타·초기화를 같은 창 아래에
     const A = state(st), g = () => A.ne.global;
     document.getElementById("advG")?.remove();
     const d = document.createElement("div"); d.id = "advG"; d.className = "advG";
     d.innerHTML = `<div class="advGBox" role="dialog" aria-label="보정 설정"><div class="advGHd"><b>🎛 보정 설정</b><span class="advGN"></span><button type="button" class="advX" aria-label="닫기">✕</button></div><div class="advBody"></div>
       <div class="advGAct"><button type="button" class="advGCancel">취소</button><button type="button" class="advGApply" disabled>✓ 적용</button></div>
-      <p class="advTip">값을 바꾼 뒤 <b>✓ 적용</b>을 누르면 곡 전체에 반영돼요 · 취소·✕ = 바꾸기 전 값 그대로.</p><p class="advTip">보컬·MR 두 파일로 올린 곡은 완성본을 새로 만들면 보정된 보컬만 담긴 WAV(24bit)도 드라이브 작업 폴더에 생겨요(vocal_tuned.wav).</p><p class="advTip">보정 엔진·A/B 비교·MIDI·소리 지연·초기화는 위 <b>⋯ 곡 메뉴</b>에 있어요.</p></div>`;
+      <p class="advTip">값을 바꾼 뒤 <b>✓ 적용</b>을 누르면 곡 전체에 반영돼요 · 취소·✕ = 바꾸기 전 값 그대로.</p><p class="advTip">보컬·MR 두 파일로 올린 곡은 완성본을 새로 만들면 보정된 보컬만 담긴 WAV(24bit)도 드라이브 작업 폴더에 생겨요(vocal_tuned.wav).</p><div class="advGMore"></div></div>`;
     // (11/13 19:10 사용자) 값을 바꾸면 바로 들어가지 않고 [✓ 적용]을 눌러야 곡 전체에 반영 — 그 전엔 이 창 안의 '초안'만 바뀜
     const draft = clone(g() || {}), dg = () => draft, base = JSON.stringify(draft);
     const body = d.querySelector(".advBody"), G_ = (k, dft) => (dg()[k] != null ? dg()[k] : dft);
     const dirty = () => JSON.stringify(draft) !== base;
-    if (typeof st.fixVSet === "function") {   // (11/18 18:02 사용자 'V3·V4를 보정 설정 안쪽으로') 고치기 창 방식 — 바로 바뀜(적용 버튼과 무관)
-      const vr = document.createElement("div"); vr.className = "advRow advFixV"; vr.innerHTML = `<span class="advL">고치기 창</span><span class="advChips"><button type="button" data-fv="4">V4 팝업</button><button type="button" data-fv="3">V3 예전 창</button></span>`;
-      const pv = () => vr.querySelectorAll("[data-fv]").forEach(b => b.classList.toggle("on", (st.fixVGet() ? "4" : "3") === b.dataset.fv));
-      vr.querySelectorAll("[data-fv]").forEach(b => b.onclick = (e) => { e.stopPropagation(); st.fixVSet(b.dataset.fv === "4"); pv(); }); pv(); body.appendChild(vr); }
+    // (11/24 사용자) 고치기 창 V3·V4 고르기 없앰 — V4만
     const mark = () => { const ap = d.querySelector(".advGApply"); if (ap) ap.disabled = !dirty(); };
     const put = (k, v) => { dg()[k] = v; mark(); };
     const putLv = (k, v) => { dg().level = Object.assign({ quiet: 0, loud: 0 }, dg().level || {}); dg().level[k] = v; mark(); };
@@ -416,6 +413,7 @@
       try { const pp = document.createElement("div"); pp.className = "advGPop"; pp.setAttribute("role", "status"); pp.textContent = "✓ 곡 전체에 적용합니다"; host.appendChild(pp); setTimeout(() => { pp.classList.add("out"); setTimeout(() => pp.remove(), 400); }, 1600); } catch {} };
     d.addEventListener("click", (e) => { if (e.target === d && !dirty()) ly.close(); });   // 바꾼 값이 있으면 바깥 톡으로 닫히지 않음(실수로 잃지 않게)
     d.addEventListener("pointerdown", (e) => e.stopPropagation());
+    if (typeof more === "function") { try { more(d.querySelector(".advGMore"), () => ly.close()); } catch (e) { console.warn("설정 창 아래 칸", e); } }
     host.appendChild(d);
   }
 

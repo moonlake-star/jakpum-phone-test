@@ -82,7 +82,7 @@ assert.ok(T.includes("performance.now() - st.pulse.at < 700") && T.includes("20 
 console.log("pulse ok");
 // (11/06 22:09 사용자) 초록 더 진하게 · 📳 진동 시험 · 진동 최소 20ms
 { const A = fs.readFileSync(path.join(__dirname, "..", "adv.js"), "utf8");
-  assert.ok(T.includes('scale: "rgba(127,217,154,.46)"') && T.includes("Math.max(20, ms || 25)") && A.includes('data-g="vib">📳 진동 시험') && A.includes("Math.max(20, ms))"));
+  assert.ok(T.includes('scale: "rgba(127,217,154,.46)"') && T.includes("Math.max(20, ms || 25)") && !A.includes('data-g="vib">📳 진동 시험') && A.includes("Math.max(20, ms))"));
   console.log("green / vib test ok"); }
 // (11/06 22:18 사용자) 여러 음 고르기는 빈 곳 꾹에서만(음표 위 꾹은 안 함)
 assert.ok(T.includes("if (st.kb && (hitT(l0) || hitBar(l0))) return;   // (11/06 22:18 사용자)"));

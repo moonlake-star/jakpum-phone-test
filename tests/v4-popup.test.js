@@ -20,6 +20,6 @@ for (const l of ["앞이어짐", "앞길이", "뒤길이", "뒤이어짐"]) asse
 for (const l of ["앞상하", "전체상하", "뒤상하", "기울기", "비브라토", "포먼트", "게인"]) assert.ok(/vert: true/.test(cell(l)), l + " = 위아래");
 assert.ok(A.includes("function v4Param(st, cv, b, key)") && A.includes("v4Param,"), "adv.js v4Param");
 assert.ok(A.includes("(o.px || 16)") && A.includes("d0.semi = true") && A.includes("o.dead || 7") && A.includes("if (o.noTap) return;"), "칸마다 끄는 감도 · 꾹 0.5초 큰 단위 · 무딘 구간 · 한 번 톡 안 바뀜");
-assert.ok(T.includes('localStorage.getItem("tune_fix_v") !== "3"'), "V4 기본 · V3로 바꿔 쓰기");
+assert.ok(T.includes("function v4On() { return true; }"), "늘 V4(11/24 V3 고르기 없앰)");
 assert.ok(T.includes("st.v4 && st.sel") && T.includes("(st.v4 && !mn)"), "고른 음만 밝게 · 가운데로");
 console.log("v4-popup ok");
