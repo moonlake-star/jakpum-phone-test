@@ -147,6 +147,7 @@
   .tuneHint { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); display:flex; align-items:center; gap:9px; white-space:nowrap; padding:13px 22px; border-radius:30px; background:linear-gradient(135deg,#ffe08f,#e0a73c); color:#1a1307; font-weight:900; font-size:1.02rem; border:2px solid #fff3cf; box-shadow:0 0 0 6px rgba(255,210,122,.22),0 8px 26px rgba(0,0,0,.55); pointer-events:none; }
   .mkDockWrap { margin-top:6px; } .mkDockWrap .tune.sm { height:230px; margin:0; }
   /* (11/24 사용자 '재생 버튼도 없으니 크게 보기를 이렇게 크게 만들 필요 없이 다이어트') 오늘의 베스트 음정선: 낮게 + 어둡게 덮지 않음 + 오른쪽 아래 작은 '⛶ 크게' */
+  .mkEditBtn { display:flex; align-items:center; justify-content:center; gap:8px; width:100%; min-height:46px; margin:6px 0 0; border-radius:12px; border:1.5px solid #ffd27a; background:#1b1a14; color:#ffd27a; font-weight:800; font-size:.95rem; }
   .mkDockWrap.slim .tune.sm { height:118px; } .mkDockWrap.slim .tuneDim { display:none; }
   .mkDockWrap.slim .tuneHint { left:auto; top:auto; right:8px; bottom:8px; transform:none; gap:5px; padding:5px 11px; border-radius:16px; font-size:.82rem; font-weight:800; background:rgba(17,20,26,.86); color:#ffd27a; border:1.5px solid #ffd27a; box-shadow:none; }
   .mkDockWrap.slim .tuneHint svg { width:15px; height:15px; } .mkDockWrap.slim .tuneHint svg path { stroke:#ffd27a; } .tuneDock { position:absolute; left:0; right:0; bottom:10px; display:flex; justify-content:center; align-items:center; gap:10px; pointer-events:none; }
@@ -9108,7 +9109,7 @@ function tnRemove(c, n) { const i = c.doc.notes.indexOf(n); if (i < 0) return;
   if (n.src !== "teacher") (c.doc.deleted ||= []).push({ id: n.id, text: n.ai_text || n.text, src: n.src || "", at: new Date().toISOString() });
   if (c.doc.deleted && c.doc.deleted.length > 50) c.doc.deleted = c.doc.deleted.slice(-50); }
 function tnSumHTML(c) { if (!c) return ""; const ns = c.doc.notes, d = ns.filter(n => n.status !== "ok").length, ok = ns.length - d;
-  return `<span class="chip">AI 초안 ${d}</span> <span class="chip">확인 ${ok}</span> · 초안은 수강생에게 안 보여요 · 그래프를 눌러 크게 본 뒤 칸을 누르면 고치기, 빈 곳을 길게 누르면 추가`; }
+  return ns.length ? `<span class="chip">음정 주석 AI 초안 ${d}</span> <span class="chip">확인 ${ok}</span>` : ""; }   // (11/24 사용자) 설명문 정리
 function mkSideFiles(o) {   // 수강생 노트용: 원음(보정 전, 같은 크기) · 음정선
   const job = o?.file_id ? bestMakeupJob(o) : null, fs = (job?.req?.status === "done" && job.files) || [];
   const b = fs.find(x => x.name === "before.mp3"), c = fs.find(x => x.name === "pitch_curve.json");
@@ -9218,7 +9219,8 @@ function renderBest() {
   const merged = ms === "ready", tuneF = merged && typeof mkCurveFile === "function" && mkCurveFile(o) && typeof Tune !== "undefined";
   // (10/30 14:50 사용자 시안 확정) 튠 그래프가 있으면 위 파형 줄은 빼고, 그래프 아래쪽에 반투명 [-5 | 원음·보정본 | +5]
   const abSwH = `<div class="abSw" role="group" aria-label="원음·보정본"><button type="button" data-ver="orig" class="on" aria-pressed="true">원음</button><button type="button" data-ver="mk" class="mk" aria-pressed="false">✨ 보정본</button></div>`;
-  const tuneH = tuneF ? `<div class="tuneWrap mkDockWrap slim"><canvas class="tune sm" id="mkTuneToday" aria-label="음정선 — 누르면 크게 보기"></canvas><span class="tuneDim" aria-hidden="true"></span><span class="tuneHint" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1a1307" stroke-width="2.8" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>크게</span></div><div style="display:none">${abSwH}</div>${Tune.legend(true)}<div class="muted tnSum" id="tnSum" style="font-size:.8rem;margin:2px 0 4px"></div>` : "";   // (10/30 17:43 사용자) 전체화면·[-5|원음·보정본|+5] 버튼 삭제, 그래프를 누르면 세로 전체화면
+  // (11/24 사용자 '음정선을 받아올 필요 없이 심플한 버튼, 아래 설명문도 정리') 그래프 대신 버튼 하나 — 누르면 바로 음표 고치기(크게 보기), 음정선 파일은 여기서 안 받음
+  const tuneH = tuneF ? `<button type="button" class="mkEditBtn" id="mkTuneToday"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>음정 크게 보기 · 음표 고치기</button><div style="display:none">${abSwH}</div><div class="muted tnSum" id="tnSum" style="font-size:.8rem;margin:4px 0 2px"></div>` : "";
   return `<div class="bestbox abPair${merged ? " merged" : ""}${tuneF ? " tuned" : ""}"><span class="sr-only">오늘의 베스트 편집본 ${Math.round(o.len)}초</span>
     ${merged ? `<div class="row abHead"><b>오늘의 베스트</b><span class="muted" style="font-size:.85rem;white-space:nowrap">${Math.round(o.len)}초</span>${chk("best")}</div>
       ${tuneF ? tuneH : abSwH}` : ""}
@@ -9499,20 +9501,9 @@ function wireBest() {
   };
   const job = bestMakeupJob(o), m = makeupState(o) === "ready" ? bestMakeupAudio(o) : null, mroot = box?.querySelector('[data-abrow="mk"] .tp');
   if (m && mroot) tpWire(mroot, m.file_id, false, timeEl);   // 같은 player 하나 → 두 음원이 겹쳐 나지 않음
-  { const cf = m && mkCurveFile(o), el = typeof document.getElementById === "function" ? document.getElementById("mkTuneToday") : null;   // (10/30 사용자) 피드백 화면에도 튠 화면
-    if (cf && el && typeof Tune !== "undefined") readBlob(cf.id, true).then(b => b.text()).then(async s => { const cv = JSON.parse(s); if (!cv?.pts) return;
-      const tc = await tnLoad(job).catch(() => null), sumEl = document.getElementById("tnSum"), paintSum = () => { if (sumEl) sumEl.innerHTML = tnSumHTML(tc); }; paintSum();
-      const tnDo = async (f) => { if (!tc) return; try { f(); paintSum(); await tnSave(job, tc); toast("주석을 저장했어요 · 수강생에게는 ‘전달하기’ 때 반영돼요"); } catch (e) { toast("주석 저장 실패: " + e.message); } };
-      const tnOpts = tc ? { teacher: true, lvDef: +(job?.req?.pitch_level ?? 2), notes: () => tc.doc.notes,
-        onNote: (n) => Tune.sheet(n, { onSave: (u) => tnDo(() => { tnKeepAi(n); Object.assign(n, u); }), onDelete: () => tnDo(() => tnRemove(tc, n)) }),
-        onDelNote: (n) => { const i = tc.doc.notes.indexOf(n); if (i < 0) return; tnDo(() => tnRemove(tc, n)); Tune.undo("주석을 지웠어요", () => tnDo(() => { tc.doc.notes.splice(Math.min(i, tc.doc.notes.length), 0, n); tc.doc.deleted = (tc.doc.deleted || []).filter(d => d.id !== n.id); })); },
-        onAdd: (tt, t1) => Tune.sheet({ t0: Math.round(tt * 10) / 10, t1: Math.round((t1 ?? tt) * 10) / 10, text: "", src: "teacher" }, { onSave: (u) => tnDo(() => tc.doc.notes.push({ ...u, id: "t" + Date.now().toString(36), src: "teacher" })) }) } : { teacher: true, lvDef: +(job?.req?.pitch_level ?? 2) };
-      Tune.wire(el, cv, () => (tpFile === m.file_id || tpFile === o.file_id ? player.currentTime : 0), () => (tpFile === m.file_id ? +(job?.req?.pitch_level ?? 2) : 0), async (t, still) => {
-        try { const [r, id] = active(); if ((tpRoot !== r || tpFile !== id) && !(await tpLoad(r, id))) return; player.currentTime = t; if (still) player.pause(); else if (player.paused) { pauseOthers(player); await player.play(); } tpPaint(); } catch (e) { toast(e.message); } },
-      { title: "오늘의 베스트", tapFull: true, play: () => box?.querySelector('[data-abp="play"]')?.click(), paused: () => player.paused || !(tpFile === m.file_id || tpFile === o.file_id),
-        mode: () => (tpFile === m.file_id ? "p" : "o"), setMode: (md) => box?.querySelector(`[data-ver="${md === "p" ? "mk" : "orig"}"]`)?.click(), ...tnOpts,
-        onEdit: (t) => { try { player.pause(); } catch {} editFromBest(job, t); } });
-    }).catch(() => {}); }
+  { const el = typeof document.getElementById === "function" ? document.getElementById("mkTuneToday") : null;   // (11/24) 버튼 → 바로 음표 고치기 · 아래엔 주석 개수만(설명문 없앰)
+    if (el) { el.onclick = () => { try { player.pause(); } catch {} editFromBest(job, 0); };
+      tnLoad(job).then(tc => { const sumEl = document.getElementById("tnSum"); if (sumEl) sumEl.innerHTML = tnSumHTML(tc); }).catch(() => {}); } }
   const pairs = [[broot, o.file_id], ...(m && mroot ? [[mroot, m.file_id]] : [])];
   // 파형 미리 그리기: 녹음을 받아 둔 적이 있으면 바로, 아니면 받아서(편집본·메이크업 각 한 번, 레슨 화면에 있는 동안 다시 받지 않음)
   if (typeof wavePeaks !== "undefined") for (const [r, id] of pairs) {
