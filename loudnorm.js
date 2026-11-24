@@ -76,7 +76,13 @@
     return L(a.reduce((x, y) => x + y, 0) / a.length);
   }
   // 섞은 소리 봉우리 추정: 성긴 표본으로 잰 섞은 봉우리 +1.5 dB 와 (반주 봉우리 + g·보컬 봉우리) 중 작은 쪽
+  const PKC = new WeakMap();   // (11/24 Codex P1) 슬라이더를 움직일 때마다 곡 전체를 다시 훑지 않게 보컬 배율(0.01 단위)별로 기억
   function peak(m, v, g) {
+    const gk = Math.round(g * 100); let pc = PKC.get(m); if (!pc || pc.v !== v) { pc = { v, c: new Map() }; PKC.set(m, pc); }
+    if (pc.c.has(gk)) return pc.c.get(gk);
+    const r = peakRaw(m, v, gk / 100); pc.c.set(gk, r); return r;
+  }
+  function peakRaw(m, v, g) {
     let tri = 0; const nb = Math.min(m.p.length, v.p.length); for (let k = 0; k < nb; k++) { const q = m.p[k] + g * v.p[k]; if (q > tri) tri = q; }
     let sp = 0; const n = Math.min(m.s[0].length, v.s[0].length);
     for (let ch = 0; ch < 2; ch++) { const a = m.s[Math.min(ch, m.s.length - 1)], b = v.s[Math.min(ch, v.s.length - 1)]; for (let j = 0; j < n; j++) { const q = Math.abs(a[j] + g * b[j]); if (q > sp) sp = q; } }
