@@ -1028,7 +1028,7 @@
     const v4 = uni && !!(G.TuneAdv && G.TuneAdv.v4Param) && v4On();
     if (st) st.v4 = v4;
     if (v4) { d.classList.add("tfUni", "tfV4");
-      d.innerHTML = `<div class="tfFixBox tfV4Box"><span class="tfFixSt tfV4St" aria-live="polite"></span><div class="tfV4R" data-v4a>${["tin", "bin", "lin", "fine", "lout", "bout", "tout"].map(k => `<i data-slot="${k}"></i>`).join("")}</div><div class="tfV4R" data-v4b><i data-slot="tilt"></i><i data-slot="vib"></i><i data-slot="gain"></i><i data-slot="fmt"></i>${typeof cv.onOctave === "function" ? `<button type="button" class="tfV4B tfOct" data-oct aria-label="인식 옥타브 바로잡기(소리는 그대로)"><i>8va</i><small>옥타브</small></button>` : ""}<button type="button" class="tfV4B tfRaw" data-raw aria-label="이 음은 보정 안 함(부른 그대로)"><i>🎤</i><small>원음</small></button><button type="button" class="tfV4B tfOrg" data-r aria-label="이 음 자동 보정으로(선생님 고침 지움, 확인 창)"><i>↺</i><small>자동</small></button></div>
+      d.innerHTML = `<div class="tfFixBox tfV4Box"><span class="tfFixSt tfV4St" aria-live="polite"></span><div class="tfV4R" data-v4a>${["tin", "bin", "lin", "fine", "lout", "bout", "tout"].map(k => `<i data-slot="${k}"></i>`).join("")}</div><div class="tfV4R" data-v4b><i data-slot="tilt"></i><i data-slot="vib"></i><i data-slot="gain"></i><i data-slot="atk"></i><i data-slot="fmt"></i>${typeof cv.onOctave === "function" ? `<button type="button" class="tfV4B tfOct" data-oct aria-label="인식 옥타브 바로잡기(소리는 그대로)"><i>8va</i><small>옥타브</small></button>` : ""}<button type="button" class="tfV4B tfRaw" data-raw aria-label="이 음은 보정 안 함(부른 그대로)"><i>🎤</i><small>원음</small></button><button type="button" class="tfV4B tfOrg" data-r aria-label="이 음 자동 보정으로(선생님 고침 지움, 확인 창)"><i>↺</i><small>자동</small></button></div>
         <span class="tfFixN tfV4Hid" data-p hidden></span>${mgNb ? `<button type="button" class="tfV4Mg" data-merge aria-label="옆 조각과 하나로 합치기">⇔ 합치기</button>` : ""}</div>`; }
     else if (uni) { d.classList.add("tfUni");
       d.innerHTML = `<div class="tfFixBox"><div class="tfUniTop"><div class="tfStRow"><span class="tfFixSt"></span><button type="button" class="tfRaw" data-raw aria-label="이 음은 보정 안 함(부른 그대로)">🎤 원음</button><button type="button" class="tfOrg" data-r aria-label="이 음 자동 보정으로(선생님 고침 지움, 확인 창)">↺ 자동</button>${G.TuneAdv && G.TuneAdv.v4Param ? `<button type="button" class="tfV4Sw" data-vsw aria-label="새 고치기 팝업(V4)으로">V4</button>` : ""}</div>
@@ -1245,6 +1245,7 @@
       put_("vib", sc("비브라토", P(b, "vib"), { step: 0.25, min: 0, max: 2, def: 1, vert: true, fmt: (v) => `${Math.round(v * 100)}%`, ico: "vib", px: 10 }));
       put_("fmt", sc("포먼트", P(b, "formant"), { step: 0.25, min: -3, max: 3, def: 0, vert: true, fmt: (v) => (v ? (v > 0 ? "+" : "−") + Math.abs(v) : "0"), ico: "fmt", px: 10 }));
       put_("gain", sc("게인", P(b, "gain_db"), { step: 1, min: -25, max: 12, def: 0, vert: true, fmt: (v) => (v <= -25 ? "무음" : v ? `${v > 0 ? "+" : ""}${Math.round(v)}dB` : "0"), ico: "gain", px: 10 }));
+      put_("atk", sc("어택", P(b, "attack"), { step: 0.25, min: -1, max: 1, def: 0, vert: true, fmt: (v) => (v ? (v > 0 ? "단단 " : "부드 ") + Math.round(Math.abs(v) * 100) + "%" : "0"), ico: "attack", px: 10 }));   // (11/24 · 멜로다인 Attack Speed) 음 시작: + 단단 · − 부드럽게
       v4Paint = () => cs.forEach(c => c._paint && c._paint());
       const tp0 = tPaint; tPaint = () => { tp0(); v4Paint(); };
     }
