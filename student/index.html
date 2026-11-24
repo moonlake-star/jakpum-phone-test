@@ -895,7 +895,7 @@ function stemEngine(d) {
   const decode = (ab) => new Promise((ok, no) => { try { const p = ctx.decodeAudioData(ab, ok, no); if (p && p.then) p.then(ok, no); } catch (e) { no(e); } });
   const closeCtx = () => { try { ctx && ctx.close && ctx.close(); } catch {} ctx = null; gain = null; master = null; };
   const load = () => loading ||= (async () => {
-    const a = await d.fetchBuf("mr"), b = await d.fetchBuf("voc"); if (dead) throw stale();
+    const [a, b] = await Promise.all([d.fetchBuf("mr"), d.fetchBuf("voc")]); if (dead) throw stale();   // (11/24 로딩 감사) 반주·보컬 동시에 받기(예전엔 반주 다 받은 뒤 보컬 → 기다림 약 2배)
     const est = Math.max(a.byteLength, b.byteLength) / (d.bytesPerSec || 20000);   // 160kbps MP3 ≈ 20000바이트/초
     if (AC && !d.html && est <= (d.maxDecodeSec || 480)) {   // 4분 스테레오 ≈ 한 트랙 약 90MB → 8분 넘을 듯하면 디코드하지 않고 폴백
       const ra = a.slice(0), rb = b.slice(0);   // decodeAudioData가 원본을 비우므로 폴백용 사본
