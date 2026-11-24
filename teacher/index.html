@@ -1370,7 +1370,7 @@ const BOT_TABS = [["today", "🏠", "오늘"], ["stu", "👥", "수강생"], ["s
 function setBotTab(t) { if (!BOT_TABS.some(x => x[0] === t)) t = "today"; LS.set("vn_tab", t); const v = $("vList"); if (v) v.dataset.tab = t; document.querySelectorAll("#botNav [data-bt]").forEach(b => { const on = b.dataset.bt === t; b.classList.toggle("on", on); b.setAttribute("aria-current", on ? "page" : "false"); }); window.scrollTo(0, 0); }
 function ensureBotNav(tab, bells) {
   let n = $("botNav");
-  if (!n) { n = document.createElement("nav"); n.id = "botNav"; n.setAttribute("aria-label", "하단 메뉴"); $("vList").after(n); n.addEventListener("click", (e) => { const b = e.target.closest("[data-bt]"); if (b) setBotTab(b.dataset.bt); }); }
+  if (!n) { n = document.createElement("nav"); n.id = "botNav"; n.setAttribute("aria-label", "하단 메뉴"); $("vList").after(n); n.addEventListener("click", (e) => { const b = e.target.closest("[data-bt]"); if (!b) return; if (b.dataset.bt === "today" && $("vList")?.dataset.tab === "today" && b.querySelector(".dot") && $("oneLine")) { $("oneLine").click(); return; } setBotTab(b.dataset.bt); }); }   // (11/24) 오늘 화면에서 빨간 점 있는 '오늘'을 또 누르면 확인 대기 열기
   n.innerHTML = BOT_TABS.map(([k, ic, nm]) => `<button type="button" data-bt="${k}" class="${k === tab ? "on" : ""}" aria-current="${k === tab ? "page" : "false"}"><span class="ic">${ic}</span>${nm}${k === "today" && bells ? `<i class="dot" aria-label="확인 대기 ${bells}건"></i>` : ""}</button>`).join("");
 }
 function paintList(data, stale) {
@@ -1457,7 +1457,12 @@ function paintList(data, stale) {
   if ($("trashBtn")) $("trashBtn").onclick = () => trashSheet();
   $("calBtn").onclick = () => openCal(); if ($("calBtn2")) $("calBtn2").onclick = () => openCal(); if ($("songBtn")) $("songBtn").onclick = () => openSongs(); if ($("jamBtn")) $("jamBtn").onclick = () => openJam();
   if ($("nsBtn")) $("nsBtn").onclick = () => newStudentSheet();
-  if ($("oneLine")) $("oneLine").onclick = () => $("todoCard")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  // (11/24 사용자 '확인 대기 1건을 눌러도 무반응') 기다리는 일이 '숨긴 할 일' 안에 있으면 카드로 옮겨 봐야 안 보였음 → 1건이면 바로 열고, 여러 건이면 숨긴 것도 펼쳐 보여 줌
+  if ($("oneLine")) $("oneLine").onclick = () => {
+    const bl = todo.filter(x => x.bell); if (bl.length === 1) return tdOpen(bl[0]);
+    if (bl.length > 1) { const h = LS.get("vn_todo_hide") || {}; let ch = false; bl.forEach(x => { if (h[tdKey(x)]) { delete h[tdKey(x)]; ch = true; } }); if (ch) { LS.set("vn_todo_hide", h); repaintTodo(); } }
+    $("todoCard")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
   if (!isStaffApp()) staffPortalSync().catch(() => {});
   if (isStaffApp()) asgStaffCheck().catch(() => {});
   else if (Object.keys(staffOf()).length) (listNet.asg ??= asgOwnerTodos()).then(xs => { if (!xs.length || !$("todoCard")) return;
@@ -1470,17 +1475,20 @@ function paintList(data, stale) {
   $("vList").querySelectorAll(".stuCard.tap").forEach(el => { el.onclick = () => { if (el._long) { el._long = false; return; } openStudent(el.dataset.s); };
     if (payCanEdit()) longPress(el, () => { el._long = true; stuMenu(el.dataset.s); }); });   // (11/22 사용자) 길게 누르면 수강 상태·삭제
   $("vList").querySelectorAll(".stuCard .retry").forEach(el => el.onclick = (e) => { e.stopPropagation(); renderList(); });
+  const tdOpen = (x) => {   // 할 일 하나 열기(할 일 줄 · 위 '확인 대기 N건' 공용)
+    if (!x) return;
+    if (x.k === "lesson") { goBack = () => renderList(); openLesson(x.sid, x.i, () => renderList()); }
+    else if (x.k === "subs") openStudent(x.sid, "subs");
+    else if (x.k === "att") attSheet(x);
+    else if (x.k === "ano") anoSheet({ c: x.cc });
+    else { const j = cfg.students[x.sid]._jobs.find(y => y.reqId === x.reqId); if (j) openMkJob(j, () => renderList()); }
+  };
   const repaintTodo = () => { const c = $("todoCard"); if (!c) return; c.outerHTML = todoCardHtml(); wireTodo(); };   // 카드만 다시(전체 다시 그리기 아님 → 불러오기 없음)
   const wireTodo = () => {
     const card = $("todoCard"); if (!card) return;
     card.querySelectorAll(".todo-item[data-n]").forEach(el => el.onclick = () => {
       if (el.dataset.sw) { delete el.dataset.sw; return; }   // 밀기 직후엔 열지 않음
-      const x = todo[+el.dataset.n];
-      if (x.k === "lesson") { goBack = () => renderList(); openLesson(x.sid, x.i, () => renderList()); }
-      else if (x.k === "subs") openStudent(x.sid, "subs");
-      else if (x.k === "att") attSheet(x);
-      else if (x.k === "ano") anoSheet({ c: x.cc });
-      else { const j = cfg.students[x.sid]._jobs.find(y => y.reqId === x.reqId); if (j) openMkJob(j, () => renderList()); }
+      tdOpen(todo[+el.dataset.n]);
     });
     if ($("tdMoreBtn")) $("tdMoreBtn").onclick = () => { card.querySelectorAll(".tdMore").forEach(e => e.classList.remove("hidden")); $("tdMoreBtn").remove(); };
     if ($("tdShowAll")) $("tdShowAll").onclick = (e) => { e.preventDefault(); const h = LS.get("vn_todo_hide") || {}; todo.forEach(x => { delete h[tdKey(x)]; }); LS.set("vn_todo_hide", h); repaintTodo(); };
@@ -10579,7 +10587,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261124-1200";   // (11/24 낮) 공용 스크립트 ?v= = 내용 지문(scripts/bump-versions.js) — 11/23 보정창·소리 수정이 서비스 워커 캐시에 막혀 폰에 안 가던 것 · (11/24) 11/23 17:20 뒤 소리 크기 수정(#950~#959)이 '새 버전 알림'에 안 잡혀 폰이 옛 코드로 돌 수 있던 것
+const BUILD = "20261124-1010";   // (11/24 낮) 공용 스크립트 ?v= = 내용 지문(scripts/bump-versions.js) — 11/23 보정창·소리 수정이 서비스 워커 캐시에 막혀 폰에 안 가던 것 · (11/24) 11/23 17:20 뒤 소리 크기 수정(#950~#959)이 '새 버전 알림'에 안 잡혀 폰이 옛 코드로 돌 수 있던 것
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
