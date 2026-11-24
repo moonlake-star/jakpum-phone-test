@@ -1323,7 +1323,7 @@
     const d = document.createElement("div"); d.className = "tfFix tfMulti" + (st.advOn ? " tfUni" : " tfMGr"); const uvOn = !!(st.advOn && st.onAdv && G.TuneAdv && G.TuneAdv.uvSheet);   // 🌬 치찰음·호흡 = 보정 모드에서 고른 구간의 도구
     d.innerHTML = `<div class="tfFixBox"><div class="tfMB"><span class="tfMI"><b data-mn>☑ 음을 골라 주세요</b><span class="tfFixTm">꾹 누른 채 끌어요</span></span>
       ${!st.advOn && st.onAddRange ? `<button type="button" class="tfMNote" data-mnote disabled>💬 피드백</button>` : ""}      ${uvOn ? `<button type="button" data-uv aria-label="치찰음·호흡 크기 조절" disabled>🌬</button>` : ""}
-      <button type="button" class="tfRaw" data-mraw disabled aria-label="고른 음 모두 보정 안 함(부른 그대로)">🎤 원음</button><button type="button" class="tfMr" data-mr disabled>↺ 자동</button>${st.advOn && G.TuneAdv && G.TuneAdv.groupGain ? `<button type="button" class="tfMr tfMCp" data-mlv disabled aria-label="고른 음 볼륨 고르게(작은 음 키우기·큰 음 줄이기)">🔊 고르게</button>` : ""}${st.advOn && G.TuneAdv && G.TuneAdv.groupSet ? `<button type="button" class="tfMr tfMCp" data-mcp disabled aria-label="고른 음 음정 맞추기(정음 쪽 %·느린 흔들림 줄이기 %)">🎯 맞추기</button>` : ""}<button type="button" class="tfIc" data-mx aria-label="여러 음 고르기 끝내기">✕</button></div>
+      <button type="button" class="tfRaw" data-mraw disabled aria-label="고른 음 모두 보정 안 함(부른 그대로)">🎤 원음</button><button type="button" class="tfMr" data-mr disabled>↺ 자동</button>${st.advOn ? `<button type="button" class="tfMr tfMCp" data-mend disabled aria-label="고른 곳부터 곡 끝까지 모두 고르기">⇥ 끝까지</button>` : ""}${st.advOn && G.TuneAdv && G.TuneAdv.groupGain ? `<button type="button" class="tfMr tfMCp" data-mlv disabled aria-label="고른 음 볼륨 고르게(작은 음 키우기·큰 음 줄이기)">🔊 고르게</button>` : ""}${st.advOn && G.TuneAdv && G.TuneAdv.groupSet ? `<button type="button" class="tfMr tfMCp" data-mcp disabled aria-label="고른 음 음정 맞추기(정음 쪽 %·느린 흔들림 줄이기 %)">🎯 맞추기</button>` : ""}<button type="button" class="tfIc" data-mx aria-label="여러 음 고르기 끝내기">✕</button></div>
       ${st.advOn && st.onTime ? `<style>#tuneFs .tfMulti .tfFixN,#tuneFs .tfMulti [data-mn]{color:#c9a6ff}</style><div class="tfMRd" data-mrd>⏱ 끝을 끌거나 화살표로 비율대로 늘이고 줄여요</div><div class="tfMAr"><small>앞<br>끝</small><button type="button" data-mf="0" data-v="-1" aria-label="첫 음 시작 앞으로" disabled>◀</button><button type="button" data-mf="0" data-v="1" aria-label="첫 음 시작 뒤로" disabled>▶</button><i></i><button type="button" data-mf="1" data-v="-1" aria-label="끝 음 끝 앞으로" disabled>◀</button><button type="button" data-mf="1" data-v="1" aria-label="끝 음 끝 뒤로" disabled>▶</button><small>뒤<br>끝</small></div>` : ""}
       <div class="tfMH tfFixSt">꾹 누른 채 끌어 고르기 · ${st.advOn ? (st.onTime ? "양 끝(손잡이·음표 끝)을 끌면 반대쪽 끝은 그대로 · " : "분홍 선을 잡아 끌면 범위 조절 · ") : "초록 동그라미를 잡아 끌면 범위 조절 · 구간 안 톡 또는 💬 = 한마디 · "}빈 곳 톡 = 끝</div></div>`;
     const bot = host.querySelector(".tfBot");
@@ -1372,6 +1372,10 @@
         stEl.textContent = `🎯 ${used.length}음 맞춤` + (skip ? ` · ${skip}음 건너뜀(손으로 고친 음·원음·몸통 없음)` : ""); paint(); }); (wrap_(host) || host).appendChild(dl); }; }
     // (11/24 · 멜로다인 Leveling) 🔊 고르게: 고른 음들의 평균 크기 쪽으로 — 작은 음은 N%만큼 키우고, 큰 음은 M%만큼 줄임(평균을 넘어가진 않음)
     //   크기 = 원래 부른 보컬 크기(서버 env)의 음 가운데 60% 평균(dB) · 0.12초 미만·무음 음은 빼고 · 한 번에 ±12dB까지 · 숨·ㅅ·ㅊ은 그대로(음표만)
+    // (11/24 · 멜로다인 Select Special '이 뒤 전부') ⇥ 끝까지: 고른 구간 시작부터 곡 끝까지 모두 고르기 — 그다음 🎯·🔊·▼▲를 한꺼번에
+    const endB = d.querySelector("[data-mend]");
+    if (endB) { endB.addEventListener("pointerdown", (e) => e.stopPropagation()); endB.onclick = (e) => { e.stopPropagation(); const m_ = st.msel; if (!m_) return; const P_ = cv.pts || [], end = P_.length ? P_[P_.length - 1][0] + 0.05 : m_[1];
+      st.msel = [m_[0], Math.max(m_[1], end)]; const n_ = barsIn(cv, st.msel[0], st.msel[1]).length; if (st.onMSel) st.onMSel(); stEl.textContent = `🎯 ${mm(st.msel[0])}부터 끝까지 ${n_}음 골랐어요`; }; }
     const lvB = d.querySelector("[data-mlv]");
     if (lvB) { lvB.addEventListener("pointerdown", (e) => e.stopPropagation()); lvB.onclick = (e) => { e.stopPropagation(); const m_ = st.msel; if (!m_) return;
       const EV = envCv(cv); const bs = barsIn(cv, m_[0], m_[1]).filter(b => b.t1 - b.t0 >= 0.12);
@@ -1389,7 +1393,7 @@
         const vals = L.map(([b, db]) => { const d_ = mean - db, g = d_ > 0 ? d_ * qv / 100 : d_ * lv / 100; return [b, Math.round(Math.max(-12, Math.min(12, g)) * 10) / 10]; });
         try { TA.groupGain(st, cv, vals); } catch {} const nCh = vals.filter(v => Math.abs(v[1]) >= 0.05).length;
         stEl.textContent = `🔊 볼륨 고르게 ${nCh}음 (평균 ${Math.round(mean)}dB 쪽으로)`; paint(); }); (wrap_(host) || host).appendChild(dl); }; }
-    st.onMSel = () => { if (pend.size) flush(); stEl.textContent = HINT; paint(); const en_ = !!(st.msel && barsIn(cv, st.msel[0], st.msel[1]).length); if (cpB) cpB.disabled = !en_; if (lvB) lvB.disabled = !en_; }; paint(); { const en_ = !!(st.msel && barsIn(cv, st.msel[0], st.msel[1]).length); if (cpB) cpB.disabled = !en_; if (lvB) lvB.disabled = !en_; }
+    st.onMSel = () => { if (pend.size) flush(); stEl.textContent = HINT; paint(); const en_ = !!(st.msel && barsIn(cv, st.msel[0], st.msel[1]).length); if (cpB) cpB.disabled = !en_; if (lvB) lvB.disabled = !en_; if (endB) endB.disabled = !st.msel; }; paint(); { const en_ = !!(st.msel && barsIn(cv, st.msel[0], st.msel[1]).length); if (cpB) cpB.disabled = !en_; if (lvB) lvB.disabled = !en_; if (endB) endB.disabled = !st.msel; }
     // (11/12 14:40 사용자 고) 여러 음 = 길이·타이밍 편집만: 분홍 손잡이를 끌면 반대쪽 끝은 그대로, 손잡이 쪽 끝이 가장 많이 · 안쪽 경계는 거리에 비례(로직 Flex·멜로다인 방식)
     //   음마다 서버 범위(길이 0.5~2배·1.5초 안) · 전체 길이 50~200% · 옆(고르지 않은) 음에 닿으면 거기서 멈춤 · 손을 떼면 저장(미리듣기는 기다림 없음)
     const rdEl = d.querySelector("[data-mrd]"); st.mStr = null;
