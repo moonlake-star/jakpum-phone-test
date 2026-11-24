@@ -33,7 +33,7 @@
       return Object.keys(n).some(k => k !== "t0" && k !== "t1");
     });
     const g = A.ne.global;
-    for (const [k, d] of [["ref_hz", 440], ["flat", 1], ["sib_db", 0], ["formant", 0], ["strength", 1], ["near", 8]]) if (k in g && Math.abs(g[k] - d) < 1e-9) delete g[k];
+    for (const [k, d] of [["ref_hz", 440], ["flat", 1], ["sib_db", 0], ["formant", 0], ["strength", 1], ["near", 0]]) if (k in g && Math.abs(g[k] - d) < 1e-9) delete g[k];
     if (g.level && !g.level.quiet && !g.level.loud) delete g.level;
     if (Array.isArray(g.uv_gain)) { g.uv_gain = g.uv_gain.filter(r => r && (r.s_db || r.b_db)); if (!g.uv_gain.length) delete g.uv_gain; }
     if (Array.isArray(g.uv_fix) && !g.uv_fix.length) delete g.uv_fix;
@@ -396,7 +396,7 @@
     const putLv = (k, v) => { dg().level = Object.assign({ quiet: 0, loud: 0 }, dg().level || {}); dg().level[k] = v; mark(); };
     const rows = [
       stepper("자동 보정 강도", () => G_("strength", 1), (v) => put("strength", v), { step: 0.1, min: 0, max: 1.5, def: 1, fmt: pct }),
-      D(stepper("가까운 음은 그대로", () => G_("near", 8), (v) => put("near", v), { step: 2, min: 0, max: 50, def: 8, fmt: (v) => `${Math.round(v)}센트 안` }), "자동 보정할 때, 목표 음에서 이 값(센트·100센트=반음 1개) 안쪽으로 이미 가까운 곳은 건드리지 않아요. 크게 하면 자연스럽지만 덜 맞고, 0이면 전부 딱 맞춰요."),
+      D(stepper("가까운 음은 그대로", () => G_("near", 0), (v) => put("near", v), { step: 2, min: 0, max: 50, def: 0, fmt: (v) => `${Math.round(v)}센트 안` }), "자동 보정할 때, 목표 음에서 이 값(센트·100센트=반음 1개) 안쪽으로 이미 가까운 곳은 건드리지 않아요. 크게 하면 자연스럽지만 덜 맞고, 0이면 전부 딱 맞춰요."),
       D(stepper("느린 흐름(전체)", () => G_("flat", 1), (v) => put("flat", v), { step: 0.25, min: 0, max: 2, def: 1, fmt: pct }), "음 하나 안에서 천천히 오르내리는 음정의 흔들림(비브라토보다 느린 변화)을 얼마나 남길지. 100% 그대로 · 0% 평평하게(깔끔·기계적) · 200% 두 배."),
       stepper("작은 음 키우기", () => (dg().level || {}).quiet || 0, (v) => putLv("quiet", v), { step: 0.1, min: 0, max: 1, def: 0, fmt: (v) => (v > 0 ? "+" : "") + pct(v) }),
       stepper("큰 음 줄이기", () => (dg().level || {}).loud || 0, (v) => putLv("loud", v), { step: 0.1, min: 0, max: 1, def: 0, inv: true, fmt: (v) => (v > 0 ? "−" : "") + pct(v) }),
