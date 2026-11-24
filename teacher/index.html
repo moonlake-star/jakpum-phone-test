@@ -1445,11 +1445,12 @@ function paintList(data, stale) {
   // (11/16 하단 탭 4개 — 사용자 '이 구조로 고고') 한 화면에 쌓여 있던 것을 [오늘 | 수강생 | 곡·연습 | 더보기]로 나눔. 칸 전체를 한 번에 그려 두고 보이기만 바꿈(탭을 눌러도 다시 불러오지 않음 → 기존 그리기·연결 코드 그대로)
   const tab0 = LS.get("vn_tab"), tabNow = ["today", "stu", "songs", "more"].includes(tab0) ? tab0 : "today";
   $("vList").dataset.tab = tabNow;
-  const songRows = isStaffApp() ? "" : `<div class="card tabRow" id="songBtn" role="button"><div><b>🎵 곡 서랍</b><small class="muted" style="display:block">수업용 곡 자료 · 보컬·반주 분리, 키·속도 조절</small></div><span>›</span></div><div class="card tabRow" id="jamBtn" role="button"><div><b>🎸 합주 베스트</b><small class="muted" style="display:block">보컬+악기 구간별 고르기</small></div><span>›</span></div>`;
+  const songRow1 = `<div class="card tabRow" id="songBtn" role="button"><div><b>🎵 곡 서랍</b><small class="muted" style="display:block">수업용 곡 자료 · 보컬·반주 분리, 키·속도 조절</small></div><span>›</span></div>`;
+  const songRows = isStaffApp() ? songRow1 : songRow1 + `<div class="card tabRow" id="jamBtn" role="button"><div><b>🎸 합주 베스트</b><small class="muted" style="display:block">보컬+악기 구간별 고르기</small></div><span>›</span></div>`;
   $("vList").innerHTML =
     `<div class="pane" data-p="today"><div class="row" style="gap:6px;margin:0 0 4px;flex-wrap:nowrap;justify-content:flex-end"><button class="ghost topBtn" id="calBtn" style="max-width:190px">${IC_CAL} 레슨 캘린더</button></div>` + oneLine + segHtml + todoHtml + `<div id="careBox"></div></div>` +
     `<div class="pane" data-p="stu">` + segHtml + blocks.join("") + (isStaffApp() ? "" : `<button class="ghost" id="nsBtn" style="width:100%;margin:4px 0 8px">＋ 신규 수강생 등록</button>`) + `<div id="joinReq">${lastJoinHtml}</div><div id="retBox"></div></div>` +
-    `<div class="pane" data-p="songs">${songRows ? `<h3 class="tabH">곡 서랍 · 합주</h3>` + songRows : ""}<h3 class="tabH">연습 도구 <span class="muted" style="font-weight:400;font-size:.85rem">수강생 연습용</span></h3><details class="card" id="practiceBox" open><summary><b>🎤 연습·발성 도구</b> <span class="muted">연습 천재 · 연습 기록</span></summary>${pitchLinkHtml()}<div id="pitchAll"></div><div id="pitchRec"></div></details></div>` +
+    `<div class="pane" data-p="songs">${songRows ? `<h3 class="tabH">${isStaffApp() ? "곡 서랍" : "곡 서랍 · 합주"}</h3>` + songRows : ""}<h3 class="tabH">연습 도구 <span class="muted" style="font-weight:400;font-size:.85rem">수강생 연습용</span></h3><details class="card" id="practiceBox" open><summary><b>🎤 연습·발성 도구</b> <span class="muted">연습 천재 · 연습 기록</span></summary>${pitchLinkHtml()}<div id="pitchAll"></div><div id="pitchRec"></div></details></div>` +
     `<div class="pane" data-p="more"><div class="card tabRow" id="calBtn2" role="button"><div><b>${IC_CAL} 레슨 캘린더</b><small class="muted" style="display:block">‘오늘’ 화면에서도 바로 열려요</small></div><span>›</span></div>${payCanEdit() ? `<div class="card tabRow" id="trashBtn" role="button"><div><b>🗑 휴지통</b><small class="muted" style="display:block">지운 커버·메이크업 곡과 연습용 수강생 되살리기(30일 안)</small></div><span>›</span></div>` : ""}<div id="prefsBox"></div><div id="advPermBox"></div><div id="laBox"></div>` +
     `<p class="muted">${stale ? "최신 내용 확인 중…" : "최신 상태"} · <a href="#" id="reload">새로고침</a> · 앱 버전 ${typeof BUILD === "string" ? BUILD : ""}</p></div>`;
   ensureBotNav(tabNow, bells);
@@ -1463,7 +1464,7 @@ function paintList(data, stale) {
     if (bl.length > 1) { const h = LS.get("vn_todo_hide") || {}; let ch = false; bl.forEach(x => { if (h[tdKey(x)]) { delete h[tdKey(x)]; ch = true; } }); if (ch) { LS.set("vn_todo_hide", h); repaintTodo(); } }
     $("todoCard")?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
-  if (!isStaffApp()) staffPortalSync().catch(() => {});
+  if (!isStaffApp()) { staffPortalSync().catch(() => {}); staffSongShare().catch(() => {}); }   // (11/24) 강사에게 곡 서랍 공유(강사마다 한 번)
   if (isStaffApp()) asgStaffCheck().catch(() => {});
   else if (Object.keys(staffOf()).length) (listNet.asg ??= asgOwnerTodos()).then(xs => { if (!xs.length || !$("todoCard")) return;
     tdExtra = xs.map(x => `<div class="todo-item"><span>${esc(x.t)}</span><span class="chip todo">${esc(x.c)}</span></div>`).join(""); repaintTodo(); }).catch(() => {});
@@ -1774,10 +1775,11 @@ function staffConfigFor(c, tid) {   // 강사에게 보여 줄 설정: 그 강�
   for (const [k, v] of Object.entries(c.students || {})) if (v?.teacher_id === tid) students[k] = v;
   return { role: "teacher", staff_id: tid, name: s.name || "", students, practice_check: !!c.practice_check, sys: s.sys || "", folder: s.folder || "", adv_mode: !!s.adv,   // (11/04 사용자) 원장이 열어 준 강사만 고급 보정 모드
     ...(c.student_page_url ? { student_page_url: c.student_page_url } : {}),
+    ...(c.song_lib ? { song_lib: c.song_lib } : {}),   // (11/24 사용자 '곡 서랍 강사에게도') 원장 드라이브의 곡서랍 폴더(강사 계정에 공유됨)
     ...(c.kick_url ? { kick_url: c.kick_url } : {}),   // (11/05 사용자) 강사도 올리자마자 서버를 바로 깨움(연결 스크립트가 등록된 강사 메일만 받음 · 키·토큰 아님)
     updated_at: new Date().toISOString() };
 }
-async function staffSync(tid) { const s = staffOf()[tid]; if (!s?.cfg_id) return; await writeJSON(null, "config.json", staffConfigFor(cfg, tid), s.cfg_id); staffPortalSync().catch(() => {}); }
+async function staffSync(tid) { const s = staffOf()[tid]; if (!s?.cfg_id) return; const sl = songLib.root || await songRoot(false).catch(() => null); await writeJSON(null, "config.json", staffConfigFor({ ...cfg, ...(sl ? { song_lib: sl } : {}) }, tid), s.cfg_id); staffPortalSync().catch(() => {}); staffSongShare().catch(() => {}); }
 async function joinCreateStaff(rawName, email) {
   const name = joinStudentName(rawName), em = String(email || "").trim().toLowerCase();
   if (!/^[^@\s]+@[^@\s]+$/.test(em)) throw new Error("이메일을 확인해 주세요");
@@ -3303,6 +3305,22 @@ function acctWire(me, s) {
   };
 }
 // 원장 앱: 강사 담당 수강생 목록을 수강생 노트 서버에 알려 줌(강사가 자기 수강생 노트를 게시·연결할 수 있게). 바뀔 때만
+// (11/24 사용자 '곡 서랍 기능 강사에게도 오픈 — 합주 베스트는 빼고') 원장 앱이 곡서랍 폴더를 강사 구글 계정에 '편집자'로 공유하고(곡 넣기·키·악보 고치기 가능),
+//   강사 설정(config.json)에 그 폴더 위치를 적어 줌. 강사마다 한 번만(이 폰에 기록) · 결제·다른 수강생 자료는 공유하지 않음(곡서랍 폴더만)
+async function staffSongShare(force) {
+  if (isStaffApp() || (typeof isDemo === "function" && isDemo())) return;
+  const staff = Object.entries(staffOf()).filter(([, s]) => s?.email && s?.cfg_id); if (!staff.length) return;
+  const root = await songRoot(true); if (!root) return;
+  const done = LS.get("vn_staff_song") || {};
+  for (const [tid, s] of staff) {
+    const key = s.email + "|" + root; if (!force && done[tid] === key) continue;
+    try {
+      await api(`${DRIVE}/files/${root}/permissions?sendNotificationEmail=false&fields=id`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "user", role: "writer", emailAddress: s.email }) });
+      await writeJSON(null, "config.json", staffConfigFor({ ...cfg, song_lib: root }, tid), s.cfg_id);
+      done[tid] = key; LS.set("vn_staff_song", done);
+    } catch (e) { console.warn("곡 서랍 공유", tid, e); }
+  }
+}
 async function staffPortalSync(force) {
   if (isStaffApp() || (typeof isDemo === "function" && isDemo()) || !portalUrl()) return;
   const done = LS.get("vn_staff_portal") || {};
@@ -6560,7 +6578,9 @@ function songSave(blob, name) {
 const SONG_LIB = "곡서랍", SONG_ST = { queued: ["⏳", "서버 대기"], home_wait: ["🏠", "서버가 원곡 받는 중"], working: ["⚙️", "보컬·반주 나누는 중"], done: ["✓", "준비됨"], error: ["⚠", "실패"] };
 let songLib = { root: null, list: [], open: null, poll: 0, q: "" };
 async function songRoot(create) {
-  if (songLib.root) return songLib.root; const db = cfg?.system?.db_backup; if (!db) throw new Error("시스템 폴더를 찾지 못했어요");
+  if (songLib.root) return songLib.root;
+  if (isStaffApp()) { if (cfg?.song_lib) return (songLib.root = cfg.song_lib); throw new Error("곡 서랍을 여는 중이에요 — 원장님 앱이 한 번 열리면 바로 쓸 수 있어요"); }   // (11/24) 강사: 원장이 공유한 곡서랍
+  const db = cfg?.system?.db_backup; if (!db) throw new Error("시스템 폴더를 찾지 못했어요");
   const f = (await list(db)).find(x => x.name === SONG_LIB && x.mimeType === "application/vnd.google-apps.folder");
   if (f) return (songLib.root = f.id); if (!create) return null;
   return (songLib.root = await joinMakeFolder(SONG_LIB, db));
@@ -10608,7 +10628,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261124-1130";   // (11/24 낮) 공용 스크립트 ?v= = 내용 지문(scripts/bump-versions.js) — 11/23 보정창·소리 수정이 서비스 워커 캐시에 막혀 폰에 안 가던 것 · (11/24) 11/23 17:20 뒤 소리 크기 수정(#950~#959)이 '새 버전 알림'에 안 잡혀 폰이 옛 코드로 돌 수 있던 것
+const BUILD = "20261124-1210";   // (11/24 낮) 공용 스크립트 ?v= = 내용 지문(scripts/bump-versions.js) — 11/23 보정창·소리 수정이 서비스 워커 캐시에 막혀 폰에 안 가던 것 · (11/24) 11/23 17:20 뒤 소리 크기 수정(#950~#959)이 '새 버전 알림'에 안 잡혀 폰이 옛 코드로 돌 수 있던 것
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
