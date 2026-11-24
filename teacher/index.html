@@ -6602,7 +6602,11 @@ async function songShareTo(x, tid) {
   const pj = await pr.json(); if (!pj.id) throw new Error("보기 권한을 못 줬어요");
   const root = await songStaffRoot(tid, true);
   let j = null; try { j = await (await api(`${DRIVE}/files?fields=id`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: x.d.title || "곡", mimeType: SONG_SC, shortcutDetails: { targetId: x.folder }, parents: [root] }) })).json(); } catch {}
-  if (!j?.id) { await api(`${DRIVE}/files/${x.folder}/permissions/${pj.id}`, { method: "DELETE" }).catch(() => {}); throw new Error("바로가기를 못 만들었어요(권한도 되돌림)"); } return j.id;   // (검토) 바로가기 실패 시 보기 권한도 되돌림
+  if (!j?.id) { await api(`${DRIVE}/files/${x.folder}/permissions/${pj.id}`, { method: "DELETE" }).catch(() => {}); throw new Error("바로가기를 못 만들었어요(권한도 되돌림)"); }
+  let cleaned = 0; if (x.d.key) { try { const nm = (await (await api(`${DRIVE}/files/${x.folder}?fields=name`)).json()).name;   // (11/24) 예전에 '폴더째 복사'해 넣은 같은 곡(곡 기록 고유 번호가 같은 폴더)은 휴지통 → 용량 되돌림
+    for (const f of (await list(root)).filter(f => f.mimeType === "application/vnd.google-apps.folder" && f.id !== x.folder && f.name === nm)) { const sf = (await list(f.id)).find(y => y.name === "song.json"); const dd = sf && await readJSON(sf.id).catch(() => null);
+      if (dd && dd.key === x.d.key) { await api(`${DRIVE}/files/${f.id}?fields=id`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trashed: true }) }); cleaned++; } } } catch {} }
+  return { id: j.id, cleaned };   // (검토) 바로가기 실패 시 보기 권한도 되돌림
 }
 async function songUnshare(folder, tid, scIds) {
   const trash = (id) => api(`${DRIVE}/files/${id}?fields=id`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trashed: true }) }).catch(() => {});
@@ -6623,7 +6627,7 @@ async function songShareSheet(x) {   // 원장: 이 곡을 강사에게 보내�
   const paint = async () => { const stt = await songShareState(x), L = sh.querySelector("#ssL"); if (!L) return;
     L.innerHTML = ids.map(t => { const on = (stt[t] || []).length; return `<div class="row" style="gap:8px;align-items:center;margin:6px 0"><b style="flex:1">${esc(S[t].name || t)}</b>${stt[t] === null ? `<span class="muted">확인 실패</span>` : `<button type="button" class="small${on ? " ghost" : ""}" data-ss="${esc(t)}">${on ? "공유 끊기" : "보내기"}</button>`}</div>`; }).join("");
     L.querySelectorAll("[data-ss]").forEach(b => b.onclick = async () => { const t = b.dataset.ss; b.disabled = true;
-      try { if ((stt[t] || []).length) { await songUnshare(x.folder, t, stt[t]); toast(`${S[t].name || "강사"} 공유를 끊었어요`); } else { await songShareTo(x, t); toast(`${S[t].name || "강사"}에게 보냈어요 · 강사 곡서랍에 바로 보여요`); } }
+      try { if ((stt[t] || []).length) { await songUnshare(x.folder, t, stt[t]); toast(`${S[t].name || "강사"} 공유를 끊었어요`); } else { const r_ = await songShareTo(x, t); toast(`${S[t].name || "강사"}에게 보냈어요 · 강사 곡서랍에 바로 보여요${r_.cleaned ? " · 예전 복사본 정리(휴지통)" : ""}`); } }
       catch (e) { toast("실패: " + errMsg(e)); } paint(); }); };
   paint();
 }
