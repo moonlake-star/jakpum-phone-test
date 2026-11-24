@@ -477,6 +477,8 @@
 
   function resetNote(st, cv, b) { const A = state(st); change(A, st, cv, () => { A.ne.notes = (A.ne.notes || []).filter(x => !(near(x.t0, b.t0) && near(x.t1, b.t1))); }); }   // 이 음의 고급 고침만 지움
   // (11/13 18:45 사용자 '여러 음 선택 후에도 볼륨 조절') 고른 음들 볼륨 한꺼번에 — 음 하나 볼륨 칸과 같은 규칙(−24dB 밑 = 무음)
+  // (11/24 사용자 멜로다인 Correct Pitch '느린 음정 변화 줄이기') 고른 음들의 drift 한꺼번에(되돌리기 1칸)
+  function groupSet(st, cv, bars, key, v) { const A = state(st); change(A, st, cv, () => { for (const b of bars) { const n = noteOf(A, b, true); if (v == null) delete n[key]; else n[key] = v; } }); }
   function groupVol(st, cv, getBars) {
     const A = state(st), MUTE_DB = -25, bs = () => (getBars() || []);
     const val = () => { const ns = bs().map(b => noteOf(A, b, false) || {}); if (!ns.length) return 0; const v0 = ns[0].mute ? MUTE_DB : (ns[0].gain_db || 0); return v0; };
@@ -496,5 +498,5 @@
       else if (key === "tr_ms") { if (v) n.tr_ms = v; else delete n.tr_ms; delete n.tr_shape; }
       else n[key] = v; });
     return { get, set }; }
-  G.TuneAdv = { bendGet, bendSet, v4Param, groupVol, scrub, panel, resetNote, globalSheet, engineBox, toolsBox, resetDetail, preview, state, uvList, relabel, uvSheet, UV_NAME, addDraw, drawAt, removeDraw, flatNote, cleanStroke, undoLast: (st, cv) => undo(state(st), st, cv), _t: { shapeNote, notesFromCurve, midiBytes, clean, N_DEF } };
+  G.TuneAdv = { bendGet, bendSet, v4Param, groupVol, groupSet, scrub, panel, resetNote, globalSheet, engineBox, toolsBox, resetDetail, preview, state, uvList, relabel, uvSheet, UV_NAME, addDraw, drawAt, removeDraw, flatNote, cleanStroke, undoLast: (st, cv) => undo(state(st), st, cv), _t: { shapeNote, notesFromCurve, midiBytes, clean, N_DEF } };
 })(typeof window !== "undefined" ? window : globalThis);
