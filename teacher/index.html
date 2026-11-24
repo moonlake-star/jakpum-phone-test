@@ -6559,7 +6559,7 @@ function songSave(blob, name) {
 // ── 🎵 곡 서랍(11/07 10:58 사용자 '고고'): 원곡(유튜브)을 보컬·반주로 나눠 쌓아 두는 공용 곡 목록 ──
 // 드라이브 _시스템/db_backup/곡서랍/<곡 폴더>/song.json(+ MP3 3개) · 앱은 곡 폴더와 song.json(status queued)을 만들고 서버를 깨움 · 서버(song_lib.py)가 받고·나눔
 const SONG_LIB = "곡서랍", SONG_ST = { queued: ["⏳", "서버 대기"], home_wait: ["🏠", "서버가 원곡 받는 중"], working: ["⚙️", "보컬·반주 나누는 중"], done: ["✓", "준비됨"], error: ["⚠", "실패"] };
-let songLib = { root: null, list: [], open: null, poll: 0, q: "" };
+let songLib = { root: null, list: [], open: null, poll: 0, q: "", who: "", gen: 0 };   // who: (11/24 사용자 '원장이 강사 곡서랍 보기') "" = 내 곡서랍 · 강사 번호 = 그 강사 곡서랍(원장 앱만)
 async function songRoot(create) {
   if (songLib.root) return songLib.root;
   // (11/24 사용자 '내 폴더를 공개하진 말고 곡서랍 기능을 쓸 수 있게') 강사는 자기 폴더(강사_이름 — 원래 강사와 공유된 곳) 안의 '곡서랍'을 따로 씀.
@@ -6567,21 +6567,79 @@ async function songRoot(create) {
   if (isStaffApp()) { const sf = cfg?.folder; if (!sf) throw new Error("강사 폴더를 찾지 못했어요");
     const f = (await list(sf)).find(x => x.name === SONG_LIB && x.mimeType === "application/vnd.google-apps.folder");
     if (f) return (songLib.root = f.id); if (!create) return null; return (songLib.root = await joinMakeFolder(SONG_LIB, sf)); }
+  if (songLib.who) { const w0 = songLib.who, r = await songStaffRoot(w0, create); if (songLib.who !== w0) throw new Error("곡서랍을 바꿨어요"); return r ? (songLib.root = r) : null; }   // (검토) 고르는 사이 바뀌면 버림   // 원장이 강사 곡서랍을 볼 때(강사 폴더는 원장 드라이브 안 — 복사 없음)
   const db = cfg?.system?.db_backup; if (!db) throw new Error("시스템 폴더를 찾지 못했어요");
   const f = (await list(db)).find(x => x.name === SONG_LIB && x.mimeType === "application/vnd.google-apps.folder");
+  if (songLib.who) throw new Error("곡서랍을 바꿨어요");
   if (f) return (songLib.root = f.id); if (!create) return null;
   return (songLib.root = await joinMakeFolder(SONG_LIB, db));
 }
+async function songStaffRoot(tid, create) {   // 강사 폴더(강사_이름) 안 '곡서랍' — 강사 앱과 노트북이 쓰는 곳과 같음
+  const st = staffOf()[tid]; if (!st?.folder) throw new Error("강사 폴더를 찾지 못했어요");
+  const f = (await list(st.folder)).find(x => x.name === SONG_LIB && x.mimeType === "application/vnd.google-apps.folder");
+  return f ? f.id : create ? joinMakeFolder(SONG_LIB, st.folder) : null;
+}
+// ── (11/24 사용자 '강사에게 곡을 줄 때 같은 파일을 복사하면 용량 낭비') 원장 곡 → 강사: 복사 대신 그 곡 폴더에 '보기 권한' + 강사 곡서랍에 '바로가기'(둘 다 용량 0)
+//   강사 앱은 바로가기를 따라 원본을 읽음(원본 song.json은 읽기만) · 강사가 고친 것(마디·가사 자리·제목 등)은 강사 곡서랍의 '공유곡_<원본폴더>.json'에 원본과 다른 값만 저장
+//   원장 악보는 강사 수정으로 바뀌지 않음 · 공유 끊기 = 바로가기·수정 파일 휴지통 + 보기 권한 해제
+const SONG_SC = "application/vnd.google-apps.shortcut", SONG_OV = ["edits", "sections", "bars", "title", "artist", "voc_vol", "mr_vol"];   // 자동으로 생기는 값(가사 받기·파형·키 요청)은 저장 안 함 — 원장 원본이 고쳐지면 그대로 따라감
+const songOvName = (folder) => `공유곡_${folder}.json`;
+async function songWrite(x) {   // 곡 기록 저장 — 공유곡이면 원본 대신 강사 쪽 수정 파일
+  if (!x.ref) return writeJSON(x.folder, "song.json", x.d, x.fileId);
+  const run = async () => { const ov = {}, o0 = x.orig || {}; for (const k of SONG_OV) if (k in x.d && JSON.stringify(x.d[k]) !== JSON.stringify(o0[k])) ov[k] = x.d[k];
+    x.ov = ov; x.ovId = await writeJSON(x.ovRoot || songLib.root, songOvName(x.folder), { of: x.folder, ...ov }, x.ovId); return x.ovId; };
+  const p_ = (x.wq || Promise.resolve()).catch(() => {}).then(run); x.wq = p_; return p_;   // (검토) 연달아 저장해도 수정 파일 하나에 차례로(첫 저장 겹침 방지)
+}
+async function songReadD(x) { const cur = await readJSON(x.fileId); if (!x.ref) return cur; x.orig = cur; return { ...cur, ...(x.ov || {}) }; }   // 저장 직전 최신 기록(공유곡은 원본 + 강사 수정)
+async function songShareState(x) {   // 강사마다 이 곡 바로가기가 있는지
+  const out = {}; await Promise.all(Object.entries(staffOf()).map(async ([tid, st]) => { try { const r = await songStaffRoot(tid, false); if (!r) { out[tid] = []; return; }
+    const j = await (await api(`${DRIVE}/files?q=${q(`'${r}' in parents and trashed=false and mimeType='${SONG_SC}'`)}&pageSize=200&fields=files(id,shortcutDetails)`)).json();
+    out[tid] = (j.files || []).filter(f => f.shortcutDetails?.targetId === x.folder).map(f => f.id); } catch { out[tid] = null; } })); return out;
+}
+async function songShareTo(x, tid) {
+  const st = staffOf()[tid]; if (!st?.email) throw new Error("강사 이메일이 없어요");
+  const pr = await api(`${DRIVE}/files/${x.folder}/permissions?sendNotificationEmail=false&fields=id`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "user", role: "reader", emailAddress: st.email }) });
+  const pj = await pr.json(); if (!pj.id) throw new Error("보기 권한을 못 줬어요");
+  const root = await songStaffRoot(tid, true);
+  let j = null; try { j = await (await api(`${DRIVE}/files?fields=id`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: x.d.title || "곡", mimeType: SONG_SC, shortcutDetails: { targetId: x.folder }, parents: [root] }) })).json(); } catch {}
+  if (!j?.id) { await api(`${DRIVE}/files/${x.folder}/permissions/${pj.id}`, { method: "DELETE" }).catch(() => {}); throw new Error("바로가기를 못 만들었어요(권한도 되돌림)"); } return j.id;   // (검토) 바로가기 실패 시 보기 권한도 되돌림
+}
+async function songUnshare(folder, tid, scIds) {
+  const trash = (id) => api(`${DRIVE}/files/${id}?fields=id`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trashed: true }) }).catch(() => {});
+  for (const id of scIds || []) await trash(id);
+  try { const r = await songStaffRoot(tid, false); if (r) { const ov = (await list(r)).find(f => f.name === songOvName(folder)); if (ov) await trash(ov.id); } } catch {}
+  if (isStaffApp()) return;   // 강사는 원장 파일 권한을 못 고침(바로가기만 뺌)
+  const em = String(staffOf()[tid]?.email || "").toLowerCase(), mine = async () => { let out = [], pg = ""; do { const pj = await (await api(`${DRIVE}/files/${folder}/permissions?fields=nextPageToken,permissions(id,type,emailAddress,role)${pg ? "&pageToken=" + pg : ""}`)).json();
+    out = out.concat((pj.permissions || []).filter(p_ => p_.type === "user" && p_.role !== "owner" && String(p_.emailAddress || "").toLowerCase() === em)); pg = pj.nextPageToken || ""; } while (pg); return out; };
+  for (const p_ of await mine()) await api(`${DRIVE}/files/${folder}/permissions/${p_.id}`, { method: "DELETE" }).catch(() => {});
+  if ((await mine()).length) throw new Error("보기 권한을 못 뺐어요 · 드라이브에서 그 곡 폴더 공유를 확인해 주세요");   // (검토) 실패를 숨기지 않음
+}
+async function songShareSheet(x) {   // 원장: 이 곡을 강사에게 보내기·끊기
+  const S = staffOf(), ids = Object.keys(S); if (!ids.length) return toast("등록된 강사가 없어요");
+  const sh = document.createElement("div"); sh.className = "attSheet"; sh.style.cssText = "position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center";
+  sh.innerHTML = `<div class="card" style="width:min(520px,100%);margin:0;border-radius:16px 16px 0 0;padding:14px 14px 18px"><b>👥 ‘${esc(x.d.title || "이 곡")}’ 강사에게</b><p class="muted" style="font-size:.8rem;margin:4px 0 10px">복사하지 않고 이 곡만 볼 수 있게 해요(용량 그대로) · 강사가 고친 마디·가사는 강사 쪽에만 저장돼요</p><div id="ssL"><p class="muted">확인 중…</p></div><button type="button" class="ghost" id="ssX" style="width:100%;margin-top:10px">닫기</button></div>`;
+  document.body.appendChild(sh); const ly = typeof Brand !== "undefined" && Brand.layer ? Brand.layer(() => sh.remove()) : { close: () => sh.remove() };
+  sh.onclick = (e) => { if (e.target === sh) ly.close(); }; sh.querySelector("#ssX").onclick = () => ly.close();
+  const paint = async () => { const stt = await songShareState(x), L = sh.querySelector("#ssL"); if (!L) return;
+    L.innerHTML = ids.map(t => { const on = (stt[t] || []).length; return `<div class="row" style="gap:8px;align-items:center;margin:6px 0"><b style="flex:1">${esc(S[t].name || t)}</b>${stt[t] === null ? `<span class="muted">확인 실패</span>` : `<button type="button" class="small${on ? " ghost" : ""}" data-ss="${esc(t)}">${on ? "공유 끊기" : "보내기"}</button>`}</div>`; }).join("");
+    L.querySelectorAll("[data-ss]").forEach(b => b.onclick = async () => { const t = b.dataset.ss; b.disabled = true;
+      try { if ((stt[t] || []).length) { await songUnshare(x.folder, t, stt[t]); toast(`${S[t].name || "강사"} 공유를 끊었어요`); } else { await songShareTo(x, t); toast(`${S[t].name || "강사"}에게 보냈어요 · 강사 곡서랍에 바로 보여요`); } }
+      catch (e) { toast("실패: " + errMsg(e)); } paint(); }); };
+  paint();
+}
 const SONG_CACHE_KEY = "jakpum_songlib_v1";
-const songCacheKey = () => SONG_CACHE_KEY + (isStaffApp() ? "_staff" : "");   // (11/24) 강사 곡서랍은 따로(같은 폰에서 섞이지 않게)
+const songCacheKey = () => SONG_CACHE_KEY + (isStaffApp() ? "_staff" : "") + (songLib.who ? "_t" + songLib.who : "");   // (11/24) 강사 곡서랍은 따로(같은 폰에서 섞이지 않게)
 function songCacheGet() { try { const j = JSON.parse(localStorage.getItem(songCacheKey()) || "null"); return j && Array.isArray(j.list) && j.list.length ? j.list : null; } catch { return null; } }
 let songCacheT = 0;
-function songCachePut() { clearTimeout(songCacheT); songCacheT = setTimeout(() => { try { const t = JSON.stringify({ at: Date.now(), list: songLib.list }); if (t.length < 2500000) localStorage.setItem(songCacheKey(), t); } catch {} }, 800); }   // 용량 넘거나 막히면 그냥 건너뜀
+function songCachePut() { clearTimeout(songCacheT); const k = songCacheKey(), L = songLib.list; songCacheT = setTimeout(() => { try { const t = JSON.stringify({ at: Date.now(), list: L.map(({ orig, ov, wq, ...r }) => r) }); if (t.length < 2500000) localStorage.setItem(k, t); } catch {} }, 800); }   /* (검토) 저장 키·목록은 예약할 때 고정 · 공유곡 원본 사본은 빼고 저장 */   // 용량 넘거나 막히면 그냥 건너뜀
 // (11/19 사용자 '드라이브에 목록 파일을 두고 앱 것과 대조해 같으면 바로') 곡마다 폴더를 열어 읽던 것(곡 수+2번 요청) 대신:
 //   ① 곡 폴더 목록 1번 ② 모든 song.json의 '수정 시각'만 한 번에 1번 → 저장본과 수정 시각이 같은 곡은 그대로 쓰고, 바뀐 곡만 새로 읽음
 async function songLoad(prev = []) {
   const rid = await songRoot(false); if (!rid) return [];
-  const fos = (await list(rid)).filter(x => x.mimeType === "application/vnd.google-apps.folder"), lim = limiter(6);
+  let kids = [], pg = "";
+  do { const r = await (await api(`${DRIVE}/files?q=${q(`'${rid}' in parents and trashed=false`)}&pageSize=200&fields=nextPageToken,files(id,name,mimeType,modifiedTime,shortcutDetails)${pg ? "&pageToken=" + pg : ""}`)).json(); kids = kids.concat(r.files || []); pg = r.nextPageToken || ""; } while (pg);
+  const lim = limiter(6), ovf = new Map(kids.filter(x => /^공유곡_.+\.json$/.test(x.name)).map(x => [x.name.slice(4, -5), x]));
+  const fos = kids.filter(x => x.mimeType === "application/vnd.google-apps.folder").concat(kids.filter(x => x.mimeType === SONG_SC && x.shortcutDetails?.targetId && (!x.shortcutDetails.targetMimeType || x.shortcutDetails.targetMimeType === "application/vnd.google-apps.folder")).map(x => ({ id: x.shortcutDetails.targetId, ref: x.id })));   // 바로가기 = 원장이 공유한 곡(원본 폴더를 읽음)
   const stamp = new Map();
   try {
     let page = "";
@@ -6590,11 +6648,14 @@ async function songLoad(prev = []) {
   } catch { stamp.clear(); }   // 수정 시각 조회가 막히면 예전 방식(곡마다 읽기)으로
   const old = new Map((prev || []).map(x => [x.folder, x]));
   const out = await Promise.all(fos.map(fo => lim(async () => { try {
-    const st = stamp.get(fo.id), o = old.get(fo.id);
-    if (st && o && o.fileId === st.id && o.mt && o.mt === st.modifiedTime) return o;          // 안 바뀜 → 저장본 그대로(요청 없음)
-    if (st) return { folder: fo.id, fileId: st.id, mt: st.modifiedTime, d: await readJSON(st.id) };
-    const fs = await list(fo.id), sf = fs.find(x => x.name === "song.json"); if (!sf) return null;
-    return { folder: fo.id, fileId: sf.id, mt: sf.modifiedTime, d: await readJSON(sf.id) }; } catch { return null; } })));
+    const st = stamp.get(fo.id), o = old.get(fo.id), of_ = fo.ref ? ovf.get(fo.id) : null;
+    if (st && o && o.fileId === st.id && o.mt && o.mt === st.modifiedTime && (o.ref || "") === (fo.ref || "") && (o.ovMt || "") === (of_?.modifiedTime || "")) return o;          // 안 바뀜 → 저장본 그대로(요청 없음)
+    let e; if (st) e = { folder: fo.id, fileId: st.id, mt: st.modifiedTime, d: await readJSON(st.id) };
+    else { const fs = await list(fo.id), sf = fs.find(x => x.name === "song.json"); if (!sf) return null;
+      if (o && o.fileId === sf.id && o.mt === sf.modifiedTime && (o.ref || "") === (fo.ref || "") && (o.ovMt || "") === (of_?.modifiedTime || "")) return o;   // 공유곡(부모 정보가 없어 한 번에 못 읽음)도 안 바뀌면 그대로
+      e = { folder: fo.id, fileId: sf.id, mt: sf.modifiedTime, d: await readJSON(sf.id) }; }
+    if (fo.ref) { const ov = of_ ? await readJSON(of_.id).catch(() => ({})) : {}; delete ov.of; Object.assign(e, { ref: fo.ref, ovRoot: rid, ovId: of_?.id || null, ovMt: of_?.modifiedTime || "", orig: e.d, ov, d: { ...e.d, ...ov } }); }
+    return e; } catch { return null; } })));
   return out.filter(Boolean).sort((a, b) => String(b.d.updated || b.d.created || "").localeCompare(String(a.d.updated || a.d.created || "")));
 }
 // (11/07 17:42 사용자) 서버 살아 있나: 원곡 받기 프로그램이 5분마다 _시스템/db_backup/원곡받기/노트북_신호.json을 덮어씀 → 그 파일의 바뀐 시각
@@ -6703,15 +6764,16 @@ async function jamOpenSong(si, gi) {
     const rb = $("jamRetry"); if (rb) rb.onclick = () => jamOpenSong(si, gi); }
 }
 async function openSongs(focus) {
-  goBack = () => renderList(); show("vSongs"); songLib.open = focus || songLib.open;
+  goBack = () => { if (songLib.who) { songLib.gen++; songLib.who = ""; songLib.root = null; songLib.list = []; songLib.open = null; } renderList(); }; show("vSongs"); songLib.open = focus || songLib.open;   // (검토) 나가면 다시 내 곡서랍
   const v = $("vSongs");
   v.innerHTML = `<h2 style="margin:4px 0 2px">🎵 곡 서랍</h2><p class="muted" style="margin:0 0 10px;font-size:.88rem">곡 이름(또는 유튜브 주소)을 넣으면 서버가 원곡을 받아 <b>보컬·반주</b>로 나눠요 · 보컬 볼륨을 조절하며 듣고, MR·보컬·원곡을 받을 수 있어요 · 메이크업에 같은 곡을 쓰면 다시 안 나눠요</p>
     <div class="card" style="padding:12px"><div class="row" style="gap:6px;flex-wrap:nowrap"><input id="slT" placeholder="곡 이름" maxlength="60" style="flex:2;min-width:0"><input id="slA" placeholder="가수(알면)" maxlength="40" style="flex:1;min-width:0"></div>
       <input id="slY" type="url" inputmode="url" placeholder="유튜브 주소 — 넣으면 곡 이름·가수가 저절로 (비우면 곡 이름으로 찾음)" style="width:100%;margin-top:6px"><div id="slYh" class="muted" style="font-size:.78rem;min-height:1em;margin-top:3px"></div>
       <button type="button" id="slAdd" style="width:100%;margin-top:8px">＋ 곡 넣기</button></div>
-    <div id="slHome" class="muted" style="font-size:.82rem;margin:8px 2px 0"></div>
+    <div id="slHome" class="muted" style="font-size:.82rem;margin:8px 2px 0"></div>${!isStaffApp() && Object.keys(staffOf()).length ? `<div id="slWho" class="row" style="gap:6px;flex-wrap:wrap;margin:10px 0 0"><button type="button" class="small${songLib.who ? " ghost" : ""}" data-who="">내 곡서랍</button>${Object.entries(staffOf()).map(([t, st]) => `<button type="button" class="small${songLib.who === t ? "" : " ghost"}" data-who="${esc(t)}">${esc(st.name || t)} 곡서랍</button>`).join("")}</div>` : ""}
     <input id="slQ" placeholder="🔍 곡 찾기" value="${esc(songLib.q)}" style="width:100%;margin:10px 0 4px"><div id="slList"><p class="muted">불러오는 중…</p></div>`;
   $("slAdd").onclick = songAdd;
+  v.querySelectorAll("[data-who]").forEach(b => b.onclick = () => { if (songLib.who === b.dataset.who) return; songDestroy(); clearTimeout(songLib.poll); songLib.gen++; songLib.who = b.dataset.who; songLib.root = null; songLib.open = null; songLib.list = songCacheGet() || []; openSongs(); });   // (11/24 사용자) 원장: 강사 곡서랍 보기(복사 없이 그 자리에서)
   $("slY").oninput = () => { clearTimeout(songLib.ytT); songLib.ytT = setTimeout(async () => { const p_ = ytParse($("slY").value.trim()); if (!p_ || songLib.ytFor === p_.url) return; songLib.ytFor = p_.url;
     const h = $("slYh"); h.textContent = "유튜브에서 곡 정보 가져오는 중…";
     try { const i = await ytInfo(p_.url); if ($("slY").value.trim() && ytParse($("slY").value.trim())?.url === p_.url) { if (!$("slT").value.trim()) $("slT").value = i.title; if (!$("slA").value.trim()) $("slA").value = i.artist; h.textContent = "✓ 유튜브 제목으로 채웠어요 · 틀리면 고쳐 주세요"; } }
@@ -6721,8 +6783,8 @@ async function openSongs(focus) {
   // (11/19 08:53 사용자 '리스트는 앱에 저장해 두고 바로 불러오면?') 지난번 목록을 폰에 저장해 두었다가 먼저 보여주고, 뒤에서 새로 받아 바뀐 것만 갱신(드라이브에서 곡마다 읽느라 늦던 대기를 없앰)
   if (!songLib.list.length) { const c = songCacheGet(); if (c) songLib.list = c; }
   if (songLib.list.length) { songPaintList(); songPollArm(); }
-  try { songLib.list = await songLoad(songLib.list); }
-  catch (e) { if (!songLib.list.length) { $("slList").innerHTML = `<p class="muted">곡 목록을 못 불러왔어요: ${esc(errMsg(e))}</p>`; return; } const h = $("slHome"); if (h) h.insertAdjacentHTML("afterend", `<p class="muted" style="font-size:.78rem;margin:4px 2px">저장해 둔 목록이에요 · 새로 못 받았어요(${esc(errMsg(e))})</p>`); }
+  const gen0 = songLib.gen; try { const nl = await songLoad(songLib.list); if (gen0 !== songLib.gen) return; songLib.list = nl; }
+  catch (e) { if (gen0 !== songLib.gen) return; if (!songLib.list.length) { $("slList").innerHTML = `<p class="muted">곡 목록을 못 불러왔어요: ${esc(errMsg(e))}</p>`; return; } const h = $("slHome"); if (h) h.insertAdjacentHTML("afterend", `<p class="muted" style="font-size:.78rem;margin:4px 2px">저장해 둔 목록이에요 · 새로 못 받았어요(${esc(errMsg(e))})</p>`); }
   songPaintList(); songPollArm();
   if (songLib.list.some(x => x.d.status === "queued" && Date.now() - Date.parse(x.d.updated || x.d.created || 0) > 180000) && Date.now() - (songLib.kAt || 0) > 300000) { songLib.kAt = Date.now(); kick(); }   // 3분 넘게 '서버 대기'인 곡이 있으면 서버를 한 번 더 깨움
 }
@@ -6730,7 +6792,7 @@ function songPollArm() {   // 처리 중인 곡이 있으면 20초마다 다시 
   clearTimeout(songLib.poll);
   if (!songLib.list.some(x => ["queued", "home_wait", "working"].includes(x.d.status))) return;
   songLib.poll = setTimeout(async () => { if ($("vSongs").classList.contains("hidden")) return; songHomePaint();
-    try { const nx = await songLoad(songLib.list), ch = JSON.stringify(nx.map(x => [x.folder, x.d.status, x.d.updated])) !== JSON.stringify(songLib.list.map(x => [x.folder, x.d.status, x.d.updated])); songLib.list = nx; if (ch) songPaintList(); } catch {}   /* 다시 그려도 열린 플레이어 카드는 그대로 옮겨 둠(songPaintList) */
+    const g0 = songLib.gen; try { const nx = await songLoad(songLib.list); if (g0 !== songLib.gen) return; const ch = JSON.stringify(nx.map(x => [x.folder, x.d.status, x.d.updated])) !== JSON.stringify(songLib.list.map(x => [x.folder, x.d.status, x.d.updated])); songLib.list = nx; if (ch) songPaintList(); } catch {}   /* 다시 그려도 열린 플레이어 카드는 그대로 옮겨 둠(songPaintList) */
     songPollArm(); }, 20000);
 }
 // (11/19 사용자 '제목이나 재생을 눌러 곡이 열리면 딱 그 곡 카드가 화면 맨 위에') 열린 곡 카드의 윗줄을 화면 맨 위에 맞춤(이전에 열려 있던 곡이 접히며 밀리는 것까지 두 번 맞춤)
@@ -6770,35 +6832,39 @@ function songPaintList0() {
   box.innerHTML = L.map(x => { const d = x.d, [ic, lab] = SONG_ST[d.status] || ["·", d.status || ""], op = songLib.open === x.folder && d.status === "done";
     return `<div class="card slRow${op ? " op" : ""}" data-sl="${esc(x.folder)}" style="padding:10px 12px;margin:8px 0">
       <div class="row" style="gap:8px;flex-wrap:nowrap;align-items:center"><div style="flex:1;min-width:0${d.status === "done" ? ";cursor:pointer" : ""}" data-slt><b>${esc(d.title || (d.youtube ? "유튜브 곡 · 제목은 받은 뒤 채워져요" : "(이름 없음)"))}</b>${d.artist ? ` <span class="muted">— ${esc(d.artist)}</span>` : ""}
-        <div class="muted" style="font-size:.8rem">${ic} ${esc(lab)}${d.status === "done" && d.dur ? ` · ${mm(d.dur)}` : ""}${d.by === "makeup" ? " · 메이크업에서" : ""}${d.status === "error" && d.error ? ` · ${esc(String(d.error).slice(0, 80))}` : ""}</div></div>
-        ${d.status === "done" ? `<button type="button" class="small" data-slp>${op ? "접기" : "▶ 듣기"}</button>` : d.status === "error" ? `<button type="button" class="small" data-slr>다시</button>` : ["queued", "home_wait", "working"].includes(d.status) ? `<div class="sgSp" style="width:16px;height:16px;border:2px solid #444;border-top-color:#ffb86b;border-radius:50%;animation:sgSpin 1s linear infinite"></div>` : ""}
-        <button type="button" class="ghost small" data-sle aria-label="제목·가수 고치기" style="flex:none">✎</button><button type="button" class="ghost small" data-sld aria-label="곡 지우기" style="flex:none">🗑</button></div>
+        <div class="muted" style="font-size:.8rem">${ic} ${esc(lab)}${d.status === "done" && d.dur ? ` · ${mm(d.dur)}` : ""}${d.by === "makeup" ? " · 메이크업에서" : ""}${x.ref ? " · 👥 원장 곡 공유" : ""}${d.status === "error" && d.error ? ` · ${esc(String(d.error).slice(0, 80))}` : ""}</div></div>
+        ${d.status === "done" ? `<button type="button" class="small" data-slp>${op ? "접기" : "▶ 듣기"}</button>` : d.status === "error" && !x.ref ? `<button type="button" class="small" data-slr>다시</button>` : ["queued", "home_wait", "working"].includes(d.status) ? `<div class="sgSp" style="width:16px;height:16px;border:2px solid #444;border-top-color:#ffb86b;border-radius:50%;animation:sgSpin 1s linear infinite"></div>` : ""}
+        ${!isStaffApp() && !songLib.who && !x.ref && d.status === "done" && Object.keys(staffOf()).length ? `<button type="button" class="ghost small" data-sls aria-label="강사에게 보내기" style="flex:none">👥</button>` : ""}<button type="button" class="ghost small" data-sle aria-label="제목·가수 고치기" style="flex:none">✎</button><button type="button" class="ghost small" data-sld aria-label="곡 지우기" style="flex:none">🗑</button></div>
       ${op ? `<div class="slPl" style="margin-top:8px"></div>` : ""}</div>`; }).join("");
   box.querySelectorAll("[data-sl]").forEach(row => { const x = songLib.list.find(y => y.folder === row.dataset.sl); if (!x) return;
     const pb = row.querySelector("[data-slp]"); if (pb) pb.onclick = () => { const opening = songLib.open !== x.folder; songLib.open = opening ? x.folder : null; songLib.auto = opening ? x.folder : null; songDestroy(); songPaintList(); if (opening) songOpenScroll(x.folder); };
     const tt = row.querySelector("[data-slt]"); if (tt && x.d.status === "done") tt.onclick = () => { const opening = songLib.open !== x.folder; songLib.open = opening ? x.folder : null; songLib.auto = null; songDestroy(); songPaintList(); if (opening) songOpenScroll(x.folder); };   // 제목을 누르면 재생은 시작 없이 그 곡 페이지만 열림/접힘(11/19)
-    const rb = row.querySelector("[data-slr]"); if (rb) rb.onclick = async () => { rb.disabled = true; try { x.d = { ...x.d, status: "queued", error: null, updated: new Date().toISOString() }; await writeJSON(x.folder, "song.json", x.d, x.fileId); songPaintList(); songPollArm(); kick(); toast("다시 해 볼게요"); } catch (e) { toast("실패: " + errMsg(e)); rb.disabled = false; } };
+    const sb = row.querySelector("[data-sls]"); if (sb) sb.onclick = () => songShareSheet(x);
+    const rb = !x.ref && row.querySelector("[data-slr]"); if (rb) rb.onclick = async () => { rb.disabled = true; try { x.d = { ...x.d, status: "queued", error: null, updated: new Date().toISOString() }; await songWrite(x); songPaintList(); songPollArm(); kick(); toast("다시 해 볼게요"); } catch (e) { toast("실패: " + errMsg(e)); rb.disabled = false; } };
     row.querySelector("[data-sle]").onclick = async () => {   // (11/22 사용자 '젊은 미소가 어딨냐') 받을 때 제목·가수가 뒤바뀐 곡 바로잡기
       const t = prompt("곡 제목", x.d.title || ""); if (t === null) return; const a = prompt("가수", x.d.artist || ""); if (a === null) return; if (!t.trim()) { toast("제목을 비울 수 없어요"); return; }
-      try { const cur = await readJSON(x.fileId).catch(() => null), base = cur && typeof cur === "object" ? cur : x.d; x.d = { ...base, title: t.trim(), artist: a.trim() }; await writeJSON(x.folder, "song.json", x.d, x.fileId); songPaintList(); toast("고쳤어요"); } catch (e) { toast("고치기 실패: " + errMsg(e)); } };   // 저장 직전 최신 기록을 다시 읽어 일꾼이 쓴 분석을 덮지 않음
-    row.querySelector("[data-sld]").onclick = async () => { if (!confirm(`‘${x.d.title || "이 곡"}’을 곡 서랍에서 지울까요?\n(드라이브 휴지통으로 — 30일 안엔 되살릴 수 있어요 · 이 곡을 쓰는 메이크업·노트의 원곡 파일도 함께 안 들려요)`)) return;
+      try { const cur = await songReadD(x).catch(() => null), base = cur && typeof cur === "object" ? cur : x.d; x.d = { ...base, title: t.trim(), artist: a.trim() }; await songWrite(x); songPaintList(); toast("고쳤어요"); } catch (e) { toast("고치기 실패: " + errMsg(e)); } };   // 저장 직전 최신 기록을 다시 읽어 일꾼이 쓴 분석을 덮지 않음
+    row.querySelector("[data-sld]").onclick = async () => { if (x.ref) { if (!confirm(`‘${x.d.title || "이 곡"}’ 공유를 이 곡서랍에서 뺄까요?\n(원장 원본은 그대로 · 강사가 고친 것만 휴지통)`)) return;   // 공유곡: 원본 폴더는 절대 안 지움 — 바로가기·수정 파일만
+        try { const tid = isStaffApp() ? "" : songLib.who; if (tid) await songUnshare(x.folder, tid, [x.ref]); else { await api(`${DRIVE}/files/${x.ref}?fields=id`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trashed: true }) }); if (x.ovId) await api(`${DRIVE}/files/${x.ovId}?fields=id`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trashed: true }) }).catch(() => {}); }
+          songLib.list = songLib.list.filter(y => y !== x); if (songLib.open === x.folder) { songDestroy(); songLib.open = null; } songPaintList(); toast("공유를 뺐어요"); } catch (e) { toast("실패: " + errMsg(e)); } return; }
+      if (!confirm(`‘${x.d.title || "이 곡"}’을 곡 서랍에서 지울까요?\n(드라이브 휴지통으로 — 30일 안엔 되살릴 수 있어요 · 이 곡을 쓰는 메이크업·노트의 원곡 파일도 함께 안 들려요)`)) return;
       try { await api(`${DRIVE}/files/${x.folder}?fields=id`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trashed: true }) }); songLib.list = songLib.list.filter(y => y !== x); if (songLib.open === x.folder) { songDestroy(); songLib.open = null; } songPaintList(); toast("지웠어요(휴지통)"); } catch (e) { toast("지우기 실패: " + errMsg(e)); } };
     const pl = row.querySelector(".slPl"); if (pl) { const ids = stemIds(x.d); if (!ids) { pl.innerHTML = `<p class="muted">파일 정보가 없어요</p>`; return; }
       if (keep && keep.folder === x.folder) { pl.appendChild(keep.el); return; }
       const auto = songLib.auto === x.folder; if (auto) songLib.auto = null;   // 한 번만(20초 갱신·다시 그리기로는 재시작 안 함)
       songDeck(pl, ids, { folder: x.folder, autoplay: auto, dur: +x.d.dur || 0, bpm: +x.d.bpm || 0, wave: x.d.wave, lyrics: x.d.lyrics, artist: x.d.artist, analysis: x.d.analysis, keys: x.d.keys, keyReq: x.d.key_req, fileId: x.fileId, edits: x.d.edits, sections: x.d.sections, lyrics_words: x.d.lyrics_words, web_chart: x.d.web_chart, web_user: x.d.web_user, bars: x.d.bars, onBars: (v) => { const cx = songLib.list.find(y => y.folder === x.folder) || x; cx.d.bars = v || null; },
-        onWebUser: async (v) => { const cx = songLib.list.find(y => y.folder === x.folder) || x; const ids = [];   // (11/22 사용자) 선생님이 찾은 악보 넣기: 그림·PDF는 곡 폴더에 올리고 song.json web_user에 기록 → 노트북이 읽어 대조
+        onWebUser: async (v) => { const cx = songLib.list.find(y => y.folder === x.folder) || x; if (cx.ref) throw new Error("원장님이 공유한 곡이라 악보 넣기는 원장님 곡서랍에서 해 주세요"); const ids = [];   // (11/22 사용자) 선생님이 찾은 악보 넣기: 그림·PDF는 곡 폴더에 올리고 song.json web_user에 기록 → 노트북이 읽어 대조
           for (const [k, f] of (v.files || []).entries()) { const ext = (/\.([a-z0-9]{2,5})$/i.exec(f.name || "") || [, f.type === "application/pdf" ? "pdf" : "jpg"])[1]; ids.push(await uploadFile(cx.folder, `악보_${Date.now()}_${k + 1}.${ext}`, f)); }
-          const cur = await readJSON(cx.fileId).catch(() => null), base = cur && typeof cur === "object" ? cur : cx.d;
+          const cur = await songReadD(cx).catch(() => null), base = cur && typeof cur === "object" ? cur : cx.d;
           const wu = v.clear ? { at: new Date().toISOString() } : { url: String(v.url || "").trim().slice(0, 500), text: String(v.text || "").slice(0, 20000), files: ids.length ? ids : ((base.web_user || {}).files || []), at: new Date().toISOString() };
-          cx.d = { ...base, web_user: wu }; await writeJSON(cx.folder, "song.json", cx.d, cx.fileId); return wu; },   /* (11/22) 강제 정렬 낱말 시각이 화면에 안 넘어가던 것 · 인터넷 악보 대조 결과 */
-        lyricsTry: x.d.lyrics_try, onLyrics: (L, t) => { const cx = songLib.list.find(y => y.folder === x.folder) || x; if (L) cx.d.lyrics = L; cx.d.lyrics_try = t; quietSave(() => writeJSON(cx.folder, "song.json", cx.d, cx.fileId)); },
-        fetchD: () => readJSON(x.fileId), onKeyReq: (l) => { const cx = songLib.list.find(y => y.folder === x.folder) || x; cx.d.key_req = l; quietSave(() => writeJSON(cx.folder, "song.json", cx.d, cx.fileId)); }, mrVol: Number.isFinite(+x.d.mr_vol) ? +x.d.mr_vol : 100, head: `<div class="muted" style="font-size:.85rem">보컬 볼륨을 움직여 MR·가이드·원곡으로 들어 보세요</div>`, vol: Number.isFinite(+x.d.voc_vol) ? +x.d.voc_vol : 30, name: x.d.title,
-        onVol: (vv) => { const cx = songLib.list.find(y => y.folder === x.folder) || x; cx.d.voc_vol = vv; quietSave(() => writeJSON(cx.folder, "song.json", cx.d, cx.fileId)); },
-        onMrVol: (vv) => { const cx = songLib.list.find(y => y.folder === x.folder) || x; cx.d.mr_vol = vv; quietSave(() => writeJSON(cx.folder, "song.json", cx.d, cx.fileId)); },
-        onWave: (w) => { const cx = songLib.list.find(y => y.folder === x.folder) || x; cx.d.wave = w; quietSave(() => writeJSON(cx.folder, "song.json", cx.d, cx.fileId)); },
-        onEdits: (e) => { const cx = songLib.list.find(y => y.folder === x.folder) || x; cx.d.edits = e; quietSave(() => writeJSON(cx.folder, "song.json", cx.d, cx.fileId)); },
-        onSections: (v) => { const cx = songLib.list.find(y => y.folder === x.folder) || x; cx.d.sections = v; quietSave(() => writeJSON(cx.folder, "song.json", cx.d, cx.fileId)); } });
+          cx.d = { ...base, web_user: wu }; await songWrite(cx); return wu; },   /* (11/22) 강제 정렬 낱말 시각이 화면에 안 넘어가던 것 · 인터넷 악보 대조 결과 */
+        lyricsTry: x.d.lyrics_try, onLyrics: (L, t) => { const cx = songLib.list.find(y => y.folder === x.folder) || x; if (L) cx.d.lyrics = L; cx.d.lyrics_try = t; quietSave(() => songWrite(cx)); },
+        fetchD: () => songReadD(x), onKeyReq: (l) => { const cx = songLib.list.find(y => y.folder === x.folder) || x; cx.d.key_req = l; quietSave(() => songWrite(cx)); }, mrVol: Number.isFinite(+x.d.mr_vol) ? +x.d.mr_vol : 100, head: `<div class="muted" style="font-size:.85rem">보컬 볼륨을 움직여 MR·가이드·원곡으로 들어 보세요</div>`, vol: Number.isFinite(+x.d.voc_vol) ? +x.d.voc_vol : 30, name: x.d.title,
+        onVol: (vv) => { const cx = songLib.list.find(y => y.folder === x.folder) || x; cx.d.voc_vol = vv; quietSave(() => songWrite(cx)); },
+        onMrVol: (vv) => { const cx = songLib.list.find(y => y.folder === x.folder) || x; cx.d.mr_vol = vv; quietSave(() => songWrite(cx)); },
+        onWave: (w) => { const cx = songLib.list.find(y => y.folder === x.folder) || x; cx.d.wave = w; quietSave(() => songWrite(cx)); },
+        onEdits: (e) => { const cx = songLib.list.find(y => y.folder === x.folder) || x; cx.d.edits = e; quietSave(() => songWrite(cx)); },
+        onSections: (v) => { const cx = songLib.list.find(y => y.folder === x.folder) || x; cx.d.sections = v; quietSave(() => songWrite(cx)); } });
       pl.querySelector(".sgC")?.classList.remove("card"); }
   });
   if (keep && !box.contains(keep.el)) songDestroy();   // 듣던 곡 카드가 목록에서 빠졌으면(검색·삭제) 소리도 끝냄
