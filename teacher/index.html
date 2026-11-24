@@ -147,6 +147,10 @@
   .tuneHint { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); display:flex; align-items:center; gap:9px; white-space:nowrap; padding:13px 22px; border-radius:30px; background:linear-gradient(135deg,#ffe08f,#e0a73c); color:#1a1307; font-weight:900; font-size:1.02rem; border:2px solid #fff3cf; box-shadow:0 0 0 6px rgba(255,210,122,.22),0 8px 26px rgba(0,0,0,.55); pointer-events:none; }
   .mkDockWrap { margin-top:6px; } .mkDockWrap .tune.sm { height:230px; margin:0; }
   /* (11/24 사용자 '재생 버튼도 없으니 크게 보기를 이렇게 크게 만들 필요 없이 다이어트') 오늘의 베스트 음정선: 낮게 + 어둡게 덮지 않음 + 오른쪽 아래 작은 '⛶ 크게' */
+  .mkDockWrap.slim .tunePlay { position:absolute; left:8px; bottom:8px; min-height:0; padding:5px 12px; margin:0; border-radius:16px; font-size:.82rem; font-weight:800; background:rgba(17,20,26,.86); color:#e8eaf0; border:1.5px solid #556070; }
+  .lsMore { display:inline-block; position:relative; margin-left:auto; } .lsMore>summary { list-style:none; cursor:pointer; padding:2px 12px; border-radius:14px; border:1.5px solid #3b4250; font-weight:900; color:#cfd3da; } .lsMore>summary::-webkit-details-marker { display:none; }
+  .lsMenu { position:absolute; right:0; top:110%; z-index:20; display:flex; flex-direction:column; gap:6px; min-width:210px; padding:10px; border-radius:12px; background:#1b1f27; border:1px solid #3b4250; box-shadow:0 8px 24px rgba(0,0,0,.5); } .lsMenu button { width:100%; text-align:left; margin:0; } .lsV3Def { font-size:.82rem; }
+  .bestMoreAll { margin-top:8px; } .bestMoreAll>summary { cursor:pointer; color:#a9b1bc; font-size:.88rem; padding:6px 2px; } .pvSum.pvEmpty { color:#7f8794; font-style:normal; }
   .mkDockWrap.slim .tune.sm { height:118px; } .mkDockWrap.slim .tuneDim { display:none; }
   .mkDockWrap.slim .tuneHint { left:auto; top:auto; right:8px; bottom:8px; transform:none; gap:5px; padding:5px 11px; border-radius:16px; font-size:.82rem; font-weight:800; background:rgba(17,20,26,.86); color:#ffd27a; border:1.5px solid #ffd27a; box-shadow:none; }
   .mkDockWrap.slim .tuneHint svg { width:15px; height:15px; } .mkDockWrap.slim .tuneHint svg path { stroke:#ffd27a; } .tuneDock { position:absolute; left:0; right:0; bottom:10px; display:flex; justify-content:center; align-items:center; gap:10px; pointer-events:none; }
@@ -2700,7 +2704,7 @@ function feedbackPreviewHTML(note, rv, disabled, open = false) {
   const first = (v, n = 44) => { const l = String(v || "").split("\n").map(x => x.replace(/^[ \t]*[·•\-]\s*/, "").trim()).find(Boolean) || ""; return l.length > n ? l.slice(0, n) + "…" : l; };
   let warnN = 0; try { if (typeof sentList === "function") warnN = sentList(fbCheckText(rv, note.feedback), cur?.ai?.feedback_text, rv.sent_ok, sentEvTimes(cur)).filter(x => x.kind === "warn" && !x.ok).length; } catch {}
   const fold = (key, need) => (need || pvOpenSet.has(key)) ? "" : " fold";
-  const sum = (txt, chip) => `<div class="pvSum">${chip || ""}${esc(txt || "비어 있음")}</div>`;
+  const sum = (txt, chip) => txt ? `<div class="pvSum">${chip || ""}${esc(txt)}</div>` : `<div class="pvSum pvEmpty">${chip || ""}＋ 선택 · 눌러서 쓰기</div>`;   // (11/25 검토 반영) '비어 있음' 대신 쓰기 안내
   const chev = `<span class="pvChev" aria-hidden="true"></span>`;
   const ms = missionState(rv), song = rv.song || {}, mmss = (x) => `${Math.floor((+x || 0) / 60)}:${String(Math.round((+x || 0) % 60)).padStart(2, "0")}`;
   const CHEER = [["격려", 0], ["성장", 1], ["지속 응원", 2]];   // 문구는 CHEER_SETS(종류마다 8개, 누를 때마다 무작위)
@@ -2734,7 +2738,7 @@ function feedbackPreviewHTML(note, rv, disabled, open = false) {
         <div class="pvChips">${typeof cur !== "undefined" && typeof cur?.ai?.cheer === "string" && cur.ai.cheer.trim() ? `<button type="button" data-pvcheer="ai"${disabled}>✨ AI 초안</button>` : ""}${CHEER.map(([k, v]) => `<button type="button" data-pvcheer="${v}"${disabled}>🎲 ${k}</button>`).join("")}</div>
         <p class="muted" style="margin:4px 0 0;font-size:.82rem">🎲는 오늘 레슨 내용(좋았던 구절·나아진 부분·포인트·미션)으로 만들어요 · 누를 때마다 다른 문장</p></section>
     </div>
-    <p class="muted" id="previewSaveMsg" role="status" style="margin:4px 0">고친 문구는 선생님 글투를 익히는 데도 참고해요. 포인트·미션을 고치면 카톡 문구도 같이 바뀌어요.</p></div>`;
+    <p class="muted" id="previewSaveMsg" role="status" style="margin:4px 0"></p></div>`;   // (11/25 검토 반영) 안내문 2줄 뺌(상태 알림 자리는 그대로)
 }
 //#fbv2-begin
 // (11/21 화면 개편 3단계 · 코덱스 검토) 포인트·미션은 칸에만 저장(fb_v 2). 한마디 글 속 '오늘 중요한 포인트'·'이번 주 연습' 목록은
@@ -4984,8 +4988,9 @@ function renderCeleb() {
   if (!f.first4 && c.first4 && !c.first4.manual) delete c.first4;
   c.full ??= { on: false, title: f.song, ...(f.fr ? { t0: f.fr.t0, len: f.fr.len } : {}) };
   const again = c.full.title && f.done.has(normTitle(c.full.title));
-  card.classList.remove("hidden");
-  const celOn = [c.anniv?.on, c.first4?.on, c.full?.on].filter(Boolean).length;   // (11/13 17:16) 처음엔 접힘 — 켠 개수만
+  const celOn = [c.anniv?.on, c.first4?.on, c.full?.on].filter(Boolean).length;
+  if (!celOn && !c.anniv && !c.first4 && !cur.celShow) { card.classList.add("hidden"); return; }   // (11/25 검토 반영) 켠 것·자동 후보가 없으면 숨김 — 머리 ⋯ '🎉 기념 켜기'로 열기
+  card.classList.remove("hidden");   // (11/13 17:16) 처음엔 접힘 — 켠 개수만
   card.innerHTML = `<details id="celWrap"${cur.celOpen ? " open" : ""}><summary style="cursor:pointer"><b>🎉 기념</b> <span class="muted" style="font-size:.85rem">${celOn ? `${celOn}개 켬` : "켠 것 없음"}</span></summary><span class="muted" style="font-size:.85rem">켠 것만 수강생 노트에 · 수강생에겐 축하 카드로 보여요</span>
     ${c.anniv ? `<label style="display:block;margin:6px 0"><input type="checkbox" id="celAnn" ${c.anniv.on ? "checked" : ""}> 🎂 이 레슨으로 <b>함께 노래한 지 ${esc(annLabel(c.anniv.m))}</b> (첫 레슨 ${esc(String(c.anniv.first || "").slice(2).replaceAll("-", "."))}) — 첫 레슨 베스트와 오늘 베스트를 나란히</label>` : ""}
     ${c.first4 ? `<label style="display:block;margin:6px 0"><input type="checkbox" id="celF4" ${c.first4.on ? "checked" : ""}> 🌱 <b>첫 4회 완주</b> — 첫 레슨 베스트와 오늘 베스트를 나란히(첫 달이 그만두는 사람이 가장 많은 때라 ‘달라진 것’을 들려줘요)</label>` : ""}
@@ -8970,12 +8975,14 @@ async function openLessonInner(sid, i, backTo) {
       <span class="chip">${ls.session_number ? ls.session_number + "회차" : "회차 확인 필요"}</span>
       ${ls.package ? `<span class="chip">결제 ${esc(ls.package)}</span>` : ""}
       ${(() => { const nw = payNewer(st, ls, l.name); return nw ? `<span class="chip ok">새 결제 ${esc(nw.date.slice(5).replace("-", "/"))} · ${esc(nw.sessions)}회 등록됨</span>` : ls.payment_note ? `<span class="chip todo">${esc(ls.payment_note)}</span>` : ""; })()}
+      ${summary.duration_sec ? `<span class="chip">🎙 ${fmt(summary.duration_sec)}</span>` : ""}
+      <details class="lsMore"><summary aria-label="더 보기">⋯</summary><div class="lsMenu" id="lsMenu">
       ${payCanEdit() && !isTeacher(st) ? `<button class="small ghost" id="btnPayAdd" type="button">💳 결제 기록</button>` : ""}
       ${!isTeacher(st) && fbSentOrPub(review) ? `<button class="small ghost" id="btnRevert" type="button">↩ 피드백 취소</button>` : ""}
       ${!isTeacher(st) && !fbSentOrPub(review) ? `<button class="small ghost" id="btnSkip" type="button">${review.skipped_at ? "↩ 건너뛰기 취소" : "⏭ 피드백 건너뛰기"}</button>` : ""}
-      <span>${summary.duration_sec ? fmt(summary.duration_sec) : ""}</span>
-      <button class="small ghost" id="btnSpeakerEdit" type="button">화자 수정</button>
-    </div>`;
+      <button class="small ghost" id="btnSpeakerEdit" type="button">🗣 화자 수정</button>
+      </div></details>
+    </div>`;   // (11/25 사용자 '정신없어, 일목요연하게' · 코덱스·안티그라비티 검토) 머리 = 이름·회차·결제·녹음 길이 한 줄 + ⋯ 메뉴(결제 기록·피드백 취소·화자 수정·AI 원문·새 검수 화면)
   if ($("btnRevert")) $("btnRevert").onclick = () => revertToDraft(cur);
   if ($("btnSkip")) $("btnSkip").onclick = async () => { const on = !cur.review.skipped_at, b = $("btnSkip"); b.disabled = true;
     try { if (on) await saveReview(true); await setLessonSkip(sid, i, on); b.textContent = on ? "↩ 건너뛰기 취소" : "⏭ 피드백 건너뛰기"; toast(on ? "⏭ 피드백 없이 넘어가기로 했어요 · 목록·알림에서 빠져요" : "다시 ‘피드백 전’으로 돌렸어요"); }
@@ -9108,7 +9115,7 @@ function tnRemove(c, n) { const i = c.doc.notes.indexOf(n); if (i < 0) return;
   if (n.src !== "teacher") (c.doc.deleted ||= []).push({ id: n.id, text: n.ai_text || n.text, src: n.src || "", at: new Date().toISOString() });
   if (c.doc.deleted && c.doc.deleted.length > 50) c.doc.deleted = c.doc.deleted.slice(-50); }
 function tnSumHTML(c) { if (!c) return ""; const ns = c.doc.notes, d = ns.filter(n => n.status !== "ok").length, ok = ns.length - d;
-  return `<span class="chip">AI 초안 ${d}</span> <span class="chip">확인 ${ok}</span> · 초안은 수강생에게 안 보여요 · 그래프를 눌러 크게 본 뒤 칸을 누르면 고치기, 빈 곳을 길게 누르면 추가`; }
+  return ns.length ? `<span class="chip">음정 주석 AI 제안 ${d}</span> <span class="chip">확인 ${ok}</span>` : ""; }   // (11/25 검토 반영) 설명문은 뺌(전체화면 사용법에 있음)
 function mkSideFiles(o) {   // 수강생 노트용: 원음(보정 전, 같은 크기) · 음정선
   const job = o?.file_id ? bestMakeupJob(o) : null, fs = (job?.req?.status === "done" && job.files) || [];
   const b = fs.find(x => x.name === "before.mp3"), c = fs.find(x => x.name === "pitch_curve.json");
@@ -9156,6 +9163,7 @@ function makeupBoxHTML(o) {   // (A안 10/28) 메이크업본이 준비되면 �
   return msg ? `<p class="muted" id="mkBox" style="margin:4px 0 0;font-size:.85rem">${msg}</p>` : "";
 }
 function renderBest() {
+  if (typeof regenBoxHTML === "function") regenBoxHTML._rg = "";   // (11/25) 접기 안에 넣은 '전체 다시 편집' — 이번 그리기에서 새로
   // 이어 붙인 자리 표시(2026-10-27 사용자): 재생바 바로 아래 노란 칸 + 시각 글자. 누르면 그 자리 1.5초 앞부터
   function seamList(o) { return (o.seams || []).filter(z => Number.isFinite(+z.out_t)).map(z => ({ a: +z.out_t, b: +z.out_t + (+z.end_t - +z.ref_t) * (+z.speed || 1), take: z.to_take })); }
   function seamStrip(o, part) {   // part = "strip"(파형 위 노란 칸) | "labels"(파형 아래 글자·시간) — 글자가 파형과 겹치지 않게(10/28)
@@ -9218,7 +9226,7 @@ function renderBest() {
   const merged = ms === "ready", tuneF = merged && typeof mkCurveFile === "function" && mkCurveFile(o) && typeof Tune !== "undefined";
   // (10/30 14:50 사용자 시안 확정) 튠 그래프가 있으면 위 파형 줄은 빼고, 그래프 아래쪽에 반투명 [-5 | 원음·보정본 | +5]
   const abSwH = `<div class="abSw" role="group" aria-label="원음·보정본"><button type="button" data-ver="orig" class="on" aria-pressed="true">원음</button><button type="button" data-ver="mk" class="mk" aria-pressed="false">✨ 보정본</button></div>`;
-  const tuneH = tuneF ? `<div class="tuneWrap mkDockWrap slim"><canvas class="tune sm" id="mkTuneToday" aria-label="음정선 — 누르면 크게 보기"></canvas><span class="tuneDim" aria-hidden="true"></span><span class="tuneHint" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1a1307" stroke-width="2.8" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>크게</span></div><div style="display:none">${abSwH}</div>${Tune.legend(true)}<div class="muted tnSum" id="tnSum" style="font-size:.8rem;margin:2px 0 4px"></div>` : "";   // (10/30 17:43 사용자) 전체화면·[-5|원음·보정본|+5] 버튼 삭제, 그래프를 누르면 세로 전체화면
+  const tuneH = tuneF ? `<div class="tuneWrap mkDockWrap slim"><canvas class="tune sm" id="mkTuneToday" aria-label="음정선 — 누르면 크게 보기"></canvas><span class="tuneDim" aria-hidden="true"></span><span class="tuneHint" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1a1307" stroke-width="2.8" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>크게</span><button type="button" class="tunePlay" data-tplay aria-label="오늘의 베스트 듣기·멈춤">▶ 듣기</button></div><div style="display:none">${abSwH}</div>${Tune.legend(true)}<div class="muted tnSum" id="tnSum" style="font-size:.8rem;margin:2px 0 4px"></div>` : "";   // (10/30 17:43 사용자) 전체화면·[-5|원음·보정본|+5] 버튼 삭제, 그래프를 누르면 세로 전체화면
   return `<div class="bestbox abPair${merged ? " merged" : ""}${tuneF ? " tuned" : ""}"><span class="sr-only">오늘의 베스트 편집본 ${Math.round(o.len)}초</span>
     ${merged ? `<div class="row abHead"><b>오늘의 베스트</b><span class="muted" style="font-size:.85rem;white-space:nowrap">${Math.round(o.len)}초</span>${chk("best")}</div>
       ${tuneF ? tuneH : abSwH}` : ""}
@@ -9229,14 +9237,16 @@ function renderBest() {
     <div class="row abTimeRow" style="justify-content:space-between;margin-top:4px"><span class="tpTime muted abTime">0:00 / 0:00</span><span class="muted" style="font-size:.8rem">${tuneF ? "그래프 톡 = 재생·멈춤 · 좌우로 밀면 이동" : "파형을 누르면 그 자리부터"}</span></div>
     <div class="row tpBtns" style="margin-top:4px;gap:4px;flex-wrap:nowrap;display:grid;grid-template-columns:${ms === "ready" ? "1fr 1fr 1.1fr 1fr 1fr 1.1fr" : "1fr 1fr 1.1fr 1fr 1fr"}">
       <button class="small ghost" data-abp="start" aria-label="처음으로 이동">⏮</button><button class="small ghost" data-abp="back" aria-label="5초 뒤로">-5</button><button class="small" data-abp="play" aria-label="재생">▶</button><button class="small ghost" data-abp="fwd" aria-label="5초 앞으로">+5</button><button class="small ghost" data-abp="end" aria-label="끝으로 이동">⏭</button>${ms === "ready" ? `<button class="small ghost" data-abp="swap" aria-label="같은 위치에서 원본·메이크업 바꾸기">⇄</button>` : ""}</div>
-    ${typeof bestAltsHTML === "function" ? bestAltsHTML(o) : ""}
+    ${(() => { const rg = typeof regenBoxHTML === "function" ? regenBoxHTML() : ""; if (typeof regenBoxHTML === "function") regenBoxHTML._rg = rg; const al = typeof bestAltsHTML === "function" ? bestAltsHTML(o) : ""; renderBest._al = al; return `<details class="bestMoreAll"><summary>⋯ ${[al ? "다른 테이크로 바꾸기" : "", rg ? "다시 찾기" : "", "만든 방법"].filter(Boolean).join(" · ")}${/새 후보 도착/.test(rg) ? ' <span class="chip todo">새 결과 도착</span>' : ""}</summary>`; })()}   <!-- (11/25 검토 반영) 다른 테이크·자세히·전체 다시 편집을 접기 하나로 -->
+    ${renderBest._al || ""}
+    ${typeof regenBoxHTML === "function" ? regenBoxHTML._rg || "" : ""}
     <details style="margin-top:6px"><summary class="muted" style="font-size:.88rem">ℹ 자세히 · 어떻게 만들었나</summary>
       <p class="muted" style="font-size:.85rem;margin:4px 0">☑ <b>피드백에 포함</b>을 체크한 것만 수강생 노트에 실리고 ‘클립 보내기’ 때 같이 가요. 체크하지 않으면 수강생에게 안 가요(파일은 그대로 남아요).</p>
       <div class="seamLabels">${seamStrip(o, "labels")}<p class="muted" style="font-size:.8rem;margin:2px 0">노란 부분 = 다른 테이크에서 가져와 이어 붙인 자리 · 시간을 누르면 그 바로 앞부터 들려요</p></div>
       <div class="muted bestDesc" style="font-size:.85rem">${o.base === "fullrun" ? `그날 가장 길게 이어 부른 부분(약 ${Math.round(+o.fullrun?.len || o.len)}초 — 1절이면 1절, 2절까지면 2절까지)을 바탕으로, 칭찬받은 테이크의 더 좋은 구절을 같은 자리에 바꿔 넣은 편집본이에요` : "AI가 이번 레슨 녹음에서 좋은 구간을 골라 박자에 맞춰 하나로 이어 붙인 편집본이에요"}${o.takes_used ? ` (테이크 ${o.takes_used}개 사용)` : ""}</div>
       <p role="status" class="muted" style="margin:6px 0 0;font-size:.85rem">${statusTxt}</p>
       ${segs.length ? `<p class="muted" style="font-size:.85rem;margin:4px 0">원본 레슨에서 가져온 구간 ${segs.length}곳: ${segs.map(g => `${fmt(+g.start)}~${fmt(+g.end)}`).join(" · ")}</p>` : ""}
-      ${ms === "ready" ? `<p class="muted" style="font-size:.85rem;margin:4px 0">✨ 메이크업본 = 이 편집본에 음정 보정 등을 한 별도 파일 · ⇄를 누르면 듣던 자리 그대로 다른 쪽이 들려요</p>` : ""}</details>
+      ${ms === "ready" ? `<p class="muted" style="font-size:.85rem;margin:4px 0">✨ 메이크업본 = 이 편집본에 음정 보정 등을 한 별도 파일 · ⇄를 누르면 듣던 자리 그대로 다른 쪽이 들려요</p>` : ""}</details></details>
   </div>`;
 }
 // ── 베스트 편집본 전체 다시 편집(이슈 #153, 사용자 승인 2026-10-28) ─────────────────────────
@@ -9512,6 +9522,8 @@ function wireBest() {
       { title: "오늘의 베스트", tapFull: true, play: () => box?.querySelector('[data-abp="play"]')?.click(), paused: () => player.paused || !(tpFile === m.file_id || tpFile === o.file_id),
         mode: () => (tpFile === m.file_id ? "p" : "o"), setMode: (md) => box?.querySelector(`[data-ver="${md === "p" ? "mk" : "orig"}"]`)?.click(), ...tnOpts,
         onEdit: (t) => { try { player.pause(); } catch {} editFromBest(job, t); } });
+      { const pb = el.parentElement && el.parentElement.querySelector("[data-tplay]"); if (pb) { const pp = () => { pb.textContent = player.paused || !(tpFile === m.file_id || tpFile === o.file_id) ? "▶ 듣기" : "❚❚ 멈춤"; };   // (11/25 검토 반영) 그래프 아래 왼쪽 재생 버튼(원음·보정본은 위 '같이 보내기' 설정과 관계없이 지금 고른 쪽)
+        pb.onclick = (e) => { e.stopPropagation(); box?.querySelector('[data-abp="play"]')?.click(); setTimeout(pp, 300); }; for (const ev of ["play", "pause", "ended"]) player.addEventListener(ev, pp); pp(); } }
     }).catch(() => {}); }
   const pairs = [[broot, o.file_id], ...(m && mroot ? [[mroot, m.file_id]] : [])];
   // 파형 미리 그리기: 녹음을 받아 둔 적이 있으면 바로, 아니면 받아서(편집본·메이크업 각 한 번, 레슨 화면에 있는 동안 다시 받지 않음)
@@ -9569,7 +9581,7 @@ function renderToday() {
   // 오늘 핵심·이번 주 연습은 아래 '카톡 피드백'과 '수강생에게 보이는 내용'에 같은 글이 있어 여기선 뺌(2026-10-27 사용자: 정보가 너무 많음)
   void head; void prs;
   const bo = typeof bestPicked === "function" ? bestPicked() : null, bj = bo && typeof bestJoined === "function" ? bestJoined(bo) : undefined, tag = bj === undefined ? "" : `<span class="bestTag">${bj ? "오늘 잘한 부분 이어붙임" : "가장 좋았던 한 번"}</span>`;
-  $("todayCard").innerHTML = `<h3 style="margin:0 0 6px">🎵 오늘의 베스트<span class="v2ck v2only"></span></h3>` + renderBest() + (typeof regenBoxHTML === "function" ? regenBoxHTML() : "") + (typeof renderTrial === "function" ? renderTrial() : "");
+  $("todayCard").innerHTML = `<h3 style="margin:0 0 6px">🎵 오늘의 베스트<span class="v2ck v2only"></span></h3>` + renderBest() + (typeof regenBoxHTML === "function" && !regenBoxHTML._rg ? regenBoxHTML() : "") + (typeof renderTrial === "function" ? renderTrial() : "");
   wireBest(); if (typeof wireRegen === "function") wireRegen(); if (typeof paintDeliver === "function" && cur.folder) paintDeliver();
 }
 // 화자 확인이 필요한 상태(미확인/AI 불확실/3명 이상)면 상단으로 올리고 자동 펼침 + 경고. 아니면 한 줄 요약으로 접음
@@ -9924,7 +9936,7 @@ function renderGrowth() {
   const g = cur?.growth, ps = gcPairs();
   if (!g) { card.classList.add("hidden"); return; }
   card.classList.remove("hidden");
-  if (!ps.length) { card.innerHTML = `<b>📈 같은 구절, 그때와 지금</b> <span class="muted">· ${esc(g.why || "비교할 구절을 찾지 못함")}</span>`; return; }
+  if (!ps.length) { card.classList.add("hidden"); card.innerHTML = ""; return; }   // (11/25 검토 반영) 못 찾으면 카드째 숨김
   const rv = cur.review, gc = (rv.gc ??= { id: g.pick || ps[0].id, send: false, say: "" }), p = gcPicked();
   const row = (k, a, b) => `<tr><td class="muted">${k}</td><td>${a}</td><td><b>${b}</b></td></tr>`;
   card.innerHTML = `<details data-fold="gc"><summary><b>📈 같은 구절, 그때와 지금</b> <span class="muted">${p.days}일 사이 · 원음 그대로(보정 없음)</span></summary>
@@ -11265,7 +11277,9 @@ function v2DockPaint(me, done, total) {
   const all = done >= total, rv = me.review || {}, st = v2State(me), msg = $("v2DockMsg"), b = $("v2Send"); if (!msg || !b) return;
   const pub = st === "published" ? "✓ 수강생에게 공개 중" : st === "published_stale" ? "⚠ 고친 내용은 아직 수강생 화면에 반영 전 · 전달하기에서 다시 공개" : "아직 수강생에게 공개 전";
   let ss = ""; try { ss = sentStat(sentList(fbCheckText(rv), me.ai?.feedback_text, rv.sent_ok, sentEvTimes(me))).text; } catch {}
-  msg.textContent = (all ? "" : `카드를 끝까지 한 번 훑어봐 주세요 (${done}/${total}) · `) + (ss ? ss + " · " : "") + pub + (rv.kakao_sent_at ? " · 카톡 보냄 ✓" : "");
+  // (11/25 검토 반영) 상태 하나만: 확인 남은 개수(있을 때만) + 공개 상태 + 카톡 보냄 — '전체 N문장'은 뺌
+  const need_ = /필수 확인 (\d+)개 남음/.exec(ss || "");
+  msg.textContent = (all ? "" : `카드를 끝까지 한 번 훑어봐 주세요 (${done}/${total}) · `) + (need_ ? `확인 ${need_[1]}개 남음 · ` : "") + pub + (rv.kakao_sent_at ? " · 카톡 보냄 ✓" : "");
   b.textContent = all ? "✈ 전달하기" : `↓ 다음 카드 (${done}/${total})`; b.setAttribute("aria-label", all ? "수강생에게 전달하기" : "다음 카드 보기"); b.classList.toggle("todo", !all);
 }
 function v2Paint() {
@@ -11281,6 +11295,12 @@ function v2Paint() {
   $("v2AiBtn").onclick = () => v2AiOpen(me);
   $("v3Btn").onclick = () => v3Open(me);
   $("v3Def").onchange = (e) => { LS.set(V3_KEY, e.target.checked ? 1 : 0); if (e.target.checked) v3Open(me); };
+  // (11/25 검토 반영) '강사 검토 화면' 카드는 숨김(AI 작성률·훑어본 진행바·반복 강조 칩은 빼고) — AI 원문·새 검수 화면은 머리 ⋯ 메뉴로(미리보기는 아래 고정 줄)
+  { const mn = $("lsMenu"); $("v2Bar").style.display = "none"; if (mn && !mn.querySelector("#lsAi")) {
+      mn.insertAdjacentHTML("beforeend", `<button type="button" class="small ghost" id="lsAi"${me.ai ? "" : " disabled"}>👁 AI 원문 다시 보기</button><button type="button" class="small ghost" id="lsV3">✨ 새 검수 화면(시험)</button><label class="muted lsV3Def"><input type="checkbox" id="lsV3Def"${LS.get(V3_KEY) === 1 ? " checked" : ""}> 레슨 열 때 새 검수 화면으로</label>${$("celCard") && $("celCard").classList.contains("hidden") ? `<button type="button" class="small ghost" id="lsCel">🎉 기념 켜기</button>` : ""}`);
+      mn.querySelector("#lsAi").onclick = () => v2AiOpen(me); mn.querySelector("#lsV3").onclick = () => v3Open(me);
+      mn.querySelector("#lsV3Def").onchange = (e) => { LS.set(V3_KEY, e.target.checked ? 1 : 0); if (e.target.checked) v3Open(me); };
+      const cb = mn.querySelector("#lsCel"); if (cb) cb.onclick = () => { me.celShow = true; try { renderCeleb(); } catch {} const c = $("celCard"); if (c) { c.classList.remove("hidden"); c.scrollIntoView({ block: "center" }); } cb.remove(); }; } }
   v3Auto(me);
   v2Count(me); v2Watch(me); v2PubPaint(me);
 }
