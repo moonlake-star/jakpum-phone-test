@@ -688,7 +688,7 @@
   <div class="btns"><button type="button" class="ghost" id="v2Save">임시저장</button><button type="button" class="ghost" id="v2PvDock" aria-label="수강생 화면 미리보기">👀 미리보기</button><button type="button" id="v2Send" aria-label="수강생에게 전달하기">✈ 전달하기</button></div></div></div>
 <div id="v2Shade" class="v2only"></div>
 <div id="toast"></div>
-<script src="../lesson-replies.js"></script>
+<script src="../lesson-replies.js?v=fb1ceb5309"></script>
 <script src="../tune.js?v=08ee5f4934"></script>
 <script src="../adv.js?v=223226181c"></script>
 <script src="../pitch-embed.js?v=2f0b0aaf05"></script>
@@ -1597,6 +1597,7 @@ async function openStudent(sid, tab) {
   else if (tab === "growth") paintGrowthTab(sid);
   else paintMakeupTab(sid);
   // 뒤에서 새로 받아 갱신(화면 그대로면 다시 그림)
+  if (!(listDirtyAt < listFreshAt && Date.now() - listFreshAt < LIST_FRESH_MS))   // (11/24 로딩 감사) 홈에서 방금(90초 안) 다 받았고 그 뒤 저장한 게 없으면 다시 받지 않음
   studentData(sid).then(d => { attach(d); const c = LS.get("vn_list") || []; LS.set("vn_list", c.map(x => x.sid === sid ? d : x));
     if (stuCur?.sid === sid && stuCur.tab === tab && !$("vStu").classList.contains("hidden") && tab !== "subs" && !document.activeElement?.closest?.("#stuTab")) {
       if (tab === "lesson") { if (!refreshLessonRows(sid)) paintLessonsTab(sid); } else if (tab === "mk") paintMakeupTab(sid); } }).catch(() => {});
@@ -6669,16 +6670,19 @@ function songCachePut() { clearTimeout(songCacheT); const k = songCacheKey(), L 
 //   ① 곡 폴더 목록 1번 ② 모든 song.json의 '수정 시각'만 한 번에 1번 → 저장본과 수정 시각이 같은 곡은 그대로 쓰고, 바뀐 곡만 새로 읽음
 async function songLoad(prev = []) {
   const rid = await songRoot(false); if (!rid) return [];
+  const stamp = new Map();
+  const stampP = (async () => {   // (11/24 로딩 감사) song.json 수정 시각 조회를 곡 폴더 목록과 동시에(예전: 목록을 다 받은 뒤)
+    try {
+      let page = "";
+      do { const r = await (await api(`${DRIVE}/files?q=${q("name='song.json' and trashed=false")}&pageSize=1000&fields=nextPageToken,files(id,parents,modifiedTime)${page ? "&pageToken=" + page : ""}`)).json();
+        for (const f of r.files || []) for (const p_ of f.parents || []) stamp.set(p_, f); page = r.nextPageToken || ""; } while (page);
+    } catch { stamp.clear(); }   // 수정 시각 조회가 막히면 예전 방식(곡마다 읽기)으로
+  })();
   let kids = [], pg = "";
   do { const r = await (await api(`${DRIVE}/files?q=${q(`'${rid}' in parents and trashed=false`)}&pageSize=200&fields=nextPageToken,files(id,name,mimeType,modifiedTime,shortcutDetails)${pg ? "&pageToken=" + pg : ""}`)).json(); kids = kids.concat(r.files || []); pg = r.nextPageToken || ""; } while (pg);
   const lim = limiter(6), ovf = new Map(kids.filter(x => /^공유곡_.+\.json$/.test(x.name)).map(x => [x.name.slice(4, -5), x]));
   const fos = kids.filter(x => x.mimeType === "application/vnd.google-apps.folder").concat(kids.filter(x => x.mimeType === SONG_SC && x.shortcutDetails?.targetId && (!x.shortcutDetails.targetMimeType || x.shortcutDetails.targetMimeType === "application/vnd.google-apps.folder")).map(x => ({ id: x.shortcutDetails.targetId, ref: x.id })));   // 바로가기 = 원장이 공유한 곡(원본 폴더를 읽음)
-  const stamp = new Map();
-  try {
-    let page = "";
-    do { const r = await (await api(`${DRIVE}/files?q=${q("name='song.json' and trashed=false")}&pageSize=1000&fields=nextPageToken,files(id,parents,modifiedTime)${page ? "&pageToken=" + page : ""}`)).json();
-      for (const f of r.files || []) for (const p_ of f.parents || []) stamp.set(p_, f); page = r.nextPageToken || ""; } while (page);
-  } catch { stamp.clear(); }   // 수정 시각 조회가 막히면 예전 방식(곡마다 읽기)으로
+  await stampP;
   const old = new Map((prev || []).map(x => [x.folder, x]));
   const out = await Promise.all(fos.map(fo => lim(async () => { try {
     const st = stamp.get(fo.id), o = old.get(fo.id), of_ = fo.ref ? ovf.get(fo.id) : null;
@@ -8509,7 +8513,8 @@ async function openMkJob(j, backTo) {
     if (mkPlaying) { mkOffset = mkNow(); mkStop(); return paintTransport(); }
     mkUnlock();   // (11/16 사용자 '아이패드에서 재생 시작이 안 됨 — 불러오는 중만') 아이패드·아이폰 사파리는 누른 그 순간(기다리기 전)에 소리 장치를 깨워야 함
     try {
-      $("mkT").textContent = "불러오는 중…"; if (irF) { try { await mkIrLoad(irF.id); } catch (e) { console.warn("울림 IR", e); mkRev = null; } } await ensure(base()); if (mkRaw) await ensure(beforeSet());
+      $("mkT").textContent = "불러오는 중…";   // (11/24 로딩 감사) 울림 파일과 트랙을 동시에(예전: 울림을 다 받은 뒤 트랙) — 트랙은 울림이 오면 그때 연결됨(mkIrLoad)
+      await Promise.all([irF ? mkIrLoad(irF.id).catch((e) => { console.warn("울림 IR", e); mkRev = null; }) : null, ensure(base())]); if (mkRaw) await ensure(beforeSet());
       mkPlay(mkOffset); playLabel();
       clearInterval(mkTick); mkTick = setInterval(() => { if (!$("mkPos")) return clearInterval(mkTick); paintTransport(); }, 250);
       if (!MK_IOS) ensure(hasP ? [1, 2, 3].flatMap(stage) : []);  // 나머지 음정 단계는 뒤에서 미리(아이패드·아이폰은 메모리 때문에 고를 때 받음)
@@ -10720,7 +10725,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261124-2305";   // (11/24 낮) 공용 스크립트 ?v= = 내용 지문(scripts/bump-versions.js) — 11/23 보정창·소리 수정이 서비스 워커 캐시에 막혀 폰에 안 가던 것 · (11/24) 11/23 17:20 뒤 소리 크기 수정(#950~#959)이 '새 버전 알림'에 안 잡혀 폰이 옛 코드로 돌 수 있던 것
+const BUILD = "20261124-2320";   // (11/24 낮) 공용 스크립트 ?v= = 내용 지문(scripts/bump-versions.js) — 11/23 보정창·소리 수정이 서비스 워커 캐시에 막혀 폰에 안 가던 것 · (11/24) 11/23 17:20 뒤 소리 크기 수정(#950~#959)이 '새 버전 알림'에 안 잡혀 폰이 옛 코드로 돌 수 있던 것
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {

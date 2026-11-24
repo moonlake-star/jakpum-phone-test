@@ -12,3 +12,11 @@ console.log("load-speed OK");
 { const T2 = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8"), a = T2.indexOf("const revFirstP = revListP.then("), b = T2.indexOf("const d = await lessonData(l.id, files);");
   require("assert").ok(a > 0 && b > a && T2.includes("(pre && pre.id === reviewF.id ? pre.j : await readJSON(reviewF.id))"), "검수.json 미리 받기(같은 파일이면 그대로 씀)"); }
 console.log("load-speed 3 OK");
+// (11/24 로딩 감사 4) 수강생 화면 방금 받은 자료 재조회 생략 · 메이크업 울림·트랙 동시 · 곡 서랍 수정 시각 동시 · lesson-replies 버전 표시
+{ const T3 = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8"), A = require("assert");
+  A.ok(T3.includes("if (!(listDirtyAt < listFreshAt && Date.now() - listFreshAt < LIST_FRESH_MS))   // (11/24 로딩 감사) 홈에서 방금"));
+  A.ok(T3.includes('await Promise.all([irF ? mkIrLoad(irF.id).catch((e) => { console.warn("울림 IR", e); mkRev = null; }) : null, ensure(base())]);'));
+  const sl = T3.slice(T3.indexOf("async function songLoad"), T3.indexOf("const old = new Map((prev || []).map(x => [x.folder, x]));", T3.indexOf("async function songLoad")));
+  A.ok(sl.indexOf("const stampP = (async () => {") < sl.indexOf("let kids = []") && sl.includes("await stampP;"));
+  A.ok(/lesson-replies\.js\?v=[0-9a-f]{10}/.test(T3)); }
+console.log("load-speed 4 OK");
