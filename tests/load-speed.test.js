@@ -8,3 +8,7 @@ assert.ok(T.includes("if (cached && force !== true && listDirtyAt < listFreshAt 
 assert.ok(T.includes("if (!idem) listDirtyAt = Date.now();") && T.includes('renderList(true); };'), "저장했거나 새로고침이면 새로 받음");
 assert.ok(T.includes(".filter(r => !PREF_DONE.has(r.l.id)).slice(0, 3);"), "미리 받기 3개·한 번만");
 console.log("load-speed OK");
+// (11/24 로딩 감사 3) 레슨 화면: 검수.json을 자료 읽기와 동시에
+{ const T2 = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8"), a = T2.indexOf("const revFirstP = revListP.then("), b = T2.indexOf("const d = await lessonData(l.id, files);");
+  require("assert").ok(a > 0 && b > a && T2.includes("(pre && pre.id === reviewF.id ? pre.j : await readJSON(reviewF.id))"), "검수.json 미리 받기(같은 파일이면 그대로 씀)"); }
+console.log("load-speed 3 OK");

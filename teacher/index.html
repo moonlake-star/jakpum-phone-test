@@ -8895,6 +8895,9 @@ async function openLessonInner(sid, i, backTo) {
   full.pause(); hlQueueStop(); hlList = []; hlCur = -1; $("mini").classList.add("hidden"); document.body.classList.remove("miniOn"); nowIdx = -1; playSeq++; dropNext(); listenFile = null;
   const by = (n) => files.find(f => f.name === n);
   const revListP = list(l.id).catch(() => null);   // (11/14 사용자 '빠릿하게') 검수 파일 목록은 레슨 자료 읽기와 동시에 요청(예전: 자료를 다 읽은 뒤에야 요청)
+  // (11/24 로딩 감사) 검수.json 내용도 자료 읽기와 동시에(예전: 자료 14개를 다 받은 뒤에야 받기 시작 → 왕복 한 번 더)
+  const revFirstP = revListP.then(lst => { const fs_ = (lst || files).filter(f => f.name === REVIEW).sort((a, b) => String(b.modifiedTime || "").localeCompare(String(a.modifiedTime || "")));
+    return fs_[0] ? readJSON(fs_[0].id).then(j => ({ id: fs_[0].id, j })) : null; }).catch(() => null);
   const d = await lessonData(l.id, files);
   const { summary, segs, cands, clips, samples, sampleFiles } = d;
   // (11/12 23:15 사용자 '화자 확인 저장했는데 자꾸 떠') 목록을 불러올 때 받아 둔 파일 목록엔 나중에 생긴 검수.json이 없어서, 열 때마다 새 검수.json이 생기고
@@ -8902,7 +8905,8 @@ async function openLessonInner(sid, i, backTo) {
   let revFs = []; { const lst = await revListP; revFs = lst ? lst.filter(f => f.name === REVIEW) : files.filter(f => f.name === REVIEW); }
   revFs.sort((a, b) => String(b.modifiedTime || "").localeCompare(String(a.modifiedTime || "")));
   const reviewF = revFs[0];
-  let review = reviewF ? await readJSON(reviewF.id) : { speakers: {}, decisions: {}, manual: [], feedback: "" };
+  const pre = await revFirstP;
+  let review = reviewF ? (pre && pre.id === reviewF.id ? pre.j : await readJSON(reviewF.id)) : { speakers: {}, decisions: {}, manual: [], feedback: "" };
   if (reviewF && !files.some(f => f.id === reviewF.id)) files.push(reviewF);
   if (revFs.length > 1) {
     for (const o of revFs.slice(1)) { try { review = revMerge(review, await readJSON(o.id)); } catch {} }
@@ -10716,7 +10720,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261124-2225";   // (11/24 낮) 공용 스크립트 ?v= = 내용 지문(scripts/bump-versions.js) — 11/23 보정창·소리 수정이 서비스 워커 캐시에 막혀 폰에 안 가던 것 · (11/24) 11/23 17:20 뒤 소리 크기 수정(#950~#959)이 '새 버전 알림'에 안 잡혀 폰이 옛 코드로 돌 수 있던 것
+const BUILD = "20261124-2305";   // (11/24 낮) 공용 스크립트 ?v= = 내용 지문(scripts/bump-versions.js) — 11/23 보정창·소리 수정이 서비스 워커 캐시에 막혀 폰에 안 가던 것 · (11/24) 11/23 17:20 뒤 소리 크기 수정(#950~#959)이 '새 버전 알림'에 안 잡혀 폰이 옛 코드로 돌 수 있던 것
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
