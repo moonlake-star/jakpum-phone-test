@@ -8,7 +8,7 @@ const L = new Function("return " + block.slice(block.indexOf("["), block.lastInd
 assert.ok(L.length >= 5);
 for (const t of L) { assert.ok(code.includes(t.need), "기능이 바뀌었으면 팁 문구도: " + t.text); assert.ok(t.text.length <= 48, "짧게: " + t.text); }
 const br = fs.readFileSync(__dirname + "/../brand.js", "utf8");
-assert.ok(br.includes("const GRACE = 500;") && br.includes("loading.hide = setTimeout(() => { loading.hide = null; if (ln !== 0) return; prog(el, false);") && br.includes("setTips"), "연달아 읽어도 한 번만");
+assert.ok(br.includes("const GRACE = 1200, QUIET = 2500;") && br.includes("loading.hide = setTimeout(() => { loading.hide = null; if (ln !== 0) return; prog(el, false);") && br.includes("setTips"), "연달아 읽어도 한 번만");
 assert.ok(src.includes("Brand.setTips(appTips)"));
 { const ss = fs.readFileSync(__dirname + "/../student/index.html", "utf8"), a2 = ss.indexOf("const S_TIPS = ["), b2 = ss.indexOf("try { if (typeof Brand !== \"undefined\" && Brand.setTips) Brand.setTips(() => (typeof data");
   assert.ok(a2 > 0 && b2 > a2, "수강생 팁");
@@ -19,7 +19,7 @@ console.log("app-tips ok", L.length);
 // (11/03 22:33 사용자) 불러오는 중 팁 박스 → 원래 팝업(작은 로고 + 글 + 진행 바) · 터치 안 막음 · 연달아 읽어도 한 번만
 { const br2 = fs.readFileSync(__dirname + "/../brand.js", "utf8");
   assert.ok(br2.includes('<div class="lg"></div><div class="tx"></div><div class="br"><i></i></div>') && !br2.includes('class="bx"') && !br2.includes("queued") && !br2.includes('tipFn("load")'), "원래 팝업");
-  assert.ok(/\n\s*let lt = null, ln = 0;/.test(br2) && /\n\s*const GRACE = 500;/.test(br2), "변수 선언이 주석에 묻히지 않음"); }
+  assert.ok(/\n\s*let lt = null, ln = 0;/.test(br2) && /\n\s*const GRACE = 1200, QUIET = 2500;/.test(br2), "변수 선언이 주석에 묻히지 않음"); }
 // (11/03 17:28 사용자) 화면 맨 아래 고정 팁 칸 · 누르면 그 팁이 맨 위인 목록 · 전체화면은 팝업 없이 아래 팁 한 줄/💡 팁 보기 → 목록
 { const b6 = fs.readFileSync(__dirname + "/../brand.js", "utf8"), t6 = fs.readFileSync(__dirname + "/../tune.js", "utf8");
   assert.ok(b6.includes("function tipBar(on)") && b6.includes("function tipSheet(list, first, host)") && b6.includes("order = [L[f], ...L.filter((_, i) => i !== f)]") && b6.includes("setTimeout(() => { tipBarRefresh(); tipNudge(); }, 30)"));
