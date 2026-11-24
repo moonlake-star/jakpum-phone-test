@@ -854,6 +854,7 @@ async function api(url, opt = {}, retried = false) {
   if (typeof isDemo === "function" && isDemo() && opt.method && String(opt.method).toUpperCase() !== "GET") { try { toast("체험용 보기 전용이라 저장되지 않아요"); } catch {} throw new Error("체험용 보기 전용"); }
   if (!opt._nb && typeof autoBusy === "function") return autoBusy(api(url, { ...opt, _nb: true }, retried), !opt.method || String(opt.method).toUpperCase() === "GET");
   const idem = !opt.method || String(opt.method).toUpperCase() === "GET";
+  if (!idem) listDirtyAt = Date.now();   // (11/24) 무언가 저장했으면 홈은 다음에 새로 받음(renderList)
   for (let n = 0; ; n++) {
     token = savedToken() || token;
     if (!savedToken() && resumeMode) throw new Error("연결 대기 중(화면을 한 번 눌러 주세요)");   // 터치 전 자동 창 열기 막힘 → 멈춘 대기 방지
@@ -1454,7 +1455,7 @@ function paintList(data, stale) {
     `<div class="pane" data-p="more"><div class="card tabRow" id="calBtn2" role="button"><div><b>${IC_CAL} 레슨 캘린더</b><small class="muted" style="display:block">‘오늘’ 화면에서도 바로 열려요</small></div><span>›</span></div>${payCanEdit() ? `<div class="card tabRow" id="trashBtn" role="button"><div><b>🗑 휴지통</b><small class="muted" style="display:block">지운 커버·메이크업 곡과 연습용 수강생 되살리기(30일 안)</small></div><span>›</span></div>` : ""}<div id="prefsBox"></div><div id="advPermBox"></div><div id="laBox"></div>` +
     `<p class="muted">${stale ? "최신 내용 확인 중…" : "최신 상태"} · <a href="#" id="reload">새로고침</a> · 앱 버전 ${typeof BUILD === "string" ? BUILD : ""}</p></div>`;
   ensureBotNav(tabNow, bells);
-  $("reload").onclick = (e) => { e.preventDefault(); renderList(); };
+  $("reload").onclick = (e) => { e.preventDefault(); renderList(true); };
   if ($("trashBtn")) $("trashBtn").onclick = () => trashSheet();
   $("calBtn").onclick = () => openCal(); if ($("calBtn2")) $("calBtn2").onclick = () => openCal(); if ($("songBtn")) $("songBtn").onclick = () => openSongs(); if ($("jamBtn")) $("jamBtn").onclick = () => openJam();
   if ($("nsBtn")) $("nsBtn").onclick = () => newStudentSheet();
@@ -1522,15 +1523,21 @@ function workTick(now = Date.now()) {
 if (typeof setInterval !== "undefined" && typeof document !== "undefined") setInterval(workTick, WORK_STEP * 1000);
 function untilIdle(ms = 1200) { return new Promise(ok => { (function w() { const d = Date.now() - lastTouch; d >= ms ? ok() : setTimeout(w, ms - d + 30); })(); }); }
 let listNet = {};   // (11/05) 메인 목록을 다시 그릴 때마다 같은 정보를 드라이브·서버에서 또 읽지 않게: 새로고침·화면 복귀(renderList)에서만 비움, 필터·가리기 같은 다시 그리기는 재사용
-async function renderList() {
+// (11/24 로딩 감사) 다른 화면에서 홈으로 돌아올 때마다 모든 수강생의 모든 레슨 폴더를 처음부터 다시 읽었음(수십~수백 번 요청)
+//   → 마지막으로 다 받은 지 90초 안이면 저장본으로만 그림(내가 한 확인·보냄·공개 등은 저장본에 바로 반영됨) · '새로고침'은 언제나 새로 받음
+let listFreshAt = 0; var listDirtyAt = listDirtyAt || 0; const LIST_FRESH_MS = 90000;   // var: 위쪽 api()가 먼저 불려도 오류 없게
+async function renderList(force) {
   listNet = {}; show("vList");
   const my = ++listGen, cached = LS.get("vn_list");
+  if (cached && force !== true && listDirtyAt < listFreshAt && Date.now() - listFreshAt < LIST_FRESH_MS) { paintList(cached, false); return; }   // 둘러보기만 하고 돌아온 경우만(그사이 저장한 게 있으면 새로 받음)
   if (cached) paintList(cached, true); else $("vList").innerHTML = `<p class="muted">불러오는 중…</p>`;
+  const listT0 = Date.now();
   try {
     const attP = loadAttendance().then(a => { if (a) { att = a; LS.set("vn_att", a); if (typeof npAfterAtt === "function") npAfterAtt(); } return a; }).catch(() => null);
     const data = await listData(cached || []);
     await attP; if (att) pushStatuses().catch(() => {});
     pushGrowthAll().catch(() => {});
+    if (listDirtyAt < listT0) listFreshAt = listT0;   // 받는 도중에 저장한 게 있으면 '최신'으로 치지 않음
     if (my !== listGen || $("vList").classList.contains("hidden")) { LS.set("vn_list", data); return; }
     LS.set("vn_list", data);
     await untilIdle();                                  // 누르는 중이면 손을 뗀 뒤에 다시 그림(화면이 손가락 밑에서 바뀌지 않게)
@@ -6391,7 +6398,7 @@ async function mkIrLoad(fileId) {
   mkCtx ??= musicCtx(); if (mkRev && mkRev.ctx === mkCtx) return mkRev.p;
   const R = mkRev = { ctx: mkCtx, send: mkCtx.createGain(), conv: mkCtx.createConvolver(), buf: null };
   R.send.gain.value = 0; R.conv.normalize = false; R.send.connect(R.conv); R.conv.connect(mkBus());
-  R.p = (async () => { R.buf = await mkCtx.decodeAudioData(await (await readBlob(fileId, true)).arrayBuffer()); R.conv.buffer = R.buf;
+  R.p = (async () => { R.buf = await mkCtx.decodeAudioData(await (await readBlob(fileId)).arrayBuffer());   // (11/24 로딩 감사) 음원 저장소 사용(지문이 바뀌면 다시 받음) R.conv.buffer = R.buf;
     for (const [n, t] of Object.entries(mkTracks)) if (/^[pq][0-3]$/.test(n)) t.gain.connect(R.send); mkApply(); })();
   return R.p;
 }
@@ -6413,7 +6420,7 @@ async function mkLoad(name, fileId) {
   mkCtx ??= musicCtx();
   const g = mkCtx.createGain(); g.gain.value = 0; g.connect(mkBus()); if (/^[pq][0-3]$/.test(name) && mkRev && mkRev.ctx === mkCtx) g.connect(mkRev.send);
   const t = mkTracks[name] = { gain: g, buf: null, src: null };
-  t.loading = (async () => { t.buf = await mkDecode(name, await (await readBlob(fileId, true)).arrayBuffer());
+  t.loading = (async () => { t.buf = await mkDecode(name, await (await readBlob(fileId)).arrayBuffer());   // (11/24 로딩 감사) 다시 열면 받지 않음(md5 지문 확인)
     mkDurS = Math.max(mkDurS, t.buf.duration); mkAutoGain(); let re = false; try { re = pvApplyAll(); } catch {} if (mkPlaying && !re) mkStartTrack(t, mkNow()); mkApply(); })();   // 다시 만들었으면 pvApplyAll이 전부 다시 틀었음(두 번 겹쳐 나오지 않게)
   return t.loading;
 }
@@ -6981,7 +6988,7 @@ function stemEngine(d) {
   const decode = (ab) => new Promise((ok, no) => { try { const p = ctx.decodeAudioData(ab, ok, no); if (p && p.then) p.then(ok, no); } catch (e) { no(e); } });
   const closeCtx = () => { try { ctx && ctx.close && ctx.close(); } catch {} ctx = null; gain = null; master = null; };
   const load = () => loading ||= (async () => {
-    const a = await d.fetchBuf("mr"), b = await d.fetchBuf("voc"); if (dead) throw stale();
+    const [a, b] = await Promise.all([d.fetchBuf("mr"), d.fetchBuf("voc")]); if (dead) throw stale();   // (11/24 로딩 감사) 반주·보컬 동시에 받기(예전엔 반주 다 받은 뒤 보컬 → 기다림 약 2배)
     const est = Math.max(a.byteLength, b.byteLength) / (d.bytesPerSec || 20000);   // 160kbps MP3 ≈ 20000바이트/초
     if (AC && !d.html && est <= (d.maxDecodeSec || 480)) {   // 4분 스테레오 ≈ 한 트랙 약 90MB → 8분 넘을 듯하면 디코드하지 않고 폴백
       const ra = a.slice(0), rb = b.slice(0);   // decodeAudioData가 원본을 비우므로 폴백용 사본
@@ -7134,7 +7141,7 @@ function stretchEngine(d) {
     if (!AC) throw new Error("WebAudio 없음");
     ctx ||= musicCtx(AC); if (!ctx.audioWorklet) throw new Error("AudioWorklet 없음");
     const lib = await stretchLib(d); if (dead) throw stale();
-    const a = await d.fetchBuf("mr"), b = await d.fetchBuf("voc"); if (dead) throw stale();
+    const [a, b] = await Promise.all([d.fetchBuf("mr"), d.fetchBuf("voc")]); if (dead) throw stale();   // (11/24 로딩 감사) 반주·보컬 동시에 받기(예전엔 반주 다 받은 뒤 보컬 → 기다림 약 2배)
     if (Math.max(a.byteLength, b.byteLength) / (d.bytesPerSec || 20000) > (d.maxDecodeSec || 480)) throw new Error("곡이 너무 길어요(메모리)");   // 160kbps MP3 ≈ 20000바이트/초 · 8분 넘으면 폴백
     const opt = { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2] };
     const mk = async (ab) => {   // 한 트랙씩 디코드 → 채널 복사 → 처리기로 넘김(복사본은 넘기며 비움): 순간 메모리를 한 트랙 분으로
@@ -8723,7 +8730,7 @@ async function openMkJob(j, backTo) {
   window.mkForceQ = () => { if (mkJob !== j) return; r._needRebuild = true; paintFixN(); };   // 곡 정보·키·엔진처럼 '고침 지문' 밖의 설정 → 미반영 표시만(만들기는 버튼으로)   // 곡 정보·키·엔진처럼 '고침 지문' 밖의 설정을 바꿨을 때
   $("mkKey")?.addEventListener("change", () => window.mkForceQ());
   $("mkMix").onclick = async () => { if (mkEditDirty() || mkBusyRender()) { try { mkSeekTo(0); } catch {} try { if (!mkPlaying) $("mkPP").click(); } catch {} window.scrollTo({ top: 0, behavior: "smooth" }); return; }   // 새 완성본이 아직이면 위 재생기로 지금 고친 소리
-    const au = $("mkMixAu"); try { if (mkPlaying) { mkOffset = mkNow(); mkStop(); paintTransport(); } au.src = URL.createObjectURL(await readBlob(by("mix.mp3").id, true)); au.classList.remove("hidden"); $("mkMix").classList.add("hidden"); au.play(); } catch (e) { toast(e.message); } };
+    const au = $("mkMixAu"); try { if (mkPlaying) { mkOffset = mkNow(); mkStop(); paintTransport(); } au.src = URL.createObjectURL(await readBlob(by("mix.mp3").id)); au.classList.remove("hidden"); $("mkMix").classList.add("hidden"); au.play(); } catch (e) { toast(e.message); } };
   // (11/16 15:55 사용자 '받기 누르고 다른 화면으로 가도 되나? 알려주는 문구') 폰에서 직접 소리를 만들어서, 만드는 동안 화면을 나가거나 다른 앱으로 가면 멈추거나 아주 느려짐 → 끝(✓)까지 이 화면에
   const KEEP = " · 다 될 때까지 이 화면에 있어 주세요(다른 화면·앱으로 가면 멈출 수 있어요)";
   $("mkPhoneMix").onclick = async () => {
@@ -8753,7 +8760,7 @@ async function openMkJob(j, backTo) {
   // (11/12 18:33 사용자 화면 'Permission denied') 폰 공유 창은 '누른 직후'에만 열려요 — 예전엔 누른 뒤 완성본을 내려받느라 기다리는 사이 허락이 끝나 버렸음
   //   → 이 화면이 열리면 완성본을 미리 받아 두고, 아직 못 받았으면 받은 뒤 '한 번 더 눌러 주세요'
   let mixBlob = null, mixP = null; const mixId = () => (by("mix.mp3") || {}).id;
-  const mixPre = () => { const id = mixId(); if (!id) return null; if (!mixP || mixP._id !== id) { mixBlob = null; mixP = readBlob(id, true).then(b => { if (mixP && mixP._id === id) mixBlob = b; return b; }); mixP._id = id; mixP.catch(() => { mixP = null; }); } return mixP; };
+  const mixPre = () => { const id = mixId(); if (!id) return null; if (!mixP || mixP._id !== id) { mixBlob = null; mixP = readBlob(id, false, true).then(b => { if (mixP && mixP._id === id) mixBlob = b; return b; }); mixP._id = id; mixP.catch(() => { mixP = null; }); } return mixP; };
   try { mixPre(); } catch {}
   const shareNow = async (usePhone) => {
     try {
@@ -8809,9 +8816,10 @@ function lessonData(folderId, files) {
   lessonCache.set(folderId, p);
   return p;
 }
-function prefetchLessons(data) {
-  const recent = data.flatMap(d => d.rows.filter(r => !r.err).slice(0, 2)).slice(0, 6);
-  recent.forEach(r => lessonData(r.l.id, r.files));
+const PREF_DONE = new Set();
+function prefetchLessons(data) {   // (11/24 로딩 감사) 6개 한꺼번에(최대 약 80개 요청) → 최근 3개, 한 번 받은 레슨은 다시 안 받음 — 누르는 화면과 회선을 덜 나눠 씀
+  const recent = data.flatMap(d => d.rows.filter(r => !r.err).slice(0, 1)).filter(r => !PREF_DONE.has(r.l.id)).slice(0, 3);
+  recent.forEach(r => { PREF_DONE.add(r.l.id); lessonData(r.l.id, r.files); });
 }
 // '불러오는 중' 안내(2026-10-27 사용자: 레슨 화면 3초·재생 1~2초 동안 아무 표시가 없음)
 let busyN = 0, busyT = null;
@@ -10686,7 +10694,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261124-1715";   // (11/24 낮) 공용 스크립트 ?v= = 내용 지문(scripts/bump-versions.js) — 11/23 보정창·소리 수정이 서비스 워커 캐시에 막혀 폰에 안 가던 것 · (11/24) 11/23 17:20 뒤 소리 크기 수정(#950~#959)이 '새 버전 알림'에 안 잡혀 폰이 옛 코드로 돌 수 있던 것
+const BUILD = "20261124-2215";   // (11/24 낮) 공용 스크립트 ?v= = 내용 지문(scripts/bump-versions.js) — 11/23 보정창·소리 수정이 서비스 워커 캐시에 막혀 폰에 안 가던 것 · (11/24) 11/23 17:20 뒤 소리 크기 수정(#950~#959)이 '새 버전 알림'에 안 잡혀 폰이 옛 코드로 돌 수 있던 것
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
