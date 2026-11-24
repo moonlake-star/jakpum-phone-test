@@ -4369,7 +4369,9 @@ async function openSubs(sid, box) {
     const rec = subsCur.recs.find(x => x.id === card.dataset.id);
     card.querySelector(".reply").oninput = (e) => { rec.reply = e.target.value; };
     const persist = async (msg) => { rec.reply = card.querySelector(".reply").value.trim();
-      try { await writeJSON(subsCur.folder, SUBS, subsCur.recs, subsCur.recId); toast(msg); openStudent(sid, "subs"); } catch (e) { toast(e.message); } };
+      try { await writeJSON(subsCur.folder, SUBS, subsCur.recs, subsCur.recId);
+        try { const c = LS.get("vn_list") || []; LS.set("vn_list", c.map(x => x.sid === sid ? { ...x, subs: subsCur.recs.map(r => ({ received_on: r.received_on, replied_at: r.replied_at, memo: r.memo })) } : x)); } catch {}   // (11/24) 답장하면 홈 할 일에서 바로 빠지게
+        toast(msg); openStudent(sid, "subs"); } catch (e) { toast(e.message); } };
     mqPaint(card, sid, rec.id);
     card.querySelector("[data-aimock]")?.addEventListener("click", () => {
       const box = card.querySelector(".msmock"), mk = msMock(rec);
@@ -8299,10 +8301,15 @@ async function editFromBest(job, t) {
     uncover(); toast("음정선을 아직 못 받았어요 · 아래 음정선을 눌러 주세요");
   } catch (e) { uncover(); throw e; }
 }
+// (11/24 사용자 '확인하면 바로바로 리스트에서 사라지게 — 지금은 한동안 남아 있어') 목록은 폰에 저장한 사본(vn_list)으로 먼저 그려지므로
+//   메이크업 작업 상태를 바꾸면 그 사본도 바로 고침 → 뒤로 가자마자 할 일·확인 대기에서 빠짐
+function mkCachePatch(j, patch) {
+  try { const c = LS.get("vn_list") || []; LS.set("vn_list", c.map(x => x.sid === j.sid ? { ...x, jobs: (x.jobs || []).map(y => (y.reqId === j.reqId || y.folder?.id === j.folder?.id) ? { ...y, req: { ...y.req, ...patch } } : y) } : x)); } catch {}
+}
 document.addEventListener("click", async (e) => {   // (11/24) 바꾼 베스트 메이크업 '확인 끝' → 알림 끔(파일·보냄 기록은 그대로)
   const b = e.target.closest && e.target.closest("#mkBcOk"); if (!b || !mkJob) return;
   const j = mkJob, r = j.req; b.disabled = true;
-  try { r.checked_at = new Date().toISOString(); await writeJSON(j.folder.id, MKREQ, r, j.reqId); $("mkBcCard")?.remove(); toast("확인했어요 · 할 일에서 사라져요"); }
+  try { r.checked_at = new Date().toISOString(); await writeJSON(j.folder.id, MKREQ, r, j.reqId); mkCachePatch(j, { checked_at: r.checked_at }); $("mkBcCard")?.remove(); toast("확인했어요 · 할 일에서 사라져요"); }
   catch (er) { delete r.checked_at; b.disabled = false; toast("저장 실패 — 다시 눌러 주세요"); }
 });
 async function openMkJob(j, backTo) {
@@ -8678,7 +8685,7 @@ async function openMkJob(j, backTo) {
       if (!navigator.canShare?.({ files })) return toast("이 브라우저는 파일 공유를 지원하지 않아요");
       await navigator.share({ files });
       r.sent_at = new Date().toISOString();
-      await writeJSON(j.folder.id, MKREQ, r, j.reqId); toast("보낸 기록 저장됨");
+      await writeJSON(j.folder.id, MKREQ, r, j.reqId); mkCachePatch(j, { sent_at: r.sent_at }); toast("보낸 기록 저장됨");
       $("mkSentT").textContent = "보냄 " + new Date(r.sent_at).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
     } catch (e) { if (e.name === "AbortError") return; toast(e.name === "NotAllowedError" ? "보내기 창을 못 열었어요 — 한 번 더 눌러 주세요" : e.message); }
   };
@@ -10601,7 +10608,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261124-1025";   // (11/24 낮) 공용 스크립트 ?v= = 내용 지문(scripts/bump-versions.js) — 11/23 보정창·소리 수정이 서비스 워커 캐시에 막혀 폰에 안 가던 것 · (11/24) 11/23 17:20 뒤 소리 크기 수정(#950~#959)이 '새 버전 알림'에 안 잡혀 폰이 옛 코드로 돌 수 있던 것
+const BUILD = "20261124-1130";   // (11/24 낮) 공용 스크립트 ?v= = 내용 지문(scripts/bump-versions.js) — 11/23 보정창·소리 수정이 서비스 워커 캐시에 막혀 폰에 안 가던 것 · (11/24) 11/23 17:20 뒤 소리 크기 수정(#950~#959)이 '새 버전 알림'에 안 잡혀 폰이 옛 코드로 돌 수 있던 것
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
