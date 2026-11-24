@@ -984,7 +984,7 @@
     const v4 = uni && !!(G.TuneAdv && G.TuneAdv.v4Param) && v4On();
     if (st) st.v4 = v4;
     if (v4) { d.classList.add("tfUni", "tfV4");
-      d.innerHTML = `<div class="tfFixBox tfV4Box"><span class="tfFixSt tfV4St" aria-live="polite"></span><div class="tfV4R" data-v4a>${["tin", "bin", "lin", "fine", "lout", "bout", "tout"].map(k => `<i data-slot="${k}"></i>`).join("")}</div><div class="tfV4R" data-v4b><i data-slot="tilt"></i><i data-slot="vib"></i><i data-slot="fmt"></i><button type="button" class="tfV4B tfRaw" data-raw aria-label="이 음은 보정 안 함(부른 그대로)"><i>🎤</i><small>원음</small></button><button type="button" class="tfV4B tfOrg" data-r aria-label="이 음 자동 보정으로(선생님 고침 지움, 확인 창)"><i>↺</i><small>자동</small></button>${typeof cv.onOctave === "function" ? `<button type="button" class="tfV4B tfOct" data-oct aria-label="인식 옥타브 바로잡기(소리는 그대로)"><i>8va</i><small>옥타브</small></button>` : ""}<i data-slot="gain"></i></div>
+      d.innerHTML = `<div class="tfFixBox tfV4Box"><span class="tfFixSt tfV4St" aria-live="polite"></span><div class="tfV4R" data-v4a>${["tin", "bin", "fine", "bout", "tout"].map(k => `<i data-slot="${k}"></i>`).join("")}</div><div class="tfV4R" data-v4b><i data-slot="tilt"></i><i data-slot="vib"></i><i data-slot="gain"></i><i data-slot="fmt"></i>${typeof cv.onOctave === "function" ? `<button type="button" class="tfV4B tfOct" data-oct aria-label="인식 옥타브 바로잡기(소리는 그대로)"><i>8va</i><small>옥타브</small></button>` : ""}<button type="button" class="tfV4B tfRaw" data-raw aria-label="이 음은 보정 안 함(부른 그대로)"><i>🎤</i><small>원음</small></button><button type="button" class="tfV4B tfOrg" data-r aria-label="이 음 자동 보정으로(선생님 고침 지움, 확인 창)"><i>↺</i><small>자동</small></button></div>
         <span class="tfFixN tfV4Hid" data-p hidden></span>${mgNb ? `<button type="button" class="tfV4Mg" data-merge aria-label="옆 조각과 하나로 합치기">⇔ 합치기</button>` : ""}</div>`; }
     else if (uni) { d.classList.add("tfUni");
       d.innerHTML = `<div class="tfFixBox"><div class="tfUniTop"><div class="tfStRow"><span class="tfFixSt"></span><button type="button" class="tfRaw" data-raw aria-label="이 음은 보정 안 함(부른 그대로)">🎤 원음</button><button type="button" class="tfOrg" data-r aria-label="이 음 자동 보정으로(선생님 고침 지움, 확인 창)">↺ 자동</button>${G.TuneAdv && G.TuneAdv.v4Param ? `<button type="button" class="tfV4Sw" data-vsw aria-label="새 고치기 팝업(V4)으로">V4</button>` : ""}</div>
@@ -1188,11 +1188,11 @@
       const tOut = { get: () => r2(n1 - b.t1), set: (v) => { n1 = b.t1 + v; tClamp("r"); tPaint(); tPreview(); tPersist(); } };
       const noop = { get: () => 0, set: () => {} };
       const put_ = (k, c) => { const sl = d.querySelector(`[data-slot="${k}"]`); if (sl) sl.replaceWith(c); };
+      // (11/24 사용자 C안 발전) 전체상하 = 넓은 가운데 패드: 위아래 = 음높이(바로) · 좌우 = 왼쪽 절반 앞길이 / 오른쪽 절반 뒤길이(무디게 42px) — 앞길이·뒤길이 칸은 없앰
+      const key_ = (c) => { c.classList.add("tfV4Key"); c.insertAdjacentHTML("beforeend", `<span class="tfV4H l" aria-hidden="true">◂<br>앞</span><span class="tfV4H r" aria-hidden="true">▸<br>뒤</span>`); c.setAttribute("aria-label", "전체상하 (위아래로 밀어 음높이 · 왼쪽 절반을 좌우로 밀면 앞길이 · 오른쪽 절반은 뒤길이 · 두 번 톡 = 원래 값)"); return c; };
       put_("tin", off_(sc("앞이어짐", prevB ? P({ t0: prevB.t0, t1: prevB.t1 }, "tr_ms") : noop, { step: 20, min: 0, max: 800, def: 0, fmt: ms_, ico: "trin", px: 10, inv: true }), !!prevB, "바로 앞에 붙은 음이 없어요"));
       put_("bin", sc("앞상하", P(b, "tilt_in"), { step: 5, min: -300, max: 300, def: 0, vert: true, fmt: cents_, ico: "bin", px: 6 }));
-      put_("lin", sc("앞길이", tIn, { step: 0.02, min: -0.6, max: 0.6, def: 0, fmt: sg_, ico: "lenL", px: 10 }));
-      put_("fine", sc("전체상하", fine, { step: 0.01, min: m0 - 12, max: m0 + 12, def: mO, vert: true, fmt: (v) => { const r = Math.round(v), c = Math.round((v - r) * 100); return noteName(r) + (c ? (c > 0 ? "+" : "") + c : ""); }, ico: "pitch", px: 4, longStep: 1, longPx: 28, longLabel: "🎹 반음 단위", onLong: () => snd(m), onStart: () => snd(m), onEnd: () => { clearTimeout(vtm); vtm = setTimeout(sndOff, 250); } }));
-      put_("lout", sc("뒤길이", tOut, { step: 0.02, min: -L0 * 0.5, max: L0, def: 0, fmt: sg_, ico: "lenR", px: 10 }));
+      put_("fine", key_(sc("전체상하", fine, { hAlt: { dead: 42, l: { label: "앞길이", ...tIn, step: 0.02, min: -0.6, max: 0.6, fmt: sg_, px: 10 }, r: { label: "뒤길이", ...tOut, step: 0.02, min: -L0 * 0.5, max: L0, fmt: sg_, px: 10 } }, step: 0.01, min: m0 - 12, max: m0 + 12, def: mO, vert: true, fmt: (v) => { const r = Math.round(v), c = Math.round((v - r) * 100); return noteName(r) + (c ? (c > 0 ? "+" : "") + c : ""); }, ico: "pitch", px: 4, longStep: 1, longPx: 28, longLabel: "🎹 반음 단위", onLong: () => snd(m), onStart: () => snd(m), onEnd: () => { clearTimeout(vtm); vtm = setTimeout(sndOff, 250); } })));
       put_("bout", sc("뒤상하", P(b, "tilt_out"), { step: 5, min: -300, max: 300, def: 0, vert: true, fmt: cents_, ico: "bout", px: 6 }));
       put_("tout", off_(sc("뒤이어짐", nextOk ? P(b, "tr_ms") : noop, { step: 20, min: 0, max: 800, def: 0, fmt: ms_, ico: "tr", px: 10 }), nextOk, "바로 뒤에 붙은 음이 없어요"));
       put_("tilt", sc("기울기", P(b, "tilt"), { step: 10, min: -300, max: 300, def: 0, vert: true, fmt: cents_, ico: "tilt", px: 8 }));
@@ -2214,6 +2214,10 @@
 #tuneFs .tfV4R .advSc .advV{position:absolute;left:0;right:0;top:20px;margin:0!important;font-size:11px!important;font-weight:800;line-height:1;text-align:center;white-space:nowrap;overflow:hidden;letter-spacing:-.3px}
 #tuneFs .tfV4R .advSc .advScA{display:none}
 #tuneFs .tfV4R .advSc.v4off{opacity:.35;pointer-events:none}
+/* (11/24 사용자 C안 · 살구 주황) 아이콘 또렷하게 + 가운데 전체상하 패드 */#tuneFs .tfV4R .advSc .advScI{opacity:.85!important}#tuneFs .tfV4R .advSc .advScI path{stroke:#ffb86b}#tuneFs .tfV4B i{color:#ffb86b}
+#tuneFs .tfV4R>.tfV4Key{flex:2.3 1 0!important;border:2px solid #ffb86b!important;background:#1b1a14!important}#tuneFs .tfV4R>.tfV4Key .advScI{height:17px!important;top:3px!important;left:18%!important;width:64%!important}#tuneFs .tfV4R>.tfV4Key .advScI path{stroke-width:3.2}
+#tuneFs .tfV4R>.tfV4Key .advScL{color:#ffb86b!important;font-size:10.5px!important;bottom:3px}#tuneFs .tfV4R>.tfV4Key .advV{font-size:12px!important;color:#fff;top:21px}
+#tuneFs .tfV4H{position:absolute;top:50%;transform:translateY(-50%);font:800 10px/1.1 sans-serif;color:#ffb86b;opacity:.75;text-align:center;pointer-events:none}#tuneFs .tfV4H.l{left:5px}#tuneFs .tfV4H.r{right:5px}#tuneFs .tfV4Key.alt .tfV4H{opacity:1}
 #tuneFs .tfV4B{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:1.5px solid #3b4250;background:#11141a;color:#eceff3}
 #tuneFs .tfV4B i{font-style:normal;font-size:17px;line-height:1}#tuneFs .tfV4B small{font-size:9.5px;color:#a9b1bc;line-height:1}
 #tuneFs .tfV4B.on{border-color:#7fd99a;background:#16261c}#tuneFs .tfV4B.hold{border-color:#ffb86b}
