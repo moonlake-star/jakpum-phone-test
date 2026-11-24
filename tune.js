@@ -609,7 +609,8 @@
       if (st && st.advOn && G.TuneAdv && cv.uv) {   // (11/04 사용자) 치찰음(노란 빗금)·호흡(회색 빗금) — 고급 보정에서만, 가까운 음 막대 높이에
         const ub = [], near_ = (a, b) => { let best = null, bd = 9; for (const x of bars) { const dd = Math.max(0, x.t0 - b, a - x.t1); if (dd < bd && dd <= 0.6) { bd = dd; best = x; } } return best; };
         for (const u of G.TuneAdv.uvList(cv, st)) { if (u[1] < t0 - 0.2 || u[0] > t0 + W8 + 0.2) continue;
-          const x0 = xs(u[0]), x1 = Math.max(x0 + 4, xs(u[1])), nb = near_(u[0], u[1]), yy = nb ? nb.y : T + HP - 14, hh = Math.max(12, bh * 1.2);
+          const nxt = u[2] === "s" ? bars.filter(x => !x.ghost && x.t0 >= u[1] - 0.02 && x.t0 - u[1] <= SIB_GAP).sort((p_, q_) => p_.t0 - q_.t0)[0] : null;   // (11/24) 치찰음 = 뒤 모음 음표의 왼쪽 앞에 붙임(그 음 높이·그 음 시작에 맞닿게)
+          const w_ = Math.max(4, xs(u[1]) - xs(u[0])), x1 = nxt ? nxt.x0 : Math.max(xs(u[0]) + 4, xs(u[1])), x0 = nxt ? nxt.x0 - w_ : xs(u[0]), nb = nxt || near_(u[0], u[1]), yy = nb ? nb.y : T + HP - 14, hh = Math.max(12, bh * 1.2);
           { // (11/14 21:09 사용자 '멜로다인식 고고') 치찰음·숨 = 붙은 음 높이의 '잡음 덩어리' — 붙은 음 높이에, 모양 = 그 구간 소리 크기, 거친 점무늬
             const EVu = (st && typeof st.vbuf === "function" ? envOf(st.vbuf()) : null) || envCv(cv), isS = u[2] === "s";
             const N = Math.max(6, Math.round((x1 - x0) / 2)), top = [], bot = [];
@@ -963,9 +964,14 @@
   // (11/03 13:08 사용자 승인) 타이밍·길이 고치기 시간표 — ⚠ 서버 app/jakpum/timing.py clusters()/tmap()과 같은 규칙(시험 tests/time-edits.test.js가 같은 값인지 확인)
   // edits [{t0,t1,nt0,nt1}](원래 시간) → [[원래, 새], ...] (사이는 직선, 밖은 그대로)
   const TW = 0.4, TMIN = 0.03, TMAX = 4.0;
+  // (11/24 사용자 'ㅅ·ㅊ 치찰음은 모음 음표의 왼쪽 앞에 붙이기') 음 바로 앞(0.15초 안) 치찰음의 시작 — 음을 옮기면 그 치찰음도 같이 움직임(서버 timing.parse와 같은 규칙)
+  const SIB_GAP = 0.15;
+  function sibBefore(cv, st, t0) { let L = []; try { L = G.TuneAdv && G.TuneAdv.uvList ? G.TuneAdv.uvList(cv, st) : (cv.uv || []); } catch { L = cv.uv || []; }
+    let best = null; for (const u of L) { if (u[2] !== "s") continue; if (u[1] <= t0 + 0.02 && t0 - u[1] <= SIB_GAP && u[0] < t0 - 0.02 && t0 - u[0] <= 0.6 && (best == null || u[0] > best)) best = u[0]; } return best == null ? null : Math.round(best * 1e4) / 1e4; }
   function tmapOf(edits, dur) {
+    function sibEdits(es) { const out = []; for (const e of es) { out.push(e); const s = e[4]; if (s != null && Number.isFinite(s) && s < e[0] - 0.02 && e[0] - s <= 0.6) { const d = e[2] - e[0]; if (s + d >= 0) out.push([s, e[0], Math.round((s + d) * 1e4) / 1e4, e[2]]); } } return out; }
     const r4 = (x) => Math.round(x * 1e4) / 1e4;
-    const eds = (edits || []).map(e => [r4(+e.t0), r4(+e.t1), r4(+e.nt0), r4(+e.nt1)]).filter(e => e.every(Number.isFinite) && e[0] >= 0 && e[0] < e[1] && e[2] >= 0 && e[2] < e[3] && e[1] - e[0] <= 30 && !(Math.abs(e[2] - e[0]) < 0.005 && Math.abs(e[3] - e[1]) < 0.005))
+    const eds = sibEdits((edits || []).map(e => [r4(+e.t0), r4(+e.t1), r4(+e.nt0), r4(+e.nt1), e.sib == null ? null : r4(+e.sib)])).map(e => e.slice(0, 4)).filter(e => e.every(Number.isFinite) && e[0] >= 0 && e[0] < e[1] && e[2] >= 0 && e[2] < e[3] && e[1] - e[0] <= 30 && !(Math.abs(e[2] - e[0]) < 0.005 && Math.abs(e[3] - e[1]) < 0.005))
       .sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2] || a[3] - b[3]);
     const groups = [];
     for (const e of eds) { const we = Math.max(TW, 1.5 * Math.max(Math.abs(e[2] - e[0]), Math.abs(e[3] - e[1]))), a = Math.max(0, Math.min(e[0], e[2]) - we), b = Math.min(dur, Math.max(e[1], e[3]) + we);
@@ -1203,7 +1209,7 @@
       tn.innerHTML = `${sg(dt)}초<small>길이 ${Math.abs(dl) > 0.004 ? sg(dl) + "초" : "그대로"}</small>`; };
     let tPaint = tPaint0;   // (11/06) 기본 모드 위치·길이 칸도 같이 다시 그리도록 바꿔 끼울 수 있게
     const tPreview = () => { cv._tedits = (cv._tedits || []).filter(x => !sameT(x)).concat(tSame() ? [] : [{ t0: b.t0, t1: b.t1, nt0: n0, nt1: n1, c: Math.round(m * 100) }]); };   // 지금 음정 높이에(음정을 바꾼 뒤 옮겨도 막대가 제 높이)
-    tSave = () => { try { fxSave(st.onTime, { t0: b.t0, t1: b.t1, nt0: n0, nt1: n1 }); } catch {} stEl.textContent = "✓ 저장됨" + (uni || bu ? tInfo() : ""); };
+    tSave = () => { try { const sb_ = sibBefore(cv, st, b.t0); fxSave(st.onTime, { t0: b.t0, t1: b.t1, nt0: n0, nt1: n1, ...(sb_ != null ? { sib: sb_ } : {}) }); } catch {} stEl.textContent = "✓ 저장됨" + (uni || bu ? tInfo() : ""); };
     const tPersist = () => { clearTimeout(tTm); stEl.textContent = "저장 중…" + (uni || bu ? tInfo() : ""); tTm = setTimeout(() => { tTm = null; tSave(); commit(); }, 450); };
     const tStep = (kind, dv) => { if (kind === "m") { n0 += dv; n1 += dv; tClamp("m"); } else { n1 += dv; tClamp("r"); } tPaint(); tPreview(); tPersist(); };
     tPaint();
