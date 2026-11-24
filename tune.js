@@ -340,6 +340,37 @@
   //   → 같은 음(시작이 같거나 절반 넘게 겹침)만 지우고, 끝만 살짝 겹친 옆 음은 겹친 만큼만 잘라 그대로 둠
   function fxDrop(list, t0, t1) { const out = []; for (const x of list || []) { if (!x) continue; const ov = Math.min(x.t1, t1) - Math.max(x.t0, t0); if (ov <= 0) { out.push(x); continue; }
       if (Math.abs(x.t0 - t0) < 0.02 || ov > 0.5 * Math.min(x.t1 - x.t0, t1 - t0)) continue; const y = { ...x }; if (y.t0 < t0) y.t1 = +t0.toFixed(4); else y.t0 = +t1.toFixed(4); if (y.t1 - y.t0 > 0.02) out.push(y); } return out; }
+  // (11/24 사용자 '멜로다인처럼 음악적으로 중요한 지점(몸통)' · 코덱스·안티그라비티 검토 반영) 음표 몸통 = 실제로 부른 대표 높이
+  //   ① ㅅ·ㅊ·숨(cv.uv)·높이 못 읽은 점·순간 옥타브 튐(앞뒤 중앙값에서 6반음↑) 뺌 ② 0.18초 평균선(비브라토 한 주기 ≈ 떨림 가운데)
+  //   ③ 안정 구간 = 평균선 기울기 ≤250센트/초가 0.08초↑ 이어지고 10~90% 폭 ≤40센트 — 아래에서 올라와 늦게 자리 잡아도 그 자리
+  //   ④ 대표 = 가중 중앙값, 가중 = 위치(0.25+0.75·sin²πu) × 안정성 1/(1+(속도/250)²) × √소리크기
+  //   0.15초 미만 짧은 음 = 가운데 60%만(kind "short") · 몸통 없이 계속 미끄러지는 음 = kind "none"(보정 기준으로 쓰지 않음)
+  //   숫자는 폰 녹음 검증 전 시작값. 반환 { c(센트), a, b(몸통 시각), kind: "body"|"short"|"none", n }
+  function bodyOf(cv, t0, t1) {
+    const P = (cv && cv.pts) || [], uv = (cv && cv.uv) || [], EV = envCv(cv);
+    const inUv = (t) => uv.some(u => t >= u[0] - 0.01 && t <= u[1] + 0.01);
+    let pts = []; for (const p of P) { if (p[0] < t0 - 1e-6) continue; if (p[0] > t1 + 1e-6) break; if (p[1] != null && !inUv(p[0])) pts.push(p); }
+    if (pts.length >= 5) { const keep = pts.filter((p, i) => { const w = []; for (let d = -3; d <= 3; d++) { const q = pts[i + d]; if (q) w.push(q[1]); } w.sort((x, y) => x - y); return Math.abs(p[1] - w[w.length >> 1]) < 600; }); if (keep.length >= 3) pts = keep; }
+    const n = pts.length; if (n < 3) return null;
+    const tt = pts.map(p => p[0]), cc = pts.map(p => p[1]);
+    const en = (t) => { if (!EV) return 1; const i = Math.round(t / EV.hop); return Math.sqrt(Math.max(1e-4, EV.e[Math.min(EV.e.length - 1, Math.max(0, i))] || 0)); };
+    const wmed = (v, w) => { const o = v.map((x, i) => i).sort((a, b) => v[a] - v[b]); let s = 0; const tot = w.reduce((a, b) => a + b, 0); if (tot <= 0) return v[o[o.length >> 1]]; for (const i of o) { s += w[i]; if (s >= tot / 2) return v[i]; } return v[o[o.length - 1]]; };
+    const dur = t1 - t0;
+    if (dur < 0.15) {   // 짧은 음: 가운데 60%
+      const a = t0 + dur * 0.2, b = t1 - dur * 0.2, iv = []; for (let i = 0; i < n; i++) if (tt[i] >= a && tt[i] <= b) iv.push(i);
+      const use = iv.length >= 2 ? iv : cc.map((_, i) => i); return { c: Math.round(wmed(use.map(i => cc[i]), use.map(i => en(tt[i])))), a, b, kind: "short", n: use.length }; }
+    const H = 0.09, m = cc.map((_, i) => { let s = 0, k = 0; for (let j = i; j >= 0 && tt[i] - tt[j] <= H; j--) { s += cc[j]; k++; } for (let j = i + 1; j < n && tt[j] - tt[i] <= H; j++) { s += cc[j]; k++; } return s / k; });
+    const spd = m.map((_, i) => { const a = Math.max(0, i - 1), b = Math.min(n - 1, i + 1); return tt[b] > tt[a] ? Math.abs(m[b] - m[a]) / (tt[b] - tt[a]) : 0; });
+    const runs = []; let s0 = -1;
+    for (let i = 0; i <= n; i++) { const ok = i < n && spd[i] <= 250 && (i === 0 || tt[i] - tt[i - 1] < 0.06); if (ok && s0 < 0) s0 = i; if ((!ok || i === n) && s0 >= 0) { const e = (ok ? i : i - 1); runs.push([s0, e]); s0 = ok ? -1 : -1; if (!ok && i < n && spd[i] <= 250) s0 = i; } }
+    let best = null;
+    for (const [a, b] of runs) { const d_ = tt[b] - tt[a]; if (d_ < 0.08) continue; const sv = m.slice(a, b + 1).sort((x, y) => x - y), wd = sv[Math.floor((sv.length - 1) * 0.9)] - sv[Math.floor((sv.length - 1) * 0.1)]; if (wd > 40) continue;
+      let e_ = 0; for (let i = a; i <= b; i++) e_ += en(tt[i]); const sc = d_ * (e_ / (b - a + 1)); if (!best || sc > best.sc) best = { a, b, sc }; }
+    if (!best) return { c: Math.round(wmed(cc, cc.map((_, i) => 1 / (1 + (spd[i] / 250) ** 2)))), a: t0, b: t1, kind: "none", n };
+    const v = [], w = [], A = tt[best.a], B = tt[best.b];
+    for (let i = best.a; i <= best.b; i++) { const u = B > A ? (tt[i] - A) / (B - A) : 0.5; v.push(m[i]); w.push((0.25 + 0.75 * Math.sin(Math.PI * u) ** 2) / (1 + (spd[i] / 250) ** 2) * en(tt[i])); }
+    return { c: Math.round(wmed(v, w)), a: A, b: B, kind: "body", n: best.b - best.a + 1 };
+  }
   function selHit(sel, b) { if (Math.abs(b.t0 - sel.t0) < 0.02) return true; const ov = Math.min(sel.t1, b.t1) - Math.max(sel.t0, b.t0); return ov > 0.5 * Math.min(sel.t1 - sel.t0, b.t1 - b.t0); }
   function tgCol(cv) { return cv.target ? 2 + (cv.levels || []).length : 0; }   // 정음(목표음) 열(서버 v2부터)
   // (11/06 21:50 사용자) 음표를 위아래로 옮기면(반음·미세) 하늘색 '보정 후' 선도 바로 같이 움직이게: 그 구간 보정 후 음높이 = 서버 값 + (새 정음 − 서버가 고른 정음) (근사 · 정확한 건 완성본 다시 만들기 뒤)
@@ -559,6 +590,13 @@
         const tw = g.measureText(s).width + 10, tx = b.x0 + 2, ty = b.y - b.h / 2 - 10, up = b.gd !== "m" && b.gd > 0;
         g.fillStyle = "rgba(17,20,26,.92)"; g.strokeStyle = up ? "#ffb86b" : "#7fb8ff"; g.lineWidth = 1.2; g.beginPath(); (g.roundRect ? g.roundRect(tx, ty - 7.5, tw, 15, 7) : g.rect(tx, ty - 7.5, tw, 15)); g.fill(); g.stroke();
         g.fillStyle = up ? "#ffcf99" : "#b9dcff"; g.fillText(s, tx + 5, ty + 0.5); }
+      if (st && st.advOn && st.sel) { const sb = bars.find(x => !x.ghost && selHit(st.sel, x));   // (11/24) 고른 음의 몸통(실제로 부른 대표 높이) = 흰 가는 선 + '부른 높이' 꼬리표
+        if (sb) { const bk = sb.t0.toFixed(3) + "|" + sb.t1.toFixed(3) + "|" + (cv.pts || []).length; if (!cv._bodyK || cv._bodyK !== bk) { cv._bodyK = bk; try { cv._body = bodyOf(cv, sb.t0, sb.t1); } catch { cv._body = null; } }
+          const bd = cv._body; if (bd) { const yb = y(bd.c), xa = Math.max(L, xs(bd.a)), xb = xs(bd.b), dv = Math.round(bd.c - sb.c);
+            if (bd.kind !== "none") { g.save(); g.strokeStyle = "rgba(255,255,255,.9)"; g.lineWidth = 2; if (bd.kind === "short") g.setLineDash([4, 3]); g.beginPath(); g.moveTo(xa, yb); g.lineTo(Math.max(xa + 6, xb), yb); g.stroke(); g.restore(); }
+            const s = bd.kind === "none" ? "몸통 없음(미끄러지는 음)" : `부른 높이 ${dv === 0 ? "정음" : (dv > 0 ? "+" : "−") + Math.abs(dv) + "¢"}`; g.font = "bold 10.5px system-ui, sans-serif"; g.textBaseline = "middle";
+            const tw = g.measureText(s).width + 10, tx = Math.max(L + 2, sb.x0), ty = sb.y + sb.h / 2 + 12;
+            g.fillStyle = "rgba(17,20,26,.92)"; g.strokeStyle = "rgba(255,255,255,.55)"; g.lineWidth = 1; g.beginPath(); (g.roundRect ? g.roundRect(tx, ty - 7.5, tw, 15, 7) : g.rect(tx, ty - 7.5, tw, 15)); g.fill(); g.stroke(); g.fillStyle = "#fff"; g.fillText(s, tx + 5, ty + 0.5); } } }
       if (st) st.tbars = bars;
       // (11/03 13:08 사용자 시안) 타이밍·길이 고친 음 = 새 자리에 하늘색 막대 + 원래 자리 점선
       const tb = [];
@@ -2231,5 +2269,5 @@
   if (typeof document !== "undefined" && document.head) { const s2 = document.createElement("style"); s2.textContent = css2; document.head.appendChild(s2); }
   if (typeof document !== "undefined" && document.head) { const s = document.createElement("style"); s.textContent = css; document.head.appendChild(s); }
   if (typeof document !== "undefined" && document.head) { const s3 = document.createElement("style"); s3.textContent = css3; document.head.appendChild(s3); }
-  G.Tune = { tone, toneOff, draw, wire, load, legend, range, col, tgCol, fitAt, delta, semiLabel, sangLabel, sheet, undo, openFull, noteName, WIN, HEAD, ZOOM_HALF, tmapOf, mapT };
+  G.Tune = { tone, toneOff, draw, wire, load, legend, range, col, tgCol, fitAt, delta, semiLabel, sangLabel, sheet, undo, openFull, noteName, WIN, HEAD, ZOOM_HALF, tmapOf, mapT, bodyOf };
 })(typeof window !== "undefined" ? window : globalThis);
