@@ -8443,7 +8443,7 @@ async function openMkJob(j, backTo) {
   // (11/18 사용자 '완성본 다시 만들기 개념이 이상') 이미 완성본이 있는 곡은 서버가 고친 내용을 반영하는 중이어도 편집 화면 그대로(진행 화면으로 막지 않음)
   const mkHasOut = (j.req.render_count || 0) > 0 && ["queued", "working"].includes(j.req.status);
   if (!["done", "error"].includes(j.req.status) && !mkHasOut) { if (j.req.status === "waiting_download") ytPromote(j).catch(() => {}); return showProgress(j); }
-  stopProg(); mkStop(); mkU = null; mkTracks = {}; mkAutoGain.seq = (mkAutoGain.seq || 0) + 1;   // (11/24 Codex P1) 작업을 바꾸면 앞 작업의 크기 계산 결과는 버림 mkPv = { fixes: [], rendered: () => null, orig: {}, tedits: [], tplan: null }; mkDurS = 0; mkOffset = 0; mkBefore = false; mkRaw = false; mkJob = j; show("vMkJob");
+  stopProg(); mkStop(); mkU = null; mkTracks = {}; mkAutoGain.seq = (mkAutoGain.seq || 0) + 1; mkPv = { fixes: [], rendered: () => null, orig: {}, tedits: [], tplan: null }; mkDurS = 0; mkOffset = 0; mkBefore = false; mkRaw = false; mkJob = j; show("vMkJob");   // (11/24 Codex P1) 작업을 바꾸면 앞 작업의 크기 계산 결과는 버림 · (11/25 고침) 이 주석이 줄 가운데 들어가 mkJob·show("vMkJob")가 꺼져 메이크업 화면·음표 고치기가 안 열리던 것
   if (!j.files?.length) j.files = await list(j.folder.id);
   const r = j.req, by = (n) => j.files.find(f => f.name === n); let mkAuto = () => {};   // (11/18) 자동 완성본 반영 타이머(아래에서 채움)
   const meas = r.result?.measure || {}, pi = r.result?.pitch || {};
