@@ -689,7 +689,7 @@
 <div id="v2Shade" class="v2only"></div>
 <div id="toast"></div>
 <script src="../lesson-replies.js?v=fb1ceb5309"></script>
-<script src="../tune.js?v=b029b1ecd0"></script>
+<script src="../tune.js?v=8cf6c0327a"></script>
 <script src="../adv.js?v=f90aefa552"></script>
 <script src="../pitch-embed.js?v=2f0b0aaf05"></script>
 
@@ -6358,6 +6358,11 @@ function audioIdle(now) {
 if (typeof document !== "undefined") document.addEventListener("visibilitychange", () => { if (document.hidden) audioIdle(true); });
 try { Brand.audioKeep?.((c) => (c === mkCtx && (mkPlaying || !!vtNow)) || (c === loudCtx && loudActive())); } catch {}   // 중앙 놓기(brand.js)에도 "재생 중인 건 두기" 알림
 const mkNow = () => mkPlaying ? Math.min(mkCtx.currentTime - mkT0, mkDurS) : mkOffset;
+// (11/25 사용자 '폰 스피커인데 화면이 소리보다 조금 빠름') 이 오디오가 실제로 스피커에 닿기까지 걸리는 시간(초): 브라우저가 지금 내보내는 소리의 시각(getOutputTimestamp)으로 잼
+//   — 'playback' 저지연 꺼둔 장치라 폰 스피커도 0.1초 안팎 걸릴 수 있음 · 못 재면 outputLatency+baseLatency · 튀지 않게 천천히 따라감(0~0.6초)
+let mkLatV = 0;
+function mkLat() { if (!mkCtx || !mkPlaying) return mkLatV; let v = 0; try { const ts = mkCtx.getOutputTimestamp && mkCtx.getOutputTimestamp(); if (ts && ts.contextTime > 0 && mkCtx.currentTime > ts.contextTime) v = mkCtx.currentTime - ts.contextTime; } catch {}
+  if (!(v > 0.005)) v = (+mkCtx.outputLatency || 0) + (+mkCtx.baseLatency || 0); v = Math.max(0, Math.min(0.6, v)); mkLatV = mkLatV ? mkLatV + (v - mkLatV) * 0.1 : v; return mkLatV; }
 function mkStartTrack(t, at) {
   const s = mkCtx.createBufferSource(), sg = mkCtx.createGain(); s.buffer = t.buf; s.connect(sg); sg.connect(t.gain); s.start(0, Math.min(at, t.buf.duration)); s._g = sg; t.src = s;
 }
@@ -8719,7 +8724,7 @@ async function openMkJob(j, backTo) {
     const histGet = () => JSON.stringify({ fx: r.target_fixes || [], te: r.time_edits || [], ne: r.note_edits || null }, (k_, v_) => (k_ && k_[0] === "_" ? undefined : v_));
     const histSet = mkHistSet = async (js) => { const h = JSON.parse(js); if (h.ne) r.note_edits = h.ne; else delete r.note_edits; pvAdvSync(advGet()); await applyAll(h.fx || [], h.te || []); };
     Tune.wire($("mkTune"), cv, () => mkNow(), () => (mkRaw ? 0 : lvNow()), (t, still) => { const tt = Math.max(0, Math.min(t, mkDurS ? mkDurS - 0.05 : t)); if (still) { if (mkPlaying) mkStop(); mkOffset = tt; paintTransport(); return; } if (!mkPlaying) { mkOffset = tt; $("mkPP").click(); } else mkSeekTo(t); },
-      { title: `${j.st?.name || ""} · ${r.title || "메이크업"}`, tapFull: true, teacher: true, webAudio: true, lvDef: +(r.pitch_level ?? 2), play: () => $("mkPP")?.click(), paused: () => !mkPlaying, mode: () => (lvNow() > 0 ? "p" : "o"),
+      { title: `${j.st?.name || ""} · ${r.title || "메이크업"}`, tapFull: true, teacher: true, webAudio: true, latency: mkLat, lvDef: +(r.pitch_level ?? 2), play: () => $("mkPP")?.click(), paused: () => !mkPlaying, mode: () => (lvNow() > 0 ? "p" : "o"),
         setMode: (m) => document.querySelector(`#mkAb [data-ab="${m === "p" ? 1 : 0}"]`)?.click(), histKey: "mk:" + (j.reqId || j.folder.id), histEmpty: JSON.stringify({ fx: [], te: [], ne: null }), saveState: () => ({ busy: mkBusy, fail: mkFail }), saveRetry: () => mkWrite().then(() => paintFixN()), remake: () => $("mkFinal")?.click(), phoneMix: () => $("mkPhoneMix")?.click(), doneState: () => ({ dirty: (() => { try { return mkDirty(); } catch { return null; } })(), total: (r.target_fixes || []).filter(x => !x.cut).length + (r.time_edits || []).length + (r.note_edits?.notes || []).length }), onFix, onFixMany, histGet, histSet, onTime, ...(canAdv() ? { onAdv, advGet, engGet, engSet, engPlay } : {}), onResetRange: (t0, t1) => resetSome(true, true, [t0, t1]), countRange: (a, b) => (r.target_fixes || []).concat(r.time_edits || []).filter(x => toA(x.t0) < b && toA(x.t1) > a).length, voice: voiceTone, wave: () => mkTracks.mr?.buf || mkTracks.before?.buf || null, vbuf: () => { const t_ = ["bv", "p3", "q3", "p2", "p1", "p0", "dry", "before"].map(n => mkTracks[n]).find(x => x && x.buf); if (t_) return t_.buf;   // (11/14 19:09 사용자 '다시 막대로') 재생 전엔 보컬 소리를 아직 안 받아서 덩어리 모양을 못 그렸음 → 보컬 하나를 미리 받아 둠
           const fb_ = by("before_vocal.mp3"), f_ = by("vocal_dry_p0.mp3") || by("vocal_dry.mp3");   // (11/14 20:49) 원래 부른 보컬(보정 전)을 먼저 — 셈여림이 그대로
           if (fb_ && !mkTracks.bv) mkLoad("bv", fb_.id).catch(() => {}); else if (!fb_ && f_ && !mkTracks.p0 && !mkTracks.dry) mkLoad(by("vocal_dry_p0.mp3") ? "p0" : "dry", f_.id).catch(() => {}); return null; }, ...tnOpts });

@@ -811,8 +811,9 @@
       g.restore(); }
     // (11/02 15:15 사용자 '왜 안 보여?') 지금 화면에 부른 음이 없으면(전주·간주) 다음 노래 시각을 알려 줌 — 작은 화면은 톡 하면 그 자리로
     if (st) st.gapNext = null;
-    if (!vis.length && (cv.pts || []).length) {
-      const nx = (cv.pts || []).find(p => p[0] > t + 0.3), pv = nx ? null : (cv.pts || []).at(-1);
+    const sung_ = (p) => p && (p[1] != null || p.slice(2).some(v => v != null));   // (11/25 사용자 '보컬 건너뛰는 버튼이 사라짐') 소리 높이 없는 점(무음 칸)까지 '노래'로 쳐서 전주·간주를 못 알아보던 것
+    if (!vis.some(sung_) && (cv.pts || []).length) {
+      const nx = (cv.pts || []).find(p => p[0] > t + 0.3 && sung_(p)), pv = nx ? null : (cv.pts || []).at(-1);
       if (nx && st) st.gapNext = nx[0];
       const mmss = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
       const msg = nx ? `♪ 노래는 ${mmss(nx[0])}부터${full ? "" : " · 톡 하면 그 자리로"}` : pv ? "♪ 노래가 끝났어요" : "";
@@ -868,11 +869,11 @@
   // (11/09 12:59 사용자) 블루투스 이어폰 지연 보정: 재생 중(시각이 앞으로 가는 중)이면 그래프 시각 = 소리 시각 − 소리가 귀에 닿는 지연(Brand.outLat)
   // (11/13 13:40 사용자 '소리가 훨씬 먼저 나와') <audio>(레슨·오늘의 베스트·수강생 화면)는 브라우저가 이미 출력 지연을 빼고 시각을 알려 줌 → 또 빼면 화면이 늦음.
   //  웹오디오(메이크업 고치기 화면, opts.webAudio)만 지연을 뺀다
-  function latWrap(getT, on) { if (!on) return getT; let lastRaw = null, lastMove = 0;
+  function latWrap(getT, on, latFn) { if (!on) return getT; let lastRaw = null, lastMove = 0;
     return () => { const r = +getT() || 0, now = Date.now(); if (lastRaw != null && r > lastRaw + 1e-4 && r - lastRaw < 1) lastMove = now; lastRaw = r;
-      let L = 0; try { L = now - lastMove < 400 && G.Brand && G.Brand.outLat ? G.Brand.outLat() : 0; } catch {} return L > 0 ? Math.max(0, r - L) : r; }; }
+      let L = 0; try { if (now - lastMove < 400) { const man = G.Brand && G.Brand.outLatMode ? G.Brand.outLatMode() : "auto"; L = man !== "auto" ? man / 1000 : typeof latFn === "function" ? (+latFn() || 0) : G.Brand && G.Brand.outLat ? G.Brand.outLat() : 0; } } catch {} return L > 0 ? Math.max(0, r - L) : r; }; }   // (11/25 사용자 '폰 스피커인데 화면이 소리보다 조금 빠름') 그 화면 오디오의 실제 출력 지연(opts.latency) — 수동 설정이 있으면 그 값
   function wire(el, cv, getT, getLv, seek, opts) {
-    if (!el || !cv) return; getT = latWrap(getT, !!(opts && opts.webAudio));
+    if (!el || !cv) return; getT = latWrap(getT, !!(opts && opts.webAudio), opts && opts.latency);
     const st = { zoom: true, lo: null, hi: null, notes: opts && opts.notes, teacher: !!(opts && opts.teacher), lvDef: opts && opts.lvDef, noX: !!(opts && opts.tapFull) };
     const bar = document.createElement("div"); bar.className = "tuneZoom";
     // (10/30 14:20 사용자) 작은 화면은 확대(지금 음 근처)로 고정 — 버튼은 '전체화면' 하나만, 잘 보이게
@@ -2089,7 +2090,7 @@
         drag.lx = l0.x; edgeAuto(drag);   // (11/05 사용자) 손가락이 화면 가장자리에 닿으면 그래프가 저절로 밀려서 더 멀리까지 고를 수 있게
         if (!wrap.querySelector(".tfMulti")) multiSheet(wrap, cv, st, false, true); else if (st.onMSel) st.onMSel(); return; }
       // (11/13 19:28 사용자 '태블릿에서 가로로 쓸었는데 비스듬하면 세로로도 움직여 불편') 가로 이동을 우선: 세로가 가로의 2배 넘게 분명할 때만 위아래 이동 · 정하기 전 12px까지 지켜봄
-      if (!drag.mode) { if (Math.max(Math.abs(dA), Math.abs(dB)) < 12) return; clearTimeout(drag.lp); st.hold = null; drag.mode = Math.abs(dB) > 1.35 * Math.abs(dA) ? "pitch" : "time"; if (drag.mode === "time") pauseNow(); }   // (11/14 19:38 사용자 '좌우 우선이 너무 강함 — 조금만 풀자') 2배 → 1.35배
+      if (!drag.mode) { if (Math.max(Math.abs(dA), Math.abs(dB)) < 12) return; clearTimeout(drag.lp); st.hold = null; drag.mode = Math.abs(dB) > 1.35 * Math.abs(dA) ? "pitch" : "time"; if (drag.mode === "time") { drag.wasPlay = !isPaused(); pauseNow(); } }   // (11/25 사용자) 재생 중에 밀었으면 다 밀고 나서 그 자리부터 이어서 재생   // (11/14 19:38 사용자 '좌우 우선이 너무 강함 — 조금만 풀자') 2배 → 1.35배
       if (drag.mode === "time") { const nv = Math.max(0, drag.t - dA / span() * ((st.win || 6) / st.xz)), nw = performance.now();   // (11/14 22:14 사용자) 놓은 뒤 살짝 미끄러지게 — 빠르기(초/ms) 기록
         if (preview != null && drag.tm) { const dt_ = Math.max(1, nw - drag.tm); drag.tv = 0.7 * (drag.tv || 0) + 0.3 * ((nv - preview) / dt_); } drag.tm = nw; preview = nv; }
       else if (st.yz > 1) { const [lo, hi] = range(cv), per = (hi - lo) / st.yz / tall(), pv = st.yc; st.yc = (drag.yc ?? (lo + hi) / 2) + dB * per * (rot ? -1 : 1); { const c0 = st.yc; vClamp(st, cv); if (st.yc !== c0) drag.yc = (drag.yc ?? (lo + hi) / 2) + (st.yc - c0); } st.panAt = Date.now(); vTrack(drag, "yc", pv, st.yc, per); }
@@ -2153,8 +2154,8 @@
         const spp = ((st.win || 6) / st.xz) / Math.max(1, span()), fresh = d.tm && performance.now() - d.tm < 80;
         if (fresh && Math.abs(d.tv || 0) > 0.06 * spp && preview != null) { const gl = tGlide = { v: d.tv * 0.5, last: performance.now() };
           const step = () => { if (tGlide !== gl) return; const n = performance.now(), dt = Math.min(50, n - gl.last); gl.last = n; preview = Math.max(0, preview + gl.v * dt); gl.v *= Math.pow(0.94, dt / 16);
-            if (Math.abs(gl.v) < 0.015 * spp || preview <= 0) { tGlide = null; const t = preview; preview = null; st.stopAt = 0; seek(t, true); return; } requestAnimationFrame(step); }; requestAnimationFrame(step); return; }
-        const t = preview; preview = null; if (t != null) { st.stopAt = 0; seek(t, true); } return; }
+            if (Math.abs(gl.v) < 0.015 * spp || preview <= 0) { tGlide = null; const t = preview; preview = null; st.stopAt = 0; seek(t, !d.wasPlay); return; } requestAnimationFrame(step); }; requestAnimationFrame(step); return; }
+        const t = preview; preview = null; if (t != null) { st.stopAt = 0; seek(t, !d.wasPlay); } return; }
       if (!d.mode && e.type === "pointerup") { const now = Date.now();   // 톡 = 재생/멈춤 · 기준선 왼쪽 두 번 톡 = 2초 뒤로, 오른쪽 = 2초 앞으로(11/03 10:24)
         if (now - lastTap < 320) { toggle(); lastTap = 0;   // 첫 톡의 재생/멈춤은 되돌리고
           const r0 = cvEl.getBoundingClientRect(), le = loc(e.clientX, e.clientY, r0), L = (st.kb && st.kb.L) || 44, hx = L + HEAD * ((rot ? r0.height : r0.width) - L);
