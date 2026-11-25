@@ -145,11 +145,7 @@
   .tsQ { margin-top:7px; font-size:.88rem; line-height:1.55; color:#cfd3da; } .tsQ b { margin-right:4px; } .tsQ .tT { color:#9cc3ff; } .tsQ .tS { color:#7fd99a; }
   .tuneDim { position:absolute; inset:0; background:rgba(8,10,13,.55); border-radius:12px; pointer-events:none; }
   .tuneHint { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); display:flex; align-items:center; gap:9px; white-space:nowrap; padding:13px 22px; border-radius:30px; background:linear-gradient(135deg,#ffe08f,#e0a73c); color:#1a1307; font-weight:900; font-size:1.02rem; border:2px solid #fff3cf; box-shadow:0 0 0 6px rgba(255,210,122,.22),0 8px 26px rgba(0,0,0,.55); pointer-events:none; }
-  .mkDockWrap { margin-top:6px; } .mkDockWrap .tune.sm { height:230px; margin:0; }
-  /* (11/24 사용자 '재생 버튼도 없으니 크게 보기를 이렇게 크게 만들 필요 없이 다이어트') 오늘의 베스트 음정선: 낮게 + 어둡게 덮지 않음 + 오른쪽 아래 작은 '⛶ 크게' */
-  .mkDockWrap.slim .tune.sm { height:118px; } .mkDockWrap.slim .tuneDim { display:none; }
-  .mkDockWrap.slim .tuneHint { left:auto; top:auto; right:8px; bottom:8px; transform:none; gap:5px; padding:5px 11px; border-radius:16px; font-size:.82rem; font-weight:800; background:rgba(17,20,26,.86); color:#ffd27a; border:1.5px solid #ffd27a; box-shadow:none; }
-  .mkDockWrap.slim .tuneHint svg { width:15px; height:15px; } .mkDockWrap.slim .tuneHint svg path { stroke:#ffd27a; } .tuneDock { position:absolute; left:0; right:0; bottom:10px; display:flex; justify-content:center; align-items:center; gap:10px; pointer-events:none; }
+  .mkDockWrap { margin-top:6px; } .mkDockWrap .tune.sm { height:230px; margin:0; } .tuneDock { position:absolute; left:0; right:0; bottom:10px; display:flex; justify-content:center; align-items:center; gap:10px; pointer-events:none; }
   .tuneDock > * { pointer-events:auto; } .tuneDock .dk { min-width:50px; min-height:40px; margin:0; border-radius:20px; background:rgba(30,34,42,.62); border:1px solid rgba(255,255,255,.2); color:#fff; font-weight:800; backdrop-filter:blur(4px); }
   .abPair.merged .tuneDock .abSw { margin:0; flex:none; border-radius:22px; padding:3px; background:rgba(30,34,42,.62); border:1px solid rgba(255,255,255,.2); backdrop-filter:blur(4px); } .tuneDock .abSw button { flex:none; min-height:34px; padding:0 14px; border-radius:18px; background:transparent; color:#d6dae0; }
   .abPair.merged .tuneDock .abSw button.on { background:rgba(255,215,94,.92); color:#1a1a1a; } .abPair.merged .tuneDock .abSw button.mk.on { background:rgba(201,166,255,.92); }
@@ -8427,7 +8423,7 @@ async function editFromBest(job, t) {
   document.body.appendChild(cov); const uncover = (ms) => setTimeout(() => { cov.style.opacity = "0"; setTimeout(() => cov.remove(), 220); }, ms || 0);
   try {
     await openMkJob(job, back);
-    for (let i = 0; i < 180; i++) { if (i === 40) { const tx = cov.querySelector("div:last-child"); if (tx) tx.textContent = "음정선 받는 중… (조금 걸려요)"; } const c = $("mkTune"); if (c && c._openFull) { try { mkOffset = Math.max(0, +t || 0); if (typeof paintTransport === "function") paintTransport(); } catch {} c._openFull(); uncover(350); return; } if (mkJob !== job) return uncover(); await new Promise(r => setTimeout(r, 250)); }
+    for (let i = 0; i < 60; i++) { const c = $("mkTune"); if (c && c._openFull) { try { mkOffset = Math.max(0, +t || 0); if (typeof paintTransport === "function") paintTransport(); } catch {} c._openFull(); uncover(350); return; } if (mkJob !== job) return uncover(); await new Promise(r => setTimeout(r, 250)); }
     uncover(); toast("음정선을 아직 못 받았어요 · 아래 음정선을 눌러 주세요");
   } catch (e) { uncover(); throw e; }
 }
@@ -9218,7 +9214,7 @@ function renderBest() {
   const merged = ms === "ready", tuneF = merged && typeof mkCurveFile === "function" && mkCurveFile(o) && typeof Tune !== "undefined";
   // (10/30 14:50 사용자 시안 확정) 튠 그래프가 있으면 위 파형 줄은 빼고, 그래프 아래쪽에 반투명 [-5 | 원음·보정본 | +5]
   const abSwH = `<div class="abSw" role="group" aria-label="원음·보정본"><button type="button" data-ver="orig" class="on" aria-pressed="true">원음</button><button type="button" data-ver="mk" class="mk" aria-pressed="false">✨ 보정본</button></div>`;
-  const tuneH = tuneF ? `<div class="tuneWrap mkDockWrap slim"><canvas class="tune sm" id="mkTuneToday" aria-label="음정선 — 누르면 크게 보기"></canvas><span class="tuneDim" aria-hidden="true"></span><span class="tuneHint" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1a1307" stroke-width="2.8" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>크게</span></div><div style="display:none">${abSwH}</div>${Tune.legend(true)}<div class="muted tnSum" id="tnSum" style="font-size:.8rem;margin:2px 0 4px"></div>` : "";   // (10/30 17:43 사용자) 전체화면·[-5|원음·보정본|+5] 버튼 삭제, 그래프를 누르면 세로 전체화면
+  const tuneH = tuneF ? `<div class="tuneWrap mkDockWrap"><canvas class="tune sm" id="mkTuneToday" aria-label="음정선 — 누르면 크게 보기"></canvas><span class="tuneDim" aria-hidden="true"></span><span class="tuneHint" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1a1307" stroke-width="2.8" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>전체화면으로 크게 보기</span></div><div style="display:none">${abSwH}</div>${Tune.legend(true)}<div class="muted tnSum" id="tnSum" style="font-size:.8rem;margin:2px 0 4px"></div>` : "";   // (10/30 17:43 사용자) 전체화면·[-5|원음·보정본|+5] 버튼 삭제, 그래프를 누르면 세로 전체화면
   return `<div class="bestbox abPair${merged ? " merged" : ""}${tuneF ? " tuned" : ""}"><span class="sr-only">오늘의 베스트 편집본 ${Math.round(o.len)}초</span>
     ${merged ? `<div class="row abHead"><b>오늘의 베스트</b><span class="muted" style="font-size:.85rem;white-space:nowrap">${Math.round(o.len)}초</span>${chk("best")}</div>
       ${tuneF ? tuneH : abSwH}` : ""}
