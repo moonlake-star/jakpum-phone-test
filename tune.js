@@ -551,7 +551,7 @@
         if (!cont) { const fi = fxOf(run.t0); if (fi >= 0) { run.t0 = cv._fixes[fi].t0; run.t1 = cv._fixes[fi].t1; run.fx = true; } run = null; } }
       const tiny = new Set();
       for (const r of runs) {
-        if (!r.fx && r.t1 - r.t0 < 0.1) { r.seg.forEach(([p]) => tiny.add(p)); continue; }
+        if (!r.fx && r.t1 - r.t0 < 0.07) { r.seg.forEach(([p]) => tiny.add(p)); continue; }   // (11/25) 서버가 짧게 짚은 음(0.07초~)도 정음으로 줌 → 0.1초 미만이라고 회색에 합치지 않음
         // (11/09 01:21 사용자 A안) 음별 볼륨이 보이게: 키운 음 = 막대 두껍게 · 줄인 음 = 얇게 · 끈 음 = 흐리게+빗금 (꼬리표는 아래에서)
         const vn = ((st && st._adv && st._adv.ne && st._adv.ne.notes) || []).find(x => x.t0 <= (r.t0 + r.t1) / 2 && x.t1 >= (r.t0 + r.t1) / 2 && (x.mute || x.gain_db));
         r.gd = vn ? (vn.mute ? "m" : vn.gain_db) : 0; const rh = r.gd && r.gd !== "m" ? bh * Math.max(0.4, Math.min(1.8, Math.pow(10, r.gd / 40))) : bh; r.h = Math.max(rh, bh);
@@ -811,7 +811,7 @@
       g.restore(); }
     // (11/02 15:15 사용자 '왜 안 보여?') 지금 화면에 부른 음이 없으면(전주·간주) 다음 노래 시각을 알려 줌 — 작은 화면은 톡 하면 그 자리로
     if (st) st.gapNext = null;
-    const sung_ = (p) => p && (p[1] != null || p.slice(2).some(v => v != null));   // (11/25 사용자 '보컬 건너뛰는 버튼이 사라짐') 소리 높이 없는 점(무음 칸)까지 '노래'로 쳐서 전주·간주를 못 알아보던 것
+    const kt_ = tgCol(cv), sung_ = (p) => p && (kt_ ? p[kt_] != null : (p[1] != null || p.slice(2).some(v => v != null)));   // (11/26 사용자 '아직 안 살아남') 전주·간주의 잡음(반주 새어 들어온 높이)은 정음이 없음 → 정음 있는 점만 노래로   // (11/25 사용자 '보컬 건너뛰는 버튼이 사라짐') 소리 높이 없는 점(무음 칸)까지 '노래'로 쳐서 전주·간주를 못 알아보던 것
     if (!vis.some(sung_) && (cv.pts || []).length) {
       const nx = (cv.pts || []).find(p => p[0] > t + 0.3 && sung_(p)), pv = nx ? null : (cv.pts || []).at(-1);
       if (nx && st) st.gapNext = nx[0];
@@ -2090,7 +2090,7 @@
         drag.lx = l0.x; edgeAuto(drag);   // (11/05 사용자) 손가락이 화면 가장자리에 닿으면 그래프가 저절로 밀려서 더 멀리까지 고를 수 있게
         if (!wrap.querySelector(".tfMulti")) multiSheet(wrap, cv, st, false, true); else if (st.onMSel) st.onMSel(); return; }
       // (11/13 19:28 사용자 '태블릿에서 가로로 쓸었는데 비스듬하면 세로로도 움직여 불편') 가로 이동을 우선: 세로가 가로의 2배 넘게 분명할 때만 위아래 이동 · 정하기 전 12px까지 지켜봄
-      if (!drag.mode) { if (Math.max(Math.abs(dA), Math.abs(dB)) < 12) return; clearTimeout(drag.lp); st.hold = null; drag.mode = Math.abs(dB) > 1.35 * Math.abs(dA) ? "pitch" : "time"; if (drag.mode === "time") { drag.wasPlay = !isPaused(); pauseNow(); } }   // (11/25 사용자) 재생 중에 밀었으면 다 밀고 나서 그 자리부터 이어서 재생   // (11/14 19:38 사용자 '좌우 우선이 너무 강함 — 조금만 풀자') 2배 → 1.35배
+      if (!drag.mode) { if (Math.max(Math.abs(dA), Math.abs(dB)) < 12) return; clearTimeout(drag.lp); st.hold = null; drag.mode = Math.abs(dB) > 1.35 * Math.abs(dA) ? "pitch" : "time"; if (drag.mode === "time") pauseNow(); }   // (11/26 사용자) 밀면 일시정지(11/25 '이어서 재생'은 되돌림)   // (11/14 19:38 사용자 '좌우 우선이 너무 강함 — 조금만 풀자') 2배 → 1.35배
       if (drag.mode === "time") { const nv = Math.max(0, drag.t - dA / span() * ((st.win || 6) / st.xz)), nw = performance.now();   // (11/14 22:14 사용자) 놓은 뒤 살짝 미끄러지게 — 빠르기(초/ms) 기록
         if (preview != null && drag.tm) { const dt_ = Math.max(1, nw - drag.tm); drag.tv = 0.7 * (drag.tv || 0) + 0.3 * ((nv - preview) / dt_); } drag.tm = nw; preview = nv; }
       else if (st.yz > 1) { const [lo, hi] = range(cv), per = (hi - lo) / st.yz / tall(), pv = st.yc; st.yc = (drag.yc ?? (lo + hi) / 2) + dB * per * (rot ? -1 : 1); { const c0 = st.yc; vClamp(st, cv); if (st.yc !== c0) drag.yc = (drag.yc ?? (lo + hi) / 2) + (st.yc - c0); } st.panAt = Date.now(); vTrack(drag, "yc", pv, st.yc, per); }
@@ -2154,8 +2154,8 @@
         const spp = ((st.win || 6) / st.xz) / Math.max(1, span()), fresh = d.tm && performance.now() - d.tm < 80;
         if (fresh && Math.abs(d.tv || 0) > 0.06 * spp && preview != null) { const gl = tGlide = { v: d.tv * 0.5, last: performance.now() };
           const step = () => { if (tGlide !== gl) return; const n = performance.now(), dt = Math.min(50, n - gl.last); gl.last = n; preview = Math.max(0, preview + gl.v * dt); gl.v *= Math.pow(0.94, dt / 16);
-            if (Math.abs(gl.v) < 0.015 * spp || preview <= 0) { tGlide = null; const t = preview; preview = null; st.stopAt = 0; seek(t, !d.wasPlay); return; } requestAnimationFrame(step); }; requestAnimationFrame(step); return; }
-        const t = preview; preview = null; if (t != null) { st.stopAt = 0; seek(t, !d.wasPlay); } return; }
+            if (Math.abs(gl.v) < 0.015 * spp || preview <= 0) { tGlide = null; const t = preview; preview = null; st.stopAt = 0; seek(t, true); return; } requestAnimationFrame(step); }; requestAnimationFrame(step); return; }
+        const t = preview; preview = null; if (t != null) { st.stopAt = 0; seek(t, true); } return; }
       if (!d.mode && e.type === "pointerup") { const now = Date.now();   // 톡 = 재생/멈춤 · 기준선 왼쪽 두 번 톡 = 2초 뒤로, 오른쪽 = 2초 앞으로(11/03 10:24)
         if (now - lastTap < 320) { toggle(); lastTap = 0;   // 첫 톡의 재생/멈춤은 되돌리고
           const r0 = cvEl.getBoundingClientRect(), le = loc(e.clientX, e.clientY, r0), L = (st.kb && st.kb.L) || 44, hx = L + HEAD * ((rot ? r0.height : r0.width) - L);
