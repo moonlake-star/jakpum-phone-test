@@ -8423,9 +8423,9 @@ async function editFromBest(job, t) {
   document.body.appendChild(cov); const uncover = (ms) => setTimeout(() => { cov.style.opacity = "0"; setTimeout(() => cov.remove(), 220); }, ms || 0);
   try {
     await openMkJob(job, back);
-    for (let i = 0; i < 60; i++) { const c = $("mkTune"); if (c && c._openFull) { try { mkOffset = Math.max(0, +t || 0); if (typeof paintTransport === "function") paintTransport(); } catch {} c._openFull(); uncover(350); return; } if (mkJob !== job) return uncover(); await new Promise(r => setTimeout(r, 250)); }
+    for (let i = 0; i < 180; i++) { if (i === 40) { const tx = cov.querySelector("div:last-child"); if (tx) tx.textContent = "음정선 받는 중… (조금 걸려요)"; } const c = $("mkTune"); if (c && c._openFull) { try { mkOffset = Math.max(0, +t || 0); if (typeof paintTransport === "function") paintTransport(); } catch {} c._openFull(); uncover(350); return; } if (mkJob !== job) return uncover(); await new Promise(r => setTimeout(r, 250)); }
     uncover(); toast("음정선을 아직 못 받았어요 · 아래 음정선을 눌러 주세요");
-  } catch (e) { uncover(); throw e; }
+  } catch (e) { uncover(); toast("음표 고치기를 못 열었어요: " + errMsg(e)); throw e; }   // (11/25) 조용히 실패하지 않게
 }
 // (11/24 사용자 '확인하면 바로바로 리스트에서 사라지게 — 지금은 한동안 남아 있어') 목록은 폰에 저장한 사본(vn_list)으로 먼저 그려지므로
 //   메이크업 작업 상태를 바꾸면 그 사본도 바로 고침 → 뒤로 가자마자 할 일·확인 대기에서 빠짐
@@ -9496,6 +9496,10 @@ function wireBest() {
   const job = bestMakeupJob(o), m = makeupState(o) === "ready" ? bestMakeupAudio(o) : null, mroot = box?.querySelector('[data-abrow="mk"] .tp');
   if (m && mroot) tpWire(mroot, m.file_id, false, timeEl);   // 같은 player 하나 → 두 음원이 겹쳐 나지 않음
   { const cf = m && mkCurveFile(o), el = typeof document.getElementById === "function" ? document.getElementById("mkTuneToday") : null;   // (10/30 사용자) 피드백 화면에도 튠 화면
+    { const hb = el && el.parentElement && el.parentElement.querySelector(".tuneHint");   // (11/25 사용자 '여전히 안 열려') 금색 '전체화면으로 크게 보기'를 진짜 버튼으로 — 그래프 터치·음정선 받기를 기다리지 않고 바로 음표 고치기 열기, 실패하면 이유를 알림
+      if (hb && job) { hb.style.pointerEvents = "auto"; hb.style.cursor = "pointer"; hb.setAttribute("role", "button"); hb.setAttribute("tabindex", "0"); hb.removeAttribute("aria-hidden");
+        hb.addEventListener("pointerup", (e) => e.stopPropagation()); hb.addEventListener("pointerdown", (e) => e.stopPropagation());
+        hb.onclick = (e) => { e.stopPropagation(); try { player.pause(); } catch {} Promise.resolve(editFromBest(job, 0)).catch((err) => toast("크게 보기를 못 열었어요: " + errMsg(err))); }; } }
     if (cf && el && typeof Tune !== "undefined") readBlob(cf.id, true).then(b => b.text()).then(async s => { const cv = JSON.parse(s); if (!cv?.pts) return;
       const tc = await tnLoad(job).catch(() => null), sumEl = document.getElementById("tnSum"), paintSum = () => { if (sumEl) sumEl.innerHTML = tnSumHTML(tc); }; paintSum();
       const tnDo = async (f) => { if (!tc) return; try { f(); paintSum(); await tnSave(job, tc); toast("주석을 저장했어요 · 수강생에게는 ‘전달하기’ 때 반영돼요"); } catch (e) { toast("주석 저장 실패: " + e.message); } };
