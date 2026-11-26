@@ -155,7 +155,7 @@
     allS.forEach((n, i) => { const x = xs(+n.t0); if (x < L - 10 || x > w + 10) return;
       let best = null, bd = 1e9; for (const p of vis || []) { if (p[1] == null) continue; const dd = Math.abs(p[0] - +n.t0); if (dd < bd) { bd = dd; best = p; } }
       const k = kf(n), ai = act.indexOf(n), down = ai === 1, br = 8.5, py = best && bd < 0.6 ? yf(best[1]) : T + HP / 2;
-      const by = down ? Math.min(T + HP - br - 1, py + 22) : Math.max(T + br + 1, py - 22);
+      const OFF = 52, up_ = py - OFF >= T + br + 1, by = down || !up_ ? Math.min(T + HP - br - 1, py + OFF) : py - OFF;   // (11/26 사용자 '핸들이 음표와 더 멀리') 22 → 52px(음표 막대 위로 확실히 떨어지게) · 위가 모자라면 아래로
       const c = n.status !== "ok" ? "150,158,170" : auto ? ((i + 1) % 2 ? "111,224,176" : "196,163,255") : "196,163,255";
       g.strokeStyle = `rgb(${c})`; g.lineWidth = 1.2; g.beginPath(); g.moveTo(x, down ? py + 3 : py - 3); g.lineTo(x, down ? by - br : by + br); g.stroke();
       g.fillStyle = `rgb(${c})`; g.beginPath(); g.arc(x, py, 2.6, 0, Math.PI * 2); g.fill(); g.beginPath(); g.arc(x, by, br, 0, Math.PI * 2); g.fill();
@@ -2134,7 +2134,8 @@
       if (d.bar && st.onBarDragEnd) { try { st.onBarDragEnd(); } catch {} }
       if (d.barX && st.onBarDragXEnd) { try { st.onBarDragXEnd(); } catch {} }
       if (d.bar || d.barX || d.msel) return;   // 고른 막대를 위아래(음정)·좌우(타이밍)로 옮긴 것(재생/멈춤 아님)
-      if (!d.mode && e.type === "pointerup" && typeof o.onFix === "function" && isPaused() && st.tbars) {   // 멈춘 상태에서 초록 정음 막대 톡 = 정음 고치기
+      const onFlag_ = (() => { if (d.mode || e.type !== "pointerup" || !st.popNH || !st.popNH.length) return false; const lf = loc(e.clientX, e.clientY, cvEl.getBoundingClientRect()); return st.popNH.some(q => Math.hypot(lf.x - q.x, lf.y - q.y) <= 16); })();   // (11/26) 피드백 번호 위 톡은 번호가 먼저
+      if (!onFlag_ && !d.mode && e.type === "pointerup" && typeof o.onFix === "function" && isPaused() && st.tbars) {   // 멈춘 상태에서 초록 정음 막대 톡 = 정음 고치기
         const le = loc(d.cx ?? e.clientX, d.cy ?? e.clientY, cvEl.getBoundingClientRect()), hb = hitT(le) || hitBar(le);   // (11/03 10:31 아이패드) 누른 자리(뗀 자리 아님) + 손가락 크기만큼 넉넉하게
         if (hb) { fixSheet(wrap, cv, hb, o.onFix, getT, st); return; } }
       if (editGo && !d.mode && e.type === "pointerup" && isPaused() && st.tbars) { const le = loc(d.cx ?? e.clientX, d.cy ?? e.clientY, cvEl.getBoundingClientRect()); if (hitT(le) || hitBar(le)) { editGo(); return; } }   // 멈춘 채 초록 막대 톡 = 음표 고치기 화면으로
@@ -2142,7 +2143,8 @@
         const le = loc(d.cx ?? e.clientX, d.cy ?? e.clientY, cvEl.getBoundingClientRect()), onBar = hitT(le) || hitBar(le);
         if (!onBar) { sheetClose(); lastTap = 0; return; } }
       if (!d.mode && e.type === "pointerup" && st.popNH && st.popNH.length) { const le = loc(e.clientX, e.clientY, cvEl.getBoundingClientRect()), h = st.popNH.find(q => Math.hypot(le.x - q.x, le.y - q.y) <= 16);   // 번호 톡 = 그 말풍선(고급은 고치기·지우기 버튼)
-        if (h) { st.popPin = st.popPin && st.popPin.k === h.k ? null : { k: h.k, until: performance.now() + 4000 }; lastTap = 0; return; } }
+        if (h) { lastTap = 0; if (typeof o.onNote === "function") { pauseNow(); st.popPin = null; lastView = view; o.onNote(h.n); return; }   // (11/26 사용자 '핸들을 누르면 피드백 수정') 고칠 수 있는 화면이면 바로 고치기 창
+          st.popPin = st.popPin && st.popPin.k === h.k ? null : { k: h.k, until: performance.now() + 4000 }; return; } }
       if (!d.mode && e.type === "pointerup" && st.popPin) { st.popPin = null; lastTap = 0; return; }   // 떠 있는 말풍선은 빈 곳 톡으로 닫기
       if (!d.mode && e.type === "pointerup" && typeof o.onNote === "function") { const r = cvEl.getBoundingClientRect(), le = loc(e.clientX, e.clientY, r), hn = d.h0 || hitNote(st, le.x, le.y);   /* 누를 때 맞은 칸 우선(떼는 사이 칸이 바뀌어도) */ if (hn) { pauseNow(); if (hn.del) { o.onDelNote && o.onDelNote(hn.n); } else { lastView = view; o.onNote(hn.n); } return; } }
       if (d.mode === "pitch" && d.vk && d.vtm && performance.now() - d.vtm < 80 && Math.abs(d.vv || 0) > 0.06 * d.vper) {   // (11/14 22:19 사용자) 위아래 밀기도 곡 서랍 정도의 관성(놓을 때 빠르기의 절반)
