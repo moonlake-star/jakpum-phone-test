@@ -6499,8 +6499,9 @@ function mkApply() {
   set("dry", !raw && !hasP ? V : 0);
   set("wet", raw || perW ? 0 : V * W);
   set("mr", raw ? 0 : M);
-  set("bv", raw && mkTracks.bv ? V : 0); set("bm", raw && mkTracks.bv ? M : 0);
-  set("before", raw && !mkTracks.bv ? 1 : 0);
+  const one = !!(mkJob && mkJob._one) || !mkTracks.bv;   // (11/26 사용자 '보정 전은 아예 원소스') 한 파일로 올린 곡 = 분리 전 원본(before.mp3) 그대로
+  set("bv", raw && !one ? V : 0); set("bm", raw && !one ? M : 0);
+  set("before", raw && one ? 1 : 0);
 }
 // (11/06 사용자 '폰에서 최종 익스포트까지') 지금 들리는 소리(고친 것 반영) 그대로 폰 안에서 합치기 → 목표 LUFS → 리미터 → mp3(320k). 서버 makeup.py와 같은 식(tests/export-core.test.js로 대조)
 // 울림은 서버가 만든 울림 트랙 그대로 · 서버가 정식 파일을 따로 다시 만들어 둠(‘이 설정으로 완성본 다시 만들기’)
@@ -8547,7 +8548,8 @@ async function openMkJob(j, backTo) {
   const stage = (k) => [["p" + k, `vocal_dry_p${k}.mp3`], ...(perW && !irF ? [["w" + k, `vocal_wet_p${k}.mp3`]] : []),
     ...(mkHasW && k > 0 ? [["q" + k, `vocal_dry_pw${k}.mp3`], ...(irF ? [] : [["x" + k, `vocal_wet_pw${k}.mp3`]])] : [])];
   const base = () => hasP ? [...stage(lvNow()), ...stage(0), ...(perW || irF ? [] : [["wet", "vocal_wet.mp3"]]), ["mr", "mr.mp3"]] : [["dry", "vocal_dry.mp3"], ["wet", "vocal_wet.mp3"], ["mr", "mr.mp3"]];
-  const beforeSet = () => by("before_vocal.mp3") ? [["bv", "before_vocal.mp3"], ["bm", "before_mr.mp3"]] : [["before", "before.mp3"]];
+  j._one = !!by("before.mp3");   // (11/26 사용자 '보정 전은 반주와 분리되지도 않은 원소스') 한 파일로 올린 곡은 분리한 두 트랙 말고 올린 원본 그대로
+  const beforeSet = () => j._one ? [["before", "before.mp3"]] : by("before_vocal.mp3") ? [["bv", "before_vocal.mp3"], ["bm", "before_mr.mp3"]] : [["before", "before.mp3"]];
   $("mkPP").onclick = async () => {
     if (mkPlaying) { mkOffset = mkNow(); mkStop(); return paintTransport(); }
     mkUnlock();   // (11/16 사용자 '아이패드에서 재생 시작이 안 됨 — 불러오는 중만') 아이패드·아이폰 사파리는 누른 그 순간(기다리기 전)에 소리 장치를 깨워야 함
@@ -8570,8 +8572,9 @@ async function openMkJob(j, backTo) {
   abLabel();
   if ($("mkRawSw")) $("mkRawSw").onchange = async (e) => {
     mkRaw = e.target.checked; abLabel(); mkApply();
-    if (mkRaw && !mkTracks.bv?.buf && !mkTracks.before?.buf) { $("mkT").textContent = "보정 전 불러오는 중…"; await ensure(beforeSet()); playLabel(); }
-    if (mkRaw && !by("before_vocal.mp3")) $("mkRawHint").textContent = "이 작업의 보정 전 녹음은 한 덩어리라 보컬·MR 크기도 적용되지 않아요.";
+    // (11/26 사용자 '보정 전 켜면 목소리만') 음정선이 보정 전 목소리(bv)만 미리 받아 두면 'bv 있음'으로 보고 반주(bm)를 안 받던 것 → 빠진 트랙이 하나라도 있으면 받음
+    if (mkRaw && beforeSet().some(([n, f]) => by(f) && !mkTracks[n]?.buf)) { $("mkT").textContent = "보정 전 불러오는 중…"; await ensure(beforeSet()); playLabel(); }
+    if (mkRaw && j._one) $("mkRawHint").textContent = "올린 원본 그대로예요(반주와 섞인 한 덩어리 · 크기만 같게 맞춤). 보컬·MR 크기는 적용되지 않아요.";
     mkApply(); };
   const abPaint = () => document.querySelectorAll("#mkAb [data-ab]").forEach(b => { const on = (lvNow() > 0) === (b.dataset.ab === "1"); b.classList.toggle("on", on); b.setAttribute("aria-pressed", String(on)); });
   if ($("mkPitch")) $("mkPitch").oninput = async () => { abLabel(); abPaint(); mkApply(); await ensure(stage(lvNow())); mkApply(); };
