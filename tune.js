@@ -388,7 +388,20 @@
       // (11/16 14:50 사용자 '자른 뒤 뒤 음이 튀어 올라감') 미끄러짐의 꺾이는 꼭짓점 한 점(그 점만 느림)은 '머문' 점이 아님 → 앞뒤 점도 느려야 머문 점
       { const W0 = new Set(W.keys()), inI = new Set(ids); for (const i of W0) if (!((W0.has(i - 1) || !inI.has(i - 1)) && (W0.has(i + 1) || !inI.has(i + 1)))) W.delete(i); }
       const cen = new Map(), got = [];
-      for (const i of ids) { let s_ = 0, c_ = 0; for (let d = -2; d <= 2; d++) { const w = W.get(i + d); if (w) { s_ += P[i + d][1] * w; c_ += w; } } if (c_ > 0) { cen.set(i, s_ / c_); got.push(i); } }
+      // (11/26) 떨림이 큰 음(10~90% 폭 60센트↑, 40센트↑ 오르내림 3번↑, 0.3초↑): 머문 점이 떨림 꼭대기(또는 바닥)에만 몰려 기준이 치우침 → 그 음 전체 평균(떨림 한가운데) · 서버 plan_targets와 같은 규칙
+      { const vv = ids.map(i => P[i][1]).sort((a, b) => a - b), dur = ids.length ? P[ids[ids.length - 1]][0] - P[ids[0]][0] : 0;
+        let sw = 0, dir = 0, hi = ids.length ? P[ids[0]][1] : 0, lo = hi;   // 떨림 = 40센트 넘게 오르내린 횟수(잡음·미끄러짐 한 번은 떨림 아님)
+        for (const i of ids) { const v = P[i][1]; hi = Math.max(hi, v); lo = Math.min(lo, v);
+          if (dir >= 0 && hi - v >= 40) { if (dir > 0) sw++; dir = -1; hi = lo = v; } else if (dir <= 0 && v - lo >= 40) { if (dir < 0) sw++; dir = 1; hi = lo = v; } }
+        if (vv.length > 5 && dur >= 0.3 && sw >= 3 && vv[Math.floor((vv.length - 1) * 0.9)] - vv[Math.floor((vv.length - 1) * 0.1)] >= 60) {
+          const cMean = ids.reduce((s_, i) => s_ + P[i][1], 0) / ids.length;   // 그 음 전체 평균(떨림 한가운데) — 떨림 폭은 그대로
+          for (const i of ids) m.set(i, Math.max(f.midi * 100 - 1200, Math.min(f.midi * 100 + 1200, f.midi * 100 + (P[i][1] - cMean))));
+          continue; } }
+      // (11/26 사용자 '여기는 왜 보정 후가 음이 더 내려가') 기준 높이 = 그 점 앞뒤 0.1초(서버 plan_targets와 같은 0.2초 창) 안 머문 점 평균 — 예전 ±2점(약 0.04초)은 큰 비브라토에서 떨림 꼭대기·바닥만 보고 떨림 전체를 아래·위로 밀었음
+      for (const i of ids) { if (!W.size) break; let s_ = 0, c_ = 0, t0_ = P[i][0];
+        for (let j = i; j >= 0 && t0_ - P[j][0] <= 0.1 + 1e-6; j--) { const w = W.get(j); if (w) { s_ += P[j][1] * w; c_ += w; } }
+        for (let j = i + 1; j < P.length && P[j][0] - t0_ <= 0.1 + 1e-6; j++) { const w = W.get(j); if (w) { s_ += P[j][1] * w; c_ += w; } }
+        if (c_ > 0) { cen.set(i, s_ / c_); got.push(i); } }
       // 머문 점이 없는 음(통째로 미끄러짐·떨림만) = 그 음 전체의 가운데(빠르기 가중 중앙값)를 기준으로
       const cMed = got.length ? null : wMed(ids.map(i => P[i][1]), ids.map(i => { const a = P[i - 1] && P[i - 1][1] != null ? P[i - 1] : P[i], b = P[i + 1] && P[i + 1][1] != null ? P[i + 1] : P[i]; const v = a === b ? 0 : Math.abs(b[1] - a[1]) / Math.max(1e-3, b[0] - a[0]); return 1 / (1 + (v / 400) ** 2); }));
       for (const i of ids) { let c = cMed; if (c == null) { c = cen.get(i); if (c == null) { let b = got[0]; for (const g of got) if (Math.abs(g - i) < Math.abs(b - i)) b = g; c = cen.get(b); } }
