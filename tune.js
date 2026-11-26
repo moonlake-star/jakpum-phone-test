@@ -839,7 +839,7 @@
       else if (msg) { g.save(); g.font = (full ? "bold 16px" : "bold 13px") + " system-ui, sans-serif"; g.textAlign = "center"; const mx = L + (w - L) / 2, my = T + HP / 2, tw = g.measureText(msg).width;
         g.fillStyle = "rgba(17,20,26,.88)"; g.fillRect(mx - tw / 2 - 10, my - 15, tw + 20, 30); g.fillStyle = "#ffe066"; g.fillText(msg, mx, my); g.restore(); }
     }
-    if (st && (st.notesHidden || popM)) { st.hits = []; st.popNH = (popM ? !st.notesHidden : full && st.advOn && st.advNotes) ? drawFlags(g, st, t, xs, L, w, T, HP, vis, y, popM) : null; }
+    if (st && (st.notesHidden || popM)) { st.hits = []; st.popNH = (popM || (full && st.advOn)) ? drawFlags(g, st, t, xs, L, w, T, HP, vis, y, popM ? !st.notesHidden : !!st.advNotes) : null; }   // (11/26 사용자) 강사: 핸들은 늘 보임 · 💬 피드백 체크 = 내용(말풍선)도 · 수강생: 체크 없이 늘 둘 다
     else if (st) { let oy0 = 1e9, oy1 = -1e9; for (const p of vis) { for (const kk of [1, k]) { if (!kk || p[kk] == null) continue; const Y = y(p[kk]); if (Y < oy0) oy0 = Y; if (Y > oy1) oy1 = Y; } }   // 지금 화면의 음정선 높이 범위
       drawNotes(g, st, t, xs, L, w, T, H, full, tagB, oy0 <= oy1 ? [oy0, oy1] : null, vis, y); }
     if (full && st && st.msel && !st.advOn && st.map) {   // (11/07) 기본 모드 구간 손잡이(초록 동그라미)·💬 표시 = 다른 그림 위에
@@ -861,7 +861,7 @@
   function popSyncF(P) {   // P = { host, cvEl, st, o, popEls, small, pause, edit }
       const { host, cvEl, st, o, popEls, small } = P, H_ = st.popNH || [], now = performance.now(); if (!host || !host.isConnected) return;
       if (st.popPin && !st.advOn && now > st.popPin.until) st.popPin = null;
-      const want = st.advOn ? [] : H_.filter(h => h.act); if (st.popPin) { const h = H_.find(q => q.k === st.popPin.k); if (h && !want.includes(h)) want.push(h); }
+      const want = H_.filter(h => h.act); if (st.popPin) { const h = H_.find(q => q.k === st.popPin.k); if (h && !want.includes(h)) want.push(h); }
       const keys = new Set(want.map(h => h.k));
       for (const [k, el] of popEls) if (!keys.has(k)) { popEls.delete(k); el.classList.add("out"); setTimeout(() => el.remove(), 180); }
       const tch = !!o.teacher || typeof o.onNote === "function", adv = !!st.advOn, hw = host.clientWidth, act = !small;   // 작은 그래프: 보기만(톡은 그래프로 → 전체화면)
@@ -1534,7 +1534,7 @@
     { text: () => "여러 음을 고른 뒤 분홍 손잡이를 끌면 반대쪽 끝은 그대로, 비율대로 늘거나 줄어요", need: "if (st.mStr.start(side)) { d0.stretch", when: (o) => typeof o.onResetRange === "function" && typeof o.onTime === "function" },
     { text: () => "↶ ↷ 되돌리기·다시하기 · 길게 누르면 작업 기록 창(원하는 시점으로 바로 이동)", need: 'data-ur="-1"', when: (o) => typeof o.histGet === "function" },
     { text: () => "위 🎛 고급: 켜면 음별 디테일 보정 · 고친 양·주석을 접어 그래프가 커져요", need: 'data-md2="1"', when: (o) => typeof o.onAdv === "function" },
-    { text: () => "보정본에선 주석이 숨겨져요 · 위 💬 피드백 버튼(지나갈 때 반짝)으로 보기", need: "st.notesHidden = (pm && !st.noteShow)", when: (o) => !!o.teacher && typeof o.onNote === "function" },
+    { text: () => "피드백 핸들(번호)은 늘 보여요 · 위 💬 피드백을 켜면 지나갈 때 내용도 떠요 · 번호 톡 = 그 피드백", need: "st.notesHidden = (pm && !st.noteShow)", when: (o) => !!o.teacher && typeof o.onNote === "function" },
     { text: () => "⏱ 타이밍: ◀▶ 일찍·늦게, −/+ 길이 · 막대 가운데를 끌면 옮기기, 끝을 끌면 길이", need: "st.onBarDragX = (dt, edge, start)", when: (o) => typeof o.onTime === "function" },
     { text: () => "타이밍 고친 음은 하늘색, 원래 자리는 점선 · 가운데 숫자를 누르면 그 근처만 들려요", need: 'g.fillStyle = "#5fd4ff"; g.fillRect(x0', when: (o) => typeof o.onTime === "function" },
     { text: () => "음 이름 칸: 누르면 소리 · 위아래로 밀면 미세(센트) · 꾹 누른 뒤 밀면 반음씩", need: 'n_.lp = setTimeout(() => { if (nd !== n_ || n_.ax) return; n_.fine = false; buzz(40);', when: (o) => typeof o.onFix === "function" },
