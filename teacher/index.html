@@ -2299,6 +2299,22 @@ async function notePeaks(fileId) {
   if (!fileId) return null; if (wavePeaks[fileId]) return wavePeaks[fileId];
   try { const pk = await peaksOf(await readBlob(fileId)); if (pk) wavePeaks[fileId] = pk; return pk; } catch { return null; }
 }
+// (11/26 사용자 '모든 수강생에게도 전체화면 뷰') 이미 공개된 노트에 음정선(curve_id)이 빠져 있으면 선생님이 레슨을 열 때 조용히 넣어 다시 올림.
+//   글·소리는 그대로(승인 지문에 음정선은 안 들어감) · 예약·보류 상태를 바꾸지 않게 서버의 visible_after를 그대로 씀 · 동의 철회·강사 본인은 건너뜀
+async function noteCurveFill(me) {
+  const n = me?.note; if (!n || !n.published_at || !n.makeup?.file_id || n.makeup.curve_id || me._cvFill || me.st?.consent_withdrawn || (typeof isTeacher === "function" && isTeacher(me.st || {}))) return false;
+  const side = mkSideFiles({ file_id: n.best?.file_id }); if (!side.curve_id) return false;
+  me._cvFill = true;
+  try {
+    const s = await refreshSched(me); if (s.caps !== true || !s.entry) { me._cvFill = false; return false; }
+    for (const id of [side.curve_id, ...(side.before_id && !n.makeup.before_id ? [side.before_id] : [])]) await openLink(id);
+    const note = { ...n, makeup: { ...n.makeup, ...side } }, va = String(s.entry.visible_after || "").trim();
+    if (va) await portal("t_schedule", { sid: me.sid, lesson_id: me.folder.id, approved: true, visible_after: va, note, date: note.date, published_at: note.published_at });
+    else await portal("t_note", { sid: me.sid, lesson_id: note.lesson_id, date: note.date, published_at: note.published_at, note });
+    const ex = me.files.find(f => f.name === NOTE), id = await writeJSON(me.folder.id, NOTE, note, ex?.id); if (!ex) me.files.push({ id, name: NOTE });
+    me.note = note; return true;
+  } catch (e) { me._cvFill = false; throw e; }
+}
 async function publishNote() {
   if (cur.st.consent_withdrawn) throw new Error("동의 철회된 수강생이라 게시하지 않았어요");
   const note = buildNote(), ex = cur.files.find(f => f.name === NOTE);
@@ -8995,6 +9011,7 @@ async function openLessonInner(sid, i, backTo) {
   $("ckCard").classList.toggle("hidden", !cfg.practice_check);
   renderSent();
   renderToday(); renderSpkState(ai); if (typeof renderNextPlan === "function") renderNextPlan();
+  { const me_ = cur; setTimeout(() => { if (cur === me_) noteCurveFill(me_).catch((e) => console.warn("음정선 채우기", e)); }, 1500); }   // (11/26) 이미 공개된 노트에 음정선이 없으면 조용히 채움
   // 레슨별 비공개 답신(앱 #39): 수강생이 이 레슨에 남긴 글과 답장 — 평소엔 접힘(화면 길이)
   document.getElementById("lessonReplies")?.remove();
   if (typeof LessonReplies !== "undefined") {
@@ -9081,7 +9098,8 @@ function bestSourceTakes() {   // 하이라이트 기준 테이크 등 내부용
 }
 function bestPicked() { return bestOptions()[0] || null; }   // 화면에 보여 줄 편집본. 학생에게 보낼지는 bestForNote()
 // 메이크업본: 끝난 작업(done)의 mix.mp3 실물이 있고, 그 작업이 '지금 이 편집본'으로 만든 것일 때만 있다고 봄
-function mkCurveFile(o) { const job = o?.file_id ? bestMakeupJob(o) : null; return job?.req?.status === "done" ? (job.files || []).find(x => x.name === "pitch_curve.json") || null : null; }
+const mkHasOut = (job) => !!job && (job.req?.status === "done" || (job.req?.render_count || 0) > 0);   // (11/26) 완성본이 한 번이라도 나왔으면(서버가 다시 그리는 중이어도) 음정선이 있음
+function mkCurveFile(o) { const job = o?.file_id ? bestMakeupJob(o) : null; return mkHasOut(job) ? (job.files || []).find(x => x.name === "pitch_curve.json") || null : null; }
 // ── 음정 주석(10/30 사용자 시안 승인): 서버가 만든 AI 초안(음정주석.json, 메이크업 폴더)을 선생님이 고치고 ✓확인 → 확인한 것만 수강생에게 ──
 const TN_NAME = "음정주석.json", tnCache = {};
 function tnFile(job) { return (job?.files || []).find(x => x.name === TN_NAME) || null; }
@@ -9111,7 +9129,7 @@ function tnRemove(c, n) { const i = c.doc.notes.indexOf(n); if (i < 0) return;
 function tnSumHTML(c) { if (!c) return ""; const ns = c.doc.notes, d = ns.filter(n => n.status !== "ok").length, ok = ns.length - d;
   return `<span class="chip">AI 초안 ${d}</span> <span class="chip">확인 ${ok}</span> · 초안은 수강생에게 안 보여요 · 그래프를 눌러 크게 본 뒤 칸을 누르면 고치기, 빈 곳을 길게 누르면 추가`; }
 function mkSideFiles(o) {   // 수강생 노트용: 원음(보정 전, 같은 크기) · 음정선
-  const job = o?.file_id ? bestMakeupJob(o) : null, fs = (job?.req?.status === "done" && job.files) || [];
+  const job = o?.file_id ? bestMakeupJob(o) : null, fs = (mkHasOut(job) && job.files) || [];   // (11/26 사용자 '윤지선은 전체화면 뷰가 없음') 서버가 다시 그리는 중(queued·working)에 공개하면 음정선이 빠졌던 것
   const b = fs.find(x => x.name === "before.mp3"), c = fs.find(x => x.name === "pitch_curve.json");
   const tn = c ? tnPublic(job) : null;
   const sg = job?.req?.song?.stu_stems && typeof songFiles === "function" ? (stemIds(job.req.song) || songFiles((n) => fs.find(x => x.name === n))) : null;   // (11/07) 선생님이 켠 곡만 원곡 보컬·반주
