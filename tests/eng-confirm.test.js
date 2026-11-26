@@ -3,6 +3,6 @@ const assert = require("assert"), fs = require("fs"), path = require("path");
 const A = fs.readFileSync(path.join(__dirname, "..", "adv.js"), "utf8"), H = fs.readFileSync(path.join(__dirname, "..", "teacher", "index.html"), "utf8");
 assert.ok(A.includes("이 곡 보정 엔진을 ${nm}(으)로 바꿀까요?") && A.includes('x.dataset.cf === "1" ? { engine: en, engine_pick: k } : { engine_pick: k }'), "확인 창에서만 엔진 바꿈");
 assert.ok(!A.includes("→ 이 곡 보정 엔진으로 정했어요"), "옛 문구 없음");
-assert.ok(H.includes("r.result?.wet_gain ?? 0.0288"), "리버브 기본 20%");
+assert.ok(H.includes("REV_DEF * REV_UNIT") && H.includes("REV_DEF = 40"), "리버브 기본 40%");
 console.log("eng-confirm ok");
-assert.ok(H.includes("r.wet_gain ?? r.result?.wet_gain ?? 0.0288") && H.includes("Math.abs(r.wet_gain - revBaked) > 1e-4"), "저장 리버브를 바꾸면 그 값부터 · 완성본엔 반영 전 표시");
+assert.ok(H.includes("r.wet_gain ?? (r.result?.wet_gain != null") && H.includes("Math.abs(r.wet_gain - revBaked) > 1e-4"), "저장 리버브를 바꾸면 그 값부터 · 완성본엔 반영 전 표시");
