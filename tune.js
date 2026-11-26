@@ -152,11 +152,16 @@
     const kf = (n) => n.id || n.t0 + ":" + n.text, allS = all.slice().sort((a, b) => (+a.t0 - +b.t0) || String(kf(a)).localeCompare(String(kf(b))));
     const act = auto ? allS.filter(n => popWin(n, t) && xs(+n.t0) >= L - 10 && xs(+n.t0) <= w + 10).sort((a, b) => Math.abs(t - a.t0) - Math.abs(t - b.t0)).slice(0, 2).sort((a, b) => +a.t0 - +b.t0) : [];
     const pin = st.popPin && st.popPin.k, hits = []; g.save(); g.beginPath(); g.rect(L, T, w - L, HP); g.clip();
-    allS.forEach((n, i) => { const x = xs(+n.t0); if (x < L - 10 || x > w + 10) return;
+    allS.forEach((n, i) => { const rng = +n.t1 - +n.t0 >= 0.35, x1 = rng ? xs(+n.t1) : null, x0 = xs(+n.t0);   // (11/26 사용자 '구간은 구간으로 표시해 주길') 구간 피드백 = 시작~끝 띠 + ├──┤ 막대
+      if ((rng ? x1 < L - 10 : x0 < L - 10) || x0 > w + 10) return;
+      const x = rng ? Math.min(Math.max(x0, L + 10), x1) : x0;
       let best = null, bd = 1e9; for (const p of vis || []) { if (p[1] == null) continue; const dd = Math.abs(p[0] - +n.t0); if (dd < bd) { bd = dd; best = p; } }
       const k = kf(n), ai = act.indexOf(n), down = ai === 1, br = 8.5, py = best && bd < 0.6 ? yf(best[1]) : T + HP / 2;
       const OFF = 52, up_ = py - OFF >= T + br + 1, by = down || !up_ ? Math.min(T + HP - br - 1, py + OFF) : py - OFF;   // (11/26 사용자 '핸들이 음표와 더 멀리') 22 → 52px(음표 막대 위로 확실히 떨어지게) · 위가 모자라면 아래로
       const c = n.status !== "ok" ? "150,158,170" : auto ? ((i + 1) % 2 ? "111,224,176" : "196,163,255") : "196,163,255";
+      if (rng) { g.fillStyle = `rgba(${c},.13)`; g.fillRect(x0, T, x1 - x0, HP);
+        g.strokeStyle = `rgba(${c},.9)`; g.lineWidth = 2.4; g.beginPath(); g.moveTo(x + br, by); g.lineTo(x1, by); g.moveTo(x1, by - 7); g.lineTo(x1, by + 7); g.stroke();
+        g.strokeStyle = `rgba(${c},.35)`; g.lineWidth = 1; g.setLineDash([3, 3]); g.beginPath(); g.moveTo(x0, T); g.lineTo(x0, T + HP); g.moveTo(x1, T); g.lineTo(x1, T + HP); g.stroke(); g.setLineDash([]); }
       g.strokeStyle = `rgb(${c})`; g.lineWidth = 1.2; g.beginPath(); g.moveTo(x, down ? py + 3 : py - 3); g.lineTo(x, down ? by - br : by + br); g.stroke();
       g.fillStyle = `rgb(${c})`; g.beginPath(); g.arc(x, py, 2.6, 0, Math.PI * 2); g.fill(); g.beginPath(); g.arc(x, by, br, 0, Math.PI * 2); g.fill();
       if (ai >= 0 || pin === k) { g.strokeStyle = `rgba(${c},.5)`; g.lineWidth = 2; g.beginPath(); g.arc(x, by, br + 3.5, 0, Math.PI * 2); g.stroke(); }
