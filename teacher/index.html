@@ -5784,7 +5784,8 @@ async function makeupFromLesson(cid, back) {
 // 미리듣기: 보컬(원음)·보컬(울림)·MR 세 갈래를 동시에 재생하며 비율만 바로 조절
 // ── 메이크업 미리듣기 엔진: 여러 갈래를 같은 시각에 함께 재생하고 '크기'만 바꿔 즉시 전환/조절 ──
 // 갈래: 애프터 보컬(음정 단계별 p0~p3) · 울림(센드 1.0) · MR · 비포 보컬 · 비포 MR
-const REV_UNIT = 0.00144;   // 리버브 1% = 센드 0.00144  → 20% = 표준(0.0288, 11/09 21:23 사용자 — 전엔 30%·15%) · (11/02 15:22 사용자) 최대 50% → 100%
+const REV_UNIT = 0.00144, REV_DEF = 40;   // (11/27 사용자 '리버브 40을 기본값으로') 기본 40% = 0.0576(서버 WET_PER_SEND 0.32와 같음)
+   // 리버브 1% = 센드 0.00144  → 20% = 표준(0.0288, 11/09 21:23 사용자 — 전엔 30%·15%) · (11/02 15:22 사용자) 최대 50% → 100%
 const PITCH_NAMES = ["끔", "켬", "켬", "켬"];   // (11/02 17:30 사용자) 세기 고르기 없앰 — 보정은 강 하나, 끔/켬만
 let mkCtx = null, mkT0 = 0, mkOffset = 0, mkPlaying = false, mkTracks = {}, mkTick = null, mkBefore = false, mkRaw = false, mkJob = null, mkDurS = 0, mkBound = "center", mkHasW = false;
 // ── (11/02 17:09 사용자) 고친 정음을 폰에서 바로 미리 듣기 · (11/02 17:39 사용자) 소리를 완성본과 최대한 비슷하게 ──
@@ -6476,7 +6477,7 @@ function mkApply() {
   if (!$("mkVol")) return;
   mkPhone = null;   // 크기·고침이 바뀌면 방금 만든 파일은 옛것
   const v = +$("mkVol").value, r = +$("mkRev").value, m = +$("mkMr").value, lv = +($("mkPitch")?.value || 0);
-  $("mkVolT").textContent = (v > 0 ? "+" : "") + v + " dB"; $("mkRevT").textContent = r + "%" + (r === 20 ? " (표준)" : "");
+  $("mkVolT").textContent = (v > 0 ? "+" : "") + v + " dB"; $("mkRevT").textContent = r + "%" + (r === REV_DEF ? " (표준)" : "");
   $("mkMrT").textContent = (m > 0 ? "+" : "") + m + " dB"; if ($("mkPitchT")) $("mkPitchT").textContent = PITCH_NAMES[lv];
   if (mkRaw) { $("mkRevT").textContent = "보정 전엔 없음"; if ($("mkPitchT")) $("mkPitchT").textContent = "보정 전엔 없음"; }
   if (!mkCtx) return;
@@ -8477,7 +8478,7 @@ async function openMkJob(j, backTo) {
   const boundBox = !pi.boundary_used ? "" : `<p class="muted" style="margin:6px 0 0;font-size:.8rem">🎯 ${mdl.n ? `애매한 음은 이 수강생의 확인된 습관으로 판단 — 학습 모형 v${pi.model_v || "?"}, 확인된 음 ${mdl.n}개(신뢰 ${Math.round((mdl.trust || 0) * 100)}%)` : "아직 확인된 습관 자료가 없어 기본 보정(키·스케일·멜로디)이에요 — 아래 ‘음정 판단 확인’이 쌓이면 이 수강생에 맞춰져요"}${pi.guard ? " · ⚠️ 습관 반영이 너무 많이 바꿔서 이번엔 기본 방식으로 만들었어요" : ""}${pi.melody_notes ? ` · MIDI 멜로디 사용(${pi.melody_notes}음)` : ""}</p>`;
   const hasP = !!by("vocal_dry_p0.mp3"), hasB = !!by("before_vocal.mp3") || !!by("before.mp3");
   let curveF = null, tuneOk = false;   // (11/02 15:29 고침) 블록 안 const라 아래 음정선 불러오기에서 ReferenceError → 메이크업 화면 음정선이 늘 검은 칸이던 원인
-  const revNow = Math.round((r.wet_gain ?? r.result?.wet_gain ?? 0.0288) / REV_UNIT);   // (11/09 21:23 사용자) 기본 30% → 20% · (21:34) 저장값을 바꿨으면(r.wet_gain) 그 값부터 — 실시간 리버브라 바로 들림
+  const revNow = Math.round((r.wet_gain ?? (r.result?.wet_gain != null ? (r.result.wet_v2 ? r.result.wet_gain : r.result.wet_gain * 2) : REV_DEF * REV_UNIT)) / REV_UNIT);   // (11/27 사용자 '리버브 40을 기본값으로') 옛 완성본(기본 20% 시절, wet_v2 없음)의 기본 울림은 두 배로 읽음 · 선생님이 정한 값(r.wet_gain)은 그대로   // (11/09 21:23 사용자) 기본 30% → 20% · (21:34) 저장값을 바꿨으면(r.wet_gain) 그 값부터 — 실시간 리버브라 바로 들림
   let body = `<div class="card"><h2 style="margin:0">${esc(j.st.name)} · ${esc(r.title || "")}</h2>
     <p class="muted">${r.status === "done" || mkHasOut ? `완성 ${r.render_count || 1}번째 · 길이 ${fmt(meas.duration_sec || 0)} · 최종 ${meas.mix_lufs_out ?? "?"} LUFS${pi.key ? ` · 키 ${esc(pi.key.name)}${pi.key_auto ? "(자동 인식)" : ""}` : ""}` :
       `실패: ${esc(r.error || "")}`}</p></div>`;
@@ -8751,8 +8752,8 @@ async function openMkJob(j, backTo) {
           const fb_ = by("before_vocal.mp3"), f_ = by("vocal_dry_p0.mp3") || by("vocal_dry.mp3");   // (11/14 20:49) 원래 부른 보컬(보정 전)을 먼저 — 셈여림이 그대로
           if (fb_ && !mkTracks.bv) mkLoad("bv", fb_.id).catch(() => {}); else if (!fb_ && f_ && !mkTracks.p0 && !mkTracks.dry) mkLoad(by("vocal_dry_p0.mp3") ? "p0" : "dry", f_.id).catch(() => {}); return null; }, ...tnOpts });
   }).catch((e) => { tuneWired = true; console.warn("음정선", e); const c = $("mkTune"); if (c) c.replaceWith(Object.assign(document.createElement("p"), { className: "muted", textContent: "음정선을 불러오지 못했어요 (" + String(e?.message || e).slice(0, 60) + ")" })); });
-  // 슬라이더가 기본값에 닿으면 짧고 약한 진동(안드로이드). 기본값: 보컬 0dB · 리버브 30% · MR 0dB · 음정 켬
-  const DEF = { mkVol: 0, mkRev: 20, mkMr: 0, mkPitch: 3 };
+  // 슬라이더가 기본값에 닿으면 짧고 약한 진동(안드로이드). 기본값: 보컬 0dB · 리버브 40% · MR 0dB · 음정 켬
+  const DEF = { mkVol: 0, mkRev: REV_DEF, mkMr: 0, mkPitch: 3 };
   for (const [id, d] of Object.entries(DEF)) { const el = $(id); if (!el) continue; let prev = +el.value;
     el.addEventListener("input", () => { const now = +el.value; if (now === d && prev !== d) { try { navigator.vibrate?.(12); } catch {} } prev = now; }); }
   const dec = { ...(r.pitch_review?.decisions || {}) };
