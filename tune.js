@@ -625,10 +625,16 @@
         tb.push({ x0, x1, y: yy, h: bh, t0: te.t0, t1: te.t1, c: te.c, te }); }
       if (st) st.tebars = tb;
       if (st && st.advOn && G.TuneAdv && cv.uv) {   // (11/04 사용자) 치찰음(노란 빗금)·호흡(회색 빗금) — 고급 보정에서만, 가까운 음 막대 높이에
-        const ub = [], near_ = (a, b) => { let best = null, bd = 9; for (const x of bars) { const dd = Math.max(0, x.t0 - b, a - x.t1); if (dd < bd && dd <= 0.6) { bd = dd; best = x; } } return best; };
+        // (11/26 사용자 '숨쉬는 음이 자꾸 상하로 왔다갔다') 숨 덩어리 높이 = 화면에 보이는 막대가 아니라 전체 음정 자료에서 앞뒤 0.6초 안 가장 가까운 음(스크롤·확대에 따라 바뀌지 않음)
+        const PT_ = cv.pts || [], anchorC = (a, b) => { let lo_ = 0, hi_ = PT_.length; while (lo_ < hi_) { const m_ = (lo_ + hi_) >> 1; if (PT_[m_][0] < a) lo_ = m_ + 1; else hi_ = m_; }
+          let pc = null, pd = 9, nc = null, nd = 9;
+          for (let i = lo_ - 1; i >= 0 && a - PT_[i][0] <= 0.6; i--) if (PT_[i][kt] != null) { pc = PT_[i][kt]; pd = a - PT_[i][0]; break; }
+          for (let i = lo_; i < PT_.length && PT_[i][0] - b <= 0.6; i++) if (PT_[i][0] >= b && PT_[i][kt] != null) { nc = PT_[i][kt]; nd = PT_[i][0] - b; break; }
+          return pc == null && nc == null ? null : pd <= nd ? pc : nc; };
+        const ub = [];
         for (const u of G.TuneAdv.uvList(cv, st)) { if (u[1] < t0 - 0.2 || u[0] > t0 + W8 + 0.2) continue;
           const nxt = u[2] === "s" ? bars.filter(x => !x.ghost && x.t0 >= u[1] - 0.02 && x.t0 - u[1] <= SIB_GAP).sort((p_, q_) => p_.t0 - q_.t0)[0] : null;   // (11/24) 치찰음 = 뒤 모음 음표의 왼쪽 앞에 붙임(그 음 높이·그 음 시작에 맞닿게)
-          const w_ = Math.max(4, xs(u[1]) - xs(u[0])), x1 = nxt ? nxt.x0 : Math.max(xs(u[0]) + 4, xs(u[1])), x0 = nxt ? nxt.x0 - w_ : xs(u[0]), nb = nxt || near_(u[0], u[1]), yy = nb ? nb.y : T + HP - 14, hh = Math.max(12, bh * 1.2);
+          const w_ = Math.max(4, xs(u[1]) - xs(u[0])), x1 = nxt ? nxt.x0 : Math.max(xs(u[0]) + 4, xs(u[1])), x0 = nxt ? nxt.x0 - w_ : xs(u[0]), nb = nxt || null, ac_ = nb ? null : anchorC(u[0], u[1]), yy = nb ? nb.y : ac_ != null ? y(ac_) : T + HP - 14, hh = Math.max(12, bh * 1.2);
           { // (11/14 21:09 사용자 '멜로다인식 고고') 치찰음·숨 = 붙은 음 높이의 '잡음 덩어리' — 붙은 음 높이에, 모양 = 그 구간 소리 크기, 거친 점무늬
             const EVu = (st && typeof st.vbuf === "function" ? envOf(st.vbuf()) : null) || envCv(cv), isS = u[2] === "s";
             const N = Math.max(6, Math.round((x1 - x0) / 2)), top = [], bot = [];
