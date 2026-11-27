@@ -6770,16 +6770,16 @@ function jamPaint() {
     const tf = s.take_files || [], byNo = new Map(tf.map(t => [t.no, t])), used = new Set();
     const tkBtn = (t) => `<button type="button" class="ghost small" data-jtk="${esc(t.id)}" aria-label="Take${String(t.no).padStart(2, "0")} 듣기"><span class="jtkI">▶</span> Take${String(t.no).padStart(2, "0")} <span class="muted" style="font-size:.75rem">${fmt(t.dur || 0)}</span></button>`;
     const grp = songs.filter(g => Array.isArray(g.takes) && g.takes.every(n => typeof n === "number")).map(g => { const ts = g.takes.map(n => byNo.get(n)).filter(Boolean); ts.forEach(t => used.add(t.no));
-      return ts.length ? `<div class="jamGrp" style="border-top:1px solid #2c3340;padding:8px 0 4px"><div class="row" style="justify-content:space-between;gap:6px"><b style="font-size:.95rem">🎵 ${esc(g.title || "곡")}</b><span class="muted" style="font-size:.78rem">테이크 ${ts.length}개</span></div>
+      return ts.length ? `<div class="jamGrp" style="border-top:1px solid #2c3340;padding:8px 0 4px"><div class="row" style="justify-content:space-between;gap:6px"><b style="font-size:.95rem;min-width:0">🎵 ${esc(g.title || "곡")}${g.artist ? ` <span class="muted" style="font-weight:400;font-size:.82rem">${esc(g.artist)}</span>` : ""}</b><span class="muted" style="font-size:.78rem;white-space:nowrap">${g.title_by ? `🔎 가사로 찾음 · ` : ""}테이크 ${ts.length}개</span></div>
         <div class="row" style="gap:6px;flex-wrap:wrap;margin-top:6px">${ts.map(tkBtn).join("")}</div></div>` : ""; }).join("");
     const rest = tf.filter(t => !used.has(t.no));
     const body = tf.length ? grp + (rest.length ? `<div class="jamGrp" style="border-top:1px solid #2c3340;padding:8px 0 4px"><b style="font-size:.95rem">${grp ? "🎙 기타 테이크" : "🎙 테이크"}</b>
         <div class="row" style="gap:6px;flex-wrap:wrap;margin-top:6px">${rest.map(tkBtn).join("")}</div></div>` : "") : "";
     const nSong = songs.filter(g => Array.isArray(g.takes) && g.takes.length && g.takes.every(n => typeof n === "number")).length;
     const st = done ? `✅ 완료 · ${tf.length ? `테이크 ${tf.length}개${nSong ? ` · 곡 ${nSong}개` : ""}` : esc(s.stage || "연주 구간 없음")}` : fail ? `⚠️ ${esc(s.stage || "실패")}` : `⏳ ${esc(s.stage || "대기")}`;
-    const hid = C.hide.includes(s.src_id);
+    const hid = C.hide.includes(s.src_id), op = (jam.open ||= new Set()).has(s.src_id);   /* (11/27 사용자) 처음엔 접힌 채 — 눌러서 펼침 */
     return `<div class="card" style="padding:12px 14px${hid ? ";opacity:.6" : ""}"><div class="row" style="justify-content:space-between;gap:6px;flex-wrap:nowrap"><b style="flex:1;min-width:0">${esc(s.name)}</b><span class="muted" style="font-size:.8rem;white-space:nowrap">${jamWhen(s)}</span><button type="button" class="ghost small" data-jamhide="${esc(s.src_id)}" style="flex:none" aria-label="${hid ? "다시 보이기" : "가리기"}">${hid ? "보이기" : "가리기"}</button><button type="button" class="ghost small" data-jamdel="${esc(s.src_id)}" style="flex:none" aria-label="이 합주 결과 지우기">🗑</button></div>
-      <p class="muted" style="margin:4px 0 6px;font-size:.85rem">${st}</p>${body}</div>`; }).join("")
+      ${body ? `<button type="button" class="ghost small" data-jopen="${esc(s.src_id)}" aria-expanded="${op}" style="display:block;width:100%;text-align:left;margin:4px 0 2px;font-size:.85rem">${op ? "▾" : "▸"} ${st} <span class="muted" style="font-size:.78rem">${op ? "접기" : "펼쳐서 듣기"}</span></button>${op ? body : ""}` : `<p class="muted" style="margin:4px 0 6px;font-size:.85rem">${st}</p>`}</div>`; }).join("")
     + (nHid ? `<button type="button" class="ghost small" id="jamShowHid" style="margin:4px 0 8px">${jam.showHid ? "가린 합주 숨기기" : `가린 합주 ${nHid}개 보기`}</button>` : "");
   el.querySelectorAll("[data-jtk]").forEach(b => b.onclick = async () => {   // 테이크 하나 듣기(다시 누르면 멈춤 · 다른 테이크를 누르면 바꿔서)
     const id = b.dataset.jtk, au = jam.takeAu ||= new Audio(), ic = (x, t) => { const i = x.querySelector(".jtkI"); if (i) i.textContent = t; };
@@ -6789,6 +6789,7 @@ function jamPaint() {
     try { const bl = await readBlob(id, false, true); if (jam.takeUrl) URL.revokeObjectURL(jam.takeUrl); jam.takeUrl = URL.createObjectURL(bl); jam.takeId = id;
       au.src = jam.takeUrl; au.onended = reset; await au.play(); ic(b, "❚❚"); }
     catch (e) { reset(); toast("못 열었어요: " + errMsg(e)); } });
+  el.querySelectorAll("[data-jopen]").forEach(b => b.onclick = () => { const k = b.dataset.jopen, o = jam.open ||= new Set(); o.has(k) ? o.delete(k) : o.add(k); jamPaint(); });
   { const b = $("jamShowHid"); if (b) b.onclick = () => { jam.showHid = !jam.showHid; jamPaint(); }; }
   el.querySelectorAll("[data-jamhide]").forEach(b => b.onclick = async () => { const id = b.dataset.jamhide, on = !jam.ctrl.hide.includes(id); b.disabled = true; jamStop();
     try { await jamCtrlSave((c) => { c.hide = c.hide.filter(x => x !== id); if (on) c.hide.push(id); }); jamPaint(); toast(on ? "가렸어요 · 아래 '가린 합주 보기'에서 다시 볼 수 있어요" : "다시 보여요"); } catch (e) { b.disabled = false; toast("실패: " + errMsg(e)); } });
@@ -10787,7 +10788,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261127-1230";   // (11/24 낮) 공용 스크립트 ?v= = 내용 지문(scripts/bump-versions.js) — 11/23 보정창·소리 수정이 서비스 워커 캐시에 막혀 폰에 안 가던 것 · (11/24) 11/23 17:20 뒤 소리 크기 수정(#950~#959)이 '새 버전 알림'에 안 잡혀 폰이 옛 코드로 돌 수 있던 것
+const BUILD = "20261127-2140";   // (11/24 낮) 공용 스크립트 ?v= = 내용 지문(scripts/bump-versions.js) — 11/23 보정창·소리 수정이 서비스 워커 캐시에 막혀 폰에 안 가던 것 · (11/24) 11/23 17:20 뒤 소리 크기 수정(#950~#959)이 '새 버전 알림'에 안 잡혀 폰이 옛 코드로 돌 수 있던 것
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
