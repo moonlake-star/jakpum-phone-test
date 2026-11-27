@@ -5,7 +5,7 @@ assert.ok(T.includes("<b>🎸 연습/합주</b>") && T.includes('<h2 style="marg
 assert.ok(!T.includes("data-jamopen") && !T.includes("가장 잘 부른 구절만 이어 붙인 편집본"), "짜깁기 화면 없음");
 assert.ok(T.includes('🎵 ${esc(g.title || "곡")}') && T.includes('"🎙 기타 테이크"'), "같은 곡 서브 리스트 · 기타");
 assert.ok(T.includes('<span class="jtkI">▶</span> Take${String(t.no).padStart(2, "0")}'), "Take01 형식");
-assert.ok(T.includes("const bl = await readBlob(id, false, true);") && T.includes("if (jam.takeId === id && !au.paused) { au.pause(); reset(); return; }"), "누르면 재생·다시 누르면 멈춤");
+assert.ok(T.includes("const bl = await readBlob(id, false, true);") && T.includes("if (jam.takeId === id && b.classList.contains(\"jtkOn\")) { if (au.paused)") && T.includes("jamWaveOpen(b, id, bl);"), "누르면 재생(가로로 펼쳐 파형·시간)·다시 누르면 일시정지/이어 재생");
 // 묶음 계산: 서버 songs [{takes:[1,3]},{takes:[2]}] + take_files 4개 → 곡 2줄 + 기타(4)
 const a = T.indexOf("    const tf = s.take_files || [], byNo"), b = T.indexOf("    const hid = C.hide.includes(s.src_id)", a);
 const f = new Function("s", "songs", "done", "fail", "esc", "fmt", T.slice(a, b) + "; return { body, st };");
