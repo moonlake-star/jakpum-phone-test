@@ -7004,7 +7004,7 @@ function songSrcNote(x) {
   const ck = d.src_check; if (ck && ck.at && Date.now() - Date.parse(ck.at) < 3 * 864e5) return ` · 🎧 ${esc(ck.result || "")}`;
   const t = " " + String(d.src?.title || "").toLowerCase() + " ", nm = " " + `${d.title || ""} ${d.artist || ""}`.toLowerCase() + " ";
   if (SONG_COVER.some(w => t.includes(w) || nm.includes(w)) || d.cover_by) return "";
-  return SONG_UNOFF.some(w => t.includes(w)) ? ` · <a href="#" data-slo>🎧 공식 음원으로 바꾸기</a>` : "";
+  return "";   // (11/27 사용자 '공식 음원으로 바꾸기 버튼은 없애') 버튼 없앰 — 요청 중·결과 표시만 남김
 }
 async function songAdd() {
   const t = $("slT").value.trim(), a = $("slA").value.trim(), y = $("slY").value.trim();
