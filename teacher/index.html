@@ -459,7 +459,7 @@
 .dk .dkTm{display:flex;justify-content:space-between;gap:8px;font-size:.78rem;color:var(--muted);margin-top:4px;font-variant-numeric:tabular-nums}.dk .dkLab{color:#ff6fb5;font-weight:700;text-align:center;flex:1}
 .dk .dkTr{display:flex;gap:8px;margin-top:8px}.dk .dkTr button{flex:1;min-width:0;height:54px;border-radius:14px;border:1px solid var(--line);background:var(--chip);color:var(--fg);font-size:1.15rem;padding:0;line-height:1.1}.dk .dkTr small{display:block;font-size:.66rem;color:var(--muted)}
 .dk .dkTr .sgPb{flex:1.5;width:auto;height:60px;margin-top:-3px;border:0;border-radius:16px;background:#ffb86b;color:#1b1408;font-size:1.5rem}
-.dk .dkR2{display:flex;gap:8px;margin-top:8px}.dk .dkR2 button,.dk .dkRv button{flex:1;height:46px;border-radius:12px;border:1px solid var(--line);background:transparent;color:var(--fg);font-size:.92rem;padding:0}.dk .dkR2 button.on{border-color:#ffb86b;color:#ffb86b;box-shadow:0 0 10px rgba(255,184,107,.4)}.dk .dkR2 #dkRep{display:flex;align-items:center;justify-content:center;gap:8px}.dk .dkCk{width:18px;height:18px;border:2px solid currentColor;border-radius:4px;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;font-size:13px;line-height:1;font-weight:900}.dk .dkR2 #dkRep.on .dkCk{background:#ffb86b;border-color:#ffb86b;color:#111}.dk .dkR2 #dkRep.on .dkCk::after{content:"✓"}
+.dk .dkR2{display:flex;gap:8px;margin-top:8px}[data-jtk].jtkOn{flex:1 1 100%;border-radius:14px;padding:8px 12px;display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;border-color:#ffb86b;color:#ffb86b}[data-jtk] .jtkW{flex:1 1 100%;display:flex;align-items:center;gap:8px}[data-jtk] .jtkW canvas{flex:1;min-width:0;height:42px;cursor:pointer;touch-action:none}[data-jtk] .jtkT{flex:none;font-size:.78rem;color:#e8e8e8;font-variant-numeric:tabular-nums}.dk .dkR2 button,.dk .dkRv button{flex:1;height:46px;border-radius:12px;border:1px solid var(--line);background:transparent;color:var(--fg);font-size:.92rem;padding:0}.dk .dkR2 button.on{border-color:#ffb86b;color:#ffb86b;box-shadow:0 0 10px rgba(255,184,107,.4)}.dk .dkR2 #dkRep{display:flex;align-items:center;justify-content:center;gap:8px}.dk .dkCk{width:18px;height:18px;border:2px solid currentColor;border-radius:4px;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;font-size:13px;line-height:1;font-weight:900}.dk .dkR2 #dkRep.on .dkCk{background:#ffb86b;border-color:#ffb86b;color:#111}.dk .dkR2 #dkRep.on .dkCk::after{content:"✓"}
 .dk .dkRv{display:flex;gap:8px;overflow:hidden;max-height:0;opacity:0;transition:opacity .25s,max-height .25s,margin-top .25s}.dk .dkRv.open{max-height:56px;opacity:1;margin-top:8px}.dk .dkRv #dkA,.dk .dkRv #dkB{border-color:#ff6fb5;color:#ff6fb5}.dk .dkR2 #dkLoop.on{border-color:#ff6fb5;color:#ff6fb5;box-shadow:0 0 10px rgba(255,111,181,.4)}
 .dk .dkR2 #dkTv{flex:.7}
 #dkPr{position:fixed;inset:0;z-index:10010;background:#000;color:#fff;display:flex;flex-direction:column;gap:1.2vh;padding:1.6vh 2.4vw;box-sizing:border-box;--u:min(1vw,1.6vh);font-family:inherit}
@@ -6799,11 +6799,13 @@ function jamPaint() {
   el.querySelectorAll("[data-jtk]").forEach(b => b.onclick = async () => {   // 테이크 하나 듣기(다시 누르면 멈춤 · 다른 테이크를 누르면 바꿔서)
     const id = b.dataset.jtk, au = jam.takeAu ||= new Audio(), ic = (x, t) => { const i = x.querySelector(".jtkI"); if (i) i.textContent = t; };
     const reset = () => el.querySelectorAll("[data-jtk]").forEach(x => ic(x, "▶"));
-    if (jam.takeId === id && !au.paused) { au.pause(); reset(); return; }
-    jamStop(); reset(); ic(b, "…");
+    const fold = () => el.querySelectorAll("[data-jtk].jtkOn").forEach(x => { x.classList.remove("jtkOn"); x.querySelector(".jtkW")?.remove(); });
+    if (jam.takeId === id && b.classList.contains("jtkOn")) { if (au.paused) { await au.play().catch(() => {}); ic(b, "❚❚"); jamWaveLoop(b, id); } else { au.pause(); ic(b, "▶"); } return; }   // 펼친 테이크: 재생·일시정지만
+    jamStop(); reset(); fold(); ic(b, "…");
     try { const bl = await readBlob(id, false, true); if (jam.takeUrl) URL.revokeObjectURL(jam.takeUrl); jam.takeUrl = URL.createObjectURL(bl); jam.takeId = id;
-      au.src = jam.takeUrl; au.onended = reset; await au.play(); ic(b, "❚❚"); }
-    catch (e) { reset(); toast("못 열었어요: " + errMsg(e)); } });
+      au.src = jam.takeUrl; au.onended = () => { ic(b, "▶"); jamWaveDraw(b, id); }; await au.play(); ic(b, "❚❚");
+      jamWaveOpen(b, id, bl); }
+    catch (e) { reset(); fold(); toast("못 열었어요: " + errMsg(e)); } });
   el.querySelectorAll("[data-jopen]").forEach(b => b.onclick = () => { const k = b.dataset.jopen, o = jam.open ||= new Set(); o.has(k) ? o.delete(k) : o.add(k); jamPaint(); });
   { const b = $("jamShowHid"); if (b) b.onclick = () => { jam.showHid = !jam.showHid; jamPaint(); }; }
   el.querySelectorAll("[data-jamhide]").forEach(b => b.onclick = async () => { const id = b.dataset.jamhide, on = !jam.ctrl.hide.includes(id); b.disabled = true; jamStop();
@@ -6815,6 +6817,28 @@ function jamPaint() {
       for (const fid of [s.folder, ...(s.songs || []).map(g => g.folder)].filter(Boolean)) { try { await api(`${DRIVE}/files/${fid}?fields=id`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trashed: true }) }); } catch {} }
       jamPaint(); toast("지웠어요(휴지통)"); } catch (e) { b.disabled = false; toast("지우기 실패: " + errMsg(e)); } });
 }
+// (11/27 사용자 '재생 버튼을 누르면 가로로 늘어나면서 파형과 시간이 보이게') 듣는 테이크 버튼이 한 줄을 다 차지하며 파형·지금/전체 시간 표시 · 파형을 누르면 그 자리로
+function jamWaveOpen(b, id, bl) {
+  b.classList.add("jtkOn"); const w = document.createElement("span"); w.className = "jtkW"; w.innerHTML = `<canvas></canvas><span class="jtkT">0:00 / –:–</span>`; b.appendChild(w);
+  const cv = w.querySelector("canvas"), au = jam.takeAu;
+  const seek = (e) => { e.preventDefault(); e.stopPropagation(); const r = cv.getBoundingClientRect(), d = au.duration; if (!d || !isFinite(d)) return; au.currentTime = Math.max(0, Math.min(d - 0.05, (e.clientX - r.left) / r.width * d)); jamWaveDraw(b, id); };
+  cv.addEventListener("pointerdown", seek); cv.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); });
+  jamWaveLoop(b, id);
+  (jam.peaks ||= {})[id] ? jamWaveDraw(b, id) : (async () => { try { const ctx = jam.ctx || (jam.ctx = new (window.AudioContext || window.webkitAudioContext)()), buf = await ctx.decodeAudioData(await bl.arrayBuffer()), ch = buf.getChannelData(0), N = 240, step = Math.max(1, Math.floor(ch.length / N)), pk = [];
+      for (let i = 0; i < N; i++) { let m = 0; for (let j = i * step, e = Math.min(ch.length, j + step); j < e; j += 8) { const v = Math.abs(ch[j]); if (v > m) m = v; } pk.push(m); }
+      const mx = Math.max(0.01, ...pk); jam.peaks[id] = pk.map(v => v / mx); jamWaveDraw(b, id); } catch {} })();
+}
+function jamWaveDraw(b, id) {
+  const cv = b.querySelector(".jtkW canvas"), tt = b.querySelector(".jtkT"), au = jam.takeAu; if (!cv || !au) return;
+  const d = au.duration, t = au.currentTime || 0, fm = (x) => (isFinite(x) ? `${Math.floor(x / 60)}:${String(Math.floor(x % 60)).padStart(2, "0")}` : "–:–");
+  if (tt) tt.textContent = `${fm(t)} / ${fm(d)}`;
+  const dpr = window.devicePixelRatio || 1, W = Math.max(1, cv.clientWidth), H = Math.max(1, cv.clientHeight); if (cv.width !== Math.round(W * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+  const g = cv.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
+  const pk = (jam.peaks || {})[id], fr = d && isFinite(d) ? t / d : 0, N = pk ? pk.length : 60, bw = W / N;
+  for (let i = 0; i < N; i++) { const v = pk ? Math.max(0.04, pk[i]) : 0.08, h = v * (H - 4); g.fillStyle = (i + 0.5) / N <= fr ? "#ffb86b" : "#5b6474"; g.fillRect(i * bw + bw * 0.15, (H - h) / 2, Math.max(1, bw * 0.7), h); }
+  g.fillStyle = "#fff"; g.fillRect(Math.min(W - 2, fr * W), 0, 2, H);
+}
+function jamWaveLoop(b, id) { cancelAnimationFrame(jam.waveRaf); const f = () => { if (jam.takeId !== id || !b.isConnected || !b.classList.contains("jtkOn")) return; jamWaveDraw(b, id); if (!jam.takeAu.paused) jam.waveRaf = requestAnimationFrame(f); }; f(); }
 function jamStop() { try { jam.takeAu?.pause(); } catch {} const p = jam.play; if (!p) return;   // (11/27) 테이크 듣기도 멈춤
   try { p.srcs.forEach(s => s.stop()); } catch {} cancelAnimationFrame(p.raf); jam.play = null; }
 async function jamOpenSong(si, gi) {
