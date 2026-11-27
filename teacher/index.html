@@ -459,7 +459,7 @@
 .dk .dkTm{display:flex;justify-content:space-between;gap:8px;font-size:.78rem;color:var(--muted);margin-top:4px;font-variant-numeric:tabular-nums}.dk .dkLab{color:#ff6fb5;font-weight:700;text-align:center;flex:1}
 .dk .dkTr{display:flex;gap:8px;margin-top:8px}.dk .dkTr button{flex:1;min-width:0;height:54px;border-radius:14px;border:1px solid var(--line);background:var(--chip);color:var(--fg);font-size:1.15rem;padding:0;line-height:1.1}.dk .dkTr small{display:block;font-size:.66rem;color:var(--muted)}
 .dk .dkTr .sgPb{flex:1.5;width:auto;height:60px;margin-top:-3px;border:0;border-radius:16px;background:#ffb86b;color:#1b1408;font-size:1.5rem}
-.dk .dkR2{display:flex;gap:8px;margin-top:8px}.dk .dkR2 button,.dk .dkRv button{flex:1;height:46px;border-radius:12px;border:1px solid var(--line);background:transparent;color:var(--fg);font-size:.92rem;padding:0}.dk .dkR2 button.on{border-color:#ffb86b;color:#ffb86b;box-shadow:0 0 10px rgba(255,184,107,.4)}
+.dk .dkR2{display:flex;gap:8px;margin-top:8px}.dk .dkR2 button,.dk .dkRv button{flex:1;height:46px;border-radius:12px;border:1px solid var(--line);background:transparent;color:var(--fg);font-size:.92rem;padding:0}.dk .dkR2 button.on{border-color:#ffb86b;color:#ffb86b;box-shadow:0 0 10px rgba(255,184,107,.4)}.dk .dkR2 #dkRep{display:flex;align-items:center;justify-content:center;gap:8px}.dk .dkCk{width:18px;height:18px;border:2px solid currentColor;border-radius:4px;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;font-size:13px;line-height:1;font-weight:900}.dk .dkR2 #dkRep.on .dkCk{background:#ffb86b;border-color:#ffb86b;color:#111}.dk .dkR2 #dkRep.on .dkCk::after{content:"✓"}
 .dk .dkRv{display:flex;gap:8px;overflow:hidden;max-height:0;opacity:0;transition:opacity .25s,max-height .25s,margin-top .25s}.dk .dkRv.open{max-height:56px;opacity:1;margin-top:8px}.dk .dkRv #dkA,.dk .dkRv #dkB{border-color:#ff6fb5;color:#ff6fb5}.dk .dkR2 #dkLoop.on{border-color:#ff6fb5;color:#ff6fb5;box-shadow:0 0 10px rgba(255,111,181,.4)}
 .dk .dkR2 #dkTv{flex:.7}
 #dkPr{position:fixed;inset:0;z-index:10010;background:#000;color:#fff;display:flex;flex-direction:column;gap:1.2vh;padding:1.6vh 2.4vw;box-sizing:border-box;--u:min(1vw,1.6vh);font-family:inherit}
@@ -7828,7 +7828,7 @@ function songDeck(el, ids, o) {
     <div class="dkWv" id="dkWv"><canvas id="dkCv"></canvas><div class="dkHead"></div><div class="dkEmpty" id="dkWE">파형 만드는 중…</div></div>
     <div class="dkTm"><span id="sgT0">0:00</span><span id="dkAB" class="dkLab"></span><span id="sgT1">–:–</span></div>
     <div class="dkTr"><button type="button" id="dkHome" aria-label="처음으로">⏮<small>처음</small></button><button type="button" id="dkBk" aria-label="5초 뒤로">⏪<small>5초</small></button><button type="button" class="sgPb" id="sgPb" aria-label="재생">▶</button><button type="button" id="dkFw" aria-label="5초 앞으로">⏩<small>5초</small></button><button type="button" id="dkEnd" aria-label="맨 끝으로">⏭<small>끝</small></button></div>
-    <div class="dkR2">${o.analysis && o.analysis.key && Array.isArray(o.analysis.chords) && o.analysis.chords.length && (o.analysis.beats || []).length > 8 ? `<button type="button" id="dkSh0">📄 A4 악보</button>` : ""}<button type="button" id="dkRep" aria-pressed="false">🔁 반복</button><button type="button" id="dkLoop" aria-pressed="false">구간 반복</button></div>
+    <div class="dkR2">${o.analysis && o.analysis.key && Array.isArray(o.analysis.chords) && o.analysis.chords.length && (o.analysis.beats || []).length > 8 ? `<button type="button" id="dkSh0">📄 A4 악보</button>` : ""}<button type="button" id="dkRep" role="checkbox" aria-checked="false" aria-pressed="false"><span class="dkCk" aria-hidden="true"></span>곡반복</button><button type="button" id="dkLoop" aria-pressed="false">구간 반복</button></div>
     <div class="dkRv" id="dkRv"><button type="button" id="dkA">시작</button><button type="button" id="dkB">끝</button><button type="button" id="dkClr">해제</button></div>
     <div class="sgVo"><div class="sgVl">보컬 볼륨<span id="sgVv">${v0}%</span></div><input type="range" id="sgVol" min="0" max="100" value="${v0}">
       <div class="sgPre">${[[0, "MR", "0%"], [30, "가이드", "30%"], [100, "원곡", "100%"]].map(([v, a, b]) => `<button type="button" data-sgv="${v}">${a}<small>${b}</small></button>`).join("")}</div>
@@ -8370,7 +8370,7 @@ $("#shFsX").onclick = () => setFs(false); $("#shFsP").onclick = () => Q("sgPb").
   };
   if (Q("dkSh0")) Q("dkSh0").onclick = openSheet;
   if (Q("dkTv")) Q("dkTv").onclick = openPrompter;
-  Q("dkRep").onclick = () => { rep = !rep; Q("dkRep").classList.toggle("on", rep); Q("dkRep").setAttribute("aria-pressed", rep); };
+  Q("dkRep").onclick = () => { rep = !rep; Q("dkRep").classList.toggle("on", rep); Q("dkRep").setAttribute("aria-pressed", rep); Q("dkRep").setAttribute("aria-checked", rep); };
   Q("dkLoop").onclick = () => { const rv = Q("dkRv"), open = !rv.classList.contains("open"); rv.classList.toggle("open", open); };
   Q("dkA").onclick = () => { const t = cur(); if (B != null && t >= B - 0.5) { B = null; toast("A가 B보다 뒤라서 B를 지웠어요 · B를 다시 정해 주세요"); } A = t; paintAB(); };
   Q("dkB").onclick = () => { const t = cur(); if (A != null && t <= A + 0.5) return toast("끝은 시작보다 0.5초 이상 뒤여야 해요"); B = t; paintAB(); };
