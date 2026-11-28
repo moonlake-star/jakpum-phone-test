@@ -7447,7 +7447,7 @@ function songPlayer(el, ids, o) {
 }
 // (11/14 사용자 시안 B) 곡 서랍 전용 플레이어: 소리 파형(좌우로 밀기)·큰 재생 버튼·반복·구간 반복(A·B)·속도(80~120%)·보컬/반주 볼륨
 // 키 바꾸기·코드·악보는 서버가 파일을 만들어 줘야 해서 여기엔 아직 없음 · 파형은 곡당 한 번 만들어 song.json(wave)에 적어 둠
-const DK_STEP = 0.1, DK_PPS = 22, DK_RATES = [0.8, 0.85, 0.9, 0.95, 1, 1.05, 1.1, 1.15, 1.2];
+const DK_STEP = 0.1, DK_PPS = 30, DK_RATES = [0.8, 0.85, 0.9, 0.95, 1, 1.05, 1.1, 1.15, 1.2];
 // 더블탭(0.35초 안에 같은 칸을 두 번): 키·속도 칸을 원래 값으로. 버튼 위의 탭은 무시
 function dblTap(el, fn) {
   let last = 0; el.style.touchAction = "manipulation";
@@ -8038,12 +8038,13 @@ function songDeck(el, ids, o) {
     }
     if (CHORDS) { g.font = "700 15px system-ui"; g.textBaseline = "alphabetic"; const put = [];   // (11/14 사용자 '코드 겹치지 않게') 왼쪽 끝에 붙는 글자는 다음 코드 앞까지만, 겹치면 지금 코드를 우선해서 나머지는 숨김
       for (let i = 0; i < LE.length; i++) { const E = LE[i], x = cx + (E.t - vp) * pps, xn = i + 1 < LE.length ? cx + (LE[i + 1].t - vp) * pps : W + 40; if (xn < -10 || x > W) continue;
-        const on = vp >= E.t && (i + 1 >= LE.length || vp < LE[i + 1].t), nm = songChordName(E.name, keyN), w = g.measureText(nm).width; let tx = x + 3; if (tx < 2) tx = Math.max(Math.min(2, xn - w - 4), x + 3);
+        const on = vp >= E.t && (i + 1 >= LE.length || vp < LE[i + 1].t), nm = songChordName(E.name, keyN); g.font = "700 15px system-ui"; let w = g.measureText(nm).width, fs = 15;
+        let tx = x + 3; if (tx < 2) tx = Math.max(Math.min(2, xn - w - 4), x + 3);
+        const avail = xn - tx - 4; if (w > avail) { fs = Math.max(10, Math.floor(15 * avail / w)); g.font = `700 ${fs}px system-ui`; w = g.measureText(nm).width; }   // (11/28 사용자 '스크롤하면 긴 코드 이름이 보였다 안 보였다') 숨기지 않고 다음 코드 앞까지 글자를 줄임(최소 10px)
         g.fillStyle = "#363c45"; g.fillRect(x, 3, 1, 20);
-        while (put.length && tx < put[put.length - 1].r + 3) { if (on && !put[put.length - 1].on) put.pop(); else break; }
-        if (put.length && tx < put[put.length - 1].r + 3) continue;
-        put.push({ nm, tx, r: tx + w, on, f: E.f }); }
-      for (const q of put) { g.fillStyle = q.f === 1 ? (q.on ? "#8dffb0" : "#5fbf80") : q.f === 2 ? (q.on ? "#d9b8ff" : "#a287d0") : (q.on ? "#ffd27a" : "#9a8a5a"); g.fillText(q.nm, q.tx, 18); } }
+        put.push({ nm, tx, r: Math.min(tx + w, xn - 2), on, f: E.f, fs, xn }); }
+      for (const q of put) { g.save(); g.beginPath(); g.rect(q.tx - 1, 0, Math.max(0, q.xn - q.tx - 1), 26); g.clip(); g.font = `700 ${q.fs}px system-ui`;   // 그래도 넘치면 다음 코드 선 앞에서 잘라 보임(겹치지 않게)
+        g.fillStyle = q.f === 1 ? (q.on ? "#8dffb0" : "#5fbf80") : q.f === 2 ? (q.on ? "#d9b8ff" : "#a287d0") : (q.on ? "#ffd27a" : "#9a8a5a"); g.fillText(q.nm, q.tx, 18); g.restore(); } }
     for (const [v, lab] of [[A, "A"], [B, "B"]]) if (v != null) { const x = cx + (v - vp) * pps; if (x < -2 || x > W + 2) continue; g.fillStyle = "#ff6fb5"; g.fillRect(x - 1, 0, 2, H); g.font = "700 13px system-ui"; g.fillText(lab, x + 4, 14); }
   };
   const frame = () => { raf = 0; if (!alive()) return;
