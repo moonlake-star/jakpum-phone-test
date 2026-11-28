@@ -12,3 +12,6 @@ assert.strictEqual(f.songSig(an3), "3/4"); assert.strictEqual(f.songSig({ meter:
 assert.strictEqual(f.songChordBars(Object.assign({}, an3, { beats: Array.from({ length: 80 }, (_, i) => i * 0.6) })), null, "4/4 아닌 곡은 짧은 마디 끼우기 안 함");
 const an4 = { beats: B, down: 0, chords: [[0, "C"]] }; assert.strictEqual(f.songMeasures(an4, 0, null).length, 7, "4/4는 그대로(30박 → 7마디 + 남은 2박 합침)");
 console.log("meter OK");
+// (11/28 사용자 '빗속에서는 6/8') ✏️ 고치기에서 박자(4/4·3/4·6/8)를 정해 song.json sig로 저장
+assert.ok(T.includes('prompt("박자 (4/4 · 3/4 · 6/8 중 하나)", sg0)') && T.includes('"mr_vol", "sig"]'));
+console.log("meter sig OK");
