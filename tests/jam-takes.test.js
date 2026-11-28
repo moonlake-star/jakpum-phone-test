@@ -29,3 +29,6 @@ assert.ok(T.includes('${body ? ` data-jopen="${esc(s.src_id)}" role="button"'));
 // (11/28 사용자 '스크럽 방식을 곡서랍 스크롤처럼 · 곡서랍도 스크롤할 때 소리') 가운데 선 고정·파형을 밀기·끄는 소리
 assert.ok(T.includes("Z.vp = clampT(Z.vp - dx / pps())") && T.includes("g.fillRect(W / 2 - 1, 0, 2, H)") && T.includes("scrub(t) {") && T.includes("eng.scrub && eng.scrub(vp)"));
 console.log("jam-takes scrub OK");
+// (11/28 사용자 '펼친 상태에서 뒤로 가면 그 테이크만 닫히게') 펼친 테이크 = 뒤로 가기 한 칸
+assert.ok(T.includes("function jamTkLayer()") && T.includes("  jamTkLayer();") && T.includes("goBack = () => { jamTkUnlayer(); jamStop(); renderList(); }"));
+console.log("jam-takes back OK");
