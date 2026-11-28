@@ -7491,8 +7491,9 @@ function songWebRetime(ch, wa, an) {
 function songWebApply(an, o) { try { if (!an || an._wr) return an; an._wr = 1; const wa = o && o.web_chart && o.web_chart.anchors; if (!Array.isArray(wa) || !Array.isArray(an.chords)) return an; const r = songWebRetime(an.chords, wa, an); if (r.moved || r.renamed || r.dropped) { an._wrs = [r.moved, r.renamed, r.dropped || 0]; an.chords = r.ch; } } catch {} return an; }
 function songBarStarts(an) {   // 마디마다 시작 박 번호 — 보통은 첫 박부터 4박씩 · (11/22) 2박 마디가 끼인 곡은 an._bars
   const B = (an && an.beats) || [], dn = (an && an.down) || 0;
-  if (an && Array.isArray(an._bars) && an._bars.length) return an._bars;
-  const out = []; for (let s = dn; s < B.length; s += 4) out.push(s); return out;
+  const out = an && Array.isArray(an._bars) && an._bars.length ? an._bars.slice() : []; if (!out.length) for (let s = dn; s < B.length; s += 4) out.push(s);
+  if (out.length >= 2 && B.length - out[out.length - 1] <= 2) out.pop();   // (11/28 편지 끝) 곡 끝에서 느려져 박을 더 촘촘히 잡아 남은 1~2박 마디는 앞 마디에 합침(6박 이상이면 '느려짐' 4박 마디)
+  return out;
 }
 function songBarOfBeat(an, x) { const S = songBarStarts(an); let lo = 0, hi = S.length - 1; if (!S.length || x < S[0]) return 0; while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (S[mid] <= x) lo = mid; else hi = mid - 1; } return lo; }
 function songChordBars(an) {   // (11/22 사용자 You Needed Me '인트로 리타르단도 때문인지 4·5마디부터 꼬인 듯') 코드는 보통 마디 첫 박에서 바뀜
@@ -7505,13 +7506,18 @@ function songChordBars(an) {   // (11/22 사용자 You Needed Me '인트로 리�
   if (xs.length < 16) return null;
   // (11/22 사용자 '리타르단도도 잘 인식하고 마디 안 꼬이게') 첫 박 자리 0~3박 4가지 상태: 2박 밀림 벌점 2, 1·3박 밀림(늘임표·박 하나 빠짐 등) 벌점 3 → 짧은 마디(1~3박)를 끼움
   const sc = (k, o) => { const q = (((k - dn - o) % 4) + 4) % 4; return q === 0 ? 1 : q === 2 ? 0.35 : -0.3; };
+  // (11/28 사용자 '편지 77마디부터 느려지고 78마디가 사라져야, 79마디부터 후주') 늘임표·멈춤(서버 analysis.holds: 약한 박이 3개 넘게 이어진 뒤 다시 들어온 박) 바로 뒤에서는
+  //   박 추적이 멈춘 동안에도 박을 찍어 첫 박이 밀리는 게 흔함 → 그 자리의 위치 바꿈 벌점을 0.5로 낮추고, 바꾼 첫 박은 다시 들어온 박에 맞춰 앞 마디를 늘림(6박 이상이면 '느려짐' 4박 마디)
+  const HO = Array.isArray(an.holds) ? an.holds.filter((h) => Number.isInteger(h) && h > dn) : [], hoAt = (i) => i > 0 ? HO.find((h) => h > xs[i - 1] && h <= xs[i]) : undefined;
   let C = [0, -1, -1.5, -1]; const back = [];
-  xs.forEach((k, i) => { const nc = [0, 0, 0, 0], bk = [0, 0, 0, 0]; for (let st = 0; st < 4; st++) { let best = C[st], from = st; if (i > 0) for (let t = 0; t < 4; t++) { if (t === st) continue; const v = C[t] - ((st - t + 4) % 4 === 2 ? 2 : 3); if (v > best) { best = v; from = t; } } nc[st] = best + sc(k, st); bk[st] = from; } C = nc; back.push(bk); });
+  xs.forEach((k, i) => { const nc = [0, 0, 0, 0], bk = [0, 0, 0, 0], ho = hoAt(i); for (let st = 0; st < 4; st++) { let best = C[st], from = st; if (i > 0) for (let t = 0; t < 4; t++) { if (t === st) continue; const pen = ho != null && (((ho - dn - st) % 4) + 4) % 4 === 0 ? 0.5 : ((st - t + 4) % 4 === 2 ? 2 : 3); const v = C[t] - pen; if (v > best) { best = v; from = t; } } nc[st] = best + sc(k, st); bk[st] = from; } C = nc; back.push(bk); });
   const stt = new Array(xs.length); let e = 0; for (let st = 1; st < 4; st++) if (C[st] > C[e]) e = st; stt[xs.length - 1] = e; for (let i = xs.length - 1; i > 0; i--) stt[i - 1] = back[i][stt[i]];
-  const chg = []; let pv = 0; xs.forEach((k, i) => { if (stt[i] !== pv) chg.push([k, (stt[i] - pv + 4) % 4]); pv = stt[i]; });
+  const chg = []; let pv = 0; xs.forEach((k, i) => { if (stt[i] !== pv) { const ho = hoAt(i), okH = ho != null && (((ho - dn - stt[i]) % 4) + 4) % 4 === 0; chg.push(okH ? [ho, (stt[i] - pv + 4) % 4, 1] : [k, (stt[i] - pv + 4) % 4]); } pv = stt[i]; });
   if (!chg.length) return null;
   const out = []; let s = dn, ci = 0, ins = 0;
-  while (s < B.length) { while (ci < chg.length && chg[ci][0] < s) ci++; if (ci < chg.length && chg[ci][0] < s + 4 && chg[ci][0] - s >= chg[ci][1] - 1) { out.push(s); s += chg[ci][1]; ins++; ci++; continue; } out.push(s); s += 4; }
+  while (s < B.length) { while (ci < chg.length && chg[ci][0] < s) ci++;
+    if (ci < chg.length && chg[ci][2] && chg[ci][0] < s + 4 && out.length) { s = chg[ci][0]; ins++; ci++; continue; }   // 멈춤 뒤: 앞 마디를 다시 들어온 박까지 늘임
+    if (ci < chg.length && chg[ci][0] < s + 4 && chg[ci][0] - s >= chg[ci][1] - 1) { out.push(s); s += chg[ci][1]; ins++; ci++; continue; } out.push(s); s += 4; }
   return ins ? out : null;
 }
 function songMeasures(an, n, lyrics, voc, lw) {   // lw: (11/20) 서버 강제 정렬이 준 줄마다 낱말 시작 시각(song.json lyrics_words) — 있으면 추측 대신 그대로 씀
@@ -7530,7 +7536,7 @@ function songMeasures(an, n, lyrics, voc, lw) {   // lw: (11/20) 서버 강제 �
   ev = songLineSnap(ev.filter((e) => !e.fa), B, dn).concat(ev.filter((e) => e.fa)); ev.sort((x, y) => x.t - y.t);   // (11/21) 강제 정렬 낱말 시각은 줄 시작 정리(최대 1.75박 이동)를 하지 않음 — Stumblin' In 대조: shown·things가 한 마디 밀리던 원인
   const out = []; let ci = -1, li = 0;
   const BS = songBarStarts(an);
-  for (let k = 0; k < BS.length; k++) { const s = BS[k], se = k + 1 < BS.length ? BS[k + 1] : s + 4;
+  for (let k = 0; k < BS.length; k++) { const s = BS[k], se = k + 1 < BS.length ? BS[k + 1] : Math.max(s + 4, B.length);
     const last = B[B.length - 1] + (B[B.length - 1] - B[B.length - 2]), t0 = B[s], t1 = se < B.length ? B[se] : last, m = { no: k + 1, t0, t1, chords: [], lyrics: [], beats: Math.min(se - s, B.length - s) };
     let prev = null;
     for (let b = 0; b < m.beats; b++) {
@@ -7573,8 +7579,7 @@ function songBeatPos(an, t) {   // 재생 시각 → {m: 마디 번호(0부터),
   const nx = B[Math.min(lo + 1, B.length - 1)], fr = nx > B[lo] ? Math.max(0, Math.min(1, (t - B[lo]) / (nx - B[lo]))) : 0, idx = lo + fr - dn;
   if (idx < 0) return { m: 0, b: 0 };
   if (an && an._hold && t >= an._hold.t0) return { m: an._hold.k, b: Math.min(3.99, 4 * (t - an._hold.t0) / Math.max(0.1, an._hold.t1 - an._hold.t0)) };   // (11/27) 곡 끝 늘임 마디
-  if (an && an._bars) { const k = songBarOfBeat(an, idx + dn), sp = (k + 1 < an._bars.length ? an._bars[k + 1] : an._bars[k] + 4) - an._bars[k], b = Math.max(0, idx + dn - an._bars[k]); return { m: k, b: sp >= 6 ? b * 4 / sp : b }; }   // (11/22) 2박 마디가 낀 곡 · (11/27) 느려져 합친 마디(박 6개 이상)는 4박으로 줄여 셈
-  return { m: Math.floor(idx / 4), b: idx % 4 };
+  { const S = songBarStarts(an), k = songBarOfBeat(an, idx + dn), sp = (k + 1 < S.length ? S[k + 1] : Math.max(S[k] + 4, B.length)) - S[k], b = Math.max(0, idx + dn - S[k]); return { m: k, b: sp >= 6 ? b * 4 / sp : b }; }   // (11/22) 2박 마디가 낀 곡 · (11/27) 느려져 합친 마디(박 6개 이상)는 4박으로 줄여 셈 · (11/28) 끝의 1~2박을 합친 마지막 마디
 }
 // (11/14 사용자 시안 D) 프롬프터 직접 수정: 코드는 글자로 입력('D' · 'Bm Em' = 1·3박 · 'G A@2' = 박 지정) · 수정은 원곡 키 기준으로 저장해서 키를 바꿔도 따라감
 const SG_PER = 20;   // 한 쪽 5줄 × 4마디
@@ -7910,7 +7915,9 @@ function songDeck(el, ids, o) {
   const bmark = (e) => { if (AN && AN._bars && e && typeof e === "object") e.bm = 1; return e; };   // (11/22) 2박 마디 기준으로 고친 마디 표시
   if (AN) { AN._sndEnd = songSoundEnd(o.wave, o.dur); }   // (11/27 사용자 '곡 끝 남은 구간을 늘임 마디로') 소리가 끝나는 시각(파형) — 마지막 박 뒤에 남은 소리는 늘임 마디로
   if (AN) { delete AN._bars; const eds = Object.values(ED || {}).filter((e) => e && typeof e === "object"), hasSec = Array.isArray(o.sections) && o.sections.length;   // (11/22 검토) 마디 목록은 song.json bars에 저장 · 고친 뒤엔 그대로 고정(가사 정렬이 다시 만들어져도 마디 번호가 안 밀리게)
-    if (eds.length || hasSec) { if (Array.isArray(o.bars) && o.bars.length) AN._bars = o.bars; }   // 4박 기준으로 이미 고친 곡(bars 없음)은 4박 그대로
+    if (eds.length || (hasSec && Array.isArray(o.bars) && o.bars.length)) { if (Array.isArray(o.bars) && o.bars.length) AN._bars = o.bars; }   // 4박 기준으로 이미 고친 곡(bars 없음)은 4박 그대로
+    else if (hasSec) { try { const bs = songChordBars(AN); if (bs) { const S4 = o.sections.map((x) => [songBarOfBeat({ _bars: bs, beats: AN.beats }, (AN.down || 0) + 4 * (+x[0])), String(x[1])]);   // (11/28 편지) 구간 이름만 붙인 곡(직접 고친 코드·가사 없음)도 마디 바로잡기 — 4박 기준 구간 번호를 새 마디 번호로 옮겨 저장
+        AN._bars = bs; o.sections = S4; try { o.onBars && o.onBars(bs); o.onSections && o.onSections(S4); } catch {} } } catch {} }
     else { try { const bs = songChordBars(AN); if (bs) AN._bars = bs; } catch {} } }
   let M0 = AN ? songMeasures(AN, 0, null) : []; let LE = CHORDS ? songLaneEvents(AN, CHORDS, ED, M0) : [];   // 코드 고침은 프롬프터와 같은 기록(ED)
   const saveED = () => { clearTimeout(me.edT); me.edT = setTimeout(() => { me.edT = 0; try { o.onEdits && o.onEdits(ED); } catch {} }, 700); };
