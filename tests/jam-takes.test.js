@@ -35,3 +35,6 @@ console.log("jam-takes back OK");
 // (11/28 사용자 '휴지통 옆에 다운로드 · 클리핑') 내려받기 버튼 · 재생 −3dB
 assert.ok(T.includes('dl.setAttribute("aria-label", "이 테이크 내려받기")') && T.includes("Object.assign(new Audio(), { volume: 0.7 })"));
 console.log("jam-takes download OK");
+// (11/28 사용자 '지우기 버튼 누르면 UI가 재깍재깍') 화면 먼저, 저장은 뒤에서(실패하면 되돌림)
+assert.ok(T.includes("function jamCtrlNow(fn, after, fail)") && (T.match(/jamCtrlNow\(/g) || []).length >= 4);
+console.log("jam-takes instant OK");

@@ -15,7 +15,7 @@ const g = {}; const B = f(g);
   assert.ok(sr.indexOf("paintSaved(new Date())") < sr.indexOf("bgWrite(() => writeJSON(me.folder.id, REVIEW"));
   assert.ok(!/await (autoRepublish|publishOnSave)\(me\)[^]*?return true/.test(sr.split("bgWrite(async () =>")[0]), "공개는 뒤에서");
   // 합주 가리기·지우기·테이크 지우기, 레슨 건너뛰기, 배치 알림
-  assert.ok(T.includes("function jamCtrlOpt(fn, done, failMsg)") && (T.match(/jamCtrlOpt\(\(c\) =>/g) || []).length === 3);
+  assert.ok(T.includes("jamCtrlNow(") && !T.includes("jamCtrlOpt"), "합주는 같은 방식(jamCtrlNow) 하나만");
   assert.ok(T.includes("bgWrite(() => setLessonSkip(sid, i, on))") && T.includes("bgWrite(seen).catch"));
   console.log("optimistic-ui OK");
 })().catch(e => { console.error(e); process.exit(1); });
