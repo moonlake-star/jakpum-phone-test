@@ -137,7 +137,7 @@ const mk = new Function(code + "; return stemEngine;")();
   assert.ok(dk.includes("baseMeas = () => songApplyEdits(songMeasures(AN, keyN, o.lyrics, o.wave && o.wave.voc, o.lyrics_words), ED, keyN)") && dk.includes("const meas = () => showM(baseMeas())"), "프롬프터(·PDF·코드 악보)도 같은 고침 기록을 그림");
   { const pr = dk.slice(dk.indexOf("const openPrompter"), dk.indexOf("if (Q(\"dkTv\"))")); assert.ok(!/f === 2|d9b8ff|8dffb0|a287d0/.test(pr), "프롬프터에는 고침 색 구분 없음(사용자 11/14 22:16)"); }
   assert.ok(dk.includes("openChordEdit") && dk.includes('e.clientY - rc.top < 30') && dk.includes("navigator.vibrate(15)"), "코드 줄 길게 누르기");
-  assert.ok(dk.includes("let tx = x + 3; if (tx < 2)") && dk.includes("put.pop()"), "코드 글자 겹침 방지");
+  assert.ok(dk.includes("let tx = x + 3; if (tx < 2)") && dk.includes("g.clip();") && dk.includes("fs = Math.max(10,"), "코드 글자 겹침 방지(11/28: 숨기지 않고 줄여서 다음 코드 앞까지)");
   assert.ok(/delete e\.auto; delete e\.g;/.test(dk) && !/let ED = JSON\.parse[^]*let ED = JSON\.parse/.test(dk), "프롬프터 수정은 직접 고침으로 표시 · ED는 한 곳");
   // (11/14 21:49 사용자) 미끄러지는 중 다시 터치하면 옛 소리 위치로 튀던 버그: 지금 보이는 위치(vp)에서 이어잡고, 톡이면 그 자리에서 멈춤
   assert.ok(/const live = !!glide \|\| pend/.test(dk) && dk.includes("if (!live) vp = Math.max(0, Math.min(dur(), cur()))"), "미끄러지는 중 터치는 vp를 소리 위치로 되돌리지 않음");
@@ -346,7 +346,7 @@ const mk = new Function(code + "; return stemEngine;")();
 // (11/19 사용자) 파형: 기본 확대를 지금보다 살짝 더(14→18 px/초 · 약 1.3배, 확대/축소 조작은 없음) · 멈춰 있을 때 파형을 톡 누르면 재생
 {
   const T = require("fs").readFileSync(__dirname + "/../teacher/index.html", "utf8");
-  assert.ok(T.includes("DK_PPS = 22,"), "기본 확대(18→22, 11/19 13:12 코드가 겹쳐서)");
+  assert.ok(T.includes("DK_PPS = 30,"), "기본 확대(18→22→30, 11/28 사용자 좀 더)");
   assert.ok(T.includes('const commitTap = async (d) => { if (!d.was) { if (alive()) Q("sgPb").onclick(); return; }'), "멈춘 파형 톡 = 재생");
   assert.ok(!T.includes("pinch"), "확대·축소 조작 없음");
 }
