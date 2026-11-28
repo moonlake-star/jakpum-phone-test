@@ -7091,6 +7091,7 @@ async function ytInfo(url) {
 // (11/24 노트북 진단 '라이브·방송본 3곡이 자동으로 안 바뀜 — 모두 선생님이 주소를 직접 넣은 곡') 자동으로 몰래 바꾸지 않고, 원곡이 라이브·방송·뮤직비디오면
 //   곡 줄에 '공식 음원으로 바꾸기'를 보여 줌(누른 곡만 서버가 바꿈 · vocalnote song_lib.source_due의 src_swap_req)
 const SONG_UNOFF = ["live", "라이브", "m/v", " mv", "mv ", "music video", "뮤직비디오", "lyric", "가사", "kbs", "mbc", "sbs", "jtbc", "mnet", "tvn", "방송", "special clip", "스페셜", "무대", "불후", "열린음악회", "스케치북", "낭만이즈백", "가요무대", "직캠", "fancam"];
+const SONG_SRC_BTN = false;   // (11/28 사용자) '공식 음원으로 바꾸기' 버튼 숨김 — 판정(SONG_UNOFF)·서버 처리(src_swap_req)는 그대로
 const SONG_COVER = ["cover", "커버", "piano ver", "피아노 버전", "acoustic ver", "어쿠스틱"];
 function songSrcNote(x) {
   const d = x.d || {}; if (x.ref || isStaffApp() || d.status !== "done") return "";
@@ -7098,7 +7099,7 @@ function songSrcNote(x) {
   const ck = d.src_check; if (ck && ck.at && Date.now() - Date.parse(ck.at) < 3 * 864e5) return ` · 🎧 ${esc(ck.result || "")}`;
   const t = " " + String(d.src?.title || "").toLowerCase() + " ", nm = " " + `${d.title || ""} ${d.artist || ""}`.toLowerCase() + " ";
   if (SONG_COVER.some(w => t.includes(w) || nm.includes(w)) || d.cover_by) return "";
-  return songLib.open === x.folder && SONG_UNOFF.some(w => t.includes(w)) ? ` · <a href="#" data-slo>🎧 공식 음원으로 바꾸기</a>` : "";   // (11/27 사용자 '지우지 말고 해당 곡을 열었을 때만 보이게') 펼친 곡에만
+  return SONG_SRC_BTN && songLib.open === x.folder && SONG_UNOFF.some(w => t.includes(w)) ? ` · <a href="#" data-slo>🎧 공식 음원으로 바꾸기</a>` : "";   // (11/28 사용자 '내부 추론·작동은 그대로 두고 버튼은 삭제') SONG_SRC_BTN = false   // (11/27 사용자 '지우지 말고 해당 곡을 열었을 때만 보이게') 펼친 곡에만
 }
 async function songAdd() {
   const t = $("slT").value.trim(), a = $("slA").value.trim(), y = $("slY").value.trim();
