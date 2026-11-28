@@ -6817,14 +6817,14 @@ function jamPaint() {
     catch (e) { if (my !== jam.tkSeq) return; reset(); fold(); toast("못 열었어요: " + errMsg(e)); } });
   el.querySelectorAll("[data-jopen]").forEach(b => b.onclick = () => { const k = b.dataset.jopen, o = jam.open ||= new Set(); o.has(k) ? o.delete(k) : o.add(k); jamPaint(); });
   { const b = $("jamShowHid"); if (b) b.onclick = () => { jam.showHid = !jam.showHid; jamPaint(); }; }
-  el.querySelectorAll("[data-jamhide]").forEach(b => b.onclick = async () => { const id = b.dataset.jamhide, on = !jam.ctrl.hide.includes(id); b.disabled = true; jamStop();
-    try { await jamCtrlSave((c) => { c.hide = c.hide.filter(x => x !== id); if (on) c.hide.push(id); }); jamPaint(); toast(on ? "가렸어요 · 아래 '가린 합주 보기'에서 다시 볼 수 있어요" : "다시 보여요"); } catch (e) { b.disabled = false; toast("실패: " + errMsg(e)); } });
+  el.querySelectorAll("[data-jamhide]").forEach(b => b.onclick = () => { const id = b.dataset.jamhide, on = !jam.ctrl.hide.includes(id); jamStop();
+    jamCtrlNow((c) => { c.hide = c.hide.filter(x => x !== id); if (on) c.hide.push(id); }, null, "실패"); toast(on ? "가렸어요 · 아래 '가린 합주 보기'에서 다시 볼 수 있어요" : "다시 보여요"); });
   el.querySelectorAll("[data-jamdel]").forEach(b => b.onclick = async () => { const id = b.dataset.jamdel, s = (jam.idx?.sessions || []).find(x => x.src_id === id); if (!s) return;
     if (!confirm(`‘${s.name}’ 합주 결과를 지울까요?\n테이크 파일을 드라이브 휴지통으로 보내요(30일 안엔 되살릴 수 있어요).\n녹음함의 원본 녹음은 그대로 두고, 다시 만들지 않아요.`)) return;
-    b.disabled = true; jamStop();
-    try { await jamCtrlSave((c) => { if (!c.del.includes(id)) c.del.push(id); c.hide = c.hide.filter(x => x !== id); });
-      for (const fid of [s.folder, ...(s.songs || []).map(g => g.folder)].filter(Boolean)) { try { await api(`${DRIVE}/files/${fid}?fields=id`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trashed: true }) }); } catch {} }
-      jamPaint(); toast("지웠어요(휴지통)"); } catch (e) { b.disabled = false; toast("지우기 실패: " + errMsg(e)); } });
+    jamStop();
+    jamCtrlNow((c) => { if (!c.del.includes(id)) c.del.push(id); c.hide = c.hide.filter(x => x !== id); },
+      async () => { for (const fid of [s.folder, ...(s.songs || []).map(g => g.folder)].filter(Boolean)) { try { await api(`${DRIVE}/files/${fid}?fields=id`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trashed: true }) }); } catch {} } }, "지우기 실패");
+    toast("지웠어요(휴지통)"); });
 }
 // (11/27 사용자 '재생 버튼을 누르면 가로로 늘어나면서 파형과 시간이 보이게') 듣는 테이크 버튼이 한 줄을 다 차지하며 파형·지금/전체 시간 표시 · 파형을 누르면 그 자리로
 // (11/28 사용자 '테이크를 펼친 상태에서 뒤로 가면 그 테이크만 닫히고 위 메뉴로 가지 말자') 펼친 테이크가 있는 동안 뒤로 가기 한 칸(Brand.layer) — 다른 테이크로 바꿔 펼쳐도 같은 칸을 씀
@@ -6872,13 +6872,18 @@ function jamGrain(id, t) {   // 끄는 동안 그 자리 소리 0.09초(앞뒤 �
     const s = ctx.createBufferSource(), v = ctx.createGain(), n = ctx.currentTime; s.buffer = g.buf; v.gain.setValueAtTime(0, n); v.gain.linearRampToValueAtTime(0.9, n + 0.01); v.gain.setValueAtTime(0.9, n + 0.075); v.gain.linearRampToValueAtTime(0, n + 0.09);
     s.connect(v); v.connect(ctx.destination); s.start(n, Math.max(0, Math.min(t, g.buf.duration - 0.1)), 0.09); } catch {}
 }
+// (11/28 사용자 '지우기 버튼 누르면 UI가 재깍재깍 반응하길') 지우기·가리기는 화면에서 먼저 바로 반영하고, 드라이브 저장·휴지통은 뒤에서 — 실패하면 되돌리고 알림
+function jamCtrlNow(fn, after, fail) {
+  const was = JSON.parse(JSON.stringify(jam.ctrl || { hide: [], del: [], dt: {} })); jam.ctrl = JSON.parse(JSON.stringify(was)); jam.ctrl.dt ||= {}; fn(jam.ctrl); LS.set("vn_jam_ctrl", jam.ctrl); jamPaint();
+  (async () => { try { await jamCtrlSave(fn); if (after) await after(); } catch (e) { jam.ctrl = was; LS.set("vn_jam_ctrl", was); jamPaint(); toast((fail || "실패") + ": " + errMsg(e)); } })();
+}
 async function jamDelTake(b) {   // (11/28 사용자 '그날 거 통째로 지우는 버튼 외에 개별 삭제 버튼도') 테이크 하나만 휴지통(30일 안 되살릴 수 있음) · 다시 나눠도 같은 구간은 안 보이게 시간도 기억
   const id = b.dataset.jtk, src = b.dataset.jsrc, no = +b.dataset.jno, t0 = +b.dataset.jt0 || 0, t1 = +b.dataset.jt1 || 0;
   if (!confirm(`Take${String(no).padStart(2, "0")}(녹음 ${fmt(t0)}~${fmt(t1)})를 지울까요?\n파일은 드라이브 휴지통으로 가요(30일 안엔 되살릴 수 있어요).`)) return;
-  jamStop();
-  try { await jamCtrlSave((c) => { const a = (c.dt[src] ||= []); if (!a.some(d => d.id === id)) a.push({ id, t0, t1 }); });
-    try { await api(`${DRIVE}/files/${id}?fields=id`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trashed: true }) }); } catch {}
-    jam.takeId = null; jamPaint(); toast(`Take${String(no).padStart(2, "0")}를 지웠어요(휴지통)`); } catch (e) { toast("지우기 실패: " + errMsg(e)); }
+  jamStop(); jam.takeId = null;
+  jamCtrlNow((c) => { const a = (c.dt[src] ||= []); if (!a.some(d => d.id === id)) a.push({ id, t0, t1 }); },
+    async () => { try { await api(`${DRIVE}/files/${id}?fields=id`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trashed: true }) }); } catch {} }, "지우기 실패");
+  toast(`Take${String(no).padStart(2, "0")}를 지웠어요(휴지통)`);
 }
 function jamWaveDraw(b, id) {
   const cv = b.querySelector(".jtkW canvas"), tt = b.querySelector(".jtkT"), au = jam.takeAu; if (!cv || !au) return;
