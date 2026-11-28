@@ -18,3 +18,6 @@ console.log("jam-takes OK");
 assert.ok(T.includes('data-jopen="${esc(s.src_id)}"') && T.includes("${op ? body : \"\"}") && T.includes("(jam.open ||= new Set()).has(s.src_id)"));
 assert.ok(!/jam\.open\s*=\s*new Set\(\[/.test(T));
 assert.ok(T.includes("🔎 가사로 찾음"));
+
+// (11/28 사용자 '제목 부분을 터치해도 열리게') 합주 이름도 펼치기 버튼과 같은 data-jopen
+assert.ok(T.includes('${body ? ` data-jopen="${esc(s.src_id)}" role="button"'));
