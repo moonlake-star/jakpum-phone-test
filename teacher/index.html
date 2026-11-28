@@ -688,7 +688,7 @@
 <div id="toast"></div>
 <script src="../lesson-replies.js?v=fb1ceb5309"></script>
 <script src="../tune.js?v=ca8bac6a66"></script>
-<script src="../adv.js?v=f90aefa552"></script>
+<script src="../adv.js?v=db784e94b4"></script>
 <script src="../pitch-embed.js?v=2f0b0aaf05"></script>
 
 <script>
@@ -10956,7 +10956,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261127-2140";   // (11/24 낮) 공용 스크립트 ?v= = 내용 지문(scripts/bump-versions.js) — 11/23 보정창·소리 수정이 서비스 워커 캐시에 막혀 폰에 안 가던 것 · (11/24) 11/23 17:20 뒤 소리 크기 수정(#950~#959)이 '새 버전 알림'에 안 잡혀 폰이 옛 코드로 돌 수 있던 것
+const BUILD = "20261128-1010";   // (11/24 낮) 공용 스크립트 ?v= = 내용 지문(scripts/bump-versions.js) — 11/23 보정창·소리 수정이 서비스 워커 캐시에 막혀 폰에 안 가던 것 · (11/24) 11/23 17:20 뒤 소리 크기 수정(#950~#959)이 '새 버전 알림'에 안 잡혀 폰이 옛 코드로 돌 수 있던 것
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
