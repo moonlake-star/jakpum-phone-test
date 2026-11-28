@@ -6633,7 +6633,7 @@ async function songStaffRoot(tid, create) {   // 강사 폴더(강사_이름) �
 // ── (11/24 사용자 '강사에게 곡을 줄 때 같은 파일을 복사하면 용량 낭비') 원장 곡 → 강사: 복사 대신 그 곡 폴더에 '보기 권한' + 강사 곡서랍에 '바로가기'(둘 다 용량 0)
 //   강사 앱은 바로가기를 따라 원본을 읽음(원본 song.json은 읽기만) · 강사가 고친 것(마디·가사 자리·제목 등)은 강사 곡서랍의 '공유곡_<원본폴더>.json'에 원본과 다른 값만 저장
 //   원장 악보는 강사 수정으로 바뀌지 않음 · 공유 끊기 = 바로가기·수정 파일 휴지통 + 보기 권한 해제
-const SONG_SC = "application/vnd.google-apps.shortcut", SONG_OV = ["edits", "sections", "bars", "title", "artist", "voc_vol", "mr_vol"];   // 자동으로 생기는 값(가사 받기·파형·키 요청)은 저장 안 함 — 원장 원본이 고쳐지면 그대로 따라감
+const SONG_SC = "application/vnd.google-apps.shortcut", SONG_OV = ["edits", "sections", "bars", "title", "artist", "voc_vol", "mr_vol", "sig"];   // 자동으로 생기는 값(가사 받기·파형·키 요청)은 저장 안 함 — 원장 원본이 고쳐지면 그대로 따라감
 const songOvName = (folder) => `공유곡_${folder}.json`;
 async function songWrite(x) {   // 곡 기록 저장 — 공유곡이면 원본 대신 강사 쪽 수정 파일
   if (!x.ref) return writeJSON(x.folder, "song.json", x.d, x.fileId);
@@ -7012,7 +7012,9 @@ function songPaintList0() {
     const rb = !x.ref && row.querySelector("[data-slr]"); if (rb) rb.onclick = async () => { rb.disabled = true; try { x.d = { ...x.d, status: "queued", error: null, updated: new Date().toISOString() }; await songWrite(x); songPaintList(); songPollArm(); kick(); toast("다시 해 볼게요"); } catch (e) { toast("실패: " + errMsg(e)); rb.disabled = false; } };
     row.querySelector("[data-sle]").onclick = async () => {   // (11/22 사용자 '젊은 미소가 어딨냐') 받을 때 제목·가수가 뒤바뀐 곡 바로잡기
       const t = prompt("곡 제목", x.d.title || ""); if (t === null) return; const a = prompt("가수", x.d.artist || ""); if (a === null) return; if (!t.trim()) { toast("제목을 비울 수 없어요"); return; }
-      try { const cur = await songReadD(x).catch(() => null), base = cur && typeof cur === "object" ? cur : x.d; x.d = { ...base, title: t.trim(), artist: a.trim() }; await songWrite(x); songPaintList(); toast("고쳤어요"); } catch (e) { toast("고치기 실패: " + errMsg(e)); } };   // 저장 직전 최신 기록을 다시 읽어 일꾼이 쓴 분석을 덮지 않음
+      const sg0 = x.d.sig || (x.d.analysis && x.d.analysis.sig) || "4/4", sg = prompt("박자 (4/4 · 3/4 · 6/8 중 하나)", sg0); if (sg === null) return;   // (11/28 사용자 '빗속에서는 6/8') 박자는 4/4·3/4·6/8뿐 — 선생님이 정하면 노트북이 그 박자로 마디를 다시 맞춤
+      const sig = String(sg).replace(/\s/g, "").replace("_", "/"); if (!["4/4", "3/4", "6/8"].includes(sig)) { toast("박자는 4/4 · 3/4 · 6/8 중 하나로 적어 주세요"); return; }
+      try { const cur = await songReadD(x).catch(() => null), base = cur && typeof cur === "object" ? cur : x.d; x.d = { ...base, title: t.trim(), artist: a.trim(), sig }; await songWrite(x); songPaintList(); toast(sig !== sg0 ? `고쳤어요 · ${sig} 마디는 노트북이 다음 처리 때(보통 15분 안) 다시 맞춰요` : "고쳤어요"); } catch (e) { toast("고치기 실패: " + errMsg(e)); } };   // 저장 직전 최신 기록을 다시 읽어 일꾼이 쓴 분석을 덮지 않음
     row.querySelector("[data-sld]").onclick = async () => { if (x.ref) { if (!confirm(`‘${x.d.title || "이 곡"}’ 공유를 이 곡서랍에서 뺄까요?\n(원장 원본은 그대로 · 강사가 고친 것만 휴지통)`)) return;   // 공유곡: 원본 폴더는 절대 안 지움 — 바로가기·수정 파일만
         try { const tid = isStaffApp() ? "" : songLib.who; if (tid) await songUnshare(x.folder, tid, [x.ref]); else { await api(`${DRIVE}/files/${x.ref}?fields=id`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trashed: true }) }); if (x.ovId) await api(`${DRIVE}/files/${x.ovId}?fields=id`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trashed: true }) }).catch(() => {}); }
           songLib.list = songLib.list.filter(y => y !== x); if (songLib.open === x.folder) { songDestroy(); songLib.open = null; } songPaintList(); toast("공유를 뺐어요"); } catch (e) { toast("실패: " + errMsg(e)); } return; }
