@@ -459,7 +459,7 @@
 .dk .dkTm{display:flex;justify-content:space-between;gap:8px;font-size:.78rem;color:var(--muted);margin-top:4px;font-variant-numeric:tabular-nums}.dk .dkLab{color:#ff6fb5;font-weight:700;text-align:center;flex:1}
 .dk .dkTr{display:flex;gap:8px;margin-top:8px}.dk .dkTr button{flex:1;min-width:0;height:54px;border-radius:14px;border:1px solid var(--line);background:var(--chip);color:var(--fg);font-size:1.15rem;padding:0;line-height:1.1}.dk .dkTr small{display:block;font-size:.66rem;color:var(--muted)}
 .dk .dkTr .sgPb{flex:1.5;width:auto;height:60px;margin-top:-3px;border:0;border-radius:16px;background:#ffb86b;color:#1b1408;font-size:1.5rem}
-.dk .dkR2{display:flex;gap:8px;margin-top:8px}[data-jtk].jtkOn{flex:1 1 100%;border-radius:14px;padding:8px 12px;display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;border-color:#ffb86b;color:#ffb86b}[data-jtk] .jtkW{flex:1 1 100%;display:flex;align-items:center;gap:8px}[data-jtk] .jtkT.jtkW{flex:0 0 auto;margin-left:auto}[data-jtk].jtkOn>.muted{display:none}[data-jtk] .jtkW canvas{flex:1;min-width:0;height:42px;cursor:pointer;touch-action:none}[data-jtk] .jtkT{flex:none;font-size:.78rem;color:#e8e8e8;font-variant-numeric:tabular-nums}.dk .dkR2 button,.dk .dkRv button{flex:1;height:46px;border-radius:12px;border:1px solid var(--line);background:transparent;color:var(--fg);font-size:.92rem;padding:0}.dk .dkR2 button.on{border-color:#ffb86b;color:#ffb86b;box-shadow:0 0 10px rgba(255,184,107,.4)}.dk .dkR2 #dkRep{display:flex;align-items:center;justify-content:center;gap:8px}.dk .dkCk{width:18px;height:18px;border:2px solid currentColor;border-radius:4px;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;font-size:13px;line-height:1;font-weight:900}.dk .dkR2 #dkRep.on .dkCk{background:#ffb86b;border-color:#ffb86b;color:#111}.dk .dkR2 #dkRep.on .dkCk::after{content:"✓"}
+.dk .dkR2{display:flex;gap:8px;margin-top:8px}[data-jtk].jtkOn{flex:1 1 100%;border-radius:14px;padding:8px 12px;display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;border-color:#ffb86b;color:#ffb86b}[data-jtk] .jtkW{flex:1 1 100%;display:flex;align-items:center;gap:8px}[data-jtk] .jtkT.jtkW{flex:0 0 auto;margin-left:auto}[data-jtk].jtkOn>.muted,[data-jtk].jtkOn>.jtkAt{display:none}[data-jtk] .jtkAt{display:block;font-size:.66rem;color:var(--muted);text-align:center;margin-top:1px}[data-jtk] .jtkR{flex:0 0 auto;font-size:.72rem;color:var(--muted)}[data-jtk] .jtkDel{flex:none;font-size:1.05rem;padding:4px 6px;border-radius:8px;cursor:pointer}[data-jtk] .jtkDel:active{background:#3a2020}[data-jtk] .jtkW canvas{flex:1;min-width:0;height:42px;cursor:pointer;touch-action:none}[data-jtk] .jtkT{flex:none;font-size:.78rem;color:#e8e8e8;font-variant-numeric:tabular-nums}.dk .dkR2 button,.dk .dkRv button{flex:1;height:46px;border-radius:12px;border:1px solid var(--line);background:transparent;color:var(--fg);font-size:.92rem;padding:0}.dk .dkR2 button.on{border-color:#ffb86b;color:#ffb86b;box-shadow:0 0 10px rgba(255,184,107,.4)}.dk .dkR2 #dkRep{display:flex;align-items:center;justify-content:center;gap:8px}.dk .dkCk{width:18px;height:18px;border:2px solid currentColor;border-radius:4px;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;font-size:13px;line-height:1;font-weight:900}.dk .dkR2 #dkRep.on .dkCk{background:#ffb86b;border-color:#ffb86b;color:#111}.dk .dkR2 #dkRep.on .dkCk::after{content:"✓"}
 .dk .dkRv{display:flex;gap:8px;overflow:hidden;max-height:0;opacity:0;transition:opacity .25s,max-height .25s,margin-top .25s}.dk .dkRv.open{max-height:56px;opacity:1;margin-top:8px}.dk .dkRv #dkA,.dk .dkRv #dkB{border-color:#ff6fb5;color:#ff6fb5}.dk .dkR2 #dkLoop.on{border-color:#ff6fb5;color:#ff6fb5;box-shadow:0 0 10px rgba(255,111,181,.4)}
 .dk .dkR2 #dkTv{flex:.7}
 #dkPr{position:fixed;inset:0;z-index:10010;background:#000;color:#fff;display:flex;flex-direction:column;gap:1.2vh;padding:1.6vh 2.4vw;box-sizing:border-box;--u:min(1vw,1.6vh);font-family:inherit}
@@ -6736,7 +6736,7 @@ async function jamIndex() {
   const db = cfg?.system?.db_backup; if (!db) throw new Error("저장 위치(_시스템/db_backup)를 찾지 못했어요");
   const root = (await list(db)).find(x => x.name === "합주베스트" && x.mimeType === "application/vnd.google-apps.folder"); if (!root) return { sessions: [] };
   const L = await list(root.id); jam.root = root.id; const c = L.find(x => x.name === "control.json"); jam.ctrlId = c ? c.id : null;
-  if (c) { try { const v = await (await api(`${DRIVE}/files/${c.id}?alt=media&_=${Date.now()}`, { cache: "no-store" })).json(); jam.ctrl = { hide: Array.isArray(v.hide) ? v.hide : [], del: Array.isArray(v.del) ? v.del : [] }; LS.set("vn_jam_ctrl", jam.ctrl); } catch {} }
+  if (c) { try { const v = await (await api(`${DRIVE}/files/${c.id}?alt=media&_=${Date.now()}`, { cache: "no-store" })).json(); jam.ctrl = { hide: Array.isArray(v.hide) ? v.hide : [], del: Array.isArray(v.del) ? v.del : [], dt: v.dt && typeof v.dt === "object" ? v.dt : {} }; LS.set("vn_jam_ctrl", jam.ctrl); } catch {} }
   const f = L.find(x => x.name === "index.json"), idx = f ? await (await api(`${DRIVE}/files/${f.id}?alt=media&_=${Date.now()}`, { cache: "no-store" })).json() : { sessions: [] };
   // (11/28 사용자 '합주 녹음을 올렸는데, 처리 중이면 이 페이지에 현재 상황이 나오면 좋겠어') 녹음함에 있지만 서버가 아직 시작 안 한 합주·연습 녹음 → '서버 대기'로 보여 줌
   try { const dest = cfg?.inbox_recordings, have = new Set((idx.sessions || []).map(x => x.src_id)), del = new Set((jam.ctrl && jam.ctrl.del) || []), old = Date.now() - 14 * 864e5;
@@ -6748,8 +6748,8 @@ async function jamIndex() {
 async function jamCtrlSave(fn) {
   if (!jam.root) await jamIndex();
   let cur = { hide: [], del: [] };
-  if (jam.ctrlId) { try { const v = await (await api(`${DRIVE}/files/${jam.ctrlId}?alt=media&_=${Date.now()}`, { cache: "no-store" })).json(); cur = { hide: Array.isArray(v.hide) ? v.hide : [], del: Array.isArray(v.del) ? v.del : [] }; } catch {} }
-  fn(cur); jam.ctrlId = await writeJSON(jam.root, "control.json", cur, jam.ctrlId); jam.ctrl = cur; LS.set("vn_jam_ctrl", cur);
+  if (jam.ctrlId) { try { const v = await (await api(`${DRIVE}/files/${jam.ctrlId}?alt=media&_=${Date.now()}`, { cache: "no-store" })).json(); cur = { hide: Array.isArray(v.hide) ? v.hide : [], del: Array.isArray(v.del) ? v.del : [], dt: v.dt && typeof v.dt === "object" ? v.dt : {} }; } catch {} }
+  cur.dt ||= {}; fn(cur); jam.ctrlId = await writeJSON(jam.root, "control.json", cur, jam.ctrlId); jam.ctrl = cur; LS.set("vn_jam_ctrl", cur);
 }
 async function openJam() {
   goBack = () => { jamStop(); renderList(); }; show("vJam"); const v = $("vJam");
@@ -6790,8 +6790,10 @@ function jamPaint() {
       <p class="muted" style="margin:0;font-size:.78rem">${busy ? `지금 ‘${esc(busy.name)}’ ${esc(busy.stage || "처리")} — ` : ""}노트북이 다음 처리 때(보통 15분 안) 시작해요 · 시작하면 단계가 여기 보여요</p></div>`).join("");   // (11/28 사용자) 올린 녹음의 현재 상황
   el.innerHTML = wHtml + S.map((s) => { const si = jam.idx.sessions.indexOf(s), done = s.status === "done", fail = s.status === "failed", songs = (s.songs || []);
     // (11/27 사용자 '짜깁기 기능은 폐기 · 연습/합주 · 같은 곡은 서브 리스트로') 곡(같은 곡끼리 묶음)마다 테이크 줄 · 묶이지 않은 테이크는 '기타'
-    const tf = s.take_files || [], byNo = new Map(tf.map(t => [t.no, t])), used = new Set();
-    const tkBtn = (t) => `<button type="button" class="ghost small" data-jtk="${esc(t.id)}" aria-label="Take${String(t.no).padStart(2, "0")} 듣기"><span class="jtkI">▶</span> Take${String(t.no).padStart(2, "0")} <span class="muted" style="font-size:.75rem">${fmt(t.dur || 0)}</span></button>`;
+    // (11/28 사용자 '개별 삭제 버튼 · 각 테이크가 그날 녹음의 몇 분이었는지') 지운 테이크(control.json dt[합주] = [{id,t0,t1}])는 빼고 · 버튼에 원래 녹음 안 시작 시각
+    const DT = ((C.dt || {})[s.src_id] || []), gone = (t) => DT.some(d => d.id === t.id || (d.t1 > d.t0 && Math.min(d.t1, t.t1) - Math.max(d.t0, t.t0) > 0.5 * Math.min(d.t1 - d.t0, t.t1 - t.t0)));
+    const tf = (s.take_files || []).filter(t => !gone(t)), byNo = new Map(tf.map(t => [t.no, t])), used = new Set();
+    const tkBtn = (t) => `<button type="button" class="ghost small" data-jtk="${esc(t.id)}" data-jsrc="${esc(s.src_id)}" data-jt0="${+t.t0 || 0}" data-jt1="${+t.t1 || 0}" data-jno="${t.no}" aria-label="Take${String(t.no).padStart(2, "0")} 듣기 · 녹음 ${fmt(t.t0 || 0)}부터"><span class="jtkI">▶</span> Take${String(t.no).padStart(2, "0")} <span class="muted" style="font-size:.75rem">${fmt(t.dur || 0)}</span><span class="jtkAt">${fmt(t.t0 || 0)}~</span></button>`;
     const grp = songs.filter(g => Array.isArray(g.takes) && g.takes.every(n => typeof n === "number")).map(g => { const ts = g.takes.map(n => byNo.get(n)).filter(Boolean); ts.forEach(t => used.add(t.no));
       return ts.length ? `<div class="jamGrp" style="border-top:1px solid #2c3340;padding:8px 0 4px"><div class="row" style="justify-content:space-between;gap:6px"><b style="font-size:.95rem;min-width:0">🎵 ${esc(g.title || "곡")}${g.artist ? ` <span class="muted" style="font-weight:400;font-size:.82rem">${esc(g.artist)}</span>` : ""}</b><span class="muted" style="font-size:.78rem;white-space:nowrap">${g.title_by ? `🔎 가사로 찾음 · ` : ""}테이크 ${ts.length}개</span></div>
         <div class="row" style="gap:6px;flex-wrap:wrap;margin-top:6px">${ts.map(tkBtn).join("")}</div></div>` : ""; }).join("");
@@ -6827,7 +6829,9 @@ function jamPaint() {
 }
 // (11/27 사용자 '재생 버튼을 누르면 가로로 늘어나면서 파형과 시간이 보이게') 듣는 테이크 버튼이 한 줄을 다 차지하며 파형·지금/전체 시간 표시 · 파형을 누르면 그 자리로
 function jamWaveOpen(b, id, bl) {
-  b.classList.add("jtkOn"); const w = document.createElement("span"); w.className = "jtkW"; w.innerHTML = `<canvas></canvas>`; const tt = document.createElement("span"); tt.className = "jtkT jtkW"; tt.textContent = "0:00 / –:–"; b.appendChild(tt); b.appendChild(w);   /* (11/27 사용자) 시간은 윗줄 오른쪽 · 파형은 아랫줄 전체 */
+  b.classList.add("jtkOn"); const w = document.createElement("span"); w.className = "jtkW"; w.innerHTML = `<canvas></canvas><span class="jtkDel" role="button" tabindex="0" aria-label="이 테이크 지우기">🗑</span>`;
+  { const t0 = +b.dataset.jt0 || 0, t1 = +b.dataset.jt1 || 0, r = document.createElement("span"); r.className = "jtkR jtkW"; r.textContent = `녹음 ${fmt(t0)}~${fmt(t1)}`; b.appendChild(r); }   // (11/28 사용자) 그날 녹음의 몇 분~몇 분
+  w.querySelector(".jtkDel").addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); jamDelTake(b); }); const tt = document.createElement("span"); tt.className = "jtkT jtkW"; tt.textContent = "0:00 / –:–"; b.appendChild(tt); b.appendChild(w);   /* (11/27 사용자) 시간은 윗줄 오른쪽 · 파형은 아랫줄 전체 */
   const cv = w.querySelector("canvas"), au = jam.takeAu;
   const seek = (e) => { e.preventDefault(); e.stopPropagation(); const r = cv.getBoundingClientRect(), d = au.duration; if (!d || !isFinite(d)) return; au.currentTime = Math.max(0, Math.min(d - 0.05, (e.clientX - r.left) / r.width * d)); jamWaveDraw(b, id); };
   cv.addEventListener("pointerdown", seek); cv.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); });
@@ -6835,6 +6839,14 @@ function jamWaveOpen(b, id, bl) {
   (jam.peaks ||= {})[id] ? jamWaveDraw(b, id) : (async () => { try { const ctx = jam.ctx || (jam.ctx = new (window.AudioContext || window.webkitAudioContext)()), buf = await ctx.decodeAudioData(await bl.arrayBuffer()), ch = buf.getChannelData(0), N = 240, step = Math.max(1, Math.floor(ch.length / N)), pk = [];
       for (let i = 0; i < N; i++) { let m = 0; for (let j = i * step, e = Math.min(ch.length, j + step); j < e; j += 8) { const v = Math.abs(ch[j]); if (v > m) m = v; } pk.push(m); }
       const mx = Math.max(0.01, ...pk); jam.peaks[id] = pk.map(v => v / mx); jamWaveDraw(b, id); } catch {} })();
+}
+async function jamDelTake(b) {   // (11/28 사용자 '그날 거 통째로 지우는 버튼 외에 개별 삭제 버튼도') 테이크 하나만 휴지통(30일 안 되살릴 수 있음) · 다시 나눠도 같은 구간은 안 보이게 시간도 기억
+  const id = b.dataset.jtk, src = b.dataset.jsrc, no = +b.dataset.jno, t0 = +b.dataset.jt0 || 0, t1 = +b.dataset.jt1 || 0;
+  if (!confirm(`Take${String(no).padStart(2, "0")}(녹음 ${fmt(t0)}~${fmt(t1)})를 지울까요?\n파일은 드라이브 휴지통으로 가요(30일 안엔 되살릴 수 있어요).`)) return;
+  jamStop();
+  try { await jamCtrlSave((c) => { const a = (c.dt[src] ||= []); if (!a.some(d => d.id === id)) a.push({ id, t0, t1 }); });
+    try { await api(`${DRIVE}/files/${id}?fields=id`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trashed: true }) }); } catch {}
+    jam.takeId = null; jamPaint(); toast(`Take${String(no).padStart(2, "0")}를 지웠어요(휴지통)`); } catch (e) { toast("지우기 실패: " + errMsg(e)); }
 }
 function jamWaveDraw(b, id) {
   const cv = b.querySelector(".jtkW canvas"), tt = b.querySelector(".jtkT"), au = jam.takeAu; if (!cv || !au) return;
