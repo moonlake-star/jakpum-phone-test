@@ -120,6 +120,6 @@ function world(opt = {}) {
   const ws = S.slice(S.indexOf("function wireStems(mk)"), S.indexOf("function lessonHtml(l, prev"));
   assert.ok(ws.includes("stemEngine({") && !ws.includes("new Audio") && !ws.includes("bufMode") && ws.includes("stemsDestroy();"), "수강생 연습 곡도 같은 엔진");
   assert.ok(ws.includes('data-sgd') && ws.includes("window.open(driveUrl(st[k])"), "수강생 다운로드 3종 유지");
-  assert.ok(T.includes('data-sgd="${k}"') && T.includes("songSave(await blob(k)"), "선생님 다운로드 3종 유지");
+  assert.ok(T.includes('data-sgd="${k}"') && T.includes("chg ? await songKeyFile(k, blob, sm, rt") && T.includes(": await blob(k);"), "선생님 다운로드 3종 유지(11/28 키·속도 반영)");
   console.log("stem-engine: 화면 연결 ok");
 })().catch(e => { console.error(e); process.exit(1); });

@@ -7230,6 +7230,36 @@ function stretchLib(d) {
     s.onload = () => (typeof globalThis.SignalsmithStretch === "function" ? ok(globalThis.SignalsmithStretch) : no(new Error("엔진 없음"))); s.onerror = () => no(new Error("엔진 파일을 못 받았어요")); document.head.appendChild(s);
   }).catch((e) => { _ssLib = null; throw e; });
 }
+// (11/28 사용자 '이 버튼이 키 조정된 거 받을 수 있는 버튼이어야 해') 곡서랍 ⬇ 받기: 지금 키·속도로 폰 안에서 다시 만들어 받음(재생과 같은 엔진·보컬만 포먼트 보정)
+//   OfflineAudioContext에서 Signalsmith Stretch로 곡 전체를 한 번 처리(엔진이 지연을 스스로 맞춤 — 실측: 2.000초 클릭이 2.001초) → (원곡은 반주+보컬 합) → mp3
+async function songRenderKey(lib, bufs, semis, rate, AC_) {   // bufs: [{buf, formant}] 같은 길이·샘플레이트 · 반환: [L, R] Float32Array
+  const OAC = AC_ || globalThis.OfflineAudioContext || globalThis.webkitOfflineAudioContext; if (!OAC) throw new Error("이 기기는 파일 만들기를 못 해요");
+  const sr = bufs[0].buf.sampleRate, dur = Math.max(...bufs.map((x) => x.buf.duration)), outLen = Math.ceil(dur / rate * sr), pad = Math.ceil(sr * 0.5);
+  const oc = new OAC(2, outLen + pad, sr);
+  for (const x of bufs) {
+    const node = await lib(oc, { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2] }), ch = [];
+    for (let c = 0; c < x.buf.numberOfChannels; c++) ch.push(x.buf.getChannelData(c).slice());
+    await node.addBuffers(ch, ch.map((a) => a.buffer));
+    await node.schedule({ active: true, input: 0, output: 0, rate, semitones: semis, formantCompensation: !!x.formant, loopStart: 0, loopEnd: 0 });
+    node.connect(oc.destination);
+  }
+  const r = await oc.startRendering();
+  return [0, 1].map((c) => r.getChannelData(Math.min(c, r.numberOfChannels - 1)).slice(0, outLen));
+}
+async function songKeyFile(k, getBlob, semis, rate, onMsg) {   // k: mr·voc·orig → mp3 Blob(지금 키·속도)
+  const lib = await stretchLib(); await pvLoadScript("../export/export-core.js?v=20261116-1240"); await pvLoadScript("../export/lame.min.js?v=20261106-1130");
+  const AC = globalThis.AudioContext || globalThis.webkitAudioContext, ctx = new AC();
+  try {
+    const dec = async (kk) => { const ab = await (await getBlob(kk)).arrayBuffer(); return await new Promise((ok, no) => { const p = ctx.decodeAudioData(ab, ok, no); if (p && p.then) p.then(ok, no); }); };
+    onMsg && onMsg("소리 받는 중…");
+    const parts = k === "orig" ? [{ buf: await dec("mr"), formant: false }, { buf: await dec("voc"), formant: true }] : [{ buf: await dec(k), formant: k === "voc" }];
+    onMsg && onMsg("키 바꾸는 중…"); const ch = await songRenderKey(lib, parts, semis, rate);
+    let pk = 0; for (const a of ch) for (let i = 0; i < a.length; i++) { const v = Math.abs(a[i]); if (v > pk) pk = v; }
+    if (pk > 0.98) { const g = 0.98 / pk; for (const a of ch) for (let i = 0; i < a.length; i++) a[i] *= g; }   // 반주+보컬 합이 넘치면 줄임
+    const mp = await ExportCore.mp3Async(ch, parts[0].buf.sampleRate, 256, undefined, (q) => onMsg && onMsg(`mp3 만드는 중… ${Math.round(q * 100)}%`));
+    return new Blob([mp], { type: "audio/mpeg" });
+  } finally { try { ctx.close(); } catch {} }
+}
 function stretchEngine(d) {
   const G = typeof globalThis !== "undefined" ? globalThis : window, AC = "AC" in d ? d.AC : (G.AudioContext || G.webkitAudioContext), stale = () => new Error("stale"), clamp = (v) => Math.max(0, Math.min(100, Math.round(+v) || 0));
   const tm = d.timers || { set: (f, ms) => G.setInterval(f, ms), clear: (t) => G.clearInterval(t) };
@@ -7347,7 +7377,10 @@ function songPlayer(el, ids, o) {
   el.querySelectorAll("[data-sgv]").forEach(b => b.onclick = () => setVol(+b.dataset.sgv));
   el.querySelectorAll("[data-sgd]").forEach(b => b.onclick = async () => {
     const k = b.dataset.sgd, lab = { mr: "MR", voc: "보컬", orig: "원곡" }[k], t0 = b.innerHTML; b.disabled = true; b.innerHTML = "받는 중…";
-    try { songSave(await blob(k), `${(o.name || "원곡").replace(/[\\/:*?"<>|]/g, "_")}_${lab}.mp3`); toast(`${lab} 파일을 받았어요(다운로드 폴더)`); }
+    const sm = eng.canKey && eng.canKey() ? Math.round(+eng.key() || 0) : 0, rt = Math.round((eng.rate ? +eng.rate() || 1 : 1) * 100) / 100, chg = sm !== 0 || rt !== 1;   // (11/28) 키·속도를 바꿨으면 그대로 다시 만들어 받음
+    const tag = chg ? `_${sm ? `키${sm > 0 ? "+" : ""}${sm}` : ""}${rt !== 1 ? `_속도${Math.round(rt * 100)}` : ""}` : "";
+    try { const f = chg ? await songKeyFile(k, blob, sm, rt, (m) => { b.innerHTML = m; }) : await blob(k);
+      songSave(f, `${(o.name || "원곡").replace(/[\\/:*?"<>|]/g, "_")}_${lab}${tag}.mp3`); toast(`${lab}${chg ? `(${[sm ? `키 ${sm > 0 ? "+" : ""}${sm}` : "", rt !== 1 ? `속도 ${Math.round(rt * 100)}%` : ""].filter(Boolean).join(" · ")})` : ""} 파일을 받았어요(다운로드 폴더)`); }
     catch (e) { toast("받기 실패: " + errMsg(e)); } finally { b.disabled = false; b.innerHTML = t0; }
   });
   try { o.wire && o.wire(Q); } catch {}
@@ -8520,7 +8553,10 @@ $("#shFsX").onclick = () => setFs(false); $("#shFsP").onclick = () => Q("sgPb").
   cv.onpointerup = up; cv.onpointercancel = up;
   el.querySelectorAll("[data-sgd]").forEach(b => b.onclick = async () => {
     const k = b.dataset.sgd, lab = { mr: "MR", voc: "보컬", orig: "원곡" }[k], t0 = b.innerHTML; b.disabled = true; b.innerHTML = "받는 중…";
-    try { songSave(await blob(k), `${(o.name || "원곡").replace(/[\\/:*?"<>|]/g, "_")}_${lab}.mp3`); toast(`${lab} 파일을 받았어요(다운로드 폴더)`); }
+    const sm = eng.canKey && eng.canKey() ? Math.round(+eng.key() || 0) : 0, rt = Math.round((eng.rate ? +eng.rate() || 1 : 1) * 100) / 100, chg = sm !== 0 || rt !== 1;   // (11/28) 키·속도를 바꿨으면 그대로 다시 만들어 받음
+    const tag = chg ? `_${sm ? `키${sm > 0 ? "+" : ""}${sm}` : ""}${rt !== 1 ? `_속도${Math.round(rt * 100)}` : ""}` : "";
+    try { const f = chg ? await songKeyFile(k, blob, sm, rt, (m) => { b.innerHTML = m; }) : await blob(k);
+      songSave(f, `${(o.name || "원곡").replace(/[\\/:*?"<>|]/g, "_")}_${lab}${tag}.mp3`); toast(`${lab}${chg ? `(${[sm ? `키 ${sm > 0 ? "+" : ""}${sm}` : "", rt !== 1 ? `속도 ${Math.round(rt * 100)}%` : ""].filter(Boolean).join(" · ")})` : ""} 파일을 받았어요(다운로드 폴더)`); }
     catch (e) { toast("받기 실패: " + errMsg(e)); } finally { b.disabled = false; b.innerHTML = t0; }
   });
   draw(); if (o.autoplay) Q("sgPb").onclick();   // 곡 서랍 ‘▶ 듣기’: 같은 터치 안에서 바로 재생 요청
