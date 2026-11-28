@@ -6655,7 +6655,7 @@ async function songShareTo(x, tid) {
   let j = null; try { j = await (await api(`${DRIVE}/files?fields=id`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: x.d.title || "곡", mimeType: SONG_SC, shortcutDetails: { targetId: x.folder }, parents: [root] }) })).json(); } catch {}
   if (!j?.id) { await api(`${DRIVE}/files/${x.folder}/permissions/${pj.id}`, { method: "DELETE" }).catch(() => {}); throw new Error("바로가기를 못 만들었어요(권한도 되돌림)"); }
   let cleaned = 0; if (x.d.key) { try { const nm = (await (await api(`${DRIVE}/files/${x.folder}?fields=name`)).json()).name;   // (11/24) 예전에 '폴더째 복사'해 넣은 같은 곡(곡 기록 고유 번호가 같은 폴더)은 휴지통 → 용량 되돌림
-    for (const f of (await list(root)).filter(f => f.mimeType === "application/vnd.google-apps.folder" && f.id !== x.folder && f.name === nm)) { const sf = (await list(f.id)).find(y => y.name === "song.json"); const dd = sf && await readJSON(sf.id).catch(() => null);
+    for (const f of (await list(root)).filter(f => f.mimeType === "application/vnd.google-apps.folder" && f.id !== x.folder && f.name === nm)) { const sf = (await list(f.id)).filter(y => y.name === "song.json").sort((a, b) => String(b.modifiedTime || "").localeCompare(String(a.modifiedTime || "")))[0]; const dd = sf && await readJSON(sf.id).catch(() => null);
       if (dd && dd.key === x.d.key) { await api(`${DRIVE}/files/${f.id}?fields=id`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trashed: true }) }); cleaned++; } } } catch {} }
   return { id: j.id, cleaned };   // (검토) 바로가기 실패 시 보기 권한도 되돌림
 }
@@ -6709,7 +6709,7 @@ async function songLoad(prev = []) {
     const st = stamp.get(fo.id), o = old.get(fo.id), of_ = fo.ref ? ovf.get(fo.id) : null;
     if (st && o && o.fileId === st.id && o.mt && o.mt === st.modifiedTime && (o.ref || "") === (fo.ref || "") && (o.ovMt || "") === (of_?.modifiedTime || "")) return o;          // 안 바뀜 → 저장본 그대로(요청 없음)
     let e; if (st) e = { folder: fo.id, fileId: st.id, mt: st.modifiedTime, d: await readJSON(st.id) };
-    else { const fs = await list(fo.id), sf = fs.find(x => x.name === "song.json"); if (!sf) return null;
+    else { const fs = await list(fo.id), sf = fs.filter(x => x.name === "song.json").sort((a, b) => String(b.modifiedTime || "").localeCompare(String(a.modifiedTime || "")))[0]; if (!sf) return null;   // (11/28 End Of The Road 폴더에 song.json 두 개 — 곡 넣기를 두 번 눌러 생긴 빈 대기 파일) 가장 최근에 고친 것
       if (o && o.fileId === sf.id && o.mt === sf.modifiedTime && (o.ref || "") === (fo.ref || "") && (o.ovMt || "") === (of_?.modifiedTime || "")) return o;   // 공유곡(부모 정보가 없어 한 번에 못 읽음)도 안 바뀌면 그대로
       e = { folder: fo.id, fileId: sf.id, mt: sf.modifiedTime, d: await readJSON(sf.id) }; }
     if (fo.ref) { const ov = of_ ? await readJSON(of_.id).catch(() => ({})) : {}; delete ov.of; Object.assign(e, { ref: fo.ref, ovRoot: rid, ovId: of_?.id || null, ovMt: of_?.modifiedTime || "", orig: e.d, ov, d: { ...e.d, ...ov } }); }
