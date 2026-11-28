@@ -6750,7 +6750,7 @@ async function jamCtrlSave(fn) {
   cur.dt ||= {}; fn(cur); jam.ctrlId = await writeJSON(jam.root, "control.json", cur, jam.ctrlId); jam.ctrl = cur; LS.set("vn_jam_ctrl", cur);
 }
 async function openJam() {
-  goBack = () => { jamStop(); renderList(); }; show("vJam"); const v = $("vJam");
+  goBack = () => { jamTkUnlayer(); jamStop(); renderList(); }; show("vJam"); const v = $("vJam");
   v.innerHTML = `<h2 style="margin:4px 0 2px">🎸 연습/합주</h2><p class="muted" style="margin:0 0 10px;font-size:.88rem">녹음함(Easy Voice Recorder)에 이름에 <b>합주</b>·<b>연습</b>이 들어간 녹음이 올라오면, 서버가 <b>대화는 빼고 연주·노래만</b> Take01·Take02…로 나누고 <b>같은 곡끼리 묶어</b> 보여 줘요(보통 몇 분)</p><div class="card" style="padding:10px 12px;margin:0 0 10px"><label class="btn" style="display:block;text-align:center;cursor:pointer;margin:0">＋ 녹음 파일 직접 올리기<input type="file" id="jamUp" accept="audio/*,.m4a,.mp3,.wav,.aac,.3gp,.ogg" multiple hidden></label><div id="jamUpS" class="muted" style="font-size:.82rem;margin-top:6px;min-height:1em">폰·컴퓨터에 있는 합주·연습 녹음을 바로 올려요 · 녹음함에 들어가 서버가 같은 방식으로 처리해요</div></div><div id="jamList"><p class="muted">불러오는 중…</p></div>`;
   $("jamUp").onchange = () => jamUpload($("jamUp"));
   // (11/19 사용자) 지난번 합주 목록을 먼저 보여주고 뒤에서 새로 받음
@@ -6774,7 +6774,7 @@ async function jamUpload(inp) {
   if (n) { st.textContent = `✓ ${n}개 올렸어요 · 아래 목록에 '서버 대기'로 보이고, 서버가 시작하면 단계가 바뀌어요`; try { kick(); } catch {} try { jam.idx = await jamIndex(); jamPaint(); jamPollArm(); } catch {} }
 }
 function jamPollArm() { clearTimeout(jam.poll); if (!(jam.idx?.sessions || []).some(s => s.status !== "done" && s.status !== "failed") && !(jam.idx?._waiting || []).length) return;
-  jam.poll = setTimeout(async () => { if ($("vJam").classList.contains("hidden")) return; try { const nx = await jamIndex(); if (JSON.stringify(nx) !== JSON.stringify(jam.idx)) { jam.idx = nx; if (!jam.play) jamPaint(); } } catch {} jamPollArm(); }, 30000); }
+  jam.poll = setTimeout(async () => { if ($("vJam").classList.contains("hidden")) return; try { const nx = await jamIndex(); if (JSON.stringify(nx) !== JSON.stringify(jam.idx)) { jam.idx = nx; if (!jam.play && !jam.tkLy) jamPaint(); } } catch {} jamPollArm(); }, 30000); }
 function jamWhen(s) { const m = String(s.name || "").match(/(\d{4})-(\d{2})-(\d{2})/); return m ? `${+m[2]}/${+m[3]}` : ""; }
 function jamPaint() {
   if (!jam.ctrl) jam.ctrl = LS.get("vn_jam_ctrl") || { hide: [], del: [] };
@@ -6786,6 +6786,7 @@ function jamPaint() {
   const hm = (iso) => { const d = new Date(iso); return isNaN(d) ? "" : `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
   const wHtml = W.map((w, i) => `<div class="card" style="padding:12px 14px"><b>${esc(w.name)}</b><p class="muted" style="margin:6px 0 2px;font-size:.85rem">⏳ 서버 대기${W.length > 1 ? ` · ${i + 1}번째` : ""} · 올린 시각 ${hm(w.at)}${w.mb ? ` · ${w.mb}MB` : ""}</p>
       <p class="muted" style="margin:0;font-size:.78rem">${busy ? `지금 ‘${esc(busy.name)}’ ${esc(busy.stage || "처리")} — ` : ""}노트북이 다음 처리 때(보통 15분 안) 시작해요 · 시작하면 단계가 여기 보여요</p></div>`).join("");   // (11/28 사용자) 올린 녹음의 현재 상황
+  jamTkUnlayer();   // 목록을 다시 그리면 펼친 테이크도 사라짐 → 뒤로 가기 칸도 정리
   el.innerHTML = wHtml + S.map((s) => { const si = jam.idx.sessions.indexOf(s), done = s.status === "done", fail = s.status === "failed", songs = (s.songs || []);
     // (11/27 사용자 '짜깁기 기능은 폐기 · 연습/합주 · 같은 곡은 서브 리스트로') 곡(같은 곡끼리 묶음)마다 테이크 줄 · 묶이지 않은 테이크는 '기타'
     // (11/28 사용자 '개별 삭제 버튼 · 각 테이크가 그날 녹음의 몇 분이었는지') 지운 테이크(control.json dt[합주] = [{id,t0,t1}])는 빼고 · 버튼에 원래 녹음 안 시작 시각
@@ -6826,7 +6827,12 @@ function jamPaint() {
       jamPaint(); toast("지웠어요(휴지통)"); } catch (e) { b.disabled = false; toast("지우기 실패: " + errMsg(e)); } });
 }
 // (11/27 사용자 '재생 버튼을 누르면 가로로 늘어나면서 파형과 시간이 보이게') 듣는 테이크 버튼이 한 줄을 다 차지하며 파형·지금/전체 시간 표시 · 파형을 누르면 그 자리로
-function jamWaveOpen(b, id, bl) {   // (11/28 사용자 '스크럽 방식을 곡서랍 스크롤처럼') 가운데 흰 선 = 재생 위치 고정, 파형을 손가락으로 밀면 위치가 옮겨지고(관성) 끄는 동안 그 자리 소리 · 두 손가락 = 좌우 확대(최대 20배) · 두 번 톡 = 원래 크기
+// (11/28 사용자 '테이크를 펼친 상태에서 뒤로 가면 그 테이크만 닫히고 위 메뉴로 가지 말자') 펼친 테이크가 있는 동안 뒤로 가기 한 칸(Brand.layer) — 다른 테이크로 바꿔 펼쳐도 같은 칸을 씀
+function jamFoldAll() { jamStop(); const el = $("jamList"); if (!el) return; el.querySelectorAll("[data-jtk].jtkOn").forEach(x => x.classList.remove("jtkOn")); el.querySelectorAll("[data-jtk] .jtkW").forEach(w => w.remove()); el.querySelectorAll("[data-jtk] .jtkI").forEach(i => { i.textContent = "▶"; }); jam.wz = null; }
+function jamTkLayer() { if (!jam.tkLy && typeof Brand !== "undefined" && Brand.layer) jam.tkLy = Brand.layer((fromBack) => { jam.tkLy = null; if (fromBack) jamFoldAll(); }); }
+function jamTkUnlayer() { const l = jam.tkLy; if (!l) return; jam.tkLy = null; try { l.close(); } catch {} }
+function jamWaveOpen(b, id, bl) {
+  jamTkLayer();   // (11/28 사용자 '스크럽 방식을 곡서랍 스크롤처럼') 가운데 흰 선 = 재생 위치 고정, 파형을 손가락으로 밀면 위치가 옮겨지고(관성) 끄는 동안 그 자리 소리 · 두 손가락 = 좌우 확대(최대 20배) · 두 번 톡 = 원래 크기
   b.classList.add("jtkOn"); const w = document.createElement("span"); w.className = "jtkW"; w.innerHTML = `<canvas></canvas>`;
   { const t0 = +b.dataset.jt0 || 0, t1 = +b.dataset.jt1 || 0, r = document.createElement("span"); r.className = "jtkR jtkW"; r.textContent = `녹음 ${fmt(t0)}~${fmt(t1)}`; b.appendChild(r); }   // (11/28 사용자) 그날 녹음의 몇 분~몇 분
   const tt = document.createElement("span"); tt.className = "jtkT jtkW"; tt.textContent = "0:00 / –:–"; b.appendChild(tt);
@@ -7381,7 +7387,7 @@ function stretchEngine(d) {
     setKey(n) { semis = Math.max(-12, Math.min(12, Math.round(+n) || 0)); if (ss && playing) rebase(); return ss; },
     scrub(t) {   // (11/28 사용자 '스크롤할 때 스크럽처럼 소리 나게') 멈춘 채 파형을 끄는 동안 그 자리 소리를 0.09초씩(지금 키·보컬/반주 크기 그대로) · 재생 위치(off)는 안 바꿈
       if (!ss || playing || starting || !ctx || !nm || !nv) return; try { if (ctx.state !== "running") { const p = ctx.resume(); if (p && p.catch) p.catch(() => {}); } tm.clear(idleT); idleT = null;
-        const T = ctx.currentTime + 0.02, x = Math.max(0, Math.min(+t || 0, dur0 - 0.12)), p = { output: T, active: true, input: x, rate: 1, semitones: semis, loopStart: 0, loopEnd: 0 }, q = { output: T + 0.09, active: false };
+        const T = ctx.currentTime + 0.04, x = Math.max(0, Math.min(+t || 0, dur0 - 0.2)), p = { output: T, active: true, input: x, rate: 1, semitones: semis, loopStart: 0, loopEnd: 0 }, q = { output: T + 0.16, active: false };   // (11/28 사용자 '소리가 나다 안 나다') 0.09초는 엔진 지연(약 0.12초)보다 짧아 가끔 소리 없이 끝남 → 0.16초
         nm.schedule(Object.assign({ formantCompensation: false }, p)); nv.schedule(Object.assign({ formantCompensation: true }, p)); nm.schedule(Object.assign({}, q)); nv.schedule(Object.assign({}, q)); sleepSoon(); } catch {} },   // 반음 단위(소수 없음)
     setMrVol(v) { mrVol = clamp(v); if (!ss) return base.setMrVol(v); if (gm) { const g = gm.gain, n = ctx.currentTime; try { g.cancelScheduledValues(n); g.setTargetAtTime(mrVol / 100, n, 0.015); } catch { g.value = mrVol / 100; } } },
     setLoop(a, b) { const l = (Number.isFinite(a) && Number.isFinite(b) && b - a >= 0.5) ? { a: +a, b: +b } : null; if (!ss) return base.setLoop(a, b); if (playing) { const T = ctx.currentTime + LEAD; off = posAt(T); t0 = T; loop = l; send(T, true); } else loop = l; },
@@ -8597,7 +8603,7 @@ $("#shFsX").onclick = () => setFs(false); $("#shFsP").onclick = () => Q("sgPb").
     if (CHORDS && e.clientY - rc.top < 30) { const x0 = e.clientX, y0 = e.clientY, was0 = drag.was; lp = { x0, y0, t: setTimeout(() => { if (!lp) return; lp = null; drag = null; glide = null; try { navigator.vibrate && navigator.vibrate(15); } catch {} openChordEdit(vp + (x0 - rc.left - cv.clientWidth / 2) / pps(), was0); }, 480) }; } };
   cv.onpointermove = (e) => { if (lp && (Math.abs(e.clientX - lp.x0) > 8 || Math.abs(e.clientY - lp.y0) > 8)) lpStop(); if (!drag) return; const n = performance.now(), dx = e.clientX - drag.x, dt = Math.max(1, n - drag.t); if (Math.abs(dx) > 1) drag.moved = true;
     vp = Math.max(0, Math.min(dur(), vp - dx / pps())); drag.v = 0.7 * drag.v + 0.3 * (dx / dt); drag.x = e.clientX; drag.t = n; Q("sgT0").textContent = mmss(vp); scrubSnd(); };
-  let scrT = 0, scrP = -1; const scrubSnd = () => { const n = performance.now(); if (n - scrT < 70 || Math.abs(vp - scrP) < 0.03) return; scrT = n; scrP = vp; try { eng.scrub && eng.scrub(vp); } catch {} };   // (11/28 사용자) 끄는 동안 그 자리 소리
+  let scrT = 0, scrP = -1; const scrubSnd = () => { const n = performance.now(); if (n - scrT < 110 || Math.abs(vp - scrP) < 0.03) return; scrT = n; scrP = vp; try { eng.scrub && eng.scrub(vp); } catch {} };   // (11/28 사용자) 끄는 동안 그 자리 소리
   const up = () => { lpStop(); if (!drag) return; const d = drag; if (!d.moved) { drag = null; return d.live ? commit(d.was) : commitTap(d); }   // 미끄러지는 중 톡 = 그 자리에서 멈추고 이어서 재생
     glide = { v: d.v * 0.5, was: d.was, last: performance.now() }; drag = null;   // (11/14 22:08 사용자 '관성 다시, 아까의 절반') 처음 빠르기 절반 = 미끄러지는 거리 절반
     const step = () => { if (!glide) return; const n = performance.now(), dt = Math.min(50, n - glide.last); glide.last = n; vp = Math.max(0, Math.min(dur(), vp - glide.v * dt / pps())); glide.v *= Math.pow(0.94, dt / 16); Q("sgT0").textContent = mmss(vp); scrubSnd();
