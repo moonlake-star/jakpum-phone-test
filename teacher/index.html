@@ -6891,10 +6891,12 @@ function jamWaveDraw(b, id) {
   if (tt) tt.textContent = `${fm(jam.wz && jam.wz.vp != null ? jam.wz.vp : t)} / ${(b.querySelector(":scope>.muted")?.textContent || "").trim() || fm(d)}`;   // 전체 시간은 테이크 이름 옆 길이 그대로(1:20/1:21 엇갈림 없게)
   const dpr = window.devicePixelRatio || 1, W = Math.max(1, Math.min(cv.clientWidth, (b.clientWidth || 9999) - 20, 1600)), H = Math.max(1, Math.min(cv.clientHeight, 80)); if (cv.width !== Math.round(W * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }   // (11/28 사용자 '갑자기 왜 이래' — 펼친 테이크가 화면 밖으로 늘어나 하얗게 깨짐) 캔버스 크기가 다시 칸을 넓히는 되먹임 차단: 테이크 칸 폭 안·최대 1600
   const g = cv.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
-  const pk = (jam.peaks || {})[id], P = pk ? pk.length : 0, Zw = jam.wz || { z: 1 }, pos = Zw.vp != null ? Zw.vp : t, D_ = d && isFinite(d) ? d : 0, pps = Zw.z * W / Math.max(1, D_), M = Math.max(20, Math.floor(W / 3)), bw = W / M;   // (11/28) 가운데 = 재생 위치, 3px 막대
-  for (let i = 0; i < M; i++) { const a0 = pos + (i * bw - W / 2) / pps, a1 = pos + ((i + 1) * bw - W / 2) / pps; if (a1 < 0 || a0 > D_ || !D_) continue; let v = 0.08;
-    if (P) { v = 0; for (let k = Math.max(0, Math.floor(a0 / D_ * P)), e = Math.max(k + 1, Math.ceil(a1 / D_ * P)); k < e && k < P; k++) if (pk[k] > v) v = pk[k]; v = Math.max(0.04, v); }
-    const h = v * (H - 4); g.fillStyle = (a0 + a1) / 2 <= pos ? "#ffb86b" : "#5b6474"; g.fillRect(i * bw + bw * 0.15, (H - h) / 2, Math.max(1, bw * 0.7), h); }
+  // (11/28 사용자 '애벌레 기는 것 같아 — 곡서랍처럼 매끄럽게') 막대를 시간에 고정된 칸(파형 2400칸을 확대에 맞춰 k칸씩 묶음)으로 그리고 위치만 옮김 · 재생 중 위치는 시계로 메워 부드럽게
+  const pk = (jam.peaks || {})[id], P = pk ? pk.length : 0, Zw = jam.wz || { z: 1 }, D_ = d && isFinite(d) ? d : 0, pps = Zw.z * W / Math.max(1, D_);
+  let pos = Zw.vp != null ? Zw.vp : t; if (Zw.vp == null && !au.paused) { const n = performance.now(), sm = jam.sm ||= { t: -1, w: 0 }; if (Math.abs(t - sm.t) > 0.0005) { sm.t = t; sm.w = n; } pos = Math.min(D_, sm.t + (n - sm.w) / 1000 * (au.playbackRate || 1)); }
+  if (P && D_) { const cw = D_ / P * pps, k = Math.max(1, Math.ceil(3 / Math.max(1e-6, cw))), bwid = cw * k, i0 = Math.max(0, Math.floor((pos - W / 2 / pps) / D_ * P / k) - 1), i1 = Math.min(Math.ceil(P / k), Math.ceil((pos + W / 2 / pps) / D_ * P / k) + 1);
+    for (let j = i0; j < i1; j++) { let v = 0; for (let q = j * k; q < Math.min(P, (j + 1) * k); q++) if (pk[q] > v) v = pk[q]; v = Math.max(0.04, v);
+      const tj = j * k / P * D_, x = W / 2 + (tj - pos) * pps, h = v * (H - 4); g.fillStyle = tj + k / P * D_ / 2 <= pos ? "#ffb86b" : "#5b6474"; g.fillRect(x + bwid * 0.15, (H - h) / 2, Math.max(1, bwid * 0.7), h); } }
   g.fillStyle = "#fff"; g.fillRect(W / 2 - 1, 0, 2, H);
   if (Zw.z > 1.05) { g.fillStyle = "rgba(255,255,255,.75)"; g.font = "11px sans-serif"; g.fillText(`×${Zw.z.toFixed(1)}`, 4, 12); }   // 확대 배율
 }
