@@ -32,3 +32,6 @@ console.log("jam-takes scrub OK");
 // (11/28 사용자 '펼친 상태에서 뒤로 가면 그 테이크만 닫히게') 펼친 테이크 = 뒤로 가기 한 칸
 assert.ok(T.includes("function jamTkLayer()") && T.includes("  jamTkLayer();") && T.includes("goBack = () => { jamTkUnlayer(); jamStop(); renderList(); }"));
 console.log("jam-takes back OK");
+// (11/28 사용자 '휴지통 옆에 다운로드 · 클리핑') 내려받기 버튼 · 재생 −3dB
+assert.ok(T.includes('dl.setAttribute("aria-label", "이 테이크 내려받기")') && T.includes("Object.assign(new Audio(), { volume: 0.7 })"));
+console.log("jam-takes download OK");
