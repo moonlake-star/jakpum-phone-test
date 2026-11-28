@@ -7992,7 +7992,7 @@ function songDeck(el, ids, o) {
   const paintVol = () => { Q("sgVv").textContent = me.vol + "%"; Q("sgVol").value = me.vol; el.querySelectorAll("[data-sgv]").forEach(b => b.classList.toggle("on", +b.dataset.sgv === me.vol)); try { me.onVol && me.onVol(); } catch {} };
   const setVol = (v) => { me.vol = Math.max(0, Math.min(100, Math.round(v))); eng.setVol(me.vol); paintVol(); clearTimeout(me.svT); me.svT = setTimeout(() => { try { o.onVol && o.onVol(me.vol); } catch {} }, 1500); };
   paintVol(); Q("sgT1").textContent = dur() ? mmss(dur()) : "–:–";
-  const paintRate = () => { const bpm = +o.bpm; Q("dkSpV").textContent = bpm > 0 ? Math.round(bpm * rate) + " BPM" : pct(rate) + "%"; Q("dkSpN").textContent = bpm > 0 ? `원곡 ${Math.round(bpm)} · ${pct(rate)}%` : "원곡 속도"; Q("dkSpM").disabled = rate <= 0.8 + 1e-6; Q("dkSpP").disabled = rate >= 1.2 - 1e-6; Q("dkRst").classList.toggle("show", Math.abs(rate - 1) > 1e-6 || keyWant !== 0); };
+  const paintRate = () => { const bpm = +o.bpm; Q("dkSpV").textContent = bpm > 0 ? Math.round(bpm * rate) + " BPM" : pct(rate) + "%"; Q("dkSpN").textContent = bpm > 0 ? `원곡 ${Math.round(bpm)} · ${pct(rate)}%` : "원곡 속도"; Q("dkSpM").disabled = rate <= 0.8 + 1e-6; Q("dkSpP").disabled = rate >= 1.2 - 1e-6; Q("dkRst").classList.toggle("show", Math.abs(rate - 1) > 1e-6 || keyWant !== 0); try { paintDl(); } catch {} };
   // 속도 한 칸 = BPM 1(분석 BPM이 없으면 1%). 한 칸 단위로 맞춰 저장해서 눌러도 안 밀림
   const rStep = () => { const b = +o.bpm; return b > 0 ? 1 / b : 0.01; };
   const setRate = (r) => { const st = rStep(); rate = Math.max(0.8, Math.min(1.2, Math.round(r / st) * st)); if (Math.abs(rate - 1) < st / 2) rate = 1; eng.setRate(rate); paintRate(); draw(); };
@@ -8005,7 +8005,9 @@ function songDeck(el, ids, o) {
     shiftBtn = () => (modeP() ? "🎹" + (shiftOf() ? sgn(shiftOf()) : "0") : "카포" + shiftOf()),
     shiftTag = () => (shiftOf() ? (modeP() ? "_트랜스" + sgn(shiftOf()) : "_카포" + shiftOf()) : ""),
     keyName = (n) => songChordName(AN.key + (AN.mode === "minor" ? "m" : ""), n);
-  const paintKey = () => { if (!AN) return; const n = keyWant; Q("dkKeyV").textContent = keyName(n); Q("dkKeyN").textContent = keyBusy || keyN !== keyWant ? "준비 중…" : (n === 0 ? "원곡 키" : `원곡 ${keyName(0)} · ${sgn(n)}반음`) + shiftNote();
+  const paintDl = () => { const kk = AN && keyWant ? `${keyName(keyWant)}(${sgn(keyWant)}) 키` : "", rr = Math.abs(rate - 1) > 1e-6 ? `속도 ${pct(rate)}%` : "", tg = [kk, rr].filter(Boolean).join(" · ");   // (11/28 사용자 '여전히 원곡 그대로라 써 있어') 받기 버튼에 받을 키·속도 표시
+    el.querySelectorAll("[data-sgd]").forEach((b) => { const sm = b.querySelector("small"); if (sm && !b.disabled) sm.textContent = tg || { mr: "반주만", voc: "목소리만", orig: "그대로" }[b.dataset.sgd]; b.setAttribute("aria-label", `${{ mr: "MR", voc: "보컬", orig: "원곡" }[b.dataset.sgd]} 받기${tg ? " · " + tg : ""}`); }); };
+  const paintKey = () => { if (!AN) { paintDl(); return; } const n = keyWant; paintDl(); Q("dkKeyV").textContent = keyName(n); Q("dkKeyN").textContent = keyBusy || keyN !== keyWant ? "준비 중…" : (n === 0 ? "원곡 키" : `원곡 ${keyName(0)} · ${sgn(n)}반음`) + shiftNote();
     Q("dkKeyM").disabled = n <= -6; Q("dkKeyP").disabled = n >= 6; Q("dkRst").classList.toggle("show", Math.abs(rate - 1) > 1e-6 || n !== 0); };
   const getFiles = async (n) => { const f = n === 0 ? { mr: ids.mr, voc: ids.voc } : kd[n] || kd[String(n)]; me.kb ||= {}; return (me.kb[n] ||= (async () => { const [a, b] = await Promise.all([n === 0 ? blob("mr") : readBlob(f.mr, false, true), n === 0 ? blob("voc") : readBlob(f.voc, false, true)]); return [await a.arrayBuffer(), await b.arrayBuffer()]; })().catch((e) => { delete me.kb[n]; throw e; })); };
   const applyKey = async () => { if (keyBusy) return; keyBusy = true; paintKey();
