@@ -6,3 +6,6 @@ assert.strictEqual((T.match(/chg \? await songKeyFile\(k, blob, sm, rt/g) || [])
 assert.ok(T.includes('[{ buf: await dec("mr"), formant: false }, { buf: await dec("voc"), formant: true }]'), "원곡 = 반주(포먼트 X) + 보컬(포먼트 보정)");
 assert.ok(T.includes('formant: k === "voc"'), "보컬만 포먼트 보정");
 console.log("song-key-download OK");
+// (11/28 사용자 '여전히 원곡 그대로라 써 있어') 받기 버튼 글자도 지금 키·속도로
+assert.ok(T.includes("const paintDl = () =>") && T.includes("const n = keyWant; paintDl();") && T.includes("try { paintDl(); } catch {} };"));
+console.log("song-key-download label OK");
