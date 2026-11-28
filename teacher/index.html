@@ -1928,7 +1928,7 @@ async function asgStaffCheck() {
   document.body.appendChild(w);
   const seen = async () => { w.remove(); try { const c2 = await asgRead(cfg.sys), x = c2.items.find(y => y.id === it.id); if (x) { x.seen_at = new Date().toISOString(); await writeJSON(cfg.sys, ASSIGN_FILE, { items: c2.items }, c2.id); } } catch {} setTimeout(asgStaffCheck, 300); };
   w.querySelector("[data-ok]").onclick = seen;
-  w.querySelector("[data-go]").onclick = async () => { await seen(); if (cfg.students?.[it.sid]) openStudent(it.sid); };
+  w.querySelector("[data-go]").onclick = () => { bgWrite(seen).catch(() => {}); if (cfg.students?.[it.sid]) openStudent(it.sid); };   // (11/29) 확인 표시는 뒤에서 · 수강생 화면은 바로
 }
 // ── 강사 레슨 캘린더(11/02 사용자 승인 2단계): 강사가 앱에서 등록·수정·이동·휴강 → 강사 구글 캘린더 + 강사 폴더 '레슨일정.json' → 원장 캘린더에 강사 색으로 ──
 const SCH_FILE = "레슨일정.json", SCH_COLORS = ["#ffb27a", "#c7a4ff", "#7fe0c0", "#ff8fb1", "#ffe066"];
@@ -4841,9 +4841,9 @@ function lessonMenu(sid, i) {
   document.body.appendChild(d);
   const ly = typeof Brand !== "undefined" && Brand.layer ? Brand.layer(() => d.remove()) : { close: () => d.remove() }, close = () => ly.close();
   $("lmNo").onclick = close; d.addEventListener("click", (e) => { if (e.target === d) close(); });
-  if ($("lmSkip")) $("lmSkip").onclick = async () => { const b = $("lmSkip"); b.disabled = true;
-    try { await setLessonSkip(sid, i, !r.skip); close(); toast(r.skip ? "⏭ 피드백 없이 넘어가기로 했어요" : "다시 ‘피드백 전’으로 돌렸어요"); if (stuCur?.sid === sid) refreshLessonRows(sid); }
-    catch (e) { b.disabled = false; toast(errMsg(e)); } };
+  if ($("lmSkip")) $("lmSkip").onclick = () => {   // (11/29) 창 닫고 목록 먼저 바꿈 · 저장은 뒤에서(실패하면 되돌림)
+    const was = !!r.skip, on = !was; r.skip = on; close(); toast(on ? "⏭ 피드백 없이 넘어가기로 했어요" : "다시 ‘피드백 전’으로 돌렸어요"); if (stuCur?.sid === sid) refreshLessonRows(sid);
+    bgWrite(() => setLessonSkip(sid, i, on)).catch((e) => { r.skip = was; if (stuCur?.sid === sid) refreshLessonRows(sid); toast("저장 실패 — 되돌렸어요: " + errMsg(e)); }); };
 }
 async function deleteStudent(sid) {
   const st = cfg.students[sid]; if (!st || isTeacher(st)) return toast("선생님 본인 칸은 지울 수 없어요");
@@ -6600,6 +6600,14 @@ function songState(r, ids) {   // ready | home | wait | none | hide
   if (!["done", "error"].includes(r.status)) return "wait";
   return "none";
 }
+// (11/29 사용자 '버튼 누르면 바로 반영, 처리는 백그라운드') 배경 저장: 전체 화면 '불러오는 중' 없이 · 실패는 호출한 쪽이 받아 되돌림 · 저장 중 창을 닫으면 경고
+let bgPending = 0;
+function bgWrite(fn) {
+  globalThis.__quiet = (globalThis.__quiet || 0) + 1; bgPending++;
+  let p; try { p = Promise.resolve(fn()); } catch (e) { p = Promise.reject(e); }
+  return p.finally(() => { globalThis.__quiet = Math.max(0, (globalThis.__quiet || 1) - 1); bgPending--; });
+}
+if (typeof addEventListener === "function") addEventListener("beforeunload", (e) => { if (bgPending > 0) { e.preventDefault(); e.returnValue = ""; } });
 function quietSave(fn) {   // 볼륨 저장: 전체 화면 '불러오는 중' 없이 배경에서 · 실패해도 재생엔 영향 없음
   globalThis.__quiet = (globalThis.__quiet || 0) + 1; let p; try { p = Promise.resolve(fn()); } catch (e) { p = Promise.reject(e); }
   return p.catch(() => {}).finally(() => { globalThis.__quiet--; });
@@ -10972,7 +10980,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261128-1010";   // (11/24 낮) 공용 스크립트 ?v= = 내용 지문(scripts/bump-versions.js) — 11/23 보정창·소리 수정이 서비스 워커 캐시에 막혀 폰에 안 가던 것 · (11/24) 11/23 17:20 뒤 소리 크기 수정(#950~#959)이 '새 버전 알림'에 안 잡혀 폰이 옛 코드로 돌 수 있던 것
+const BUILD = "20261129-0145";   // (11/24 낮) 공용 스크립트 ?v= = 내용 지문(scripts/bump-versions.js) — 11/23 보정창·소리 수정이 서비스 워커 캐시에 막혀 폰에 안 가던 것 · (11/24) 11/23 17:20 뒤 소리 크기 수정(#950~#959)이 '새 버전 알림'에 안 잡혀 폰이 옛 코드로 돌 수 있던 것
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {
@@ -11111,16 +11119,22 @@ async function saveReview(quiet = false) {
   if (rv.fb_v === 2 && fbMoveBlocks(rv)) { $("fb").value = rv.feedback; try { const pf = $("previewFeedback"); if (pf) pf.value = rv.feedback; } catch {} try { if (typeof renderPoints === "function") renderPoints(); } catch {} }   // (코덱스 P1) 조용한 저장·일반 저장 모두: 서명·공개 검사 전에 글 속 목록을 칸으로
   me.review.check_text = $("ck").value;
   me.review.reviewed_at = new Date().toISOString();
+  // (11/29 사용자 '버튼을 누르면 UI는 바로 반영, 실제 처리는 백그라운드') ✓ 저장됨을 먼저 보여 주고 · 쓰기는 '불러오는 중' 없이 · 공개(수강생 노트 반영)는 기다리지 않고 뒤에서
+  if (cur === me && typeof paintSaved === "function") paintSaved(new Date());
   try {
-    me.reviewId = await writeJSON(me.folder.id, REVIEW, me.review, me.reviewId);
+    me.reviewId = await bgWrite(() => writeJSON(me.folder.id, REVIEW, me.review, me.reviewId));
     const needClip = (me.review.manual || []).some(m => !me.clips.find(f => f.name.startsWith(m.id)));
     if (needClip) kick();
-    const pub = quiet ? (typeof autoRepublish === "function" ? await autoRepublish(me) : "") : await publishOnSave(me);
-    if (!quiet && cur === me) $("saveMsg").textContent = "저장했어요" + pub + ". " + (needClip ? "직접 추가한 구간은 1~3분 안에 클립으로 만들어집니다." : "");
-    if (cur === me && typeof paintSaved === "function") paintSaved(new Date());
-    toast(quiet ? "검수 내용 저장됨" + (/수강생 노트에도 반영/.test(pub) ? " · 수강생 노트에도 바로 반영" : /보류|실패/.test(pub) ? pub.replace(/^ · /, " · 수강생에겐 이전 내용 그대로: ") : "") : "저장됨");
+    if (!quiet && cur === me) $("saveMsg").textContent = "저장했어요. " + (needClip ? "직접 추가한 구간은 1~3분 안에 클립으로 만들어집니다." : "");
+    bgWrite(async () => {   // 공개 처리(포털·링크 권한)는 뒤에서 — 결과만 알림
+      const pub = quiet ? (typeof autoRepublish === "function" ? await autoRepublish(me) : "") : await publishOnSave(me);
+      if (!quiet && cur === me && pub) { const m = $("saveMsg"); if (m) m.textContent = "저장했어요" + pub + ". " + (needClip ? "직접 추가한 구간은 1~3분 안에 클립으로 만들어집니다." : ""); }
+      if (/수강생 노트에도 반영/.test(pub)) toast("수강생 노트에도 반영됨");
+      else if (/보류|실패/.test(pub)) toast(pub.replace(/^ · /, "수강생에겐 이전 내용 그대로: "));
+    }).catch(e => toast("수강생 노트 반영 실패: " + errMsg(e)));
+    if (!quiet) toast("저장됨");
     return true;
-  } catch (e) { toast(e.message); return false; }
+  } catch (e) { if (cur === me && typeof paintSaved === "function") paintSaved(null); toast("저장 실패: " + e.message); return false; }
 }
 // 검수 저장 눌림 표시(2026-10-27 사용자): 저장되면 ✓ + 시각, 뭔가 바꾸면 다시 '검수 저장'
 function paintSaved(at) { const b = $("btnSave"); if (!b) return;
@@ -11233,7 +11247,7 @@ function npPopupCheck(now = Date.now()) {
 if (typeof setInterval === "function" && typeof document !== "undefined") setInterval(() => { try { if (typeof att !== "undefined" && att) npPopupCheck(); } catch {} }, 60e3);
 document.addEventListener("input", (e) => { if (e.target.closest?.("#vLesson")) markDirty(); }, true);
 document.addEventListener("change", (e) => { if (e.target.closest?.("#vLesson")) markDirty(); }, true);
-$("btnSave").onclick = async () => { const b = $("btnSave"); b.disabled = true; b.textContent = "저장 중…"; const ok = await saveReview(); b.disabled = false; if (!ok) paintSaved(null); };
+$("btnSave").onclick = async () => { const b = $("btnSave"); if (b.dataset.busy) return; b.dataset.busy = "1"; const ok = await saveReview(); delete b.dataset.busy; if (!ok) paintSaved(null); };   // (11/29) ✓를 바로 보여 주고 버튼은 잠그지 않음(두 번 눌러도 저장은 한 번씩 차례로)
 $("btnFbRegen").onclick = () => { if ($("fb").value.trim() && !confirm("지금 문구를 고른 클립·포인트 기준으로 새로 쓸까요? (고친 내용은 사라져요)")) return; updateFeedbackDraft(draftFeedback()); };
 // 클립 사이 구분음: 맑은 3음 상승 차임(E6·G#6·B6, 약 0.55초, 보컬보다 작게). 직접 합성 → 저작권 문제 없음.
 // 이어 듣기에서 클립과 클립 '사이'에만. 원본·개별 클립·베스트 테이크 편집에는 넣지 않음
