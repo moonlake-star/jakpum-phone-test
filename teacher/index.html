@@ -6817,14 +6817,14 @@ function jamPaint() {
     catch (e) { if (my !== jam.tkSeq) return; reset(); fold(); toast("못 열었어요: " + errMsg(e)); } });
   el.querySelectorAll("[data-jopen]").forEach(b => b.onclick = () => { const k = b.dataset.jopen, o = jam.open ||= new Set(); o.has(k) ? o.delete(k) : o.add(k); jamPaint(); });
   { const b = $("jamShowHid"); if (b) b.onclick = () => { jam.showHid = !jam.showHid; jamPaint(); }; }
-  el.querySelectorAll("[data-jamhide]").forEach(b => b.onclick = async () => { const id = b.dataset.jamhide, on = !jam.ctrl.hide.includes(id); b.disabled = true; jamStop();
-    try { await jamCtrlSave((c) => { c.hide = c.hide.filter(x => x !== id); if (on) c.hide.push(id); }); jamPaint(); toast(on ? "가렸어요 · 아래 '가린 합주 보기'에서 다시 볼 수 있어요" : "다시 보여요"); } catch (e) { b.disabled = false; toast("실패: " + errMsg(e)); } });
+  el.querySelectorAll("[data-jamhide]").forEach(b => b.onclick = () => { const id = b.dataset.jamhide, on = !jam.ctrl.hide.includes(id); jamStop();
+    jamCtrlNow((c) => { c.hide = c.hide.filter(x => x !== id); if (on) c.hide.push(id); }, null, "실패"); toast(on ? "가렸어요 · 아래 '가린 합주 보기'에서 다시 볼 수 있어요" : "다시 보여요"); });
   el.querySelectorAll("[data-jamdel]").forEach(b => b.onclick = async () => { const id = b.dataset.jamdel, s = (jam.idx?.sessions || []).find(x => x.src_id === id); if (!s) return;
     if (!confirm(`‘${s.name}’ 합주 결과를 지울까요?\n테이크 파일을 드라이브 휴지통으로 보내요(30일 안엔 되살릴 수 있어요).\n녹음함의 원본 녹음은 그대로 두고, 다시 만들지 않아요.`)) return;
-    b.disabled = true; jamStop();
-    try { await jamCtrlSave((c) => { if (!c.del.includes(id)) c.del.push(id); c.hide = c.hide.filter(x => x !== id); });
-      for (const fid of [s.folder, ...(s.songs || []).map(g => g.folder)].filter(Boolean)) { try { await api(`${DRIVE}/files/${fid}?fields=id`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trashed: true }) }); } catch {} }
-      jamPaint(); toast("지웠어요(휴지통)"); } catch (e) { b.disabled = false; toast("지우기 실패: " + errMsg(e)); } });
+    jamStop();
+    jamCtrlNow((c) => { if (!c.del.includes(id)) c.del.push(id); c.hide = c.hide.filter(x => x !== id); },
+      async () => { for (const fid of [s.folder, ...(s.songs || []).map(g => g.folder)].filter(Boolean)) { try { await api(`${DRIVE}/files/${fid}?fields=id`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trashed: true }) }); } catch {} } }, "지우기 실패");
+    toast("지웠어요(휴지통)"); });
 }
 // (11/27 사용자 '재생 버튼을 누르면 가로로 늘어나면서 파형과 시간이 보이게') 듣는 테이크 버튼이 한 줄을 다 차지하며 파형·지금/전체 시간 표시 · 파형을 누르면 그 자리로
 // (11/28 사용자 '테이크를 펼친 상태에서 뒤로 가면 그 테이크만 닫히고 위 메뉴로 가지 말자') 펼친 테이크가 있는 동안 뒤로 가기 한 칸(Brand.layer) — 다른 테이크로 바꿔 펼쳐도 같은 칸을 씀
@@ -6872,13 +6872,18 @@ function jamGrain(id, t) {   // 끄는 동안 그 자리 소리 0.09초(앞뒤 �
     const s = ctx.createBufferSource(), v = ctx.createGain(), n = ctx.currentTime; s.buffer = g.buf; v.gain.setValueAtTime(0, n); v.gain.linearRampToValueAtTime(0.9, n + 0.01); v.gain.setValueAtTime(0.9, n + 0.075); v.gain.linearRampToValueAtTime(0, n + 0.09);
     s.connect(v); v.connect(ctx.destination); s.start(n, Math.max(0, Math.min(t, g.buf.duration - 0.1)), 0.09); } catch {}
 }
+// (11/28 사용자 '지우기 버튼 누르면 UI가 재깍재깍 반응하길') 지우기·가리기는 화면에서 먼저 바로 반영하고, 드라이브 저장·휴지통은 뒤에서 — 실패하면 되돌리고 알림
+function jamCtrlNow(fn, after, fail) {
+  const was = JSON.parse(JSON.stringify(jam.ctrl || { hide: [], del: [], dt: {} })); jam.ctrl = JSON.parse(JSON.stringify(was)); jam.ctrl.dt ||= {}; fn(jam.ctrl); LS.set("vn_jam_ctrl", jam.ctrl); jamPaint();
+  (async () => { try { await jamCtrlSave(fn); if (after) await after(); } catch (e) { jam.ctrl = was; LS.set("vn_jam_ctrl", was); jamPaint(); toast((fail || "실패") + ": " + errMsg(e)); } })();
+}
 async function jamDelTake(b) {   // (11/28 사용자 '그날 거 통째로 지우는 버튼 외에 개별 삭제 버튼도') 테이크 하나만 휴지통(30일 안 되살릴 수 있음) · 다시 나눠도 같은 구간은 안 보이게 시간도 기억
   const id = b.dataset.jtk, src = b.dataset.jsrc, no = +b.dataset.jno, t0 = +b.dataset.jt0 || 0, t1 = +b.dataset.jt1 || 0;
   if (!confirm(`Take${String(no).padStart(2, "0")}(녹음 ${fmt(t0)}~${fmt(t1)})를 지울까요?\n파일은 드라이브 휴지통으로 가요(30일 안엔 되살릴 수 있어요).`)) return;
-  jamStop();
-  try { await jamCtrlSave((c) => { const a = (c.dt[src] ||= []); if (!a.some(d => d.id === id)) a.push({ id, t0, t1 }); });
-    try { await api(`${DRIVE}/files/${id}?fields=id`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trashed: true }) }); } catch {}
-    jam.takeId = null; jamPaint(); toast(`Take${String(no).padStart(2, "0")}를 지웠어요(휴지통)`); } catch (e) { toast("지우기 실패: " + errMsg(e)); }
+  jamStop(); jam.takeId = null;
+  jamCtrlNow((c) => { const a = (c.dt[src] ||= []); if (!a.some(d => d.id === id)) a.push({ id, t0, t1 }); },
+    async () => { try { await api(`${DRIVE}/files/${id}?fields=id`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trashed: true }) }); } catch {} }, "지우기 실패");
+  toast(`Take${String(no).padStart(2, "0")}를 지웠어요(휴지통)`);
 }
 function jamWaveDraw(b, id) {
   const cv = b.querySelector(".jtkW canvas"), tt = b.querySelector(".jtkT"), au = jam.takeAu; if (!cv || !au) return;
@@ -6886,10 +6891,12 @@ function jamWaveDraw(b, id) {
   if (tt) tt.textContent = `${fm(jam.wz && jam.wz.vp != null ? jam.wz.vp : t)} / ${(b.querySelector(":scope>.muted")?.textContent || "").trim() || fm(d)}`;   // 전체 시간은 테이크 이름 옆 길이 그대로(1:20/1:21 엇갈림 없게)
   const dpr = window.devicePixelRatio || 1, W = Math.max(1, Math.min(cv.clientWidth, (b.clientWidth || 9999) - 20, 1600)), H = Math.max(1, Math.min(cv.clientHeight, 80)); if (cv.width !== Math.round(W * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }   // (11/28 사용자 '갑자기 왜 이래' — 펼친 테이크가 화면 밖으로 늘어나 하얗게 깨짐) 캔버스 크기가 다시 칸을 넓히는 되먹임 차단: 테이크 칸 폭 안·최대 1600
   const g = cv.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
-  const pk = (jam.peaks || {})[id], P = pk ? pk.length : 0, Zw = jam.wz || { z: 1 }, pos = Zw.vp != null ? Zw.vp : t, D_ = d && isFinite(d) ? d : 0, pps = Zw.z * W / Math.max(1, D_), M = Math.max(20, Math.floor(W / 3)), bw = W / M;   // (11/28) 가운데 = 재생 위치, 3px 막대
-  for (let i = 0; i < M; i++) { const a0 = pos + (i * bw - W / 2) / pps, a1 = pos + ((i + 1) * bw - W / 2) / pps; if (a1 < 0 || a0 > D_ || !D_) continue; let v = 0.08;
-    if (P) { v = 0; for (let k = Math.max(0, Math.floor(a0 / D_ * P)), e = Math.max(k + 1, Math.ceil(a1 / D_ * P)); k < e && k < P; k++) if (pk[k] > v) v = pk[k]; v = Math.max(0.04, v); }
-    const h = v * (H - 4); g.fillStyle = (a0 + a1) / 2 <= pos ? "#ffb86b" : "#5b6474"; g.fillRect(i * bw + bw * 0.15, (H - h) / 2, Math.max(1, bw * 0.7), h); }
+  // (11/28 사용자 '애벌레 기는 것 같아 — 곡서랍처럼 매끄럽게') 막대를 시간에 고정된 칸(파형 2400칸을 확대에 맞춰 k칸씩 묶음)으로 그리고 위치만 옮김 · 재생 중 위치는 시계로 메워 부드럽게
+  const pk = (jam.peaks || {})[id], P = pk ? pk.length : 0, Zw = jam.wz || { z: 1 }, D_ = d && isFinite(d) ? d : 0, pps = Zw.z * W / Math.max(1, D_);
+  let pos = Zw.vp != null ? Zw.vp : t; if (Zw.vp == null && !au.paused) { const n = performance.now(), sm = jam.sm ||= { t: -1, w: 0 }; if (Math.abs(t - sm.t) > 0.0005) { sm.t = t; sm.w = n; } pos = Math.min(D_, sm.t + (n - sm.w) / 1000 * (au.playbackRate || 1)); }
+  if (P && D_) { const cw = D_ / P * pps, k = Math.max(1, Math.ceil(3 / Math.max(1e-6, cw))), bwid = cw * k, i0 = Math.max(0, Math.floor((pos - W / 2 / pps) / D_ * P / k) - 1), i1 = Math.min(Math.ceil(P / k), Math.ceil((pos + W / 2 / pps) / D_ * P / k) + 1);
+    for (let j = i0; j < i1; j++) { let v = 0; for (let q = j * k; q < Math.min(P, (j + 1) * k); q++) if (pk[q] > v) v = pk[q]; v = Math.max(0.04, v);
+      const tj = j * k / P * D_, x = W / 2 + (tj - pos) * pps, h = v * (H - 4); g.fillStyle = tj + k / P * D_ / 2 <= pos ? "#ffb86b" : "#5b6474"; g.fillRect(x + bwid * 0.15, (H - h) / 2, Math.max(1, bwid * 0.7), h); } }
   g.fillStyle = "#fff"; g.fillRect(W / 2 - 1, 0, 2, H);
   if (Zw.z > 1.05) { g.fillStyle = "rgba(255,255,255,.75)"; g.font = "11px sans-serif"; g.fillText(`×${Zw.z.toFixed(1)}`, 4, 12); }   // 확대 배율
 }
