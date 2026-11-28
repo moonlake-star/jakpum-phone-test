@@ -17,7 +17,7 @@ assert.ok(r.st.includes("테이크 4개 · 곡 2개"));
 { const s2 = { src_id: "S", take_files: [{ no: 1, id: "A", t0: 4, t1: 300, dur: 296 }, { no: 2, id: "B", t0: 320, t1: 600, dur: 280 }] };
   const r2 = f0({ hide: [], del: [], dt: { S: [{ id: "B", t0: 320, t1: 600 }] } }, s2, [], true, false, (x) => x, (x) => String(x));
   assert.ok(r2.body.includes("Take01") && !r2.body.includes("Take02") && r2.body.includes('<span class="jtkAt">4~</span>')); }
-assert.ok(T.includes("async function jamDelTake(b)") && T.includes('class="jtkDel" role="button"'), "펼친 테이크에 개별 삭제");
+assert.ok(T.includes("async function jamDelTake(b)") && T.includes('del.className = "jtkDel jtkW"') && T.includes("function jamWaveView(b)"), "펼친 테이크에 개별 삭제");
 console.log("jam-takes OK");
 // (11/27 사용자 '연습/합주 리스트는 처음부터 열려있지 않게') 접힌 채 시작 · 눌러서 펼침 · 가사로 찾은 제목 표시
 assert.ok(T.includes('data-jopen="${esc(s.src_id)}"') && T.includes("${op ? body : \"\"}") && T.includes("(jam.open ||= new Set()).has(s.src_id)"));
