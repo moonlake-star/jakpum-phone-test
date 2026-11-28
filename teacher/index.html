@@ -6806,7 +6806,7 @@ function jamPaint() {
       ${body ? `<button type="button" class="ghost small" data-jopen="${esc(s.src_id)}" aria-expanded="${op}" style="display:block;width:100%;text-align:left;margin:4px 0 2px;font-size:.85rem">${op ? "▾" : "▸"} ${st} <span class="muted" style="font-size:.78rem">${op ? "접기" : "펼쳐서 듣기"}</span></button>${op ? body : ""}` : `<p class="muted" style="margin:4px 0 6px;font-size:.85rem">${st}</p>`}</div>`; }).join("")
     + (nHid ? `<button type="button" class="ghost small" id="jamShowHid" style="margin:4px 0 8px">${jam.showHid ? "가린 합주 숨기기" : `가린 합주 ${nHid}개 보기`}</button>` : "");
   el.querySelectorAll("[data-jtk]").forEach(b => b.onclick = async () => {   // 테이크 하나 듣기(다시 누르면 멈춤 · 다른 테이크를 누르면 바꿔서)
-    const id = b.dataset.jtk, au = jam.takeAu ||= new Audio(), ic = (x, t) => { const i = x.querySelector(".jtkI"); if (i) i.textContent = t; };
+    const id = b.dataset.jtk, au = jam.takeAu ||= Object.assign(new Audio(), { volume: 0.7 }), ic = (x, t) => { const i = x.querySelector(".jtkI"); if (i) i.textContent = t; };
     const reset = () => el.querySelectorAll("[data-jtk]").forEach(x => ic(x, "▶"));
     const fold = () => { el.querySelectorAll("[data-jtk].jtkOn").forEach(x => x.classList.remove("jtkOn")); el.querySelectorAll("[data-jtk] .jtkW").forEach(w => w.remove()); };
     if (jam.takeId === id && b.classList.contains("jtkOn")) { if (au.paused) { await au.play().catch(() => {}); ic(b, "❚❚"); jamWaveLoop(b, id); } else { au.pause(); ic(b, "▶"); } return; }   // 펼친 테이크: 재생·일시정지만
@@ -6836,6 +6836,8 @@ function jamWaveOpen(b, id, bl) {
   b.classList.add("jtkOn"); const w = document.createElement("span"); w.className = "jtkW"; w.innerHTML = `<canvas></canvas>`;
   { const t0 = +b.dataset.jt0 || 0, t1 = +b.dataset.jt1 || 0, r = document.createElement("span"); r.className = "jtkR jtkW"; r.textContent = `녹음 ${fmt(t0)}~${fmt(t1)}`; b.appendChild(r); }   // (11/28 사용자) 그날 녹음의 몇 분~몇 분
   const tt = document.createElement("span"); tt.className = "jtkT jtkW"; tt.textContent = "0:00 / –:–"; b.appendChild(tt);
+  const dl = document.createElement("span"); dl.className = "jtkDel jtkW"; dl.setAttribute("role", "button"); dl.tabIndex = 0; dl.setAttribute("aria-label", "이 테이크 내려받기"); dl.textContent = "⬇"; b.appendChild(dl);   // (11/28 사용자 '휴지통 옆에 다운로드 버튼도')
+  dl.addEventListener("click", async (e) => { e.preventDefault(); e.stopPropagation(); try { const f = await readBlob(id, false, true), sess = (jam.idx?.sessions || []).find(x => x.src_id === b.dataset.jsrc); songSave(f, `${String(sess?.name || "합주").replace(/[\\/:*?"<>|]/g, "_")}_Take${String(b.dataset.jno).padStart(2, "0")}.mp3`); toast("내려받았어요(다운로드 폴더)"); } catch (er) { toast("받기 실패: " + errMsg(er)); } });
   const del = document.createElement("span"); del.className = "jtkDel jtkW"; del.setAttribute("role", "button"); del.tabIndex = 0; del.setAttribute("aria-label", "이 테이크 지우기"); del.textContent = "🗑"; b.appendChild(del);
   del.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); jamDelTake(b); }); b.appendChild(w);   /* 윗줄: 이름·녹음 시각 … 시간·🗑 / 아랫줄: 파형 */
   const cv = w.querySelector("canvas"), au = jam.takeAu, Z = jam.wz = { z: 1, vp: null }, pts = new Map(); let twoF = null, drag = null, glide = null, lastTap = 0, scrT = 0, scrP = -1;
