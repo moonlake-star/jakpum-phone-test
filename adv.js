@@ -326,7 +326,8 @@
   }
   // ── 보정 엔진(11/06 사용자 '고급 보정 ② 엔진 비교'): 곡마다 PSOLA(기본)·WORLD 고르기 + 가장 많이 고친 20초 A/B(어느 쪽이 무엇인지 고르기 전엔 안 알려 줌) ──
   // (11/10 사용자 '지금 상태를 v2로') 기본 = 새 방식 v3(PSOLA) · 이전 v2 · WORLD — A/B 비교본은 v3 vs v2
-  const ENG = { psola: "새 방식 v3", v2: "이전 v2", world: "WORLD" }, ENG_ALIAS = { v3: "psola" };
+  // (11/28 사용자 PSOLA·WORLD 비교 샘플 듣고 '음질은 PSOLA가 더 좋다') WORLD 고르기 칸은 숨김(서버는 예전 요청의 world도 그대로 처리)
+  const ENG = { psola: "새 방식 v3", v2: "이전 v2" }, ENG_ALIAS = { v3: "psola" };
   function engineBox(st) {
     const w = document.createElement("div"); w.className = "advEng";
     const paint = () => { const e = st.engGet() || {}, mk = e.made, f = e.files || {}, pick = e.pick;
