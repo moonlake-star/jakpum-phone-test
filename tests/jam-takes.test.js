@@ -17,7 +17,7 @@ assert.ok(r.st.includes("테이크 4개 · 곡 2개"));
 { const s2 = { src_id: "S", take_files: [{ no: 1, id: "A", t0: 4, t1: 300, dur: 296 }, { no: 2, id: "B", t0: 320, t1: 600, dur: 280 }] };
   const r2 = f0({ hide: [], del: [], dt: { S: [{ id: "B", t0: 320, t1: 600 }] } }, s2, [], true, false, (x) => x, (x) => String(x));
   assert.ok(r2.body.includes("Take01") && !r2.body.includes("Take02") && r2.body.includes('<span class="jtkAt">4~</span>')); }
-assert.ok(T.includes("async function jamDelTake(b)") && T.includes('del.className = "jtkDel jtkW"') && T.includes("function jamWaveView(b)"), "펼친 테이크에 개별 삭제");
+assert.ok(T.includes("async function jamDelTake(b)") && T.includes('del.className = "jtkDel jtkW"') && T.includes("function jamGrain(id, t)"), "펼친 테이크에 개별 삭제");
 console.log("jam-takes OK");
 // (11/27 사용자 '연습/합주 리스트는 처음부터 열려있지 않게') 접힌 채 시작 · 눌러서 펼침 · 가사로 찾은 제목 표시
 assert.ok(T.includes('data-jopen="${esc(s.src_id)}"') && T.includes("${op ? body : \"\"}") && T.includes("(jam.open ||= new Set()).has(s.src_id)"));
@@ -26,3 +26,6 @@ assert.ok(T.includes("🔎 가사로 찾음"));
 
 // (11/28 사용자 '제목 부분을 터치해도 열리게') 합주 이름도 펼치기 버튼과 같은 data-jopen
 assert.ok(T.includes('${body ? ` data-jopen="${esc(s.src_id)}" role="button"'));
+// (11/28 사용자 '스크럽 방식을 곡서랍 스크롤처럼 · 곡서랍도 스크롤할 때 소리') 가운데 선 고정·파형을 밀기·끄는 소리
+assert.ok(T.includes("Z.vp = clampT(Z.vp - dx / pps())") && T.includes("g.fillRect(W / 2 - 1, 0, 2, H)") && T.includes("scrub(t) {") && T.includes("eng.scrub && eng.scrub(vp)"));
+console.log("jam-takes scrub OK");
