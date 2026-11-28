@@ -6737,8 +6737,12 @@ async function jamIndex() {
   const root = (await list(db)).find(x => x.name === "합주베스트" && x.mimeType === "application/vnd.google-apps.folder"); if (!root) return { sessions: [] };
   const L = await list(root.id); jam.root = root.id; const c = L.find(x => x.name === "control.json"); jam.ctrlId = c ? c.id : null;
   if (c) { try { const v = await (await api(`${DRIVE}/files/${c.id}?alt=media&_=${Date.now()}`, { cache: "no-store" })).json(); jam.ctrl = { hide: Array.isArray(v.hide) ? v.hide : [], del: Array.isArray(v.del) ? v.del : [] }; LS.set("vn_jam_ctrl", jam.ctrl); } catch {} }
-  const f = L.find(x => x.name === "index.json"); if (!f) return { sessions: [] };
-  return (await api(`${DRIVE}/files/${f.id}?alt=media&_=${Date.now()}`, { cache: "no-store" })).json();
+  const f = L.find(x => x.name === "index.json"), idx = f ? await (await api(`${DRIVE}/files/${f.id}?alt=media&_=${Date.now()}`, { cache: "no-store" })).json() : { sessions: [] };
+  // (11/28 사용자 '합주 녹음을 올렸는데, 처리 중이면 이 페이지에 현재 상황이 나오면 좋겠어') 녹음함에 있지만 서버가 아직 시작 안 한 합주·연습 녹음 → '서버 대기'로 보여 줌
+  try { const dest = cfg?.inbox_recordings, have = new Set((idx.sessions || []).map(x => x.src_id)), del = new Set((jam.ctrl && jam.ctrl.del) || []), old = Date.now() - 14 * 864e5;
+    idx._waiting = dest ? (await list(dest)).filter(x => JAM_EXT.test(x.name) && /합주|연습/.test(x.name) && !/레슨/.test(x.name) && !have.has(x.id) && !del.has(x.id) && Date.parse(x.modifiedTime || 0) > old)
+      .sort((a, b) => String(a.modifiedTime).localeCompare(String(b.modifiedTime))).map(x => ({ id: x.id, name: x.name.replace(/\.[^.]+$/, ""), at: x.modifiedTime, mb: Math.round((+x.size || 0) / 1048576) })) : []; } catch { idx._waiting = []; }
+  return idx;
 }
 // (11/22 사용자 '합주 베스트도 전체 자료 삭제 또는 가리기') 앱만 쓰는 control.json {hide, del} — 서버 index.json은 서버만 씀(동시에 써서 꼬이지 않게)
 async function jamCtrlSave(fn) {
@@ -6769,18 +6773,22 @@ async function jamUpload(inp) {
   for (const f of ok) { const nm = jamUpName(f.name);
     try { await uploadFile(dest, nm, f, (r) => { st.textContent = `올리는 중 ${n + 1}/${ok.length} · ${nm} ${Math.round(r * 100)}%`; }); n++; }
     catch (e) { st.textContent = `‘${f.name}’ 올리기 실패: ${errMsg(e)}`; toast("올리기 실패: " + errMsg(e)); return; } }
-  if (n) { st.textContent = `✓ ${n}개 올렸어요 · 서버가 나누면 이 목록에 나타나요(보통 몇 분)`; try { kick(); } catch {} }
+  if (n) { st.textContent = `✓ ${n}개 올렸어요 · 아래 목록에 '서버 대기'로 보이고, 서버가 시작하면 단계가 바뀌어요`; try { kick(); } catch {} try { jam.idx = await jamIndex(); jamPaint(); jamPollArm(); } catch {} }
 }
-function jamPollArm() { clearTimeout(jam.poll); if (!(jam.idx?.sessions || []).some(s => s.status !== "done" && s.status !== "failed")) return;
+function jamPollArm() { clearTimeout(jam.poll); if (!(jam.idx?.sessions || []).some(s => s.status !== "done" && s.status !== "failed") && !(jam.idx?._waiting || []).length) return;
   jam.poll = setTimeout(async () => { if ($("vJam").classList.contains("hidden")) return; try { const nx = await jamIndex(); if (JSON.stringify(nx) !== JSON.stringify(jam.idx)) { jam.idx = nx; if (!jam.play) jamPaint(); } } catch {} jamPollArm(); }, 30000); }
 function jamWhen(s) { const m = String(s.name || "").match(/(\d{4})-(\d{2})-(\d{2})/); return m ? `${+m[2]}/${+m[3]}` : ""; }
 function jamPaint() {
   if (!jam.ctrl) jam.ctrl = LS.get("vn_jam_ctrl") || { hide: [], del: [] };
   const C = jam.ctrl, all = (jam.idx?.sessions || []).filter(s => !C.del.includes(s.src_id)), nHid = all.filter(s => C.hide.includes(s.src_id)).length;
   const S = all.filter(s => jam.showHid || !C.hide.includes(s.src_id)), el = $("jamList"); if (!el) return;
-  if (!S.length && nHid) { el.innerHTML = `<p class="muted">모두 가려 두었어요</p><button type="button" class="ghost small" id="jamShowHid">가린 합주 ${nHid}개 보기</button>`; $("jamShowHid").onclick = () => { jam.showHid = true; jamPaint(); }; return; }
-  if (!S.length) { el.innerHTML = `<div class="card"><p class="muted" style="margin:0">아직 합주 녹음이 없어요 · 녹음 이름에 '합주' 또는 '연습'을 넣어 녹음함에 올리면 다음 처리 때(서버가 켜져 있을 때) 시작해요</p></div>`; return; }
-  el.innerHTML = S.map((s) => { const si = jam.idx.sessions.indexOf(s), done = s.status === "done", fail = s.status === "failed", songs = (s.songs || []);
+  if (!S.length && nHid && !(jam.idx?._waiting || []).length) { el.innerHTML = `<p class="muted">모두 가려 두었어요</p><button type="button" class="ghost small" id="jamShowHid">가린 합주 ${nHid}개 보기</button>`; $("jamShowHid").onclick = () => { jam.showHid = true; jamPaint(); }; return; }
+  if (!S.length && !(jam.idx?._waiting || []).length) { el.innerHTML = `<div class="card"><p class="muted" style="margin:0">아직 합주 녹음이 없어요 · 녹음 이름에 '합주' 또는 '연습'을 넣어 녹음함에 올리면 다음 처리 때(서버가 켜져 있을 때) 시작해요</p></div>`; return; }
+  const W = jam.idx?._waiting || [], busy = (jam.idx?.sessions || []).find(s => s.status !== "done" && s.status !== "failed" && s.status !== "paused");
+  const hm = (iso) => { const d = new Date(iso); return isNaN(d) ? "" : `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
+  const wHtml = W.map((w, i) => `<div class="card" style="padding:12px 14px"><b>${esc(w.name)}</b><p class="muted" style="margin:6px 0 2px;font-size:.85rem">⏳ 서버 대기${W.length > 1 ? ` · ${i + 1}번째` : ""} · 올린 시각 ${hm(w.at)}${w.mb ? ` · ${w.mb}MB` : ""}</p>
+      <p class="muted" style="margin:0;font-size:.78rem">${busy ? `지금 ‘${esc(busy.name)}’ ${esc(busy.stage || "처리")} — ` : ""}노트북이 다음 처리 때(보통 15분 안) 시작해요 · 시작하면 단계가 여기 보여요</p></div>`).join("");   // (11/28 사용자) 올린 녹음의 현재 상황
+  el.innerHTML = wHtml + S.map((s) => { const si = jam.idx.sessions.indexOf(s), done = s.status === "done", fail = s.status === "failed", songs = (s.songs || []);
     // (11/27 사용자 '짜깁기 기능은 폐기 · 연습/합주 · 같은 곡은 서브 리스트로') 곡(같은 곡끼리 묶음)마다 테이크 줄 · 묶이지 않은 테이크는 '기타'
     const tf = s.take_files || [], byNo = new Map(tf.map(t => [t.no, t])), used = new Set();
     const tkBtn = (t) => `<button type="button" class="ghost small" data-jtk="${esc(t.id)}" aria-label="Take${String(t.no).padStart(2, "0")} 듣기"><span class="jtkI">▶</span> Take${String(t.no).padStart(2, "0")} <span class="muted" style="font-size:.75rem">${fmt(t.dur || 0)}</span></button>`;
