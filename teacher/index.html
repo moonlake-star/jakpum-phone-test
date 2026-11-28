@@ -7348,7 +7348,7 @@ function songPlayer(el, ids, o) {
     <div class="sgPl"><button type="button" class="sgPb" id="sgPb">▶</button><div class="sgSk"><input type="range" id="sgSeek" min="0" max="1000" value="0"><div class="sgTm"><span id="sgT0">0:00</span><span id="sgT1">–:–</span></div></div></div>
     <div class="sgVo"><div class="sgVl">보컬 볼륨<span id="sgVv">${v0}%</span></div><input type="range" id="sgVol" min="0" max="100" value="${v0}">
       <div class="sgPre">${[[0, "MR", "0%"], [30, "가이드", "30%"], [100, "원곡", "100%"]].map(([v, a, b]) => `<button type="button" data-sgv="${v}">${a}<small>${b}</small></button>`).join("")}</div></div>
-    <div class="sgDl">${[["mr", "MR", "반주만"], ["voc", "보컬", "목소리만"], ["orig", "원곡", "그대로"]].map(([k, a, b]) => `<button type="button" data-sgd="${k}">⬇ ${a}<small>${b}</small></button>`).join("")}</div>
+    <div class="sgDl">${[["mr", "MR", "반주만"], ["voc", "보컬", "목소리만"], ["orig", "받기", "그대로"]].map(([k, a, b]) => `<button type="button" data-sgd="${k}">⬇ ${a}<small>${b}</small></button>`).join("")}</div>
     ${o.extra || ""}
     <p class="muted" style="margin:6px 0 0;font-size:.78rem">재생 중에도 슬라이더를 움직이면 바로 바뀌어요 · 슬라이더 더블탭 = 100%</p></div>`;
   const me = sgCur = { eng: null, el, folder: o.folder || null, vol: v0, blob: {}, svT: 0 }, mmss = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`, alive = () => sgCur === me && !me.eng.isDead();
@@ -7376,7 +7376,7 @@ function songPlayer(el, ids, o) {
   Q("sgVol").ondblclick = () => setVol(100);
   el.querySelectorAll("[data-sgv]").forEach(b => b.onclick = () => setVol(+b.dataset.sgv));
   el.querySelectorAll("[data-sgd]").forEach(b => b.onclick = async () => {
-    const k = b.dataset.sgd, lab = { mr: "MR", voc: "보컬", orig: "원곡" }[k], t0 = b.innerHTML; b.disabled = true; b.innerHTML = "받는 중…";
+    const k = b.dataset.sgd, lab = { mr: "MR", voc: "보컬", orig: "전체" }[k], t0 = b.innerHTML; b.disabled = true; b.innerHTML = "받는 중…";
     const sm = eng.canKey && eng.canKey() ? Math.round(+eng.key() || 0) : 0, rt = Math.round((eng.rate ? +eng.rate() || 1 : 1) * 100) / 100, chg = sm !== 0 || rt !== 1;   // (11/28) 키·속도를 바꿨으면 그대로 다시 만들어 받음
     const tag = chg ? `_${sm ? `키${sm > 0 ? "+" : ""}${sm}` : ""}${rt !== 1 ? `_속도${Math.round(rt * 100)}` : ""}` : "";
     try { const f = chg ? await songKeyFile(k, blob, sm, rt, (m) => { b.innerHTML = m; }) : await blob(k);
@@ -7938,7 +7938,7 @@ function songDeck(el, ids, o) {
       <div class="sgVl" style="margin-top:10px">반주 볼륨<span id="dkMv">${m0}%</span></div><input type="range" id="dkMr" min="0" max="100" value="${m0}"></div>
     <div class="dkSp${o.analysis && o.analysis.key ? " two" : ""}">${o.analysis && o.analysis.key ? `<div class="dkCd"><div class="dkK">키</div><div class="dkBig" id="dkKeyV">–</div><div class="dkN" id="dkKeyN"></div><div class="dkPm"><button type="button" id="dkKeyM" aria-label="키 반음 내리기">−1</button><button type="button" id="dkKeyP" aria-label="키 반음 올리기">＋1</button></div></div>` : ""}<div class="dkCd"><div class="dkK">속도</div><div class="dkBig" id="dkSpV">100%</div><div class="dkN" id="dkSpN">원곡 속도</div><div class="dkPm"><button type="button" id="dkSpM" aria-label="속도 1 내리기(길게 누르면 계속)">−1</button><button type="button" id="dkSpP" aria-label="속도 1 올리기(길게 누르면 계속)">＋1</button></div></div></div>
     <button type="button" class="dkRst" id="dkRst">${o.analysis && o.analysis.key ? "키·속도 원래대로" : "속도 원래대로"}</button>
-    <div class="sgDl">${[["mr", "MR", "반주만"], ["voc", "보컬", "목소리만"], ["orig", "원곡", "그대로"]].map(([k, a, b]) => `<button type="button" data-sgd="${k}">⬇ ${a}<small>${b}</small></button>`).join("")}</div>
+    <div class="sgDl">${[["mr", "MR", "반주만"], ["voc", "보컬", "목소리만"], ["orig", "받기", "그대로"]].map(([k, a, b]) => `<button type="button" data-sgd="${k}">⬇ ${a}<small>${b}</small></button>`).join("")}</div>
     <p class="muted" style="margin:6px 0 0;font-size:.78rem">파형을 좌우로 밀면 위치가 옮겨져요 · 슬라이더를 움직이면 재생 중에도 바로 바뀌어요</p></div>`;
   const me = sgCur = { eng: null, el, folder: o.folder || null, vol: v0, blob: {}, svT: 0, mrT: 0 }, alive = () => sgCur === me && !me.eng.isDead();
   const blob = (k) => (me.blob[k] ||= readBlob(ids[k], false, true).catch((e) => { delete me.blob[k]; throw e; }));
@@ -8006,7 +8006,7 @@ function songDeck(el, ids, o) {
     shiftTag = () => (shiftOf() ? (modeP() ? "_트랜스" + sgn(shiftOf()) : "_카포" + shiftOf()) : ""),
     keyName = (n) => songChordName(AN.key + (AN.mode === "minor" ? "m" : ""), n);
   const paintDl = () => { const kk = AN && keyWant ? `${keyName(keyWant)}(${sgn(keyWant)}) 키` : "", rr = Math.abs(rate - 1) > 1e-6 ? `속도 ${pct(rate)}%` : "", tg = [kk, rr].filter(Boolean).join(" · ");   // (11/28 사용자 '여전히 원곡 그대로라 써 있어') 받기 버튼에 받을 키·속도 표시
-    el.querySelectorAll("[data-sgd]").forEach((b) => { const sm = b.querySelector("small"); if (sm && !b.disabled) sm.textContent = tg || { mr: "반주만", voc: "목소리만", orig: "그대로" }[b.dataset.sgd]; b.setAttribute("aria-label", `${{ mr: "MR", voc: "보컬", orig: "원곡" }[b.dataset.sgd]} 받기${tg ? " · " + tg : ""}`); }); };
+    el.querySelectorAll("[data-sgd]").forEach((b) => { const sm = b.querySelector("small"); if (sm && !b.disabled) sm.textContent = tg || { mr: "반주만", voc: "목소리만", orig: "그대로" }[b.dataset.sgd]; b.setAttribute("aria-label", `${{ mr: "MR", voc: "보컬", orig: "반주+보컬" }[b.dataset.sgd]} 받기${tg ? " · " + tg : ""}`); }); };   // (11/28 사용자 '원곡이라고 쓰면 안 되고 받기라고') 셋째 버튼 = ⬇ 받기
   const paintKey = () => { if (!AN) { paintDl(); return; } const n = keyWant; paintDl(); Q("dkKeyV").textContent = keyName(n); Q("dkKeyN").textContent = keyBusy || keyN !== keyWant ? "준비 중…" : (n === 0 ? "원곡 키" : `원곡 ${keyName(0)} · ${sgn(n)}반음`) + shiftNote();
     Q("dkKeyM").disabled = n <= -6; Q("dkKeyP").disabled = n >= 6; Q("dkRst").classList.toggle("show", Math.abs(rate - 1) > 1e-6 || n !== 0); };
   const getFiles = async (n) => { const f = n === 0 ? { mr: ids.mr, voc: ids.voc } : kd[n] || kd[String(n)]; me.kb ||= {}; return (me.kb[n] ||= (async () => { const [a, b] = await Promise.all([n === 0 ? blob("mr") : readBlob(f.mr, false, true), n === 0 ? blob("voc") : readBlob(f.voc, false, true)]); return [await a.arrayBuffer(), await b.arrayBuffer()]; })().catch((e) => { delete me.kb[n]; throw e; })); };
@@ -8554,7 +8554,7 @@ $("#shFsX").onclick = () => setFs(false); $("#shFsP").onclick = () => Q("sgPb").
     if (alive()) { try { await eng.play(); if (alive()) { Q("sgPb").textContent = "❚❚"; kick_(); } } catch {} } };
   cv.onpointerup = up; cv.onpointercancel = up;
   el.querySelectorAll("[data-sgd]").forEach(b => b.onclick = async () => {
-    const k = b.dataset.sgd, lab = { mr: "MR", voc: "보컬", orig: "원곡" }[k], t0 = b.innerHTML; b.disabled = true; b.innerHTML = "받는 중…";
+    const k = b.dataset.sgd, lab = { mr: "MR", voc: "보컬", orig: "전체" }[k], t0 = b.innerHTML; b.disabled = true; b.innerHTML = "받는 중…";
     const sm = eng.canKey && eng.canKey() ? Math.round(+eng.key() || 0) : 0, rt = Math.round((eng.rate ? +eng.rate() || 1 : 1) * 100) / 100, chg = sm !== 0 || rt !== 1;   // (11/28) 키·속도를 바꿨으면 그대로 다시 만들어 받음
     const tag = chg ? `_${sm ? `키${sm > 0 ? "+" : ""}${sm}` : ""}${rt !== 1 ? `_속도${Math.round(rt * 100)}` : ""}` : "";
     try { const f = chg ? await songKeyFile(k, blob, sm, rt, (m) => { b.innerHTML = m; }) : await blob(k);
