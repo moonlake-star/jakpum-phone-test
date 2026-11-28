@@ -5375,10 +5375,10 @@ function mkDelSheet(sid, j) {
   const ly = typeof Brand !== "undefined" && Brand.layer ? Brand.layer(() => d.remove()) : { close: () => d.remove() }, close = () => ly.close();
   $("mkDelNo").onclick = close; d.addEventListener("click", (e) => { if (e.target === d) close(); });
   const after = (msg) => { close(); toast(msg); paintMakeupTab(sid); };
-  if ($("mkHide")) $("mkHide").onclick = async () => { const b = $("mkHide"); b.disabled = true;
-    try { const r = { ...j.req }; if (hidden) delete r.hidden_at; else r.hidden_at = new Date().toISOString();
-      await writeJSON(j.folder.id, MKREQ, r, j.reqId); j.req = r; after(hidden ? "다시 보이게 했어요" : "목록에서 숨겼어요 · 파일은 그대로예요"); }
-    catch (e) { b.disabled = false; toast(errMsg(e)); } };
+  if ($("mkHide")) $("mkHide").onclick = () => {   // (11/29) 목록 먼저 바꾸고 저장은 뒤에서(실패하면 되돌림)
+    const at = new Date().toISOString(), prev = { ...j.req }; if (hidden) delete j.req.hidden_at; else j.req.hidden_at = at;
+    after(hidden ? "다시 보이게 했어요" : "목록에서 숨겼어요 · 파일은 그대로예요");
+    mkReqSaveBg(j, (r) => { if (hidden) delete r.hidden_at; else r.hidden_at = at; }, () => { j.req = prev; try { paintMakeupTab(sid); } catch {} }, "숨기기 저장 실패 — 되돌렸어요").catch(() => {}); };
   if ($("mkTrash")) $("mkTrash").onclick = async () => {
     if (!confirm(`‘${title}’의 모든 파일을 지울까요?\n\n구글 드라이브 휴지통으로 가고, 30일 안에는 드라이브 휴지통에서 복구할 수 있어요.`)) return;
     const b = $("mkTrash"); b.disabled = true; b.textContent = "지우는 중…";
@@ -8669,11 +8669,18 @@ async function editFromBest(job, t) {
 function mkCachePatch(j, patch) {
   try { const c = LS.get("vn_list") || []; LS.set("vn_list", c.map(x => x.sid === j.sid ? { ...x, jobs: (x.jobs || []).map(y => (y.reqId === j.reqId || y.folder?.id === j.folder?.id) ? { ...y, req: { ...y.req, ...patch } } : y) } : x)); } catch {}
 }
-document.addEventListener("click", async (e) => {   // (11/24) 바꾼 베스트 메이크업 '확인 끝' → 알림 끔(파일·보냄 기록은 그대로)
+// (11/29 사용자 '버튼 누르면 바로 반영, 처리는 백그라운드') 메이크업요청.json 배경 저장: 서버가 쓰는 칸(상태·결과)은 최신 파일 값을 받아 합친 뒤 씀(옛 값으로 덮지 않게)
+const MK_SRV_KEYS = ["status", "progress", "result", "done_at", "render_count", "level_v", "error", "net_retries", "started_at", "song", "rendered_sig"];
+function mkReqSaveBg(j, mutate, undo, failMsg) {
+  return bgWrite(async () => { const r = { ...j.req }; if (j.reqId) { try { const cur = await readJSON(j.reqId); if (cur && typeof cur === "object") for (const k of MK_SRV_KEYS) { if (k in cur) r[k] = cur[k]; else delete r[k]; } } catch {} }
+    mutate(r); await writeJSON(j.folder.id, MKREQ, r, j.reqId); j.req = r; return r; })
+    .catch((e) => { try { undo && undo(); } catch {} toast((failMsg || "저장 실패 — 되돌렸어요") + ": " + errMsg(e)); throw e; });
+}
+document.addEventListener("click", (e) => {   // (11/24) 바꾼 베스트 메이크업 '확인 끝' → 알림 끔(파일·보냄 기록은 그대로) · (11/29) 카드 먼저 지우고 저장은 뒤에서
   const b = e.target.closest && e.target.closest("#mkBcOk"); if (!b || !mkJob) return;
-  const j = mkJob, r = j.req; b.disabled = true;
-  try { r.checked_at = new Date().toISOString(); await writeJSON(j.folder.id, MKREQ, r, j.reqId); mkCachePatch(j, { checked_at: r.checked_at }); $("mkBcCard")?.remove(); toast("확인했어요 · 할 일에서 사라져요"); }
-  catch (er) { delete r.checked_at; b.disabled = false; toast("저장 실패 — 다시 눌러 주세요"); }
+  const j = mkJob, at = new Date().toISOString(), card = $("mkBcCard"), host = card?.parentNode, next = card?.nextSibling;
+  j.req.checked_at = at; mkCachePatch(j, { checked_at: at }); card?.remove(); toast("확인했어요 · 할 일에서 사라져요");
+  mkReqSaveBg(j, (r) => { r.checked_at = at; }, () => { delete j.req.checked_at; mkCachePatch(j, { checked_at: null }); if (card && host) host.insertBefore(card, next); }, "확인 저장 실패 — 다시 눌러 주세요").catch(() => {});
 });
 async function openMkJob(j, backTo) {
   goBack = backTo || (() => openStudent(j.sid, "mk"));
@@ -10985,7 +10992,7 @@ $("btnShSave").onclick = saveShared;
 $("btnShCancel").onclick = () => { history.replaceState(null, "", "./"); renderList(); };
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 // 새 버전 알림: 휴대폰이 예전 화면을 기억하고 있으면(최대 10분 캐시) 위에 띠로 알려 주고 눌러서 새로고침
-const BUILD = "20261129-0145";   // (11/24 낮) 공용 스크립트 ?v= = 내용 지문(scripts/bump-versions.js) — 11/23 보정창·소리 수정이 서비스 워커 캐시에 막혀 폰에 안 가던 것 · (11/24) 11/23 17:20 뒤 소리 크기 수정(#950~#959)이 '새 버전 알림'에 안 잡혀 폰이 옛 코드로 돌 수 있던 것
+const BUILD = "20261129-0230";   // (11/24 낮) 공용 스크립트 ?v= = 내용 지문(scripts/bump-versions.js) — 11/23 보정창·소리 수정이 서비스 워커 캐시에 막혀 폰에 안 가던 것 · (11/24) 11/23 17:20 뒤 소리 크기 수정(#950~#959)이 '새 버전 알림'에 안 잡혀 폰이 옛 코드로 돌 수 있던 것
 // (11/02 19:54 사용자) 알림이 안 떴던 이유: 그래프(tune.js)만 바뀌면 BUILD 글자는 그대로라 '같은 버전'으로 봤음 → tune.js 버전 표시도 같이 비교
 const TUNE_V = (document.querySelector('script[src*="tune.js"]')?.getAttribute("src") || "").split("?v=")[1] || "";
 async function checkBuild() {

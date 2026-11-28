@@ -9,7 +9,7 @@ assert.equal(M.mkCanDelete(jobs[0]), true); assert.equal(M.mkCanDelete(jobs[2]),
 const sh = T.match(/function mkDelSheet\(sid, j\) \{[\s\S]*?\n}\n/)[0];
 assert.ok(/body: JSON\.stringify\(\{ trashed: true \}\)/.test(sh) && !/method: "DELETE"/.test(sh), "삭제는 휴지통(30일 복구) — 영구 삭제 안 함");
 assert.ok(/if \(!confirm\(/.test(sh), "삭제는 한 번 더 확인");
-assert.ok(/r\.hidden_at = new Date\(\)\.toISOString\(\)/.test(sh) && /await writeJSON\(j\.folder\.id, MKREQ, r, j\.reqId\)/.test(sh), "숨기기는 요청 기록에 표시만");
+assert.ok(/r\.hidden_at = at/.test(sh) && /mkReqSaveBg\(j,/.test(sh), "숨기기는 요청 기록에 표시만(11/29 화면 먼저·저장은 뒤에서)");
 assert.ok(/dx < -60 && Math\.abs\(dx\) > Math\.abs\(dy\) \* 1\.5\) \{ el\._swiped = true; mkDelSheet/.test(T), "왼쪽으로 밀면 정리 창");
 assert.ok(/class="small ghost mkMore" data-mkm=/.test(T), "⋯ 버튼");
 assert.ok(/if \(j\.req\.hidden_at\) \{ \/\* \(11\/21\) 숨긴 곡은 할 일에 안 띄움/.test(T), "홈 할 일에서도 숨김");
